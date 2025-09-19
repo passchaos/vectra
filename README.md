@@ -254,13 +254,6 @@ let b = Array::from_vec(vec![1, 2, 3], vec![1, 3]).unwrap();
 let result = a.dot(&b); // Returns error
 ```
 
-## Performance Features
-
-- **Zero-copy operations**: Most view operations don't copy data
-- **Memory layout optimization**: Uses row-major storage, cache-friendly
-- **Compile-time optimization**: Rust compiler optimization, near C language performance
-- **Type specialization**: Optimized implementations for different numeric types
-
 ## Running Examples
 
 ```bash
