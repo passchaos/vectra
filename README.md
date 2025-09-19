@@ -20,6 +20,7 @@ While performance and safety are important, they are secondary to creating a lib
 - 🧮 **Mathematical Operations**: Complete mathematical operation support (addition, subtraction, multiplication, division, matrix multiplication, etc.)
 - 📐 **Trigonometric Functions**: Complete set of trigonometric and hyperbolic functions
 - 📊 **Logarithmic & Exponential Functions**: Natural log, base-10/2 log, exponential functions
+- 🔬 **Linear Algebra**: Singular Value Decomposition (SVD) for matrix factorization and dimensionality reduction
 - 📡 **Broadcasting**: Automatic shape alignment for operations between arrays of different shapes
 - 📈 **Aggregation Functions**: Sum, mean, max, min, etc.
 - 🔄 **Shape Operations**: Reshape, transpose and other array transformations
@@ -177,6 +178,16 @@ println!("Exp: {:?}", exp_values); // [1, e, e²]
 
 let exp2_values = exp_input.exp2();
 println!("Exp2: {:?}", exp2_values); // [1, 2, 4]
+
+// Singular Value Decomposition (SVD)
+let matrix = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
+let (u, singular_values, vt) = matrix.svd().unwrap();
+println!("U matrix shape: {:?}", u.shape());
+println!("Singular values: {:?}", singular_values);
+println!("V^T matrix shape: {:?}", vt.shape());
+
+// SVD can be used for matrix reconstruction: A = U * Σ * V^T
+// This is useful for dimensionality reduction, data compression, and PCA
 ```
 
 ### 4. Aggregation Functions
@@ -271,5 +282,6 @@ cargo test
 | Array creation | `np.zeros()`, `np.ones()` | `Array::zeros()`, `Array::ones()` |
 | Shape operations | `arr.reshape()`, `arr.T` | `arr.reshape()`, `arr.transpose()` |
 | Mathematical operations | `+`, `-`, `*`, `@` | `+`, `-`, `*`, `dot()` |
+| SVD decomposition | `np.linalg.svd()` | `arr.svd()` |
 | Aggregation functions | `arr.sum()`, `arr.mean()` | `arr.sum()`, `arr.mean_int()` |
 | Indexing | `arr[0, 1]` | `arr[[0, 1]]` |

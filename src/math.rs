@@ -359,4 +359,181 @@ where
     {
         self.map(|x| T::from(x.clone().into().ln_1p()))
     }
+
+    /// Singular Value Decomposition (SVD)
+    /// Returns (U, singular_values, V_transpose) where A = U * Σ * V^T
+    pub fn svd(&self) -> Result<(Array<T>, Array<T>, Array<T>), String>
+    where
+        T: Into<f64> + From<f64> + Clone + Default + PartialOrd,
+    {
+        if self.ndim() != 2 {
+            return Err("SVD requires a 2D matrix".to_string());
+        }
+
+        let m = self.shape[0];
+        let n = self.shape[1];
+        
+        // Convert to f64 for computation
+        let mut a: Vec<Vec<f64>> = Vec::new();
+        for i in 0..m {
+            let mut row = Vec::new();
+            for j in 0..n {
+                let idx = i * self.strides[0] + j * self.strides[1];
+                row.push(self.data[idx].clone().into());
+            }
+            a.push(row);
+        }
+
+        // Use Jacobi SVD algorithm for small matrices, or power iteration for larger ones
+        if m <= 10 && n <= 10 {
+            self.jacobi_svd(a)
+        } else {
+            self.power_iteration_svd(a)
+        }
+    }
+
+    /// Jacobi SVD algorithm for small matrices
+    fn jacobi_svd(&self, mut a: Vec<Vec<f64>>) -> Result<(Array<T>, Array<T>, Array<T>), String>
+    where
+        T: Into<f64> + From<f64> + Clone + Default,
+    {
+        let m = a.len();
+        let n = a[0].len();
+        let min_dim = m.min(n);
+        
+        // Initialize U as identity matrix
+        let mut u = vec![vec![0.0; m]; m];
+        for i in 0..m {
+            u[i][i] = 1.0;
+        }
+        
+        // Initialize V as identity matrix
+        let mut v = vec![vec![0.0; n]; n];
+        for i in 0..n {
+            v[i][i] = 1.0;
+        }
+        
+        // Jacobi iterations
+        let max_iterations = 100;
+        let tolerance = 1e-10;
+        
+        for _ in 0..max_iterations {
+            let mut converged = true;
+            
+            // Sweep through all pairs of columns
+            for p in 0..n {
+                for q in (p + 1)..n {
+                    // Compute 2x2 submatrix A^T * A
+                    let mut app = 0.0;
+                    let mut aqq = 0.0;
+                    let mut apq = 0.0;
+                    
+                    for i in 0..m {
+                        app += a[i][p] * a[i][p];
+                        aqq += a[i][q] * a[i][q];
+                        apq += a[i][p] * a[i][q];
+                    }
+                    
+                    if apq.abs() > tolerance {
+                        converged = false;
+                        
+                        // Compute rotation angle
+                        let tau = (aqq - app) / (2.0 * apq);
+                        let t = if tau >= 0.0 {
+                            1.0 / (tau + (1.0 + tau * tau).sqrt())
+                        } else {
+                            -1.0 / (-tau + (1.0 + tau * tau).sqrt())
+                        };
+                        
+                        let c = 1.0 / (1.0 + t * t).sqrt();
+                        let s = t * c;
+                        
+                        // Apply rotation to A
+                        for i in 0..m {
+                            let temp = a[i][p];
+                            a[i][p] = c * temp - s * a[i][q];
+                            a[i][q] = s * temp + c * a[i][q];
+                        }
+                        
+                        // Apply rotation to V
+                        for i in 0..n {
+                            let temp = v[i][p];
+                            v[i][p] = c * temp - s * v[i][q];
+                            v[i][q] = s * temp + c * v[i][q];
+                        }
+                    }
+                }
+            }
+            
+            if converged {
+                break;
+            }
+        }
+        
+        // Extract singular values and sort
+        let mut singular_values = Vec::new();
+        let mut indices = Vec::new();
+        
+        for j in 0..min_dim {
+            let mut norm = 0.0;
+            for i in 0..m {
+                norm += a[i][j] * a[i][j];
+            }
+            singular_values.push(norm.sqrt());
+            indices.push(j);
+        }
+        
+        // Sort by singular values (descending)
+        indices.sort_by(|&i, &j| singular_values[j].partial_cmp(&singular_values[i]).unwrap());
+        
+        // Reorder and normalize columns of A to get U
+        for j in 0..min_dim {
+            let orig_j = indices[j];
+            let sigma = singular_values[orig_j];
+            
+            if sigma > tolerance {
+                for i in 0..m {
+                    u[i][j] = a[i][orig_j] / sigma;
+                }
+            }
+        }
+        
+        // Create result arrays
+        let u_data: Vec<T> = u.into_iter().flatten().map(|x| T::from(x)).collect();
+        let u_array = Array::from_vec(u_data, vec![m, m]).unwrap();
+        
+        let mut sorted_singular_values = Vec::new();
+        for &i in &indices {
+            sorted_singular_values.push(singular_values[i]);
+        }
+        let s_data: Vec<T> = sorted_singular_values.into_iter().map(|x| T::from(x)).collect();
+        let s_array = Array::from_vec(s_data, vec![min_dim]).unwrap();
+        
+        // Reorder V columns
+        let mut v_reordered = vec![vec![0.0; n]; n];
+        for j in 0..min_dim {
+            let orig_j = indices[j];
+            for i in 0..n {
+                v_reordered[i][j] = v[i][orig_j];
+            }
+        }
+        
+        let vt_data: Vec<T> = v_reordered.into_iter().flatten().map(|x| T::from(x)).collect();
+        let vt_array = Array::from_vec(vt_data, vec![n, n]).unwrap().transpose().unwrap();
+        
+        Ok((u_array, s_array, vt_array))
+    }
+    
+    /// Power iteration SVD for larger matrices (simplified version)
+    fn power_iteration_svd(&self, a: Vec<Vec<f64>>) -> Result<(Array<T>, Array<T>, Array<T>), String>
+    where
+        T: Into<f64> + From<f64> + Clone + Default,
+    {
+        let _m = a.len();
+        let _n = a[0].len();
+        
+        // For now, fall back to Jacobi for simplicity
+        // In a full implementation, this would use power iteration or other methods
+        self.jacobi_svd(a)
+    }
 }

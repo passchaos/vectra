@@ -117,6 +117,49 @@ mod tests {
     }
 
     #[test]
+    fn test_svd() {
+        // Test SVD on a simple 2x2 matrix
+        let matrix = Array::from_vec(vec![3.0, 1.0, 1.0, 3.0], vec![2, 2]).unwrap();
+        let (u, s, vt) = matrix.svd().unwrap();
+        
+        // Check dimensions
+        assert_eq!(u.shape(), &[2, 2]);
+        assert_eq!(s.shape(), &[2]);
+        assert_eq!(vt.shape(), &[2, 2]);
+        
+        // Check that singular values are positive and sorted in descending order
+        assert!(s[[0]] >= s[[1]]);
+        assert!(s[[0]] > 0.0);
+        assert!(s[[1]] >= 0.0);
+    }
+
+    #[test]
+    fn test_svd_reconstruction() {
+        // Test that U * S * V^T reconstructs the original matrix (approximately)
+        let matrix = Array::from_vec(vec![2.0, 0.0, 0.0, 1.0], vec![2, 2]).unwrap();
+        let (u, s, vt) = matrix.svd().unwrap();
+        
+        // Create diagonal matrix from singular values
+        let mut sigma = Array::zeros(vec![2, 2]);
+        sigma[[0, 0]] = s[[0]];
+        sigma[[1, 1]] = s[[1]];
+        
+        // Reconstruct: U * Sigma * V^T
+        let us = u.dot(&sigma).unwrap();
+        let reconstructed = us.dot(&vt).unwrap();
+        
+        // Check reconstruction accuracy (within tolerance)
+        let tolerance = 1e-10f64;
+        for i in 0..2 {
+            for j in 0..2 {
+                let diff = (matrix[[i, j]] - reconstructed[[i, j]]) as f64;
+                let diff = diff.abs();
+                assert!(diff < tolerance, "Reconstruction error too large: {}", diff);
+            }
+        }
+    }
+
+    #[test]
     fn test_random_arrays() {
         let random_arr: Array<f64> = Array::random(vec![3, 3]);
         assert_eq!(random_arr.shape(), &[3, 3]);
