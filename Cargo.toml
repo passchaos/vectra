@@ -9,4 +9,4 @@ keywords = ["array", "matrix", "numpy", "ndarray", "math"]
 categories = ["mathematics", "science"]
 
 [dependencies]
-rand = "*"
+rand = "0.9"

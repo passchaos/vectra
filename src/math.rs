@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Mul, Div}; // Sub currently unused
 use crate::core::Array;
 
 impl<T> Array<T>

@@ -1,5 +1,5 @@
 use std::fmt;
-use std::ops::{Index, IndexMut};
+// use std::ops::{Index, IndexMut}; // Currently unused
 use std::slice::Iter;
 
 /// Multi-dimensional array structure, similar to numpy's ndarray
@@ -115,22 +115,7 @@ where
         strides
     }
 
-    fn multi_index_to_flat(&self, indices: &[usize]) -> Result<usize, String> {
-        if indices.len() != self.shape.len() {
-            return Err("Index dimension mismatch".to_string());
-        }
-        let mut flat_index = 0;
-        for (i, &idx) in indices.iter().enumerate() {
-            if idx >= self.shape[i] {
-                return Err(format!(
-                    "Index {} out of bounds for dimension {} with size {}",
-                    idx, i, self.shape[i]
-                ));
-            }
-            flat_index += idx * self.strides[i];
-        }
-        Ok(flat_index)
-    }
+
 }
 
 impl<T> Array<T> {
@@ -239,12 +224,12 @@ impl<T> Array<T> {
     }
 
     /// Get iterator over elements
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         self.data.iter()
     }
 
-    /// Get mutable iterator over elements
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<T> {
+    /// Get mutable iterator
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
         self.data.iter_mut()
     }
 }

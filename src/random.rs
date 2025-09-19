@@ -1,5 +1,4 @@
 use rand::Rng;
-use rand::distributions::{Distribution, Uniform};
 use crate::core::Array;
 
 impl<T> Array<T>
@@ -12,9 +11,9 @@ where
         T: From<f64> + Clone + Default,
     {
         let size = shape.iter().product();
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let data: Vec<T> = (0..size)
-            .map(|_| T::from(rng.gen_range(0.0..1.0)))
+            .map(|_| T::from(rng.random_range(0.0..1.0)))
             .collect();
         let strides = Array::<T>::compute_strides_for_shape(&shape);
         Self {
@@ -30,9 +29,9 @@ where
         T: From<i32> + Clone + Default,
     {
         let size = shape.iter().product();
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let data: Vec<T> = (0..size)
-            .map(|_| T::from(rng.gen_range(low..high)))
+            .map(|_| T::from(rng.random_range(low..high)))
             .collect();
         let strides = Array::<T>::compute_strides_for_shape(&shape);
         Self {
@@ -49,12 +48,12 @@ where
     {
         let size = shape.iter().product();
         let strides = Array::<T>::compute_strides_for_shape(&shape);
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         
         let data: Vec<T> = (0..size).map(|_| {
             // Box-Muller transform
-            let u1: f64 = rng.gen_range(f64::EPSILON..1.0);
-            let u2: f64 = rng.gen_range(0.0..1.0);
+            let u1: f64 = rng.random_range(f64::EPSILON..1.0);
+            let u2: f64 = rng.random_range(0.0..1.0);
             let z0 = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
             T::from(z0)
         }).collect();
@@ -72,10 +71,9 @@ where
         T: From<f64> + Clone + Default,
     {
         let size = shape.iter().product();
-        let mut rng = rand::thread_rng();
-        let uniform = Uniform::new(low, high);
+        let mut rng = rand::rng();
         let data: Vec<T> = (0..size)
-            .map(|_| T::from(uniform.sample(&mut rng)))
+            .map(|_| T::from(rng.random_range(low..high)))
             .collect();
         let strides = Array::<T>::compute_strides_for_shape(&shape);
         Self {
