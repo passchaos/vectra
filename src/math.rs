@@ -1,5 +1,5 @@
-use std::ops::{Add, Mul, Div}; // Sub currently unused
 use crate::core::Array;
+use std::ops::{Add, Div, Mul}; // Sub currently unused
 
 impl<T> Array<T>
 where
@@ -10,7 +10,9 @@ where
     where
         T: Add<Output = T> + Default,
     {
-        self.data.iter().fold(T::default(), |acc, x| acc + x.clone())
+        self.data
+            .iter()
+            .fold(T::default(), |acc, x| acc + x.clone())
     }
 
     /// Calculate mean of all elements
@@ -39,7 +41,10 @@ where
     where
         T: Clone + PartialOrd,
     {
-        self.data.iter().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)).cloned()
+        self.data
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .cloned()
     }
 
     /// Find minimum value
@@ -47,7 +52,10 @@ where
     where
         T: Clone + PartialOrd,
     {
-        self.data.iter().min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)).cloned()
+        self.data
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .cloned()
     }
 
     /// Matrix multiplication (dot product)
@@ -61,20 +69,22 @@ where
         if self.shape[1] != other.shape[0] {
             return Err("Matrix dimensions incompatible for multiplication".to_string());
         }
-        
+
         let result_shape = vec![self.shape[0], other.shape[1]];
         let mut result_data = vec![T::default(); result_shape.iter().product()];
-        
+
         for i in 0..self.shape[0] {
             for j in 0..other.shape[1] {
                 let mut sum = T::default();
                 for k in 0..self.shape[1] {
-                    sum = sum + self.data[i * self.shape[1] + k].clone() * other.data[k * other.shape[1] + j].clone();
+                    sum = sum
+                        + self.data[i * self.shape[1] + k].clone()
+                            * other.data[k * other.shape[1] + j].clone();
                 }
                 result_data[i * other.shape[1] + j] = sum;
             }
         }
-        
+
         Array::from_vec(result_data, result_shape)
     }
 
@@ -91,6 +101,25 @@ where
         }
     }
 
+    /// Apply function to each element, consuming self and returning a new Array with different type
+    pub fn into_map<F, U>(self, f: F) -> Array<U>
+    where
+        F: Fn(T) -> U,
+        U: Clone + Default,
+    {
+        let Self {
+            data,
+            shape,
+            strides,
+        } = self;
+
+        Array {
+            data: data.into_iter().map(f).collect(),
+            shape,
+            strides,
+        }
+    }
+
     /// Sum along specified axis
     pub fn sum_axis(&self, axis: usize) -> Result<Array<T>, String>
     where
@@ -99,19 +128,19 @@ where
         if axis >= self.shape.len() {
             return Err("Axis out of bounds".to_string());
         }
-        
+
         let mut result_shape = self.shape.clone();
         result_shape.remove(axis);
-        
+
         if result_shape.is_empty() {
             // Sum over all dimensions, return scalar as 0-d array
             let total_sum = self.sum();
             return Array::from_vec(vec![total_sum], vec![]);
         }
-        
+
         let result_size: usize = result_shape.iter().product();
         let mut result_data = vec![T::default(); result_size];
-        
+
         // For each position in the result array
         for result_idx in 0..result_size {
             // Convert flat index to multi-dimensional index for result
@@ -121,7 +150,7 @@ where
                 result_indices[i] = temp % result_shape[i];
                 temp /= result_shape[i];
             }
-            
+
             // Sum over the specified axis
             let mut sum = T::default();
             for axis_idx in 0..self.shape[axis] {
@@ -136,13 +165,13 @@ where
                         result_pos += 1;
                     }
                 }
-                
+
                 let flat_idx = self.index_to_flat(&full_indices)?;
                 sum = sum + self.data[flat_idx].clone();
             }
             result_data[result_idx] = sum;
         }
-        
+
         Array::from_vec(result_data, result_shape)
     }
 
@@ -196,8 +225,10 @@ where
         if self.shape != other.shape {
             return Err("Arrays must have the same shape for atan2".to_string());
         }
-        
-        let result_data: Vec<T> = self.data.iter()
+
+        let result_data: Vec<T> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(y, x)| {
                 let y_f64: f64 = y.clone().into();
@@ -205,7 +236,7 @@ where
                 T::from(y_f64.atan2(x_f64))
             })
             .collect();
-        
+
         Ok(Array {
             data: result_data,
             shape: self.shape.clone(),

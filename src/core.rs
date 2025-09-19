@@ -25,8 +25,9 @@ where
         }
     }
 
-    /// Create array from data and shape
-    pub fn from_vec(data: Vec<T>, shape: Vec<usize>) -> Result<Self, String> {
+    /// Create array from data and shape, accepts any type that implements Into<Vec<T>>
+    pub fn from_vec<V: Into<Vec<T>>>(data: V, shape: Vec<usize>) -> Result<Self, String> {
+        let data = data.into();
         let expected_size: usize = shape.iter().product();
         if data.len() != expected_size {
             return Err(format!(
@@ -114,8 +115,6 @@ where
         }
         strides
     }
-
-
 }
 
 impl<T> Array<T> {
@@ -141,11 +140,19 @@ impl<T> Array<T> {
     pub fn broadcast_shapes(shape1: &[usize], shape2: &[usize]) -> Result<Vec<usize>, String> {
         let max_len = shape1.len().max(shape2.len());
         let mut result = vec![1; max_len];
-        
+
         for i in 0..max_len {
-            let dim1 = if i < shape1.len() { shape1[shape1.len() - 1 - i] } else { 1 };
-            let dim2 = if i < shape2.len() { shape2[shape2.len() - 1 - i] } else { 1 };
-            
+            let dim1 = if i < shape1.len() {
+                shape1[shape1.len() - 1 - i]
+            } else {
+                1
+            };
+            let dim2 = if i < shape2.len() {
+                shape2[shape2.len() - 1 - i]
+            } else {
+                1
+            };
+
             if dim1 == dim2 {
                 result[max_len - 1 - i] = dim1;
             } else if dim1 == 1 {
@@ -170,10 +177,10 @@ impl<T> Array<T> {
         if self.shape == target_shape {
             return Ok(self.clone());
         }
-        
+
         let target_size: usize = target_shape.iter().product();
         let mut new_data = Vec::with_capacity(target_size);
-        
+
         for flat_idx in 0..target_size {
             let mut target_indices = vec![0; target_shape.len()];
             let mut temp = flat_idx;
@@ -181,18 +188,18 @@ impl<T> Array<T> {
                 target_indices[i] = temp % target_shape[i];
                 temp /= target_shape[i];
             }
-            
+
             let mut source_indices = vec![0; self.shape.len()];
             let offset = target_shape.len() - self.shape.len();
             for i in 0..self.shape.len() {
                 let target_idx = target_indices[offset + i];
                 source_indices[i] = if self.shape[i] == 1 { 0 } else { target_idx };
             }
-            
+
             let source_flat = self.index_to_flat(&source_indices)?;
             new_data.push(self.data[source_flat].clone());
         }
-        
+
         Ok(Array {
             data: new_data,
             shape: target_shape.to_vec(),
@@ -231,6 +238,79 @@ impl<T> Array<T> {
     /// Get mutable iterator
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
         self.data.iter_mut()
+    }
+
+    /// Apply a closure to each element in-place, modifying the current Array
+    pub fn map_inplace<F>(&mut self, f: F)
+    where
+        F: Fn(&T) -> T,
+    {
+        for item in self.data.iter_mut() {
+            *item = f(item);
+        }
+    }
+}
+
+impl<T> Into<Vec<T>> for Array<T> {
+    fn into(self) -> Vec<T> {
+        self.data
+    }
+}
+
+impl<T> Into<Vec<T>> for &Array<T>
+where
+    T: Clone,
+{
+    fn into(self) -> Vec<T> {
+        self.data.clone()
+    }
+}
+
+impl<T> From<Vec<T>> for Array<T>
+where
+    T: Clone + Default,
+{
+    fn from(data: Vec<T>) -> Self {
+        let shape = vec![data.len()];
+        let strides = Self::compute_strides(&shape);
+        Self {
+            data,
+            shape,
+            strides,
+        }
+    }
+}
+
+// Additional From implementations for common array types
+impl<T, const N: usize> From<[T; N]> for Array<T>
+where
+    T: Clone + Default,
+{
+    fn from(data: [T; N]) -> Self {
+        let data = data.to_vec();
+        let shape = vec![data.len()];
+        let strides = Self::compute_strides(&shape);
+        Self {
+            data,
+            shape,
+            strides,
+        }
+    }
+}
+
+impl<T> From<&[T]> for Array<T>
+where
+    T: Clone + Default,
+{
+    fn from(data: &[T]) -> Self {
+        let data = data.to_vec();
+        let shape = vec![data.len()];
+        let strides = Self::compute_strides(&shape);
+        Self {
+            data,
+            shape,
+            strides,
+        }
     }
 }
 

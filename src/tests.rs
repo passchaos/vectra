@@ -83,6 +83,40 @@ mod tests {
     }
 
     #[test]
+    fn test_map_inplace() {
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        arr.map_inplace(|x| x * x);
+        assert_eq!(arr[[0, 0]], 1.0);
+        assert_eq!(arr[[1, 1]], 16.0);
+    }
+
+    #[test]
+    fn test_map_type_conversion() {
+        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+        let result: Array<f64> = arr.map(|&x| x as f64 * 1.5);
+        assert_eq!(result[[0, 0]], 1.5);
+        assert_eq!(result[[1, 1]], 6.0);
+    }
+
+    #[test]
+    fn test_into_map() {
+        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+        let result: Array<String> = arr.into_map(|x| format!("value_{}", x));
+        assert_eq!(result[[0, 0]], "value_1");
+        assert_eq!(result[[1, 1]], "value_4");
+        assert_eq!(result.shape(), &[2, 2]);
+    }
+
+    #[test]
+    fn test_into_map_type_conversion() {
+        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+        let result: Array<f64> = arr.into_map(|x| x as f64 * 2.5);
+        assert_eq!(result[[0, 0]], 2.5);
+        assert_eq!(result[[1, 1]], 10.0);
+        assert_eq!(result.shape(), &[2, 2]);
+    }
+
+    #[test]
     fn test_random_arrays() {
         let random_arr: Array<f64> = Array::random(vec![3, 3]);
         assert_eq!(random_arr.shape(), &[3, 3]);
@@ -112,6 +146,56 @@ mod tests {
         for &val in uniform_arr.iter() {
             assert!(val >= -1.0 && val < 1.0);
         }
+    }
+
+    #[test]
+    fn test_into_vec() {
+        let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], vec![2, 3]).unwrap();
+        let vec_data: Vec<i32> = arr.into();
+        assert_eq!(vec_data, vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn test_from_vec_trait() {
+        let vec_data = vec![1, 2, 3, 4, 5];
+        let arr: Array<i32> = vec_data.into();
+        assert_eq!(arr.shape(), &[5]);
+        assert_eq!(arr.size(), 5);
+        assert_eq!(arr.iter().collect::<Vec<_>>(), vec![&1, &2, &3, &4, &5]);
+    }
+
+    #[test]
+    fn test_from_array() {
+        let array_data = [1, 2, 3, 4];
+        let arr: Array<i32> = array_data.into();
+        assert_eq!(arr.shape(), &[4]);
+        assert_eq!(arr.size(), 4);
+        assert_eq!(arr.iter().collect::<Vec<_>>(), vec![&1, &2, &3, &4]);
+    }
+
+    #[test]
+    fn test_from_slice() {
+        let slice_data: &[i32] = &[1, 2, 3];
+        let arr: Array<i32> = slice_data.into();
+        assert_eq!(arr.shape(), &[3]);
+        assert_eq!(arr.size(), 3);
+        assert_eq!(arr.iter().collect::<Vec<_>>(), vec![&1, &2, &3]);
+    }
+
+    #[test]
+    fn test_from_vec_generic() {
+        // Test from_vec with Vec
+        let arr1 = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+        assert_eq!(arr1.shape(), &[2, 2]);
+        
+        // Test from_vec with array
+        let arr2 = Array::from_vec([1, 2, 3, 4], vec![2, 2]).unwrap();
+        assert_eq!(arr2.shape(), &[2, 2]);
+        
+        // Test from_vec with slice
+        let slice_data: &[i32] = &[1, 2, 3, 4];
+        let arr3 = Array::from_vec(slice_data, vec![2, 2]).unwrap();
+        assert_eq!(arr3.shape(), &[2, 2]);
     }
 
     #[test]
