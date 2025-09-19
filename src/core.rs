@@ -108,6 +108,63 @@ where
         })
     }
 
+    /// Permute the dimensions of the array according to the given axes
+    /// Similar to PyTorch's permute function
+    pub fn permute(&self, axes: Vec<usize>) -> Result<Self, String> {
+        // Validate axes
+        if axes.len() != self.shape.len() {
+            return Err(format!(
+                "Number of axes {} does not match array dimensions {}",
+                axes.len(),
+                self.shape.len()
+            ));
+        }
+        
+        // Check if all axes are valid and unique
+        let mut sorted_axes = axes.clone();
+        sorted_axes.sort();
+        for (i, &axis) in sorted_axes.iter().enumerate() {
+            if axis != i {
+                return Err(format!("Invalid axis {} or duplicate axis found", axis));
+            }
+        }
+        
+        // Create new shape by permuting dimensions
+        let new_shape: Vec<usize> = axes.iter().map(|&i| self.shape[i]).collect();
+        let new_strides = Self::compute_strides(&new_shape);
+        
+        // Create new data array
+        let mut new_data = vec![T::default(); self.data.len()];
+        
+        // Generate all possible indices for the new array
+        let total_elements = self.data.len();
+        for flat_idx in 0..total_elements {
+            // Convert flat index to multi-dimensional indices in new array
+            let mut new_indices = vec![0; new_shape.len()];
+            let mut remaining = flat_idx;
+            for i in 0..new_shape.len() {
+                new_indices[i] = remaining / new_strides[i];
+                remaining %= new_strides[i];
+            }
+            
+            // Map new indices back to original indices using inverse permutation
+            let mut orig_indices = vec![0; self.shape.len()];
+            for (new_dim, &orig_dim) in axes.iter().enumerate() {
+                orig_indices[orig_dim] = new_indices[new_dim];
+            }
+            
+            // Calculate flat index in original array
+            let orig_flat_idx = self.index_to_flat(&orig_indices)?;
+            new_data[flat_idx] = self.data[orig_flat_idx].clone();
+        }
+        
+        Ok(Self {
+            data: new_data,
+            shape: new_shape,
+            strides: new_strides,
+        })
+    }
+
     fn compute_strides(shape: &[usize]) -> Vec<usize> {
         let mut strides = vec![1; shape.len()];
         for i in (0..shape.len() - 1).rev() {
