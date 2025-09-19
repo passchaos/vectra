@@ -3,7 +3,7 @@ use std::fmt;
 use std::slice::Iter;
 
 /// Multi-dimensional array structure, similar to numpy's ndarray
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Array<T> {
     pub(crate) data: Vec<T>,
     pub(crate) shape: Vec<usize>,
@@ -203,16 +203,8 @@ impl<T> Array<T> {
         Ok(Array {
             data: new_data,
             shape: target_shape.to_vec(),
-            strides: Self::compute_strides_for_shape(target_shape),
+            strides: compute_strides_for_shape(target_shape),
         })
-    }
-
-    pub fn compute_strides_for_shape(shape: &[usize]) -> Vec<usize> {
-        let mut strides = vec![1; shape.len()];
-        for i in (0..shape.len() - 1).rev() {
-            strides[i] = strides[i + 1] * shape[i + 1];
-        }
-        strides
     }
 
     /// Get shape of the array
@@ -281,6 +273,14 @@ where
     }
 }
 
+pub fn compute_strides_for_shape(shape: &[usize]) -> Vec<usize> {
+    let mut strides = vec![1; shape.len()];
+    for i in (0..shape.len() - 1).rev() {
+        strides[i] = strides[i + 1] * shape[i + 1];
+    }
+    strides
+}
+
 // Additional From implementations for common array types
 impl<T, const N: usize> From<[T; N]> for Array<T>
 where
@@ -319,38 +319,168 @@ where
     T: fmt::Display + Clone,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.shape.len() {
-            1 => {
-                write!(f, "[")?;
-                for (i, item) in self.data.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", item)?;
-                }
-                write!(f, "]")
-            }
-            2 => {
-                writeln!(f, "[")?;
-                for i in 0..self.shape[0] {
-                    write!(f, "  [")?;
-                    for j in 0..self.shape[1] {
-                        if j > 0 {
-                            write!(f, ", ")?;
-                        }
-                        write!(f, "{}", self.data[i * self.shape[1] + j])?;
-                    }
-                    if i < self.shape[0] - 1 {
-                        writeln!(f, "],")?;
-                    } else {
-                        writeln!(f, "]")?;
-                    }
-                }
-                write!(f, "]")
-            }
-            _ => {
-                write!(f, "Array with shape {:?}", self.shape)
-            }
+        self.fmt_recursive(f, 0, &[])
+    }
+}
+
+impl<T> fmt::Debug for Array<T>
+where
+    T: fmt::Display + Clone,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Array {{ data: {}, shape: {:?}, strides: {:?} }}", 
+               self, self.shape, self.strides)
+    }
+}
+
+impl<T> Array<T>
+where
+    T: fmt::Display + Clone,
+{
+    /// Unified recursive formatting method for all dimensions
+    fn fmt_recursive(&self, f: &mut fmt::Formatter<'_>, depth: usize, indices: &[usize]) -> fmt::Result {
+        let ndim = self.shape.len();
+        
+        if depth == ndim {
+            // Base case: we've reached a scalar element
+            let flat_idx = self.indices_to_flat(indices).unwrap_or(0);
+            write!(f, "{}", self.data[flat_idx])
+        } else if depth == ndim - 1 {
+            // Last dimension: format as 1D array
+            self.fmt_1d_slice(f, indices)
+        } else {
+            // Recursive case: format as nested arrays
+            self.fmt_nd_slice(f, depth, indices)
         }
     }
+    
+    /// Helper method to convert multi-dimensional indices to flat index
+    fn indices_to_flat(&self, indices: &[usize]) -> Result<usize, String> {
+        if indices.len() != self.shape.len() {
+            return Err("Index dimension mismatch".to_string());
+        }
+        
+        let mut flat_idx = 0;
+        for (i, &idx) in indices.iter().enumerate() {
+            if idx >= self.shape[i] {
+                return Err("Index out of bounds".to_string());
+            }
+            flat_idx += idx * self.strides[i];
+        }
+        Ok(flat_idx)
+    }
+    
+    /// Format a 1D slice (last dimension)
+    fn fmt_1d_slice(&self, f: &mut fmt::Formatter<'_>, base_indices: &[usize]) -> fmt::Result {
+        let max_items = 6;
+        let current_dim_size = self.shape[base_indices.len()];
+        
+        write!(f, "[")?;
+        
+        if current_dim_size <= max_items {
+            for i in 0..current_dim_size {
+                if i > 0 {
+                    write!(f, " ")?;
+                }
+                let mut indices = base_indices.to_vec();
+                indices.push(i);
+                let flat_idx = self.indices_to_flat(&indices).unwrap_or(0);
+                write!(f, "{}", self.data[flat_idx])?;
+            }
+        } else {
+            // Show first 3 and last 3 items with ellipsis
+            for i in 0..3 {
+                if i > 0 {
+                    write!(f, " ")?;
+                }
+                let mut indices = base_indices.to_vec();
+                indices.push(i);
+                let flat_idx = self.indices_to_flat(&indices).unwrap_or(0);
+                write!(f, "{}", self.data[flat_idx])?;
+            }
+            write!(f, " ... ")?;
+            for i in (current_dim_size - 3)..current_dim_size {
+                let mut indices = base_indices.to_vec();
+                indices.push(i);
+                let flat_idx = self.indices_to_flat(&indices).unwrap_or(0);
+                write!(f, "{}", self.data[flat_idx])?;
+                if i < current_dim_size - 1 {
+                    write!(f, " ")?;
+                }
+            }
+        }
+        
+        write!(f, "]")
+    }
+    
+    /// Format an N-dimensional slice (recursive case)
+    fn fmt_nd_slice(&self, f: &mut fmt::Formatter<'_>, depth: usize, base_indices: &[usize]) -> fmt::Result {
+        let current_dim_size = self.shape[depth];
+        let max_slices = 3;
+        let ndim = self.shape.len();
+        
+        // Special handling for very high dimensions (5D+)
+        if ndim >= 5 && depth == 0 {
+            return write!(f, "array(shape={:?}, data=[{} {} {} ...])", 
+                         self.shape, 
+                         self.data.get(0).map_or("?".to_string(), |x| format!("{}", x)),
+                         self.data.get(1).map_or("?".to_string(), |x| format!("{}", x)),
+                         self.data.get(2).map_or("?".to_string(), |x| format!("{}", x)));
+        }
+        
+        write!(f, "[")?;
+        
+        let show_all = current_dim_size <= max_slices;
+        let slice_indices: Vec<usize> = if show_all {
+            (0..current_dim_size).collect()
+        } else {
+            vec![0, 1, current_dim_size - 1]
+        };
+        
+        for (idx, &slice_idx) in slice_indices.iter().enumerate() {
+            if idx > 0 {
+                // Add appropriate spacing based on dimension
+                if depth == ndim - 2 {
+                    // 2D case: new line with space
+                    write!(f, "\n ")?;
+                    for _ in 0..depth {
+                        write!(f, " ")?;
+                    }
+                } else {
+                    // Higher dimensions: double new line
+                    write!(f, "\n\n ")?;
+                    for _ in 0..depth {
+                        write!(f, " ")?;
+                    }
+                }
+            }
+            
+            if !show_all && idx == 2 {
+                if depth == ndim - 2 {
+                    write!(f, "\n ")?;
+                    for _ in 0..depth {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "...\n ")?;
+                    for _ in 0..depth {
+                        write!(f, " ")?;
+                    }
+                } else {
+                    write!(f, "\n ...\n\n ")?;
+                    for _ in 0..depth {
+                        write!(f, " ")?;
+                    }
+                }
+            }
+            
+            let mut indices = base_indices.to_vec();
+            indices.push(slice_idx);
+            self.fmt_recursive(f, depth + 1, &indices)?;
+        }
+        
+        write!(f, "]")
+    }
+    
+    // Legacy methods for backward compatibility (now unused)
+
 }

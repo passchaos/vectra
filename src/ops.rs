@@ -1,5 +1,5 @@
-use std::ops::{Index, IndexMut, Add, Sub, Mul, Div};
-use crate::core::Array;
+use crate::core::{Array, compute_strides_for_shape};
+use std::ops::{Add, Div, Index, IndexMut, Mul, Sub};
 
 // Indexing implementations
 impl<T> Index<&[usize]> for Array<T>
@@ -94,21 +94,25 @@ where
     fn add(self, other: Self) -> Self::Output {
         let broadcast_shape = Array::<T>::broadcast_shapes(&self.shape, &other.shape)
             .expect("Cannot broadcast arrays for addition");
-        
-        let self_broadcast = self.broadcast_to(&broadcast_shape)
+
+        let self_broadcast = self
+            .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast first array");
-        let other_broadcast = other.broadcast_to(&broadcast_shape)
+        let other_broadcast = other
+            .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast second array");
-        
-        let result_data: Vec<T> = self_broadcast.data.iter()
+
+        let result_data: Vec<T> = self_broadcast
+            .data
+            .iter()
             .zip(other_broadcast.data.iter())
             .map(|(a, b)| a.clone() + b.clone())
             .collect();
-        
+
         Array {
             data: result_data,
             shape: broadcast_shape.clone(),
-            strides: Array::<T>::compute_strides_for_shape(&broadcast_shape),
+            strides: compute_strides_for_shape(&broadcast_shape),
         }
     }
 }
@@ -122,21 +126,25 @@ where
     fn sub(self, other: Self) -> Self::Output {
         let broadcast_shape = Array::<T>::broadcast_shapes(&self.shape, &other.shape)
             .expect("Cannot broadcast arrays for subtraction");
-        
-        let self_broadcast = self.broadcast_to(&broadcast_shape)
+
+        let self_broadcast = self
+            .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast first array");
-        let other_broadcast = other.broadcast_to(&broadcast_shape)
+        let other_broadcast = other
+            .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast second array");
-        
-        let result_data: Vec<T> = self_broadcast.data.iter()
+
+        let result_data: Vec<T> = self_broadcast
+            .data
+            .iter()
             .zip(other_broadcast.data.iter())
             .map(|(a, b)| a.clone() - b.clone())
             .collect();
-        
+
         Array {
             data: result_data,
             shape: broadcast_shape.clone(),
-            strides: Array::<T>::compute_strides_for_shape(&broadcast_shape),
+            strides: compute_strides_for_shape(&broadcast_shape),
         }
     }
 }
@@ -150,21 +158,25 @@ where
     fn mul(self, other: Self) -> Self::Output {
         let broadcast_shape = Array::<T>::broadcast_shapes(&self.shape, &other.shape)
             .expect("Cannot broadcast arrays for multiplication");
-        
-        let self_broadcast = self.broadcast_to(&broadcast_shape)
+
+        let self_broadcast = self
+            .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast first array");
-        let other_broadcast = other.broadcast_to(&broadcast_shape)
+        let other_broadcast = other
+            .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast second array");
-        
-        let result_data: Vec<T> = self_broadcast.data.iter()
+
+        let result_data: Vec<T> = self_broadcast
+            .data
+            .iter()
             .zip(other_broadcast.data.iter())
             .map(|(a, b)| a.clone() * b.clone())
             .collect();
-        
+
         Array {
             data: result_data,
             shape: broadcast_shape.clone(),
-            strides: Array::<T>::compute_strides_for_shape(&broadcast_shape),
+            strides: compute_strides_for_shape(&broadcast_shape),
         }
     }
 }
@@ -178,21 +190,25 @@ where
     fn div(self, other: Self) -> Self::Output {
         let broadcast_shape = Array::<T>::broadcast_shapes(&self.shape, &other.shape)
             .expect("Cannot broadcast arrays for division");
-        
-        let self_broadcast = self.broadcast_to(&broadcast_shape)
+
+        let self_broadcast = self
+            .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast first array");
-        let other_broadcast = other.broadcast_to(&broadcast_shape)
+        let other_broadcast = other
+            .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast second array");
-        
-        let result_data: Vec<T> = self_broadcast.data.iter()
+
+        let result_data: Vec<T> = self_broadcast
+            .data
+            .iter()
             .zip(other_broadcast.data.iter())
             .map(|(a, b)| a.clone() / b.clone())
             .collect();
-        
+
         Array {
             data: result_data,
             shape: broadcast_shape.clone(),
-            strides: Array::<T>::compute_strides_for_shape(&broadcast_shape),
+            strides: compute_strides_for_shape(&broadcast_shape),
         }
     }
 }
@@ -208,7 +224,11 @@ where
         T: Add<Output = T>,
     {
         Array {
-            data: self.data.iter().map(|x| x.clone() + scalar.clone()).collect(),
+            data: self
+                .data
+                .iter()
+                .map(|x| x.clone() + scalar.clone())
+                .collect(),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
         }
@@ -220,7 +240,11 @@ where
         T: Sub<Output = T>,
     {
         Array {
-            data: self.data.iter().map(|x| x.clone() - scalar.clone()).collect(),
+            data: self
+                .data
+                .iter()
+                .map(|x| x.clone() - scalar.clone())
+                .collect(),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
         }
@@ -232,7 +256,11 @@ where
         T: Mul<Output = T>,
     {
         Array {
-            data: self.data.iter().map(|x| x.clone() * scalar.clone()).collect(),
+            data: self
+                .data
+                .iter()
+                .map(|x| x.clone() * scalar.clone())
+                .collect(),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
         }
@@ -244,7 +272,11 @@ where
         T: Div<Output = T>,
     {
         Array {
-            data: self.data.iter().map(|x| x.clone() / scalar.clone()).collect(),
+            data: self
+                .data
+                .iter()
+                .map(|x| x.clone() / scalar.clone())
+                .collect(),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
         }

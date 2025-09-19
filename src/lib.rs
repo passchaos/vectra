@@ -1,5 +1,5 @@
 //! Vectra - A multi-dimensional array library for Rust
-//! 
+//!
 //! This library provides numpy-like functionality for Rust, including:
 //! - Multi-dimensional arrays with broadcasting
 //! - Mathematical operations (trigonometric, logarithmic, exponential)
@@ -7,12 +7,13 @@
 //! - Linear algebra operations
 
 mod core;
-mod ops;
 mod math;
+mod ops;
 mod random;
 
 #[cfg(test)]
 mod tests;
 
-// Re-export the main Array struct
-pub use core::Array;
+pub mod prelude {
+    pub use crate::core::Array;
+}

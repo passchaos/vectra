@@ -11,3 +11,6 @@ repository = "https://github.com/passchaos/vectra"
 
 [dependencies]
 rand = "0.9"
+
+[profile.dev]
+opt-level = 3

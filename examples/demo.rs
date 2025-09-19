@@ -1,4 +1,4 @@
-use vectra::Array;
+use vectra::prelude::*;
 
 fn main() {
     println!("=== Vectra Multi-dimensional Array Library Demo ===");
@@ -42,7 +42,7 @@ fn main() {
     let product = a.clone() * b.clone();
     println!("\nA * B (element-wise multiplication):\n{}", product);
 
-    let dot_product = a.dot(&b).unwrap();
+    let dot_product = a.matmul(&b).unwrap();
     println!("\nA · B (matrix multiplication):\n{}", dot_product);
 
     // 5. Scalar operations

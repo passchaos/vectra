@@ -57,7 +57,7 @@ fn main() {
     let b = Array::from_vec(vec![5, 6, 7, 8], vec![2, 2]).unwrap();
     
     let sum = a.clone() + b.clone();
-    let product = a.dot(&b).unwrap(); // Matrix multiplication
+    let product = a.matmul(&b).unwrap(); // Matrix multiplication
     
     // Aggregation functions
     println!("Sum: {}", a.sum());

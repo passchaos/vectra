@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::Array;
+    use crate::prelude::Array;
 
     #[test]
     fn test_basic_creation() {
@@ -68,7 +68,7 @@ mod tests {
         let a = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
         let b = Array::from_vec(vec![2.0, 0.0, 1.0, 2.0], vec![2, 2]).unwrap();
         
-        let result = a.dot(&b).unwrap();
+        let result = a.matmul(&b).unwrap();
         assert_eq!(result.shape(), &[2, 2]);
         assert_eq!(result[[0, 0]], 4.0); // 1*2 + 2*1 = 4
         assert_eq!(result[[0, 1]], 4.0); // 1*0 + 2*2 = 4
@@ -145,8 +145,8 @@ mod tests {
         sigma[[1, 1]] = s[[1]];
         
         // Reconstruct: U * Sigma * V^T
-        let us = u.dot(&sigma).unwrap();
-        let reconstructed = us.dot(&vt).unwrap();
+        let us = u.matmul(&sigma).unwrap();
+        let reconstructed = us.matmul(&vt).unwrap();
         
         // Check reconstruction accuracy (within tolerance)
         let tolerance = 1e-10f64;

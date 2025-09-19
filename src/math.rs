@@ -1,4 +1,4 @@
-use crate::core::Array;
+use crate::core::{Array, compute_strides_for_shape};
 use std::ops::{Add, Div, Mul}; // Sub currently unused
 
 impl<T> Array<T>
@@ -58,13 +58,13 @@ where
             .cloned()
     }
 
-    /// Matrix multiplication (dot product)
-    pub fn dot(&self, other: &Array<T>) -> Result<Array<T>, String>
+    /// Matrix multiplication
+    pub fn matmul(&self, other: &Array<T>) -> Result<Array<T>, String>
     where
         T: Add<Output = T> + Mul<Output = T> + Default,
     {
         if self.shape.len() != 2 || other.shape.len() != 2 {
-            return Err("Dot product only supported for 2D arrays".to_string());
+            return Err("Matrix multiplication only supported for 2D arrays".to_string());
         }
         if self.shape[1] != other.shape[0] {
             return Err("Matrix dimensions incompatible for multiplication".to_string());
@@ -88,6 +88,31 @@ where
         Array::from_vec(result_data, result_shape)
     }
 
+    /// Vector dot product (returns scalar)
+    pub fn dot(&self, other: &Array<T>) -> Result<T, String>
+    where
+        T: Add<Output = T> + Mul<Output = T> + Default,
+    {
+        // Check if both arrays are 1D vectors
+        if self.shape.len() != 1 || other.shape.len() != 1 {
+            return Err("Dot product only supported for 1D vectors".to_string());
+        }
+        
+        // Check if vectors have the same length
+        if self.shape[0] != other.shape[0] {
+            return Err("Vectors must have the same length for dot product".to_string());
+        }
+        
+        let mut result = T::default();
+        for i in 0..self.shape[0] {
+            let self_val = &self.data[i * self.strides[0]];
+            let other_val = &other.data[i * other.strides[0]];
+            result = result + (self_val.clone() * other_val.clone());
+        }
+        
+        Ok(result)
+    }
+
     /// Apply function to each element
     pub fn map<F, U>(&self, f: F) -> Array<U>
     where
@@ -97,7 +122,7 @@ where
         Array {
             data: self.data.iter().map(f).collect(),
             shape: self.shape.clone(),
-            strides: Array::<U>::compute_strides_for_shape(&self.shape),
+            strides: compute_strides_for_shape(&self.shape),
         }
     }
 
@@ -372,7 +397,7 @@ where
 
         let m = self.shape[0];
         let n = self.shape[1];
-        
+
         // Convert to f64 for computation
         let mut a: Vec<Vec<f64>> = Vec::new();
         for i in 0..m {
@@ -400,26 +425,26 @@ where
         let m = a.len();
         let n = a[0].len();
         let min_dim = m.min(n);
-        
+
         // Initialize U as identity matrix
         let mut u = vec![vec![0.0; m]; m];
         for i in 0..m {
             u[i][i] = 1.0;
         }
-        
+
         // Initialize V as identity matrix
         let mut v = vec![vec![0.0; n]; n];
         for i in 0..n {
             v[i][i] = 1.0;
         }
-        
+
         // Jacobi iterations
         let max_iterations = 100;
         let tolerance = 1e-10;
-        
+
         for _ in 0..max_iterations {
             let mut converged = true;
-            
+
             // Sweep through all pairs of columns
             for p in 0..n {
                 for q in (p + 1)..n {
@@ -427,16 +452,16 @@ where
                     let mut app = 0.0;
                     let mut aqq = 0.0;
                     let mut apq = 0.0;
-                    
+
                     for i in 0..m {
                         app += a[i][p] * a[i][p];
                         aqq += a[i][q] * a[i][q];
                         apq += a[i][p] * a[i][q];
                     }
-                    
+
                     if apq.abs() > tolerance {
                         converged = false;
-                        
+
                         // Compute rotation angle
                         let tau = (aqq - app) / (2.0 * apq);
                         let t = if tau >= 0.0 {
@@ -444,17 +469,17 @@ where
                         } else {
                             -1.0 / (-tau + (1.0 + tau * tau).sqrt())
                         };
-                        
+
                         let c = 1.0 / (1.0 + t * t).sqrt();
                         let s = t * c;
-                        
+
                         // Apply rotation to A
                         for i in 0..m {
                             let temp = a[i][p];
                             a[i][p] = c * temp - s * a[i][q];
                             a[i][q] = s * temp + c * a[i][q];
                         }
-                        
+
                         // Apply rotation to V
                         for i in 0..n {
                             let temp = v[i][p];
@@ -464,16 +489,16 @@ where
                     }
                 }
             }
-            
+
             if converged {
                 break;
             }
         }
-        
+
         // Extract singular values and sort
         let mut singular_values = Vec::new();
         let mut indices = Vec::new();
-        
+
         for j in 0..min_dim {
             let mut norm = 0.0;
             for i in 0..m {
@@ -482,33 +507,36 @@ where
             singular_values.push(norm.sqrt());
             indices.push(j);
         }
-        
+
         // Sort by singular values (descending)
         indices.sort_by(|&i, &j| singular_values[j].partial_cmp(&singular_values[i]).unwrap());
-        
+
         // Reorder and normalize columns of A to get U
         for j in 0..min_dim {
             let orig_j = indices[j];
             let sigma = singular_values[orig_j];
-            
+
             if sigma > tolerance {
                 for i in 0..m {
                     u[i][j] = a[i][orig_j] / sigma;
                 }
             }
         }
-        
+
         // Create result arrays
         let u_data: Vec<T> = u.into_iter().flatten().map(|x| T::from(x)).collect();
         let u_array = Array::from_vec(u_data, vec![m, m]).unwrap();
-        
+
         let mut sorted_singular_values = Vec::new();
         for &i in &indices {
             sorted_singular_values.push(singular_values[i]);
         }
-        let s_data: Vec<T> = sorted_singular_values.into_iter().map(|x| T::from(x)).collect();
+        let s_data: Vec<T> = sorted_singular_values
+            .into_iter()
+            .map(|x| T::from(x))
+            .collect();
         let s_array = Array::from_vec(s_data, vec![min_dim]).unwrap();
-        
+
         // Reorder V columns
         let mut v_reordered = vec![vec![0.0; n]; n];
         for j in 0..min_dim {
@@ -517,21 +545,31 @@ where
                 v_reordered[i][j] = v[i][orig_j];
             }
         }
-        
-        let vt_data: Vec<T> = v_reordered.into_iter().flatten().map(|x| T::from(x)).collect();
-        let vt_array = Array::from_vec(vt_data, vec![n, n]).unwrap().transpose().unwrap();
-        
+
+        let vt_data: Vec<T> = v_reordered
+            .into_iter()
+            .flatten()
+            .map(|x| T::from(x))
+            .collect();
+        let vt_array = Array::from_vec(vt_data, vec![n, n])
+            .unwrap()
+            .transpose()
+            .unwrap();
+
         Ok((u_array, s_array, vt_array))
     }
-    
+
     /// Power iteration SVD for larger matrices (simplified version)
-    fn power_iteration_svd(&self, a: Vec<Vec<f64>>) -> Result<(Array<T>, Array<T>, Array<T>), String>
+    fn power_iteration_svd(
+        &self,
+        a: Vec<Vec<f64>>,
+    ) -> Result<(Array<T>, Array<T>, Array<T>), String>
     where
         T: Into<f64> + From<f64> + Clone + Default,
     {
         let _m = a.len();
         let _n = a[0].len();
-        
+
         // For now, fall back to Jacobi for simplicity
         // In a full implementation, this would use power iteration or other methods
         self.jacobi_svd(a)
