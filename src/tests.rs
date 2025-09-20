@@ -4,7 +4,7 @@ mod tests {
 
     #[test]
     fn test_basic_creation() {
-        let arr: Array<f64> = Array::new(vec![2, 3]);
+        let arr: Array<f64> = Array::zeros(vec![2, 3]);
         assert_eq!(arr.shape(), &[2, 3]);
         assert_eq!(arr.size(), 6);
     }
