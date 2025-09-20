@@ -1,5 +1,5 @@
 use std::fmt;
-use std::ops::{Add, Div, Sub};
+use std::ops::Add;
 // use std::ops::{Index, IndexMut}; // Currently unused
 use std::slice::Iter;
 
@@ -96,15 +96,17 @@ where
     }
 
     /// Reshape array
-    pub fn reshape(&self, new_shape: Vec<usize>) -> Result<Self, String> {
+    pub fn reshape(self, new_shape: Vec<usize>) -> Result<Self, String> {
         let new_size: usize = new_shape.iter().product();
         if new_size != self.data.len() {
             return Err("New shape size does not match array size".to_string());
         }
+
+        let new_strides = Self::compute_strides(&new_shape);
         Ok(Self {
-            data: self.data.clone(),
-            shape: new_shape.clone(),
-            strides: Self::compute_strides(&new_shape),
+            data: self.data,
+            shape: new_shape,
+            strides: new_strides,
         })
     }
 
@@ -452,7 +454,7 @@ where
 
     /// Format a 1D slice (last dimension)
     fn fmt_1d_slice(&self, f: &mut fmt::Formatter<'_>, base_indices: &[usize]) -> fmt::Result {
-        let max_items = 1000;
+        let max_items = if base_indices.is_empty() { 1000 } else { 6 };
         let current_dim_size = self.shape[base_indices.len()];
 
         let line_size = 18;
@@ -509,24 +511,6 @@ where
         let current_dim_size = self.shape[depth];
         let max_slices = 3;
         let ndim = self.shape.len();
-
-        // Special handling for very high dimensions (5D+)
-        if ndim >= 5 && depth == 0 {
-            return write!(
-                f,
-                "array(shape={:?}, data=[{} {} {} ...])",
-                self.shape,
-                self.data
-                    .get(0)
-                    .map_or("?".to_string(), |x| format!("{}", x)),
-                self.data
-                    .get(1)
-                    .map_or("?".to_string(), |x| format!("{}", x)),
-                self.data
-                    .get(2)
-                    .map_or("?".to_string(), |x| format!("{}", x))
-            );
-        }
 
         write!(f, "[")?;
 
@@ -590,9 +574,8 @@ mod tests {
 
     #[test]
     fn test_transpose() {
-        let arr = Array::arange(0.0, 100.0, 1.121231212);
-
-        println!("arr: {arr}");
+        let arr1 = Array::from_vec(vec![1.0; 10000], vec![10, 10, 100]).unwrap();
+        println!("arr1: {arr1}");
         // let arr_t = arr.clone().transpose().unwrap();
 
         // println!("{:?} {:?}", arr, arr_t);
