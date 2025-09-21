@@ -13,5 +13,8 @@ repository = "https://github.com/passchaos/vectra"
 rand = "0.9"
 num-traits = "0.2.19"
 
+[dev-dependencies]
+plotiron = { path = "../plotiron" }
+
 [profile.dev]
 opt-level = 3

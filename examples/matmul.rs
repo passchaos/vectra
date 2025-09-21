@@ -1,23 +1,31 @@
 use std::time::Instant;
 
+use plotiron::prelude::*;
 use vectra::prelude::*;
 
 fn main() {
-    let a = Array::from_vec(vec![1.0, 2.0, 3.0], vec![3, 1]).unwrap();
-    let b = Array::from_vec(vec![4.0, 5.0, 6.0], vec![1, 3]).unwrap();
-    let c = a.matmul(&b).unwrap();
+    let mut fig = figure();
 
-    println!("first c: {}", c);
+    let ax = fig.add_subplot();
 
-    let ins1 = Instant::now();
-    let a = Array::<f32>::random(vec![2048, 1024]);
-    let b = Array::<f32>::random(vec![1024, 2048]);
+    let mut sizes = vec![];
+    let mut costs = vec![];
 
-    println!("a= {} b= {} elapsed= {:?}", a, b, ins1.elapsed());
+    for i in (250..=2000).step_by(250) {
+        let a = Array::<f32>::random(vec![i, i]);
+        let b = Array::<f32>::random(vec![i, i]);
 
-    let ins2 = Instant::now();
+        let begin = Instant::now();
+        let c = a.matmul(&b).unwrap();
 
-    let c = a.matmul(&b).unwrap();
+        sizes.push(i as f64);
 
-    println!("second c: {:?} elapsed= {:?}", c, ins2.elapsed());
+        let cost_ms = begin.elapsed().as_secs_f64() * 1000.0;
+        costs.push(cost_ms);
+
+        println!("get matmul result: mnk= {i} cost_ms= {cost_ms}");
+    }
+
+    ax.plot(sizes, costs).legend(true);
+    fig.show();
 }

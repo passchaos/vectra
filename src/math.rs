@@ -97,19 +97,19 @@ where
         if self.shape.len() != 1 || other.shape.len() != 1 {
             return Err("Dot product only supported for 1D vectors".to_string());
         }
-        
+
         // Check if vectors have the same length
         if self.shape[0] != other.shape[0] {
             return Err("Vectors must have the same length for dot product".to_string());
         }
-        
+
         let mut result = T::default();
         for i in 0..self.shape[0] {
             let self_val = &self.data[i * self.strides[0]];
             let other_val = &other.data[i * other.strides[0]];
             result = result + (self_val.clone() * other_val.clone());
         }
-        
+
         Ok(result)
     }
 
@@ -431,13 +431,16 @@ where
         let m = self.shape[0];
         let n = self.shape[1];
         let min_dim = m.min(n);
-        
+
         if k == 0 {
             return Err("k must be greater than 0".to_string());
         }
-        
+
         if k > min_dim {
-            return Err(format!("k ({}) cannot be larger than min(m, n) ({})", k, min_dim));
+            return Err(format!(
+                "k ({}) cannot be larger than min(m, n) ({})",
+                k, min_dim
+            ));
         }
 
         // Convert to f64 for computation
@@ -609,14 +612,14 @@ where
         let n = a[0].len();
         let max_iter = 100;
         let tolerance = 1e-10;
-        
+
         let mut u_vectors = Vec::new();
         let mut singular_values = Vec::new();
         let mut v_vectors = Vec::new();
-        
+
         // Create a copy of the matrix for deflation
         let mut a_deflated = a.clone();
-        
+
         for _ in 0..k {
             // Power iteration to find the largest singular value and vectors
             let mut v = vec![1.0; n];
@@ -624,10 +627,10 @@ where
             for x in &mut v {
                 *x /= norm;
             }
-            
+
             let mut prev_sigma = 0.0;
             let mut sigma = 0.0;
-            
+
             for _ in 0..max_iter {
                 // v = A^T * (A * v)
                 let mut av = vec![0.0; m];
@@ -636,25 +639,25 @@ where
                         av[i] += a_deflated[i][j] * v[j];
                     }
                 }
-                
+
                 let mut atav = vec![0.0; n];
                 for j in 0..n {
                     for i in 0..m {
                         atav[j] += a_deflated[i][j] * av[i];
                     }
                 }
-                
+
                 // Normalize
                 norm = (atav.iter().map(|x| x * x).sum::<f64>()).sqrt();
                 if norm < tolerance {
                     break;
                 }
-                
+
                 for x in &mut atav {
                     *x /= norm;
                 }
                 v = atav;
-                
+
                 // Compute singular value: sigma = ||A * v||
                 let mut av = vec![0.0; m];
                 for i in 0..m {
@@ -663,18 +666,18 @@ where
                     }
                 }
                 sigma = (av.iter().map(|x| x * x).sum::<f64>()).sqrt();
-                
+
                 // Check convergence
                 if (sigma - prev_sigma).abs() < tolerance {
                     break;
                 }
                 prev_sigma = sigma;
             }
-            
+
             if sigma < tolerance {
                 break;
             }
-            
+
             // Compute u = A * v / sigma
             let mut u = vec![0.0; m];
             for i in 0..m {
@@ -683,12 +686,12 @@ where
                 }
                 u[i] /= sigma;
             }
-            
+
             // Store the singular triplet
             u_vectors.push(u.clone());
             singular_values.push(sigma);
             v_vectors.push(v.clone());
-            
+
             // Deflate the matrix: A = A - sigma * u * v^T
             for i in 0..m {
                 for j in 0..n {
@@ -696,10 +699,10 @@ where
                 }
             }
         }
-        
+
         // Construct result matrices
         let actual_k = u_vectors.len();
-        
+
         // U matrix (m x k)
         let mut u_data = Vec::new();
         for i in 0..m {
@@ -708,11 +711,11 @@ where
             }
         }
         let u_array = Array::from_vec(u_data, vec![m, actual_k]).unwrap();
-        
+
         // Singular values vector (k,)
         let s_data: Vec<T> = singular_values.into_iter().map(|x| T::from(x)).collect();
         let s_array = Array::from_vec(s_data, vec![actual_k]).unwrap();
-        
+
         // V^T matrix (k x n)
         let mut vt_data = Vec::new();
         for i in 0..actual_k {
@@ -721,7 +724,7 @@ where
             }
         }
         let vt_array = Array::from_vec(vt_data, vec![actual_k, n]).unwrap();
-        
+
         Ok((u_array, s_array, vt_array))
     }
 
@@ -739,5 +742,21 @@ where
         // For now, fall back to Jacobi for simplicity
         // In a full implementation, this would use power iteration or other methods
         self.jacobi_svd(a)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sum() {
+        let arr =
+            Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], vec![2, 3, 2]).unwrap();
+
+        let arr1 = arr.sum_axis(0).unwrap();
+        let arr2 = arr.sum_axis(1).unwrap();
+        let arr3 = arr.sum_axis(2).unwrap();
+        println!("arr= {arr:?} arr1= {arr1:?} arr2= {arr2:?} arr3= {arr3:?}");
     }
 }
