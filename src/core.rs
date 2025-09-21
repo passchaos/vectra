@@ -3,21 +3,29 @@ use std::ops::Add;
 // use std::ops::{Index, IndexMut}; // Currently unused
 use std::slice::Iter;
 
+use num_traits::{One, Zero};
+
 /// Multi-dimensional array structure, similar to numpy's ndarray
-#[derive(Clone, PartialEq)]
+// #[derive(Clone, PartialEq)]
 pub struct Array<T> {
     pub(crate) data: Vec<T>,
     pub(crate) shape: Vec<usize>,
     pub(crate) strides: Vec<usize>,
 }
 
-impl<T> Array<T>
-where
-    T: Clone + Default,
-{
+impl<T: Clone> Clone for Array<T> {
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data.clone(),
+            shape: self.shape.clone(),
+            strides: self.strides.clone(),
+        }
+    }
+}
+
+impl<T> Array<T> {
     /// Create array from data and shape, accepts any type that implements Into<Vec<T>>
-    pub fn from_vec<V: Into<Vec<T>>>(data: V, shape: Vec<usize>) -> Result<Self, String> {
-        let data = data.into();
+    pub fn from_vec(data: Vec<T>, shape: Vec<usize>) -> Result<Self, String> {
         let expected_size: usize = shape.iter().product();
         if data.len() != expected_size {
             return Err(format!(
@@ -36,11 +44,14 @@ where
     }
 
     /// Create zero array
-    pub fn zeros(shape: Vec<usize>) -> Self {
+    pub fn zeros(shape: Vec<usize>) -> Self
+    where
+        T: Clone + Zero,
+    {
         let size = shape.iter().product();
         let strides = Self::compute_strides(&shape);
         Self {
-            data: vec![T::default(); size],
+            data: vec![T::zero(); size],
             shape,
             strides,
         }
@@ -72,12 +83,12 @@ where
     /// Create ones array
     pub fn ones(shape: Vec<usize>) -> Self
     where
-        T: From<u8>,
+        T: Clone + One,
     {
         let size = shape.iter().product();
         let strides = Self::compute_strides(&shape);
         Self {
-            data: vec![T::from(1u8); size],
+            data: vec![T::one(); size],
             shape,
             strides,
         }
@@ -86,11 +97,11 @@ where
     /// Create identity matrix
     pub fn eye(n: usize) -> Self
     where
-        T: From<u8>,
+        T: Clone + Zero + One,
     {
         let mut arr = Self::zeros(vec![n, n]);
         for i in 0..n {
-            arr[[i, i]] = T::from(1u8);
+            arr[[i, i]] = T::one();
         }
         arr
     }
@@ -112,22 +123,12 @@ where
 
     /// Transpose array (2D only)
     pub fn transpose(self) -> Result<Self, String> {
-        if self.shape.len() != 2 {
-            return Err("Transpose only supported for 2D arrays".to_string());
-        }
-        let new_shape = vec![self.shape[1], self.shape[0]];
-        let new_strides = vec![self.strides[1], self.strides[0]];
-
-        Ok(Self {
-            data: self.data,
-            shape: new_shape.clone(),
-            strides: new_strides,
-        })
+        self.permute(vec![1, 0])
     }
 
     /// Permute the dimensions of the array according to the given axes
     /// Similar to PyTorch's permute function
-    pub fn permute(&self, axes: Vec<usize>) -> Result<Self, String> {
+    pub fn permute(self, axes: Vec<usize>) -> Result<Self, String> {
         // Validate axes
         if axes.len() != self.shape.len() {
             return Err(format!(
@@ -146,37 +147,11 @@ where
             }
         }
 
-        // Create new shape by permuting dimensions
-        let new_shape: Vec<usize> = axes.iter().map(|&i| self.shape[i]).collect();
-        let new_strides = Self::compute_strides(&new_shape);
-
-        // Create new data array
-        let mut new_data = vec![T::default(); self.data.len()];
-
-        // Generate all possible indices for the new array
-        let total_elements = self.data.len();
-        for flat_idx in 0..total_elements {
-            // Convert flat index to multi-dimensional indices in new array
-            let mut new_indices = vec![0; new_shape.len()];
-            let mut remaining = flat_idx;
-            for i in 0..new_shape.len() {
-                new_indices[i] = remaining / new_strides[i];
-                remaining %= new_strides[i];
-            }
-
-            // Map new indices back to original indices using inverse permutation
-            let mut orig_indices = vec![0; self.shape.len()];
-            for (new_dim, &orig_dim) in axes.iter().enumerate() {
-                orig_indices[orig_dim] = new_indices[new_dim];
-            }
-
-            // Calculate flat index in original array
-            let orig_flat_idx = self.index_to_flat(&orig_indices)?;
-            new_data[flat_idx] = self.data[orig_flat_idx].clone();
-        }
+        let new_shape = axes.iter().map(|&i| self.shape()[i]).collect();
+        let new_strides = axes.iter().map(|&i| self.strides[i]).collect();
 
         Ok(Self {
-            data: new_data,
+            data: self.data,
             shape: new_shape,
             strides: new_strides,
         })

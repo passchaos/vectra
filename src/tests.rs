@@ -232,13 +232,8 @@ mod tests {
         assert_eq!(arr1.shape(), &[2, 2]);
 
         // Test from_vec with array
-        let arr2 = Array::from_vec([1, 2, 3, 4], vec![2, 2]).unwrap();
+        let arr2 = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
         assert_eq!(arr2.shape(), &[2, 2]);
-
-        // Test from_vec with slice
-        let slice_data: &[i32] = &[1, 2, 3, 4];
-        let arr3 = Array::from_vec(slice_data, vec![2, 2]).unwrap();
-        assert_eq!(arr3.shape(), &[2, 2]);
     }
 
     #[test]
