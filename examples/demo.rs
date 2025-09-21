@@ -102,7 +102,7 @@ fn main() {
     println!("max value: {max_r}");
 
     // Generate random integers in specified range
-    let randint_arr = Array::<i32>::randint(vec![2, 3], 1, 10);
+    let randint_arr = Array::<i32>::uniform(vec![2, 3], 1, 10);
     println!("\nRandom integer array (1-9):\n{}", randint_arr);
 
     // Generate normal distribution random numbers

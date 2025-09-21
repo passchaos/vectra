@@ -10,8 +10,8 @@ fn main() {
     println!("first c: {}", c);
 
     let ins1 = Instant::now();
-    let a = Array::random(vec![2048, 1024]);
-    let b = Array::random(vec![1024, 2048]);
+    let a = Array::<f32>::random(vec![2048, 1024]);
+    let b = Array::<f32>::random(vec![1024, 2048]);
 
     println!("a= {} b= {} elapsed= {:?}", a, b, ins1.elapsed());
 
