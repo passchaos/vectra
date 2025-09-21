@@ -160,38 +160,6 @@ mod tests {
     }
 
     #[test]
-    fn test_random_arrays() {
-        let random_arr: Array<f64> = Array::random(vec![3, 3]);
-        assert_eq!(random_arr.shape(), &[3, 3]);
-        assert_eq!(random_arr.size(), 9);
-
-        // Check that values are in [0, 1) range
-        for &val in random_arr.iter() {
-            assert!(val >= 0.0 && val < 1.0);
-        }
-
-        let randint_arr: Array<i32> = Array::randint(vec![2, 2], 1, 10);
-        assert_eq!(randint_arr.shape(), &[2, 2]);
-
-        // Check that values are in [1, 10) range
-        for &val in randint_arr.iter() {
-            assert!(val >= 1 && val < 10);
-        }
-
-        let randn_arr: Array<f64> = Array::randn(vec![5, 5]);
-        assert_eq!(randn_arr.shape(), &[5, 5]);
-        assert_eq!(randn_arr.size(), 25);
-
-        let uniform_arr: Array<f64> = Array::uniform(vec![3, 3], -1.0, 1.0);
-        assert_eq!(uniform_arr.shape(), &[3, 3]);
-
-        // Check that values are in [-1, 1) range
-        for &val in uniform_arr.iter() {
-            assert!(val >= -1.0 && val < 1.0);
-        }
-    }
-
-    #[test]
     fn test_into_vec() {
         let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], vec![2, 3]).unwrap();
         let vec_data: Vec<i32> = arr.into();

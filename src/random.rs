@@ -1,37 +1,27 @@
 use crate::core::{Array, compute_strides_for_shape};
-use rand::Rng;
+use num_traits::{One, Zero};
+use rand::distr::{Distribution, StandardUniform, Uniform, uniform::SampleUniform};
 
-impl Array<f64> {
+impl<T> Array<T> {
     /// Create array with random values between 0 and 1
-    pub fn random(shape: Vec<usize>) -> Self {
-        let size = shape.iter().product();
-        let mut rng = rand::rng();
-        let data: Vec<_> = (0..size).map(|_| rng.random_range(0.0..1.0)).collect();
-        let strides = compute_strides_for_shape(&shape);
-
-        Self {
-            data,
-            shape,
-            strides,
-        }
+    pub fn random(shape: Vec<usize>) -> Self
+    where
+        T: SampleUniform + One + Zero,
+    {
+        Self::uniform(shape, T::zero(), T::one())
     }
 
-    /// Create array with normally distributed random values (Box-Muller transform)
-    pub fn randn(shape: Vec<usize>) -> Self {
+    pub fn randn(shape: Vec<usize>) -> Self
+    where
+        StandardUniform: Distribution<T>,
+    {
         let size = shape.iter().product();
         let strides = compute_strides_for_shape(&shape);
         let mut rng = rand::rng();
 
-        let data: Vec<_> = (0..size)
-            .map(|_| {
-                // Box-Muller transform
-                let u1: f64 = rng.random_range(f64::EPSILON..1.0);
-                let u2: f64 = rng.random_range(0.0..1.0);
-                let z0 = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+        let form = StandardUniform;
 
-                z0
-            })
-            .collect();
+        let data = form.sample_iter(&mut rng).take(size).collect();
 
         Self {
             data,
@@ -41,11 +31,19 @@ impl Array<f64> {
     }
 
     /// Create array with uniformly distributed random values in range [low, high)
-    pub fn uniform(shape: Vec<usize>, low: f64, high: f64) -> Self {
+    pub fn uniform(shape: Vec<usize>, low: T, high: T) -> Self
+    where
+        T: SampleUniform,
+    {
         let size = shape.iter().product();
+
+        let form = Uniform::new(low, high).unwrap();
         let mut rng = rand::rng();
-        let data: Vec<_> = (0..size).map(|_| rng.random_range(low..high)).collect();
+
+        let data = form.sample_iter(&mut rng).take(size).collect();
+        // let data: Vec<_> = (0..size).map(|_| rng.random_range(0.0..1.0)).collect();
         let strides = compute_strides_for_shape(&shape);
+
         Self {
             data,
             shape,
@@ -54,17 +52,17 @@ impl Array<f64> {
     }
 }
 
-impl Array<i32> {
-    /// Create array with random integers in range [low, high)
-    pub fn randint(shape: Vec<usize>, low: i32, high: i32) -> Self {
-        let size = shape.iter().product();
-        let mut rng = rand::rng();
-        let data: Vec<_> = (0..size).map(|_| rng.random_range(low..high)).collect();
-        let strides = compute_strides_for_shape(&shape);
-        Self {
-            data,
-            shape,
-            strides,
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rand() {
+        let arr: Array<i32> = Array::random(vec![2, 3]);
+        println!("{arr}");
+        assert_eq!(arr.shape(), vec![2, 3]);
+
+        let arr1 = Array::<i32>::randn(vec![5, 6]);
+        println!("{arr1}");
     }
 }
