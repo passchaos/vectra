@@ -1,5 +1,17 @@
 use crate::core::{Array, compute_strides_for_shape};
-use std::ops::{Add, Div, Mul}; // Sub currently unused
+use std::ops::{Add, AddAssign, Div, Mul}; // Sub currently unused
+
+#[derive(Clone, Copy, Debug)]
+pub enum MatmulPolicy {
+    Naive,
+    LoopReorder,
+}
+
+impl Default for MatmulPolicy {
+    fn default() -> Self {
+        Self::Naive
+    }
+}
 
 impl<T> Array<T>
 where
@@ -59,9 +71,9 @@ where
     }
 
     /// Matrix multiplication
-    pub fn matmul(&self, other: &Array<T>) -> Result<Array<T>, String>
+    pub fn matmul(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
     where
-        T: Add<Output = T> + Mul<Output = T> + Default,
+        T: Add<Output = T> + AddAssign + Mul<Output = T> + Default,
     {
         if self.shape.len() != 2 || other.shape.len() != 2 {
             return Err("Matrix multiplication only supported for 2D arrays".to_string());
@@ -74,14 +86,25 @@ where
         let mut result_data = vec![T::default(); result_shape.iter().product()];
 
         for i in 0..self.shape[0] {
-            for j in 0..other.shape[1] {
-                let mut sum = T::default();
-                for k in 0..self.shape[1] {
-                    sum = sum
-                        + self.data[i * self.shape[1] + k].clone()
-                            * other.data[k * other.shape[1] + j].clone();
+            match policy {
+                MatmulPolicy::Naive => {
+                    for j in 0..other.shape[1] {
+                        for k in 0..self.shape[1] {
+                            result_data[i * other.shape[1] + j] += self.data[i * self.shape[1] + k]
+                                .clone()
+                                * other.data[k * other.shape[1] + j].clone();
+                        }
+                    }
                 }
-                result_data[i * other.shape[1] + j] = sum;
+                MatmulPolicy::LoopReorder => {
+                    for k in 0..self.shape[1] {
+                        for j in 0..other.shape[1] {
+                            result_data[i * other.shape[1] + j] += self.data[i * self.shape[1] + k]
+                                .clone()
+                                * other.data[k * other.shape[1] + j].clone();
+                        }
+                    }
+                }
             }
         }
 

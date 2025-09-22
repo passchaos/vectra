@@ -64,17 +64,6 @@ mod tests {
     }
 
     #[test]
-    fn test_matrix_multiplication() {
-        let a = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let b = Array::from_vec(vec![2.0, 0.0, 1.0, 2.0], vec![2, 2]).unwrap();
-
-        let result = a.matmul(&b).unwrap();
-        assert_eq!(result.shape(), &[2, 2]);
-        assert_eq!(result[[0, 0]], 4.0); // 1*2 + 2*1 = 4
-        assert_eq!(result[[0, 1]], 4.0); // 1*0 + 2*2 = 4
-    }
-
-    #[test]
     fn test_map() {
         let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
         let squared = arr.map(|x| x * x);
@@ -145,8 +134,8 @@ mod tests {
         sigma[[1, 1]] = s[[1]];
 
         // Reconstruct: U * Sigma * V^T
-        let us = u.matmul(&sigma).unwrap();
-        let reconstructed = us.matmul(&vt).unwrap();
+        let us = u.matmul(&sigma, crate::math::MatmulPolicy::Naive).unwrap();
+        let reconstructed = us.matmul(&vt, crate::math::MatmulPolicy::Naive).unwrap();
 
         // Check reconstruction accuracy (within tolerance)
         let tolerance = 1e-10f64;

@@ -16,4 +16,5 @@ mod tests;
 
 pub mod prelude {
     pub use crate::core::Array;
+    pub use crate::math::MatmulPolicy;
 }
