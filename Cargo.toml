@@ -10,7 +10,8 @@ categories = ["mathematics", "science"]
 repository = "https://github.com/passchaos/vectra"
 
 [dependencies]
-rand = "0.9"
+rand = "0.9.2"
+rand_distr = "0.5.1"
 num-traits = "0.2.19"
 
 [dev-dependencies]

@@ -26,6 +26,6 @@ fn main() {
         println!("get matmul result: mnk= {i} cost_ms= {cost_ms}");
     }
 
-    ax.plot(sizes, costs).legend(true);
+    ax.add_plot(Plot::line(sizes, costs)).legend(true);
     fig.show();
 }

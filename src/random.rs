@@ -1,6 +1,7 @@
 use crate::core::{Array, compute_strides_for_shape};
 use num_traits::{One, Zero};
-use rand::distr::{Distribution, StandardUniform, Uniform, uniform::SampleUniform};
+use rand::distr::{Distribution, Uniform, uniform::SampleUniform};
+use rand_distr::StandardNormal;
 
 impl<T> Array<T> {
     /// Create array with random values between 0 and 1
@@ -13,13 +14,13 @@ impl<T> Array<T> {
 
     pub fn randn(shape: Vec<usize>) -> Self
     where
-        StandardUniform: Distribution<T>,
+        StandardNormal: Distribution<T>,
     {
         let size = shape.iter().product();
         let strides = compute_strides_for_shape(&shape);
         let mut rng = rand::rng();
 
-        let form = StandardUniform;
+        let form = StandardNormal;
 
         let data = form.sample_iter(&mut rng).take(size).collect();
 
@@ -62,7 +63,7 @@ mod tests {
         println!("{arr}");
         assert_eq!(arr.shape(), vec![2, 3]);
 
-        let arr1 = Array::<i32>::randn(vec![5, 6]);
+        let arr1 = Array::<f32>::randn(vec![5, 6]);
         println!("{arr1}");
     }
 }
