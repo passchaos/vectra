@@ -8,13 +8,23 @@ fn main() {
 
     let ax = fig.add_subplot();
 
-    for policy in [MatmulPolicy::Naive, MatmulPolicy::LoopReorder] {
+    for policy in [
+        MatmulPolicy::LoopReorder,
+        MatmulPolicy::Blocking(64),
+        MatmulPolicy::Blocking(96),
+        MatmulPolicy::Blocking(128),
+        MatmulPolicy::Blocking(256),
+        MatmulPolicy::Blocking(512),
+    ] {
         let mut sizes = vec![];
         let mut costs = vec![];
 
-        for i in (250..=2000).step_by(250) {
+        for i in (250..=3000).step_by(250) {
             let a = Array::<f32>::random(vec![i, i]);
             let b = Array::<f32>::random(vec![i, i]);
+
+            // warmup
+            let _c = a.matmul(&b, policy).unwrap();
 
             let begin = Instant::now();
             let _c = a.matmul(&b, policy).unwrap();

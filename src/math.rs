@@ -5,6 +5,7 @@ use std::ops::{Add, AddAssign, Div, Mul}; // Sub currently unused
 pub enum MatmulPolicy {
     Naive,
     LoopReorder,
+    Blocking(usize),
 }
 
 impl Default for MatmulPolicy {
@@ -85,23 +86,55 @@ where
         let result_shape = vec![self.shape[0], other.shape[1]];
         let mut result_data = vec![T::default(); result_shape.iter().product()];
 
-        for i in 0..self.shape[0] {
-            match policy {
-                MatmulPolicy::Naive => {
-                    for j in 0..other.shape[1] {
-                        for k in 0..self.shape[1] {
-                            result_data[i * other.shape[1] + j] += self.data[i * self.shape[1] + k]
-                                .clone()
-                                * other.data[k * other.shape[1] + j].clone();
+        let m = self.shape[0];
+        let k = self.shape[1];
+        let n = other.shape[1];
+
+        match policy {
+            MatmulPolicy::Naive => {
+                for i in 0..m {
+                    for j in 0..n {
+                        for l in 0..k {
+                            result_data[i * n + j] +=
+                                self.data[i * k + l].clone() * other.data[l * n + j].clone();
                         }
                     }
                 }
-                MatmulPolicy::LoopReorder => {
-                    for k in 0..self.shape[1] {
-                        for j in 0..other.shape[1] {
-                            result_data[i * other.shape[1] + j] += self.data[i * self.shape[1] + k]
-                                .clone()
-                                * other.data[k * other.shape[1] + j].clone();
+            }
+            MatmulPolicy::LoopReorder => {
+                for i in 0..m {
+                    for l in 0..k {
+                        // 这里实测，直接使用get_unchecked只能减少1%的耗时
+                        // let a_v = unsafe { self.data.get_unchecked(i * k + l) };
+                        let a_v = &self.data[i * k + l];
+                        for j in 0..n {
+                            // let data = unsafe { result_data.get_unchecked_mut(i * n + j) };
+                            // *data += a_v.clone()
+                            //     * unsafe { other.data.get_unchecked(l * n + j) }.clone();
+                            result_data[i * n + j] += a_v.clone() * other.data[l * n + j].clone();
+                        }
+                    }
+                }
+            }
+            MatmulPolicy::Blocking(block_size) => {
+                for i in (0..m).step_by(block_size) {
+                    let i_end = (i + block_size).min(m);
+
+                    for l in (0..k).step_by(block_size) {
+                        let l_end = (l + block_size).min(k);
+
+                        for j in (0..n).step_by(block_size) {
+                            let j_end = (j + block_size).min(n);
+
+                            for ii in i..i_end {
+                                for ll in l..l_end {
+                                    let a_v = &self.data[ii * k + ll];
+                                    for jj in j..j_end {
+                                        result_data[ii * n + jj] +=
+                                            a_v.clone() * other.data[ll * n + jj].clone();
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -790,10 +823,12 @@ mod tests {
         let a = Array::<f64>::randn(vec![220, 230]);
         let b = Array::<f64>::randn(vec![230, 250]);
 
-        let c1 = a.matmul(&b, MatmulPolicy::Naive).unwrap();
-        let c2 = a.matmul(&b, MatmulPolicy::LoopReorder).unwrap();
+        let base = a.matmul(&b, MatmulPolicy::Naive).unwrap();
 
-        assert_relative_eq!(c1, c2);
-        assert_eq!(c1, c2);
+        for policy in [MatmulPolicy::LoopReorder, MatmulPolicy::Blocking(512)] {
+            let result = a.matmul(&b, policy).unwrap();
+            assert_relative_eq!(base, result);
+            assert_eq!(base, result);
+        }
     }
 }
