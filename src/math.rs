@@ -770,6 +770,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use approx::assert_relative_eq;
+
     use super::*;
 
     #[test]
@@ -781,5 +783,17 @@ mod tests {
         let arr2 = arr.sum_axis(1).unwrap();
         let arr3 = arr.sum_axis(2).unwrap();
         println!("arr= {arr:?} arr1= {arr1:?} arr2= {arr2:?} arr3= {arr3:?}");
+    }
+
+    #[test]
+    fn test_matmul() {
+        let a = Array::<f64>::randn(vec![220, 230]);
+        let b = Array::<f64>::randn(vec![230, 250]);
+
+        let c1 = a.matmul(&b, MatmulPolicy::Naive).unwrap();
+        let c2 = a.matmul(&b, MatmulPolicy::LoopReorder).unwrap();
+
+        assert_relative_eq!(c1, c2);
+        assert_eq!(c1, c2);
     }
 }

@@ -3,14 +3,54 @@ use std::ops::Add;
 // use std::ops::{Index, IndexMut}; // Currently unused
 use std::slice::Iter;
 
+use approx::{AbsDiffEq, RelativeEq};
 use num_traits::{One, Zero};
 
 /// Multi-dimensional array structure, similar to numpy's ndarray
-// #[derive(Clone, PartialEq)]
+#[derive(PartialEq)]
 pub struct Array<T> {
     pub(crate) data: Vec<T>,
     pub(crate) shape: Vec<usize>,
     pub(crate) strides: Vec<usize>,
+}
+
+impl<T: AbsDiffEq> AbsDiffEq for Array<T>
+where
+    T::Epsilon: Copy,
+{
+    type Epsilon = T::Epsilon;
+
+    fn default_epsilon() -> Self::Epsilon {
+        T::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        self.data
+            .iter()
+            .zip(other.data.iter())
+            .all(|(a, b)| a.abs_diff_eq(b, epsilon))
+    }
+}
+
+impl<T: RelativeEq> RelativeEq for Array<T>
+where
+    T::Epsilon: Copy,
+{
+    fn default_max_relative() -> Self::Epsilon {
+        T::default_max_relative()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        self.data
+            .iter()
+            .zip(other.data.iter())
+            .all(|(a, b)| a.relative_eq(b, epsilon, max_relative))
+    }
 }
 
 impl<T: Clone> Clone for Array<T> {
