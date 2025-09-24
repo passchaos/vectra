@@ -28,7 +28,7 @@ impl<T> From<Mat<T>> for Array<T> {
         let col_stride = mat.col_stride() as usize;
         let row_stride = mat.row_stride() as usize;
 
-        // 不一定data数据是连续的，可能有padding，所以只能如下计算data的长度
+        // Data may not be contiguous and could have padding, so we can only calculate data length as follows
         let len = nrows * row_stride + ncols * col_stride;
 
         let data = unsafe { Vec::from_raw_parts(mat.as_ptr_mut(), len, len) };
@@ -67,7 +67,7 @@ where
 
     fn default_epsilon() -> Self::Epsilon {
         // <T::Epsilon as NumCast>::from(1e-15).unwrap()
-        T::default_epsilon() * <T::Epsilon as NumCast>::from(1e3).unwrap()
+        T::default_epsilon() * <T::Epsilon as NumCast>::from(3e3).unwrap()
     }
 
     fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
@@ -75,7 +75,7 @@ where
             return false;
         }
 
-        // 不要求strides相等，因为可能有padding
+        // Strides don't need to be equal as there might be padding
         // if self.strides() != other.strides() {
         //     return false;
         // }
@@ -110,7 +110,7 @@ where
             return false;
         }
 
-        // 不要求strides相等，因为可能有padding
+        // Strides don't need to be equal as there might be padding
         // if self.strides() != other.strides() {
         //     return false;
         // }

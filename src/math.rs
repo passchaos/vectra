@@ -173,7 +173,7 @@ where
             MatmulPolicy::LoopReorder => {
                 for i in 0..m {
                     for l in 0..k {
-                        // 这里实测，直接使用get_unchecked只能减少1%的耗时
+                        // In practice, using get_unchecked directly only reduces runtime by 1%
                         // let a_v = unsafe { self.data.get_unchecked(i * k + l) };
                         let a_v = &self.data[i * k + l];
                         for j in 0..n {
@@ -215,8 +215,8 @@ where
     }
 
     /// Matrix multiplication
-    /// 在macos平台上，faer耗时是accelerate的2.35倍，但是比openblas少21%
-    /// 在linux平台上，faer耗时比openblas多5%
+    /// On macOS platform, faer takes 2.35x longer than accelerate (after enabling faer's amx support, optimized to 23% more than accelerate), but 21% less than openblas
+    /// On Linux platform, faer takes 5% more time than openblas
     pub fn matmul(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
     where
         T: Add<Output = T> + AddAssign + Mul<Output = T> + Default + ComplexField + 'static,

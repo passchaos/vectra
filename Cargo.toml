@@ -14,13 +14,14 @@ rand = "0.9.2"
 rand_distr = "0.5.1"
 num-traits = "0.2.19"
 approx = "0.5.1"
-faer = "0.23"
+# faer = "0.23"
+faer = { git = "https://github.com/passchaos/faer-rs"}
 itertools = "0.14.0"
 blas-src = { version = "*", optional = true }
 blas-sys = { version = "*", optional = true }
 
 [dev-dependencies]
-plotiron = { path = "../plotiron" }
+plotiron = { git = "https://github.com/passchaos/plotiron" }
 
 [features]
 default = ["blas"]
