@@ -100,66 +100,6 @@ where
         let n = other.shape[1];
 
         match policy {
-            #[cfg(feature = "blas")]
-            MatmulPolicy::Blas => {
-                use std::ffi::c_char;
-
-                let type_id = TypeId::of::<T>();
-
-                let m = m as i32;
-                let n = n as i32;
-                let k = k as i32;
-
-                let a = self.data.as_ptr();
-                let b = other.data.as_ptr();
-                let c = result_data.as_mut_ptr();
-
-                if type_id == TypeId::of::<f32>() {
-                    let alpha = 1.0;
-                    let beta = 0.0;
-
-                    unsafe {
-                        blas_sys::sgemm_(
-                            &(b'N' as c_char),
-                            &(b'N' as c_char),
-                            &n,
-                            &m,
-                            &k,
-                            &alpha,
-                            b.cast(),
-                            &n,
-                            a.cast(),
-                            &k,
-                            &beta,
-                            c.cast(),
-                            &n,
-                        );
-                    }
-                } else if type_id == TypeId::of::<f64>() {
-                    let alpha = 1.0;
-                    let beta = 0.0;
-
-                    unsafe {
-                        blas_sys::dgemm_(
-                            &(b'N' as c_char),
-                            &(b'N' as c_char),
-                            &n,
-                            &m,
-                            &k,
-                            &alpha,
-                            b.cast(),
-                            &n,
-                            a.cast(),
-                            &k,
-                            &beta,
-                            c.cast(),
-                            &n,
-                        );
-                    }
-                } else {
-                    return Err("Unsupported type for BLAS matrix multiplication".to_string());
-                }
-            }
             MatmulPolicy::Naive => {
                 for i in 0..m {
                     for j in 0..n {
@@ -235,6 +175,72 @@ where
 
                 Ok((l * r).into())
             }
+            #[cfg(feature = "blas")]
+            MatmulPolicy::Blas => {
+                use std::ffi::c_char;
+
+                let type_id = TypeId::of::<T>();
+
+                let result_shape = vec![self.shape[0], other.shape[1]];
+                let mut result_data = vec![T::default(); result_shape.iter().product()];
+
+                let m = self.shape[0] as i32;
+                let k = self.shape[1] as i32;
+                let n = other.shape[1] as i32;
+
+                let a = self.data.as_ptr();
+                let b = other.data.as_ptr();
+                let c = result_data.as_mut_ptr();
+
+                if type_id == TypeId::of::<f32>() {
+                    let alpha = 1.0;
+                    let beta = 0.0;
+
+                    unsafe {
+                        blas_sys::sgemm_(
+                            &(b'N' as c_char),
+                            &(b'N' as c_char),
+                            &n,
+                            &m,
+                            &k,
+                            &alpha,
+                            b.cast(),
+                            &n,
+                            a.cast(),
+                            &k,
+                            &beta,
+                            c.cast(),
+                            &n,
+                        );
+                    }
+                } else if type_id == TypeId::of::<f64>() {
+                    let alpha = 1.0;
+                    let beta = 0.0;
+
+                    unsafe {
+                        blas_sys::dgemm_(
+                            &(b'N' as c_char),
+                            &(b'N' as c_char),
+                            &n,
+                            &m,
+                            &k,
+                            &alpha,
+                            b.cast(),
+                            &n,
+                            a.cast(),
+                            &k,
+                            &beta,
+                            c.cast(),
+                            &n,
+                        );
+                    }
+                } else {
+                    return Err("Unsupported type for BLAS matrix multiplication".to_string());
+                }
+
+                Array::from_vec(result_data, result_shape)
+            }
+
             p => self.matmul_general(other, p),
         }
     }
@@ -962,6 +968,7 @@ mod tests {
             MatmulPolicy::LoopReorder,
             MatmulPolicy::Blocking(512),
         ] {
+            println!("begin matmul check: {policy:?}");
             for ((l, r), res) in inputs_64.iter().zip(results_64.iter()) {
                 let new_res = l.matmul(r, policy).unwrap();
                 assert_relative_eq!(*res, new_res);
