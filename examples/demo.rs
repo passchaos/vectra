@@ -42,7 +42,7 @@ fn main() {
     let product = a.clone() * b.clone();
     println!("\nA * B (element-wise multiplication):\n{}", product);
 
-    let dot_product = a.matmul(&b, MatmulPolicy::default()).unwrap();
+    let dot_product = a.matmul_general(&b, MatmulPolicy::default()).unwrap();
     println!("\nA · B (matrix multiplication):\n{}", dot_product);
 
     // 5. Scalar operations

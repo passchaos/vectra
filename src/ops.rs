@@ -1,11 +1,10 @@
+use itertools::Itertools;
+
 use crate::core::{Array, compute_strides_for_shape};
 use std::ops::{Add, Div, Index, IndexMut, Mul, Sub};
 
 // Indexing implementations
-impl<T> Index<&[usize]> for Array<T>
-where
-    T: Clone,
-{
+impl<T> Index<&[usize]> for Array<T> {
     type Output = T;
 
     fn index(&self, indices: &[usize]) -> &Self::Output {
@@ -14,72 +13,23 @@ where
     }
 }
 
-impl<T> IndexMut<&[usize]> for Array<T>
-where
-    T: Clone,
-{
+impl<T> IndexMut<&[usize]> for Array<T> {
     fn index_mut(&mut self, indices: &[usize]) -> &mut Self::Output {
         let flat_index = self.index_to_flat(indices).expect("Invalid index");
         &mut self.data[flat_index]
     }
 }
 
-impl<T> Index<[usize; 1]> for Array<T>
-where
-    T: Clone,
-{
+impl<T, const N: usize> Index<[usize; N]> for Array<T> {
     type Output = T;
 
-    fn index(&self, indices: [usize; 1]) -> &Self::Output {
+    fn index(&self, indices: [usize; N]) -> &Self::Output {
         &self[&indices[..]]
     }
 }
 
-impl<T> IndexMut<[usize; 1]> for Array<T>
-where
-    T: Clone,
-{
-    fn index_mut(&mut self, indices: [usize; 1]) -> &mut Self::Output {
-        &mut self[&indices[..]]
-    }
-}
-
-impl<T> Index<[usize; 2]> for Array<T>
-where
-    T: Clone,
-{
-    type Output = T;
-
-    fn index(&self, indices: [usize; 2]) -> &Self::Output {
-        &self[&indices[..]]
-    }
-}
-
-impl<T> IndexMut<[usize; 2]> for Array<T>
-where
-    T: Clone,
-{
-    fn index_mut(&mut self, indices: [usize; 2]) -> &mut Self::Output {
-        &mut self[&indices[..]]
-    }
-}
-
-impl<T> Index<[usize; 3]> for Array<T>
-where
-    T: Clone,
-{
-    type Output = T;
-
-    fn index(&self, indices: [usize; 3]) -> &Self::Output {
-        &self[&indices[..]]
-    }
-}
-
-impl<T> IndexMut<[usize; 3]> for Array<T>
-where
-    T: Clone,
-{
-    fn index_mut(&mut self, indices: [usize; 3]) -> &mut Self::Output {
+impl<T, const N: usize> IndexMut<[usize; N]> for Array<T> {
+    fn index_mut(&mut self, indices: [usize; N]) -> &mut Self::Output {
         &mut self[&indices[..]]
     }
 }
@@ -280,5 +230,16 @@ where
             shape: self.shape.clone(),
             strides: self.strides.clone(),
         }
+    }
+}
+
+impl<T> Array<T> {
+    pub fn multi_iter(&self) -> impl Iterator<Item = (Vec<usize>, &T)> {
+        self.shape()
+            .iter()
+            .map(|&n| 0..n)
+            .multi_cartesian_product()
+            // .map(|idx| (idx.clone(), Index::index(self, idx.as_slice())))
+            .map(|idx| (idx.clone(), self.index(&idx[..])))
     }
 }

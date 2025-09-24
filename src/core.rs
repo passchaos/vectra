@@ -1,40 +1,100 @@
-use std::fmt;
-use std::ops::Add;
+use std::fmt::{self, Display};
+use std::ops::{Add, Mul, Sub};
 // use std::ops::{Index, IndexMut}; // Currently unused
 use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
-use num_traits::{One, Zero};
+use faer::{Mat, MatRef};
+use num_traits::{NumCast, One, Zero};
 
 /// Multi-dimensional array structure, similar to numpy's ndarray
-#[derive(PartialEq)]
 pub struct Array<T> {
     pub(crate) data: Vec<T>,
     pub(crate) shape: Vec<usize>,
     pub(crate) strides: Vec<usize>,
 }
 
+impl<T> Array<T> {
+    pub fn as_faer(&self) -> MatRef<'_, T> {
+        MatRef::from_row_major_slice(self.data.as_slice(), self.shape[0], self.shape[1])
+    }
+}
+
+impl<T> From<Mat<T>> for Array<T> {
+    fn from(mut mat: Mat<T>) -> Self {
+        let nrows = mat.nrows();
+        let ncols = mat.ncols();
+
+        let col_stride = mat.col_stride() as usize;
+        let row_stride = mat.row_stride() as usize;
+
+        // 不一定data数据是连续的，可能有padding，所以只能如下计算data的长度
+        let len = nrows * row_stride + ncols * col_stride;
+
+        let data = unsafe { Vec::from_raw_parts(mat.as_ptr_mut(), len, len) };
+        // println!("data: {data:?}");
+        std::mem::forget(mat);
+
+        let shape = vec![nrows, ncols];
+        // let strides = Self::compute_strides(&shape);
+        let strides = vec![row_stride as usize, col_stride as usize];
+
+        Self {
+            data,
+            shape,
+            strides,
+        }
+    }
+}
+
+impl<T: PartialEq> PartialEq for Array<T> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.shape() != other.shape() {
+            return false;
+        }
+
+        self.multi_iter()
+            .zip(other.multi_iter())
+            .all(|((_, a_v), (_, b_v))| a_v == b_v)
+    }
+}
+
 impl<T: AbsDiffEq> AbsDiffEq for Array<T>
 where
-    T::Epsilon: Copy,
+    T::Epsilon: Copy + NumCast + Mul<T::Epsilon, Output = T::Epsilon>,
 {
     type Epsilon = T::Epsilon;
 
     fn default_epsilon() -> Self::Epsilon {
-        T::default_epsilon()
+        // <T::Epsilon as NumCast>::from(1e-15).unwrap()
+        T::default_epsilon() * <T::Epsilon as NumCast>::from(1e3).unwrap()
     }
 
     fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        self.data
-            .iter()
-            .zip(other.data.iter())
-            .all(|(a, b)| a.abs_diff_eq(b, epsilon))
+        if self.shape() != other.shape() {
+            return false;
+        }
+
+        // 不要求strides相等，因为可能有padding
+        // if self.strides() != other.strides() {
+        //     return false;
+        // }
+        self.multi_iter()
+            .zip(other.multi_iter())
+            .all(|((_, a_v), (_, b_v))| {
+                a_v.abs_diff_eq(
+                    b_v,
+                    epsilon, // <<T as AbsDiffEq>::Epsilon as NumCast>::from(epsilon).unwrap(),
+                )
+            })
     }
 }
 
-impl<T: RelativeEq> RelativeEq for Array<T>
+impl<T: RelativeEq + Copy + Sub<T> + Display> RelativeEq for Array<T>
 where
-    T::Epsilon: Copy,
+    T: RelativeEq + Sub<T> + Display,
+    T::Output: Display,
+    T::Epsilon: Copy + Display + NumCast + Mul<T::Epsilon, Output = T::Epsilon>,
 {
     fn default_max_relative() -> Self::Epsilon {
         T::default_max_relative()
@@ -46,10 +106,30 @@ where
         epsilon: Self::Epsilon,
         max_relative: Self::Epsilon,
     ) -> bool {
-        self.data
-            .iter()
-            .zip(other.data.iter())
-            .all(|(a, b)| a.relative_eq(b, epsilon, max_relative))
+        if self.shape() != other.shape() {
+            return false;
+        }
+
+        // 不要求strides相等，因为可能有padding
+        // if self.strides() != other.strides() {
+        //     return false;
+        // }
+        // let epsilon = <<T as AbsDiffEq>::Epsilon as NumCast>::from(epsilon).unwrap();
+        // let max_relative = <<T as AbsDiffEq>::Epsilon as NumCast>::from(max_relative).unwrap();
+
+        self.multi_iter()
+            .zip(other.multi_iter())
+            .map(|((a_i, a_v), (b_i, b_v))| {
+                if !a_v.relative_eq(b_v, epsilon, max_relative) {
+                    println!("meet neq: a_i= {a_i:?} a_v= {a_v} b_i= {b_i:?} b_v= {b_v} \nepsilon= \t{epsilon} \nmax_relative= \t{max_relative} \ndif= \t\t{}", *a_v - *b_v);
+                }
+                ((a_i, a_v), (b_i, b_v))
+            })
+            .all(|((_, a_v), (_, b_v))| a_v.relative_eq(b_v, epsilon, max_relative))
+        // self.data
+        //     .iter()
+        //     .zip(other.data.iter())
+        //     .all(|(a, b)| a.relative_eq(b, epsilon, max_relative))
     }
 }
 

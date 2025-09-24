@@ -10,11 +10,12 @@ fn main() {
 
     for policy in [
         MatmulPolicy::LoopReorder,
+        MatmulPolicy::Faer,
         MatmulPolicy::Blocking(64),
-        MatmulPolicy::Blocking(96),
-        MatmulPolicy::Blocking(128),
-        MatmulPolicy::Blocking(256),
-        MatmulPolicy::Blocking(512),
+        // MatmulPolicy::Blocking(96),
+        // MatmulPolicy::Blocking(128),
+        // MatmulPolicy::Blocking(256),
+        // MatmulPolicy::Blocking(512),
     ] {
         let mut sizes = vec![];
         let mut costs = vec![];

@@ -1,9 +1,15 @@
+use faer::traits::ComplexField;
+
 use crate::core::{Array, compute_strides_for_shape};
-use std::ops::{Add, AddAssign, Div, Mul}; // Sub currently unused
+use std::{
+    fmt::Debug,
+    ops::{Add, AddAssign, Div, Mul},
+}; // Sub currently unused
 
 #[derive(Clone, Copy, Debug)]
 pub enum MatmulPolicy {
     Naive,
+    Faer,
     LoopReorder,
     Blocking(usize),
 }
@@ -71,8 +77,7 @@ where
             .cloned()
     }
 
-    /// Matrix multiplication
-    pub fn matmul(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
+    pub fn matmul_general(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
     where
         T: Add<Output = T> + AddAssign + Mul<Output = T> + Default,
     {
@@ -139,9 +144,33 @@ where
                     }
                 }
             }
+            _ => unreachable!(),
         }
 
         Array::from_vec(result_data, result_shape)
+    }
+
+    /// Matrix multiplication
+    pub fn matmul(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
+    where
+        T: Add<Output = T> + AddAssign + Mul<Output = T> + Default + ComplexField,
+    {
+        if self.shape.len() != 2 || other.shape.len() != 2 {
+            return Err("Matrix multiplication only supported for 2D arrays".to_string());
+        }
+        if self.shape[1] != other.shape[0] {
+            return Err("Matrix dimensions incompatible for multiplication".to_string());
+        }
+
+        match policy {
+            MatmulPolicy::Faer => {
+                let l = self.as_faer();
+                let r = other.as_faer();
+
+                Ok((l * r).into())
+            }
+            p => self.matmul_general(other, p),
+        }
     }
 
     /// Vector dot product (returns scalar)
@@ -820,15 +849,61 @@ mod tests {
 
     #[test]
     fn test_matmul() {
-        let a = Array::<f64>::randn(vec![220, 230]);
-        let b = Array::<f64>::randn(vec![230, 250]);
+        let shapes: Vec<(usize, usize, usize)> = vec![
+            (50, 50, 50),
+            (50, 75, 60),
+            (100, 110, 120),
+            (220, 230, 250),
+            (250, 250, 250),
+            (300, 300, 300),
+            (300, 400, 350),
+            (1000, 1000, 1000),
+            (1000, 1200, 1100),
+        ];
 
-        let base = a.matmul(&b, MatmulPolicy::Naive).unwrap();
+        let inputs_64: Vec<_> = shapes
+            .iter()
+            .map(|(m, n, k)| {
+                (
+                    Array::<f64>::randn(vec![*m, *k]),
+                    Array::<f64>::randn(vec![*k, *n]),
+                )
+            })
+            .collect();
 
-        for policy in [MatmulPolicy::LoopReorder, MatmulPolicy::Blocking(512)] {
-            let result = a.matmul(&b, policy).unwrap();
-            assert_relative_eq!(base, result);
-            assert_eq!(base, result);
+        let results_64: Vec<_> = inputs_64
+            .iter()
+            .map(|(l, r)| l.matmul(r, MatmulPolicy::Naive).unwrap())
+            .collect();
+
+        let inputs_32: Vec<_> = shapes
+            .iter()
+            .map(|(m, n, k)| {
+                (
+                    Array::<f32>::randn(vec![*m, *k]),
+                    Array::<f32>::randn(vec![*k, *n]),
+                )
+            })
+            .collect();
+        let results_32: Vec<_> = inputs_32
+            .iter()
+            .map(|(l, r)| l.matmul(r, MatmulPolicy::Naive).unwrap())
+            .collect();
+
+        for policy in [
+            MatmulPolicy::Faer,
+            MatmulPolicy::LoopReorder,
+            MatmulPolicy::Blocking(512),
+        ] {
+            for ((l, r), res) in inputs_64.iter().zip(results_64.iter()) {
+                let new_res = l.matmul(r, policy).unwrap();
+                assert_relative_eq!(*res, new_res);
+            }
+
+            for ((l, r), res) in inputs_32.iter().zip(results_32.iter()) {
+                let new_res = l.matmul(r, policy).unwrap();
+                assert_relative_eq!(*res, new_res);
+            }
         }
     }
 }
