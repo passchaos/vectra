@@ -24,7 +24,7 @@ plotiron = { path = "../plotiron" }
 
 [features]
 default = ["blas"]
-blas = ["blas-sys", "blas-src/openblas"]
+blas = ["blas-sys", "blas-src/accelerate"]
 
 [profile.dev]
 opt-level = 2

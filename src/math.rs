@@ -215,6 +215,8 @@ where
     }
 
     /// Matrix multiplication
+    /// 在macos平台上，faer耗时是accelerate的2.35倍，但是比openblas少21%
+    /// 在linux平台上，faer耗时比openblas多5%
     pub fn matmul(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
     where
         T: Add<Output = T> + AddAssign + Mul<Output = T> + Default + ComplexField + 'static,
