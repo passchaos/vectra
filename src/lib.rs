@@ -6,6 +6,9 @@
 //! - Random number generation
 //! - Linear algebra operations
 
+#[cfg(feature = "blas")]
+extern crate blas_src;
+
 mod core;
 mod math;
 mod ops;

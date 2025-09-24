@@ -9,9 +9,10 @@ fn main() {
     let ax = fig.add_subplot();
 
     for policy in [
-        MatmulPolicy::LoopReorder,
+        // MatmulPolicy::LoopReorder,
+        MatmulPolicy::Blas,
         MatmulPolicy::Faer,
-        MatmulPolicy::Blocking(64),
+        // MatmulPolicy::Blocking(64),
         // MatmulPolicy::Blocking(96),
         // MatmulPolicy::Blocking(128),
         // MatmulPolicy::Blocking(256),

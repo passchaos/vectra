@@ -2,6 +2,7 @@ use faer::traits::ComplexField;
 
 use crate::core::{Array, compute_strides_for_shape};
 use std::{
+    any::TypeId,
     fmt::Debug,
     ops::{Add, AddAssign, Div, Mul},
 }; // Sub currently unused
@@ -10,6 +11,8 @@ use std::{
 pub enum MatmulPolicy {
     Naive,
     Faer,
+    #[cfg(feature = "blas")]
+    Blas,
     LoopReorder,
     Blocking(usize),
 }
@@ -79,7 +82,8 @@ where
 
     pub fn matmul_general(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
     where
-        T: Add<Output = T> + AddAssign + Mul<Output = T> + Default,
+        T: Add<Output = T> + AddAssign + Mul<Output = T> + Default + 'static,
+        Array<T>: 'static,
     {
         if self.shape.len() != 2 || other.shape.len() != 2 {
             return Err("Matrix multiplication only supported for 2D arrays".to_string());
@@ -96,6 +100,66 @@ where
         let n = other.shape[1];
 
         match policy {
+            #[cfg(feature = "blas")]
+            MatmulPolicy::Blas => {
+                use std::ffi::c_char;
+
+                let type_id = TypeId::of::<T>();
+
+                let m = m as i32;
+                let n = n as i32;
+                let k = k as i32;
+
+                let a = self.data.as_ptr();
+                let b = other.data.as_ptr();
+                let c = result_data.as_mut_ptr();
+
+                if type_id == TypeId::of::<f32>() {
+                    let alpha = 1.0;
+                    let beta = 0.0;
+
+                    unsafe {
+                        blas_sys::sgemm_(
+                            &(b'N' as c_char),
+                            &(b'N' as c_char),
+                            &n,
+                            &m,
+                            &k,
+                            &alpha,
+                            b.cast(),
+                            &n,
+                            a.cast(),
+                            &k,
+                            &beta,
+                            c.cast(),
+                            &n,
+                        );
+                    }
+                } else if type_id == TypeId::of::<f64>() {
+                    let alpha = 1.0;
+                    let beta = 0.0;
+
+                    unsafe {
+                        blas_sys::dgemm_(
+                            &(b'N' as c_char),
+                            &(b'N' as c_char),
+                            &n,
+                            &m,
+                            &k,
+                            &alpha,
+                            b.cast(),
+                            &n,
+                            a.cast(),
+                            &k,
+                            &beta,
+                            c.cast(),
+                            &n,
+                        );
+                    }
+                } else {
+                    return Err("Unsupported type for BLAS matrix multiplication".to_string());
+                }
+            }
             MatmulPolicy::Naive => {
                 for i in 0..m {
                     for j in 0..n {
@@ -153,7 +217,7 @@ where
     /// Matrix multiplication
     pub fn matmul(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
     where
-        T: Add<Output = T> + AddAssign + Mul<Output = T> + Default + ComplexField,
+        T: Add<Output = T> + AddAssign + Mul<Output = T> + Default + ComplexField + 'static,
     {
         if self.shape.len() != 2 || other.shape.len() != 2 {
             return Err("Matrix multiplication only supported for 2D arrays".to_string());
@@ -891,6 +955,7 @@ mod tests {
             .collect();
 
         for policy in [
+            MatmulPolicy::Blas,
             MatmulPolicy::Faer,
             MatmulPolicy::LoopReorder,
             MatmulPolicy::Blocking(512),
