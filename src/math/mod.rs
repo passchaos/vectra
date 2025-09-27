@@ -1,19 +1,18 @@
-use faer::traits::ComplexField;
-
 use crate::core::{Array, compute_strides_for_shape};
 use std::{
-    any::TypeId,
     fmt::Debug,
-    ops::{Add, AddAssign, Div, Mul},
+    ops::{Add, Div, Mul},
 }; // Sub currently unused
+pub mod matmul;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MatmulPolicy {
     Naive,
     Faer,
     #[cfg(feature = "blas")]
     Blas,
     LoopReorder,
+    LoopRecorderSimd,
     Blocking(usize),
 }
 
@@ -78,171 +77,6 @@ where
             .iter()
             .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .cloned()
-    }
-
-    pub fn matmul_general(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
-    where
-        T: Add<Output = T> + AddAssign + Mul<Output = T> + Default + 'static,
-        Array<T>: 'static,
-    {
-        if self.shape.len() != 2 || other.shape.len() != 2 {
-            return Err("Matrix multiplication only supported for 2D arrays".to_string());
-        }
-        if self.shape[1] != other.shape[0] {
-            return Err("Matrix dimensions incompatible for multiplication".to_string());
-        }
-
-        let result_shape = vec![self.shape[0], other.shape[1]];
-        let mut result_data = vec![T::default(); result_shape.iter().product()];
-
-        let m = self.shape[0];
-        let k = self.shape[1];
-        let n = other.shape[1];
-
-        match policy {
-            MatmulPolicy::Naive => {
-                for i in 0..m {
-                    for j in 0..n {
-                        for l in 0..k {
-                            result_data[i * n + j] +=
-                                self.data[i * k + l].clone() * other.data[l * n + j].clone();
-                        }
-                    }
-                }
-            }
-            MatmulPolicy::LoopReorder => {
-                for i in 0..m {
-                    for l in 0..k {
-                        // In practice, using get_unchecked directly only reduces runtime by 1%
-                        // let a_v = unsafe { self.data.get_unchecked(i * k + l) };
-                        let a_v = &self.data[i * k + l];
-                        for j in 0..n {
-                            // let data = unsafe { result_data.get_unchecked_mut(i * n + j) };
-                            // *data += a_v.clone()
-                            //     * unsafe { other.data.get_unchecked(l * n + j) }.clone();
-                            result_data[i * n + j] += a_v.clone() * other.data[l * n + j].clone();
-                        }
-                    }
-                }
-            }
-            MatmulPolicy::Blocking(block_size) => {
-                for i in (0..m).step_by(block_size) {
-                    let i_end = (i + block_size).min(m);
-
-                    for l in (0..k).step_by(block_size) {
-                        let l_end = (l + block_size).min(k);
-
-                        for j in (0..n).step_by(block_size) {
-                            let j_end = (j + block_size).min(n);
-
-                            for ii in i..i_end {
-                                for ll in l..l_end {
-                                    let a_v = &self.data[ii * k + ll];
-                                    for jj in j..j_end {
-                                        result_data[ii * n + jj] +=
-                                            a_v.clone() * other.data[ll * n + jj].clone();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            _ => unreachable!(),
-        }
-
-        Array::from_vec(result_data, result_shape)
-    }
-
-    /// Matrix multiplication
-    /// On macOS platform, faer takes 2.35x longer than accelerate (after enabling faer's amx support, optimized to 23% more than accelerate), but 21% less than openblas
-    /// On Linux platform, faer takes 5% more time than openblas
-    pub fn matmul(&self, other: &Array<T>, policy: MatmulPolicy) -> Result<Array<T>, String>
-    where
-        T: Add<Output = T> + AddAssign + Mul<Output = T> + Default + ComplexField + 'static,
-    {
-        if self.shape.len() != 2 || other.shape.len() != 2 {
-            return Err("Matrix multiplication only supported for 2D arrays".to_string());
-        }
-        if self.shape[1] != other.shape[0] {
-            return Err("Matrix dimensions incompatible for multiplication".to_string());
-        }
-
-        match policy {
-            MatmulPolicy::Faer => {
-                let l = self.as_faer();
-                let r = other.as_faer();
-
-                Ok((l * r).into())
-            }
-            #[cfg(feature = "blas")]
-            MatmulPolicy::Blas => {
-                use std::ffi::c_char;
-
-                let type_id = TypeId::of::<T>();
-
-                let result_shape = vec![self.shape[0], other.shape[1]];
-                let mut result_data = vec![T::default(); result_shape.iter().product()];
-
-                let m = self.shape[0] as i32;
-                let k = self.shape[1] as i32;
-                let n = other.shape[1] as i32;
-
-                let a = self.data.as_ptr();
-                let b = other.data.as_ptr();
-                let c = result_data.as_mut_ptr();
-
-                if type_id == TypeId::of::<f32>() {
-                    let alpha = 1.0;
-                    let beta = 0.0;
-
-                    unsafe {
-                        blas_sys::sgemm_(
-                            &(b'N' as c_char),
-                            &(b'N' as c_char),
-                            &n,
-                            &m,
-                            &k,
-                            &alpha,
-                            b.cast(),
-                            &n,
-                            a.cast(),
-                            &k,
-                            &beta,
-                            c.cast(),
-                            &n,
-                        );
-                    }
-                } else if type_id == TypeId::of::<f64>() {
-                    let alpha = 1.0;
-                    let beta = 0.0;
-
-                    unsafe {
-                        blas_sys::dgemm_(
-                            &(b'N' as c_char),
-                            &(b'N' as c_char),
-                            &n,
-                            &m,
-                            &k,
-                            &alpha,
-                            b.cast(),
-                            &n,
-                            a.cast(),
-                            &k,
-                            &beta,
-                            c.cast(),
-                            &n,
-                        );
-                    }
-                } else {
-                    return Err("Unsupported type for BLAS matrix multiplication".to_string());
-                }
-
-                Array::from_vec(result_data, result_shape)
-            }
-
-            p => self.matmul_general(other, p),
-        }
     }
 
     /// Vector dot product (returns scalar)
@@ -904,8 +738,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use approx::assert_relative_eq;
-
     use super::*;
 
     #[test]
@@ -917,67 +749,5 @@ mod tests {
         let arr2 = arr.sum_axis(1).unwrap();
         let arr3 = arr.sum_axis(2).unwrap();
         println!("arr= {arr:?} arr1= {arr1:?} arr2= {arr2:?} arr3= {arr3:?}");
-    }
-
-    #[test]
-    fn test_matmul() {
-        let shapes: Vec<(usize, usize, usize)> = vec![
-            (50, 50, 50),
-            (50, 75, 60),
-            (100, 110, 120),
-            (220, 230, 250),
-            (250, 250, 250),
-            (300, 300, 300),
-            (300, 400, 350),
-            (1000, 1000, 1000),
-            (1000, 1200, 1100),
-        ];
-
-        let inputs_64: Vec<_> = shapes
-            .iter()
-            .map(|(m, n, k)| {
-                (
-                    Array::<f64>::randn(vec![*m, *k]),
-                    Array::<f64>::randn(vec![*k, *n]),
-                )
-            })
-            .collect();
-
-        let results_64: Vec<_> = inputs_64
-            .iter()
-            .map(|(l, r)| l.matmul(r, MatmulPolicy::Naive).unwrap())
-            .collect();
-
-        let inputs_32: Vec<_> = shapes
-            .iter()
-            .map(|(m, n, k)| {
-                (
-                    Array::<f32>::randn(vec![*m, *k]),
-                    Array::<f32>::randn(vec![*k, *n]),
-                )
-            })
-            .collect();
-        let results_32: Vec<_> = inputs_32
-            .iter()
-            .map(|(l, r)| l.matmul(r, MatmulPolicy::Naive).unwrap())
-            .collect();
-
-        for policy in [
-            MatmulPolicy::Blas,
-            MatmulPolicy::Faer,
-            MatmulPolicy::LoopReorder,
-            MatmulPolicy::Blocking(512),
-        ] {
-            println!("begin matmul check: {policy:?}");
-            for ((l, r), res) in inputs_64.iter().zip(results_64.iter()) {
-                let new_res = l.matmul(r, policy).unwrap();
-                assert_relative_eq!(*res, new_res);
-            }
-
-            for ((l, r), res) in inputs_32.iter().zip(results_32.iter()) {
-                let new_res = l.matmul(r, policy).unwrap();
-                assert_relative_eq!(*res, new_res);
-            }
-        }
     }
 }

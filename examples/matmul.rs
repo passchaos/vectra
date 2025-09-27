@@ -10,6 +10,7 @@ fn main() {
 
     for policy in [
         // MatmulPolicy::LoopReorder,
+        // MatmulPolicy::LoopRecorderSimd,
         MatmulPolicy::Blas,
         MatmulPolicy::Faer,
         // MatmulPolicy::Blocking(64),
@@ -42,5 +43,8 @@ fn main() {
         ax.add_plot(Plot::line(sizes, costs).label(&format!("{policy:?}")))
             .legend(true);
     }
+
+    // let svg_content = fig.to_svg();
+    // std::fs::write("matmul.svg", svg_content).unwrap();
     fig.show();
 }

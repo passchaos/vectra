@@ -124,6 +124,8 @@ mod tests {
 
     #[test]
     fn test_svd_reconstruction() {
+        use crate::prelude::*;
+
         // Test that U * S * V^T reconstructs the original matrix (approximately)
         let matrix = Array::from_vec(vec![2.0, 0.0, 0.0, 1.0], vec![2, 2]).unwrap();
         let (u, s, vt) = matrix.svd().unwrap();
