@@ -12,6 +12,7 @@ pub enum MatmulPolicy {
     #[cfg(feature = "blas")]
     Blas,
     LoopReorder,
+    #[cfg(target_arch = "aarch64")]
     LoopRecorderSimd,
     Blocking(usize),
 }

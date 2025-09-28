@@ -1,10 +1,11 @@
 use std::fmt::{self, Display};
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, IndexMut, Mul, Sub};
 // use std::ops::{Index, IndexMut}; // Currently unused
 use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
+use itertools::Itertools;
 use num_traits::{NumCast, One, Zero};
 
 /// Multi-dimensional array structure, similar to numpy's ndarray
@@ -391,22 +392,18 @@ impl<T> Array<T> {
         self.data.len()
     }
 
-    /// Get iterator over elements
-    pub fn iter(&self) -> Iter<'_, T> {
-        self.data.iter()
-    }
-
-    /// Get mutable iterator
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
-        self.data.iter_mut()
-    }
-
     /// Apply a closure to each element in-place, modifying the current Array
     pub fn map_inplace<F>(&mut self, f: F)
     where
         F: Fn(&T) -> T,
     {
-        for item in self.data.iter_mut() {
+        for idx in self
+            .shape()
+            .into_iter()
+            .map(|&n| 0..n)
+            .multi_cartesian_product()
+        {
+            let item = self.index_mut(idx);
             *item = f(item);
         }
     }
@@ -674,5 +671,13 @@ mod tests {
         // let arr_t = arr.clone().transpose().unwrap();
 
         // println!("{:?} {:?}", arr, arr_t);
+    }
+
+    #[test]
+    fn test_map_inplace() {
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        arr.map_inplace(|x| x * x);
+        assert_eq!(arr[[0, 0]], 1.0);
+        assert_eq!(arr[[1, 1]], 16.0);
     }
 }

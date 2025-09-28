@@ -3,12 +3,11 @@ use crate::{
     math::{MatmulPolicy, matmul::Matmul},
 };
 
-use std::{
-    arch::aarch64::{
-        vfmaq_f32, vfmaq_f64, vld1q_dup_f32, vld1q_dup_f64, vld1q_f32, vld1q_f64, vst1q_f32,
-        vst1q_f64,
-    },
-    ffi::c_char,
+use std::ffi::c_char;
+
+#[cfg(target_arch = "aarch64")]
+use std::arch::aarch64::{
+    vfmaq_f32, vfmaq_f64, vld1q_dup_f32, vld1q_dup_f64, vld1q_f32, vld1q_f64, vst1q_f32, vst1q_f64,
 };
 
 impl Matmul for Array<f32> {
@@ -38,6 +37,7 @@ impl Matmul for Array<f32> {
                 let mut result_data = vec![0.0; result_shape.iter().product()];
 
                 match policy {
+                    #[cfg(target_arch = "aarch64")]
                     MatmulPolicy::LoopRecorderSimd => {
                         for i in 0..m {
                             for l in 0..k {
@@ -130,6 +130,7 @@ impl Matmul for Array<f64> {
                 let mut result_data = vec![0.0; result_shape.iter().product()];
 
                 match policy {
+                    #[cfg(target_arch = "aarch64")]
                     MatmulPolicy::LoopRecorderSimd => {
                         for i in 0..m {
                             for l in 0..k {

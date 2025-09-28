@@ -34,6 +34,21 @@ impl<T, const N: usize> IndexMut<[usize; N]> for Array<T> {
     }
 }
 
+impl<T> Index<Vec<usize>> for Array<T> {
+    type Output = T;
+    fn index(&self, indices: Vec<usize>) -> &Self::Output {
+        let flat_index = self.index_to_flat(&indices).expect("Invalid index");
+        &self.data[flat_index]
+    }
+}
+
+impl<T> IndexMut<Vec<usize>> for Array<T> {
+    fn index_mut(&mut self, indices: Vec<usize>) -> &mut Self::Output {
+        let flat_index = self.index_to_flat(&indices).expect("Invalid index");
+        &mut self.data[flat_index]
+    }
+}
+
 // Arithmetic operations between arrays
 impl<T> Add for Array<T>
 where
@@ -236,10 +251,25 @@ where
 impl<T> Array<T> {
     pub fn multi_iter(&self) -> impl Iterator<Item = (Vec<usize>, &T)> {
         self.shape()
-            .iter()
+            .into_iter()
             .map(|&n| 0..n)
             .multi_cartesian_product()
-            // .map(|idx| (idx.clone(), Index::index(self, idx.as_slice())))
-            .map(|idx| (idx.clone(), self.index(&idx[..])))
+            .map(|idx| (idx.clone(), self.index(idx.as_slice())))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_multi_iter_mut() {
+        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+        let mut iter = arr.multi_iter();
+        assert_eq!(iter.next(), Some((vec![0, 0], &1)));
+        assert_eq!(iter.next(), Some((vec![0, 1], &2)));
+        assert_eq!(iter.next(), Some((vec![1, 0], &3)));
+        assert_eq!(iter.next(), Some((vec![1, 1], &4)));
+        assert_eq!(iter.next(), None);
     }
 }

@@ -125,6 +125,7 @@ mod tests {
             MatmulPolicy::Blas,
             MatmulPolicy::Faer,
             MatmulPolicy::LoopReorder,
+            #[cfg(target_arch = "aarch64")]
             MatmulPolicy::LoopRecorderSimd,
         ] {
             let a = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
@@ -190,6 +191,7 @@ mod tests {
             MatmulPolicy::Blas,
             MatmulPolicy::Faer,
             MatmulPolicy::LoopReorder,
+            #[cfg(target_arch = "aarch64")]
             MatmulPolicy::LoopRecorderSimd,
             MatmulPolicy::Blocking(512),
         ] {
