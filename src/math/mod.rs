@@ -37,6 +37,76 @@ where
             .fold(T::default(), |acc, (_, x)| acc + x.clone())
     }
 
+    /// Sum along specified axis
+    pub fn sum_axis(&self, axis: usize) -> Result<Array<T>, String>
+    where
+        T: Add<Output = T> + Default,
+    {
+        if axis >= self.shape.len() {
+            return Err("Axis out of bounds".to_string());
+        }
+
+        // let shape = self.shape.clone();
+        // let axis_size = shape[axis];
+        // let mut result_shape = shape;
+        // result_shape[axis] = 1;
+
+        // let result_size = result_shape.iter().product();
+        // let mut result_data = vec![T::default(); result_size];
+        // for (idx, value) in self.multi_iter() {
+        //     let mut result_idx = idx[axis];
+        //     for i in 0..axis {
+        //         result_idx += idx[i] * shape[i];
+        //     }
+        //     result_data[result_idx] += value;
+        // }
+
+        let mut result_shape = self.shape.clone();
+        result_shape.remove(axis);
+
+        if result_shape.is_empty() {
+            // Sum over all dimensions, return scalar as 0-d array
+            let total_sum = self.sum();
+            return Array::from_vec(vec![total_sum], vec![]);
+        }
+
+        let result_size: usize = result_shape.iter().product();
+        let mut result_data = vec![T::default(); result_size];
+
+        // For each position in the result array
+        for result_idx in 0..result_size {
+            // Convert flat index to multi-dimensional index for result
+            let mut result_indices = vec![0; result_shape.len()];
+            let mut temp = result_idx;
+            for i in (0..result_shape.len()).rev() {
+                result_indices[i] = temp % result_shape[i];
+                temp /= result_shape[i];
+            }
+
+            // Sum over the specified axis
+            let mut sum = T::default();
+            for axis_idx in 0..self.shape[axis] {
+                // Construct full index for original array
+                let mut full_indices = Vec::new();
+                let mut result_pos = 0;
+                for i in 0..self.shape.len() {
+                    if i == axis {
+                        full_indices.push(axis_idx);
+                    } else {
+                        full_indices.push(result_indices[result_pos]);
+                        result_pos += 1;
+                    }
+                }
+
+                let flat_idx = self.index_to_flat(&full_indices)?;
+                sum = sum + self.data[flat_idx].clone();
+            }
+            result_data[result_idx] = sum;
+        }
+
+        Array::from_vec(result_data, result_shape)
+    }
+
     /// Calculate mean of all elements
     pub fn mean(&self) -> T
     where
@@ -47,6 +117,30 @@ where
         let size = self.size() as u32;
         sum / size.into()
     }
+
+    // pub fn mean_axis(&self, axis: usize) -> Result<Array<T>, String>
+    // where
+    //     T: Add<Output = T> + Div<Output = T> + Default,
+    //     u32: Into<T>,
+    // {
+    //     let shape = self.shape.clone();
+    //     let axis_size = shape[axis];
+    //     let mut result_shape = shape;
+    //     result_shape[axis] = 1;
+
+    //     let mut result_data = vec![T::default(); result_shape.size()];
+    //     let mut result_idx = 0;
+
+    //     for (indices, value) in self.multi_iter() {
+    //         let mut full_indices = indices.clone();
+    //         full_indices[axis] = 0;
+
+    //         let flat_idx = self.index_to_flat(&full_indices)?;
+    //         result_data[result_idx] = result_data[result_idx] + value.clone();
+    //     }
+
+    //     Array::from_vec(result_data, result_shape)
+    // }
 
     /// Find maximum value
     pub fn max(&self) -> Option<T>
@@ -120,61 +214,6 @@ where
             shape,
             strides,
         }
-    }
-
-    /// Sum along specified axis
-    pub fn sum_axis(&self, axis: usize) -> Result<Array<T>, String>
-    where
-        T: Add<Output = T> + Default,
-    {
-        if axis >= self.shape.len() {
-            return Err("Axis out of bounds".to_string());
-        }
-
-        let mut result_shape = self.shape.clone();
-        result_shape.remove(axis);
-
-        if result_shape.is_empty() {
-            // Sum over all dimensions, return scalar as 0-d array
-            let total_sum = self.sum();
-            return Array::from_vec(vec![total_sum], vec![]);
-        }
-
-        let result_size: usize = result_shape.iter().product();
-        let mut result_data = vec![T::default(); result_size];
-
-        // For each position in the result array
-        for result_idx in 0..result_size {
-            // Convert flat index to multi-dimensional index for result
-            let mut result_indices = vec![0; result_shape.len()];
-            let mut temp = result_idx;
-            for i in (0..result_shape.len()).rev() {
-                result_indices[i] = temp % result_shape[i];
-                temp /= result_shape[i];
-            }
-
-            // Sum over the specified axis
-            let mut sum = T::default();
-            for axis_idx in 0..self.shape[axis] {
-                // Construct full index for original array
-                let mut full_indices = Vec::new();
-                let mut result_pos = 0;
-                for i in 0..self.shape.len() {
-                    if i == axis {
-                        full_indices.push(axis_idx);
-                    } else {
-                        full_indices.push(result_indices[result_pos]);
-                        result_pos += 1;
-                    }
-                }
-
-                let flat_idx = self.index_to_flat(&full_indices)?;
-                sum = sum + self.data[flat_idx].clone();
-            }
-            result_data[result_idx] = sum;
-        }
-
-        Array::from_vec(result_data, result_shape)
     }
 }
 

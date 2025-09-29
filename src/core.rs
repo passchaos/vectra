@@ -318,12 +318,17 @@ impl<T> Array<T> {
         })
     }
 
+    // must be row-major order
     fn compute_strides(shape: &[usize]) -> Vec<usize> {
         let mut strides = vec![1; shape.len()];
         for i in (0..shape.len() - 1).rev() {
             strides[i] = strides[i + 1] * shape[i + 1];
         }
         strides
+    }
+
+    fn compute_flat_idx(strides: &[usize], indices: &[usize]) -> usize {
+        strides.iter().zip(indices).map(|(&s, &i)| s * i).sum()
     }
 }
 
@@ -333,17 +338,19 @@ impl<T> Array<T> {
         if indices.len() != self.shape.len() {
             return Err("Index dimension mismatch".to_string());
         }
-        let mut flat_index = 0;
-        for (i, &idx) in indices.iter().enumerate() {
-            if idx >= self.shape[i] {
-                return Err(format!(
-                    "Index {} out of bounds for dimension {} with size {}",
-                    idx, i, self.shape[i]
-                ));
-            }
-            flat_index += idx * self.strides[i];
+
+        if indices
+            .iter()
+            .zip(self.shape().iter())
+            .any(|(&i_dim, &s_dim)| i_dim >= s_dim)
+        {
+            return Err(format!(
+                "Index out of bounds: shape= {:?} indices= {:?}",
+                self.shape, indices
+            ));
         }
-        Ok(flat_index)
+
+        Ok(Self::compute_flat_idx(&self.strides, indices))
     }
 
     /// Broadcast two shapes to a common shape
