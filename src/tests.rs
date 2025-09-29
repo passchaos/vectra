@@ -43,18 +43,6 @@ mod tests {
     }
 
     #[test]
-    fn test_reshape_and_transpose() {
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
-        let reshaped = arr.clone().reshape(vec![3, 2]).unwrap();
-        assert_eq!(reshaped.shape(), &[3, 2]);
-
-        let transposed = arr.transpose().unwrap();
-        assert_eq!(transposed.shape(), &[3, 2]);
-        assert_eq!(transposed[[0, 0]], 1.0);
-        assert_eq!(transposed[[1, 0]], 2.0);
-    }
-
-    #[test]
     fn test_aggregations() {
         let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
         assert_eq!(arr.sum(), 10.0);

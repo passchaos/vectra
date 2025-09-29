@@ -22,7 +22,8 @@ fn main() {
 
     // 3. Array operations
     println!("\n3. Array operations:");
-    let reshaped = arr.clone().reshape(vec![3, 2]).unwrap();
+    let mut reshaped = arr.clone();
+    reshaped.reshape(vec![3, 2]).unwrap();
     println!("Reshaped to (3x2):\n{}", reshaped);
 
     let transposed = arr.transpose().unwrap();

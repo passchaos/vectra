@@ -1,7 +1,6 @@
+use std::collections::HashSet;
 use std::fmt::{self, Display};
 use std::ops::{Add, IndexMut, Mul, Sub};
-// use std::ops::{Index, IndexMut}; // Currently unused
-use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
@@ -228,18 +227,59 @@ impl<T> Array<T> {
     }
 
     /// Reshape array
-    pub fn reshape(self, new_shape: Vec<usize>) -> Result<Self, String> {
+    pub fn reshape(&mut self, new_shape: Vec<usize>) -> Result<(), String> {
         let new_size: usize = new_shape.iter().product();
         if new_size != self.data.len() {
             return Err("New shape size does not match array size".to_string());
         }
 
         let new_strides = Self::compute_strides(&new_shape);
-        Ok(Self {
-            data: self.data,
-            shape: new_shape,
-            strides: new_strides,
-        })
+
+        self.shape = new_shape;
+        self.strides = new_strides;
+
+        Ok(())
+    }
+
+    pub fn squeeze(&mut self, axes: Vec<usize>) -> Result<(), String> {
+        let axes: HashSet<_> = axes.into_iter().collect();
+
+        let mut new_shape = Vec::new();
+
+        let need_remove_one_dim = axes.len() == 0;
+        for (idx, &shape) in self.shape.iter().enumerate() {
+            if !axes.contains(&idx) {
+                if need_remove_one_dim {
+                    if shape == 1 {
+                        continue;
+                    }
+                }
+
+                new_shape.push(shape);
+                continue;
+            }
+
+            if shape != 1 {
+                return Err(format!("Cannot squeeze axis {} with size {}", idx, shape));
+            }
+        }
+
+        let new_strides = Self::compute_strides(&new_shape);
+        self.shape = new_shape;
+        self.strides = new_strides;
+
+        Ok(())
+    }
+
+    pub fn unsqueeze(&mut self, axe: usize) -> Result<(), String> {
+        let mut new_shape = self.shape.clone();
+        new_shape.insert(axe, 1);
+
+        let new_strides = Self::compute_strides(&new_shape);
+        self.shape = new_shape;
+        self.strides = new_strides;
+
+        Ok(())
     }
 
     /// Transpose array (2D only)
@@ -679,5 +719,49 @@ mod tests {
         arr.map_inplace(|x| x * x);
         assert_eq!(arr[[0, 0]], 1.0);
         assert_eq!(arr[[1, 1]], 16.0);
+    }
+
+    #[test]
+    fn test_reshape_and_transpose() {
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
+        arr.reshape(vec![3, 2]).unwrap();
+        assert_eq!(arr.shape(), &[3, 2]);
+
+        let transposed = arr.transpose().unwrap();
+        assert_eq!(transposed.shape(), &[2, 3]);
+        assert_eq!(transposed[[0, 0]], 1.0);
+        assert_eq!(transposed[[1, 0]], 2.0);
+    }
+
+    #[test]
+    fn test_squeeze() {
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 1, 2]).unwrap();
+        arr.squeeze(vec![1]).unwrap();
+
+        assert_eq!(arr.shape(), &[2, 2]);
+        assert_eq!(arr[[0, 0]], 1.0);
+        assert_eq!(arr[[1, 1]], 4.0);
+
+        let res = arr.squeeze(vec![1]);
+        assert!(res.is_err());
+
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2]).unwrap();
+
+        let res = arr.squeeze(vec![1]);
+        assert!(res.is_err());
+
+        arr.squeeze(vec![0]).unwrap();
+        assert_eq!(arr.shape(), &[2, 2]);
+        assert_eq!(arr[[1, 0]], 3.0);
+
+        arr.unsqueeze(0).unwrap();
+        assert_eq!(arr.shape(), &[1, 2, 2]);
+        assert_eq!(arr[[0, 1, 0]], 3.0);
+
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 1, 2]).unwrap();
+
+        arr.squeeze(vec![]).unwrap();
+        arr.squeeze(vec![]).unwrap();
+        assert_eq!(arr.shape(), &[2, 2]);
     }
 }
