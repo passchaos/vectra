@@ -57,7 +57,6 @@ fn main() {
     // 6. Aggregation functions
     println!("\n6. Aggregation functions:");
     println!("Sum of A: {}", a.sum());
-    println!("Mean of A: {}", a.mean_int());
     println!("Max of A: {:?}", a.max());
     println!("Min of A: {:?}", a.min());
 
@@ -185,16 +184,6 @@ fn main() {
     println!("Sinh values:\n{}", sinh_values);
     println!("Cosh values:\n{}", cosh_values);
     println!("Tanh values:\n{}", tanh_values);
-
-    // Angle conversion
-    let degrees = Array::from_vec(vec![0.0, 30.0, 45.0, 60.0, 90.0], vec![5]).unwrap();
-    let radians_converted = degrees.to_radians();
-    let back_to_degrees = radians_converted.to_degrees();
-
-    println!("\nAngle conversion:");
-    println!("Degrees:\n{}", degrees);
-    println!("Converted to radians:\n{}", radians_converted);
-    println!("Back to degrees:\n{}", back_to_degrees);
 
     // 14. Logarithmic and exponential functions
     println!("\n14. Logarithmic and exponential functions:");

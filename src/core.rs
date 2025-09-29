@@ -429,7 +429,7 @@ impl<T> Array<T> {
 
     /// Get total number of elements
     pub fn size(&self) -> usize {
-        self.data.len()
+        self.shape().iter().product()
     }
 
     /// Apply a closure to each element in-place, modifying the current Array
@@ -705,6 +705,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_ones_and_eye() {
+        let ones: Array<f64> = Array::ones(vec![2, 2]);
+        assert_eq!(ones[[0, 0]], 1.0);
+        assert_eq!(ones[[1, 1]], 1.0);
+
+        let eye: Array<f64> = Array::eye(3);
+        assert_eq!(eye[[0, 0]], 1.0);
+        assert_eq!(eye[[1, 1]], 1.0);
+        assert_eq!(eye[[0, 1]], 0.0);
+    }
+
+    #[test]
+    fn test_arithmetic() {
+        let a = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let b = Array::from_vec(vec![2.0, 2.0, 2.0, 2.0], vec![2, 2]).unwrap();
+
+        let sum = a.clone() + b.clone();
+        assert_eq!(sum[[0, 0]], 3.0);
+        assert_eq!(sum[[1, 1]], 6.0);
+
+        let product = a * b;
+        assert_eq!(product[[0, 0]], 2.0);
+        assert_eq!(product[[1, 1]], 8.0);
+    }
+
+    #[test]
     fn test_transpose() {
         let arr1 = Array::from_vec(vec![1.0; 10000], vec![10, 10, 100]).unwrap();
         println!("arr1: {arr1}");
@@ -763,5 +789,43 @@ mod tests {
         arr.squeeze(vec![]).unwrap();
         arr.squeeze(vec![]).unwrap();
         assert_eq!(arr.shape(), &[2, 2]);
+    }
+
+    #[test]
+    fn test_broadcasting() {
+        let a = Array::from_vec(vec![1.0, 2.0, 3.0], vec![3, 1]).unwrap();
+        let b = Array::from_vec(vec![10.0, 20.0], vec![1, 2]).unwrap();
+
+        let result = a + b;
+        assert_eq!(result.shape(), &[3, 2]);
+        assert_eq!(result[[0, 0]], 11.0); // 1 + 10
+        assert_eq!(result[[0, 1]], 21.0); // 1 + 20
+        assert_eq!(result[[1, 0]], 12.0); // 2 + 10
+        assert_eq!(result[[1, 1]], 22.0); // 2 + 20
+        assert_eq!(result[[2, 0]], 13.0); // 3 + 10
+        assert_eq!(result[[2, 1]], 23.0); // 3 + 20
+
+        // Test scalar operations
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let added = arr.add_scalar(5.0);
+        assert_eq!(added[[0, 0]], 6.0);
+        assert_eq!(added[[1, 1]], 9.0);
+
+        let multiplied = arr.mul_scalar(2.0);
+        assert_eq!(multiplied[[0, 0]], 2.0);
+        assert_eq!(multiplied[[1, 1]], 8.0);
+    }
+
+    #[test]
+    fn test_broadcast_shapes() {
+        let shape1 = vec![3, 1];
+        let shape2 = vec![1, 4];
+        let result = Array::<f64>::broadcast_shapes(&shape1, &shape2).unwrap();
+        assert_eq!(result, vec![3, 4]);
+
+        let shape3 = vec![2, 3];
+        let shape4 = vec![2, 4];
+        let result2 = Array::<f64>::broadcast_shapes(&shape3, &shape4);
+        assert!(result2.is_err());
     }
 }

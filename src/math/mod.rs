@@ -1,9 +1,10 @@
-use crate::core::{Array, compute_strides_for_shape};
+use crate::core::Array;
 use std::{
     fmt::Debug,
     ops::{Add, Div, Mul},
 }; // Sub currently unused
 pub mod matmul;
+use num_traits::Float;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MatmulPolicy {
@@ -32,30 +33,19 @@ where
     where
         T: Add<Output = T> + Default,
     {
-        self.data
-            .iter()
-            .fold(T::default(), |acc, x| acc + x.clone())
+        self.multi_iter()
+            .fold(T::default(), |acc, (_, x)| acc + x.clone())
     }
 
     /// Calculate mean of all elements
     pub fn mean(&self) -> T
     where
-        T: Add<Output = T> + Div<Output = T> + Default + Copy,
-        f64: Into<T>,
+        T: Add<Output = T> + Div<Output = T> + Default,
+        u32: Into<T>,
     {
         let sum = self.sum();
-        let len: f64 = self.data.len() as f64;
-        sum / len.into()
-    }
-
-    /// Calculate mean of all elements (integer version)
-    pub fn mean_int(&self) -> T
-    where
-        T: Add<Output = T> + Div<Output = T> + Default + From<usize>,
-    {
-        let sum = self.sum();
-        let len = T::from(self.data.len());
-        sum / len
+        let size = self.size() as u32;
+        sum / size.into()
     }
 
     /// Find maximum value
@@ -63,10 +53,9 @@ where
     where
         T: Clone + PartialOrd,
     {
-        self.data
-            .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .cloned()
+        self.multi_iter()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(_, x)| x.clone())
     }
 
     /// Find minimum value
@@ -74,10 +63,9 @@ where
     where
         T: Clone + PartialOrd,
     {
-        self.data
-            .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .cloned()
+        self.multi_iter()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(_, x)| x.clone())
     }
 
     /// Vector dot product (returns scalar)
@@ -105,16 +93,14 @@ where
         Ok(result)
     }
 
-    /// Apply function to each element
     pub fn map<F, U>(&self, f: F) -> Array<U>
     where
         F: Fn(&T) -> U,
-        U: Clone + Default,
     {
         Array {
             data: self.data.iter().map(f).collect(),
             shape: self.shape.clone(),
-            strides: compute_strides_for_shape(&self.shape),
+            strides: self.strides.clone(),
         }
     }
 
@@ -122,7 +108,6 @@ where
     pub fn into_map<F, U>(self, f: F) -> Array<U>
     where
         F: Fn(T) -> U,
-        U: Clone + Default,
     {
         let Self {
             data,
@@ -191,192 +176,86 @@ where
 
         Array::from_vec(result_data, result_shape)
     }
+}
 
+impl<T: Float> Array<T> {
     // Trigonometric functions
-    pub fn sin(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().sin()))
+    pub fn sin(&self) -> Array<T> {
+        self.map(|x| x.sin())
     }
 
-    pub fn cos(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().cos()))
+    pub fn cos(&self) -> Array<T> {
+        self.map(|x| x.cos())
     }
 
-    pub fn tan(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().tan()))
+    pub fn tan(&self) -> Array<T> {
+        self.map(|x| x.tan())
     }
 
-    pub fn asin(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().asin()))
+    pub fn asin(&self) -> Array<T> {
+        self.map(|x| x.asin())
     }
 
-    pub fn acos(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().acos()))
+    pub fn acos(&self) -> Array<T> {
+        self.map(|x| x.acos())
     }
 
-    pub fn atan(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().atan()))
-    }
-
-    pub fn atan2(&self, other: &Array<T>) -> Result<Array<T>, String>
-    where
-        T: Into<f64> + From<f64> + Clone,
-    {
-        if self.shape != other.shape {
-            return Err("Arrays must have the same shape for atan2".to_string());
-        }
-
-        let result_data: Vec<T> = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(y, x)| {
-                let y_f64: f64 = y.clone().into();
-                let x_f64: f64 = x.clone().into();
-                T::from(y_f64.atan2(x_f64))
-            })
-            .collect();
-
-        Ok(Array {
-            data: result_data,
-            shape: self.shape.clone(),
-            strides: self.strides.clone(),
-        })
+    pub fn atan(&self) -> Array<T> {
+        self.map(|x| x.atan())
     }
 
     // Hyperbolic functions
-    pub fn sinh(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().sinh()))
+    pub fn sinh(&self) -> Array<T> {
+        self.map(|x| x.sinh())
     }
 
-    pub fn cosh(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().cosh()))
+    pub fn cosh(&self) -> Array<T> {
+        self.map(|x| x.cosh())
     }
 
-    pub fn tanh(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().tanh()))
-    }
-
-    pub fn asinh(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().asinh()))
-    }
-
-    pub fn acosh(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().acosh()))
-    }
-
-    pub fn atanh(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().atanh()))
-    }
-
-    // Angle conversion
-    pub fn to_radians(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().to_radians()))
-    }
-
-    pub fn to_degrees(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().to_degrees()))
+    pub fn tanh(&self) -> Array<T> {
+        self.map(|x| x.tanh())
     }
 
     // Logarithmic functions
-    pub fn ln(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().ln()))
+    pub fn ln(&self) -> Array<T> {
+        self.map(|x| x.ln())
     }
 
-    pub fn log10(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().log10()))
+    pub fn log10(&self) -> Array<T> {
+        self.map(|x| x.log10())
     }
 
-    pub fn log2(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().log2()))
+    pub fn log2(&self) -> Array<T> {
+        self.map(|x| x.log2())
     }
 
-    pub fn log(&self, base: f64) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().log(base)))
+    pub fn log(&self, base: T) -> Array<T> {
+        self.map(|x| x.log(base))
     }
 
     // Exponential functions
-    pub fn exp(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().exp()))
+    pub fn exp(&self) -> Array<T> {
+        self.map(|x| x.exp())
     }
 
-    pub fn exp2(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().exp2()))
+    pub fn exp2(&self) -> Array<T> {
+        self.map(|x| x.exp2())
     }
 
-    pub fn exp_m1(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().exp_m1()))
+    pub fn exp_m1(&self) -> Array<T> {
+        self.map(|x| x.exp_m1())
     }
 
-    pub fn ln_1p(&self) -> Array<T>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        self.map(|x| T::from(x.clone().into().ln_1p()))
+    pub fn ln_1p(&self) -> Array<T> {
+        self.map(|x| x.ln_1p())
     }
+}
 
+impl<T> Array<T>
+where
+    T: Clone,
+{
     /// Singular Value Decomposition (SVD)
     /// Returns (U, singular_values, V_transpose) where A = U * Σ * V^T
     pub fn svd(&self) -> Result<(Array<T>, Array<T>, Array<T>), String>
@@ -750,5 +629,209 @@ mod tests {
         let arr2 = arr.sum_axis(1).unwrap();
         let arr3 = arr.sum_axis(2).unwrap();
         println!("arr= {arr:?} arr1= {arr1:?} arr2= {arr2:?} arr3= {arr3:?}");
+    }
+
+    #[test]
+    fn test_aggregations() {
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        assert_eq!(arr.sum(), 10.0);
+        assert_eq!(arr.mean(), 2.5);
+        assert_eq!(arr.max(), Some(4.0));
+        assert_eq!(arr.min(), Some(1.0));
+    }
+
+    #[test]
+    fn test_map() {
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let squared = arr.map(|x| x * x);
+        assert_eq!(squared[[0, 0]], 1.0);
+        assert_eq!(squared[[1, 1]], 16.0);
+    }
+
+    #[test]
+    fn test_map_type_conversion() {
+        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+        let result: Array<f64> = arr.map(|&x| x as f64 * 1.5);
+        assert_eq!(result[[0, 0]], 1.5);
+        assert_eq!(result[[1, 1]], 6.0);
+    }
+
+    #[test]
+    fn test_into_map() {
+        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+        let result: Array<String> = arr.into_map(|x| format!("value_{}", x));
+        assert_eq!(result[[0, 0]], "value_1");
+        assert_eq!(result[[1, 1]], "value_4");
+        assert_eq!(result.shape(), &[2, 2]);
+    }
+
+    #[test]
+    fn test_into_map_type_conversion() {
+        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+        let result: Array<f64> = arr.into_map(|x| x as f64 * 2.5);
+        assert_eq!(result[[0, 0]], 2.5);
+        assert_eq!(result[[1, 1]], 10.0);
+        assert_eq!(result.shape(), &[2, 2]);
+    }
+
+    #[test]
+    fn test_svd() {
+        // Test SVD on a simple 2x2 matrix
+        let matrix = Array::from_vec(vec![3.0, 1.0, 1.0, 3.0], vec![2, 2]).unwrap();
+        let (u, s, vt) = matrix.svd().unwrap();
+
+        // Check dimensions
+        assert_eq!(u.shape(), &[2, 2]);
+        assert_eq!(s.shape(), &[2]);
+        assert_eq!(vt.shape(), &[2, 2]);
+
+        // Check that singular values are positive and sorted in descending order
+        assert!(s[[0]] >= s[[1]]);
+        assert!(s[[0]] > 0.0);
+        assert!(s[[1]] >= 0.0);
+    }
+
+    #[test]
+    fn test_svd_reconstruction() {
+        use crate::prelude::*;
+
+        // Test that U * S * V^T reconstructs the original matrix (approximately)
+        let matrix = Array::from_vec(vec![2.0, 0.0, 0.0, 1.0], vec![2, 2]).unwrap();
+        let (u, s, vt) = matrix.svd().unwrap();
+
+        // Create diagonal matrix from singular values
+        let mut sigma = Array::zeros(vec![2, 2]);
+        sigma[[0, 0]] = s[[0]];
+        sigma[[1, 1]] = s[[1]];
+
+        // Reconstruct: U * Sigma * V^T
+        let us = u.matmul(&sigma, crate::math::MatmulPolicy::Naive).unwrap();
+        let reconstructed = us.matmul(&vt, crate::math::MatmulPolicy::Naive).unwrap();
+
+        // Check reconstruction accuracy (within tolerance)
+        let tolerance = 1e-10f64;
+        for i in 0..2 {
+            for j in 0..2 {
+                let diff = (matrix[[i, j]] - reconstructed[[i, j]]) as f64;
+                let diff = diff.abs();
+                assert!(diff < tolerance, "Reconstruction error too large: {}", diff);
+            }
+        }
+    }
+
+    #[test]
+    fn test_trigonometric_functions() {
+        let arr = Array::from_vec(
+            vec![
+                0.0,
+                std::f64::consts::PI / 6.0,
+                std::f64::consts::PI / 4.0,
+                std::f64::consts::PI / 3.0,
+                std::f64::consts::PI / 2.0,
+            ],
+            vec![5],
+        )
+        .unwrap();
+
+        let sin_result = arr.sin();
+        assert!((sin_result[[0]] - 0.0).abs() < 1e-10);
+        assert!((sin_result[[1]] - 0.5).abs() < 1e-10);
+        assert!((sin_result[[4]] - 1.0).abs() < 1e-10);
+
+        let cos_result = arr.cos();
+        assert!((cos_result[[0]] - 1.0).abs() < 1e-10);
+        assert!((cos_result[[4]] - 0.0).abs() < 1e-10);
+
+        let _tan_result = arr.tan();
+
+        // Test inverse functions
+        let values = Array::from_vec(vec![0.0, 0.5, 1.0], vec![3]).unwrap();
+        let asin_result = values.asin();
+        let acos_result = values.acos();
+        let atan_result = values.atan();
+
+        assert!((asin_result[[0]] - 0.0f64).abs() < 1e-10f64);
+        assert!((asin_result[[2]] - std::f64::consts::PI / 2.0).abs() < 1e-10);
+        assert!((acos_result[[0]] - std::f64::consts::PI / 2.0).abs() < 1e-10);
+        assert!((acos_result[[2]] - 0.0).abs() < 1e-10);
+        assert!((atan_result[[0]] - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_hyperbolic_functions() {
+        let arr = Array::from_vec(vec![0.0, 1.0, -1.0], vec![3]).unwrap();
+
+        let sinh_result = arr.sinh();
+        let cosh_result = arr.cosh();
+        let tanh_result = arr.tanh();
+
+        assert!((sinh_result[[0]] - 0.0f64).abs() < 1e-10f64);
+        assert!((cosh_result[[0]] - 1.0f64).abs() < 1e-10f64);
+        assert!((tanh_result[[0]] - 0.0f64).abs() < 1e-10f64);
+    }
+
+    #[test]
+    fn test_logarithmic_functions() {
+        let arr = Array::from_vec(vec![1.0, std::f64::consts::E, 10.0, 2.0], vec![4]).unwrap();
+
+        // Test natural logarithm
+        let ln_result = arr.ln();
+        assert!((ln_result[[0]] - 0.0).abs() < 1e-10); // ln(1) = 0
+        assert!((ln_result[[1]] - 1.0).abs() < 1e-10); // ln(e) = 1
+
+        // Test base-10 logarithm
+        let log10_result = arr.log10();
+        assert!((log10_result[[0]] - 0.0).abs() < 1e-10); // log10(1) = 0
+        assert!((log10_result[[2]] - 1.0).abs() < 1e-10); // log10(10) = 1
+
+        // Test base-2 logarithm
+        let log2_result = arr.log2();
+        assert!((log2_result[[0]] - 0.0).abs() < 1e-10); // log2(1) = 0
+        assert!((log2_result[[3]] - 1.0).abs() < 1e-10); // log2(2) = 1
+
+        // Test custom base logarithm
+        let values = Array::from_vec(vec![1.0, 3.0, 9.0, 27.0], vec![4]).unwrap();
+        let log3_result = values.log(3.0);
+        assert!((log3_result[[0]] - 0.0f64).abs() < 1e-10f64); // log3(1) = 0
+        assert!((log3_result[[1]] - 1.0f64).abs() < 1e-10f64); // log3(3) = 1
+        assert!((log3_result[[2]] - 2.0f64).abs() < 1e-10f64); // log3(9) = 2
+        assert!((log3_result[[3]] - 3.0f64).abs() < 1e-10f64); // log3(27) = 3
+
+        // Test that exp and ln are inverse operations
+        let test_values = Array::from_vec(vec![1.0, 2.0, 3.0], vec![3]).unwrap();
+        let exp_ln = test_values.clone().ln().exp();
+        for i in 0..3 {
+            assert!(((exp_ln[[i]] - test_values[[i]]) as f64).abs() < 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_exponential_functions() {
+        let arr = Array::from_vec(vec![0.0, 1.0, 2.0], vec![3]).unwrap();
+
+        // Test exponential function
+        let exp_result = arr.exp();
+        assert!((exp_result[[0]] - 1.0f64).abs() < 1e-10f64); // exp(0) = 1
+        assert!((exp_result[[1]] - std::f64::consts::E).abs() < 1e-10); // exp(1) = e
+
+        // Test base-2 exponential
+        let exp2_result = arr.exp2();
+        assert!((exp2_result[[0]] - 1.0).abs() < 1e-10); // 2^0 = 1
+        assert!((exp2_result[[1]] - 2.0).abs() < 1e-10); // 2^1 = 2
+        assert!((exp2_result[[2]] - 4.0).abs() < 1e-10); // 2^2 = 4
+
+        // Test exp_m1 and ln_1p (inverse operations)
+        let small_values = Array::from_vec(vec![0.1, 0.01, 0.001], vec![3]).unwrap();
+        let exp_m1_result = small_values.clone().exp_m1();
+        let ln_1p_result = exp_m1_result.ln_1p();
+
+        for i in 0..3 {
+            assert!(((ln_1p_result[[i]] - small_values[[i]]) as f64).abs() < 1e-10);
+        }
+
+        // Test that exp_m1(0) = 0 and ln_1p(0) = 0
+        let zero_arr = Array::from_vec(vec![0.0], vec![1]).unwrap();
+        assert!((zero_arr.clone().exp_m1()[[0]] - 0.0f64).abs() < 1e-10f64);
+        assert!((zero_arr.ln_1p()[[0]] - 0.0f64).abs() < 1e-10f64);
     }
 }
