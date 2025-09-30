@@ -5,7 +5,7 @@ use crate::{
 use std::{
     fmt::Debug,
     iter::Sum,
-    ops::{Add, AddAssign, Div, DivAssign, Index, Mul},
+    ops::{Add, Div, Index, Mul},
 }; // Sub currently unused
 pub mod matmul;
 use itertools::Itertools;
@@ -49,31 +49,9 @@ where
     /// Sum along specified axis
     pub fn sum_axis(&self, axis: usize) -> Result<Array<T>, String>
     where
-        T: Default + Clone + AddAssign,
+        T: Default + Clone + Sum,
     {
-        // self.map_axis(axis, |values| {
-        //     values.into_iter().cloned().sum()
-        // })
-        if axis >= self.shape.len() {
-            return Err("Axis out of bounds".to_string());
-        }
-
-        let shape = self.shape.clone();
-
-        let mut result_shape = shape;
-        result_shape[axis] = 1;
-
-        let result_size = result_shape.iter().product();
-        let mut result_data = vec![T::default(); result_size];
-        for (mut idx, value) in self.multi_iter() {
-            idx[axis] = 0;
-
-            let result_idx =
-                shape_indices_to_flat_idx(&result_shape, &idx, crate::core::MajorOrder::RowMajor);
-            result_data[result_idx] += value.clone();
-        }
-
-        Array::from_vec(result_data, result_shape)
+        self.map_axis(axis, |values| values.into_iter().cloned().sum())
     }
 
     /// Calculate mean of all elements
@@ -89,7 +67,7 @@ where
 
     pub fn mean_axis(&self, axis: usize) -> Result<Array<T>, String>
     where
-        T: Default + Clone + DivAssign + NumCast + AddAssign,
+        T: Default + Clone + NumCast + Sum + Div<Output = T>,
     {
         let axis_size = self.shape[axis];
 
@@ -99,11 +77,10 @@ where
             std::any::type_name::<T>()
         ))?;
 
-        // self.map_axis(axis, |values| {
-        //     let sum: T = values.into_iter().cloned().sum();
-        //     sum / axis_size.clone()
-        // })
-        self.sum_axis(axis).map(|a| a.div_scalar(axis_size))
+        self.map_axis(axis, |values| {
+            let sum: T = values.into_iter().cloned().sum();
+            sum / axis_size.clone()
+        })
     }
 
     /// Vector dot product (returns scalar)
