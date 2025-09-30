@@ -3,7 +3,7 @@ use vectra::prelude::Array;
 fn main() {
     // Test 2D array permutation (transpose)
     println!("=== 2D Array Permutation Test ===");
-    let arr_2d = Array::from_vec(vec![1, 2, 3, 4, 5, 6], vec![2, 3]).unwrap();
+    let mut arr_2d = Array::from_vec(vec![1, 2, 3, 4, 5, 6], vec![2, 3]).unwrap();
     println!("Original 2D array (2x3): {}", arr_2d);
     println!("Shape: {:?}", arr_2d.shape());
 
@@ -18,7 +18,7 @@ fn main() {
 
     // Test 3D array permutation
     println!("\n=== 3D Array Permutation Test ===");
-    let arr_3d =
+    let mut arr_3d =
         Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], vec![2, 2, 3]).unwrap();
     println!("Original 3D array (2x2x3): {:?}", arr_3d);
     println!("Shape: {:?}", arr_3d.shape());
@@ -64,7 +64,7 @@ fn main() {
 
     // Test with floating point numbers
     println!("\n=== Float Array Permutation Test ===");
-    let arr_float = Array::from_vec(vec![1.1, 2.2, 3.3, 4.4, 5.5, 6.6], vec![3, 2]).unwrap();
+    let mut arr_float = Array::from_vec(vec![1.1, 2.2, 3.3, 4.4, 5.5, 6.6], vec![3, 2]).unwrap();
     println!("Original float array (3x2): {}", arr_float);
 
     match arr_float.permute(vec![1, 0]) {

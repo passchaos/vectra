@@ -195,6 +195,7 @@ where
             data: self.data.iter().map(f).collect(),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
+            major_order: self.major_order,
         }
     }
 
@@ -207,12 +208,14 @@ where
             data,
             shape,
             strides,
+            major_order,
         } = self;
 
         Array {
             data: data.into_iter().map(f).collect(),
             shape,
             strides,
+            major_order,
         }
     }
 }
@@ -501,10 +504,8 @@ where
             .flatten()
             .map(|x| T::from(x))
             .collect();
-        let vt_array = Array::from_vec(vt_data, vec![n, n])
-            .unwrap()
-            .transpose()
-            .unwrap();
+        let mut vt_array = Array::from_vec(vt_data, vec![n, n]).unwrap();
+        vt_array.transpose().unwrap();
 
         Ok((u_array, s_array, vt_array))
     }

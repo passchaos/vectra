@@ -7,16 +7,31 @@ use faer::{Mat, MatRef};
 use itertools::Itertools;
 use num_traits::{NumCast, One, Zero};
 
+#[derive(Debug, Default, Clone, Copy)]
+pub enum MajorOrder {
+    #[default]
+    RowMajor,
+    ColumnMajor,
+}
+
 /// Multi-dimensional array structure, similar to numpy's ndarray
 pub struct Array<T> {
     pub(crate) data: Vec<T>,
     pub(crate) shape: Vec<usize>,
     pub(crate) strides: Vec<usize>,
+    pub(crate) major_order: MajorOrder,
 }
 
 impl<T> Array<T> {
     pub fn as_faer(&self) -> MatRef<'_, T> {
-        MatRef::from_row_major_slice(self.data.as_slice(), self.shape[0], self.shape[1])
+        match self.major_order {
+            MajorOrder::RowMajor => {
+                MatRef::from_row_major_slice(self.data.as_slice(), self.shape[0], self.shape[1])
+            }
+            MajorOrder::ColumnMajor => {
+                MatRef::from_column_major_slice(self.data.as_slice(), self.shape[0], self.shape[1])
+            }
+        }
     }
 }
 
@@ -31,6 +46,7 @@ impl<T> From<Mat<T>> for Array<T> {
         // Data may not be contiguous and could have padding, so we can only calculate data length as follows
         let len = nrows * row_stride + ncols * col_stride;
 
+        // zero-copy
         let data = unsafe { Vec::from_raw_parts(mat.as_ptr_mut(), len, len) };
         // println!("data: {data:?}");
         std::mem::forget(mat);
@@ -43,6 +59,7 @@ impl<T> From<Mat<T>> for Array<T> {
             data,
             shape,
             strides,
+            major_order: MajorOrder::ColumnMajor,
         }
     }
 }
@@ -139,13 +156,21 @@ impl<T: Clone> Clone for Array<T> {
             data: self.data.clone(),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
+            major_order: self.major_order.clone(),
         }
     }
 }
 
 impl<T> Array<T> {
-    /// Create array from data and shape, accepts any type that implements Into<Vec<T>>
     pub fn from_vec(data: Vec<T>, shape: Vec<usize>) -> Result<Self, String> {
+        Self::from_vec_major(data, shape, MajorOrder::RowMajor)
+    }
+
+    pub fn from_vec_major(
+        data: Vec<T>,
+        shape: Vec<usize>,
+        major_order: MajorOrder,
+    ) -> Result<Self, String> {
         let expected_size: usize = shape.iter().product();
         if data.len() != expected_size {
             return Err(format!(
@@ -155,11 +180,12 @@ impl<T> Array<T> {
                 expected_size
             ));
         }
-        let strides = Self::compute_strides(&shape);
+        let strides = Self::compute_strides(&shape, major_order);
         Ok(Self {
             data,
             shape,
             strides,
+            major_order,
         })
     }
 
@@ -169,11 +195,14 @@ impl<T> Array<T> {
         T: Clone + Zero,
     {
         let size = shape.iter().product();
-        let strides = Self::compute_strides(&shape);
+
+        let major_order = MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&shape, major_order);
         Self {
             data: vec![T::zero(); size],
             shape,
             strides,
+            major_order,
         }
     }
 
@@ -192,11 +221,13 @@ impl<T> Array<T> {
 
         let size = data.len();
 
-        let strides = Self::compute_strides(&[size]);
+        let major_order = MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&[size], major_order);
         Self {
             data,
             shape: vec![size],
             strides,
+            major_order,
         }
     }
 
@@ -206,11 +237,14 @@ impl<T> Array<T> {
         T: Clone + One,
     {
         let size = shape.iter().product();
-        let strides = Self::compute_strides(&shape);
+
+        let major_order = MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&shape, major_order);
         Self {
             data: vec![T::one(); size],
             shape,
             strides,
+            major_order,
         }
     }
 
@@ -227,21 +261,21 @@ impl<T> Array<T> {
     }
 
     /// Reshape array
-    pub fn reshape(&mut self, new_shape: Vec<usize>) -> Result<(), String> {
+    pub fn reshape(&mut self, new_shape: Vec<usize>) -> Result<&mut Self, String> {
         let new_size: usize = new_shape.iter().product();
         if new_size != self.data.len() {
             return Err("New shape size does not match array size".to_string());
         }
 
-        let new_strides = Self::compute_strides(&new_shape);
+        let new_strides = Self::compute_strides(&new_shape, self.major_order);
 
         self.shape = new_shape;
         self.strides = new_strides;
 
-        Ok(())
+        Ok(self)
     }
 
-    pub fn squeeze(&mut self, axes: Vec<usize>) -> Result<(), String> {
+    pub fn squeeze(&mut self, axes: Vec<usize>) -> Result<&mut Self, String> {
         let axes: HashSet<_> = axes.into_iter().collect();
 
         let mut new_shape = Vec::new();
@@ -264,32 +298,32 @@ impl<T> Array<T> {
             }
         }
 
-        let new_strides = Self::compute_strides(&new_shape);
+        let new_strides = Self::compute_strides(&new_shape, self.major_order);
         self.shape = new_shape;
         self.strides = new_strides;
 
-        Ok(())
+        Ok(self)
     }
 
-    pub fn unsqueeze(&mut self, axe: usize) -> Result<(), String> {
+    pub fn unsqueeze(&mut self, axe: usize) -> Result<&mut Self, String> {
         let mut new_shape = self.shape.clone();
         new_shape.insert(axe, 1);
 
-        let new_strides = Self::compute_strides(&new_shape);
+        let new_strides = Self::compute_strides(&new_shape, self.major_order);
         self.shape = new_shape;
         self.strides = new_strides;
 
-        Ok(())
+        Ok(self)
     }
 
     /// Transpose array (2D only)
-    pub fn transpose(self) -> Result<Self, String> {
+    pub fn transpose(&mut self) -> Result<&mut Self, String> {
         self.permute(vec![1, 0])
     }
 
     /// Permute the dimensions of the array according to the given axes
     /// Similar to PyTorch's permute function
-    pub fn permute(self, axes: Vec<usize>) -> Result<Self, String> {
+    pub fn permute(&mut self, axes: Vec<usize>) -> Result<&mut Self, String> {
         // Validate axes
         if axes.len() != self.shape.len() {
             return Err(format!(
@@ -311,18 +345,26 @@ impl<T> Array<T> {
         let new_shape = axes.iter().map(|&i| self.shape()[i]).collect();
         let new_strides = axes.iter().map(|&i| self.strides[i]).collect();
 
-        Ok(Self {
-            data: self.data,
-            shape: new_shape,
-            strides: new_strides,
-        })
+        self.shape = new_shape;
+        self.strides = new_strides;
+
+        Ok(self)
     }
 
-    // must be row-major order
-    fn compute_strides(shape: &[usize]) -> Vec<usize> {
+    pub(crate) fn compute_strides(shape: &[usize], major_order: MajorOrder) -> Vec<usize> {
         let mut strides = vec![1; shape.len()];
-        for i in (0..shape.len() - 1).rev() {
-            strides[i] = strides[i + 1] * shape[i + 1];
+
+        match major_order {
+            MajorOrder::RowMajor => {
+                for i in (0..shape.len() - 1).rev() {
+                    strides[i] = strides[i + 1] * shape[i + 1];
+                }
+            }
+            MajorOrder::ColumnMajor => {
+                for i in 1..shape.len() {
+                    strides[i] = strides[i - 1] * shape[i - 1];
+                }
+            }
         }
         strides
     }
@@ -420,7 +462,8 @@ impl<T> Array<T> {
         Ok(Array {
             data: new_data,
             shape: target_shape.to_vec(),
-            strides: compute_strides_for_shape(target_shape),
+            strides: Self::compute_strides(&target_shape, self.major_order),
+            major_order: self.major_order,
         })
     }
 
@@ -440,7 +483,7 @@ impl<T> Array<T> {
     }
 
     /// Apply a closure to each element in-place, modifying the current Array
-    pub fn map_inplace<F>(&mut self, f: F)
+    pub fn map_inplace<F>(&mut self, f: F) -> &mut Self
     where
         F: Fn(&T) -> T,
     {
@@ -453,6 +496,8 @@ impl<T> Array<T> {
             let item = self.index_mut(idx);
             *item = f(item);
         }
+
+        self
     }
 }
 
@@ -477,21 +522,16 @@ where
 {
     fn from(data: Vec<T>) -> Self {
         let shape = vec![data.len()];
-        let strides = Self::compute_strides(&shape);
+
+        let major_order = MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&shape, major_order);
         Self {
             data,
             shape,
             strides,
+            major_order,
         }
     }
-}
-
-pub fn compute_strides_for_shape(shape: &[usize]) -> Vec<usize> {
-    let mut strides = vec![1; shape.len()];
-    for i in (0..shape.len() - 1).rev() {
-        strides[i] = strides[i + 1] * shape[i + 1];
-    }
-    strides
 }
 
 // Additional From implementations for common array types
@@ -502,11 +542,14 @@ where
     fn from(data: [T; N]) -> Self {
         let data = data.to_vec();
         let shape = vec![data.len()];
-        let strides = Self::compute_strides(&shape);
+
+        let major_order = MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&shape, major_order);
         Self {
             data,
             shape,
             strides,
+            major_order,
         }
     }
 }
@@ -518,11 +561,14 @@ where
     fn from(data: &[T]) -> Self {
         let data = data.to_vec();
         let shape = vec![data.len()];
-        let strides = Self::compute_strides(&shape);
+
+        let major_order = MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&shape, major_order);
         Self {
             data,
             shape,
             strides,
+            major_order,
         }
     }
 }
@@ -543,8 +589,8 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Array {{ data: {}, shape: {:?}, strides: {:?} }}",
-            self, self.shape, self.strides
+            "Array {{ data: {}, shape: {:?}, strides: {:?} major_order: {:?} }}",
+            self, self.shape, self.strides, self.major_order
         )
     }
 }
@@ -712,6 +758,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_from_vec() {
+        let arr1 = Array::from_vec(vec![0, 1, 2, 3, 4, 5], vec![2, 3]).unwrap();
+        let arr2 =
+            Array::from_vec_major(vec![0, 3, 1, 4, 2, 5], vec![2, 3], MajorOrder::ColumnMajor)
+                .unwrap();
+
+        println!("arr1= {arr1:?} arr2= {arr2:?}");
+        println!("arr2: [0, 1]= {}", arr2[[0, 1]]);
+        assert_eq!(arr1, arr2);
+    }
+
+    #[test]
     fn test_ones_and_eye() {
         let ones: Array<f64> = Array::ones(vec![2, 2]);
         assert_eq!(ones[[0, 0]], 1.0);
@@ -760,10 +818,10 @@ mod tests {
         arr.reshape(vec![3, 2]).unwrap();
         assert_eq!(arr.shape(), &[3, 2]);
 
-        let transposed = arr.transpose().unwrap();
-        assert_eq!(transposed.shape(), &[2, 3]);
-        assert_eq!(transposed[[0, 0]], 1.0);
-        assert_eq!(transposed[[1, 0]], 2.0);
+        arr.transpose().unwrap();
+        assert_eq!(arr.shape(), &[2, 3]);
+        assert_eq!(arr[[0, 0]], 1.0);
+        assert_eq!(arr[[1, 0]], 2.0);
     }
 
     #[test]
@@ -794,7 +852,13 @@ mod tests {
         let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 1, 2]).unwrap();
 
         arr.squeeze(vec![]).unwrap();
-        arr.squeeze(vec![]).unwrap();
+        arr.squeeze(vec![])
+            .unwrap()
+            .squeeze(vec![])
+            .unwrap()
+            .squeeze(vec![])
+            .unwrap();
+
         assert_eq!(arr.shape(), &[2, 2]);
     }
 
@@ -813,7 +877,7 @@ mod tests {
         assert_eq!(result[[2, 1]], 23.0); // 3 + 20
 
         // Test scalar operations
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
         let added = arr.add_scalar(5.0);
         assert_eq!(added[[0, 0]], 6.0);
         assert_eq!(added[[1, 1]], 9.0);

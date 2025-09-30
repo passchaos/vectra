@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
-use crate::core::{Array, compute_strides_for_shape};
-use std::ops::{Add, Div, Index, IndexMut, Mul, Sub};
+use crate::core::Array;
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
 // Indexing implementations
 impl<T> Index<&[usize]> for Array<T> {
@@ -67,17 +67,20 @@ where
             .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast second array");
 
-        let result_data: Vec<T> = self_broadcast
-            .data
-            .iter()
-            .zip(other_broadcast.data.iter())
-            .map(|(a, b)| a.clone() + b.clone())
+        let result_data = self_broadcast
+            .multi_iter()
+            .zip(other_broadcast.multi_iter())
+            .map(|((_, a), (_, b))| a.clone() + b.clone())
             .collect();
+
+        let major_order = crate::core::MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&broadcast_shape, major_order);
 
         Array {
             data: result_data,
             shape: broadcast_shape.clone(),
-            strides: compute_strides_for_shape(&broadcast_shape),
+            strides,
+            major_order,
         }
     }
 }
@@ -99,17 +102,20 @@ where
             .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast second array");
 
-        let result_data: Vec<T> = self_broadcast
-            .data
-            .iter()
-            .zip(other_broadcast.data.iter())
-            .map(|(a, b)| a.clone() - b.clone())
+        let result_data = self_broadcast
+            .multi_iter()
+            .zip(other_broadcast.multi_iter())
+            .map(|((_, a), (_, b))| a.clone() - b.clone())
             .collect();
+
+        let major_order = crate::core::MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&broadcast_shape, major_order);
 
         Array {
             data: result_data,
             shape: broadcast_shape.clone(),
-            strides: compute_strides_for_shape(&broadcast_shape),
+            strides,
+            major_order,
         }
     }
 }
@@ -131,17 +137,20 @@ where
             .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast second array");
 
-        let result_data: Vec<T> = self_broadcast
-            .data
-            .iter()
-            .zip(other_broadcast.data.iter())
-            .map(|(a, b)| a.clone() * b.clone())
+        let result_data = self_broadcast
+            .multi_iter()
+            .zip(other_broadcast.multi_iter())
+            .map(|((_, a), (_, b))| a.clone() * b.clone())
             .collect();
+
+        let major_order = crate::core::MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&broadcast_shape, major_order);
 
         Array {
             data: result_data,
             shape: broadcast_shape.clone(),
-            strides: compute_strides_for_shape(&broadcast_shape),
+            strides,
+            major_order,
         }
     }
 }
@@ -163,17 +172,20 @@ where
             .broadcast_to(&broadcast_shape)
             .expect("Failed to broadcast second array");
 
-        let result_data: Vec<T> = self_broadcast
-            .data
-            .iter()
-            .zip(other_broadcast.data.iter())
-            .map(|(a, b)| a.clone() / b.clone())
+        let result_data = self_broadcast
+            .multi_iter()
+            .zip(other_broadcast.multi_iter())
+            .map(|((_, a), (_, b))| a.clone() / b.clone())
             .collect();
+
+        let major_order = crate::core::MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&broadcast_shape, major_order);
 
         Array {
             data: result_data,
             shape: broadcast_shape.clone(),
-            strides: compute_strides_for_shape(&broadcast_shape),
+            strides,
+            major_order,
         }
     }
 }
@@ -184,67 +196,39 @@ where
     T: Clone,
 {
     /// Add scalar to all elements
-    pub fn add_scalar(&self, scalar: T) -> Array<T>
+    pub fn add_scalar(&mut self, scalar: T) -> &mut Self
     where
-        T: Add<Output = T>,
+        T: AddAssign,
     {
-        Array {
-            data: self
-                .data
-                .iter()
-                .map(|x| x.clone() + scalar.clone())
-                .collect(),
-            shape: self.shape.clone(),
-            strides: self.strides.clone(),
-        }
+        self.data.iter_mut().for_each(|x| *x += scalar.clone());
+        self
     }
 
     /// Subtract scalar from all elements
-    pub fn sub_scalar(&self, scalar: T) -> Array<T>
+    pub fn sub_scalar(&mut self, scalar: T) -> &mut Self
     where
-        T: Sub<Output = T>,
+        T: SubAssign,
     {
-        Array {
-            data: self
-                .data
-                .iter()
-                .map(|x| x.clone() - scalar.clone())
-                .collect(),
-            shape: self.shape.clone(),
-            strides: self.strides.clone(),
-        }
+        self.data.iter_mut().for_each(|x| *x -= scalar.clone());
+        self
     }
 
     /// Multiply all elements by scalar
-    pub fn mul_scalar(&self, scalar: T) -> Array<T>
+    pub fn mul_scalar(&mut self, scalar: T) -> &mut Self
     where
-        T: Mul<Output = T>,
+        T: MulAssign,
     {
-        Array {
-            data: self
-                .data
-                .iter()
-                .map(|x| x.clone() * scalar.clone())
-                .collect(),
-            shape: self.shape.clone(),
-            strides: self.strides.clone(),
-        }
+        self.data.iter_mut().for_each(|x| *x *= scalar.clone());
+        self
     }
 
     /// Divide all elements by scalar
-    pub fn div_scalar(&self, scalar: T) -> Array<T>
+    pub fn div_scalar(&mut self, scalar: T) -> &mut Self
     where
-        T: Div<Output = T>,
+        T: DivAssign,
     {
-        Array {
-            data: self
-                .data
-                .iter()
-                .map(|x| x.clone() / scalar.clone())
-                .collect(),
-            shape: self.shape.clone(),
-            strides: self.strides.clone(),
-        }
+        self.data.iter_mut().for_each(|x| *x /= scalar.clone());
+        self
     }
 }
 

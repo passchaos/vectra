@@ -1,4 +1,4 @@
-use crate::core::{Array, compute_strides_for_shape};
+use crate::core::Array;
 use num_traits::{One, Zero};
 use rand::distr::{Distribution, Uniform, uniform::SampleUniform};
 use rand_distr::StandardNormal;
@@ -17,7 +17,9 @@ impl<T> Array<T> {
         StandardNormal: Distribution<T>,
     {
         let size = shape.iter().product();
-        let strides = compute_strides_for_shape(&shape);
+
+        let major_order = crate::core::MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&shape, major_order);
         let mut rng = rand::rng();
 
         let form = StandardNormal;
@@ -28,6 +30,7 @@ impl<T> Array<T> {
             data,
             shape,
             strides,
+            major_order,
         }
     }
 
@@ -43,12 +46,15 @@ impl<T> Array<T> {
 
         let data = form.sample_iter(&mut rng).take(size).collect();
         // let data: Vec<_> = (0..size).map(|_| rng.random_range(0.0..1.0)).collect();
-        let strides = compute_strides_for_shape(&shape);
+        //
+        let major_order = crate::core::MajorOrder::RowMajor;
+        let strides = Self::compute_strides(&shape, major_order);
 
         Self {
             data,
             shape,
             strides,
+            major_order,
         }
     }
 }

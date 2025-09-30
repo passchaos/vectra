@@ -17,7 +17,7 @@ fn main() {
     // 2. Create array from vector
     println!("\n2. Create array from vector:");
     let data = vec![1, 2, 3, 4, 5, 6];
-    let arr = Array::from_vec(data, vec![2, 3]).unwrap();
+    let mut arr = Array::from_vec(data, vec![2, 3]).unwrap();
     println!("Array created from vector (2x3):\n{}", arr);
 
     // 3. Array operations
@@ -31,7 +31,7 @@ fn main() {
 
     // 4. Mathematical operations
     println!("\n4. Mathematical operations:");
-    let a = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+    let mut a = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
     let b = Array::from_vec(vec![5, 6, 7, 8], vec![2, 2]).unwrap();
 
     println!("Matrix A:\n{}", a);
