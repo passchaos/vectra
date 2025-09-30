@@ -7,6 +7,8 @@ use faer::{Mat, MatRef};
 use itertools::Itertools;
 use num_traits::{NumCast, One, Zero};
 
+use crate::utils::{compute_strides, indices_to_flat_idx};
+
 #[derive(Debug, Default, Clone, Copy)]
 pub enum MajorOrder {
     #[default]
@@ -52,7 +54,7 @@ impl<T> From<Mat<T>> for Array<T> {
         std::mem::forget(mat);
 
         let shape = vec![nrows, ncols];
-        // let strides = Self::compute_strides(&shape);
+        // let strides = compute_strides(&shape);
         let strides = vec![row_stride as usize, col_stride as usize];
 
         Self {
@@ -180,7 +182,7 @@ impl<T> Array<T> {
                 expected_size
             ));
         }
-        let strides = Self::compute_strides(&shape, major_order);
+        let strides = compute_strides(&shape, major_order);
         Ok(Self {
             data,
             shape,
@@ -197,7 +199,7 @@ impl<T> Array<T> {
         let size = shape.iter().product();
 
         let major_order = MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&shape, major_order);
+        let strides = compute_strides(&shape, major_order);
         Self {
             data: vec![T::zero(); size],
             shape,
@@ -222,7 +224,7 @@ impl<T> Array<T> {
         let size = data.len();
 
         let major_order = MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&[size], major_order);
+        let strides = compute_strides(&[size], major_order);
         Self {
             data,
             shape: vec![size],
@@ -239,7 +241,7 @@ impl<T> Array<T> {
         let size = shape.iter().product();
 
         let major_order = MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&shape, major_order);
+        let strides = compute_strides(&shape, major_order);
         Self {
             data: vec![T::one(); size],
             shape,
@@ -267,7 +269,7 @@ impl<T> Array<T> {
             return Err("New shape size does not match array size".to_string());
         }
 
-        let new_strides = Self::compute_strides(&new_shape, self.major_order);
+        let new_strides = compute_strides(&new_shape, self.major_order);
 
         self.shape = new_shape;
         self.strides = new_strides;
@@ -298,7 +300,7 @@ impl<T> Array<T> {
             }
         }
 
-        let new_strides = Self::compute_strides(&new_shape, self.major_order);
+        let new_strides = compute_strides(&new_shape, self.major_order);
         self.shape = new_shape;
         self.strides = new_strides;
 
@@ -309,7 +311,7 @@ impl<T> Array<T> {
         let mut new_shape = self.shape.clone();
         new_shape.insert(axe, 1);
 
-        let new_strides = Self::compute_strides(&new_shape, self.major_order);
+        let new_strides = compute_strides(&new_shape, self.major_order);
         self.shape = new_shape;
         self.strides = new_strides;
 
@@ -350,28 +352,6 @@ impl<T> Array<T> {
 
         Ok(self)
     }
-
-    pub(crate) fn compute_strides(shape: &[usize], major_order: MajorOrder) -> Vec<usize> {
-        let mut strides = vec![1; shape.len()];
-
-        match major_order {
-            MajorOrder::RowMajor => {
-                for i in (0..shape.len() - 1).rev() {
-                    strides[i] = strides[i + 1] * shape[i + 1];
-                }
-            }
-            MajorOrder::ColumnMajor => {
-                for i in 1..shape.len() {
-                    strides[i] = strides[i - 1] * shape[i - 1];
-                }
-            }
-        }
-        strides
-    }
-
-    fn compute_flat_idx(strides: &[usize], indices: &[usize]) -> usize {
-        strides.iter().zip(indices).map(|(&s, &i)| s * i).sum()
-    }
 }
 
 impl<T> Array<T> {
@@ -392,7 +372,7 @@ impl<T> Array<T> {
             ));
         }
 
-        Ok(Self::compute_flat_idx(&self.strides, indices))
+        Ok(indices_to_flat_idx(&self.strides, indices))
     }
 
     /// Broadcast two shapes to a common shape
@@ -462,7 +442,7 @@ impl<T> Array<T> {
         Ok(Array {
             data: new_data,
             shape: target_shape.to_vec(),
-            strides: Self::compute_strides(&target_shape, self.major_order),
+            strides: compute_strides(&target_shape, self.major_order),
             major_order: self.major_order,
         })
     }
@@ -524,7 +504,7 @@ where
         let shape = vec![data.len()];
 
         let major_order = MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&shape, major_order);
+        let strides = compute_strides(&shape, major_order);
         Self {
             data,
             shape,
@@ -544,7 +524,7 @@ where
         let shape = vec![data.len()];
 
         let major_order = MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&shape, major_order);
+        let strides = compute_strides(&shape, major_order);
         Self {
             data,
             shape,
@@ -563,7 +543,7 @@ where
         let shape = vec![data.len()];
 
         let major_order = MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&shape, major_order);
+        let strides = compute_strides(&shape, major_order);
         Self {
             data,
             shape,
@@ -767,6 +747,45 @@ mod tests {
         println!("arr1= {arr1:?} arr2= {arr2:?}");
         println!("arr2: [0, 1]= {}", arr2[[0, 1]]);
         assert_eq!(arr1, arr2);
+    }
+
+    #[test]
+    fn test_faer() {
+        let arr_f = faer::mat![[1, 2, 3], [4, 5, 6]];
+        println!(
+            "strides: row= {} col= {}",
+            arr_f.row_stride(),
+            arr_f.col_stride()
+        );
+        let arr_f_i = Array::from(arr_f);
+
+        println!("aff_f_i: {arr_f_i:?} data= {:?}", arr_f_i.data);
+
+        let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], vec![2, 3]).unwrap();
+        let arr_f_r = arr.as_faer();
+        println!(
+            "arr_f_r: shape= {:?} strides= {:?} {:?}",
+            arr_f_r.shape(),
+            arr_f_r.row_stride(),
+            arr_f_r.col_stride()
+        );
+        let arr_f_r_c = arr_f_r.cloned();
+        println!(
+            "arr_f_r_c: shape= {:?} strides= {:?} {:?}",
+            arr_f_r_c.shape(),
+            arr_f_r_c.row_stride(),
+            arr_f_r_c.col_stride()
+        );
+
+        let arr_f: Array<i32> = Array::from(arr_f_r_c);
+        assert_eq!(arr, arr_f);
+        println!("arr= {:?} arr_f= {:?}", arr, arr_f);
+        // let arr_f_data = arr_f.as_ptr();
+        // Vec::from_raw_parts(ptr, length, capacity)
+        // let arr_faer = arr.as_faer().to_owned();
+        // println!("arr_f shape: {:?}", arr_f.shape());
+        // println!("arr_faer: {arr_faer:?} arr_f: {arr_f:?}");
+        // assert_eq!(arr, arr_major);
     }
 
     #[test]

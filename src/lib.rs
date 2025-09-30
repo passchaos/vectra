@@ -13,6 +13,7 @@ mod core;
 mod math;
 mod ops;
 mod random;
+mod utils;
 
 pub mod prelude {
     pub use crate::core::Array;

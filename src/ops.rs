@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::core::Array;
+use crate::{core::Array, utils::compute_strides};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
 // Indexing implementations
@@ -74,7 +74,7 @@ where
             .collect();
 
         let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&broadcast_shape, major_order);
+        let strides = compute_strides(&broadcast_shape, major_order);
 
         Array {
             data: result_data,
@@ -109,7 +109,7 @@ where
             .collect();
 
         let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&broadcast_shape, major_order);
+        let strides = compute_strides(&broadcast_shape, major_order);
 
         Array {
             data: result_data,
@@ -144,7 +144,7 @@ where
             .collect();
 
         let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&broadcast_shape, major_order);
+        let strides = compute_strides(&broadcast_shape, major_order);
 
         Array {
             data: result_data,
@@ -179,7 +179,7 @@ where
             .collect();
 
         let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = Self::compute_strides(&broadcast_shape, major_order);
+        let strides = compute_strides(&broadcast_shape, major_order);
 
         Array {
             data: result_data,
