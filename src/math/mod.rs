@@ -1,10 +1,15 @@
-use crate::core::Array;
+use crate::{
+    core::{Array, MajorOrder},
+    utils::shape_indices_to_flat_idx,
+};
 use std::{
     fmt::Debug,
-    ops::{Add, Div, Mul},
+    iter::Sum,
+    ops::{Add, AddAssign, Div, DivAssign, Index, Mul},
 }; // Sub currently unused
 pub mod matmul;
-use num_traits::Float;
+use itertools::Itertools;
+use num_traits::{Float, NumCast, Pow, float::TotalOrder};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MatmulPolicy {
@@ -20,7 +25,11 @@ pub enum MatmulPolicy {
 
 impl Default for MatmulPolicy {
     fn default() -> Self {
-        Self::Naive
+        #[cfg(target_os = "macos")]
+        return Self::Blas;
+
+        #[cfg(not(target_os = "macos"))]
+        return Self::Faer;
     }
 }
 
@@ -40,68 +49,28 @@ where
     /// Sum along specified axis
     pub fn sum_axis(&self, axis: usize) -> Result<Array<T>, String>
     where
-        T: Add<Output = T> + Default,
+        T: Default + Clone + AddAssign,
     {
+        // self.map_axis(axis, |values| {
+        //     values.into_iter().cloned().sum()
+        // })
         if axis >= self.shape.len() {
             return Err("Axis out of bounds".to_string());
         }
 
-        // let shape = self.shape.clone();
-        // let axis_size = shape[axis];
-        // let mut result_shape = shape;
-        // result_shape[axis] = 1;
+        let shape = self.shape.clone();
 
-        // let result_size = result_shape.iter().product();
-        // let mut result_data = vec![T::default(); result_size];
-        // for (idx, value) in self.multi_iter() {
-        //     let mut result_idx = idx[axis];
-        //     for i in 0..axis {
-        //         result_idx += idx[i] * shape[i];
-        //     }
-        //     result_data[result_idx] += value;
-        // }
+        let mut result_shape = shape;
+        result_shape[axis] = 1;
 
-        let mut result_shape = self.shape.clone();
-        result_shape.remove(axis);
-
-        if result_shape.is_empty() {
-            // Sum over all dimensions, return scalar as 0-d array
-            let total_sum = self.sum();
-            return Array::from_vec(vec![total_sum], vec![]);
-        }
-
-        let result_size: usize = result_shape.iter().product();
+        let result_size = result_shape.iter().product();
         let mut result_data = vec![T::default(); result_size];
+        for (mut idx, value) in self.multi_iter() {
+            idx[axis] = 0;
 
-        // For each position in the result array
-        for result_idx in 0..result_size {
-            // Convert flat index to multi-dimensional index for result
-            let mut result_indices = vec![0; result_shape.len()];
-            let mut temp = result_idx;
-            for i in (0..result_shape.len()).rev() {
-                result_indices[i] = temp % result_shape[i];
-                temp /= result_shape[i];
-            }
-
-            // Sum over the specified axis
-            let mut sum = T::default();
-            for axis_idx in 0..self.shape[axis] {
-                // Construct full index for original array
-                let mut full_indices = Vec::new();
-                let mut result_pos = 0;
-                for i in 0..self.shape.len() {
-                    if i == axis {
-                        full_indices.push(axis_idx);
-                    } else {
-                        full_indices.push(result_indices[result_pos]);
-                        result_pos += 1;
-                    }
-                }
-
-                let flat_idx = self.index_to_flat(&full_indices)?;
-                sum = sum + self.data[flat_idx].clone();
-            }
-            result_data[result_idx] = sum;
+            let result_idx =
+                shape_indices_to_flat_idx(&result_shape, &idx, crate::core::MajorOrder::RowMajor);
+            result_data[result_idx] += value.clone();
         }
 
         Array::from_vec(result_data, result_shape)
@@ -118,48 +87,23 @@ where
         sum / size.into()
     }
 
-    // pub fn mean_axis(&self, axis: usize) -> Result<Array<T>, String>
-    // where
-    //     T: Add<Output = T> + Div<Output = T> + Default,
-    //     u32: Into<T>,
-    // {
-    //     let shape = self.shape.clone();
-    //     let axis_size = shape[axis];
-    //     let mut result_shape = shape;
-    //     result_shape[axis] = 1;
-
-    //     let mut result_data = vec![T::default(); result_shape.size()];
-    //     let mut result_idx = 0;
-
-    //     for (indices, value) in self.multi_iter() {
-    //         let mut full_indices = indices.clone();
-    //         full_indices[axis] = 0;
-
-    //         let flat_idx = self.index_to_flat(&full_indices)?;
-    //         result_data[result_idx] = result_data[result_idx] + value.clone();
-    //     }
-
-    //     Array::from_vec(result_data, result_shape)
-    // }
-
-    /// Find maximum value
-    pub fn max(&self) -> Option<T>
+    pub fn mean_axis(&self, axis: usize) -> Result<Array<T>, String>
     where
-        T: Clone + PartialOrd,
+        T: Default + Clone + DivAssign + NumCast + AddAssign,
     {
-        self.multi_iter()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(_, x)| x.clone())
-    }
+        let axis_size = self.shape[axis];
 
-    /// Find minimum value
-    pub fn min(&self) -> Option<T>
-    where
-        T: Clone + PartialOrd,
-    {
-        self.multi_iter()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(_, x)| x.clone())
+        let axis_size = T::from(axis_size).ok_or(format!(
+            "cannot convert {} to type {}",
+            std::any::type_name_of_val(&axis_size),
+            std::any::type_name::<T>()
+        ))?;
+
+        // self.map_axis(axis, |values| {
+        //     let sum: T = values.into_iter().cloned().sum();
+        //     sum / axis_size.clone()
+        // })
+        self.sum_axis(axis).map(|a| a.div_scalar(axis_size))
     }
 
     /// Vector dot product (returns scalar)
@@ -186,7 +130,61 @@ where
 
         Ok(result)
     }
+}
 
+pub trait TotalOrd {
+    type Output;
+    fn min(&self) -> Option<Self::Output>;
+    fn max(&self) -> Option<Self::Output>;
+}
+
+macro_rules! impl_total_ord {
+    ($($t:ty),*) => {
+        $(
+            impl TotalOrd for Array<$t> {
+                type Output = $t;
+                fn min(&self) -> Option<Self::Output> {
+                    self.multi_iter()
+                        .min_by(|(_, a), (_, b)| a.cmp(b))
+                        .map(|(_, x)| x.clone())
+                }
+                fn max(&self) -> Option<Self::Output> {
+                    self.multi_iter()
+                        .max_by(|(_, a), (_, b)| a.cmp(b))
+                        .map(|(_, x)| x.clone())
+                }
+            }
+        )*
+    };
+}
+
+impl_total_ord!(
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+);
+
+impl<T: TotalOrder> Array<T> {
+    /// Find maximum value
+    pub fn max(&self) -> Option<T>
+    where
+        T: Clone,
+    {
+        self.multi_iter()
+            .max_by(|(_, a), (_, b)| a.total_cmp(b))
+            .map(|(_, x)| x.clone())
+    }
+
+    /// Find minimum value
+    pub fn min(&self) -> Option<T>
+    where
+        T: Clone,
+    {
+        self.multi_iter()
+            .max_by(|(_, a), (_, b)| a.total_cmp(b))
+            .map(|(_, x)| x.clone())
+    }
+}
+
+impl<T> Array<T> {
     pub fn map<F, U>(&self, f: F) -> Array<U>
     where
         F: Fn(&T) -> U,
@@ -197,6 +195,43 @@ where
             strides: self.strides.clone(),
             major_order: self.major_order,
         }
+    }
+
+    pub fn map_axis<F, U>(&self, axis: usize, f: F) -> Result<Array<U>, String>
+    where
+        F: Fn(Vec<&T>) -> U,
+        U: Default + Clone,
+    {
+        if axis >= self.ndim() {
+            return Err("Axis out of bounds".to_string());
+        }
+
+        let mut result_shape = self.shape().to_vec();
+        let axis_len = result_shape[axis];
+        result_shape[axis] = 1;
+
+        let result_size = result_shape.iter().product();
+        let mut result_data = vec![U::default(); result_size];
+
+        let major_order = MajorOrder::RowMajor;
+
+        for idx in result_shape.iter().map(|&n| 0..n).multi_cartesian_product() {
+            let axis_values = (0..axis_len)
+                .map(|i| {
+                    let mut i_idx = idx.clone();
+                    i_idx[axis] = i;
+
+                    self.index(i_idx.as_slice())
+                })
+                .collect();
+
+            let value = f(axis_values);
+
+            let flat_idx = shape_indices_to_flat_idx(&result_shape, &idx, major_order);
+            result_data[flat_idx] = value;
+        }
+
+        Array::from_vec_major(result_data, result_shape, major_order)
     }
 
     /// Apply function to each element, consuming self and returning a new Array with different type
@@ -217,6 +252,12 @@ where
             strides,
             major_order,
         }
+    }
+}
+
+impl<T: Pow<T, Output = T> + Clone> Array<T> {
+    pub fn pow(&self, exponent: T) -> Array<T> {
+        self.map(|x| x.clone().pow(exponent.clone()))
     }
 }
 
@@ -257,6 +298,18 @@ impl<T: Float> Array<T> {
 
     pub fn tanh(&self) -> Array<T> {
         self.map(|x| x.tanh())
+    }
+
+    pub fn sqrt(&self) -> Array<T> {
+        self.map(|x| x.sqrt())
+    }
+
+    pub fn pow2(&self) -> Array<T> {
+        self.map(|x| x.powi(2))
+    }
+
+    pub fn powi(&self, exponent: i32) -> Array<T> {
+        self.map(|x| x.powi(exponent))
     }
 
     // Logarithmic functions
@@ -504,10 +557,10 @@ where
             .flatten()
             .map(|x| T::from(x))
             .collect();
-        let mut vt_array = Array::from_vec(vt_data, vec![n, n]).unwrap();
-        vt_array.transpose().unwrap();
+        let vt_array = Array::from_vec(vt_data, vec![n, n]).unwrap();
+        let vt_array_transposed = vt_array.transpose().unwrap();
 
-        Ok((u_array, s_array, vt_array))
+        Ok((u_array, s_array, vt_array_transposed))
     }
 
     /// Truncated power iteration SVD for computing top k singular values/vectors
@@ -666,9 +719,43 @@ mod tests {
             Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], vec![2, 3, 2]).unwrap();
 
         let arr1 = arr.sum_axis(0).unwrap();
+        assert_eq!(
+            arr1,
+            Array::from_vec(vec![8, 10, 12, 14, 16, 18], vec![1, 3, 2]).unwrap()
+        );
         let arr2 = arr.sum_axis(1).unwrap();
+        assert_eq!(
+            arr2,
+            Array::from_vec(vec![9, 12, 27, 30], vec![2, 1, 2]).unwrap()
+        );
         let arr3 = arr.sum_axis(2).unwrap();
-        println!("arr= {arr:?} arr1= {arr1:?} arr2= {arr2:?} arr3= {arr3:?}");
+        assert_eq!(
+            arr3,
+            Array::from_vec(vec![3, 7, 11, 15, 19, 23], vec![2, 3, 1]).unwrap()
+        );
+
+        let arr4 = arr.sum_axis(2).unwrap();
+        let arr4 = arr4.squeeze(vec![]).unwrap();
+        assert_eq!(
+            arr4,
+            Array::from_vec(vec![3, 7, 11, 15, 19, 23], vec![2, 3]).unwrap()
+        );
+        println!("arr= {arr:?} arr1= {arr1:?} arr2= {arr2:?} arr3= {arr3:?} arr4= {arr4:?}");
+    }
+
+    #[test]
+    fn test_mean_axis() {
+        let arr = Array::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let mean_axis_0 = arr.mean_axis(0).unwrap();
+        assert_eq!(
+            mean_axis_0,
+            Array::from_vec(vec![2.0, 3.0], vec![1, 2]).unwrap()
+        );
+        let mean_axis_1 = arr.mean_axis(1).unwrap();
+        assert_eq!(
+            mean_axis_1,
+            Array::from_vec(vec![1.5, 3.5], vec![2, 1]).unwrap()
+        );
     }
 
     #[test]

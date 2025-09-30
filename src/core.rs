@@ -263,7 +263,7 @@ impl<T> Array<T> {
     }
 
     /// Reshape array
-    pub fn reshape(&mut self, new_shape: Vec<usize>) -> Result<&mut Self, String> {
+    pub fn reshape(self, new_shape: Vec<usize>) -> Result<Self, String> {
         let new_size: usize = new_shape.iter().product();
         if new_size != self.data.len() {
             return Err("New shape size does not match array size".to_string());
@@ -271,13 +271,15 @@ impl<T> Array<T> {
 
         let new_strides = compute_strides(&new_shape, self.major_order);
 
-        self.shape = new_shape;
-        self.strides = new_strides;
-
-        Ok(self)
+        Ok(Self {
+            data: self.data,
+            shape: new_shape,
+            strides: new_strides,
+            major_order: self.major_order,
+        })
     }
 
-    pub fn squeeze(&mut self, axes: Vec<usize>) -> Result<&mut Self, String> {
+    pub fn squeeze(self, axes: Vec<usize>) -> Result<Self, String> {
         let axes: HashSet<_> = axes.into_iter().collect();
 
         let mut new_shape = Vec::new();
@@ -301,31 +303,37 @@ impl<T> Array<T> {
         }
 
         let new_strides = compute_strides(&new_shape, self.major_order);
-        self.shape = new_shape;
-        self.strides = new_strides;
 
-        Ok(self)
+        Ok(Self {
+            data: self.data,
+            shape: new_shape,
+            strides: new_strides,
+            major_order: self.major_order,
+        })
     }
 
-    pub fn unsqueeze(&mut self, axe: usize) -> Result<&mut Self, String> {
+    pub fn unsqueeze(self, axe: usize) -> Result<Self, String> {
         let mut new_shape = self.shape.clone();
         new_shape.insert(axe, 1);
 
         let new_strides = compute_strides(&new_shape, self.major_order);
-        self.shape = new_shape;
-        self.strides = new_strides;
 
-        Ok(self)
+        Ok(Self {
+            data: self.data,
+            shape: new_shape,
+            strides: new_strides,
+            major_order: self.major_order,
+        })
     }
 
     /// Transpose array (2D only)
-    pub fn transpose(&mut self) -> Result<&mut Self, String> {
+    pub fn transpose(self) -> Result<Self, String> {
         self.permute(vec![1, 0])
     }
 
     /// Permute the dimensions of the array according to the given axes
     /// Similar to PyTorch's permute function
-    pub fn permute(&mut self, axes: Vec<usize>) -> Result<&mut Self, String> {
+    pub fn permute(self, axes: Vec<usize>) -> Result<Self, String> {
         // Validate axes
         if axes.len() != self.shape.len() {
             return Err(format!(
@@ -347,10 +355,12 @@ impl<T> Array<T> {
         let new_shape = axes.iter().map(|&i| self.shape()[i]).collect();
         let new_strides = axes.iter().map(|&i| self.strides[i]).collect();
 
-        self.shape = new_shape;
-        self.strides = new_strides;
-
-        Ok(self)
+        Ok(Self {
+            data: self.data,
+            shape: new_shape,
+            strides: new_strides,
+            major_order: self.major_order,
+        })
     }
 }
 
@@ -780,12 +790,6 @@ mod tests {
         let arr_f: Array<i32> = Array::from(arr_f_r_c);
         assert_eq!(arr, arr_f);
         println!("arr= {:?} arr_f= {:?}", arr, arr_f);
-        // let arr_f_data = arr_f.as_ptr();
-        // Vec::from_raw_parts(ptr, length, capacity)
-        // let arr_faer = arr.as_faer().to_owned();
-        // println!("arr_f shape: {:?}", arr_f.shape());
-        // println!("arr_faer: {arr_faer:?} arr_f: {arr_f:?}");
-        // assert_eq!(arr, arr_major);
     }
 
     #[test]
@@ -833,11 +837,11 @@ mod tests {
 
     #[test]
     fn test_reshape_and_transpose() {
-        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
-        arr.reshape(vec![3, 2]).unwrap();
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
+        let arr = arr.reshape(vec![3, 2]).unwrap();
         assert_eq!(arr.shape(), &[3, 2]);
 
-        arr.transpose().unwrap();
+        let arr = arr.transpose().unwrap();
         assert_eq!(arr.shape(), &[2, 3]);
         assert_eq!(arr[[0, 0]], 1.0);
         assert_eq!(arr[[1, 0]], 2.0);
@@ -845,8 +849,8 @@ mod tests {
 
     #[test]
     fn test_squeeze() {
-        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 1, 2]).unwrap();
-        arr.squeeze(vec![1]).unwrap();
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 1, 2]).unwrap();
+        let arr = arr.squeeze(vec![1]).unwrap();
 
         assert_eq!(arr.shape(), &[2, 2]);
         assert_eq!(arr[[0, 0]], 1.0);
@@ -855,23 +859,24 @@ mod tests {
         let res = arr.squeeze(vec![1]);
         assert!(res.is_err());
 
-        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2]).unwrap();
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2]).unwrap();
 
-        let res = arr.squeeze(vec![1]);
+        let res = arr.clone().squeeze(vec![1]);
         assert!(res.is_err());
 
-        arr.squeeze(vec![0]).unwrap();
+        let arr = arr.squeeze(vec![0]).unwrap();
         assert_eq!(arr.shape(), &[2, 2]);
         assert_eq!(arr[[1, 0]], 3.0);
 
-        arr.unsqueeze(0).unwrap();
+        let arr = arr.unsqueeze(0).unwrap();
         assert_eq!(arr.shape(), &[1, 2, 2]);
         assert_eq!(arr[[0, 1, 0]], 3.0);
 
-        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 1, 2]).unwrap();
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 1, 2]).unwrap();
 
-        arr.squeeze(vec![]).unwrap();
-        arr.squeeze(vec![])
+        let arr = arr.squeeze(vec![]).unwrap();
+        let arr = arr
+            .squeeze(vec![])
             .unwrap()
             .squeeze(vec![])
             .unwrap()
@@ -896,8 +901,8 @@ mod tests {
         assert_eq!(result[[2, 1]], 23.0); // 3 + 20
 
         // Test scalar operations
-        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let added = arr.add_scalar(5.0);
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let added = arr.clone().add_scalar(5.0);
         assert_eq!(added[[0, 0]], 6.0);
         assert_eq!(added[[1, 1]], 9.0);
 

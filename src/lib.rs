@@ -18,5 +18,6 @@ mod utils;
 pub mod prelude {
     pub use crate::core::Array;
     pub use crate::math::MatmulPolicy;
+    pub use crate::math::TotalOrd;
     pub use crate::math::matmul::Matmul;
 }

@@ -17,13 +17,13 @@ fn main() {
     // 2. Create array from vector
     println!("\n2. Create array from vector:");
     let data = vec![1, 2, 3, 4, 5, 6];
-    let mut arr = Array::from_vec(data, vec![2, 3]).unwrap();
+    let arr = Array::from_vec(data, vec![2, 3]).unwrap();
     println!("Array created from vector (2x3):\n{}", arr);
 
     // 3. Array operations
     println!("\n3. Array operations:");
-    let mut reshaped = arr.clone();
-    reshaped.reshape(vec![3, 2]).unwrap();
+    let reshaped = arr.clone();
+    let reshaped = reshaped.reshape(vec![3, 2]).unwrap();
     println!("Reshaped to (3x2):\n{}", reshaped);
 
     let transposed = arr.transpose().unwrap();
@@ -31,7 +31,7 @@ fn main() {
 
     // 4. Mathematical operations
     println!("\n4. Mathematical operations:");
-    let mut a = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
+    let a = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
     let b = Array::from_vec(vec![5, 6, 7, 8], vec![2, 2]).unwrap();
 
     println!("Matrix A:\n{}", a);
@@ -48,10 +48,10 @@ fn main() {
 
     // 5. Scalar operations
     println!("\n5. Scalar operations:");
-    let scalar_mult = a.mul_scalar(3);
+    let scalar_mult = a.clone().mul_scalar(3);
     println!("A * 3:\n{}", scalar_mult);
 
-    let scalar_add = a.add_scalar(10);
+    let scalar_add = scalar_mult.add_scalar(10);
     println!("\nA + 10:\n{}", scalar_add);
 
     // 6. Aggregation functions

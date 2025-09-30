@@ -10,26 +10,19 @@ pub trait Matmul: Sized {
 }
 
 macro_rules! impl_matmul_for_type {
-    ($ty:ty) => {
+    ($($ty:ty),*) => {
+        $(
         impl Matmul for Array<$ty> {
             fn matmul(&self, rhs: &Self, policy: MatmulPolicy) -> Result<Self, String> {
                 matmul_general(self, rhs, policy)
             }
         }
+        )*
     };
 }
-impl_matmul_for_type!(u8);
-impl_matmul_for_type!(i8);
-impl_matmul_for_type!(u16);
-impl_matmul_for_type!(i16);
-impl_matmul_for_type!(u32);
-impl_matmul_for_type!(i32);
-impl_matmul_for_type!(u64);
-impl_matmul_for_type!(i64);
-impl_matmul_for_type!(usize);
-impl_matmul_for_type!(isize);
-impl_matmul_for_type!(u128);
-impl_matmul_for_type!(i128);
+impl_matmul_for_type!(
+    u8, i8, u16, i16, u32, i32, u64, i64, usize, isize, u128, i128
+);
 
 fn matmul_general<T>(
     lhs: &Array<T>,
@@ -67,21 +60,6 @@ where
                 }
             }
         }
-        MatmulPolicy::LoopReorder => {
-            for i in 0..m {
-                for l in 0..k {
-                    // In practice, using get_unchecked directly only reduces runtime by 1%
-                    // let a_v = unsafe { self.data.get_unchecked(i * k + l) };
-                    let a_v = &lhs.data[i * l_s_c + l];
-                    for j in 0..n {
-                        // let data = unsafe { result_data.get_unchecked_mut(i * n + j) };
-                        // *data += a_v.clone()
-                        //     * unsafe { other.data.get_unchecked(l * n + j) }.clone();
-                        result_data[i * n + j] += a_v.clone() * rhs.data[l * r_s_c + j].clone();
-                    }
-                }
-            }
-        }
         MatmulPolicy::Blocking(block_size) => {
             for i in (0..m).step_by(block_size) {
                 let i_end = (i + block_size).min(m);
@@ -105,7 +83,21 @@ where
                 }
             }
         }
-        _ => unreachable!(),
+        _ => {
+            for i in 0..m {
+                for l in 0..k {
+                    // In practice, using get_unchecked directly only reduces runtime by 1%
+                    // let a_v = unsafe { self.data.get_unchecked(i * k + l) };
+                    let a_v = &lhs.data[i * l_s_c + l];
+                    for j in 0..n {
+                        // let data = unsafe { result_data.get_unchecked_mut(i * n + j) };
+                        // *data += a_v.clone()
+                        //     * unsafe { other.data.get_unchecked(l * n + j) }.clone();
+                        result_data[i * n + j] += a_v.clone() * rhs.data[l * r_s_c + j].clone();
+                    }
+                }
+            }
+        }
     }
 
     Array::from_vec(result_data, result_shape)

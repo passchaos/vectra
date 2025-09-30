@@ -50,38 +50,66 @@ impl<T> IndexMut<Vec<usize>> for Array<T> {
 }
 
 // Arithmetic operations between arrays
+
 impl<T> Add for Array<T>
 where
     T: Add<Output = T> + Clone,
 {
     type Output = Array<T>;
 
-    fn add(self, other: Self) -> Self::Output {
-        let broadcast_shape = Array::<T>::broadcast_shapes(&self.shape, &other.shape)
-            .expect("Cannot broadcast arrays for addition");
+    fn add(self, rhs: Self) -> Self::Output {
+        add_impl(&self, &rhs)
+    }
+}
 
-        let self_broadcast = self
-            .broadcast_to(&broadcast_shape)
-            .expect("Failed to broadcast first array");
-        let other_broadcast = other
-            .broadcast_to(&broadcast_shape)
-            .expect("Failed to broadcast second array");
+impl<T> AddAssign for Array<T>
+where
+    T: Add<Output = T> + Clone,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        *self = add_impl(self, &rhs);
+    }
+}
 
-        let result_data = self_broadcast
-            .multi_iter()
-            .zip(other_broadcast.multi_iter())
-            .map(|((_, a), (_, b))| a.clone() + b.clone())
-            .collect();
+impl<T> Add for &Array<T>
+where
+    T: Add<Output = T> + Clone,
+{
+    type Output = Array<T>;
 
-        let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = compute_strides(&broadcast_shape, major_order);
+    fn add(self, rhs: Self) -> Self::Output {
+        add_impl(self, rhs)
+    }
+}
 
-        Array {
-            data: result_data,
-            shape: broadcast_shape.clone(),
-            strides,
-            major_order,
-        }
+fn add_impl<T>(left: &Array<T>, right: &Array<T>) -> Array<T>
+where
+    T: Add<Output = T> + Clone,
+{
+    let broadcast_shape = Array::<T>::broadcast_shapes(&left.shape, &right.shape)
+        .expect("Cannot broadcast arrays for addition");
+
+    let self_broadcast = left
+        .broadcast_to(&broadcast_shape)
+        .expect("Failed to broadcast first array");
+    let other_broadcast = right
+        .broadcast_to(&broadcast_shape)
+        .expect("Failed to broadcast second array");
+
+    let result_data = self_broadcast
+        .multi_iter()
+        .zip(other_broadcast.multi_iter())
+        .map(|((_, a), (_, b))| a.clone() + b.clone())
+        .collect();
+
+    let major_order = crate::core::MajorOrder::RowMajor;
+    let strides = compute_strides(&broadcast_shape, major_order);
+
+    Array {
+        data: result_data,
+        shape: broadcast_shape.clone(),
+        strides,
+        major_order,
     }
 }
 
@@ -91,32 +119,50 @@ where
 {
     type Output = Array<T>;
 
-    fn sub(self, other: Self) -> Self::Output {
-        let broadcast_shape = Array::<T>::broadcast_shapes(&self.shape, &other.shape)
-            .expect("Cannot broadcast arrays for subtraction");
+    fn sub(self, rhs: Self) -> Self::Output {
+        sub_impl(&self, &rhs)
+    }
+}
 
-        let self_broadcast = self
-            .broadcast_to(&broadcast_shape)
-            .expect("Failed to broadcast first array");
-        let other_broadcast = other
-            .broadcast_to(&broadcast_shape)
-            .expect("Failed to broadcast second array");
+impl<T> Sub for &Array<T>
+where
+    T: Sub<Output = T> + Clone,
+{
+    type Output = Array<T>;
 
-        let result_data = self_broadcast
-            .multi_iter()
-            .zip(other_broadcast.multi_iter())
-            .map(|((_, a), (_, b))| a.clone() - b.clone())
-            .collect();
+    fn sub(self, rhs: Self) -> Self::Output {
+        sub_impl(self, rhs)
+    }
+}
 
-        let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = compute_strides(&broadcast_shape, major_order);
+fn sub_impl<T>(left: &Array<T>, right: &Array<T>) -> Array<T>
+where
+    T: Sub<Output = T> + Clone,
+{
+    let broadcast_shape = Array::<T>::broadcast_shapes(&left.shape, &right.shape)
+        .expect("Cannot broadcast arrays for subtraction");
 
-        Array {
-            data: result_data,
-            shape: broadcast_shape.clone(),
-            strides,
-            major_order,
-        }
+    let self_broadcast = left
+        .broadcast_to(&broadcast_shape)
+        .expect("Failed to broadcast first array");
+    let other_broadcast = right
+        .broadcast_to(&broadcast_shape)
+        .expect("Failed to broadcast second array");
+
+    let result_data = self_broadcast
+        .multi_iter()
+        .zip(other_broadcast.multi_iter())
+        .map(|((_, a), (_, b))| a.clone() - b.clone())
+        .collect();
+
+    let major_order = crate::core::MajorOrder::RowMajor;
+    let strides = compute_strides(&broadcast_shape, major_order);
+
+    Array {
+        data: result_data,
+        shape: broadcast_shape.clone(),
+        strides,
+        major_order,
     }
 }
 
@@ -126,32 +172,50 @@ where
 {
     type Output = Array<T>;
 
-    fn mul(self, other: Self) -> Self::Output {
-        let broadcast_shape = Array::<T>::broadcast_shapes(&self.shape, &other.shape)
-            .expect("Cannot broadcast arrays for multiplication");
+    fn mul(self, rhs: Self) -> Self::Output {
+        mul_impl(&self, &rhs)
+    }
+}
 
-        let self_broadcast = self
-            .broadcast_to(&broadcast_shape)
-            .expect("Failed to broadcast first array");
-        let other_broadcast = other
-            .broadcast_to(&broadcast_shape)
-            .expect("Failed to broadcast second array");
+impl<T> Mul for &Array<T>
+where
+    T: Mul<Output = T> + Clone,
+{
+    type Output = Array<T>;
 
-        let result_data = self_broadcast
-            .multi_iter()
-            .zip(other_broadcast.multi_iter())
-            .map(|((_, a), (_, b))| a.clone() * b.clone())
-            .collect();
+    fn mul(self, rhs: Self) -> Self::Output {
+        mul_impl(self, &rhs)
+    }
+}
 
-        let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = compute_strides(&broadcast_shape, major_order);
+fn mul_impl<T>(left: &Array<T>, right: &Array<T>) -> Array<T>
+where
+    T: Mul<Output = T> + Clone,
+{
+    let broadcast_shape = Array::<T>::broadcast_shapes(&left.shape, &right.shape)
+        .expect("Cannot broadcast arrays for multiplication");
 
-        Array {
-            data: result_data,
-            shape: broadcast_shape.clone(),
-            strides,
-            major_order,
-        }
+    let self_broadcast = left
+        .broadcast_to(&broadcast_shape)
+        .expect("Failed to broadcast first array");
+    let other_broadcast = right
+        .broadcast_to(&broadcast_shape)
+        .expect("Failed to broadcast second array");
+
+    let result_data = self_broadcast
+        .multi_iter()
+        .zip(other_broadcast.multi_iter())
+        .map(|((_, a), (_, b))| a.clone() * b.clone())
+        .collect();
+
+    let major_order = crate::core::MajorOrder::RowMajor;
+    let strides = compute_strides(&broadcast_shape, major_order);
+
+    Array {
+        data: result_data,
+        shape: broadcast_shape.clone(),
+        strides,
+        major_order,
     }
 }
 
@@ -161,32 +225,50 @@ where
 {
     type Output = Array<T>;
 
-    fn div(self, other: Self) -> Self::Output {
-        let broadcast_shape = Array::<T>::broadcast_shapes(&self.shape, &other.shape)
-            .expect("Cannot broadcast arrays for division");
+    fn div(self, rhs: Self) -> Self::Output {
+        div_impl(&self, &rhs)
+    }
+}
 
-        let self_broadcast = self
-            .broadcast_to(&broadcast_shape)
-            .expect("Failed to broadcast first array");
-        let other_broadcast = other
-            .broadcast_to(&broadcast_shape)
-            .expect("Failed to broadcast second array");
+impl<T> Div for &Array<T>
+where
+    T: Div<Output = T> + Clone,
+{
+    type Output = Array<T>;
 
-        let result_data = self_broadcast
-            .multi_iter()
-            .zip(other_broadcast.multi_iter())
-            .map(|((_, a), (_, b))| a.clone() / b.clone())
-            .collect();
+    fn div(self, rhs: Self) -> Self::Output {
+        div_impl(self, rhs)
+    }
+}
 
-        let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = compute_strides(&broadcast_shape, major_order);
+fn div_impl<T>(left: &Array<T>, right: &Array<T>) -> Array<T>
+where
+    T: Div<Output = T> + Clone,
+{
+    let broadcast_shape = Array::<T>::broadcast_shapes(&left.shape, &right.shape)
+        .expect("Cannot broadcast arrays for division");
 
-        Array {
-            data: result_data,
-            shape: broadcast_shape.clone(),
-            strides,
-            major_order,
-        }
+    let self_broadcast = left
+        .broadcast_to(&broadcast_shape)
+        .expect("Failed to broadcast first array");
+    let other_broadcast = right
+        .broadcast_to(&broadcast_shape)
+        .expect("Failed to broadcast second array");
+
+    let result_data = self_broadcast
+        .multi_iter()
+        .zip(other_broadcast.multi_iter())
+        .map(|((_, a), (_, b))| a.clone() / b.clone())
+        .collect();
+
+    let major_order = crate::core::MajorOrder::RowMajor;
+    let strides = compute_strides(&broadcast_shape, major_order);
+
+    Array {
+        data: result_data,
+        shape: broadcast_shape.clone(),
+        strides,
+        major_order,
     }
 }
 
@@ -196,7 +278,7 @@ where
     T: Clone,
 {
     /// Add scalar to all elements
-    pub fn add_scalar(&mut self, scalar: T) -> &mut Self
+    pub fn add_scalar(mut self, scalar: T) -> Self
     where
         T: AddAssign,
     {
@@ -205,7 +287,7 @@ where
     }
 
     /// Subtract scalar from all elements
-    pub fn sub_scalar(&mut self, scalar: T) -> &mut Self
+    pub fn sub_scalar(mut self, scalar: T) -> Self
     where
         T: SubAssign,
     {
@@ -214,7 +296,7 @@ where
     }
 
     /// Multiply all elements by scalar
-    pub fn mul_scalar(&mut self, scalar: T) -> &mut Self
+    pub fn mul_scalar(mut self, scalar: T) -> Self
     where
         T: MulAssign,
     {
@@ -223,7 +305,7 @@ where
     }
 
     /// Divide all elements by scalar
-    pub fn div_scalar(&mut self, scalar: T) -> &mut Self
+    pub fn div_scalar(mut self, scalar: T) -> Self
     where
         T: DivAssign,
     {
@@ -239,6 +321,21 @@ impl<T> Array<T> {
             .map(|&n| 0..n)
             .multi_cartesian_product()
             .map(|idx| (idx.clone(), self.index(idx.as_slice())))
+    }
+
+    pub fn multi_iter_mut<F>(&mut self, mut f: F)
+    where
+        F: FnMut(Vec<usize>, &mut T),
+    {
+        for idx in self
+            .shape()
+            .into_iter()
+            .map(|&n| 0..n)
+            .multi_cartesian_product()
+        {
+            let data = self.index_mut(idx.as_slice());
+            f(idx, data);
+        }
     }
 }
 
