@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fmt::{self, Display};
 use std::ops::{Add, IndexMut, Mul, Sub};
 
@@ -7,7 +6,7 @@ use faer::{Mat, MatRef};
 use itertools::Itertools;
 use num_traits::{NumCast, One, Zero};
 
-use crate::utils::{compute_strides, indices_to_flat_idx};
+use crate::utils::{compute_strides, dyn_dim_to_static, indices_to_flat_idx};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub enum MajorOrder {
@@ -17,27 +16,45 @@ pub enum MajorOrder {
 }
 
 /// Multi-dimensional array structure, similar to numpy's ndarray
-pub struct Array<T> {
+pub struct Array<const D: usize, T> {
     pub(crate) data: Vec<T>,
-    pub(crate) shape: Vec<usize>,
-    pub(crate) strides: Vec<usize>,
+    pub(crate) shape: [usize; D],
+    pub(crate) strides: [usize; D],
     pub(crate) major_order: MajorOrder,
 }
 
-impl<T> Array<T> {
+impl<T> Array<2, T> {
     pub fn as_faer(&self) -> MatRef<'_, T> {
+        let (nrows, ncols) = (self.shape[0], self.shape[1]);
         match self.major_order {
             MajorOrder::RowMajor => {
-                MatRef::from_row_major_slice(self.data.as_slice(), self.shape[0], self.shape[1])
+                MatRef::from_row_major_slice(self.data.as_slice(), nrows, ncols)
             }
             MajorOrder::ColumnMajor => {
-                MatRef::from_column_major_slice(self.data.as_slice(), self.shape[0], self.shape[1])
+                MatRef::from_column_major_slice(self.data.as_slice(), nrows, ncols)
             }
         }
     }
+
+    /// Create identity matrix
+    pub fn eye(n: usize) -> Self
+    where
+        T: Clone + Zero + One,
+    {
+        let mut arr = Self::zeros([n, n]);
+        for i in 0..n {
+            arr[[i, i]] = T::one();
+        }
+        arr
+    }
+
+    /// Transpose array (2D only)
+    pub fn transpose(self) -> Self {
+        self.permute([1, 0])
+    }
 }
 
-impl<T> From<Mat<T>> for Array<T> {
+impl<T> From<Mat<T>> for Array<2, T> {
     fn from(mut mat: Mat<T>) -> Self {
         let nrows = mat.nrows();
         let ncols = mat.ncols();
@@ -53,9 +70,9 @@ impl<T> From<Mat<T>> for Array<T> {
         // println!("data: {data:?}");
         std::mem::forget(mat);
 
-        let shape = vec![nrows, ncols];
+        let shape = [nrows, ncols];
         // let strides = compute_strides(&shape);
-        let strides = vec![row_stride as usize, col_stride as usize];
+        let strides = [row_stride as usize, col_stride as usize];
 
         Self {
             data,
@@ -66,7 +83,7 @@ impl<T> From<Mat<T>> for Array<T> {
     }
 }
 
-impl<T: PartialEq> PartialEq for Array<T> {
+impl<const D: usize, T: PartialEq> PartialEq for Array<D, T> {
     fn eq(&self, other: &Self) -> bool {
         if self.shape() != other.shape() {
             return false;
@@ -78,7 +95,7 @@ impl<T: PartialEq> PartialEq for Array<T> {
     }
 }
 
-impl<T: AbsDiffEq> AbsDiffEq for Array<T>
+impl<const D: usize, T: AbsDiffEq> AbsDiffEq for Array<D, T>
 where
     T::Epsilon: Copy + NumCast + Mul<T::Epsilon, Output = T::Epsilon>,
 {
@@ -109,7 +126,7 @@ where
     }
 }
 
-impl<T: RelativeEq + Copy + Sub<T> + Display> RelativeEq for Array<T>
+impl<const D: usize, T: RelativeEq + Copy + Sub<T> + Display> RelativeEq for Array<D, T>
 where
     T: RelativeEq + Sub<T> + Display,
     T::Output: Display,
@@ -152,7 +169,7 @@ where
     }
 }
 
-impl<T: Clone> Clone for Array<T> {
+impl<const D: usize, T: Clone> Clone for Array<D, T> {
     fn clone(&self) -> Self {
         Self {
             data: self.data.clone(),
@@ -163,51 +180,7 @@ impl<T: Clone> Clone for Array<T> {
     }
 }
 
-impl<T> Array<T> {
-    pub fn from_vec(data: Vec<T>, shape: Vec<usize>) -> Result<Self, String> {
-        Self::from_vec_major(data, shape, MajorOrder::RowMajor)
-    }
-
-    pub fn from_vec_major(
-        data: Vec<T>,
-        shape: Vec<usize>,
-        major_order: MajorOrder,
-    ) -> Result<Self, String> {
-        let expected_size: usize = shape.iter().product();
-        if data.len() != expected_size {
-            return Err(format!(
-                "Data length {} does not match shape {:?}, expected length {}",
-                data.len(),
-                shape,
-                expected_size
-            ));
-        }
-        let strides = compute_strides(&shape, major_order);
-        Ok(Self {
-            data,
-            shape,
-            strides,
-            major_order,
-        })
-    }
-
-    /// Create zero array
-    pub fn zeros(shape: Vec<usize>) -> Self
-    where
-        T: Clone + Zero,
-    {
-        let size = shape.iter().product();
-
-        let major_order = MajorOrder::RowMajor;
-        let strides = compute_strides(&shape, major_order);
-        Self {
-            data: vec![T::zero(); size],
-            shape,
-            strides,
-            major_order,
-        }
-    }
-
+impl<T> Array<1, T> {
     /// Create array like np.arange
     pub fn arange(mut start: T, end: T, step: T) -> Self
     where
@@ -224,24 +197,73 @@ impl<T> Array<T> {
         let size = data.len();
 
         let major_order = MajorOrder::RowMajor;
-        let strides = compute_strides(&[size], major_order);
+
+        let shape = [size];
+        let strides = compute_strides(shape, major_order);
+
         Self {
             data,
-            shape: vec![size],
+            shape,
+            strides,
+            major_order,
+        }
+    }
+}
+
+impl<const D: usize, T> Array<D, T> {
+    pub fn from_vec(data: Vec<T>, shape: [usize; D]) -> Self {
+        Self::from_vec_major(data, shape, MajorOrder::RowMajor)
+    }
+
+    pub fn from_vec_major(data: Vec<T>, shape: [usize; D], major_order: MajorOrder) -> Self {
+        let expected_size: usize = shape.iter().product();
+        if data.len() != expected_size {
+            panic!(
+                "Data length {} does not match shape {:?}, expected length {}",
+                data.len(),
+                shape,
+                expected_size
+            );
+        }
+
+        let strides = compute_strides(shape, major_order);
+
+        Self {
+            data,
+            shape,
+            strides,
+            major_order,
+        }
+    }
+
+    /// Create zero array
+    pub fn zeros(shape: [usize; D]) -> Self
+    where
+        T: Clone + Zero,
+    {
+        let size = shape.iter().product();
+
+        let major_order = MajorOrder::RowMajor;
+        let strides = compute_strides(shape, major_order);
+
+        Self {
+            data: vec![T::zero(); size],
+            shape,
             strides,
             major_order,
         }
     }
 
     /// Create ones array
-    pub fn ones(shape: Vec<usize>) -> Self
+    pub fn ones(shape: [usize; D]) -> Self
     where
         T: Clone + One,
     {
         let size = shape.iter().product();
 
         let major_order = MajorOrder::RowMajor;
-        let strides = compute_strides(&shape, major_order);
+        let strides = compute_strides(shape, major_order);
+
         Self {
             data: vec![T::one(); size],
             shape,
@@ -250,139 +272,63 @@ impl<T> Array<T> {
         }
     }
 
-    /// Create identity matrix
-    pub fn eye(n: usize) -> Self
-    where
-        T: Clone + Zero + One,
-    {
-        let mut arr = Self::zeros(vec![n, n]);
-        for i in 0..n {
-            arr[[i, i]] = T::one();
-        }
-        arr
-    }
-
     /// Reshape array
-    pub fn reshape(self, new_shape: Vec<usize>) -> Result<Self, String> {
+    pub fn reshape<const D1: usize>(self, new_shape: [usize; D1]) -> Array<D1, T> {
         let new_size: usize = new_shape.iter().product();
         if new_size != self.data.len() {
-            return Err("New shape size does not match array size".to_string());
+            panic!("New shape size does not match array size");
         }
 
-        let new_strides = compute_strides(&new_shape, self.major_order);
+        let new_strides = compute_strides(new_shape, self.major_order);
 
-        Ok(Self {
+        Array {
             data: self.data,
             shape: new_shape,
             strides: new_strides,
             major_order: self.major_order,
-        })
-    }
-
-    pub fn squeeze(self, axes: Vec<usize>) -> Result<Self, String> {
-        let axes: HashSet<_> = axes.into_iter().collect();
-
-        let mut new_shape = Vec::new();
-
-        let need_remove_one_dim = axes.len() == 0;
-        for (idx, &shape) in self.shape.iter().enumerate() {
-            if !axes.contains(&idx) {
-                if need_remove_one_dim {
-                    if shape == 1 {
-                        continue;
-                    }
-                }
-
-                new_shape.push(shape);
-                continue;
-            }
-
-            if shape != 1 {
-                return Err(format!("Cannot squeeze axis {} with size {}", idx, shape));
-            }
         }
-
-        let new_strides = compute_strides(&new_shape, self.major_order);
-
-        Ok(Self {
-            data: self.data,
-            shape: new_shape,
-            strides: new_strides,
-            major_order: self.major_order,
-        })
-    }
-
-    pub fn unsqueeze(self, axe: usize) -> Result<Self, String> {
-        let mut new_shape = self.shape.clone();
-        new_shape.insert(axe, 1);
-
-        let new_strides = compute_strides(&new_shape, self.major_order);
-
-        Ok(Self {
-            data: self.data,
-            shape: new_shape,
-            strides: new_strides,
-            major_order: self.major_order,
-        })
-    }
-
-    /// Transpose array (2D only)
-    pub fn transpose(self) -> Result<Self, String> {
-        self.permute(vec![1, 0])
     }
 
     /// Permute the dimensions of the array according to the given axes
     /// Similar to PyTorch's permute function
-    pub fn permute(self, axes: Vec<usize>) -> Result<Self, String> {
-        // Validate axes
-        if axes.len() != self.shape.len() {
-            return Err(format!(
-                "Number of axes {} does not match array dimensions {}",
-                axes.len(),
-                self.shape.len()
-            ));
-        }
-
+    pub fn permute(self, axes: [usize; D]) -> Self {
         // Check if all axes are valid and unique
         let mut sorted_axes = axes.clone();
         sorted_axes.sort();
-        for (i, &axis) in sorted_axes.iter().enumerate() {
-            if axis != i {
-                return Err(format!("Invalid axis {} or duplicate axis found", axis));
-            }
+        if sorted_axes[D - 1] != D - 1 {
+            panic!("invalid permute axes: {axes:?}");
         }
 
-        let new_shape = axes.iter().map(|&i| self.shape()[i]).collect();
-        let new_strides = axes.iter().map(|&i| self.strides[i]).collect();
+        let mut shape = [0; D];
+        let new_shape: Vec<_> = axes.iter().map(|&i| self.shape[i]).collect();
+        shape.copy_from_slice(&new_shape);
 
-        Ok(Self {
+        let strides = compute_strides(shape, self.major_order);
+
+        Self {
             data: self.data,
-            shape: new_shape,
-            strides: new_strides,
+            shape,
+            strides,
             major_order: self.major_order,
-        })
+        }
     }
 }
 
-impl<T> Array<T> {
+impl<const D: usize, T> Array<D, T> {
     /// Convert multi-dimensional index to flat index
-    pub fn index_to_flat(&self, indices: &[usize]) -> Result<usize, String> {
-        if indices.len() != self.shape.len() {
-            return Err("Index dimension mismatch".to_string());
-        }
-
+    pub fn index_to_flat(&self, indices: [usize; D]) -> usize {
         if indices
             .iter()
             .zip(self.shape().iter())
             .any(|(&i_dim, &s_dim)| i_dim >= s_dim)
         {
-            return Err(format!(
+            panic!(
                 "Index out of bounds: shape= {:?} indices= {:?}",
                 self.shape, indices
-            ));
+            );
         }
 
-        Ok(indices_to_flat_idx(&self.strides, indices))
+        indices_to_flat_idx(self.strides, indices)
     }
 
     /// Broadcast two shapes to a common shape
@@ -418,53 +364,14 @@ impl<T> Array<T> {
         Ok(result)
     }
 
-    /// Broadcast array to target shape
-    pub fn broadcast_to(&self, target_shape: &[usize]) -> Result<Array<T>, String>
-    where
-        T: Clone,
-    {
-        if self.shape == target_shape {
-            return Ok(self.clone());
-        }
-
-        let target_size: usize = target_shape.iter().product();
-        let mut new_data = Vec::with_capacity(target_size);
-
-        for flat_idx in 0..target_size {
-            let mut target_indices = vec![0; target_shape.len()];
-            let mut temp = flat_idx;
-            for i in (0..target_shape.len()).rev() {
-                target_indices[i] = temp % target_shape[i];
-                temp /= target_shape[i];
-            }
-
-            let mut source_indices = vec![0; self.shape.len()];
-            let offset = target_shape.len() - self.shape.len();
-            for i in 0..self.shape.len() {
-                let target_idx = target_indices[offset + i];
-                source_indices[i] = if self.shape[i] == 1 { 0 } else { target_idx };
-            }
-
-            let source_flat = self.index_to_flat(&source_indices)?;
-            new_data.push(self.data[source_flat].clone());
-        }
-
-        Ok(Array {
-            data: new_data,
-            shape: target_shape.to_vec(),
-            strides: compute_strides(&target_shape, self.major_order),
-            major_order: self.major_order,
-        })
-    }
-
     /// Get shape of the array
-    pub fn shape(&self) -> &[usize] {
-        &self.shape
+    pub fn shape(&self) -> [usize; D] {
+        self.shape
     }
 
     /// Get number of dimensions
     pub fn ndim(&self) -> usize {
-        self.shape.len()
+        D
     }
 
     /// Get total number of elements
@@ -480,9 +387,10 @@ impl<T> Array<T> {
         for idx in self
             .shape()
             .into_iter()
-            .map(|&n| 0..n)
+            .map(|n| 0..n)
             .multi_cartesian_product()
         {
+            let idx = dyn_dim_to_static(&idx);
             let item = self.index_mut(idx);
             *item = f(item);
         }
@@ -491,30 +399,21 @@ impl<T> Array<T> {
     }
 }
 
-impl<T> Into<Vec<T>> for Array<T> {
+impl<const D: usize, T> Into<Vec<T>> for Array<D, T> {
     fn into(self) -> Vec<T> {
         self.data
     }
 }
 
-impl<T> Into<Vec<T>> for &Array<T>
-where
-    T: Clone,
-{
-    fn into(self) -> Vec<T> {
-        self.data.clone()
-    }
-}
-
-impl<T> From<Vec<T>> for Array<T>
+impl<T> From<Vec<T>> for Array<1, T>
 where
     T: Clone + Default,
 {
     fn from(data: Vec<T>) -> Self {
-        let shape = vec![data.len()];
+        let shape = [data.len()];
 
         let major_order = MajorOrder::RowMajor;
-        let strides = compute_strides(&shape, major_order);
+        let strides = compute_strides(shape, major_order);
         Self {
             data,
             shape,
@@ -524,46 +423,7 @@ where
     }
 }
 
-// Additional From implementations for common array types
-impl<T, const N: usize> From<[T; N]> for Array<T>
-where
-    T: Clone + Default,
-{
-    fn from(data: [T; N]) -> Self {
-        let data = data.to_vec();
-        let shape = vec![data.len()];
-
-        let major_order = MajorOrder::RowMajor;
-        let strides = compute_strides(&shape, major_order);
-        Self {
-            data,
-            shape,
-            strides,
-            major_order,
-        }
-    }
-}
-
-impl<T> From<&[T]> for Array<T>
-where
-    T: Clone + Default,
-{
-    fn from(data: &[T]) -> Self {
-        let data = data.to_vec();
-        let shape = vec![data.len()];
-
-        let major_order = MajorOrder::RowMajor;
-        let strides = compute_strides(&shape, major_order);
-        Self {
-            data,
-            shape,
-            strides,
-            major_order,
-        }
-    }
-}
-
-impl<T> fmt::Display for Array<T>
+impl<const D: usize, T> fmt::Display for Array<D, T>
 where
     T: fmt::Display + Clone,
 {
@@ -572,7 +432,7 @@ where
     }
 }
 
-impl<T> fmt::Debug for Array<T>
+impl<const D: usize, T> fmt::Debug for Array<D, T>
 where
     T: fmt::Display + Clone,
 {
@@ -585,7 +445,7 @@ where
     }
 }
 
-impl<T> Array<T>
+impl<const D: usize, T> Array<D, T>
 where
     T: fmt::Display + Clone,
 {
@@ -743,16 +603,15 @@ where
     // Legacy methods for backward compatibility (now unused)
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_from_vec() {
-        let arr1 = Array::from_vec(vec![0, 1, 2, 3, 4, 5], vec![2, 3]).unwrap();
-        let arr2 =
-            Array::from_vec_major(vec![0, 3, 1, 4, 2, 5], vec![2, 3], MajorOrder::ColumnMajor)
-                .unwrap();
+        let arr1 = Array::from_vec(vec![0, 1, 2, 3, 4, 5], [2, 3]);
+        let arr2 = Array::from_vec_major(vec![0, 3, 1, 4, 2, 5], [2, 3], MajorOrder::ColumnMajor);
 
         println!("arr1= {arr1:?} arr2= {arr2:?}");
         println!("arr2: [0, 1]= {}", arr2[[0, 1]]);
@@ -771,7 +630,7 @@ mod tests {
 
         println!("aff_f_i: {arr_f_i:?} data= {:?}", arr_f_i.data);
 
-        let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], vec![2, 3]).unwrap();
+        let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 3]);
         let arr_f_r = arr.as_faer();
         println!(
             "arr_f_r: shape= {:?} strides= {:?} {:?}",
@@ -787,18 +646,18 @@ mod tests {
             arr_f_r_c.col_stride()
         );
 
-        let arr_f: Array<i32> = Array::from(arr_f_r_c);
+        let arr_f: Array<_, i32> = Array::from(arr_f_r_c);
         assert_eq!(arr, arr_f);
         println!("arr= {:?} arr_f= {:?}", arr, arr_f);
     }
 
     #[test]
     fn test_ones_and_eye() {
-        let ones: Array<f64> = Array::ones(vec![2, 2]);
+        let ones: Array<_, f64> = Array::ones([2, 2]);
         assert_eq!(ones[[0, 0]], 1.0);
         assert_eq!(ones[[1, 1]], 1.0);
 
-        let eye: Array<f64> = Array::eye(3);
+        let eye: Array<_, f64> = Array::eye(3);
         assert_eq!(eye[[0, 0]], 1.0);
         assert_eq!(eye[[1, 1]], 1.0);
         assert_eq!(eye[[0, 1]], 0.0);
@@ -806,8 +665,8 @@ mod tests {
 
     #[test]
     fn test_arithmetic() {
-        let a = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let b = Array::from_vec(vec![2.0, 2.0, 2.0, 2.0], vec![2, 2]).unwrap();
+        let a = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+        let b = Array::from_vec(vec![2.0, 2.0, 2.0, 2.0], [2, 2]);
 
         let sum = a.clone() + b.clone();
         assert_eq!(sum[[0, 0]], 3.0);
@@ -820,7 +679,7 @@ mod tests {
 
     #[test]
     fn test_transpose() {
-        let arr1 = Array::from_vec(vec![1.0; 10000], vec![10, 10, 100]).unwrap();
+        let arr1 = Array::from_vec(vec![1.0; 10000], [10, 10, 100]);
         println!("arr1: {arr1}");
         // let arr_t = arr.clone().transpose().unwrap();
 
@@ -829,7 +688,7 @@ mod tests {
 
     #[test]
     fn test_map_inplace() {
-        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
         arr.map_inplace(|x| x * x);
         assert_eq!(arr[[0, 0]], 1.0);
         assert_eq!(arr[[1, 1]], 16.0);
@@ -837,90 +696,23 @@ mod tests {
 
     #[test]
     fn test_reshape_and_transpose() {
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
-        let arr = arr.reshape(vec![3, 2]).unwrap();
-        assert_eq!(arr.shape(), &[3, 2]);
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [2, 3]);
+        let arr = arr.reshape([3, 2]);
+        assert_eq!(arr.shape(), [3, 2]);
 
-        let arr = arr.transpose().unwrap();
-        assert_eq!(arr.shape(), &[2, 3]);
+        let arr = arr.transpose();
+        assert_eq!(arr.shape(), [2, 3]);
         assert_eq!(arr[[0, 0]], 1.0);
-        assert_eq!(arr[[1, 0]], 2.0);
+        assert_eq!(arr[[1, 0]], 4.0);
     }
 
     #[test]
-    fn test_squeeze() {
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 1, 2]).unwrap();
-        let arr = arr.squeeze(vec![1]).unwrap();
+    fn test_reshape() {
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 1, 2]);
 
-        assert_eq!(arr.shape(), &[2, 2]);
+        let arr = arr.reshape([2, 2]);
+        assert_eq!(arr.shape(), [2, 2]);
         assert_eq!(arr[[0, 0]], 1.0);
         assert_eq!(arr[[1, 1]], 4.0);
-
-        let res = arr.squeeze(vec![1]);
-        assert!(res.is_err());
-
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2]).unwrap();
-
-        let res = arr.clone().squeeze(vec![1]);
-        assert!(res.is_err());
-
-        let arr = arr.squeeze(vec![0]).unwrap();
-        assert_eq!(arr.shape(), &[2, 2]);
-        assert_eq!(arr[[1, 0]], 3.0);
-
-        let arr = arr.unsqueeze(0).unwrap();
-        assert_eq!(arr.shape(), &[1, 2, 2]);
-        assert_eq!(arr[[0, 1, 0]], 3.0);
-
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 1, 2]).unwrap();
-
-        let arr = arr.squeeze(vec![]).unwrap();
-        let arr = arr
-            .squeeze(vec![])
-            .unwrap()
-            .squeeze(vec![])
-            .unwrap()
-            .squeeze(vec![])
-            .unwrap();
-
-        assert_eq!(arr.shape(), &[2, 2]);
-    }
-
-    #[test]
-    fn test_broadcasting() {
-        let a = Array::from_vec(vec![1.0, 2.0, 3.0], vec![3, 1]).unwrap();
-        let b = Array::from_vec(vec![10.0, 20.0], vec![1, 2]).unwrap();
-
-        let result = a + b;
-        assert_eq!(result.shape(), &[3, 2]);
-        assert_eq!(result[[0, 0]], 11.0); // 1 + 10
-        assert_eq!(result[[0, 1]], 21.0); // 1 + 20
-        assert_eq!(result[[1, 0]], 12.0); // 2 + 10
-        assert_eq!(result[[1, 1]], 22.0); // 2 + 20
-        assert_eq!(result[[2, 0]], 13.0); // 3 + 10
-        assert_eq!(result[[2, 1]], 23.0); // 3 + 20
-
-        // Test scalar operations
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let added = arr.clone().add_scalar(5.0);
-        assert_eq!(added[[0, 0]], 6.0);
-        assert_eq!(added[[1, 1]], 9.0);
-
-        let multiplied = arr.mul_scalar(2.0);
-        assert_eq!(multiplied[[0, 0]], 2.0);
-        assert_eq!(multiplied[[1, 1]], 8.0);
-    }
-
-    #[test]
-    fn test_broadcast_shapes() {
-        let shape1 = vec![3, 1];
-        let shape2 = vec![1, 4];
-        let result = Array::<f64>::broadcast_shapes(&shape1, &shape2).unwrap();
-        assert_eq!(result, vec![3, 4]);
-
-        let shape3 = vec![2, 3];
-        let shape4 = vec![2, 4];
-        let result2 = Array::<f64>::broadcast_shapes(&shape3, &shape4);
-        assert!(result2.is_err());
     }
 }

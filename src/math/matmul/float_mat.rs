@@ -10,21 +10,14 @@ use std::arch::aarch64::{
     vfmaq_f32, vfmaq_f64, vld1q_dup_f32, vld1q_dup_f64, vld1q_f32, vld1q_f64, vst1q_f32, vst1q_f64,
 };
 
-impl Matmul for Array<f32> {
-    fn matmul(&self, rhs: &Self, policy: MatmulPolicy) -> Result<Self, String> {
-        if self.shape.len() != 2 || rhs.shape.len() != 2 {
-            return Err("Matrix multiplication only supported for 2D arrays".to_string());
-        }
-        if self.shape[1] != rhs.shape[0] {
-            return Err("Matrix dimensions incompatible for multiplication".to_string());
-        }
-
+impl Matmul for Array<2, f32> {
+    fn matmul(&self, rhs: &Self, policy: MatmulPolicy) -> Self {
         match policy {
             MatmulPolicy::Faer => {
                 let l = self.as_faer();
                 let r = rhs.as_faer();
 
-                Ok((l * r).into())
+                (l * r).into()
             }
             _ => {
                 let m = self.shape[0];
@@ -33,7 +26,7 @@ impl Matmul for Array<f32> {
                 let l_s_c = self.strides[0];
                 let r_s_c = rhs.strides[0];
 
-                let result_shape = vec![m, n];
+                let result_shape = [m, n];
                 let mut result_data = vec![0.0; result_shape.iter().product()];
 
                 match policy {
@@ -103,21 +96,14 @@ impl Matmul for Array<f32> {
     }
 }
 
-impl Matmul for Array<f64> {
-    fn matmul(&self, rhs: &Self, policy: MatmulPolicy) -> Result<Self, String> {
-        if self.shape.len() != 2 || rhs.shape.len() != 2 {
-            return Err("Matrix multiplication only supported for 2D arrays".to_string());
-        }
-        if self.shape[1] != rhs.shape[0] {
-            return Err("Matrix dimensions incompatible for multiplication".to_string());
-        }
-
+impl Matmul for Array<2, f64> {
+    fn matmul(&self, rhs: &Self, policy: MatmulPolicy) -> Self {
         match policy {
             MatmulPolicy::Faer => {
                 let l = self.as_faer();
                 let r = rhs.as_faer();
 
-                Ok((l * r).into())
+                (l * r).into()
             }
             _ => {
                 let m = self.shape[0];
@@ -126,7 +112,7 @@ impl Matmul for Array<f64> {
                 let l_s_c = self.strides[0];
                 let r_s_c = rhs.strides[0];
 
-                let result_shape = vec![m, n];
+                let result_shape = [m, n];
                 let mut result_data = vec![0.0; result_shape.iter().product()];
 
                 match policy {

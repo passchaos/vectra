@@ -23,14 +23,14 @@ fn main() {
         let mut costs = vec![];
 
         for i in (250..=3000).step_by(250) {
-            let a = Array::<f32>::random(vec![i, i]);
-            let b = Array::<f32>::random(vec![i, i]);
+            let a = Array::<_, f32>::random([i, i]);
+            let b = Array::<_, f32>::random([i, i]);
 
             // warmup
-            let _c = a.matmul(&b, policy).unwrap();
+            let _c = a.matmul(&b, policy);
 
             let begin = Instant::now();
-            let _c = a.matmul(&b, policy).unwrap();
+            let _c = a.matmul(&b, policy);
 
             sizes.push(i as f64);
 

@@ -3,23 +3,24 @@ use num_traits::{One, Zero};
 use rand::distr::{Distribution, Uniform, uniform::SampleUniform};
 use rand_distr::StandardNormal;
 
-impl<T> Array<T> {
+impl<const D: usize, T> Array<D, T> {
     /// Create array with random values between 0 and 1
-    pub fn random(shape: Vec<usize>) -> Self
+    pub fn random(shape: [usize; D]) -> Self
     where
         T: SampleUniform + One + Zero,
     {
         Self::uniform(shape, T::zero(), T::one())
     }
 
-    pub fn randn(shape: Vec<usize>) -> Self
+    pub fn randn(shape: [usize; D]) -> Self
     where
         StandardNormal: Distribution<T>,
     {
         let size = shape.iter().product();
 
         let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = compute_strides(&shape, major_order);
+        let strides = compute_strides(shape, major_order);
+
         let mut rng = rand::rng();
 
         let form = StandardNormal;
@@ -35,7 +36,7 @@ impl<T> Array<T> {
     }
 
     /// Create array with uniformly distributed random values in range [low, high)
-    pub fn uniform(shape: Vec<usize>, low: T, high: T) -> Self
+    pub fn uniform(shape: [usize; D], low: T, high: T) -> Self
     where
         T: SampleUniform,
     {
@@ -48,7 +49,7 @@ impl<T> Array<T> {
         // let data: Vec<_> = (0..size).map(|_| rng.random_range(0.0..1.0)).collect();
         //
         let major_order = crate::core::MajorOrder::RowMajor;
-        let strides = compute_strides(&shape, major_order);
+        let strides = compute_strides(shape, major_order);
 
         Self {
             data,
@@ -65,11 +66,11 @@ mod tests {
 
     #[test]
     fn test_rand() {
-        let arr: Array<i32> = Array::random(vec![2, 3]);
+        let arr: Array<2, i32> = Array::random([2, 3]);
         println!("{arr}");
-        assert_eq!(arr.shape(), vec![2, 3]);
+        assert_eq!(arr.shape(), [2, 3]);
 
-        let arr1 = Array::<f32>::randn(vec![5, 6]);
+        let arr1 = Array::<_, f32>::randn([5, 6]);
         println!("{arr1}");
     }
 }

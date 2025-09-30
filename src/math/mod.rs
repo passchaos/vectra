@@ -1,11 +1,11 @@
 use crate::{
     core::{Array, MajorOrder},
-    utils::shape_indices_to_flat_idx,
+    utils::{dyn_dim_to_static, shape_indices_to_flat_idx},
 };
 use std::{
     fmt::Debug,
     iter::Sum,
-    ops::{Add, Div, Index, Mul},
+    ops::{Add, Div, Index},
 }; // Sub currently unused
 pub mod matmul;
 use itertools::Itertools;
@@ -33,7 +33,7 @@ impl Default for MatmulPolicy {
     }
 }
 
-impl<T> Array<T>
+impl<const D: usize, T> Array<D, T>
 where
     T: Clone,
 {
@@ -47,7 +47,7 @@ where
     }
 
     /// Sum along specified axis
-    pub fn sum_axis(&self, axis: usize) -> Result<Array<T>, String>
+    pub fn sum_axis(&self, axis: usize) -> Array<D, T>
     where
         T: Default + Clone + Sum,
     {
@@ -65,47 +65,24 @@ where
         sum / size.into()
     }
 
-    pub fn mean_axis(&self, axis: usize) -> Result<Array<T>, String>
+    pub fn mean_axis(&self, axis: usize) -> Array<D, T>
     where
         T: Default + Clone + NumCast + Sum + Div<Output = T>,
     {
         let axis_size = self.shape[axis];
 
-        let axis_size = T::from(axis_size).ok_or(format!(
-            "cannot convert {} to type {}",
-            std::any::type_name_of_val(&axis_size),
-            std::any::type_name::<T>()
-        ))?;
+        let axis_size = T::from(axis_size)
+            .ok_or(format!(
+                "cannot convert {} to type {}",
+                std::any::type_name_of_val(&axis_size),
+                std::any::type_name::<T>()
+            ))
+            .unwrap();
 
         self.map_axis(axis, |values| {
             let sum: T = values.into_iter().cloned().sum();
             sum / axis_size.clone()
         })
-    }
-
-    /// Vector dot product (returns scalar)
-    pub fn dot(&self, other: &Array<T>) -> Result<T, String>
-    where
-        T: Add<Output = T> + Mul<Output = T> + Default,
-    {
-        // Check if both arrays are 1D vectors
-        if self.shape.len() != 1 || other.shape.len() != 1 {
-            return Err("Dot product only supported for 1D vectors".to_string());
-        }
-
-        // Check if vectors have the same length
-        if self.shape[0] != other.shape[0] {
-            return Err("Vectors must have the same length for dot product".to_string());
-        }
-
-        let mut result = T::default();
-        for i in 0..self.shape[0] {
-            let self_val = &self.data[i * self.strides[0]];
-            let other_val = &other.data[i * other.strides[0]];
-            result = result + (self_val.clone() * other_val.clone());
-        }
-
-        Ok(result)
     }
 }
 
@@ -118,7 +95,7 @@ pub trait TotalOrd {
 macro_rules! impl_total_ord {
     ($($t:ty),*) => {
         $(
-            impl TotalOrd for Array<$t> {
+            impl<const D: usize> TotalOrd for Array<D, $t> {
                 type Output = $t;
                 fn min(&self) -> Option<Self::Output> {
                     self.multi_iter()
@@ -139,7 +116,7 @@ impl_total_ord!(
     i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
 
-impl<T: TotalOrder> Array<T> {
+impl<const D: usize, T: TotalOrder> Array<D, T> {
     /// Find maximum value
     pub fn max(&self) -> Option<T>
     where
@@ -156,13 +133,13 @@ impl<T: TotalOrder> Array<T> {
         T: Clone,
     {
         self.multi_iter()
-            .max_by(|(_, a), (_, b)| a.total_cmp(b))
+            .min_by(|(_, a), (_, b)| a.total_cmp(b))
             .map(|(_, x)| x.clone())
     }
 }
 
-impl<T> Array<T> {
-    pub fn map<F, U>(&self, f: F) -> Array<U>
+impl<const D: usize, T> Array<D, T> {
+    pub fn map<F, U>(&self, f: F) -> Array<D, U>
     where
         F: Fn(&T) -> U,
     {
@@ -174,16 +151,16 @@ impl<T> Array<T> {
         }
     }
 
-    pub fn map_axis<F, U>(&self, axis: usize, f: F) -> Result<Array<U>, String>
+    pub fn map_axis<F, U>(&self, axis: usize, f: F) -> Array<D, U>
     where
         F: Fn(Vec<&T>) -> U,
         U: Default + Clone,
     {
-        if axis >= self.ndim() {
-            return Err("Axis out of bounds".to_string());
+        if axis >= D {
+            panic!("Axis out of bounds");
         }
 
-        let mut result_shape = self.shape().to_vec();
+        let mut result_shape = self.shape();
         let axis_len = result_shape[axis];
         result_shape[axis] = 1;
 
@@ -193,18 +170,20 @@ impl<T> Array<T> {
         let major_order = MajorOrder::RowMajor;
 
         for idx in result_shape.iter().map(|&n| 0..n).multi_cartesian_product() {
+            let idx = dyn_dim_to_static(&idx);
+
             let axis_values = (0..axis_len)
                 .map(|i| {
                     let mut i_idx = idx.clone();
                     i_idx[axis] = i;
 
-                    self.index(i_idx.as_slice())
+                    self.index(i_idx)
                 })
                 .collect();
 
             let value = f(axis_values);
 
-            let flat_idx = shape_indices_to_flat_idx(&result_shape, &idx, major_order);
+            let flat_idx = shape_indices_to_flat_idx(result_shape, idx, major_order);
             result_data[flat_idx] = value;
         }
 
@@ -212,7 +191,7 @@ impl<T> Array<T> {
     }
 
     /// Apply function to each element, consuming self and returning a new Array with different type
-    pub fn into_map<F, U>(self, f: F) -> Array<U>
+    pub fn into_map<F, U>(self, f: F) -> Array<D, U>
     where
         F: Fn(T) -> U,
     {
@@ -232,457 +211,95 @@ impl<T> Array<T> {
     }
 }
 
-impl<T: Pow<T, Output = T> + Clone> Array<T> {
-    pub fn pow(&self, exponent: T) -> Array<T> {
+impl<const D: usize, T: Pow<T, Output = T> + Clone> Array<D, T> {
+    pub fn pow(&self, exponent: T) -> Array<D, T> {
         self.map(|x| x.clone().pow(exponent.clone()))
     }
 }
 
-impl<T: Float> Array<T> {
+impl<const D: usize, T: Float> Array<D, T> {
     // Trigonometric functions
-    pub fn sin(&self) -> Array<T> {
+    pub fn sin(&self) -> Array<D, T> {
         self.map(|x| x.sin())
     }
 
-    pub fn cos(&self) -> Array<T> {
+    pub fn cos(&self) -> Array<D, T> {
         self.map(|x| x.cos())
     }
 
-    pub fn tan(&self) -> Array<T> {
+    pub fn tan(&self) -> Array<D, T> {
         self.map(|x| x.tan())
     }
 
-    pub fn asin(&self) -> Array<T> {
+    pub fn asin(&self) -> Array<D, T> {
         self.map(|x| x.asin())
     }
 
-    pub fn acos(&self) -> Array<T> {
+    pub fn acos(&self) -> Array<D, T> {
         self.map(|x| x.acos())
     }
 
-    pub fn atan(&self) -> Array<T> {
+    pub fn atan(&self) -> Array<D, T> {
         self.map(|x| x.atan())
     }
 
     // Hyperbolic functions
-    pub fn sinh(&self) -> Array<T> {
+    pub fn sinh(&self) -> Array<D, T> {
         self.map(|x| x.sinh())
     }
 
-    pub fn cosh(&self) -> Array<T> {
+    pub fn cosh(&self) -> Array<D, T> {
         self.map(|x| x.cosh())
     }
 
-    pub fn tanh(&self) -> Array<T> {
+    pub fn tanh(&self) -> Array<D, T> {
         self.map(|x| x.tanh())
     }
 
-    pub fn sqrt(&self) -> Array<T> {
+    pub fn sqrt(&self) -> Array<D, T> {
         self.map(|x| x.sqrt())
     }
 
-    pub fn pow2(&self) -> Array<T> {
+    pub fn pow2(&self) -> Array<D, T> {
         self.map(|x| x.powi(2))
     }
 
-    pub fn powi(&self, exponent: i32) -> Array<T> {
+    pub fn powi(&self, exponent: i32) -> Array<D, T> {
         self.map(|x| x.powi(exponent))
     }
 
     // Logarithmic functions
-    pub fn ln(&self) -> Array<T> {
+    pub fn ln(&self) -> Array<D, T> {
         self.map(|x| x.ln())
     }
 
-    pub fn log10(&self) -> Array<T> {
+    pub fn log10(&self) -> Array<D, T> {
         self.map(|x| x.log10())
     }
 
-    pub fn log2(&self) -> Array<T> {
+    pub fn log2(&self) -> Array<D, T> {
         self.map(|x| x.log2())
     }
 
-    pub fn log(&self, base: T) -> Array<T> {
+    pub fn log(&self, base: T) -> Array<D, T> {
         self.map(|x| x.log(base))
     }
 
     // Exponential functions
-    pub fn exp(&self) -> Array<T> {
+    pub fn exp(&self) -> Array<D, T> {
         self.map(|x| x.exp())
     }
 
-    pub fn exp2(&self) -> Array<T> {
+    pub fn exp2(&self) -> Array<D, T> {
         self.map(|x| x.exp2())
     }
 
-    pub fn exp_m1(&self) -> Array<T> {
+    pub fn exp_m1(&self) -> Array<D, T> {
         self.map(|x| x.exp_m1())
     }
 
-    pub fn ln_1p(&self) -> Array<T> {
+    pub fn ln_1p(&self) -> Array<D, T> {
         self.map(|x| x.ln_1p())
-    }
-}
-
-impl<T> Array<T>
-where
-    T: Clone,
-{
-    /// Singular Value Decomposition (SVD)
-    /// Returns (U, singular_values, V_transpose) where A = U * Σ * V^T
-    pub fn svd(&self) -> Result<(Array<T>, Array<T>, Array<T>), String>
-    where
-        T: Into<f64> + From<f64> + Clone + Default + PartialOrd,
-    {
-        if self.ndim() != 2 {
-            return Err("SVD requires a 2D matrix".to_string());
-        }
-
-        let m = self.shape[0];
-        let n = self.shape[1];
-
-        // Convert to f64 for computation
-        let mut a: Vec<Vec<f64>> = Vec::new();
-        for i in 0..m {
-            let mut row = Vec::new();
-            for j in 0..n {
-                let idx = i * self.strides[0] + j * self.strides[1];
-                row.push(self.data[idx].clone().into());
-            }
-            a.push(row);
-        }
-
-        // Use Jacobi SVD algorithm for small matrices, or power iteration for larger ones
-        if m <= 10 && n <= 10 {
-            self.jacobi_svd(a)
-        } else {
-            self.power_iteration_svd(a)
-        }
-    }
-
-    /// Truncated Singular Value Decomposition (SVD)
-    /// Computes only the top k singular values and vectors for faster computation
-    /// Returns (U_k, singular_values_k, V_transpose_k) where A ≈ U_k * Σ_k * V_k^T
-    pub fn svd_truncated(&self, k: usize) -> Result<(Array<T>, Array<T>, Array<T>), String>
-    where
-        T: Into<f64> + From<f64> + Clone + Default + PartialOrd,
-    {
-        if self.ndim() != 2 {
-            return Err("SVD requires a 2D matrix".to_string());
-        }
-
-        let m = self.shape[0];
-        let n = self.shape[1];
-        let min_dim = m.min(n);
-
-        if k == 0 {
-            return Err("k must be greater than 0".to_string());
-        }
-
-        if k > min_dim {
-            return Err(format!(
-                "k ({}) cannot be larger than min(m, n) ({})",
-                k, min_dim
-            ));
-        }
-
-        // Convert to f64 for computation
-        let mut a: Vec<Vec<f64>> = Vec::new();
-        for i in 0..m {
-            let mut row = Vec::new();
-            for j in 0..n {
-                let idx = i * self.strides[0] + j * self.strides[1];
-                row.push(self.data[idx].clone().into());
-            }
-            a.push(row);
-        }
-
-        self.truncated_power_iteration_svd(a, k)
-    }
-
-    /// Jacobi SVD algorithm for small matrices
-    fn jacobi_svd(&self, mut a: Vec<Vec<f64>>) -> Result<(Array<T>, Array<T>, Array<T>), String>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        let m = a.len();
-        let n = a[0].len();
-        let min_dim = m.min(n);
-
-        // Initialize U as identity matrix
-        let mut u = vec![vec![0.0; m]; m];
-        for i in 0..m {
-            u[i][i] = 1.0;
-        }
-
-        // Initialize V as identity matrix
-        let mut v = vec![vec![0.0; n]; n];
-        for i in 0..n {
-            v[i][i] = 1.0;
-        }
-
-        // Jacobi iterations
-        let max_iterations = 100;
-        let tolerance = 1e-10;
-
-        for _ in 0..max_iterations {
-            let mut converged = true;
-
-            // Sweep through all pairs of columns
-            for p in 0..n {
-                for q in (p + 1)..n {
-                    // Compute 2x2 submatrix A^T * A
-                    let mut app = 0.0;
-                    let mut aqq = 0.0;
-                    let mut apq = 0.0;
-
-                    for i in 0..m {
-                        app += a[i][p] * a[i][p];
-                        aqq += a[i][q] * a[i][q];
-                        apq += a[i][p] * a[i][q];
-                    }
-
-                    if apq.abs() > tolerance {
-                        converged = false;
-
-                        // Compute rotation angle
-                        let tau = (aqq - app) / (2.0 * apq);
-                        let t = if tau >= 0.0 {
-                            1.0 / (tau + (1.0 + tau * tau).sqrt())
-                        } else {
-                            -1.0 / (-tau + (1.0 + tau * tau).sqrt())
-                        };
-
-                        let c = 1.0 / (1.0 + t * t).sqrt();
-                        let s = t * c;
-
-                        // Apply rotation to A
-                        for i in 0..m {
-                            let temp = a[i][p];
-                            a[i][p] = c * temp - s * a[i][q];
-                            a[i][q] = s * temp + c * a[i][q];
-                        }
-
-                        // Apply rotation to V
-                        for i in 0..n {
-                            let temp = v[i][p];
-                            v[i][p] = c * temp - s * v[i][q];
-                            v[i][q] = s * temp + c * v[i][q];
-                        }
-                    }
-                }
-            }
-
-            if converged {
-                break;
-            }
-        }
-
-        // Extract singular values and sort
-        let mut singular_values = Vec::new();
-        let mut indices = Vec::new();
-
-        for j in 0..min_dim {
-            let mut norm = 0.0;
-            for i in 0..m {
-                norm += a[i][j] * a[i][j];
-            }
-            singular_values.push(norm.sqrt());
-            indices.push(j);
-        }
-
-        // Sort by singular values (descending)
-        indices.sort_by(|&i, &j| singular_values[j].partial_cmp(&singular_values[i]).unwrap());
-
-        // Reorder and normalize columns of A to get U
-        for j in 0..min_dim {
-            let orig_j = indices[j];
-            let sigma = singular_values[orig_j];
-
-            if sigma > tolerance {
-                for i in 0..m {
-                    u[i][j] = a[i][orig_j] / sigma;
-                }
-            }
-        }
-
-        // Create result arrays
-        let u_data: Vec<T> = u.into_iter().flatten().map(|x| T::from(x)).collect();
-        let u_array = Array::from_vec(u_data, vec![m, m]).unwrap();
-
-        let mut sorted_singular_values = Vec::new();
-        for &i in &indices {
-            sorted_singular_values.push(singular_values[i]);
-        }
-        let s_data: Vec<T> = sorted_singular_values
-            .into_iter()
-            .map(|x| T::from(x))
-            .collect();
-        let s_array = Array::from_vec(s_data, vec![min_dim]).unwrap();
-
-        // Reorder V columns
-        let mut v_reordered = vec![vec![0.0; n]; n];
-        for j in 0..min_dim {
-            let orig_j = indices[j];
-            for i in 0..n {
-                v_reordered[i][j] = v[i][orig_j];
-            }
-        }
-
-        let vt_data: Vec<T> = v_reordered
-            .into_iter()
-            .flatten()
-            .map(|x| T::from(x))
-            .collect();
-        let vt_array = Array::from_vec(vt_data, vec![n, n]).unwrap();
-        let vt_array_transposed = vt_array.transpose().unwrap();
-
-        Ok((u_array, s_array, vt_array_transposed))
-    }
-
-    /// Truncated power iteration SVD for computing top k singular values/vectors
-    fn truncated_power_iteration_svd(
-        &self,
-        a: Vec<Vec<f64>>,
-        k: usize,
-    ) -> Result<(Array<T>, Array<T>, Array<T>), String>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        let m = a.len();
-        let n = a[0].len();
-        let max_iter = 100;
-        let tolerance = 1e-10;
-
-        let mut u_vectors = Vec::new();
-        let mut singular_values = Vec::new();
-        let mut v_vectors = Vec::new();
-
-        // Create a copy of the matrix for deflation
-        let mut a_deflated = a.clone();
-
-        for _ in 0..k {
-            // Power iteration to find the largest singular value and vectors
-            let mut v = vec![1.0; n];
-            let mut norm = (v.iter().map(|x| x * x).sum::<f64>()).sqrt();
-            for x in &mut v {
-                *x /= norm;
-            }
-
-            let mut prev_sigma = 0.0;
-            let mut sigma = 0.0;
-
-            for _ in 0..max_iter {
-                // v = A^T * (A * v)
-                let mut av = vec![0.0; m];
-                for i in 0..m {
-                    for j in 0..n {
-                        av[i] += a_deflated[i][j] * v[j];
-                    }
-                }
-
-                let mut atav = vec![0.0; n];
-                for j in 0..n {
-                    for i in 0..m {
-                        atav[j] += a_deflated[i][j] * av[i];
-                    }
-                }
-
-                // Normalize
-                norm = (atav.iter().map(|x| x * x).sum::<f64>()).sqrt();
-                if norm < tolerance {
-                    break;
-                }
-
-                for x in &mut atav {
-                    *x /= norm;
-                }
-                v = atav;
-
-                // Compute singular value: sigma = ||A * v||
-                let mut av = vec![0.0; m];
-                for i in 0..m {
-                    for j in 0..n {
-                        av[i] += a_deflated[i][j] * v[j];
-                    }
-                }
-                sigma = (av.iter().map(|x| x * x).sum::<f64>()).sqrt();
-
-                // Check convergence
-                if (sigma - prev_sigma).abs() < tolerance {
-                    break;
-                }
-                prev_sigma = sigma;
-            }
-
-            if sigma < tolerance {
-                break;
-            }
-
-            // Compute u = A * v / sigma
-            let mut u = vec![0.0; m];
-            for i in 0..m {
-                for j in 0..n {
-                    u[i] += a_deflated[i][j] * v[j];
-                }
-                u[i] /= sigma;
-            }
-
-            // Store the singular triplet
-            u_vectors.push(u.clone());
-            singular_values.push(sigma);
-            v_vectors.push(v.clone());
-
-            // Deflate the matrix: A = A - sigma * u * v^T
-            for i in 0..m {
-                for j in 0..n {
-                    a_deflated[i][j] -= sigma * u[i] * v[j];
-                }
-            }
-        }
-
-        // Construct result matrices
-        let actual_k = u_vectors.len();
-
-        // U matrix (m x k)
-        let mut u_data = Vec::new();
-        for i in 0..m {
-            for j in 0..actual_k {
-                u_data.push(T::from(u_vectors[j][i]));
-            }
-        }
-        let u_array = Array::from_vec(u_data, vec![m, actual_k]).unwrap();
-
-        // Singular values vector (k,)
-        let s_data: Vec<T> = singular_values.into_iter().map(|x| T::from(x)).collect();
-        let s_array = Array::from_vec(s_data, vec![actual_k]).unwrap();
-
-        // V^T matrix (k x n)
-        let mut vt_data = Vec::new();
-        for i in 0..actual_k {
-            for j in 0..n {
-                vt_data.push(T::from(v_vectors[i][j]));
-            }
-        }
-        let vt_array = Array::from_vec(vt_data, vec![actual_k, n]).unwrap();
-
-        Ok((u_array, s_array, vt_array))
-    }
-
-    /// Power iteration SVD for larger matrices (simplified version)
-    fn power_iteration_svd(
-        &self,
-        a: Vec<Vec<f64>>,
-    ) -> Result<(Array<T>, Array<T>, Array<T>), String>
-    where
-        T: Into<f64> + From<f64> + Clone + Default,
-    {
-        let _m = a.len();
-        let _n = a[0].len();
-
-        // For now, fall back to Jacobi for simplicity
-        // In a full implementation, this would use power iteration or other methods
-        self.jacobi_svd(a)
     }
 }
 
@@ -692,52 +309,36 @@ mod tests {
 
     #[test]
     fn test_sum() {
-        let arr =
-            Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], vec![2, 3, 2]).unwrap();
+        let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [2, 3, 2]);
 
-        let arr1 = arr.sum_axis(0).unwrap();
+        let arr1 = arr.sum_axis(0);
         assert_eq!(
             arr1,
-            Array::from_vec(vec![8, 10, 12, 14, 16, 18], vec![1, 3, 2]).unwrap()
+            Array::from_vec(vec![8, 10, 12, 14, 16, 18], [1, 3, 2])
         );
-        let arr2 = arr.sum_axis(1).unwrap();
-        assert_eq!(
-            arr2,
-            Array::from_vec(vec![9, 12, 27, 30], vec![2, 1, 2]).unwrap()
-        );
-        let arr3 = arr.sum_axis(2).unwrap();
-        assert_eq!(
-            arr3,
-            Array::from_vec(vec![3, 7, 11, 15, 19, 23], vec![2, 3, 1]).unwrap()
-        );
+        let arr2 = arr.sum_axis(1);
+        assert_eq!(arr2, Array::from_vec(vec![9, 12, 27, 30], [2, 1, 2]));
+        let arr3 = arr.sum_axis(2);
+        assert_eq!(arr3, Array::from_vec(vec![3, 7, 11, 15, 19, 23], [2, 3, 1]));
 
-        let arr4 = arr.sum_axis(2).unwrap();
-        let arr4 = arr4.squeeze(vec![]).unwrap();
-        assert_eq!(
-            arr4,
-            Array::from_vec(vec![3, 7, 11, 15, 19, 23], vec![2, 3]).unwrap()
-        );
+        let arr4 = arr.sum_axis(2);
+        let arr4 = arr4.reshape([2, 3]);
+        assert_eq!(arr4, Array::from_vec(vec![3, 7, 11, 15, 19, 23], [2, 3]));
         println!("arr= {arr:?} arr1= {arr1:?} arr2= {arr2:?} arr3= {arr3:?} arr4= {arr4:?}");
     }
 
     #[test]
     fn test_mean_axis() {
-        let arr = Array::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let mean_axis_0 = arr.mean_axis(0).unwrap();
-        assert_eq!(
-            mean_axis_0,
-            Array::from_vec(vec![2.0, 3.0], vec![1, 2]).unwrap()
-        );
-        let mean_axis_1 = arr.mean_axis(1).unwrap();
-        assert_eq!(
-            mean_axis_1,
-            Array::from_vec(vec![1.5, 3.5], vec![2, 1]).unwrap()
-        );
+        let arr = Array::<_, f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+        let mean_axis_0 = arr.mean_axis(0);
+        assert_eq!(mean_axis_0, Array::from_vec(vec![2.0, 3.0], [1, 2]));
+        let mean_axis_1 = arr.mean_axis(1);
+        assert_eq!(mean_axis_1, Array::from_vec(vec![1.5, 3.5], [2, 1]));
     }
 
     #[test]
     fn test_aggregations() {
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
         assert_eq!(arr.sum(), 10.0);
         assert_eq!(arr.mean(), 2.5);
         assert_eq!(arr.max(), Some(4.0));
@@ -746,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_map() {
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
         let squared = arr.map(|x| x * x);
         assert_eq!(squared[[0, 0]], 1.0);
         assert_eq!(squared[[1, 1]], 16.0);
@@ -754,73 +355,28 @@ mod tests {
 
     #[test]
     fn test_map_type_conversion() {
-        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
-        let result: Array<f64> = arr.map(|&x| x as f64 * 1.5);
+        let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+        let result: Array<_, f64> = arr.map(|&x| x as f64 * 1.5);
         assert_eq!(result[[0, 0]], 1.5);
         assert_eq!(result[[1, 1]], 6.0);
     }
 
     #[test]
     fn test_into_map() {
-        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
-        let result: Array<String> = arr.into_map(|x| format!("value_{}", x));
+        let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+        let result: Array<_, String> = arr.into_map(|x| format!("value_{}", x));
         assert_eq!(result[[0, 0]], "value_1");
         assert_eq!(result[[1, 1]], "value_4");
-        assert_eq!(result.shape(), &[2, 2]);
+        assert_eq!(result.shape(), [2, 2]);
     }
 
     #[test]
     fn test_into_map_type_conversion() {
-        let arr = Array::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
-        let result: Array<f64> = arr.into_map(|x| x as f64 * 2.5);
+        let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+        let result: Array<_, f64> = arr.into_map(|x| x as f64 * 2.5);
         assert_eq!(result[[0, 0]], 2.5);
         assert_eq!(result[[1, 1]], 10.0);
-        assert_eq!(result.shape(), &[2, 2]);
-    }
-
-    #[test]
-    fn test_svd() {
-        // Test SVD on a simple 2x2 matrix
-        let matrix = Array::from_vec(vec![3.0, 1.0, 1.0, 3.0], vec![2, 2]).unwrap();
-        let (u, s, vt) = matrix.svd().unwrap();
-
-        // Check dimensions
-        assert_eq!(u.shape(), &[2, 2]);
-        assert_eq!(s.shape(), &[2]);
-        assert_eq!(vt.shape(), &[2, 2]);
-
-        // Check that singular values are positive and sorted in descending order
-        assert!(s[[0]] >= s[[1]]);
-        assert!(s[[0]] > 0.0);
-        assert!(s[[1]] >= 0.0);
-    }
-
-    #[test]
-    fn test_svd_reconstruction() {
-        use crate::prelude::*;
-
-        // Test that U * S * V^T reconstructs the original matrix (approximately)
-        let matrix = Array::from_vec(vec![2.0, 0.0, 0.0, 1.0], vec![2, 2]).unwrap();
-        let (u, s, vt) = matrix.svd().unwrap();
-
-        // Create diagonal matrix from singular values
-        let mut sigma = Array::zeros(vec![2, 2]);
-        sigma[[0, 0]] = s[[0]];
-        sigma[[1, 1]] = s[[1]];
-
-        // Reconstruct: U * Sigma * V^T
-        let us = u.matmul(&sigma, crate::math::MatmulPolicy::Naive).unwrap();
-        let reconstructed = us.matmul(&vt, crate::math::MatmulPolicy::Naive).unwrap();
-
-        // Check reconstruction accuracy (within tolerance)
-        let tolerance = 1e-10f64;
-        for i in 0..2 {
-            for j in 0..2 {
-                let diff = (matrix[[i, j]] - reconstructed[[i, j]]) as f64;
-                let diff = diff.abs();
-                assert!(diff < tolerance, "Reconstruction error too large: {}", diff);
-            }
-        }
+        assert_eq!(result.shape(), [2, 2]);
     }
 
     #[test]
@@ -833,9 +389,8 @@ mod tests {
                 std::f64::consts::PI / 3.0,
                 std::f64::consts::PI / 2.0,
             ],
-            vec![5],
-        )
-        .unwrap();
+            [5],
+        );
 
         let sin_result = arr.sin();
         assert!((sin_result[[0]] - 0.0).abs() < 1e-10);
@@ -849,7 +404,7 @@ mod tests {
         let _tan_result = arr.tan();
 
         // Test inverse functions
-        let values = Array::from_vec(vec![0.0, 0.5, 1.0], vec![3]).unwrap();
+        let values = Array::from_vec(vec![0.0, 0.5, 1.0], [3]);
         let asin_result = values.asin();
         let acos_result = values.acos();
         let atan_result = values.atan();
@@ -863,7 +418,7 @@ mod tests {
 
     #[test]
     fn test_hyperbolic_functions() {
-        let arr = Array::from_vec(vec![0.0, 1.0, -1.0], vec![3]).unwrap();
+        let arr = Array::from_vec(vec![0.0, 1.0, -1.0], [3]);
 
         let sinh_result = arr.sinh();
         let cosh_result = arr.cosh();
@@ -876,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_logarithmic_functions() {
-        let arr = Array::from_vec(vec![1.0, std::f64::consts::E, 10.0, 2.0], vec![4]).unwrap();
+        let arr = Array::from_vec(vec![1.0, std::f64::consts::E, 10.0, 2.0], [4]);
 
         // Test natural logarithm
         let ln_result = arr.ln();
@@ -894,7 +449,7 @@ mod tests {
         assert!((log2_result[[3]] - 1.0).abs() < 1e-10); // log2(2) = 1
 
         // Test custom base logarithm
-        let values = Array::from_vec(vec![1.0, 3.0, 9.0, 27.0], vec![4]).unwrap();
+        let values = Array::from_vec(vec![1.0, 3.0, 9.0, 27.0], [4]);
         let log3_result = values.log(3.0);
         assert!((log3_result[[0]] - 0.0f64).abs() < 1e-10f64); // log3(1) = 0
         assert!((log3_result[[1]] - 1.0f64).abs() < 1e-10f64); // log3(3) = 1
@@ -902,7 +457,7 @@ mod tests {
         assert!((log3_result[[3]] - 3.0f64).abs() < 1e-10f64); // log3(27) = 3
 
         // Test that exp and ln are inverse operations
-        let test_values = Array::from_vec(vec![1.0, 2.0, 3.0], vec![3]).unwrap();
+        let test_values = Array::from_vec(vec![1.0, 2.0, 3.0], [3]);
         let exp_ln = test_values.clone().ln().exp();
         for i in 0..3 {
             assert!(((exp_ln[[i]] - test_values[[i]]) as f64).abs() < 1e-10);
@@ -911,7 +466,7 @@ mod tests {
 
     #[test]
     fn test_exponential_functions() {
-        let arr = Array::from_vec(vec![0.0, 1.0, 2.0], vec![3]).unwrap();
+        let arr = Array::from_vec(vec![0.0, 1.0, 2.0], [3]);
 
         // Test exponential function
         let exp_result = arr.exp();
@@ -925,7 +480,7 @@ mod tests {
         assert!((exp2_result[[2]] - 4.0).abs() < 1e-10); // 2^2 = 4
 
         // Test exp_m1 and ln_1p (inverse operations)
-        let small_values = Array::from_vec(vec![0.1, 0.01, 0.001], vec![3]).unwrap();
+        let small_values = Array::from_vec(vec![0.1, 0.01, 0.001], [3]);
         let exp_m1_result = small_values.clone().exp_m1();
         let ln_1p_result = exp_m1_result.ln_1p();
 
@@ -934,7 +489,7 @@ mod tests {
         }
 
         // Test that exp_m1(0) = 0 and ln_1p(0) = 0
-        let zero_arr = Array::from_vec(vec![0.0], vec![1]).unwrap();
+        let zero_arr = Array::from_vec(vec![0.0], [1]);
         assert!((zero_arr.clone().exp_m1()[[0]] - 0.0f64).abs() < 1e-10f64);
         assert!((zero_arr.ln_1p()[[0]] - 0.0f64).abs() < 1e-10f64);
     }
