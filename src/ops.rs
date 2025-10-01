@@ -23,17 +23,33 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, 
 //     }
 // }
 
-impl<const D: usize, T> Index<[usize; D]> for Array<D, T> {
+// impl<const D: usize, T> Index<[usize; D]> for Array<D, T> {
+//     type Output = T;
+
+//     fn index(&self, indices: [usize; D]) -> &Self::Output {
+//         let flat_index = self.index_to_flat(indices);
+//         &self.data[flat_index]
+//     }
+// }
+
+// impl<const D: usize, T> IndexMut<[usize; D]> for Array<D, T> {
+//     fn index_mut(&mut self, indices: [usize; D]) -> &mut Self::Output {
+//         let flat_index = self.index_to_flat(indices);
+//         &mut self.data[flat_index]
+//     }
+// }
+
+impl<const D: usize, T> Index<[isize; D]> for Array<D, T> {
     type Output = T;
 
-    fn index(&self, indices: [usize; D]) -> &Self::Output {
+    fn index(&self, indices: [isize; D]) -> &Self::Output {
         let flat_index = self.index_to_flat(indices);
         &self.data[flat_index]
     }
 }
 
-impl<const D: usize, T> IndexMut<[usize; D]> for Array<D, T> {
-    fn index_mut(&mut self, indices: [usize; D]) -> &mut Self::Output {
+impl<const D: usize, T> IndexMut<[isize; D]> for Array<D, T> {
+    fn index_mut(&mut self, indices: [isize; D]) -> &mut Self::Output {
         let flat_index = self.index_to_flat(indices);
         &mut self.data[flat_index]
     }
@@ -281,7 +297,8 @@ impl<const D: usize, T> Array<D, T> {
             .multi_cartesian_product()
             .map(|idx| {
                 let idx = dyn_dim_to_static::<D>(&idx);
-                let data = self.index(idx);
+
+                let data = self.index(idx.map(|i| i as isize));
                 (idx, data)
             })
     }
@@ -297,7 +314,7 @@ impl<const D: usize, T> Array<D, T> {
             .multi_cartesian_product()
         {
             let idx = dyn_dim_to_static(&idx);
-            let data = self.index_mut(idx);
+            let data = self.index_mut(idx.map(|i| i as isize));
 
             f(idx, data);
         }
@@ -327,6 +344,7 @@ mod tests {
         let sum = &a + &b;
         assert_eq!(sum[[0, 0]], 3.0);
         assert_eq!(sum[[1, 1]], 6.0);
+        assert_eq!(sum[[-1, -1]], 6.0);
 
         let product = &a * &b;
         assert_eq!(product[[0, 0]], 2.0);

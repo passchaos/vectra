@@ -170,7 +170,7 @@ impl<const D: usize, T> Array<D, T> {
         U: Default + Clone,
     {
         if axis >= (D as isize) || axis <= -(D as isize) {
-            panic!("Axis out of bounds");
+            panic!("Axis out of bounds: rank= {}, axis= {}", D, axis);
         }
 
         // Adjust negative axis to a positive index
@@ -197,7 +197,7 @@ impl<const D: usize, T> Array<D, T> {
                     let mut i_idx = idx.clone();
                     i_idx[axis] = i;
 
-                    self.index(i_idx)
+                    self.index(i_idx.map(|i| i as isize))
                 })
                 .collect();
 
@@ -354,6 +354,9 @@ mod tests {
         assert_eq!(mean_axis_0, Array::from_vec(vec![2.0, 3.0], [1, 2]));
         let mean_axis_1 = arr.mean_axis(1);
         assert_eq!(mean_axis_1, Array::from_vec(vec![1.5, 3.5], [2, 1]));
+
+        let mean_axis_2 = arr.mean_axis(-1);
+        assert_eq!(mean_axis_1, mean_axis_2);
     }
 
     #[test]

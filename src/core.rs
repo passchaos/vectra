@@ -6,7 +6,9 @@ use faer::{Mat, MatRef};
 use itertools::Itertools;
 use num_traits::{NumCast, One, Zero};
 
-use crate::utils::{compute_strides, dyn_dim_to_static, indices_to_flat_idx};
+use crate::utils::{
+    compute_strides, dyn_dim_to_static, indices_to_flat_idx, negative_indices_to_positive,
+};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub enum MajorOrder {
@@ -42,7 +44,7 @@ impl<T> Array<2, T> {
         T: Clone + Zero + One,
     {
         let mut arr = Self::zeros([n, n]);
-        for i in 0..n {
+        for i in 0..n as isize {
             arr[[i, i]] = T::one();
         }
         arr
@@ -316,7 +318,13 @@ impl<const D: usize, T> Array<D, T> {
 
 impl<const D: usize, T> Array<D, T> {
     /// Convert multi-dimensional index to flat index
-    pub fn index_to_flat(&self, indices: [usize; D]) -> usize {
+    pub fn index_to_flat(&self, indices: [isize; D]) -> usize {
+        let indices = negative_indices_to_positive(indices);
+
+        self.positive_index_to_flat(indices)
+    }
+
+    pub fn positive_index_to_flat(&self, indices: [usize; D]) -> usize {
         if indices
             .iter()
             .zip(self.shape().iter())
@@ -357,7 +365,7 @@ impl<const D: usize, T> Array<D, T> {
                 source_indices[i] = if self.shape[i] == 1 { 0 } else { target_idx };
             }
 
-            let source_flat = self.index_to_flat(source_indices);
+            let source_flat = self.positive_index_to_flat(source_indices);
             new_data.push(self.data[source_flat].clone());
         }
 
@@ -399,12 +407,29 @@ impl<const D: usize, T> Array<D, T> {
             .multi_cartesian_product()
         {
             let idx = dyn_dim_to_static(&idx);
-            let item = self.index_mut(idx);
+            let item = self.index_mut(idx.map(|i| i as isize));
             *item = f(item);
         }
 
         self
     }
+
+    // pub fn scatter_inplace(
+    //     &mut self,
+    //     axis: isize,
+    //     indices: Array<D, usize>,
+    //     values: &Array<D, T>,
+    // ) -> &mut Self
+    // where
+    //     T: Clone,
+    // {
+    //     assert_eq!(indices.len(), values.len());
+    //     for (&index, value) in indices.iter().zip(values) {
+    //         self[index] = value.clone();
+    //     }
+
+    //     self
+    // }
 }
 
 impl<const D: usize, T> Into<Vec<T>> for Array<D, T> {

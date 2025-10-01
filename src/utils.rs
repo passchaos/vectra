@@ -69,6 +69,22 @@ pub fn shape_indices_to_flat_idx<const D: usize>(
     indices_to_flat_idx(strides, indices)
 }
 
+pub fn negative_indices_to_positive<const D: usize>(indices: [isize; D]) -> [usize; D] {
+    indices.map(|idx| negative_idx_to_positive::<D>(idx))
+}
+
+pub fn negative_idx_to_positive<const D: usize>(idx: isize) -> usize {
+    if idx >= (D as isize) || idx <= -(D as isize + 1) {
+        panic!("Axis out of bounds: rank= {}, idx= {}", D, idx);
+    }
+
+    if idx < 0 {
+        (idx + D as isize) as usize
+    } else {
+        idx as usize
+    }
+}
+
 /// Broadcast two shapes to a common shape
 pub fn broadcast_shapes<const D: usize>(
     shape1: [usize; D],
