@@ -7,7 +7,8 @@ use itertools::Itertools;
 use num_traits::{NumCast, One, Zero};
 
 use crate::utils::{
-    compute_strides, dyn_dim_to_static, indices_to_flat_idx, negative_indices_to_positive,
+    compute_strides, dyn_dim_to_static, indices_to_flat_idx, negative_idx_to_positive,
+    negative_indices_to_positive,
 };
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -319,7 +320,7 @@ impl<const D: usize, T> Array<D, T> {
 impl<const D: usize, T> Array<D, T> {
     /// Convert multi-dimensional index to flat index
     pub fn index_to_flat(&self, indices: [isize; D]) -> usize {
-        let indices = negative_indices_to_positive(indices);
+        let indices = negative_indices_to_positive(indices, self.shape);
 
         self.positive_index_to_flat(indices)
     }
@@ -414,22 +415,21 @@ impl<const D: usize, T> Array<D, T> {
         self
     }
 
-    // pub fn scatter_inplace(
-    //     &mut self,
-    //     axis: isize,
-    //     indices: Array<D, usize>,
-    //     values: &Array<D, T>,
-    // ) -> &mut Self
-    // where
-    //     T: Clone,
-    // {
-    //     assert_eq!(indices.len(), values.len());
-    //     for (&index, value) in indices.iter().zip(values) {
-    //         self[index] = value.clone();
-    //     }
+    pub fn scatter_inplace(&mut self, axis: isize, indices: &Array<D, usize>, values: &Array<D, T>)
+    where
+        T: Clone,
+    {
+        assert_eq!(indices.shape(), values.shape());
 
-    //     self
-    // }
+        let axis = negative_idx_to_positive(axis, D);
+
+        for ((a_idx, a_v), (_b_idx, b_v)) in indices.multi_iter().zip(values.multi_iter()) {
+            let mut target_idx = a_idx;
+            target_idx[axis] = *a_v;
+
+            *self.index_mut(target_idx.map(|i| i as isize)) = b_v.clone();
+        }
+    }
 }
 
 impl<const D: usize, T> Into<Vec<T>> for Array<D, T> {
@@ -710,6 +710,23 @@ mod tests {
         arr.map_inplace(|x| x * x);
         assert_eq!(arr[[0, 0]], 1.0);
         assert_eq!(arr[[1, 1]], 16.0);
+    }
+
+    #[test]
+    fn test_scatter_inplace() {
+        let mut target = Array::<_, usize>::zeros([2, 3]);
+        let indices = Array::from_vec(vec![0, 2, 1, 0], [2, 2]);
+        let values = Array::from_vec(vec![10, 20, 30, 40], [2, 2]);
+        target.scatter_inplace(-1, &indices, &values);
+
+        assert_eq!(target, Array::from_vec(vec![10, 0, 20, 40, 30, 0], [2, 3]));
+
+        let mut target = Array::<_, usize>::zeros([2, 3]);
+        let indices = Array::from_vec(vec![0, 1, 1, 0], [2, 2]);
+        let values = Array::from_vec(vec![10, 20, 30, 40], [2, 2]);
+        target.scatter_inplace(0, &indices, &values);
+
+        assert_eq!(target, Array::from_vec(vec![10, 40, 0, 30, 20, 0], [2, 3]));
     }
 
     #[test]

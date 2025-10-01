@@ -69,17 +69,29 @@ pub fn shape_indices_to_flat_idx<const D: usize>(
     indices_to_flat_idx(strides, indices)
 }
 
-pub fn negative_indices_to_positive<const D: usize>(indices: [isize; D]) -> [usize; D] {
-    indices.map(|idx| negative_idx_to_positive::<D>(idx))
+pub fn negative_indices_to_positive<const D: usize>(
+    indices: [isize; D],
+    shape: [usize; D],
+) -> [usize; D] {
+    let v: Vec<_> = indices
+        .into_iter()
+        .zip(shape.into_iter())
+        .map(|(idx, count)| negative_idx_to_positive(idx, count))
+        .collect();
+
+    let mut res = [0; D];
+    res.copy_from_slice(&v);
+
+    res
 }
 
-pub fn negative_idx_to_positive<const D: usize>(idx: isize) -> usize {
-    if idx >= (D as isize) || idx <= -(D as isize + 1) {
-        panic!("Axis out of bounds: rank= {}, idx= {}", D, idx);
+pub fn negative_idx_to_positive(idx: isize, count: usize) -> usize {
+    if idx >= (count as isize) || idx <= -(count as isize + 1) {
+        panic!("Axis out of bounds: count= {}, idx= {}", count, idx);
     }
 
     if idx < 0 {
-        (idx + D as isize) as usize
+        (idx + count as isize) as usize
     } else {
         idx as usize
     }
