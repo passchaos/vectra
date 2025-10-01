@@ -47,7 +47,7 @@ where
     }
 
     /// Sum along specified axis
-    pub fn sum_axis(&self, axis: usize) -> Array<D, T>
+    pub fn sum_axis(&self, axis: isize) -> Array<D, T>
     where
         T: Add<Output = T> + Default + Clone,
     {
@@ -69,23 +69,14 @@ where
         sum / size.into()
     }
 
-    pub fn mean_axis(&self, axis: usize) -> Array<D, T>
+    pub fn mean_axis(&self, axis: isize) -> Array<D, T>
     where
         T: Default + Clone + NumCast + Sum + Div<Output = T>,
     {
-        let axis_size = self.shape[axis];
-
-        let axis_size = T::from(axis_size)
-            .ok_or(format!(
-                "cannot convert {} to type {}",
-                std::any::type_name_of_val(&axis_size),
-                std::any::type_name::<T>()
-            ))
-            .unwrap();
-
         self.map_axis(axis, |values| {
+            let len = values.len();
             let sum: T = values.into_iter().cloned().sum();
-            sum / axis_size.clone()
+            sum / T::from(len).expect("Failed to convert axis values length value type to T")
         })
     }
 }
@@ -121,7 +112,7 @@ impl_total_ord!(
 );
 
 impl<const D: usize, T: TotalOrder + Clone> Array<D, T> {
-    pub fn max_axis(&self, axis: usize) -> Self
+    pub fn max_axis(&self, axis: isize) -> Self
     where
         T: Default,
     {
@@ -133,7 +124,7 @@ impl<const D: usize, T: TotalOrder + Clone> Array<D, T> {
         })
     }
 
-    pub fn min_axis(&self, axis: usize) -> Self
+    pub fn min_axis(&self, axis: isize) -> Self
     where
         T: Default,
     {
@@ -173,14 +164,21 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
-    pub fn map_axis<F, U>(&self, axis: usize, f: F) -> Array<D, U>
+    pub fn map_axis<F, U>(&self, axis: isize, f: F) -> Array<D, U>
     where
         F: Fn(Vec<&T>) -> U,
         U: Default + Clone,
     {
-        if axis >= D {
+        if axis >= (D as isize) || axis <= -(D as isize) {
             panic!("Axis out of bounds");
         }
+
+        // Adjust negative axis to a positive index
+        let axis = if axis < 0 {
+            (axis + D as isize) as usize
+        } else {
+            axis as usize
+        };
 
         let mut result_shape = self.shape();
         let axis_len = result_shape[axis];
