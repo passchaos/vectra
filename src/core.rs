@@ -184,6 +184,33 @@ impl<const D: usize, T: Clone> Clone for Array<D, T> {
 }
 
 impl<T> Array<1, T> {
+    pub fn arange_c(mut start: T, step: T, count: usize) -> Self
+    where
+        T: PartialOrd + Add<Output = T> + Clone,
+    {
+        let mut data = Vec::new();
+
+        for _ in 0..count {
+            data.push(start.clone());
+
+            start = start + step.clone();
+        }
+
+        let size = data.len();
+
+        let major_order = MajorOrder::RowMajor;
+
+        let shape = [size];
+        let strides = compute_strides(shape, major_order);
+
+        Self {
+            data,
+            shape,
+            strides,
+            major_order,
+        }
+    }
+
     /// Create array like np.arange
     pub fn arange(mut start: T, end: T, step: T) -> Self
     where
@@ -244,17 +271,7 @@ impl<const D: usize, T> Array<D, T> {
     where
         T: Clone + Zero,
     {
-        let size = shape.iter().product();
-
-        let major_order = MajorOrder::RowMajor;
-        let strides = compute_strides(shape, major_order);
-
-        Self {
-            data: vec![T::zero(); size],
-            shape,
-            strides,
-            major_order,
-        }
+        Self::full(shape, T::zero())
     }
 
     /// Create ones array
@@ -262,13 +279,20 @@ impl<const D: usize, T> Array<D, T> {
     where
         T: Clone + One,
     {
+        Self::full(shape, T::one())
+    }
+
+    pub fn full(shape: [usize; D], value: T) -> Self
+    where
+        T: Clone,
+    {
         let size = shape.iter().product();
 
         let major_order = MajorOrder::RowMajor;
         let strides = compute_strides(shape, major_order);
 
         Self {
-            data: vec![T::one(); size],
+            data: vec![value; size],
             shape,
             strides,
             major_order,
@@ -276,9 +300,26 @@ impl<const D: usize, T> Array<D, T> {
     }
 
     /// Reshape array
-    pub fn reshape<const D1: usize>(self, new_shape: [usize; D1]) -> Array<D1, T> {
-        let new_size: usize = new_shape.iter().product();
-        if new_size != self.data.len() {
+    pub fn reshape<const D1: usize>(self, mut new_shape: [isize; D1]) -> Array<D1, T> {
+        let len = self.shape().iter().product::<usize>();
+
+        let mut negative_indices: Vec<_> = new_shape
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, v)| if *v == -1 { Some(idx) } else { None })
+            .collect();
+        if negative_indices.len() > 1 {
+            panic!("Only one dimension can be inferred");
+        }
+
+        if let Some(negative_index) = negative_indices.pop() {
+            new_shape[negative_index] = len as isize / new_shape.iter().product::<isize>() * -1;
+        }
+
+        let new_shape = new_shape.map(|v| v as usize);
+
+        let new_size = new_shape.iter().product::<usize>();
+        if new_size != len {
             panic!("New shape size does not match array size");
         }
 
@@ -290,6 +331,36 @@ impl<const D: usize, T> Array<D, T> {
             strides: new_strides,
             major_order: self.major_order,
         }
+    }
+
+    pub fn unsqueeze(self, axis: isize) -> Array<{ D + 1 }, T> {
+        let axis = negative_idx_to_positive(axis, D + 1);
+
+        let mut shape = self.shape().map(|v| v as isize).to_vec();
+        shape.insert(axis, 1);
+
+        let mut new_shape = [0; D + 1];
+        new_shape.copy_from_slice(&shape);
+
+        self.reshape(new_shape)
+    }
+
+    pub fn squeeze(self, axis: isize) -> Array<{ D - 1 }, T> {
+        let axis = negative_idx_to_positive(axis, D);
+
+        let mut shape = self.shape().map(|v| v as isize).to_vec();
+
+        let axis_size = shape[axis];
+        if axis_size != 1 {
+            panic!("cannot squeeze axis with size {axis_size}");
+        }
+
+        shape.remove(axis);
+
+        let mut new_shape = [0; D - 1];
+        new_shape.copy_from_slice(&shape);
+
+        self.reshape(new_shape)
     }
 
     /// Permute the dimensions of the array according to the given axes
@@ -415,7 +486,7 @@ impl<const D: usize, T> Array<D, T> {
         self
     }
 
-    pub fn scatter_inplace(&mut self, axis: isize, indices: &Array<D, usize>, values: &Array<D, T>)
+    pub fn scatter_inplace(&mut self, axis: isize, indices: &Array<D, isize>, values: &Array<D, T>)
     where
         T: Clone,
     {
@@ -425,7 +496,7 @@ impl<const D: usize, T> Array<D, T> {
 
         for ((a_idx, a_v), (_b_idx, b_v)) in indices.multi_iter().zip(values.multi_iter()) {
             let mut target_idx = a_idx;
-            target_idx[axis] = *a_v;
+            target_idx[axis] = negative_idx_to_positive(*a_v, self.shape()[axis]);
 
             *self.index_mut(target_idx.map(|i| i as isize)) = b_v.clone();
         }
@@ -478,6 +549,8 @@ where
     }
 }
 
+const PAD_SHOW_COUNT: usize = 3;
+
 impl<const D: usize, T> Array<D, T>
 where
     T: fmt::Display + Clone,
@@ -522,7 +595,11 @@ where
 
     /// Format a 1D slice (last dimension)
     fn fmt_1d_slice(&self, f: &mut fmt::Formatter<'_>, base_indices: &[usize]) -> fmt::Result {
-        let max_items = if base_indices.is_empty() { 1000 } else { 6 };
+        let max_items = if base_indices.is_empty() {
+            1000
+        } else {
+            2 * PAD_SHOW_COUNT
+        };
         let current_dim_size = self.shape[base_indices.len()];
 
         let line_size = 18;
@@ -545,7 +622,7 @@ where
             }
         } else {
             // Show first 3 and last 3 items with ellipsis
-            for i in 0..3 {
+            for i in 0..PAD_SHOW_COUNT {
                 if i > 0 {
                     write!(f, " ")?;
                 }
@@ -555,7 +632,7 @@ where
                 write!(f, "{}", self.data[flat_idx])?;
             }
             write!(f, " ... ")?;
-            for i in (current_dim_size - 3)..current_dim_size {
+            for i in (current_dim_size - PAD_SHOW_COUNT)..current_dim_size {
                 let mut indices = base_indices.to_vec();
                 indices.push(i);
                 let flat_idx = self.indices_to_flat(&indices).unwrap_or(0);
@@ -577,21 +654,30 @@ where
         base_indices: &[usize],
     ) -> fmt::Result {
         let current_dim_size = self.shape[depth];
-        let max_slices = 3;
+        // let max_slices = 3;
         let ndim = self.shape.len();
 
         write!(f, "[")?;
 
-        let show_all = current_dim_size <= max_slices;
+        let show_all = current_dim_size <= 2 * PAD_SHOW_COUNT;
         let slice_indices: Vec<usize> = if show_all {
             (0..current_dim_size).collect()
         } else {
-            vec![0, 1, current_dim_size - 1]
+            let mut indices = vec![];
+            for i in 0..PAD_SHOW_COUNT {
+                indices.push(i);
+            }
+
+            for i in (current_dim_size - PAD_SHOW_COUNT)..current_dim_size {
+                indices.push(i);
+            }
+
+            indices
         };
 
         for (idx, &slice_idx) in slice_indices.iter().enumerate() {
+            // Add appropriate spacing based on dimension
             if idx > 0 {
-                // Add appropriate spacing based on dimension
                 if depth == ndim - 2 {
                     // 2D case: new line with space
                     write!(f, "\n ")?;
@@ -607,7 +693,7 @@ where
                 }
             }
 
-            if !show_all && idx == 2 {
+            if !show_all && idx == PAD_SHOW_COUNT {
                 if depth == ndim - 2 {
                     write!(f, "\n ")?;
                     for _ in 0..depth {
@@ -715,14 +801,14 @@ mod tests {
     #[test]
     fn test_scatter_inplace() {
         let mut target = Array::<_, usize>::zeros([2, 3]);
-        let indices = Array::from_vec(vec![0, 2, 1, 0], [2, 2]);
+        let indices = Array::from_vec(vec![0, -1, 1, 0], [2, 2]);
         let values = Array::from_vec(vec![10, 20, 30, 40], [2, 2]);
         target.scatter_inplace(-1, &indices, &values);
 
         assert_eq!(target, Array::from_vec(vec![10, 0, 20, 40, 30, 0], [2, 3]));
 
         let mut target = Array::<_, usize>::zeros([2, 3]);
-        let indices = Array::from_vec(vec![0, 1, 1, 0], [2, 2]);
+        let indices = Array::from_vec(vec![0, -1, 1, 0], [2, 2]);
         let values = Array::from_vec(vec![10, 20, 30, 40], [2, 2]);
         target.scatter_inplace(0, &indices, &values);
 
@@ -749,5 +835,13 @@ mod tests {
         assert_eq!(arr.shape(), [2, 2]);
         assert_eq!(arr[[0, 0]], 1.0);
         assert_eq!(arr[[1, 1]], 4.0);
+    }
+
+    #[test]
+    fn test_fmt() {
+        let a = Array::arange_c(1.0, 0.1, 100).reshape([-1, 10]);
+        println!("a= {a:?}");
+        let a = Array::<_, f32>::arange_c(1.0, 0.1, 1000).reshape([10, -1, 2, 5]);
+        println!("a= {a:?}");
     }
 }

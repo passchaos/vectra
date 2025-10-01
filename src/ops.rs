@@ -1,10 +1,14 @@
 use itertools::Itertools;
+use num_traits::{One, PrimInt, Zero, cast};
 
 use crate::{
     core::Array,
-    utils::{broadcast_shapes, compute_strides, dyn_dim_to_static},
+    utils::{broadcast_shapes, compute_strides, dyn_dim_to_static, negative_idx_to_positive},
 };
-use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
+use std::{
+    fmt::Debug,
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+};
 
 // // Indexing implementations
 // impl<const D: usize, T> Index<&[usize]> for Array<D, T> {
@@ -289,6 +293,60 @@ where
     }
 }
 
+impl<const D: usize, T: PrimInt> Array<D, T> {
+    pub fn one_hot<F>(&self, num_classes: usize) -> Array<{ D + 1 }, F>
+    where
+        F: Clone + Zero + One,
+        T: Debug,
+    {
+        self.one_hot_fill(num_classes, F::one(), F::zero(), -1)
+    }
+
+    pub fn one_hot_fill<F>(
+        &self,
+        num_classes: usize,
+        on_value: F,
+        off_value: F,
+        axis: isize,
+    ) -> Array<{ D + 1 }, F>
+    where
+        F: Clone,
+        T: Debug,
+    {
+        let indices = self
+            .map(|v| {
+                let value = cast::<_, isize>(v.clone()).expect("Failed to cast T to usize");
+
+                if value < -(num_classes as isize) || value >= num_classes as isize {
+                    panic!("self value as index meet failure, contains values greater than or equal to num_classes");
+                }
+
+                negative_idx_to_positive(value, num_classes)
+            })
+            .unsqueeze(axis);
+        println!("indices = {indices:?}");
+
+        let axis = negative_idx_to_positive(axis, D + 1);
+
+        let mut shape = self.shape().to_vec();
+        shape.insert(axis, num_classes);
+        let mut target_shape = [0; D + 1];
+        target_shape.copy_from_slice(&shape);
+
+        let mut result = Array::full(target_shape, off_value);
+
+        for (mut idx, value) in indices.multi_iter() {
+            idx[axis] = *value;
+            println!("idx= {idx:?} value= {value:?}");
+
+            let raw_idx = result.positive_index_to_flat(idx);
+            result.data[raw_idx] = on_value.clone();
+        }
+
+        result
+    }
+}
+
 impl<const D: usize, T> Array<D, T> {
     pub fn multi_iter(&self) -> impl Iterator<Item = ([usize; D], &T)> {
         self.shape
@@ -353,5 +411,37 @@ mod tests {
         let c = Array::from_vec(vec![1.0, 2.0], [1, 2]);
         let d = &a + &c;
         println!("d= {d}");
+    }
+
+    #[test]
+    fn test_one_hot() {
+        // let a = cast::<_, usize>(2.2);
+        // println!("a: {a:?}");
+        let arr = Array::from_vec(vec![1, 2, 2, 4], [4]);
+        let one_hot = arr.one_hot::<f32>(5);
+
+        println!("arr= {arr:?} one_hot= {one_hot:?}");
+
+        assert_eq!(
+            one_hot,
+            Array::from_vec(
+                vec![
+                    0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ],
+                [4, 5]
+            )
+        );
+
+        let indices = Array::from_vec(vec![0, 2, 1, -1], [2, 2]);
+        let res = indices.one_hot_fill(3, 5.0, 0.0, -1);
+        println!("res: {res:?}");
+        assert_eq!(
+            res,
+            Array::from_vec(
+                vec![5.0, 0.0, 0.0, 0.0, 0.0, 5.0, 0.0, 5.0, 0.0, 0.0, 0.0, 5.0],
+                [2, 2, 3]
+            )
+        );
     }
 }
