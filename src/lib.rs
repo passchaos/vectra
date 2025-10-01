@@ -5,6 +5,7 @@
 //! - Mathematical operations (trigonometric, logarithmic, exponential)
 //! - Random number generation
 //! - Linear algebra operations
+#![feature(generic_const_exprs)]
 
 #[cfg(feature = "blas")]
 extern crate blas_src;

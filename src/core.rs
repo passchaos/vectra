@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 use std::ops::{Add, IndexMut, Mul, Sub};
 
+use crate::utils::max;
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
 use itertools::Itertools;
@@ -331,39 +332,46 @@ impl<const D: usize, T> Array<D, T> {
         indices_to_flat_idx(self.strides, indices)
     }
 
-    /// Broadcast two shapes to a common shape
-    pub fn broadcast_shapes(shape1: &[usize], shape2: &[usize]) -> Result<Vec<usize>, String> {
-        let max_len = shape1.len().max(shape2.len());
-        let mut result = vec![1; max_len];
+    // /// Broadcast array to target shape
+    // pub fn broadcast_to<const D1: usize>(
+    //     &self,
+    //     target_shape: [usize; D1],
+    // ) -> Result<Array<D1, T>, String>
+    // where
+    //     T: Clone,
+    // {
+    //     // if D == D1 {
+    //     //     return Ok(self.clone());
+    //     // }
 
-        for i in 0..max_len {
-            let dim1 = if i < shape1.len() {
-                shape1[shape1.len() - 1 - i]
-            } else {
-                1
-            };
-            let dim2 = if i < shape2.len() {
-                shape2[shape2.len() - 1 - i]
-            } else {
-                1
-            };
+    //     let target_size: usize = target_shape.iter().product();
+    //     let mut new_data = Vec::with_capacity(target_size);
 
-            if dim1 == dim2 {
-                result[max_len - 1 - i] = dim1;
-            } else if dim1 == 1 {
-                result[max_len - 1 - i] = dim2;
-            } else if dim2 == 1 {
-                result[max_len - 1 - i] = dim1;
-            } else {
-                return Err(format!(
-                    "Cannot broadcast shapes {:?} and {:?}",
-                    shape1, shape2
-                ));
-            }
-        }
-        Ok(result)
-    }
+    //     for flat_idx in 0..target_size {
+    //         let mut target_indices = vec![0; target_shape.len()];
+    //         let mut temp = flat_idx;
+    //         for i in (0..target_shape.len()).rev() {
+    //             target_indices[i] = temp % target_shape[i];
+    //             temp /= target_shape[i];
+    //         }
 
+    //         let mut source_indices = vec![0; self.shape.len()];
+    //         let offset = target_shape.len() - self.shape.len();
+    //         for i in 0..self.shape.len() {
+    //             let target_idx = target_indices[offset + i];
+    //             source_indices[i] = if self.shape[i] == 1 { 0 } else { target_idx };
+    //         }
+
+    //         let source_flat = self.index_to_flat(&source_indices)?;
+    //         new_data.push(self.data[source_flat].clone());
+    //     }
+
+    //     Ok(Array {
+    //         data: new_data,
+    //         shape: target_shape.to_vec(),
+    //         strides: compute_strides_for_shape(target_shape),
+    //     })
+    // }
     /// Get shape of the array
     pub fn shape(&self) -> [usize; D] {
         self.shape
@@ -602,7 +610,6 @@ where
 
     // Legacy methods for backward compatibility (now unused)
 }
-
 
 #[cfg(test)]
 mod tests {
