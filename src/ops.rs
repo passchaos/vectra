@@ -6,6 +6,7 @@ use crate::{
     utils::{broadcast_shapes, compute_strides, dyn_dim_to_static, negative_idx_to_positive},
 };
 use std::{
+    collections::HashSet,
     fmt::Debug,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
@@ -346,6 +347,43 @@ impl<const D: usize, T: PrimInt> Array<D, T> {
 }
 
 impl<const D: usize, T> Array<D, T> {
+    pub fn select(&self, axis: isize, indices: &[usize]) -> Array<D, T>
+    where
+        T: Clone,
+    {
+        let axis = negative_idx_to_positive(axis, D);
+        let axis_size = self.shape()[axis];
+
+        let mut non_axis_shape = self.shape().to_vec();
+        non_axis_shape.remove(axis);
+
+        let indices: HashSet<_> = indices
+            .into_iter()
+            .filter(|&idx| idx < &axis_size)
+            .collect();
+        let mut products: Vec<_> = non_axis_shape
+            .iter()
+            .map(|&n| 0..n)
+            .map(|v| v.into_iter().collect::<Vec<_>>())
+            .collect();
+        let indices: Vec<_> = indices.into_iter().sorted().cloned().collect();
+        non_axis_shape.insert(axis, indices.len());
+        products.insert(axis, indices);
+
+        let data: Vec<_> = products
+            .into_iter()
+            .multi_cartesian_product()
+            .map(|idx| {
+                let idx = dyn_dim_to_static::<D>(&idx).map(|a| a as isize);
+                self[idx].clone()
+            })
+            .collect();
+
+        let mut shape = [0; D];
+        shape.copy_from_slice(&non_axis_shape);
+        Array::from_vec(data, shape)
+    }
+
     pub fn multi_iter(&self) -> impl Iterator<Item = ([usize; D], &T)> {
         self.shape
             .into_iter()
@@ -441,5 +479,13 @@ mod tests {
                 [2, 2, 3]
             )
         );
+    }
+
+    #[test]
+    fn test_select() {
+        let a = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+        assert_eq!(a.select(0, &[0]), Array::from_vec(vec![1, 2], [1, 2]));
+        assert_eq!(a.select(-1, &[0]), Array::from_vec(vec![1, 3], [2, 1]));
+        assert_eq!(a.select(-1, &[0, 10]), Array::from_vec(vec![1, 3], [2, 1]));
     }
 }

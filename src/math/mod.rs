@@ -9,7 +9,7 @@ use std::{
 }; // Sub currently unused
 pub mod matmul;
 use itertools::Itertools;
-use num_traits::{Float, NumCast, Pow, float::TotalOrder};
+use num_traits::{Float, NumCast, Pow, cast, float::TotalOrder};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MatmulPolicy {
@@ -61,12 +61,11 @@ where
     /// Calculate mean of all elements
     pub fn mean(&self) -> T
     where
-        T: Add<Output = T> + Div<Output = T> + Default,
-        u32: Into<T>,
+        T: Add<Output = T> + Div<Output = T> + Default + NumCast,
     {
         let sum = self.sum();
-        let size = self.size() as u32;
-        sum / size.into()
+        let size = self.size();
+        sum / cast::<_, T>(size).unwrap()
     }
 
     pub fn mean_axis(&self, axis: isize) -> Array<D, T>
