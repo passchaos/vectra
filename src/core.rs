@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::fmt::{self, Display};
 use std::ops::{Add, IndexMut, Mul, Sub};
 
@@ -549,7 +550,12 @@ where
     }
 }
 
-const PAD_SHOW_COUNT: usize = 3;
+fn pad_show_count<T>() -> usize {
+    match type_name::<T>() {
+        "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "isize" | "usize" => 8,
+        _ => 3,
+    }
+}
 
 impl<const D: usize, T> Array<D, T>
 where
@@ -595,10 +601,12 @@ where
 
     /// Format a 1D slice (last dimension)
     fn fmt_1d_slice(&self, f: &mut fmt::Formatter<'_>, base_indices: &[usize]) -> fmt::Result {
+        let pad_show_count = pad_show_count::<T>();
+
         let max_items = if base_indices.is_empty() {
             1000
         } else {
-            2 * PAD_SHOW_COUNT
+            2 * pad_show_count
         };
         let current_dim_size = self.shape[base_indices.len()];
 
@@ -622,7 +630,7 @@ where
             }
         } else {
             // Show first 3 and last 3 items with ellipsis
-            for i in 0..PAD_SHOW_COUNT {
+            for i in 0..pad_show_count {
                 if i > 0 {
                     write!(f, " ")?;
                 }
@@ -632,7 +640,7 @@ where
                 write!(f, "{}", self.data[flat_idx])?;
             }
             write!(f, " ... ")?;
-            for i in (current_dim_size - PAD_SHOW_COUNT)..current_dim_size {
+            for i in (current_dim_size - pad_show_count)..current_dim_size {
                 let mut indices = base_indices.to_vec();
                 indices.push(i);
                 let flat_idx = self.indices_to_flat(&indices).unwrap_or(0);
@@ -653,22 +661,24 @@ where
         depth: usize,
         base_indices: &[usize],
     ) -> fmt::Result {
+        let pad_show_count = pad_show_count::<T>();
+
         let current_dim_size = self.shape[depth];
         // let max_slices = 3;
         let ndim = self.shape.len();
 
         write!(f, "[")?;
 
-        let show_all = current_dim_size <= 2 * PAD_SHOW_COUNT;
+        let show_all = current_dim_size <= 2 * pad_show_count;
         let slice_indices: Vec<usize> = if show_all {
             (0..current_dim_size).collect()
         } else {
             let mut indices = vec![];
-            for i in 0..PAD_SHOW_COUNT {
+            for i in 0..pad_show_count {
                 indices.push(i);
             }
 
-            for i in (current_dim_size - PAD_SHOW_COUNT)..current_dim_size {
+            for i in (current_dim_size - pad_show_count)..current_dim_size {
                 indices.push(i);
             }
 
@@ -693,7 +703,7 @@ where
                 }
             }
 
-            if !show_all && idx == PAD_SHOW_COUNT {
+            if !show_all && idx == pad_show_count {
                 if depth == ndim - 2 {
                     write!(f, "\n ")?;
                     for _ in 0..depth {
@@ -839,9 +849,14 @@ mod tests {
 
     #[test]
     fn test_fmt() {
+        println!("type name: {}", type_name::<String>());
+        println!("type info: {}", pad_show_count::<String>());
         let a = Array::arange_c(1.0, 0.1, 100).reshape([-1, 10]);
         println!("a= {a:?}");
-        let a = Array::<_, f32>::arange_c(1.0, 0.1, 1000).reshape([10, -1, 2, 5]);
+        let a = Array::<_, f32>::arange_c(1.0, 0.1, 1000).reshape([10, -1, 1, 10]);
         println!("a= {a:?}");
+
+        let c = Array::arange_c(1, 1, 1000).reshape([20, 50]);
+        println!("c= {c:?}");
     }
 }

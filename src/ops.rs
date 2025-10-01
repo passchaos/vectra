@@ -324,7 +324,6 @@ impl<const D: usize, T: PrimInt> Array<D, T> {
                 negative_idx_to_positive(value, num_classes)
             })
             .unsqueeze(axis);
-        println!("indices = {indices:?}");
 
         let axis = negative_idx_to_positive(axis, D + 1);
 
@@ -337,7 +336,6 @@ impl<const D: usize, T: PrimInt> Array<D, T> {
 
         for (mut idx, value) in indices.multi_iter() {
             idx[axis] = *value;
-            println!("idx= {idx:?} value= {value:?}");
 
             let raw_idx = result.positive_index_to_flat(idx);
             result.data[raw_idx] = on_value.clone();
