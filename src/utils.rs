@@ -29,6 +29,7 @@ pub fn compute_strides<const D: usize>(shape: [usize; D], major_order: MajorOrde
     strides
 }
 
+#[allow(unused)]
 pub fn flat_idx_to_indices<const D: usize>(
     shape: [usize; D],
     flat_idx: usize,

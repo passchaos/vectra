@@ -49,9 +49,13 @@ where
     /// Sum along specified axis
     pub fn sum_axis(&self, axis: usize) -> Array<D, T>
     where
-        T: Default + Clone + Sum,
+        T: Add<Output = T> + Default + Clone,
     {
-        self.map_axis(axis, |values| values.into_iter().cloned().sum())
+        self.map_axis(axis, |values| {
+            values
+                .into_iter()
+                .fold(T::default(), |acc, x| acc + x.clone())
+        })
     }
 
     /// Calculate mean of all elements
@@ -116,22 +120,40 @@ impl_total_ord!(
     i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
 
-impl<const D: usize, T: TotalOrder> Array<D, T> {
-    /// Find maximum value
-    pub fn max(&self) -> Option<T>
+impl<const D: usize, T: TotalOrder + Clone> Array<D, T> {
+    pub fn max_axis(&self, axis: usize) -> Self
     where
-        T: Clone,
+        T: Default,
     {
+        self.map_axis(axis, |v| {
+            v.into_iter()
+                .max_by(|a, b| a.total_cmp(b))
+                .cloned()
+                .unwrap()
+        })
+    }
+
+    pub fn min_axis(&self, axis: usize) -> Self
+    where
+        T: Default,
+    {
+        self.map_axis(axis, |v| {
+            v.into_iter()
+                .min_by(|a, b| a.total_cmp(b))
+                .cloned()
+                .unwrap()
+        })
+    }
+
+    /// Find maximum value
+    pub fn max(&self) -> Option<T> {
         self.multi_iter()
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
             .map(|(_, x)| x.clone())
     }
 
     /// Find minimum value
-    pub fn min(&self) -> Option<T>
-    where
-        T: Clone,
-    {
+    pub fn min(&self) -> Option<T> {
         self.multi_iter()
             .min_by(|(_, a), (_, b)| a.total_cmp(b))
             .map(|(_, x)| x.clone())

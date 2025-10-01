@@ -40,6 +40,25 @@ impl<const D: usize, T> IndexMut<[usize; D]> for Array<D, T> {
 }
 
 // Arithmetic operations between arrays
+impl<const D: usize, T> AddAssign for Array<D, T>
+where
+    T: Add<Output = T> + Clone,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        let result = add_impl(self, &rhs);
+        *self = result;
+    }
+}
+
+impl<const D: usize, T> AddAssign<&Array<D, T>> for Array<D, T>
+where
+    T: Add<Output = T> + Clone,
+{
+    fn add_assign(&mut self, rhs: &Array<D, T>) {
+        let result = add_impl(self, rhs);
+        *self = result;
+    }
+}
 
 impl<const D: usize, T> Add for &Array<D, T>
 where
@@ -79,6 +98,16 @@ where
     }
 }
 
+impl<const D: usize, T> SubAssign for Array<D, T>
+where
+    T: Sub<Output = T> + Clone,
+{
+    fn sub_assign(&mut self, rhs: Self) {
+        let result = sub_impl(self, &rhs);
+        *self = result;
+    }
+}
+
 impl<const D: usize, T> Sub for &Array<D, T>
 where
     T: Sub<Output = T> + Clone,
@@ -114,6 +143,15 @@ where
         shape: left.shape.clone(),
         strides,
         major_order,
+    }
+}
+
+impl<const D: usize, T> MulAssign<&Array<D, T>> for Array<D, T>
+where
+    T: Mul<Output = T> + Clone,
+{
+    fn mul_assign(&mut self, rhs: &Array<D, T>) {
+        *self = mul_impl(&*self, rhs);
     }
 }
 
