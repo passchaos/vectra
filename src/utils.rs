@@ -68,37 +68,24 @@ pub fn shape_indices_to_flat_idx<const D: usize>(
     indices_to_flat_idx(strides, indices)
 }
 
-pub const fn max(a: usize, b: usize) -> usize {
-    if a > b { a } else { b }
-}
-
 /// Broadcast two shapes to a common shape
-pub fn broadcast_shapes<const D1: usize, const D2: usize>(
-    shape1: [usize; D1],
-    shape2: [usize; D2],
-) -> Result<[usize; max(D1, D2)], String> {
-    let max_len = max(D1, D2);
-    // let max_len = shape1.len().max(shape2.len());
-    let mut result = vec![1; max_len];
+pub fn broadcast_shapes<const D: usize>(
+    shape1: [usize; D],
+    shape2: [usize; D],
+) -> Result<[usize; D], String> {
+    let mut result = [1; D];
 
-    for i in 0..max_len {
-        let dim1 = if i < shape1.len() {
-            shape1[shape1.len() - 1 - i]
-        } else {
-            1
-        };
-        let dim2 = if i < shape2.len() {
-            shape2[shape2.len() - 1 - i]
-        } else {
-            1
-        };
+    for i in 0..D {
+        let idx = D - 1 - i;
+        let dim1 = shape1[idx];
+        let dim2 = shape2[idx];
 
         if dim1 == dim2 {
-            result[max_len - 1 - i] = dim1;
+            result[idx] = dim1;
         } else if dim1 == 1 {
-            result[max_len - 1 - i] = dim2;
+            result[idx] = dim2;
         } else if dim2 == 1 {
-            result[max_len - 1 - i] = dim1;
+            result[idx] = dim1;
         } else {
             return Err(format!(
                 "Cannot broadcast shapes {:?} and {:?}",
@@ -107,11 +94,7 @@ pub fn broadcast_shapes<const D1: usize, const D2: usize>(
         }
     }
 
-    let mut final_v = [0; max(D1, D2)];
-    final_v.copy_from_slice(&result);
-
-    Ok(final_v)
-    // Ok(result)
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -120,7 +103,6 @@ mod tests {
 
     #[test]
     fn test_shape_strides_idx() {
-        let c = max(10, 20);
         let shape = [2, 3];
 
         let row_strides = compute_strides(shape, MajorOrder::RowMajor);
@@ -149,7 +131,7 @@ mod tests {
     #[test]
     fn test_shape_broadcast() {
         let shape1 = [2, 3];
-        let shape2 = [3];
+        let shape2 = [1, 3];
         let result = broadcast_shapes(shape1, shape2).unwrap();
         assert_eq!(result, [2, 3]);
 

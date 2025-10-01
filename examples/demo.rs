@@ -37,10 +37,10 @@ fn main() {
     println!("Matrix A:\n{}", a);
     println!("\nMatrix B:\n{}", b);
 
-    let sum = a.clone() + b.clone();
+    let sum = &a + &b;
     println!("\nA + B:\n{}", sum);
 
-    let product = a.clone() * b.clone();
+    let product = &a * &b;
     println!("\nA * B (element-wise multiplication):\n{}", product);
 
     let dot_product = a.matmul(&b, MatmulPolicy::default());
@@ -128,7 +128,7 @@ fn main() {
     // Example 1: Scalar-like array with matrix
     let matrix = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
     let scalar = Array::from_vec(vec![10, 10, 10, 10], [2, 2]);
-    let broadcast_result1 = matrix.clone() + scalar.clone();
+    let broadcast_result1 = &matrix + &scalar;
     println!("Matrix (2x2):\n{}", matrix);
     println!("Scalar-like (1x1):\n{}", scalar);
     println!("Matrix + Scalar:\n{}", broadcast_result1);
@@ -136,7 +136,7 @@ fn main() {
     // Example 2: Vector with matrix
     let vector = Array::from_vec(vec![1, 2], [2]);
     let column = Array::from_vec(vec![10, 20], [2, 1]);
-    let broadcast_result2 = vector.clone() + column.clone().reshape([2]);
+    let broadcast_result2 = &vector.clone().reshape([2, 1]) + &column;
     println!("\nVector (2,):\n{}", vector);
     println!("Column (2x1):\n{}", column);
     println!("Vector + Column:\n{}", broadcast_result2);
@@ -144,7 +144,7 @@ fn main() {
     // Example 3: Broadcasting with multiplication
     let row = Array::from_vec(vec![2, 3], [1, 2]);
     let col = Array::from_vec(vec![4, 5], [1, 2]);
-    let broadcast_result3 = row.clone() * col.clone();
+    let broadcast_result3 = &row * &col;
     println!("\nRow (1x2):\n{}", row);
     println!("Column (3x1):\n{}", col);
     println!("Row * Column:\n{}", broadcast_result3);

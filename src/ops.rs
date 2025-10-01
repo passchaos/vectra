@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     core::Array,
-    utils::{compute_strides, dyn_dim_to_static},
+    utils::{broadcast_shapes, compute_strides, dyn_dim_to_static},
 };
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
@@ -41,26 +41,6 @@ impl<const D: usize, T> IndexMut<[usize; D]> for Array<D, T> {
 
 // Arithmetic operations between arrays
 
-impl<const D: usize, T> Add for Array<D, T>
-where
-    T: Add<Output = T> + Clone,
-{
-    type Output = Array<D, T>;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        add_impl(&self, &rhs)
-    }
-}
-
-impl<const D: usize, T> AddAssign for Array<D, T>
-where
-    T: Add<Output = T> + Clone,
-{
-    fn add_assign(&mut self, rhs: Self) {
-        *self = add_impl(self, &rhs);
-    }
-}
-
 impl<const D: usize, T> Add for &Array<D, T>
 where
     T: Add<Output = T> + Clone,
@@ -76,7 +56,11 @@ fn add_impl<const D: usize, T>(left: &Array<D, T>, right: &Array<D, T>) -> Array
 where
     T: Add<Output = T> + Clone,
 {
-    assert_eq!(left.shape, right.shape);
+    let target_shape =
+        broadcast_shapes(left.shape, right.shape).expect("Cannot broadcast arrays for add");
+
+    let left = left.broadcast_to(target_shape);
+    let right = right.broadcast_to(target_shape);
 
     let result_data = left
         .multi_iter()
@@ -95,17 +79,6 @@ where
     }
 }
 
-impl<const D: usize, T> Sub for Array<D, T>
-where
-    T: Sub<Output = T> + Clone,
-{
-    type Output = Array<D, T>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        sub_impl(&self, &rhs)
-    }
-}
-
 impl<const D: usize, T> Sub for &Array<D, T>
 where
     T: Sub<Output = T> + Clone,
@@ -121,16 +94,11 @@ fn sub_impl<const D: usize, T>(left: &Array<D, T>, right: &Array<D, T>) -> Array
 where
     T: Sub<Output = T> + Clone,
 {
-    assert_eq!(left.shape, right.shape);
-    // let broadcast_shape = Array::<T>::broadcast_shapes(&left.shape, &right.shape)
-    //     .expect("Cannot broadcast arrays for subtraction");
+    let target_shape =
+        broadcast_shapes(left.shape, right.shape).expect("Cannot broadcast arrays for sub");
 
-    // let self_broadcast = left
-    //     .broadcast_to(&broadcast_shape)
-    //     .expect("Failed to broadcast first array");
-    // let other_broadcast = right
-    //     .broadcast_to(&broadcast_shape)
-    //     .expect("Failed to broadcast second array");
+    let left = left.broadcast_to(target_shape);
+    let right = right.broadcast_to(target_shape);
 
     let result_data = left
         .multi_iter()
@@ -149,17 +117,6 @@ where
     }
 }
 
-impl<const D: usize, T> Mul for Array<D, T>
-where
-    T: Mul<Output = T> + Clone,
-{
-    type Output = Array<D, T>;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        mul_impl(&self, &rhs)
-    }
-}
-
 impl<const D: usize, T> Mul for &Array<D, T>
 where
     T: Mul<Output = T> + Clone,
@@ -175,16 +132,11 @@ fn mul_impl<const D: usize, T>(left: &Array<D, T>, right: &Array<D, T>) -> Array
 where
     T: Mul<Output = T> + Clone,
 {
-    assert_eq!(left.shape, right.shape);
-    // let broadcast_shape = Array::<T>::broadcast_shapes(&left.shape, &right.shape)
-    //     .expect("Cannot broadcast arrays for multiplication");
+    let target_shape =
+        broadcast_shapes(left.shape, right.shape).expect("Cannot broadcast arrays for mul");
 
-    // let self_broadcast = left
-    //     .broadcast_to(&broadcast_shape)
-    //     .expect("Failed to broadcast first array");
-    // let other_broadcast = right
-    //     .broadcast_to(&broadcast_shape)
-    //     .expect("Failed to broadcast second array");
+    let left = left.broadcast_to(target_shape);
+    let right = right.broadcast_to(target_shape);
 
     let result_data = left
         .multi_iter()
@@ -203,17 +155,6 @@ where
     }
 }
 
-impl<const D: usize, T> Div for Array<D, T>
-where
-    T: Div<Output = T> + Clone,
-{
-    type Output = Array<D, T>;
-
-    fn div(self, rhs: Self) -> Self::Output {
-        div_impl(&self, &rhs)
-    }
-}
-
 impl<const D: usize, T> Div for &Array<D, T>
 where
     T: Div<Output = T> + Clone,
@@ -229,16 +170,11 @@ fn div_impl<const D: usize, T>(left: &Array<D, T>, right: &Array<D, T>) -> Array
 where
     T: Div<Output = T> + Clone,
 {
-    assert_eq!(left.shape, right.shape);
-    // let broadcast_shape = Array::<T>::broadcast_shapes(&left.shape, &right.shape)
-    //     .expect("Cannot broadcast arrays for division");
+    let target_shape =
+        broadcast_shapes(left.shape, right.shape).expect("Cannot broadcast arrays for div");
 
-    // let self_broadcast = left
-    //     .broadcast_to(&broadcast_shape)
-    //     .expect("Failed to broadcast first array");
-    // let other_broadcast = right
-    //     .broadcast_to(&broadcast_shape)
-    //     .expect("Failed to broadcast second array");
+    let left = left.broadcast_to(target_shape);
+    let right = right.broadcast_to(target_shape);
 
     let result_data = left
         .multi_iter()
@@ -343,5 +279,23 @@ mod tests {
         assert_eq!(iter.next(), Some(([1, 0], &3)));
         assert_eq!(iter.next(), Some(([1, 1], &4)));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_arithmetic() {
+        let a = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+        let b = Array::from_vec(vec![2.0, 2.0, 2.0, 2.0], [2, 2]);
+
+        let sum = &a + &b;
+        assert_eq!(sum[[0, 0]], 3.0);
+        assert_eq!(sum[[1, 1]], 6.0);
+
+        let product = &a * &b;
+        assert_eq!(product[[0, 0]], 2.0);
+        assert_eq!(product[[1, 1]], 8.0);
+
+        let c = Array::from_vec(vec![1.0, 2.0], [1, 2]);
+        let d = &a + &c;
+        println!("d= {d}");
     }
 }

@@ -1,7 +1,6 @@
 use std::fmt::{self, Display};
 use std::ops::{Add, IndexMut, Mul, Sub};
 
-use crate::utils::max;
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
 use itertools::Itertools;
@@ -332,46 +331,47 @@ impl<const D: usize, T> Array<D, T> {
         indices_to_flat_idx(self.strides, indices)
     }
 
-    // /// Broadcast array to target shape
-    // pub fn broadcast_to<const D1: usize>(
-    //     &self,
-    //     target_shape: [usize; D1],
-    // ) -> Result<Array<D1, T>, String>
-    // where
-    //     T: Clone,
-    // {
-    //     // if D == D1 {
-    //     //     return Ok(self.clone());
-    //     // }
+    /// Broadcast array to target shape
+    pub fn broadcast_to(&self, target_shape: [usize; D]) -> Self
+    where
+        T: Clone,
+    {
+        if self.shape == target_shape {
+            return self.clone();
+        }
 
-    //     let target_size: usize = target_shape.iter().product();
-    //     let mut new_data = Vec::with_capacity(target_size);
+        let target_size: usize = target_shape.iter().product();
+        let mut new_data = Vec::with_capacity(target_size);
 
-    //     for flat_idx in 0..target_size {
-    //         let mut target_indices = vec![0; target_shape.len()];
-    //         let mut temp = flat_idx;
-    //         for i in (0..target_shape.len()).rev() {
-    //             target_indices[i] = temp % target_shape[i];
-    //             temp /= target_shape[i];
-    //         }
+        for flat_idx in 0..target_size {
+            let mut target_indices = [0; D];
+            let mut temp = flat_idx;
+            for i in (0..D).rev() {
+                target_indices[i] = temp % target_shape[i];
+                temp /= target_shape[i];
+            }
 
-    //         let mut source_indices = vec![0; self.shape.len()];
-    //         let offset = target_shape.len() - self.shape.len();
-    //         for i in 0..self.shape.len() {
-    //             let target_idx = target_indices[offset + i];
-    //             source_indices[i] = if self.shape[i] == 1 { 0 } else { target_idx };
-    //         }
+            let mut source_indices = [0; D];
+            for i in 0..D {
+                let target_idx = target_indices[i];
+                source_indices[i] = if self.shape[i] == 1 { 0 } else { target_idx };
+            }
 
-    //         let source_flat = self.index_to_flat(&source_indices)?;
-    //         new_data.push(self.data[source_flat].clone());
-    //     }
+            let source_flat = self.index_to_flat(source_indices);
+            new_data.push(self.data[source_flat].clone());
+        }
 
-    //     Ok(Array {
-    //         data: new_data,
-    //         shape: target_shape.to_vec(),
-    //         strides: compute_strides_for_shape(target_shape),
-    //     })
-    // }
+        let major_order = MajorOrder::RowMajor;
+        let strides = compute_strides(target_shape, major_order);
+
+        Array {
+            data: new_data,
+            shape: target_shape,
+            strides,
+            major_order,
+        }
+    }
+
     /// Get shape of the array
     pub fn shape(&self) -> [usize; D] {
         self.shape
@@ -668,20 +668,6 @@ mod tests {
         assert_eq!(eye[[0, 0]], 1.0);
         assert_eq!(eye[[1, 1]], 1.0);
         assert_eq!(eye[[0, 1]], 0.0);
-    }
-
-    #[test]
-    fn test_arithmetic() {
-        let a = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
-        let b = Array::from_vec(vec![2.0, 2.0, 2.0, 2.0], [2, 2]);
-
-        let sum = a.clone() + b.clone();
-        assert_eq!(sum[[0, 0]], 3.0);
-        assert_eq!(sum[[1, 1]], 6.0);
-
-        let product = a * b;
-        assert_eq!(product[[0, 0]], 2.0);
-        assert_eq!(product[[1, 1]], 8.0);
     }
 
     #[test]
