@@ -89,7 +89,7 @@ fn main() {
 
     let large_sum = large_arr.sum();
     println!("\nSum of large array: {}", large_sum);
-    println!("Mean of large array: {:.2}", large_arr.mean());
+    println!("Mean of large array: {:.2}", large_arr.mean::<u64>());
 
     // 11. Random number generation
     println!("\n11. Random number generation:");
@@ -98,7 +98,7 @@ fn main() {
     let random_arr = Array::<_, f64>::random([2, 3]);
     println!("Random array (0-1):\n{}", random_arr);
 
-    let max_r = random_arr.max().unwrap();
+    let max_r = random_arr.max();
     println!("max value: {max_r}");
 
     // Generate random integers in specified range
@@ -118,9 +118,9 @@ fn main() {
 
     // Random array statistics
     println!("\nRandom array statistics:");
-    println!("Random array mean: {:.4}", random_arr.mean());
-    println!("Random array max: {:.4}", random_arr.max().unwrap());
-    println!("Random array min: {:.4}", random_arr.min().unwrap());
+    println!("Random array mean: {:.4}", random_arr.mean::<u64>());
+    println!("Random array max: {:.4}", random_arr.max());
+    println!("Random array min: {:.4}", random_arr.min());
 
     // 12. Broadcasting examples
     println!("\n12. Broadcasting examples:");

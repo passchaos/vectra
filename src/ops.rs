@@ -1,15 +1,12 @@
 use itertools::Itertools;
-use num_traits::{One, PrimInt, Zero, cast};
+use num_traits::cast;
 
 use crate::{
+    NumExt,
     core::Array,
     utils::{broadcast_shapes, compute_strides, dyn_dim_to_static, negative_idx_to_positive},
 };
-use std::{
-    collections::HashSet,
-    fmt::Debug,
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
-};
+use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
 // // Indexing implementations
 // impl<const D: usize, T> Index<&[usize]> for Array<D, T> {
@@ -61,30 +58,21 @@ impl<const D: usize, T> IndexMut<[isize; D]> for Array<D, T> {
 }
 
 // Arithmetic operations between arrays
-impl<const D: usize, T> AddAssign for Array<D, T>
-where
-    T: Add<Output = T> + Clone,
-{
+impl<const D: usize, T: NumExt> AddAssign for Array<D, T> {
     fn add_assign(&mut self, rhs: Self) {
         let result = add_impl(self, &rhs);
         *self = result;
     }
 }
 
-impl<const D: usize, T> AddAssign<&Array<D, T>> for Array<D, T>
-where
-    T: Add<Output = T> + Clone,
-{
+impl<const D: usize, T: NumExt> AddAssign<&Array<D, T>> for Array<D, T> {
     fn add_assign(&mut self, rhs: &Array<D, T>) {
         let result = add_impl(self, rhs);
         *self = result;
     }
 }
 
-impl<const D: usize, T> Add for &Array<D, T>
-where
-    T: Add<Output = T> + Clone,
-{
+impl<const D: usize, T: NumExt> Add for &Array<D, T> {
     type Output = Array<D, T>;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -92,10 +80,7 @@ where
     }
 }
 
-fn add_impl<const D: usize, T>(left: &Array<D, T>, right: &Array<D, T>) -> Array<D, T>
-where
-    T: Add<Output = T> + Clone,
-{
+fn add_impl<const D: usize, T: NumExt>(left: &Array<D, T>, right: &Array<D, T>) -> Array<D, T> {
     let target_shape =
         broadcast_shapes(left.shape, right.shape).expect("Cannot broadcast arrays for add");
 
@@ -119,20 +104,14 @@ where
     }
 }
 
-impl<const D: usize, T> SubAssign for Array<D, T>
-where
-    T: Sub<Output = T> + Clone,
-{
+impl<const D: usize, T: NumExt> SubAssign for Array<D, T> {
     fn sub_assign(&mut self, rhs: Self) {
         let result = sub_impl(self, &rhs);
         *self = result;
     }
 }
 
-impl<const D: usize, T> Sub for &Array<D, T>
-where
-    T: Sub<Output = T> + Clone,
-{
+impl<const D: usize, T: NumExt> Sub for &Array<D, T> {
     type Output = Array<D, T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -140,10 +119,7 @@ where
     }
 }
 
-fn sub_impl<const D: usize, T>(left: &Array<D, T>, right: &Array<D, T>) -> Array<D, T>
-where
-    T: Sub<Output = T> + Clone,
-{
+fn sub_impl<const D: usize, T: NumExt>(left: &Array<D, T>, right: &Array<D, T>) -> Array<D, T> {
     let target_shape =
         broadcast_shapes(left.shape, right.shape).expect("Cannot broadcast arrays for sub");
 
@@ -167,19 +143,13 @@ where
     }
 }
 
-impl<const D: usize, T> MulAssign<&Array<D, T>> for Array<D, T>
-where
-    T: Mul<Output = T> + Clone,
-{
+impl<const D: usize, T: NumExt> MulAssign<&Array<D, T>> for Array<D, T> {
     fn mul_assign(&mut self, rhs: &Array<D, T>) {
         *self = mul_impl(&*self, rhs);
     }
 }
 
-impl<const D: usize, T> Mul for &Array<D, T>
-where
-    T: Mul<Output = T> + Clone,
-{
+impl<const D: usize, T: NumExt> Mul for &Array<D, T> {
     type Output = Array<D, T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -187,10 +157,7 @@ where
     }
 }
 
-fn mul_impl<const D: usize, T>(left: &Array<D, T>, right: &Array<D, T>) -> Array<D, T>
-where
-    T: Mul<Output = T> + Clone,
-{
+fn mul_impl<const D: usize, T: NumExt>(left: &Array<D, T>, right: &Array<D, T>) -> Array<D, T> {
     let target_shape =
         broadcast_shapes(left.shape, right.shape).expect("Cannot broadcast arrays for mul");
 
@@ -214,10 +181,7 @@ where
     }
 }
 
-impl<const D: usize, T> Div for &Array<D, T>
-where
-    T: Div<Output = T> + Clone,
-{
+impl<const D: usize, T: NumExt> Div for &Array<D, T> {
     type Output = Array<D, T>;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -225,7 +189,7 @@ where
     }
 }
 
-fn div_impl<const D: usize, T>(left: &Array<D, T>, right: &Array<D, T>) -> Array<D, T>
+fn div_impl<const D: usize, T: NumExt>(left: &Array<D, T>, right: &Array<D, T>) -> Array<D, T>
 where
     T: Div<Output = T> + Clone,
 {
@@ -253,53 +217,34 @@ where
 }
 
 // Scalar operations
-impl<const D: usize, T> Array<D, T>
-where
-    T: Clone,
-{
+impl<const D: usize, T: NumExt> Array<D, T> {
     /// Add scalar to all elements
-    pub fn add_scalar(mut self, scalar: T) -> Self
-    where
-        T: AddAssign,
-    {
+    pub fn add_scalar(mut self, scalar: T) -> Self {
         self.data.iter_mut().for_each(|x| *x += scalar.clone());
         self
     }
 
     /// Subtract scalar from all elements
-    pub fn sub_scalar(mut self, scalar: T) -> Self
-    where
-        T: SubAssign,
-    {
+    pub fn sub_scalar(mut self, scalar: T) -> Self {
         self.data.iter_mut().for_each(|x| *x -= scalar.clone());
         self
     }
 
     /// Multiply all elements by scalar
-    pub fn mul_scalar(mut self, scalar: T) -> Self
-    where
-        T: MulAssign,
-    {
+    pub fn mul_scalar(mut self, scalar: T) -> Self {
         self.data.iter_mut().for_each(|x| *x *= scalar.clone());
         self
     }
 
     /// Divide all elements by scalar
-    pub fn div_scalar(mut self, scalar: T) -> Self
-    where
-        T: DivAssign,
-    {
+    pub fn div_scalar(mut self, scalar: T) -> Self {
         self.data.iter_mut().for_each(|x| *x /= scalar.clone());
         self
     }
 }
 
-impl<const D: usize, T: PrimInt> Array<D, T> {
-    pub fn one_hot<F>(&self, num_classes: usize) -> Array<{ D + 1 }, F>
-    where
-        F: Clone + Zero + One,
-        T: Debug,
-    {
+impl<const D: usize, T: NumExt> Array<D, T> {
+    pub fn one_hot<F: NumExt>(&self, num_classes: usize) -> Array<{ D + 1 }, F> {
         self.one_hot_fill(num_classes, F::one(), F::zero(), -1)
     }
 
@@ -311,8 +256,7 @@ impl<const D: usize, T: PrimInt> Array<D, T> {
         axis: isize,
     ) -> Array<{ D + 1 }, F>
     where
-        F: Clone,
-        T: Debug,
+        F: NumExt,
     {
         let indices = self
             .map(|v| {
@@ -385,7 +329,6 @@ impl<const D: usize, T> Array<D, T> {
         shape.copy_from_slice(&non_axis_shape);
         Array::from_vec(data, shape)
     }
-
     pub fn multi_iter(&self) -> impl Iterator<Item = ([usize; D], &T)> {
         self.shape
             .into_iter()

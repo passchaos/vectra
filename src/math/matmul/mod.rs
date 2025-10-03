@@ -1,8 +1,4 @@
-use std::fmt::Debug;
-
-use num_traits::NumAssign;
-
-use crate::{core::Array, math::MatmulPolicy};
+use crate::{NumExt, core::Array, math::MatmulPolicy};
 mod float_mat;
 
 pub trait Matmul: Sized {
@@ -24,10 +20,11 @@ impl_matmul_for_type!(
     u8, i8, u16, i16, u32, i32, u64, i64, usize, isize, u128, i128
 );
 
-fn matmul_general<T>(lhs: &Array<2, T>, rhs: &Array<2, T>, policy: MatmulPolicy) -> Array<2, T>
-where
-    T: NumAssign + Clone + Debug,
-{
+fn matmul_general<T: NumExt>(
+    lhs: &Array<2, T>,
+    rhs: &Array<2, T>,
+    policy: MatmulPolicy,
+) -> Array<2, T> {
     let result_shape = [lhs.shape[0], rhs.shape[1]];
     let mut result_data = vec![T::zero(); result_shape.iter().product()];
 

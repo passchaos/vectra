@@ -1,13 +1,12 @@
-use crate::{core::Array, utils::compute_strides};
-use num_traits::{One, Zero};
+use crate::{NumExt, core::Array, utils::compute_strides};
 use rand::distr::{Distribution, Uniform, uniform::SampleUniform};
 use rand_distr::StandardNormal;
 
-impl<const D: usize, T> Array<D, T> {
+impl<const D: usize, T: NumExt> Array<D, T> {
     /// Create array with random values between 0 and 1
     pub fn random(shape: [usize; D]) -> Self
     where
-        T: SampleUniform + One + Zero,
+        T: SampleUniform,
     {
         Self::uniform(shape, T::zero(), T::one())
     }

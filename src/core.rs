@@ -1,15 +1,16 @@
 use std::any::type_name;
 use std::fmt::{self, Display};
-use std::ops::{Add, IndexMut, Mul, Sub};
+use std::ops::{Index, IndexMut};
 
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
 use itertools::Itertools;
-use num_traits::{NumCast, One, Zero};
+use num_traits::NumCast;
 
+use crate::NumExt;
 use crate::utils::{
     compute_strides, dyn_dim_to_static, indices_to_flat_idx, negative_idx_to_positive,
-    negative_indices_to_positive,
+    negative_indices_to_positive, shape_indices_to_flat_idx,
 };
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -27,7 +28,7 @@ pub struct Array<const D: usize, T> {
     pub(crate) major_order: MajorOrder,
 }
 
-impl<T> Array<2, T> {
+impl<T: NumExt> Array<2, T> {
     pub fn as_faer(&self) -> MatRef<'_, T> {
         let (nrows, ncols) = (self.shape[0], self.shape[1]);
         match self.major_order {
@@ -44,17 +45,16 @@ impl<T> Array<2, T> {
     }
 
     /// Create identity matrix
-    pub fn eye(n: usize) -> Self
-    where
-        T: Clone + Zero + One,
-    {
+    pub fn eye(n: usize) -> Self {
         let mut arr = Self::zeros([n, n]);
         for i in 0..n as isize {
             arr[[i, i]] = T::one();
         }
         arr
     }
+}
 
+impl<T> Array<2, T> {
     /// Transpose array (2D only)
     pub fn transpose(self) -> Self {
         let new_shape = [self.shape[1], self.shape[0]];
@@ -69,7 +69,7 @@ impl<T> Array<2, T> {
     }
 }
 
-impl<T> From<Mat<T>> for Array<2, T> {
+impl<T: NumExt> From<Mat<T>> for Array<2, T> {
     fn from(mut mat: Mat<T>) -> Self {
         let nrows = mat.nrows();
         let ncols = mat.ncols();
@@ -116,7 +116,8 @@ impl<const D: usize, T: PartialEq> PartialEq for Array<D, T> {
 
 impl<const D: usize, T: AbsDiffEq> AbsDiffEq for Array<D, T>
 where
-    T::Epsilon: Copy + NumCast + Mul<T::Epsilon, Output = T::Epsilon>,
+    T: NumExt,
+    T::Epsilon: NumExt,
 {
     type Epsilon = T::Epsilon;
 
@@ -145,11 +146,10 @@ where
     }
 }
 
-impl<const D: usize, T: RelativeEq + Copy + Sub<T> + Display> RelativeEq for Array<D, T>
+impl<const D: usize, T: RelativeEq> RelativeEq for Array<D, T>
 where
-    T: RelativeEq + Sub<T> + Display,
-    T::Output: Display,
-    T::Epsilon: Copy + Display + NumCast + Mul<T::Epsilon, Output = T::Epsilon>,
+    T: NumExt,
+    T::Epsilon: NumExt,
 {
     fn default_max_relative() -> Self::Epsilon {
         T::default_max_relative()
@@ -199,17 +199,14 @@ impl<const D: usize, T: Clone> Clone for Array<D, T> {
     }
 }
 
-impl<T> Array<1, T> {
-    pub fn arange_c(mut start: T, step: T, count: usize) -> Self
-    where
-        T: PartialOrd + Add<Output = T> + Clone,
-    {
+impl<T: NumExt> Array<1, T> {
+    pub fn arange_c(mut start: T, step: T, count: usize) -> Self {
         let mut data = Vec::new();
 
         for _ in 0..count {
-            data.push(start.clone());
+            data.push(start);
 
-            start = start + step.clone();
+            start = start + step;
         }
 
         let size = data.len();
@@ -228,13 +225,10 @@ impl<T> Array<1, T> {
     }
 
     /// Create array like np.arange
-    pub fn arange(mut start: T, end: T, step: T) -> Self
-    where
-        T: PartialOrd + Add<Output = T> + Clone,
-    {
+    pub fn arange(mut start: T, end: T, step: T) -> Self {
         let mut data = Vec::new();
 
-        while start < end {
+        while start.cmp_ext(&end).is_lt() {
             data.push(start.clone());
 
             start = start + step.clone();
@@ -280,22 +274,6 @@ impl<const D: usize, T> Array<D, T> {
             strides,
             major_order,
         }
-    }
-
-    /// Create zero array
-    pub fn zeros(shape: [usize; D]) -> Self
-    where
-        T: Clone + Zero,
-    {
-        Self::full(shape, T::zero())
-    }
-
-    /// Create ones array
-    pub fn ones(shape: [usize; D]) -> Self
-    where
-        T: Clone + One,
-    {
-        Self::full(shape, T::one())
     }
 
     pub fn full(shape: [usize; D], value: T) -> Self
@@ -402,9 +380,7 @@ impl<const D: usize, T> Array<D, T> {
             major_order: self.major_order,
         }
     }
-}
 
-impl<const D: usize, T> Array<D, T> {
     /// Convert multi-dimensional index to flat index
     pub fn index_to_flat(&self, indices: [isize; D]) -> usize {
         let indices = negative_indices_to_positive(indices, self.shape);
@@ -425,47 +401,6 @@ impl<const D: usize, T> Array<D, T> {
         }
 
         indices_to_flat_idx(self.strides, indices)
-    }
-
-    /// Broadcast array to target shape
-    pub fn broadcast_to(&self, target_shape: [usize; D]) -> Self
-    where
-        T: Clone,
-    {
-        if self.shape == target_shape {
-            return self.clone();
-        }
-
-        let target_size: usize = target_shape.iter().product();
-        let mut new_data = Vec::with_capacity(target_size);
-
-        for flat_idx in 0..target_size {
-            let mut target_indices = [0; D];
-            let mut temp = flat_idx;
-            for i in (0..D).rev() {
-                target_indices[i] = temp % target_shape[i];
-                temp /= target_shape[i];
-            }
-
-            let mut source_indices = [0; D];
-            for i in 0..D {
-                let target_idx = target_indices[i];
-                source_indices[i] = if self.shape[i] == 1 { 0 } else { target_idx };
-            }
-
-            let source_flat = self.positive_index_to_flat(source_indices);
-            new_data.push(self.data[source_flat].clone());
-        }
-
-        let major_order = MajorOrder::RowMajor;
-        let strides = compute_strides(target_shape, major_order);
-
-        Array {
-            data: new_data,
-            shape: target_shape,
-            strides,
-            major_order,
-        }
     }
 
     pub fn data(&self) -> &[T] {
@@ -521,6 +456,137 @@ impl<const D: usize, T> Array<D, T> {
             *self.index_mut(target_idx.map(|i| i as isize)) = b_v.clone();
         }
     }
+    /// Broadcast array to target shape
+    pub fn broadcast_to(&self, target_shape: [usize; D]) -> Self
+    where
+        T: Clone,
+    {
+        if self.shape == target_shape {
+            return self.clone();
+        }
+
+        let target_size: usize = target_shape.iter().product();
+        let mut new_data = Vec::with_capacity(target_size);
+
+        for flat_idx in 0..target_size {
+            let mut target_indices = [0; D];
+            let mut temp = flat_idx;
+            for i in (0..D).rev() {
+                target_indices[i] = temp % target_shape[i];
+                temp /= target_shape[i];
+            }
+
+            let mut source_indices = [0; D];
+            for i in 0..D {
+                let target_idx = target_indices[i];
+                source_indices[i] = if self.shape[i] == 1 { 0 } else { target_idx };
+            }
+
+            let source_flat = self.positive_index_to_flat(source_indices);
+            new_data.push(self.data[source_flat].clone());
+        }
+
+        let major_order = MajorOrder::RowMajor;
+        let strides = compute_strides(target_shape, major_order);
+
+        Array {
+            data: new_data,
+            shape: target_shape,
+            strides,
+            major_order,
+        }
+    }
+
+    pub fn map<F, U>(&self, f: F) -> Array<D, U>
+    where
+        F: Fn(&T) -> U,
+    {
+        Array {
+            data: self.data.iter().map(f).collect(),
+            shape: self.shape.clone(),
+            strides: self.strides.clone(),
+            major_order: self.major_order,
+        }
+    }
+
+    pub fn map_axis<F, U>(&self, axis: isize, f: F) -> Array<D, U>
+    where
+        U: Default + Clone,
+        F: Fn(Vec<&T>) -> U,
+    {
+        if axis >= (D as isize) || axis < -(D as isize) {
+            panic!("Axis out of bounds: rank= {}, axis= {}", D, axis);
+        }
+
+        // Adjust negative axis to a positive index
+        let axis = if axis < 0 {
+            (axis + D as isize) as usize
+        } else {
+            axis as usize
+        };
+
+        let mut result_shape = self.shape();
+        let axis_len = result_shape[axis];
+        result_shape[axis] = 1;
+
+        let result_size = result_shape.iter().product();
+        let mut result_data = vec![U::default(); result_size];
+
+        let major_order = MajorOrder::RowMajor;
+
+        for idx in result_shape.iter().map(|&n| 0..n).multi_cartesian_product() {
+            let idx = dyn_dim_to_static(&idx);
+
+            let axis_values = (0..axis_len)
+                .map(|i| {
+                    let mut i_idx = idx.clone();
+                    i_idx[axis] = i;
+
+                    self.index(i_idx.map(|i| i as isize))
+                })
+                .collect();
+
+            let value = f(axis_values);
+
+            let flat_idx = shape_indices_to_flat_idx(result_shape, idx, major_order);
+            result_data[flat_idx] = value;
+        }
+
+        Array::from_vec_major(result_data, result_shape, major_order)
+    }
+
+    /// Apply function to each element, consuming self and returning a new Array with different type
+    pub fn into_map<F, U>(self, f: F) -> Array<D, U>
+    where
+        F: Fn(T) -> U,
+    {
+        let Self {
+            data,
+            shape,
+            strides,
+            major_order,
+        } = self;
+
+        Array {
+            data: data.into_iter().map(f).collect(),
+            shape,
+            strides,
+            major_order,
+        }
+    }
+}
+
+// only for number type
+impl<const D: usize, T: NumExt> Array<D, T> {
+    /// Create zero array
+    pub fn zeros(shape: [usize; D]) -> Self {
+        Self::full(shape, T::zero())
+    }
+
+    /// Create ones array
+    pub fn ones(shape: [usize; D]) -> Self {
+        Self::full(shape, T::one())
+    }
 }
 
 impl<const D: usize, T> Into<Vec<T>> for Array<D, T> {
@@ -529,10 +595,7 @@ impl<const D: usize, T> Into<Vec<T>> for Array<D, T> {
     }
 }
 
-impl<T> From<Vec<T>> for Array<1, T>
-where
-    T: Clone + Default,
-{
+impl<T> From<Vec<T>> for Array<1, T> {
     fn from(data: Vec<T>) -> Self {
         let shape = [data.len()];
 
@@ -547,19 +610,13 @@ where
     }
 }
 
-impl<const D: usize, T> fmt::Display for Array<D, T>
-where
-    T: fmt::Display + Clone,
-{
+impl<const D: usize, T: Display> fmt::Display for Array<D, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_recursive(f, 0, &[])
     }
 }
 
-impl<const D: usize, T> fmt::Debug for Array<D, T>
-where
-    T: fmt::Display + Clone,
-{
+impl<const D: usize, T: Display> fmt::Debug for Array<D, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -577,10 +634,7 @@ fn pad_show_count<T>() -> usize {
     }
 }
 
-impl<const D: usize, T> Array<D, T>
-where
-    T: fmt::Display + Clone,
-{
+impl<const D: usize, T: Display> Array<D, T> {
     /// Unified recursive formatting method for all dimensions
     fn fmt_recursive(
         &self,
@@ -858,7 +912,7 @@ mod tests {
         let arr = arr.transpose();
         assert_eq!(arr.shape(), [2, 3]);
         assert_eq!(arr[[0, 0]], 1.0);
-        assert_eq!(arr[[1, 0]], 4.0);
+        assert_eq!(arr[[1, 0]], 2.0);
     }
 
     #[test]

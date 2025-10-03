@@ -1,15 +1,9 @@
-use crate::{
-    core::{Array, MajorOrder},
-    utils::{dyn_dim_to_static, shape_indices_to_flat_idx},
-};
-use std::{
-    fmt::Debug,
-    iter::Sum,
-    ops::{Add, Div, Index},
-}; // Sub currently unused
+use crate::{NumExt, core::Array};
+use std::fmt::Debug; // Sub currently unused
 pub mod matmul;
-use itertools::Itertools;
-use num_traits::{Float, NumCast, Pow, cast, float::TotalOrder};
+pub mod stat;
+
+use num_traits::{Float, Pow};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MatmulPolicy {
@@ -33,210 +27,18 @@ impl Default for MatmulPolicy {
     }
 }
 
-impl<const D: usize, T> Array<D, T>
-where
-    T: Clone,
-{
-    /// Sum all elements
-    pub fn sum(&self) -> T
+impl<const D: usize, T: NumExt> Array<D, T> {
+    pub fn pow<U, O>(&self, exponent: U) -> Array<D, O>
     where
-        T: Add<Output = T> + Default,
+        T: Pow<U, Output = O>,
+        U: NumExt,
+        O: NumExt,
     {
-        self.multi_iter()
-            .fold(T::default(), |acc, (_, x)| acc + x.clone())
-    }
-
-    /// Sum along specified axis
-    pub fn sum_axis(&self, axis: isize) -> Array<D, T>
-    where
-        T: Add<Output = T> + Default + Clone,
-    {
-        self.map_axis(axis, |values| {
-            values
-                .into_iter()
-                .fold(T::default(), |acc, x| acc + x.clone())
-        })
-    }
-
-    /// Calculate mean of all elements
-    pub fn mean(&self) -> T
-    where
-        T: Add<Output = T> + Div<Output = T> + Default + NumCast,
-    {
-        let sum = self.sum();
-        let size = self.size();
-        sum / cast::<_, T>(size).unwrap()
-    }
-
-    pub fn mean_axis(&self, axis: isize) -> Array<D, T>
-    where
-        T: Default + Clone + NumCast + Sum + Div<Output = T>,
-    {
-        self.map_axis(axis, |values| {
-            let len = values.len();
-            let sum: T = values.into_iter().cloned().sum();
-            sum / T::from(len).expect("Failed to convert axis values length value type to T")
-        })
+        self.map(|x| x.pow(exponent.clone()))
     }
 }
 
-pub trait TotalOrd {
-    type Output;
-    fn min(&self) -> Option<Self::Output>;
-    fn max(&self) -> Option<Self::Output>;
-}
-
-macro_rules! impl_total_ord {
-    ($($t:ty),*) => {
-        $(
-            impl<const D: usize> TotalOrd for Array<D, $t> {
-                type Output = $t;
-                fn min(&self) -> Option<Self::Output> {
-                    self.multi_iter()
-                        .min_by(|(_, a), (_, b)| a.cmp(b))
-                        .map(|(_, x)| x.clone())
-                }
-                fn max(&self) -> Option<Self::Output> {
-                    self.multi_iter()
-                        .max_by(|(_, a), (_, b)| a.cmp(b))
-                        .map(|(_, x)| x.clone())
-                }
-            }
-        )*
-    };
-}
-
-impl_total_ord!(
-    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
-);
-
-impl<const D: usize, T: TotalOrder + Clone> Array<D, T> {
-    pub fn max_axis(&self, axis: isize) -> Self
-    where
-        T: Default,
-    {
-        self.map_axis(axis, |v| {
-            v.into_iter()
-                .max_by(|a, b| a.total_cmp(b))
-                .cloned()
-                .unwrap()
-        })
-    }
-
-    pub fn min_axis(&self, axis: isize) -> Self
-    where
-        T: Default,
-    {
-        self.map_axis(axis, |v| {
-            v.into_iter()
-                .min_by(|a, b| a.total_cmp(b))
-                .cloned()
-                .unwrap()
-        })
-    }
-
-    /// Find maximum value
-    pub fn max(&self) -> Option<T> {
-        self.multi_iter()
-            .max_by(|(_, a), (_, b)| a.total_cmp(b))
-            .map(|(_, x)| x.clone())
-    }
-
-    /// Find minimum value
-    pub fn min(&self) -> Option<T> {
-        self.multi_iter()
-            .min_by(|(_, a), (_, b)| a.total_cmp(b))
-            .map(|(_, x)| x.clone())
-    }
-}
-
-impl<const D: usize, T> Array<D, T> {
-    pub fn map<F, U>(&self, f: F) -> Array<D, U>
-    where
-        F: Fn(&T) -> U,
-    {
-        Array {
-            data: self.data.iter().map(f).collect(),
-            shape: self.shape.clone(),
-            strides: self.strides.clone(),
-            major_order: self.major_order,
-        }
-    }
-
-    pub fn map_axis<F, U>(&self, axis: isize, f: F) -> Array<D, U>
-    where
-        F: Fn(Vec<&T>) -> U,
-        U: Default + Clone,
-    {
-        if axis >= (D as isize) || axis < -(D as isize) {
-            panic!("Axis out of bounds: rank= {}, axis= {}", D, axis);
-        }
-
-        // Adjust negative axis to a positive index
-        let axis = if axis < 0 {
-            (axis + D as isize) as usize
-        } else {
-            axis as usize
-        };
-
-        let mut result_shape = self.shape();
-        let axis_len = result_shape[axis];
-        result_shape[axis] = 1;
-
-        let result_size = result_shape.iter().product();
-        let mut result_data = vec![U::default(); result_size];
-
-        let major_order = MajorOrder::RowMajor;
-
-        for idx in result_shape.iter().map(|&n| 0..n).multi_cartesian_product() {
-            let idx = dyn_dim_to_static(&idx);
-
-            let axis_values = (0..axis_len)
-                .map(|i| {
-                    let mut i_idx = idx.clone();
-                    i_idx[axis] = i;
-
-                    self.index(i_idx.map(|i| i as isize))
-                })
-                .collect();
-
-            let value = f(axis_values);
-
-            let flat_idx = shape_indices_to_flat_idx(result_shape, idx, major_order);
-            result_data[flat_idx] = value;
-        }
-
-        Array::from_vec_major(result_data, result_shape, major_order)
-    }
-
-    /// Apply function to each element, consuming self and returning a new Array with different type
-    pub fn into_map<F, U>(self, f: F) -> Array<D, U>
-    where
-        F: Fn(T) -> U,
-    {
-        let Self {
-            data,
-            shape,
-            strides,
-            major_order,
-        } = self;
-
-        Array {
-            data: data.into_iter().map(f).collect(),
-            shape,
-            strides,
-            major_order,
-        }
-    }
-}
-
-impl<const D: usize, T: Pow<T, Output = T> + Clone> Array<D, T> {
-    pub fn pow(&self, exponent: T) -> Array<D, T> {
-        self.map(|x| x.clone().pow(exponent.clone()))
-    }
-}
-
-impl<const D: usize, T: Float> Array<D, T> {
+impl<const D: usize, T: NumExt + Float> Array<D, T> {
     // Trigonometric functions
     pub fn sin(&self) -> Array<D, T> {
         self.map(|x| x.sin())
@@ -325,47 +127,6 @@ impl<const D: usize, T: Float> Array<D, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_sum() {
-        let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [2, 3, 2]);
-
-        let arr1 = arr.sum_axis(0);
-        assert_eq!(
-            arr1,
-            Array::from_vec(vec![8, 10, 12, 14, 16, 18], [1, 3, 2])
-        );
-        let arr2 = arr.sum_axis(1);
-        assert_eq!(arr2, Array::from_vec(vec![9, 12, 27, 30], [2, 1, 2]));
-        let arr3 = arr.sum_axis(2);
-        assert_eq!(arr3, Array::from_vec(vec![3, 7, 11, 15, 19, 23], [2, 3, 1]));
-
-        let arr4 = arr.sum_axis(2);
-        let arr4 = arr4.reshape([2, 3]);
-        assert_eq!(arr4, Array::from_vec(vec![3, 7, 11, 15, 19, 23], [2, 3]));
-        println!("arr= {arr:?} arr1= {arr1:?} arr2= {arr2:?} arr3= {arr3:?} arr4= {arr4:?}");
-    }
-
-    #[test]
-    fn test_mean_axis() {
-        let arr = Array::<_, f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
-        let mean_axis_0 = arr.mean_axis(0);
-        assert_eq!(mean_axis_0, Array::from_vec(vec![2.0, 3.0], [1, 2]));
-        let mean_axis_1 = arr.mean_axis(1);
-        assert_eq!(mean_axis_1, Array::from_vec(vec![1.5, 3.5], [2, 1]));
-
-        let mean_axis_2 = arr.mean_axis(-1);
-        assert_eq!(mean_axis_1, mean_axis_2);
-    }
-
-    #[test]
-    fn test_aggregations() {
-        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
-        assert_eq!(arr.sum(), 10.0);
-        assert_eq!(arr.mean(), 2.5);
-        assert_eq!(arr.max(), Some(4.0));
-        assert_eq!(arr.min(), Some(1.0));
-    }
 
     #[test]
     fn test_map() {
