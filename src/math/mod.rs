@@ -141,6 +141,10 @@ impl<const D: usize, T: NumExt + Float> Array<D, T> {
         /// Length of the hypotenuse of a right-angle triangle of each element
         fn hypot(T)
     }
+
+    pub fn pow2(&self) -> Array<D, T> {
+        self.mapv(|v| v * v)
+    }
 }
 
 #[cfg(test)]

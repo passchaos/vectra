@@ -6,40 +6,7 @@ use crate::{
     core::Array,
     utils::{broadcast_shapes, compute_strides, dyn_dim_to_static, negative_idx_to_positive},
 };
-use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
-
-// // Indexing implementations
-// impl<const D: usize, T> Index<&[usize]> for Array<D, T> {
-//     type Output = T;
-
-//     fn index(&self, indices: &[usize]) -> &Self::Output {
-//         let flat_index = self.index_to_flat(indices).expect("Invalid index");
-//         &self.data[flat_index]
-//     }
-// }
-
-// impl<const D: usize, T> IndexMut<&[usize]> for Array<D, T> {
-//     fn index_mut(&mut self, indices: &[usize]) -> &mut Self::Output {
-//         let flat_index = self.index_to_flat(indices).expect("Invalid index");
-//         &mut self.data[flat_index]
-//     }
-// }
-
-// impl<const D: usize, T> Index<[usize; D]> for Array<D, T> {
-//     type Output = T;
-
-//     fn index(&self, indices: [usize; D]) -> &Self::Output {
-//         let flat_index = self.index_to_flat(indices);
-//         &self.data[flat_index]
-//     }
-// }
-
-// impl<const D: usize, T> IndexMut<[usize; D]> for Array<D, T> {
-//     fn index_mut(&mut self, indices: [usize; D]) -> &mut Self::Output {
-//         let flat_index = self.index_to_flat(indices);
-//         &mut self.data[flat_index]
-//     }
-// }
+use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, MulAssign, Neg, Not, Sub, SubAssign};
 
 impl<const D: usize, T> Index<[isize; D]> for Array<D, T> {
     type Output = T;
@@ -54,6 +21,22 @@ impl<const D: usize, T> IndexMut<[isize; D]> for Array<D, T> {
     fn index_mut(&mut self, indices: [isize; D]) -> &mut Self::Output {
         let flat_index = self.index_to_flat(indices);
         &mut self.data[flat_index]
+    }
+}
+
+impl<const D: usize, T: Neg<Output = T> + Clone> Neg for &Array<D, T> {
+    type Output = Array<D, T>;
+
+    fn neg(self) -> Self::Output {
+        self.mapv(|x| -x)
+    }
+}
+
+impl<const D: usize, T: Not<Output = T> + Clone> Not for &Array<D, T> {
+    type Output = Array<D, T>;
+
+    fn not(self) -> Self::Output {
+        self.mapv(|x| !x)
     }
 }
 
