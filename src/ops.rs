@@ -357,16 +357,17 @@ impl<const D: usize, T> Array<D, T> {
         let mut non_axis_shape = self.shape().to_vec();
         non_axis_shape.remove(axis);
 
-        let indices: HashSet<_> = indices
+        let indices: Vec<_> = indices
             .into_iter()
             .filter(|&idx| idx < &axis_size)
+            .cloned()
             .collect();
         let mut products: Vec<_> = non_axis_shape
             .iter()
             .map(|&n| 0..n)
             .map(|v| v.into_iter().collect::<Vec<_>>())
             .collect();
-        let indices: Vec<_> = indices.into_iter().sorted().cloned().collect();
+        // let indices: Vec<_> = indices.into_iter().sorted().cloned().collect();
         non_axis_shape.insert(axis, indices.len());
 
         products.insert(axis, indices);
