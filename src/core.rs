@@ -499,10 +499,23 @@ impl<const D: usize, T> Array<D, T> {
 
     pub fn map<F, U>(&self, f: F) -> Array<D, U>
     where
-        F: Fn(&T) -> U,
+        F: FnMut(&T) -> U,
     {
         Array {
             data: self.data.iter().map(f).collect(),
+            shape: self.shape.clone(),
+            strides: self.strides.clone(),
+            major_order: self.major_order,
+        }
+    }
+
+    pub fn mapv<F, U>(&self, f: F) -> Array<D, U>
+    where
+        F: FnMut(T) -> U,
+        T: Clone,
+    {
+        Array {
+            data: self.data.iter().cloned().map(f).collect(),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
             major_order: self.major_order,

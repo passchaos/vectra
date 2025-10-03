@@ -38,89 +38,108 @@ impl<const D: usize, T: NumExt> Array<D, T> {
     }
 }
 
+macro_rules! unary_ops {
+    ($($(#[$meta:meta])* fn $id:ident)+) => {
+        $($(#[$meta])*
+        #[must_use = "method returns a new array and does not mutate the original value"]
+        pub fn $id(&self) -> Array<D, T> {
+            self.mapv(T::$id)
+        })+
+    };
+}
+
+macro_rules! binary_ops {
+    ($($(#[$meta:meta])* fn $id:ident($ty:ty))+) => {
+        $($(#[$meta])*
+        #[must_use = "method returns a new array and does not mutate the original value"]
+        pub fn $id(&self, rhs: $ty) -> Array<D, T> {
+            self.mapv(|v| T::$id(v, rhs))
+        })+
+    };
+}
+
 impl<const D: usize, T: NumExt + Float> Array<D, T> {
-    // Trigonometric functions
-    pub fn sin(&self) -> Array<D, T> {
-        self.map(|x| x.sin())
+    unary_ops! {
+        /// The largest integer less than or equal to each element.
+        fn floor
+        /// The smallest integer less than or equal to each element.
+        fn ceil
+        /// The nearest integer of each element.
+        fn round
+        /// The integer part of each element.
+        fn trunc
+        /// The fractional part of each element.
+        fn fract
+        /// Absolute of each element.
+        fn abs
+        /// Sign number of each element.
+        ///
+        /// + `1.0` for all positive numbers.
+        /// + `-1.0` for all negative numbers.
+        /// + `NaN` for all `NaN` (not a number).
+        fn signum
+        /// The reciprocal (inverse) of each element, `1/x`.
+        fn recip
+        /// Square root of each element.
+        fn sqrt
+        /// `e^x` of each element (exponential function).
+        fn exp
+        /// `2^x` of each element.
+        fn exp2
+        /// `e^x - 1` of each element.
+        fn exp_m1
+        /// Natural logarithm of each element.
+        fn ln
+        /// Base 2 logarithm of each element.
+        fn log2
+        /// Base 10 logarithm of each element.
+        fn log10
+        /// `ln(1 + x)` of each element.
+        fn ln_1p
+        /// Cubic root of each element.
+        fn cbrt
+        /// Sine of each element (in radians).
+        fn sin
+        /// Cosine of each element (in radians).
+        fn cos
+        /// Tangent of each element (in radians).
+        fn tan
+        /// Arcsine of each element (return in radians).
+        fn asin
+        /// Arccosine of each element (return in radians).
+        fn acos
+        /// Arctangent of each element (return in radians).
+        fn atan
+        /// Hyperbolic sine of each element.
+        fn sinh
+        /// Hyperbolic cosine of each element.
+        fn cosh
+        /// Hyperbolic tangent of each element.
+        fn tanh
+        /// Inverse hyperbolic sine of each element.
+        fn asinh
+        /// Inverse hyperbolic cosine of each element.
+        fn acosh
+        /// Inverse hyperbolic tangent of each element.
+        fn atanh
+        /// Converts radians to degrees for each element.
+        fn to_degrees
+        /// Converts degrees to radians for each element.
+        fn to_radians
     }
-
-    pub fn cos(&self) -> Array<D, T> {
-        self.map(|x| x.cos())
-    }
-
-    pub fn tan(&self) -> Array<D, T> {
-        self.map(|x| x.tan())
-    }
-
-    pub fn asin(&self) -> Array<D, T> {
-        self.map(|x| x.asin())
-    }
-
-    pub fn acos(&self) -> Array<D, T> {
-        self.map(|x| x.acos())
-    }
-
-    pub fn atan(&self) -> Array<D, T> {
-        self.map(|x| x.atan())
-    }
-
-    // Hyperbolic functions
-    pub fn sinh(&self) -> Array<D, T> {
-        self.map(|x| x.sinh())
-    }
-
-    pub fn cosh(&self) -> Array<D, T> {
-        self.map(|x| x.cosh())
-    }
-
-    pub fn tanh(&self) -> Array<D, T> {
-        self.map(|x| x.tanh())
-    }
-
-    pub fn sqrt(&self) -> Array<D, T> {
-        self.map(|x| x.sqrt())
-    }
-
-    pub fn pow2(&self) -> Array<D, T> {
-        self.map(|x| x.powi(2))
-    }
-
-    pub fn powi(&self, exponent: i32) -> Array<D, T> {
-        self.map(|x| x.powi(exponent))
-    }
-
-    // Logarithmic functions
-    pub fn ln(&self) -> Array<D, T> {
-        self.map(|x| x.ln())
-    }
-
-    pub fn log10(&self) -> Array<D, T> {
-        self.map(|x| x.log10())
-    }
-
-    pub fn log2(&self) -> Array<D, T> {
-        self.map(|x| x.log2())
-    }
-
-    pub fn log(&self, base: T) -> Array<D, T> {
-        self.map(|x| x.log(base))
-    }
-
-    // Exponential functions
-    pub fn exp(&self) -> Array<D, T> {
-        self.map(|x| x.exp())
-    }
-
-    pub fn exp2(&self) -> Array<D, T> {
-        self.map(|x| x.exp2())
-    }
-
-    pub fn exp_m1(&self) -> Array<D, T> {
-        self.map(|x| x.exp_m1())
-    }
-
-    pub fn ln_1p(&self) -> Array<D, T> {
-        self.map(|x| x.ln_1p())
+    binary_ops! {
+        /// Integer power of each element.
+        ///
+        /// This function is generally faster than using float power.
+        fn powi(i32)
+        /// Float power of each element.
+        fn powf(T)
+        /// Logarithm of each element with respect to an arbitrary base.
+        fn log(T)
+        /// The positive difference between given number and each element.
+        fn abs_sub(T)
+        /// Length of the hypotenuse of a right-angle triangle of each element
+        fn hypot(T)
     }
 }
 
