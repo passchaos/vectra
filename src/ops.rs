@@ -368,6 +368,7 @@ impl<const D: usize, T> Array<D, T> {
             .collect();
         let indices: Vec<_> = indices.into_iter().sorted().cloned().collect();
         non_axis_shape.insert(axis, indices.len());
+
         products.insert(axis, indices);
 
         let data: Vec<_> = products

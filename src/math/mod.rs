@@ -168,7 +168,7 @@ impl<const D: usize, T> Array<D, T> {
         F: Fn(Vec<&T>) -> U,
         U: Default + Clone,
     {
-        if axis >= (D as isize) || axis <= -(D as isize) {
+        if axis >= (D as isize) || axis < -(D as isize) {
             panic!("Axis out of bounds: rank= {}, axis= {}", D, axis);
         }
 

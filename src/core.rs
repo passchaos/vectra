@@ -34,9 +34,12 @@ impl<T> Array<2, T> {
             MajorOrder::RowMajor => {
                 MatRef::from_row_major_slice(self.data.as_slice(), nrows, ncols)
             }
-            MajorOrder::ColumnMajor => {
-                MatRef::from_column_major_slice(self.data.as_slice(), nrows, ncols)
-            }
+            MajorOrder::ColumnMajor => MatRef::from_column_major_slice_with_stride(
+                self.data.as_slice(),
+                nrows,
+                ncols,
+                self.strides[1],
+            ),
         }
     }
 
@@ -54,7 +57,15 @@ impl<T> Array<2, T> {
 
     /// Transpose array (2D only)
     pub fn transpose(self) -> Self {
-        self.permute([1, 0])
+        let new_shape = [self.shape[1], self.shape[0]];
+        let new_stride = [self.strides[1], self.strides[0]];
+
+        Self {
+            data: self.data,
+            shape: new_shape,
+            strides: new_stride,
+            major_order: self.major_order,
+        }
     }
 }
 
@@ -68,6 +79,10 @@ impl<T> From<Mat<T>> for Array<2, T> {
 
         // Data may not be contiguous and could have padding, so we can only calculate data length as follows
         let len = nrows * row_stride + ncols * col_stride;
+        // println!(
+        //     "data info: nrows= {} ncols= {} col_stride= {} row_stride= {} len= {}",
+        //     nrows, ncols, col_stride, row_stride, len
+        // );
 
         // zero-copy
         let data = unsafe { Vec::from_raw_parts(mat.as_ptr_mut(), len, len) };
@@ -453,6 +468,10 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
+    pub fn data(&self) -> &[T] {
+        &self.data
+    }
+
     /// Get shape of the array
     pub fn shape(&self) -> [usize; D] {
         self.shape
@@ -553,6 +572,7 @@ where
 fn pad_show_count<T>() -> usize {
     match type_name::<T>() {
         "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "isize" | "usize" => 8,
+        "f32" => 5,
         _ => 3,
     }
 }
@@ -793,8 +813,12 @@ mod tests {
 
     #[test]
     fn test_transpose() {
-        let arr1 = Array::from_vec(vec![1.0; 10000], [10, 10, 100]);
-        println!("arr1: {arr1}");
+        let arr1 = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 3]);
+        let arr1_t = arr1.clone().transpose();
+        println!("arr1= {arr1:?} arr1_t= {arr1_t:?}");
+
+        let res = Array::from_vec(vec![1, 4, 2, 5, 3, 6], [3, 2]);
+        assert_eq!(arr1_t, res);
         // let arr_t = arr.clone().transpose().unwrap();
 
         // println!("{:?} {:?}", arr, arr_t);
