@@ -1,11 +1,11 @@
 use std::any::type_name;
-use std::fmt::{self, Display};
+use std::fmt::{self, Debug, Display};
 use std::ops::{Index, IndexMut};
 
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
 use itertools::Itertools;
-use num_traits::NumCast;
+use num_traits::{Float, NumCast};
 
 use crate::NumExt;
 use crate::utils::{
@@ -13,7 +13,7 @@ use crate::utils::{
     negative_indices_to_positive, shape_indices_to_flat_idx,
 };
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum MajorOrder {
     #[default]
     RowMajor,
@@ -28,20 +28,25 @@ pub struct Array<const D: usize, T> {
     pub(crate) major_order: MajorOrder,
 }
 
-impl<T: NumExt> Array<2, T> {
+impl<T: NumExt + Debug> Array<2, T> {
     pub fn as_faer(&self) -> MatRef<'_, T> {
         let (nrows, ncols) = (self.shape[0], self.shape[1]);
-        match self.major_order {
-            MajorOrder::RowMajor => {
-                MatRef::from_row_major_slice(self.data.as_slice(), nrows, ncols)
-            }
+        let res = match self.major_order {
+            MajorOrder::RowMajor => MatRef::from_row_major_slice_with_stride(
+                self.data.as_slice(),
+                nrows,
+                ncols,
+                self.strides[0],
+            ),
             MajorOrder::ColumnMajor => MatRef::from_column_major_slice_with_stride(
                 self.data.as_slice(),
                 nrows,
                 ncols,
                 self.strides[1],
             ),
-        }
+        };
+
+        res
     }
 
     /// Create identity matrix
@@ -60,11 +65,17 @@ impl<T> Array<2, T> {
         let new_shape = [self.shape[1], self.shape[0]];
         let new_stride = [self.strides[1], self.strides[0]];
 
+        let major_order = if new_stride[0] == 1 {
+            MajorOrder::ColumnMajor
+        } else {
+            MajorOrder::RowMajor
+        };
+
         Self {
             data: self.data,
             shape: new_shape,
             strides: new_stride,
-            major_order: self.major_order,
+            major_order: major_order,
         }
     }
 }
@@ -456,6 +467,38 @@ impl<const D: usize, T> Array<D, T> {
             *self.index_mut(target_idx.map(|i| i as isize)) = b_v.clone();
         }
     }
+
+    pub fn mask_where(&mut self, mark: &Array<D, bool>, values: &Array<D, T>)
+    where
+        T: Clone,
+    {
+        assert_eq!(self.shape(), mark.shape());
+        assert_eq!(mark.shape(), values.shape());
+
+        self.multi_iter_mut(|idx, val| {
+            let idx = idx.map(|i| i as isize);
+
+            if mark[idx] {
+                *val = values[idx].clone();
+            }
+        });
+    }
+
+    pub fn mask_fill(&mut self, mark: &Array<D, bool>, value: T)
+    where
+        T: Clone,
+    {
+        assert_eq!(self.shape(), mark.shape());
+
+        self.multi_iter_mut(|idx, val| {
+            let idx = idx.map(|i| i as isize);
+
+            if mark[idx] {
+                *val = value.clone();
+            }
+        });
+    }
+
     /// Broadcast array to target shape
     pub fn broadcast_to(&self, target_shape: [usize; D]) -> Self
     where
@@ -587,6 +630,13 @@ impl<const D: usize, T> Array<D, T> {
             major_order,
         }
     }
+
+    pub fn equal(&self, other: &Self) -> Array<D, bool>
+    where
+        T: PartialEq,
+    {
+        self.map(|x| x == &other.data[0])
+    }
 }
 
 // only for number type
@@ -599,6 +649,21 @@ impl<const D: usize, T: NumExt> Array<D, T> {
     /// Create ones array
     pub fn ones(shape: [usize; D]) -> Self {
         Self::full(shape, T::one())
+    }
+
+    pub fn is_nan(&self) -> Array<D, bool>
+    where
+        T: Float,
+    {
+        self.map(|x| x.is_nan())
+    }
+
+    pub fn contains_nan(&self) -> bool
+    where
+        T: Float,
+    {
+        let sum = self.sum();
+        sum.is_nan()
     }
 }
 
@@ -821,6 +886,10 @@ impl<const D: usize, T: Display> Array<D, T> {
 
 #[cfg(test)]
 mod tests {
+    use approx::assert_relative_eq;
+
+    use crate::{math::MatmulPolicy, prelude::Matmul};
+
     use super::*;
 
     #[test]
@@ -880,12 +949,56 @@ mod tests {
 
     #[test]
     fn test_transpose() {
-        let arr1 = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 3]);
-        let arr1_t = arr1.clone().transpose();
-        println!("arr1= {arr1:?} arr1_t= {arr1_t:?}");
+        for policy in [
+            // MatmulPolicy::Blas,
+            MatmulPolicy::Faer,
+            // MatmulPolicy::LoopReorder,
+        ] {
+            let l: Vec<f32> = rand::random_iter().take(20).collect();
+            let r: Vec<f32> = rand::random_iter().take(20).collect();
 
-        let res = Array::from_vec(vec![1, 4, 2, 5, 3, 6], [3, 2]);
-        assert_eq!(arr1_t, res);
+            for shape in [[4, 5], [5, 4], [2, 10], [10, 2], [1, 20], [20, 1]] {
+                let mut shape_reverse = shape.clone();
+                shape_reverse.reverse();
+
+                let test_consistence_with_ndarray = |transpose: bool| {
+                    let mut arr_v_l = Array::from_vec(l.clone(), shape);
+                    let mut arr_v_r = Array::from_vec(r.clone(), shape_reverse);
+
+                    if transpose {
+                        arr_v_l = arr_v_l.transpose();
+                        arr_v_r = arr_v_r.transpose();
+                    }
+
+                    let arr_v = arr_v_l.matmul(&arr_v_r, policy);
+
+                    let mut arr_n_l = ndarray::Array2::from_shape_vec(shape, l.clone()).unwrap();
+                    let mut arr_n_r =
+                        ndarray::Array::from_shape_vec(shape_reverse, r.clone()).unwrap();
+
+                    if transpose {
+                        arr_n_l = arr_n_l.t().to_owned();
+                        arr_n_r = arr_n_r.t().to_owned();
+                    }
+
+                    let arr_n = arr_n_l.dot(&arr_n_r);
+
+                    // println!("v= {arr_v:?} n= {arr_n:?}");
+                    for ((_, v), n) in arr_v.multi_iter().zip(arr_n.iter()) {
+                        assert_relative_eq!(v, n, epsilon = 1e-6);
+                    }
+                };
+
+                test_consistence_with_ndarray(false);
+                test_consistence_with_ndarray(true);
+            }
+        }
+        // let arr1 = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 3]);
+        // let arr1_t = arr1.clone().transpose();
+        // println!("arr1= {arr1:?} arr1_t= {arr1_t:?}");
+
+        // let res = Array::from_vec(vec![1, 4, 2, 5, 3, 6], [3, 2]);
+        // assert_eq!(arr1_t, res);
         // let arr_t = arr.clone().transpose().unwrap();
 
         // println!("{:?} {:?}", arr, arr_t);

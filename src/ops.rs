@@ -24,19 +24,19 @@ impl<const D: usize, T> IndexMut<[isize; D]> for Array<D, T> {
     }
 }
 
-impl<const D: usize, T: Neg<Output = T> + Clone> Neg for &Array<D, T> {
+impl<const D: usize, T: Neg<Output = T> + Clone> Neg for Array<D, T> {
     type Output = Array<D, T>;
 
     fn neg(self) -> Self::Output {
-        self.mapv(|x| -x)
+        self.into_map(|x| -x)
     }
 }
 
-impl<const D: usize, T: Not<Output = T> + Clone> Not for &Array<D, T> {
+impl<const D: usize, T: Not<Output = T> + Clone> Not for Array<D, T> {
     type Output = Array<D, T>;
 
     fn not(self) -> Self::Output {
-        self.mapv(|x| !x)
+        self.into_map(|x| !x)
     }
 }
 

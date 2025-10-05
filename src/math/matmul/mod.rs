@@ -25,6 +25,8 @@ fn matmul_general<T: NumExt>(
     rhs: &Array<2, T>,
     policy: MatmulPolicy,
 ) -> Array<2, T> {
+    assert_eq!(lhs.shape()[1], rhs.shape()[0]);
+
     let result_shape = [lhs.shape[0], rhs.shape[1]];
     let mut result_data = vec![T::zero(); result_shape.iter().product()];
 
@@ -32,16 +34,22 @@ fn matmul_general<T: NumExt>(
     let k = lhs.shape[1];
     let n = rhs.shape[1];
 
-    let l_s_c = lhs.strides[0];
-    let r_s_c = rhs.strides[0];
+    let l_s_r = lhs.strides[0];
+    let r_s_r = rhs.strides[0];
+    let l_s_c = lhs.strides[1];
+    let r_s_c = rhs.strides[1];
+
+    // println!("m= {m} k= {k} n= {n} lsr= {l_s_r} lsc= {l_s_c} rsr= {r_s_r} rsc= {r_s_c}");
 
     match policy {
         MatmulPolicy::Naive => {
             for i in 0..m {
                 for j in 0..n {
                     for l in 0..k {
-                        result_data[i * n + j] +=
-                            lhs.data[i * l_s_c + l].clone() * rhs.data[l * r_s_c + j].clone();
+                        // result_data[i * n + j] +=
+                        //     lhs[[i as isize, l as isize]] * rhs[[l as isize, j as isize]];
+                        result_data[i * n + j] += lhs.data[i * l_s_r + l * l_s_c].clone()
+                            * rhs.data[l * r_s_r + j * r_s_c].clone();
                     }
                 }
             }
@@ -58,10 +66,10 @@ fn matmul_general<T: NumExt>(
 
                         for ii in i..i_end {
                             for ll in l..l_end {
-                                let a_v = &lhs.data[ii * l_s_c + ll];
+                                let a_v = &lhs.data[ii * l_s_r + ll * l_s_c];
                                 for jj in j..j_end {
                                     result_data[ii * n + jj] +=
-                                        a_v.clone() * rhs.data[ll * r_s_c + jj].clone();
+                                        a_v.clone() * rhs.data[ll * r_s_r + jj * r_s_c].clone();
                                 }
                             }
                         }
@@ -74,12 +82,13 @@ fn matmul_general<T: NumExt>(
                 for l in 0..k {
                     // In practice, using get_unchecked directly only reduces runtime by 1%
                     // let a_v = unsafe { self.data.get_unchecked(i * k + l) };
-                    let a_v = &lhs.data[i * l_s_c + l];
+                    let a_v = &lhs.data[i * l_s_r + l * l_s_c];
                     for j in 0..n {
                         // let data = unsafe { result_data.get_unchecked_mut(i * n + j) };
                         // *data += a_v.clone()
                         //     * unsafe { other.data.get_unchecked(l * n + j) }.clone();
-                        result_data[i * n + j] += a_v.clone() * rhs.data[l * r_s_c + j].clone();
+                        result_data[i * n + j] +=
+                            a_v.clone() * rhs.data[l * r_s_r + j * r_s_c].clone();
                     }
                 }
             }
@@ -94,6 +103,78 @@ mod tests {
     use approx::assert_relative_eq;
 
     use super::*;
+
+    #[test]
+    fn test_matmul_transpose_and_reshape() {
+        for policy in [
+            MatmulPolicy::Naive,
+            MatmulPolicy::LoopReorder,
+            MatmulPolicy::Blocking(2),
+            // MatmulPolicy::LoopRecorderSimd,
+            MatmulPolicy::Blas,
+            MatmulPolicy::Faer,
+        ] {
+            macro_rules! check_handler {
+                ($T:ty) => {
+                    println!(
+                        "begin check: type= {} policy= {policy:?}",
+                        std::any::type_name::<$T>()
+                    );
+                    let mut a =
+                        Array::<_, $T>::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [2, 3]);
+                    let mut b = Array::from_vec(vec![4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [3, 2]);
+                    let c = Array::from_vec(vec![4.0, 6.0, 8.0, 5.0, 7.0, 9.0], [2, 3]);
+
+                    println!("orig x orig");
+                    assert_eq!(
+                        a.matmul(&b, policy),
+                        Array::from_vec(vec![40.0, 46.0, 94.0, 109.0], [2, 2])
+                    );
+                    // println!("a.t= {:?}", a.clone().transpose());
+                    //
+
+                    a = a.transpose();
+                    b = b.transpose();
+
+                    println!("orig x trans");
+                    assert_eq!(
+                        c.matmul(&a, policy),
+                        Array::from_vec(vec![40.0, 94.0, 46.0, 109.0], [2, 2])
+                    );
+
+                    println!("trans x trans");
+                    assert_eq!(
+                        a.matmul(&b, policy),
+                        Array::from_vec(
+                            vec![24.0, 34.0, 44.0, 33.0, 47.0, 61.0, 42.0, 60.0, 78.0],
+                            [3, 3]
+                        )
+                    );
+
+                    println!("trans x orig");
+                    assert_eq!(
+                        a.matmul(&c, policy),
+                        Array::from_vec(
+                            vec![24.0, 34.0, 44.0, 33.0, 47.0, 61.0, 42.0, 60.0, 78.0],
+                            [3, 3]
+                        )
+                    );
+
+                    a = a.transpose();
+                    b = b.transpose();
+
+                    println!("orig x orig");
+                    assert_eq!(
+                        a.matmul(&b, policy),
+                        Array::from_vec(vec![40.0, 46.0, 94.0, 109.0], [2, 2])
+                    );
+                };
+            }
+
+            check_handler!(f64);
+            // check_handler!(f32);
+        }
+    }
 
     #[test]
     fn test_matmul_naive() {

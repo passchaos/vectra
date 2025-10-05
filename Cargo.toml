@@ -18,14 +18,15 @@ approx = "0.5.1"
 faer = { git = "https://github.com/passchaos/faer-rs"}
 itertools = "0.14.0"
 blas-src = { version = "*", optional = true }
-blas-sys = { version = "*", optional = true }
+cblas-sys = { version = "*", optional = true }
 
 [dev-dependencies]
 plotiron = { git = "https://github.com/passchaos/plotiron" }
+ndarray = "0.16.1"
 
 [features]
 default = ["blas"]
-blas = ["blas-sys", "blas-src/accelerate"]
+blas = ["cblas-sys", "blas-src/accelerate"]
 
 [profile.release]
 opt-level = 3

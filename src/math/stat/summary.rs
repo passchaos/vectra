@@ -1,3 +1,5 @@
+use num_traits::Float;
+
 use crate::{NumExt, core::Array};
 
 impl<const D: usize, T: NumExt> Array<D, T> {
@@ -37,6 +39,33 @@ impl<const D: usize, T: NumExt> Array<D, T> {
 
             U::from(sum).unwrap() / U::from(len).unwrap()
         })
+    }
+}
+
+impl<const D: usize, T: Float + NumExt> Array<D, T> {
+    pub fn var(&self, ddof: T) -> T {
+        let n = T::from(self.size()).unwrap();
+        let dof = n - ddof;
+
+        let mut mean = T::zero();
+        let mut sum_sq = T::zero();
+
+        let mut i = 0;
+        self.multi_iter().for_each(|(_idx, value)| {
+            let count = T::from(i + 1).unwrap();
+
+            let value = value.clone();
+            let delta = value - mean;
+            mean += delta / count;
+            sum_sq += (value - mean) * delta;
+            i += 1;
+        });
+
+        sum_sq / dof
+    }
+
+    pub fn std(&self, ddof: T) -> T {
+        self.var(ddof).sqrt()
     }
 }
 
@@ -82,4 +111,23 @@ mod tests {
         assert_eq!(arr.sum(), 10.0);
         assert_eq!(arr.mean::<f64>(), 2.5);
     }
+
+    #[test]
+    fn test_variance() {
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+        let var = arr.var(0.0);
+        assert_eq!(var, 1.25);
+    }
+
+    // #[test]
+    // fn test_variance_axis() {
+    //     let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+    //     let var_axis_0 = arr.variance_axis(0);
+    //     assert_eq!(var_axis_0, Array::from_vec(vec![0.25, 0.25], [1, 2]));
+    //     let var_axis_1 = arr.variance_axis(1);
+    //     assert_eq!(var_axis_1, Array::from_vec(vec![0.25, 0.25], [2, 1]));
+
+    //     let var_axis_2 = arr.variance_axis(-1);
+    //     assert_eq!(var_axis_1, var_axis_2);
+    // }
 }
