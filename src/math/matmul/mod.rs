@@ -172,7 +172,7 @@ mod tests {
             }
 
             check_handler!(f64);
-            // check_handler!(f32);
+            check_handler!(f32);
         }
     }
 

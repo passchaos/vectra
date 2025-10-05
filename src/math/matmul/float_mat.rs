@@ -62,56 +62,48 @@ impl Matmul for Array<2, f32> {
                         }
                     }
                     MatmulPolicy::Blas => {
-                        let (m, n, a, b) = match self.major_order {
-                            MajorOrder::RowMajor => {
-                                let m = n as i32;
-                                let n = m as i32;
+                        let m = n as i32;
+                        let k = k as i32;
+                        let n = m as i32;
 
-                                let a = rhs.data.as_ptr();
-                                let b = self.data.as_ptr();
-
-                                (m, n, a, b)
-                            }
-                            MajorOrder::ColumnMajor => {
-                                let m = m as i32;
-                                let n = n as i32;
-
-                                let a = self.data.as_ptr();
-                                let b = rhs.data.as_ptr();
-
-                                (m, n, a, b)
+                        let (transa, transb, lda, ldb) = match (self.major_order, rhs.major_order) {
+                            (MajorOrder::RowMajor, MajorOrder::RowMajor) => (b'N', b'N', n, k),
+                            (MajorOrder::RowMajor, MajorOrder::ColumnMajor) => (b'T', b'N', k, k),
+                            (MajorOrder::ColumnMajor, MajorOrder::RowMajor) => (b'N', b'T', n, m),
+                            (MajorOrder::ColumnMajor, MajorOrder::ColumnMajor) => {
+                                (b'T', b'T', k, m)
                             }
                         };
 
-                        let k = k as i32;
+                        let a = rhs.data.as_ptr();
+                        let b = self.data.as_ptr();
                         let c = result_data.as_mut_ptr();
 
                         let alpha = 1.0;
                         let beta = 0.0;
 
                         unsafe {
-                            cblas_sys::cblas_sgemm(
-                                cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
-                                cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
-                                cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
-                                m,
-                                n,
-                                k,
-                                alpha,
+                            blas_sys::sgemm_(
+                                &(transa as std::ffi::c_char),
+                                &(transb as std::ffi::c_char),
+                                &m,
+                                &n,
+                                &k,
+                                &alpha,
                                 a.cast(),
-                                m,
+                                &lda,
                                 b.cast(),
-                                k,
-                                beta,
+                                &ldb,
+                                &beta,
                                 c.cast(),
-                                n,
+                                &n,
                             );
                         }
                     }
                     _ => return super::matmul_general(self, rhs, policy),
                 }
 
-                Array::from_vec_major(result_data, result_shape, self.major_order)
+                Array::from_vec_major(result_data, result_shape, MajorOrder::RowMajor)
             }
         }
     }
@@ -175,57 +167,39 @@ impl Matmul for Array<2, f64> {
                         }
                     }
                     MatmulPolicy::Blas => {
-                        let (row_major, transa, transb, m, k, n, a, lda, b, ldb) =
-                            match (self.major_order, rhs.major_order) {
-                                (MajorOrder::RowMajor, MajorOrder::RowMajor) => (
-                                    cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
-                                    cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
-                                    cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
-                                    m as i32,
-                                    k as i32,
-                                    n as i32,
-                                    self.data.as_ptr(),
-                                    k as i32,
-                                    rhs.data.as_ptr(),
-                                    n as i32,
-                                ),
-                                (MajorOrder::RowMajor, MajorOrder::ColumnMajor) => (
-                                    cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
-                                    cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
-                                    cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
-                                    m as i32,
-                                    k as i32,
-                                    n as i32,
-                                    self.data.as_ptr(),
-                                    k as i32,
-                                    rhs.data.as_ptr(),
-                                    k as i32,
-                                ),
-                                (MajorOrder::ColumnMajor, MajorOrder::RowMajor) => (
-                                    cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
-                                    cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
-                                    cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
-                                    m as i32,
-                                    k as i32,
-                                    n as i32,
-                                    self.data.as_ptr(),
-                                    m as i32,
-                                    rhs.data.as_ptr(),
-                                    n as i32,
-                                ),
-                                (MajorOrder::ColumnMajor, MajorOrder::ColumnMajor) => (
-                                    cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
-                                    cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
-                                    cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
-                                    m as i32,
-                                    k as i32,
-                                    n as i32,
-                                    self.data.as_ptr(),
-                                    m as i32,
-                                    rhs.data.as_ptr(),
-                                    k as i32,
-                                ),
-                            };
+                        let m = m as i32;
+                        let n = n as i32;
+                        let k = k as i32;
+
+                        let a = self.data.as_ptr();
+                        let b = rhs.data.as_ptr();
+
+                        let (transa, transb, lda, ldb) = match (self.major_order, rhs.major_order) {
+                            (MajorOrder::RowMajor, MajorOrder::RowMajor) => (
+                                cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
+                                cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
+                                k as i32,
+                                n as i32,
+                            ),
+                            (MajorOrder::RowMajor, MajorOrder::ColumnMajor) => (
+                                cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
+                                cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
+                                k as i32,
+                                k as i32,
+                            ),
+                            (MajorOrder::ColumnMajor, MajorOrder::RowMajor) => (
+                                cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
+                                cblas_sys::CBLAS_TRANSPOSE::CblasNoTrans,
+                                m as i32,
+                                n as i32,
+                            ),
+                            (MajorOrder::ColumnMajor, MajorOrder::ColumnMajor) => (
+                                cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
+                                cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
+                                m as i32,
+                                k as i32,
+                            ),
+                        };
 
                         let c = result_data.as_mut_ptr();
 
@@ -234,7 +208,7 @@ impl Matmul for Array<2, f64> {
 
                         unsafe {
                             cblas_sys::cblas_dgemm(
-                                row_major,
+                                cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
                                 transa,
                                 transb,
                                 m,
