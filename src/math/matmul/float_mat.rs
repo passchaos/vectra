@@ -62,9 +62,9 @@ impl Matmul for Array<2, f32> {
                         }
                     }
                     MatmulPolicy::Blas => {
-                        let m = n as i32;
+                        let m = m as i32;
                         let k = k as i32;
-                        let n = m as i32;
+                        let n = n as i32;
 
                         let (transa, transb, lda, ldb) = match (self.major_order, rhs.major_order) {
                             (MajorOrder::RowMajor, MajorOrder::RowMajor) => (b'N', b'N', n, k),
@@ -75,8 +75,6 @@ impl Matmul for Array<2, f32> {
                             }
                         };
 
-                        let a = rhs.data.as_ptr();
-                        let b = self.data.as_ptr();
                         let c = result_data.as_mut_ptr();
 
                         let alpha = 1.0;
@@ -86,13 +84,13 @@ impl Matmul for Array<2, f32> {
                             blas_sys::sgemm_(
                                 &(transa as std::ffi::c_char),
                                 &(transb as std::ffi::c_char),
-                                &m,
                                 &n,
+                                &m,
                                 &k,
                                 &alpha,
-                                a.cast(),
+                                rhs.data().as_ptr().cast(),
                                 &lda,
-                                b.cast(),
+                                self.data.as_ptr().cast(),
                                 &ldb,
                                 &beta,
                                 c.cast(),

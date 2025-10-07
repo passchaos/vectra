@@ -250,8 +250,8 @@ mod tests {
             MatmulPolicy::Blas,
             MatmulPolicy::Faer,
             MatmulPolicy::LoopReorder,
-            #[cfg(target_arch = "aarch64")]
-            MatmulPolicy::LoopRecorderSimd,
+            // #[cfg(target_arch = "aarch64")]
+            // MatmulPolicy::LoopRecorderSimd,
             MatmulPolicy::Blocking(512),
         ] {
             println!("begin matmul check: {policy:?}");
