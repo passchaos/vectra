@@ -28,7 +28,7 @@ impl<const D: usize, T: Neg<Output = T> + Clone> Neg for Array<D, T> {
     type Output = Array<D, T>;
 
     fn neg(self) -> Self::Output {
-        self.into_map(|x| -x)
+        self.map_into(|x| -x)
     }
 }
 
@@ -36,7 +36,7 @@ impl<const D: usize, T: Not<Output = T> + Clone> Not for Array<D, T> {
     type Output = Array<D, T>;
 
     fn not(self) -> Self::Output {
-        self.into_map(|x| !x)
+        self.map_into(|x| !x)
     }
 }
 

@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn test_into_map() {
         let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
-        let result: Array<_, String> = arr.into_map(|x| format!("value_{}", x));
+        let result: Array<_, String> = arr.map_into(|x| format!("value_{}", x));
         assert_eq!(result[[0, 0]], "value_1");
         assert_eq!(result[[1, 1]], "value_4");
         assert_eq!(result.shape(), [2, 2]);
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn test_into_map_type_conversion() {
         let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
-        let result: Array<_, f64> = arr.into_map(|x| x as f64 * 2.5);
+        let result: Array<_, f64> = arr.map_into(|x| x as f64 * 2.5);
         assert_eq!(result[[0, 0]], 2.5);
         assert_eq!(result[[1, 1]], 10.0);
         assert_eq!(result.shape(), [2, 2]);

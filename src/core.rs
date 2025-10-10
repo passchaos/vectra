@@ -1,6 +1,6 @@
 use std::any::type_name;
 use std::fmt::{self, Debug, Display};
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Range};
 
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
@@ -452,7 +452,35 @@ impl<const D: usize, T> Array<D, T> {
         self
     }
 
-    pub fn scatter_inplace(&mut self, axis: isize, indices: &Array<D, isize>, values: &Array<D, T>)
+    pub fn gather(&self, axis: isize, indices: &Array<D, isize>) -> Self
+    where
+        T: Clone + Default,
+    {
+        let axis = negative_idx_to_positive(axis, D);
+
+        let target_shape = indices.shape();
+        let mut result_data = vec![T::default(); target_shape.iter().product()];
+
+        for (idx, i_v) in indices.multi_iter() {
+            let mut target_idx = idx;
+            target_idx[axis] = *i_v as usize;
+
+            let target_value = self[target_idx.map(|i| i as isize)].clone();
+            let flat_idx = indices.positive_index_to_flat(idx);
+            result_data[flat_idx] = target_value;
+        }
+
+        let major_order = MajorOrder::RowMajor;
+        let strides = compute_strides(target_shape, major_order);
+        Self {
+            data: result_data,
+            shape: target_shape,
+            strides,
+            major_order,
+        }
+    }
+
+    pub fn scatter(&mut self, axis: isize, indices: &Array<D, isize>, values: &Array<D, T>)
     where
         T: Clone,
     {
@@ -466,6 +494,16 @@ impl<const D: usize, T> Array<D, T> {
 
             *self.index_mut(target_idx.map(|i| i as isize)) = b_v.clone();
         }
+    }
+
+    pub fn slice_assign(&mut self, slices: [Range<isize>; D], values: Self) {
+        assert_eq!(self.shape(), values.shape());
+
+        // self.multi_iter_mut(|idx, val| {
+        //     let idx = idx.map(|i| i as isize);
+
+        //     *val = values[idx].clone();
+        // });
     }
 
     pub fn mask_where(&mut self, mark: &Array<D, bool>, values: &Array<D, T>)
@@ -612,7 +650,7 @@ impl<const D: usize, T> Array<D, T> {
     }
 
     /// Apply function to each element, consuming self and returning a new Array with different type
-    pub fn into_map<F, U>(self, f: F) -> Array<D, U>
+    pub fn map_into<F, U>(self, f: F) -> Array<D, U>
     where
         F: Fn(T) -> U,
     {
@@ -1014,17 +1052,23 @@ mod tests {
 
     #[test]
     fn test_scatter_inplace() {
+        let a = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+        let indices = Array::from_vec(vec![0, 0, 1, 0], [2, 2]);
+
+        let res = a.gather(1, &indices);
+        assert_eq!(res, Array::from_vec(vec![1, 1, 4, 3], [2, 2]));
+
         let mut target = Array::<_, usize>::zeros([2, 3]);
         let indices = Array::from_vec(vec![0, -1, 1, 0], [2, 2]);
         let values = Array::from_vec(vec![10, 20, 30, 40], [2, 2]);
-        target.scatter_inplace(-1, &indices, &values);
+        target.scatter(-1, &indices, &values);
 
         assert_eq!(target, Array::from_vec(vec![10, 0, 20, 40, 30, 0], [2, 3]));
 
         let mut target = Array::<_, usize>::zeros([2, 3]);
         let indices = Array::from_vec(vec![0, -1, 1, 0], [2, 2]);
         let values = Array::from_vec(vec![10, 20, 30, 40], [2, 2]);
-        target.scatter_inplace(0, &indices, &values);
+        target.scatter(0, &indices, &values);
 
         assert_eq!(target, Array::from_vec(vec![10, 40, 0, 30, 20, 0], [2, 3]));
     }
