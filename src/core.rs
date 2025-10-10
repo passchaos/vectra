@@ -392,7 +392,7 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
-    pub fn cat(arrs: Vec<&Self>, axis: isize) -> Self
+    pub fn cat(arrs: &[Self], axis: isize) -> Self
     where
         T: Clone + Default,
     {
@@ -403,7 +403,7 @@ impl<const D: usize, T> Array<D, T> {
         let axis = negative_idx_to_positive(axis, shape.len());
         let axis_orig_size = shape[axis];
 
-        for arr in &arrs {
+        for arr in arrs {
             assert_eq!(arr.shape(), arrs[0].shape());
             assert_eq!(arr.major_order, major_order);
         }
@@ -436,6 +436,15 @@ impl<const D: usize, T> Array<D, T> {
             strides,
             major_order,
         }
+    }
+
+    pub fn stack(arrs: Vec<Array<D, T>>, axis: isize) -> Array<{ D + 1 }, T>
+    where
+        T: Clone + Default,
+    {
+        let arrs: Vec<_> = arrs.into_iter().map(|a| a.unsqueeze(axis)).collect();
+
+        Array::cat(&arrs, axis)
     }
 
     /// Convert multi-dimensional index to flat index
@@ -1101,11 +1110,25 @@ mod tests {
         let a = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
         let b = Array::from_vec(vec![5, 6, 7, 8], [2, 2]);
 
-        let res = Array::cat(vec![&a, &b], 0);
+        let arrs = vec![a, b];
+
+        let res = Array::cat(&arrs, 0);
         assert_eq!(res, Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8], [4, 2]));
 
-        let res = Array::cat(vec![&a, &b], 1);
+        let res = Array::cat(&arrs, 1);
         assert_eq!(res, Array::from_vec(vec![1, 2, 5, 6, 3, 4, 7, 8], [2, 4]));
+
+        let res = Array::stack(arrs.clone(), 0);
+        assert_eq!(
+            res,
+            Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8], [2, 2, 2])
+        );
+
+        let res = Array::stack(arrs, -1);
+        assert_eq!(
+            res,
+            Array::from_vec(vec![1, 5, 2, 6, 3, 7, 4, 8], [2, 2, 2])
+        );
     }
 
     #[test]
