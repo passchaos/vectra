@@ -9,8 +9,8 @@ use num_traits::{Float, NumCast};
 
 use crate::NumExt;
 use crate::utils::{
-    compute_strides, dyn_dim_to_static, indices_to_flat_idx, negative_idx_to_positive,
-    negative_indices_to_positive, shape_indices_to_flat_idx,
+    compute_strides, dyn_dim_to_static, flat_idx_to_indices, indices_to_flat_idx,
+    negative_idx_to_positive, negative_indices_to_positive, shape_indices_to_flat_idx,
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -389,6 +389,52 @@ impl<const D: usize, T> Array<D, T> {
             shape,
             strides,
             major_order: self.major_order,
+        }
+    }
+
+    pub fn cat(arrs: Vec<&Self>, axis: isize) -> Self
+    where
+        T: Clone + Default,
+    {
+        assert!(arrs.len() > 0);
+
+        let mut shape = arrs[0].shape();
+        let major_order = arrs[0].major_order;
+        let axis = negative_idx_to_positive(axis, shape.len());
+        let axis_orig_size = shape[axis];
+
+        for arr in &arrs {
+            assert_eq!(arr.shape(), arrs[0].shape());
+            assert_eq!(arr.major_order, major_order);
+        }
+
+        shape[axis as usize] = arrs
+            .iter()
+            .map(|arr| arr.shape()[axis as usize])
+            .sum::<usize>();
+
+        let strides = compute_strides(shape, major_order);
+        let mut data = vec![T::default(); shape.iter().product()];
+
+        for idx in 0..data.len() {
+            let mut indices = flat_idx_to_indices(shape, idx, major_order);
+
+            let axis_idx = indices[axis as usize];
+            let arr_outer_idx = axis_idx / axis_orig_size;
+            let arr_inner_idx = axis_idx % axis_orig_size;
+
+            indices[axis] = arr_inner_idx;
+
+            let v = arrs[arr_outer_idx][indices.map(|i| i as isize)].clone();
+
+            data[idx] = v;
+        }
+
+        Self {
+            data,
+            shape,
+            strides,
+            major_order,
         }
     }
 
@@ -1051,7 +1097,19 @@ mod tests {
     }
 
     #[test]
-    fn test_scatter_inplace() {
+    fn test_cat_stack() {
+        let a = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+        let b = Array::from_vec(vec![5, 6, 7, 8], [2, 2]);
+
+        let res = Array::cat(vec![&a, &b], 0);
+        assert_eq!(res, Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8], [4, 2]));
+
+        let res = Array::cat(vec![&a, &b], 1);
+        assert_eq!(res, Array::from_vec(vec![1, 2, 5, 6, 3, 4, 7, 8], [2, 4]));
+    }
+
+    #[test]
+    fn test_gather_scatter() {
         let a = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
         let indices = Array::from_vec(vec![0, 0, 1, 0], [2, 2]);
 
