@@ -392,7 +392,7 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
-    pub fn cat(arrs: &[Self], axis: isize) -> Self
+    pub fn cat(arrs: &[&Self], axis: isize) -> Self
     where
         T: Clone + Default,
     {
@@ -444,6 +444,7 @@ impl<const D: usize, T> Array<D, T> {
     {
         let arrs: Vec<_> = arrs.into_iter().map(|a| a.unsqueeze(axis)).collect();
 
+        let arrs: Vec<_> = arrs.iter().collect();
         Array::cat(&arrs, axis)
     }
 
@@ -1184,7 +1185,7 @@ mod tests {
                         arr_v_r = arr_v_r.transpose();
                     }
 
-                    let arr_v = arr_v_l.matmul(&arr_v_r, policy);
+                    let arr_v = arr_v_l.matmul_with_policy(&arr_v_r, policy);
 
                     let mut arr_n_l = ndarray::Array2::from_shape_vec(shape, l.clone()).unwrap();
                     let mut arr_n_r =
@@ -1231,13 +1232,15 @@ mod tests {
         let a = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
         let b = Array::from_vec(vec![5, 6, 7, 8], [2, 2]);
 
-        let arrs = vec![a, b];
+        let arrs = vec![&a, &b];
 
         let res = Array::cat(&arrs, 0);
         assert_eq!(res, Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8], [4, 2]));
 
         let res = Array::cat(&arrs, 1);
         assert_eq!(res, Array::from_vec(vec![1, 2, 5, 6, 3, 4, 7, 8], [2, 4]));
+
+        let arrs = vec![a, b];
 
         let res = Array::stack(arrs.clone(), 0);
         assert_eq!(

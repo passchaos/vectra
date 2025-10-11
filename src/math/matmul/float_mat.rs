@@ -9,7 +9,7 @@ use std::arch::aarch64::{
 };
 
 impl Matmul for Array<2, f32> {
-    fn matmul(&self, rhs: &Self, policy: MatmulPolicy) -> Self {
+    fn matmul_with_policy(&self, rhs: &Self, policy: MatmulPolicy) -> Self {
         assert_eq!(self.shape()[1], rhs.shape()[0]);
 
         match policy {
@@ -108,7 +108,7 @@ impl Matmul for Array<2, f32> {
 }
 
 impl Matmul for Array<2, f64> {
-    fn matmul(&self, rhs: &Self, policy: MatmulPolicy) -> Self {
+    fn matmul_with_policy(&self, rhs: &Self, policy: MatmulPolicy) -> Self {
         assert_eq!(self.shape()[1], rhs.shape()[0]);
 
         match policy {

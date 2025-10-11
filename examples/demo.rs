@@ -43,7 +43,7 @@ fn main() {
     let product = &a * &b;
     println!("\nA * B (element-wise multiplication):\n{}", product);
 
-    let dot_product = a.matmul(&b, MatmulPolicy::default());
+    let dot_product = a.matmul_with_policy(&b, MatmulPolicy::default());
     println!("\nA · B (matrix multiplication):\n{}", dot_product);
 
     // 5. Scalar operations

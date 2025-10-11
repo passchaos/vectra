@@ -2,14 +2,18 @@ use crate::{NumExt, core::Array, math::MatmulPolicy};
 mod float_mat;
 
 pub trait Matmul: Sized {
-    fn matmul(&self, rhs: &Self, policy: MatmulPolicy) -> Self;
+    fn matmul(&self, rhs: &Self) -> Self {
+        self.matmul_with_policy(rhs, MatmulPolicy::Blas)
+    }
+
+    fn matmul_with_policy(&self, rhs: &Self, policy: MatmulPolicy) -> Self;
 }
 
 macro_rules! impl_matmul_for_type {
     ($($ty:ty),*) => {
         $(
         impl Matmul for Array<2, $ty> {
-            fn matmul(&self, rhs: &Self, policy: MatmulPolicy) -> Self {
+            fn matmul_with_policy(&self, rhs: &Self, policy: MatmulPolicy) -> Self {
                 matmul_general(self, rhs, policy)
             }
         }
@@ -127,7 +131,7 @@ mod tests {
 
                     println!("orig x orig");
                     assert_eq!(
-                        a.matmul(&b, policy),
+                        a.matmul_with_policy(&b, policy),
                         Array::from_vec(vec![40.0, 46.0, 94.0, 109.0], [2, 2])
                     );
                     // println!("a.t= {:?}", a.clone().transpose());
@@ -138,13 +142,13 @@ mod tests {
 
                     println!("orig x trans");
                     assert_eq!(
-                        c.matmul(&a, policy),
+                        c.matmul_with_policy(&a, policy),
                         Array::from_vec(vec![40.0, 94.0, 46.0, 109.0], [2, 2])
                     );
 
                     println!("trans x trans");
                     assert_eq!(
-                        a.matmul(&b, policy),
+                        a.matmul_with_policy(&b, policy),
                         Array::from_vec(
                             vec![24.0, 34.0, 44.0, 33.0, 47.0, 61.0, 42.0, 60.0, 78.0],
                             [3, 3]
@@ -153,7 +157,7 @@ mod tests {
 
                     println!("trans x orig");
                     assert_eq!(
-                        a.matmul(&c, policy),
+                        a.matmul_with_policy(&c, policy),
                         Array::from_vec(
                             vec![24.0, 34.0, 44.0, 33.0, 47.0, 61.0, 42.0, 60.0, 78.0],
                             [3, 3]
@@ -165,7 +169,7 @@ mod tests {
 
                     println!("orig x orig");
                     assert_eq!(
-                        a.matmul(&b, policy),
+                        a.matmul_with_policy(&b, policy),
                         Array::from_vec(vec![40.0, 46.0, 94.0, 109.0], [2, 2])
                     );
                 };
@@ -191,14 +195,14 @@ mod tests {
             let b = Array::from_vec(vec![4.0, 5.0, 6.0, 7.0], [2, 2]);
             println!("begin matmul f64: {policy:?}");
             let expected = Array::from_vec(vec![16.0, 19.0, 36.0, 43.0], [2, 2]);
-            let result = a.matmul(&b, policy);
+            let result = a.matmul_with_policy(&b, policy);
             assert_relative_eq!(result, expected);
 
             let a = Array::from_vec(vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0], [2, 3]);
             let b = Array::from_vec(vec![4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [3, 2]);
             println!("begin matmul f32: {policy:?}");
             let expected = Array::from_vec(vec![40.0, 46.0, 94.0, 109.0], [2, 2]);
-            let result = a.matmul(&b, policy);
+            let result = a.matmul_with_policy(&b, policy);
             assert_relative_eq!(result, expected);
         }
     }
@@ -229,7 +233,7 @@ mod tests {
 
         let results_64: Vec<_> = inputs_64
             .iter()
-            .map(|(l, r)| l.matmul(r, MatmulPolicy::Naive))
+            .map(|(l, r)| l.matmul_with_policy(r, MatmulPolicy::Naive))
             .collect();
 
         let inputs_32: Vec<_> = shapes
@@ -243,7 +247,7 @@ mod tests {
             .collect();
         let results_32: Vec<_> = inputs_32
             .iter()
-            .map(|(l, r)| l.matmul(r, MatmulPolicy::Naive))
+            .map(|(l, r)| l.matmul_with_policy(r, MatmulPolicy::Naive))
             .collect();
 
         for policy in [
@@ -256,12 +260,12 @@ mod tests {
         ] {
             println!("begin matmul check: {policy:?}");
             for ((l, r), res) in inputs_64.iter().zip(results_64.iter()) {
-                let new_res = l.matmul(r, policy);
+                let new_res = l.matmul_with_policy(r, policy);
                 assert_relative_eq!(*res, new_res);
             }
 
             for ((l, r), res) in inputs_32.iter().zip(results_32.iter()) {
-                let new_res = l.matmul(r, policy);
+                let new_res = l.matmul_with_policy(r, policy);
                 assert_relative_eq!(*res, new_res);
             }
         }

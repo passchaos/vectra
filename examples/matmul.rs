@@ -27,10 +27,10 @@ fn main() {
             let b = Array::<_, f32>::random([i, i]);
 
             // warmup
-            let _c = a.matmul(&b, policy);
+            let _c = a.matmul_with_policy(&b, policy);
 
             let begin = Instant::now();
-            let _c = a.matmul(&b, policy);
+            let _c = a.matmul_with_policy(&b, policy);
 
             sizes.push(i as f64);
 
