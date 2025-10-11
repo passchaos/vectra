@@ -447,6 +447,42 @@ impl<const D: usize, T> Array<D, T> {
         Array::cat(&arrs, axis)
     }
 
+    pub fn pad(&self, padding: (usize, usize, usize, usize), value: T) -> Self
+    where
+        T: Clone,
+    {
+        let (top, bottom, left, right) = padding;
+
+        let mut padded_shape = self.shape();
+        padded_shape[D - 2] += top + bottom;
+        padded_shape[D - 1] += left + right;
+
+        let ranges = padded_shape
+            .iter()
+            .enumerate()
+            .map(|(i, &dim)| {
+                if i == D - 2 {
+                    top..=(dim - bottom - 1)
+                } else if i == D - 1 {
+                    left..=(dim - right - 1)
+                } else {
+                    0..=(dim - 1)
+                }
+            })
+            .map(|a| {
+                let (s, e) = a.into_inner();
+                s as isize..=e as isize
+            })
+            .collect::<Vec<_>>();
+
+        let slices = ranges.try_into().unwrap();
+
+        let mut padded_tensor = Self::full(padded_shape, value);
+
+        padded_tensor.slice_assign(slices, self);
+        padded_tensor
+    }
+
     /// Convert multi-dimensional index to flat index
     pub fn index_to_flat(&self, indices: [isize; D]) -> usize {
         let indices = negative_indices_to_positive(indices, self.shape);
@@ -551,7 +587,7 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
-    pub fn slice_assign(&mut self, slices: [RangeInclusive<isize>; D], values: Self)
+    pub fn slice_assign(&mut self, slices: [RangeInclusive<isize>; D], values: &Self)
     where
         T: Clone,
     {
@@ -603,6 +639,46 @@ impl<const D: usize, T> Array<D, T> {
             let value_idx = dyn_dim_to_static::<D>(&value_idx).map(|i| i as isize);
 
             self[self_idx] = values[value_idx].clone();
+        }
+    }
+
+    pub fn slice_fill(&mut self, slices: [RangeInclusive<isize>; D], value: T)
+    where
+        T: Clone,
+    {
+        let self_shape = self.shape();
+
+        let slices = self_shape.iter().zip(slices.iter()).map(|(a, b)| {
+            let a_i = *a as isize;
+
+            let (&start, &end) = (b.start(), b.end());
+
+            assert!(start >= -a_i && start < a_i);
+            assert!(end >= -a_i && end < a_i);
+
+            let start = if start < 0 {
+                (a_i + start) as usize
+            } else {
+                start as usize
+            };
+
+            let end = if end < 0 {
+                (a_i + end) as usize
+            } else {
+                end as usize
+            };
+
+            assert!(end >= start);
+
+            start..=end
+        });
+
+        let slices_index = slices.multi_cartesian_product();
+
+        for idx in slices_index {
+            let self_idx = dyn_dim_to_static::<D>(&idx).map(|i| i as isize);
+
+            self[self_idx] = value.clone();
         }
     }
 
@@ -1177,6 +1253,17 @@ mod tests {
     }
 
     #[test]
+    fn test_pad() {
+        let a = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+
+        let res = a.pad((0, 1, 1, 0), 10);
+        assert_eq!(
+            res,
+            Array::from_vec(vec![10, 1, 2, 10, 3, 4, 10, 10, 10], [3, 3])
+        );
+    }
+
+    #[test]
     fn test_gather_scatter() {
         let a = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
         let indices = Array::from_vec(vec![0, 0, 1, 0], [2, 2]);
@@ -1238,11 +1325,14 @@ mod tests {
     fn test_slice_assign() {
         let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
 
-        arr.slice_assign([1..=1, 0..=-1], Array::from_vec(vec![9.0, 10.0], [1, 2]));
+        arr.slice_assign([1..=1, 0..=-1], &Array::from_vec(vec![9.0, 10.0], [1, 2]));
 
         assert_eq!(arr, Array::from_vec(vec![1.0, 2.0, 9.0, 10.0], [2, 2]));
 
-        arr.slice_assign([0..=-1, 0..=-1], Array::full([2, 2], 12.0));
+        arr.slice_assign([0..=-1, 0..=-1], &Array::full([2, 2], 12.0));
         assert_eq!(arr, Array::full([2, 2], 12.0));
+
+        arr.slice_fill([0..=-1, 0..=-1], 13.0);
+        assert_eq!(arr, Array::full([2, 2], 13.0));
     }
 }
