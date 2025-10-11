@@ -1,6 +1,6 @@
 use std::any::type_name;
 use std::fmt::{self, Debug, Display};
-use std::ops::{Index, IndexMut, Range};
+use std::ops::{Index, IndexMut, RangeInclusive};
 
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
@@ -551,14 +551,59 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
-    pub fn slice_assign(&mut self, slices: [Range<isize>; D], values: Self) {
-        assert_eq!(self.shape(), values.shape());
+    pub fn slice_assign(&mut self, slices: [RangeInclusive<isize>; D], values: Self)
+    where
+        T: Clone,
+    {
+        let self_shape = self.shape();
+        let value_shape = values.shape();
 
-        // self.multi_iter_mut(|idx, val| {
-        //     let idx = idx.map(|i| i as isize);
+        let slices = self_shape
+            .iter()
+            .zip(slices.iter())
+            .zip(value_shape.iter())
+            .map(|((a, b), c)| {
+                let a_i = *a as isize;
 
-        //     *val = values[idx].clone();
-        // });
+                let (&start, &end) = (b.start(), b.end());
+
+                assert!(start >= -a_i && start < a_i);
+                assert!(end >= -a_i && end < a_i);
+
+                let start = if start < 0 {
+                    (a_i + start) as usize
+                } else {
+                    start as usize
+                };
+
+                let end = if end < 0 {
+                    (a_i + end) as usize
+                } else {
+                    end as usize
+                };
+
+                assert!(end >= start);
+                assert!(end - start + 1 == *c as usize);
+
+                start..=end
+            });
+
+        let slices_begin = slices.clone().map(|r| *r.start());
+
+        let slices_index = slices.multi_cartesian_product();
+
+        for idx in slices_index {
+            let value_idx: Vec<_> = idx
+                .iter()
+                .zip(slices_begin.clone())
+                .map(|(a, b)| a - b)
+                .collect();
+
+            let self_idx = dyn_dim_to_static::<D>(&idx).map(|i| i as isize);
+            let value_idx = dyn_dim_to_static::<D>(&value_idx).map(|i| i as isize);
+
+            self[self_idx] = values[value_idx].clone();
+        }
     }
 
     pub fn mask_where(&mut self, mark: &Array<D, bool>, values: &Array<D, T>)
@@ -1187,5 +1232,17 @@ mod tests {
 
         let c = Array::arange_c(1, 1, 1000).reshape([20, 50]);
         println!("c= {c:?}");
+    }
+
+    #[test]
+    fn test_slice_assign() {
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+
+        arr.slice_assign([1..=1, 0..=-1], Array::from_vec(vec![9.0, 10.0], [1, 2]));
+
+        assert_eq!(arr, Array::from_vec(vec![1.0, 2.0, 9.0, 10.0], [2, 2]));
+
+        arr.slice_assign([0..=-1, 0..=-1], Array::full([2, 2], 12.0));
+        assert_eq!(arr, Array::full([2, 2], 12.0));
     }
 }
