@@ -1,5 +1,5 @@
 use std::any::type_name;
-use std::fmt::{self, Debug, Display};
+use std::fmt::{self, Debug};
 use std::ops::{Index, IndexMut, RangeInclusive};
 
 use approx::{AbsDiffEq, RelativeEq};
@@ -187,7 +187,7 @@ where
             .zip(other.multi_iter())
             .map(|((a_i, a_v), (b_i, b_v))| {
                 if !a_v.relative_eq(b_v, epsilon, max_relative) {
-                    println!("meet neq: a_i= {a_i:?} a_v= {a_v} b_i= {b_i:?} b_v= {b_v} \nepsilon= \t{epsilon} \nmax_relative= \t{max_relative} \ndif= \t\t{}", *a_v - *b_v);
+                    println!("meet neq: a_i= {a_i:?} a_v= {a_v:?} b_i= {b_i:?} b_v= {b_v:?} \nepsilon= \t{epsilon:?} \nmax_relative= \t{max_relative:?} \ndif= \t\t{:?}", *a_v - *b_v);
                 }
                 ((a_i, a_v), (b_i, b_v))
             })
@@ -903,13 +903,13 @@ impl<T> From<Vec<T>> for Array<1, T> {
     }
 }
 
-impl<const D: usize, T: Display> fmt::Display for Array<D, T> {
+impl<const D: usize, T: Debug> fmt::Display for Array<D, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_recursive(f, 0, &[])
     }
 }
 
-impl<const D: usize, T: Display> fmt::Debug for Array<D, T> {
+impl<const D: usize, T: Debug> fmt::Debug for Array<D, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -927,7 +927,7 @@ fn pad_show_count<T>() -> usize {
     }
 }
 
-impl<const D: usize, T: Display> Array<D, T> {
+impl<const D: usize, T: Debug> Array<D, T> {
     /// Unified recursive formatting method for all dimensions
     fn fmt_recursive(
         &self,
@@ -940,7 +940,7 @@ impl<const D: usize, T: Display> Array<D, T> {
         if depth == ndim {
             // Base case: we've reached a scalar element
             let flat_idx = self.indices_to_flat(indices).unwrap_or(0);
-            write!(f, "{}", self.data[flat_idx])
+            write!(f, "{:?}", self.data[flat_idx])
         } else if depth == ndim - 1 {
             // Last dimension: format as 1D array
             self.fmt_1d_slice(f, indices)
@@ -993,7 +993,7 @@ impl<const D: usize, T: Display> Array<D, T> {
                 let mut indices = base_indices.to_vec();
                 indices.push(i);
                 let flat_idx = self.indices_to_flat(&indices).unwrap_or(0);
-                write!(f, "{}", self.data[flat_idx])?;
+                write!(f, "{:?}", self.data[flat_idx])?;
             }
         } else {
             // Show first 3 and last 3 items with ellipsis
@@ -1004,14 +1004,14 @@ impl<const D: usize, T: Display> Array<D, T> {
                 let mut indices = base_indices.to_vec();
                 indices.push(i);
                 let flat_idx = self.indices_to_flat(&indices).unwrap_or(0);
-                write!(f, "{}", self.data[flat_idx])?;
+                write!(f, "{:?}", self.data[flat_idx])?;
             }
             write!(f, " ... ")?;
             for i in (current_dim_size - pad_show_count)..current_dim_size {
                 let mut indices = base_indices.to_vec();
                 indices.push(i);
                 let flat_idx = self.indices_to_flat(&indices).unwrap_or(0);
-                write!(f, "{}", self.data[flat_idx])?;
+                write!(f, "{:?}", self.data[flat_idx])?;
                 if i < current_dim_size - 1 {
                     write!(f, " ")?;
                 }

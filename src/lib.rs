@@ -9,7 +9,7 @@
 #![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 
-use std::{cmp::Ordering, fmt::Display, iter::Sum};
+use std::{cmp::Ordering, fmt::Debug, iter::Sum};
 
 use num_traits::{Num, NumAssign, NumCast};
 
@@ -20,8 +20,8 @@ pub trait CmpExt {
     fn cmp_ext(&self, other: &Self) -> Ordering;
 }
 
-pub trait NumExt: Num + NumCast + NumAssign + CmpExt + Copy + Display + Sum + Default {}
-impl<T> NumExt for T where T: Num + NumCast + NumAssign + CmpExt + Copy + Display + Sum + Default {}
+pub trait NumExt: Num + NumCast + NumAssign + CmpExt + Copy + Debug + Sum + Default {}
+impl<T> NumExt for T where T: Num + NumCast + NumAssign + CmpExt + Copy + Debug + Sum + Default {}
 
 macro_rules! impl_cmp_for_ord {
     ($($ty:ty),*) => {
