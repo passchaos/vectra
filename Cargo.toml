@@ -20,12 +20,12 @@ itertools = "0.14.0"
 cblas-sys = { version = "*", optional = true }
 blas-sys = { version = "*", optional = true }
 
-[target.'cfg(target_os = "linux")'.dependencies.openblas-src]
+[target.'cfg(not(target_os = "macos"))'.dependencies.openblas-src]
 version = "*"
 features = ["system"]
 optional = true
 
-[target.'cfg(target_os = "linux")'.dependencies.blas-src]
+[target.'cfg(not(target_os = "macos"))'.dependencies.blas-src]
 version = "*"
 features = ["openblas"]
 optional = true
