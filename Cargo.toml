@@ -17,9 +17,13 @@ approx = "0.5.1"
 # faer = "0.23"
 faer = { git = "https://github.com/passchaos/faer-rs"}
 itertools = "0.14.0"
-blas-src = { version = "*", optional = true }
 cblas-sys = { version = "*", optional = true }
 blas-sys = { version = "*", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies.openblas-src]
+version = "*"
+features = ["system"]
+optional = true
 
 [target.'cfg(target_os = "linux")'.dependencies.blas-src]
 version = "*"
