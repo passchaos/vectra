@@ -1,6 +1,7 @@
 use crate::{NumExt, core::Array};
 use std::fmt::Debug; // Sub currently unused
 pub mod matmul;
+pub mod ml;
 pub mod stat;
 
 use num_traits::{Float, Pow};
