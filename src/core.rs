@@ -448,42 +448,6 @@ impl<const D: usize, T> Array<D, T> {
         Array::cat(&arrs, axis)
     }
 
-    pub fn pad(&self, padding: (usize, usize, usize, usize), value: T) -> Self
-    where
-        T: Clone,
-    {
-        let (top, bottom, left, right) = padding;
-
-        let mut padded_shape = self.shape();
-        padded_shape[D - 2] += top + bottom;
-        padded_shape[D - 1] += left + right;
-
-        let ranges = padded_shape
-            .iter()
-            .enumerate()
-            .map(|(i, &dim)| {
-                if i == D - 2 {
-                    top..=(dim - bottom - 1)
-                } else if i == D - 1 {
-                    left..=(dim - right - 1)
-                } else {
-                    0..=(dim - 1)
-                }
-            })
-            .map(|a| {
-                let (s, e) = a.into_inner();
-                s as isize..=e as isize
-            })
-            .collect::<Vec<_>>();
-
-        let slices = ranges.try_into().unwrap();
-
-        let mut padded_tensor = Self::full(padded_shape, value);
-
-        padded_tensor.slice_assign(slices, self);
-        padded_tensor
-    }
-
     /// Convert multi-dimensional index to flat index
     pub fn index_to_flat(&self, indices: [isize; D]) -> usize {
         let indices = negative_indices_to_positive(indices, self.shape);
@@ -585,101 +549,6 @@ impl<const D: usize, T> Array<D, T> {
             target_idx[axis] = negative_idx_to_positive(*a_v, self.shape()[axis]);
 
             *self.index_mut(target_idx.map(|i| i as isize)) = b_v.clone();
-        }
-    }
-
-    pub fn slice_assign(&mut self, slices: [RangeInclusive<isize>; D], values: &Self)
-    where
-        T: Clone,
-    {
-        let self_shape = self.shape();
-        let value_shape = values.shape();
-
-        let slices = self_shape
-            .iter()
-            .zip(slices.iter())
-            .zip(value_shape.iter())
-            .map(|((a, b), c)| {
-                let a_i = *a as isize;
-
-                let (&start, &end) = (b.start(), b.end());
-
-                assert!(start >= -a_i && start < a_i);
-                assert!(end >= -a_i && end < a_i);
-
-                let start = if start < 0 {
-                    (a_i + start) as usize
-                } else {
-                    start as usize
-                };
-
-                let end = if end < 0 {
-                    (a_i + end) as usize
-                } else {
-                    end as usize
-                };
-
-                assert!(end >= start);
-                assert!(end - start + 1 == *c as usize);
-
-                start..=end
-            });
-
-        let slices_begin = slices.clone().map(|r| *r.start());
-
-        let slices_index = slices.multi_cartesian_product();
-
-        for idx in slices_index {
-            let value_idx: Vec<_> = idx
-                .iter()
-                .zip(slices_begin.clone())
-                .map(|(a, b)| a - b)
-                .collect();
-
-            let self_idx = dyn_dim_to_static::<D>(&idx).map(|i| i as isize);
-            let value_idx = dyn_dim_to_static::<D>(&value_idx).map(|i| i as isize);
-
-            self[self_idx] = values[value_idx].clone();
-        }
-    }
-
-    pub fn slice_fill(&mut self, slices: [RangeInclusive<isize>; D], value: T)
-    where
-        T: Clone,
-    {
-        let self_shape = self.shape();
-
-        let slices = self_shape.iter().zip(slices.iter()).map(|(a, b)| {
-            let a_i = *a as isize;
-
-            let (&start, &end) = (b.start(), b.end());
-
-            assert!(start >= -a_i && start < a_i);
-            assert!(end >= -a_i && end < a_i);
-
-            let start = if start < 0 {
-                (a_i + start) as usize
-            } else {
-                start as usize
-            };
-
-            let end = if end < 0 {
-                (a_i + end) as usize
-            } else {
-                end as usize
-            };
-
-            assert!(end >= start);
-
-            start..=end
-        });
-
-        let slices_index = slices.multi_cartesian_product();
-
-        for idx in slices_index {
-            let self_idx = dyn_dim_to_static::<D>(&idx).map(|i| i as isize);
-
-            self[self_idx] = value.clone();
         }
     }
 
@@ -1325,17 +1194,16 @@ mod tests {
     }
 
     #[test]
-    fn test_slice_assign() {
-        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
-
-        arr.slice_assign([1..=1, 0..=-1], &Array::from_vec(vec![9.0, 10.0], [1, 2]));
-
-        assert_eq!(arr, Array::from_vec(vec![1.0, 2.0, 9.0, 10.0], [2, 2]));
-
-        arr.slice_assign([0..=-1, 0..=-1], &Array::full([2, 2], 12.0));
-        assert_eq!(arr, Array::full([2, 2], 12.0));
-
-        arr.slice_fill([0..=-1, 0..=-1], 13.0);
-        assert_eq!(arr, Array::full([2, 2], 13.0));
+    fn test_map_axis() {
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [3, 3]);
+        println!("arr= {arr:?}");
+        let arr = arr.map_axis(0, |x| {
+            println!("x: {x:?}");
+            2.0
+        });
+        println!("arr= {arr:?}");
+        // assert_eq!(arr.shape(), [2, 2]);
+        // assert_eq!(arr[[0, 0]], 2.0);
+        // assert_eq!(arr[[1, 1]], 8.0);
     }
 }

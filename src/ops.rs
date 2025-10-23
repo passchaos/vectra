@@ -8,27 +8,27 @@ use crate::{
 };
 use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, MulAssign, Neg, Not, Sub, SubAssign};
 
-impl<T> Index<isize> for Array<1, T> {
-    type Output = T;
+// impl<T> Index<isize> for Array<1, T> {
+//     type Output = T;
 
-    fn index(&self, index: isize) -> &Self::Output {
-        let flat_index = self.index_to_flat([index]);
-        &self.data[flat_index]
-    }
-}
+//     fn index(&self, index: isize) -> &Self::Output {
+//         let flat_index = self.index_to_flat([index]);
+//         &self.data[flat_index]
+//     }
+// }
 
-impl<T> IndexMut<isize> for Array<1, T> {
-    fn index_mut(&mut self, index: isize) -> &mut Self::Output {
-        let flat_index = self.index_to_flat([index]);
-        &mut self.data[flat_index]
-    }
-}
+// impl<T> IndexMut<isize> for Array<1, T> {
+//     fn index_mut(&mut self, index: isize) -> &mut Self::Output {
+//         let flat_index = self.index_to_flat([index]);
+//         &mut self.data[flat_index]
+//     }
+// }
 
 // macro_rules! impl_index {
-//     ($($dim:literal),*) => {
+//     ($($dim:expr),*) => {
 //         $(
 //             impl<T> Index<isize> for Array<$dim, T> {
-//                 type Output = T;
+//                 type Output = Array<{$dim - 1}, T>;
 
 //                 fn index(&self, index: isize) -> &Self::Output {
 //                     let flat_index = self.index_to_flat([index]);
@@ -36,12 +36,12 @@ impl<T> IndexMut<isize> for Array<1, T> {
 //                 }
 //             }
 
-//             impl<T> IndexMut<isize> for Array<$dim, T> {
-//                 fn index_mut(&mut self, index: isize) -> &mut Self::Output {
-//                     let flat_index = self.index_to_flat([index]);
-//                     &mut self.data[flat_index]
-//                 }
-//             }
+//             // impl<T> IndexMut<isize> for Array<$dim, T> {
+//             //     fn index_mut(&mut self, index: isize) -> &mut Self::Output {
+//             //         let flat_index = self.index_to_flat([index]);
+//             //         &mut self.data[flat_index]
+//             //     }
+//             // }
 //         )*
 //     };
 // }

@@ -86,6 +86,11 @@ pub fn negative_indices_to_positive<const D: usize>(
 }
 
 pub fn negative_idx_to_positive(mut idx: isize, guard: usize) -> usize {
+    let guard_i = guard as isize;
+    if idx < -guard_i || idx >= guard_i {
+        panic!("idx must in -guard..guard");
+    }
+
     if idx >= 0 {
         idx as usize
     } else {
@@ -94,7 +99,7 @@ pub fn negative_idx_to_positive(mut idx: isize, guard: usize) -> usize {
                 break idx as usize;
             }
 
-            idx += guard as isize;
+            idx += guard_i;
         }
     }
 }

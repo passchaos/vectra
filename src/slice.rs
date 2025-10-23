@@ -11,6 +11,34 @@ pub trait SliceArg {
     fn out_indices(&self, gurad: usize) -> Vec<usize>;
 }
 
+impl<const D: usize> SliceArg for [isize; D] {
+    fn out_indices(&self, guard: usize) -> Vec<usize> {
+        let mut indices = Vec::new();
+
+        for &index in self {
+            let index = negative_idx_to_positive(index, guard);
+
+            indices.push(index);
+        }
+
+        indices
+    }
+}
+
+impl SliceArg for &[isize] {
+    fn out_indices(&self, guard: usize) -> Vec<usize> {
+        let mut indices = Vec::new();
+
+        for &index in *self {
+            let index = negative_idx_to_positive(index, guard);
+
+            indices.push(index);
+        }
+
+        indices
+    }
+}
+
 impl SliceArg for Vec<isize> {
     fn out_indices(&self, guard: usize) -> Vec<usize> {
         let mut indices = Vec::new();
@@ -38,7 +66,7 @@ impl SliceArg for RangeToInclusive<isize> {
         let guard = guard as isize;
 
         if end < -guard || end >= guard {
-            return vec![];
+            panic!("slice index must in {}..{}", -guard, guard);
         }
 
         let end = if end < 0 {
@@ -58,7 +86,7 @@ impl SliceArg for RangeTo<isize> {
         let guard = guard as isize;
 
         if end <= -guard || end > guard {
-            return vec![];
+            panic!("slice index must in {}..={}", -guard + 1, guard)
         }
 
         let end = if end < 0 {
@@ -78,7 +106,7 @@ impl SliceArg for RangeFrom<isize> {
         let guard = guard as isize;
 
         if start < -guard || start >= guard {
-            return vec![];
+            panic!("slice index must in {}..", guard);
         }
 
         let start = if start < 0 {
@@ -98,7 +126,13 @@ impl SliceArg for Range<isize> {
         let guard = guard as isize;
 
         if start < -guard || start >= guard || end <= -guard || end > guard {
-            return vec![];
+            panic!(
+                "slice start index must be in {}..{} end index must be in {}..{}",
+                -guard,
+                guard - 1,
+                -guard + 1,
+                guard
+            );
         }
 
         let start = if start < 0 {
@@ -128,7 +162,13 @@ impl SliceArg for RangeInclusive<isize> {
         let guard = guard as isize;
 
         if start < -guard || start >= guard || end < -guard || end >= guard {
-            return vec![];
+            panic!(
+                "slice start index must be in {}..{} end index must be in {}..{}",
+                -guard,
+                guard - 1,
+                -guard,
+                guard - 1
+            );
         }
 
         let start = if start < 0 {
@@ -152,52 +192,35 @@ impl SliceArg for RangeInclusive<isize> {
 }
 
 impl<const D: usize, T> Array<D, T> {
-    pub fn slice_assign<R>(&mut self, slices: [RangeInclusive<isize>; D], values: &Self)
+    pub fn slice_assign<S: SliceArg>(&mut self, slices: [S; D], values: &Self)
     where
         T: Clone,
     {
         let self_shape = self.shape();
         let value_shape = values.shape();
 
-        let slices = self_shape
+        let slices: Vec<_> = self_shape
             .iter()
             .zip(slices.iter())
             .zip(value_shape.iter())
-            .map(|((a, b), c)| {
-                let a_i = *a as isize;
+            .map(|((&a, b), &c)| {
+                let indices = b.out_indices(a);
+                assert_eq!(indices.len(), c);
 
-                let (&start, &end) = (b.start(), b.end());
+                indices
+            })
+            .collect();
 
-                assert!(start >= -a_i && start < a_i);
-                assert!(end >= -a_i && end < a_i);
-
-                let start = if start < 0 {
-                    (a_i + start) as usize
-                } else {
-                    start as usize
-                };
-
-                let end = if end < 0 {
-                    (a_i + end) as usize
-                } else {
-                    end as usize
-                };
-
-                assert!(end >= start);
-                assert!(end - start + 1 == *c as usize);
-
-                start..=end
-            });
-
-        let slices_begin = slices.clone().map(|r| *r.start());
-
-        let slices_index = slices.multi_cartesian_product();
+        let slices_index = slices.clone().into_iter().multi_cartesian_product();
 
         for idx in slices_index {
             let value_idx: Vec<_> = idx
                 .iter()
-                .zip(slices_begin.clone())
-                .map(|(a, b)| a - b)
+                .zip(slices.iter())
+                .map(|(idx_bit, slice)| {
+                    let bit_idx = slice.iter().position(|x| x == idx_bit).unwrap();
+                    bit_idx
+                })
                 .collect();
 
             let self_idx = dyn_dim_to_static::<D>(&idx).map(|i| i as isize);
@@ -207,36 +230,16 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
-    pub fn slice_fill(&mut self, slices: [RangeInclusive<isize>; D], value: T)
+    pub fn slice_fill<S: SliceArg>(&mut self, slices: [S; D], value: T)
     where
         T: Clone,
     {
         let self_shape = self.shape();
 
-        let slices = self_shape.iter().zip(slices.iter()).map(|(a, b)| {
-            let a_i = *a as isize;
-
-            let (&start, &end) = (b.start(), b.end());
-
-            assert!(start >= -a_i && start < a_i);
-            assert!(end >= -a_i && end < a_i);
-
-            let start = if start < 0 {
-                (a_i + start) as usize
-            } else {
-                start as usize
-            };
-
-            let end = if end < 0 {
-                (a_i + end) as usize
-            } else {
-                end as usize
-            };
-
-            assert!(end >= start);
-
-            start..=end
-        });
+        let slices = self_shape
+            .iter()
+            .zip(slices.iter())
+            .map(|(&a, b)| b.out_indices(a));
 
         let slices_index = slices.multi_cartesian_product();
 
@@ -245,5 +248,71 @@ impl<const D: usize, T> Array<D, T> {
 
             self[self_idx] = value.clone();
         }
+    }
+
+    pub fn pad(&self, padding: (usize, usize, usize, usize), value: T) -> Self
+    where
+        T: Clone,
+    {
+        let (top, bottom, left, right) = padding;
+
+        let mut padded_shape = self.shape();
+        padded_shape[D - 2] += top + bottom;
+        padded_shape[D - 1] += left + right;
+
+        let ranges = padded_shape
+            .iter()
+            .enumerate()
+            .map(|(i, &dim)| {
+                if i == D - 2 {
+                    top..=(dim - bottom - 1)
+                } else if i == D - 1 {
+                    left..=(dim - right - 1)
+                } else {
+                    0..=(dim - 1)
+                }
+            })
+            .map(|a| {
+                let (s, e) = a.into_inner();
+                s as isize..=e as isize
+            })
+            .collect::<Vec<_>>();
+
+        let slices = ranges.try_into().unwrap();
+
+        let mut padded_tensor = Self::full(padded_shape, value);
+
+        padded_tensor.slice_assign(slices, self);
+        padded_tensor
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_slice_assign() {
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+
+        arr.slice_assign([1..=1, 0..=-1], &Array::from_vec(vec![9.0, 10.0], [1, 2]));
+
+        assert_eq!(arr, Array::from_vec(vec![1.0, 2.0, 9.0, 10.0], [2, 2]));
+
+        arr.slice_assign([0..=-1, 0..=-1], &Array::full([2, 2], 12.0));
+        assert_eq!(arr, Array::full([2, 2], 12.0));
+
+        arr.slice_fill([0..=-1, 0..=-1], 13.0);
+        assert_eq!(arr, Array::full([2, 2], 13.0));
+
+        arr.slice_fill([[0], [0]], 20.0);
+        assert_eq!(arr, Array::from_vec(vec![20.0, 13.0, 13.0, 13.0], [2, 2]));
+
+        arr.slice_fill([vec![0], vec![0, 1]], 20.0);
+        assert_eq!(arr, Array::from_vec(vec![20.0, 20.0, 13.0, 13.0], [2, 2]));
+
+        let arr1 = Array::from_vec(vec![1.1, 1.2, 2.1, 2.2], [2, 2]);
+        arr.slice_assign([.., ..], &arr1);
+        assert_eq!(arr, arr1);
     }
 }
