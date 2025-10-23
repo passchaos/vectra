@@ -56,6 +56,7 @@ mod core;
 mod math;
 mod ops;
 mod random;
+mod slice;
 mod utils;
 
 pub mod prelude {

@@ -85,15 +85,17 @@ pub fn negative_indices_to_positive<const D: usize>(
     res
 }
 
-pub fn negative_idx_to_positive(idx: isize, count: usize) -> usize {
-    if idx >= (count as isize) || idx <= -(count as isize + 1) {
-        panic!("Axis out of bounds: count= {}, idx= {}", count, idx);
-    }
-
-    if idx < 0 {
-        (idx + count as isize) as usize
-    } else {
+pub fn negative_idx_to_positive(mut idx: isize, guard: usize) -> usize {
+    if idx >= 0 {
         idx as usize
+    } else {
+        loop {
+            if idx > 0 {
+                break idx as usize;
+            }
+
+            idx += guard as isize;
+        }
     }
 }
 

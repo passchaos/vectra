@@ -8,6 +8,58 @@ use crate::{
 };
 use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, MulAssign, Neg, Not, Sub, SubAssign};
 
+impl<T> Index<isize> for Array<1, T> {
+    type Output = T;
+
+    fn index(&self, index: isize) -> &Self::Output {
+        let flat_index = self.index_to_flat([index]);
+        &self.data[flat_index]
+    }
+}
+
+impl<T> IndexMut<isize> for Array<1, T> {
+    fn index_mut(&mut self, index: isize) -> &mut Self::Output {
+        let flat_index = self.index_to_flat([index]);
+        &mut self.data[flat_index]
+    }
+}
+
+// macro_rules! impl_index {
+//     ($($dim:literal),*) => {
+//         $(
+//             impl<T> Index<isize> for Array<$dim, T> {
+//                 type Output = T;
+
+//                 fn index(&self, index: isize) -> &Self::Output {
+//                     let flat_index = self.index_to_flat([index]);
+//                     &self.data[flat_index]
+//                 }
+//             }
+
+//             impl<T> IndexMut<isize> for Array<$dim, T> {
+//                 fn index_mut(&mut self, index: isize) -> &mut Self::Output {
+//                     let flat_index = self.index_to_flat([index]);
+//                     &mut self.data[flat_index]
+//                 }
+//             }
+//         )*
+//     };
+// }
+
+// impl_index!(2, 3, 4, 5, 6, 7, 8, 9, 10);
+
+// impl<const D: usize, T> Index<isize> for Array<D, T>
+// where
+//     [(); D - 2]:,
+// {
+//     type Output = T;
+
+//     fn index(&self, index: isize) -> &Self::Output {
+//         let flat_index = self.index_to_flat([index]);
+//         &self.data[flat_index]
+//     }
+// }
+
 impl<const D: usize, T> Index<[isize; D]> for Array<D, T> {
     type Output = T;
 
