@@ -6,15 +6,70 @@ pub mod stat;
 
 use num_traits::{Float, Pow};
 
+/// Matrix multiplication policy for controlling computation backend.
+///
+/// This enum allows you to choose different algorithms for matrix multiplication
+/// based on performance requirements and available features.
+///
+/// # Variants
+///
+/// * `Naive` - Simple triple-loop implementation, good for small matrices
+/// * `Faer` - Uses the faer library for optimized linear algebra operations
+/// * `Blas` - Uses BLAS (Basic Linear Algebra Subprograms) when available
+/// * `LoopReorder` - Optimized loop ordering for better cache performance
+/// * `LoopRecorderSimd` - SIMD-optimized version (ARM64 only)
+/// * `Blocking(usize)` - Block-based algorithm with specified block size
+///
+/// # Examples
+///
+/// ```rust
+/// use vectra::math::MatmulPolicy;
+/// use vectra::prelude::*;
+///
+/// let a = Array::ones([100, 50]);
+/// let b = Array::ones([50, 80]);
+///
+/// // Use different policies for matrix multiplication
+/// let result_faer = a.matmul_policy(&b, MatmulPolicy::Faer);
+/// let result_naive = a.matmul_policy(&b, MatmulPolicy::Naive);
+/// let result_blocking = a.matmul_policy(&b, MatmulPolicy::Blocking(32));
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MatmulPolicy {
+    /// Simple triple-loop matrix multiplication.
+    ///
+    /// Best for small matrices or when simplicity is preferred over performance.
     Naive,
+
+    /// Use the faer library for matrix multiplication.
+    ///
+    /// Provides good performance with optimized algorithms and is the default
+    /// on most platforms except macOS.
     Faer,
+
+    /// Use BLAS (Basic Linear Algebra Subprograms) for matrix multiplication.
+    ///
+    /// Typically provides the best performance when available. This is the
+    /// default on macOS where Accelerate framework is used.
     #[cfg(feature = "blas")]
     Blas,
+
+    /// Loop reordering optimization for better cache performance.
+    ///
+    /// Rearranges the computation order to improve memory access patterns.
     LoopReorder,
+
+    /// SIMD-optimized loop reordering (ARM64 only).
+    ///
+    /// Combines loop reordering with SIMD instructions for maximum performance
+    /// on ARM64 architectures.
     #[cfg(target_arch = "aarch64")]
     LoopRecorderSimd,
+
+    /// Block-based matrix multiplication with specified block size.
+    ///
+    /// Divides the computation into blocks to improve cache locality.
+    /// The parameter specifies the block size.
     Blocking(usize),
 }
 
@@ -29,6 +84,32 @@ impl Default for MatmulPolicy {
 }
 
 impl<const D: usize, T: NumExt> Array<D, T> {
+    /// Raise each element to the power of the given exponent.
+    ///
+    /// This method applies the power operation element-wise to the array.
+    /// The exponent can be of a different numeric type than the array elements.
+    ///
+    /// # Arguments
+    ///
+    /// * `exponent` - The exponent to raise each element to
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Integer powers
+    /// let arr = Array::from_vec(vec![2, 3, 4], [3]);
+    /// let squared = arr.pow(2); // [4, 9, 16]
+    ///
+    /// // Floating-point powers
+    /// let arr_f = Array::from_vec(vec![4.0, 9.0, 16.0], [3]);
+    /// let sqrt_result = arr_f.pow(0.5); // [2.0, 3.0, 4.0]
+    ///
+    /// // Mixed types
+    /// let arr = Array::from_vec(vec![2.0, 3.0], [2]);
+    /// let result = arr.pow(3); // [8.0, 27.0]
+    /// ```
     pub fn pow<U, O>(&self, exponent: U) -> Array<D, O>
     where
         T: Pow<U, Output = O>,
@@ -59,45 +140,223 @@ macro_rules! binary_ops {
     };
 }
 
+/// Mathematical functions for floating-point arrays.
+///
+/// This implementation provides element-wise mathematical operations
+/// for arrays containing floating-point numbers.
 impl<const D: usize, T: NumExt + Float> Array<D, T> {
     unary_ops! {
         /// The largest integer less than or equal to each element.
-        fn floor
-        /// The smallest integer less than or equal to each element.
-        fn ceil
-        /// The nearest integer of each element.
-        fn round
-        /// The integer part of each element.
-        fn trunc
-        /// The fractional part of each element.
-        fn fract
-        /// Absolute of each element.
-        fn abs
-        /// Sign number of each element.
         ///
-        /// + `1.0` for all positive numbers.
-        /// + `-1.0` for all negative numbers.
-        /// + `NaN` for all `NaN` (not a number).
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![1.7, 2.3, -1.2], [3]);
+        /// let result = arr.floor(); // [1.0, 2.0, -2.0]
+        /// ```
+        fn floor
+
+        /// The smallest integer greater than or equal to each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![1.2, 2.7, -1.8], [3]);
+        /// let result = arr.ceil(); // [2.0, 3.0, -1.0]
+        /// ```
+        fn ceil
+
+        /// The nearest integer to each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![1.4, 2.6, -1.5], [3]);
+        /// let result = arr.round(); // [1.0, 3.0, -2.0]
+        /// ```
+        fn round
+
+        /// The integer part of each element (truncate towards zero).
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![1.7, -2.3], [2]);
+        /// let result = arr.trunc(); // [1.0, -2.0]
+        /// ```
+        fn trunc
+
+        /// The fractional part of each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![1.7, -2.3], [2]);
+        /// let result = arr.fract(); // [0.7, -0.3]
+        /// ```
+        fn fract
+
+        /// Absolute value of each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![-1.5, 2.3, -4.1], [3]);
+        /// let result = arr.abs(); // [1.5, 2.3, 4.1]
+        /// ```
+        fn abs
+
+        /// Sign of each element.
+        ///
+        /// Returns:
+        /// * `1.0` for positive numbers
+        /// * `-1.0` for negative numbers
+        /// * `NaN` for `NaN` values
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![-2.5, 0.0, 3.7], [3]);
+        /// let result = arr.signum(); // [-1.0, 1.0, 1.0]
+        /// ```
         fn signum
-        /// The reciprocal (inverse) of each element, `1/x`.
+
+        /// Reciprocal (inverse) of each element: `1/x`.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![2.0, 4.0, 0.5], [3]);
+        /// let result = arr.recip(); // [0.5, 0.25, 2.0]
+        /// ```
         fn recip
+
         /// Square root of each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![4.0, 9.0, 16.0], [3]);
+        /// let result = arr.sqrt(); // [2.0, 3.0, 4.0]
+        /// ```
         fn sqrt
-        /// `e^x` of each element (exponential function).
+
+        /// Exponential function: `e^x` for each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![0.0, 1.0, 2.0], [3]);
+        /// let result = arr.exp(); // [1.0, e, e²]
+        /// ```
         fn exp
-        /// `2^x` of each element.
+
+        /// Base-2 exponential: `2^x` for each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![1.0, 2.0, 3.0], [3]);
+        /// let result = arr.exp2(); // [2.0, 4.0, 8.0]
+        /// ```
         fn exp2
-        /// `e^x - 1` of each element.
+
+        /// Exponential minus one: `e^x - 1` for each element.
+        ///
+        /// More accurate than `exp(x) - 1` for small values of x.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![0.0, 0.1], [2]);
+        /// let result = arr.exp_m1();
+        /// ```
         fn exp_m1
+
         /// Natural logarithm of each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![1.0, std::f64::consts::E], [2]);
+        /// let result = arr.ln(); // [0.0, 1.0]
+        /// ```
         fn ln
-        /// Base 2 logarithm of each element.
+
+        /// Base-2 logarithm of each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![2.0, 4.0, 8.0], [3]);
+        /// let result = arr.log2(); // [1.0, 2.0, 3.0]
+        /// ```
         fn log2
-        /// Base 10 logarithm of each element.
+
+        /// Base-10 logarithm of each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![10.0, 100.0, 1000.0], [3]);
+        /// let result = arr.log10(); // [1.0, 2.0, 3.0]
+        /// ```
         fn log10
-        /// `ln(1 + x)` of each element.
+
+        /// Natural logarithm of (1 + x) for each element.
+        ///
+        /// More accurate than `ln(1 + x)` for small values of x.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![0.0, 0.1], [2]);
+        /// let result = arr.ln_1p();
+        /// ```
         fn ln_1p
-        /// Cubic root of each element.
+
+        /// Cube root of each element.
+        ///
+        /// # Examples
+        ///
+        /// ```rust
+        /// use vectra::prelude::*;
+        ///
+        /// let arr = Array::from_vec(vec![8.0, 27.0, 64.0], [3]);
+        /// let result = arr.cbrt(); // [2.0, 3.0, 4.0]
+        /// ```
         fn cbrt
         /// Sine of each element (in radians).
         fn sin

@@ -1,6 +1,6 @@
 [package]
 name = "vectra"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["passchaos <greedwolf.dss@gmail.com>"]
 description = "A multi-dimensional array library for Rust, similar to NumPy"

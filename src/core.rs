@@ -1,6 +1,6 @@
 use std::any::type_name;
 use std::fmt::{self, Debug};
-use std::ops::{Index, IndexMut, RangeInclusive};
+use std::ops::{Index, IndexMut};
 
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
@@ -13,14 +13,113 @@ use crate::utils::{
     negative_idx_to_positive, negative_indices_to_positive, shape_indices_to_flat_idx,
 };
 
+/// Memory layout order for multi-dimensional arrays.
+///
+/// This enum determines how multi-dimensional array data is stored in memory,
+/// which affects performance characteristics for different access patterns.
+///
+/// # Examples
+///
+/// ```rust
+/// use vectra::core::MajorOrder;
+///
+/// // Row-major order (C-style): elements in the same row are contiguous
+/// let row_major = MajorOrder::RowMajor;
+///
+/// // Column-major order (Fortran-style): elements in the same column are contiguous
+/// let col_major = MajorOrder::ColumnMajor;
+/// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum MajorOrder {
+    /// Row-major order (C-style layout).
+    ///
+    /// In row-major order, elements of each row are stored contiguously in memory.
+    /// This is the default layout and is generally more cache-friendly for
+    /// row-wise operations.
     #[default]
     RowMajor,
+    /// Column-major order (Fortran-style layout).
+    ///
+    /// In column-major order, elements of each column are stored contiguously in memory.
+    /// This layout is more efficient for column-wise operations and is compatible
+    /// with many BLAS/LAPACK routines.
     ColumnMajor,
 }
 
-/// Multi-dimensional array structure, similar to numpy's ndarray
+/// A multi-dimensional array structure, similar to NumPy's ndarray.
+///
+/// `Array<D, T>` represents a D-dimensional array containing elements of type T.
+/// The array supports various operations including mathematical functions,
+/// linear algebra, broadcasting, and efficient indexing.
+///
+/// # Type Parameters
+///
+/// * `D` - The number of dimensions (compile-time constant)
+/// * `T` - The element type, which must implement [`crate::NumExt`] for most operations
+///
+/// # Memory Layout
+///
+/// Arrays store their data in a contiguous `Vec<T>` with configurable memory layout
+/// (row-major or column-major). The shape and strides determine how multi-dimensional
+/// indices map to linear memory addresses.
+///
+/// # Examples
+///
+/// ## Creating Arrays
+///
+/// ```rust
+/// use vectra::prelude::*;
+///
+/// // Create a 2x3 array of zeros
+/// let zeros = Array::<_, f64>::zeros([2, 3]);
+///
+/// // Create from a vector with specified shape
+/// let data = vec![1, 2, 3, 4, 5, 6];
+/// let arr = Array::from_vec(data, [2, 3]);
+///
+/// // Create an identity matrix
+/// let eye = Array::<_, f32>::eye(3);
+/// ```
+///
+/// ## Array Operations
+///
+/// ```rust
+/// use vectra::prelude::*;
+///
+/// let a = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+/// let b = Array::from_vec(vec![5.0, 6.0, 7.0, 8.0], [2, 2]);
+///
+/// // Element-wise operations
+/// let sum = &a + &b;
+/// let product = &a * &b;
+///
+/// // Matrix multiplication
+/// let matmul_result = a.matmul(&b);
+///
+/// // Mathematical functions
+/// let sin_a = a.sin();
+/// let exp_a = a.exp();
+/// ```
+///
+/// ## Indexing and Reshaping
+///
+/// ```rust
+/// use vectra::prelude::*;
+///
+/// let mut arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 3]);
+///
+/// // Access elements
+/// let element = arr[[0, 1]];
+///
+/// // Modify elements
+/// arr[[1, 2]] = 42;
+///
+/// // Reshape (for 2D arrays)
+/// let reshaped = arr.reshape([3, 2]);
+///
+/// // Transpose (for 2D arrays)
+/// let transposed = arr.transpose();
+/// ```
 pub struct Array<const D: usize, T> {
     pub(crate) data: Vec<T>,
     pub(crate) shape: [usize; D],
@@ -29,6 +128,20 @@ pub struct Array<const D: usize, T> {
 }
 
 impl<T: NumExt + Debug> Array<2, T> {
+    /// Convert the 2D array to a `faer::MatRef` for interoperability with the faer linear algebra library.
+    ///
+    /// This method provides zero-copy conversion to faer's matrix type, allowing you to use
+    /// faer's optimized linear algebra operations on Vectra arrays.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+    /// let faer_mat = arr.as_faer();
+    /// // Now you can use faer operations on faer_mat
+    /// ```
     pub fn as_faer(&self) -> MatRef<'_, T> {
         let (nrows, ncols) = (self.shape[0], self.shape[1]);
         let res = match self.major_order {
@@ -49,7 +162,27 @@ impl<T: NumExt + Debug> Array<2, T> {
         res
     }
 
-    /// Create identity matrix
+    /// Create an n×n identity matrix.
+    ///
+    /// An identity matrix is a square matrix with ones on the main diagonal
+    /// and zeros elsewhere. It acts as the multiplicative identity for matrix
+    /// multiplication.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - The size of the square identity matrix
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let eye3 = Array::<_, f64>::eye(3);
+    /// // Creates:
+    /// // [[1.0, 0.0, 0.0],
+    /// //  [0.0, 1.0, 0.0],
+    /// //  [0.0, 0.0, 1.0]]
+    /// ```
     pub fn eye(n: usize) -> Self {
         let mut arr = Self::zeros([n, n]);
         for i in 0..n as isize {
@@ -60,7 +193,32 @@ impl<T: NumExt + Debug> Array<2, T> {
 }
 
 impl<T> Array<2, T> {
-    /// Transpose array (2D only)
+    /// Transpose the 2D array, swapping rows and columns.
+    ///
+    /// This operation swaps the dimensions of the array, so that element at position `[i, j]`
+    /// in the original array becomes element at position `[j, i]` in the transposed array.
+    ///
+    /// This is a zero-copy operation that only changes the shape and strides metadata.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 3]);
+    /// // Original: [[1, 2, 3],
+    /// //            [4, 5, 6]]
+    ///
+    /// let transposed = arr.transpose();
+    /// // Transposed: [[1, 4],
+    /// //              [2, 5],
+    /// //              [3, 6]]
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// This method is only available for 2D arrays. For higher-dimensional arrays,
+    /// use the `permute` method to rearrange dimensions.
     pub fn transpose(self) -> Self {
         let new_shape = [self.shape[1], self.shape[0]];
         let new_stride = [self.strides[1], self.strides[0]];
@@ -211,6 +369,28 @@ impl<const D: usize, T: Clone> Clone for Array<D, T> {
 }
 
 impl<T: NumExt> Array<1, T> {
+    /// Create a 1D array with evenly spaced values using count and step.
+    ///
+    /// This function creates an array starting from `start`, incrementing by `step`,
+    /// and containing exactly `count` elements.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - The starting value
+    /// * `step` - The increment between consecutive values
+    /// * `count` - The number of elements to generate
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let arr = Array::arange_c(0, 2, 5);
+    /// // Creates: [0, 2, 4, 6, 8]
+    ///
+    /// let arr_f = Array::arange_c(1.0, 0.5, 4);
+    /// // Creates: [1.0, 1.5, 2.0, 2.5]
+    /// ```
     pub fn arange_c(mut start: T, step: T, count: usize) -> Self {
         let mut data = Vec::new();
 
@@ -235,7 +415,33 @@ impl<T: NumExt> Array<1, T> {
         }
     }
 
-    /// Create array like np.arange
+    /// Create a 1D array with evenly spaced values in a given range.
+    ///
+    /// This function creates an array starting from `start`, incrementing by `step`,
+    /// and stopping before reaching `end` (exclusive upper bound).
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - The starting value (inclusive)
+    /// * `end` - The ending value (exclusive)
+    /// * `step` - The increment between consecutive values
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let arr = Array::arange(0, 10, 2);
+    /// // Creates: [0, 2, 4, 6, 8]
+    ///
+    /// let arr_f = Array::arange(0.0, 3.0, 0.5);
+    /// // Creates: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5]
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// The `end` value is exclusive, meaning it will not be included in the result
+    /// even if it would be exactly reachable by the step increment.
     pub fn arange(mut start: T, end: T, step: T) -> Self {
         let mut data = Vec::new();
 
@@ -262,10 +468,68 @@ impl<T: NumExt> Array<1, T> {
 }
 
 impl<const D: usize, T> Array<D, T> {
+    /// Create an array from a vector with the specified shape.
+    ///
+    /// This is the primary constructor for creating arrays from existing data.
+    /// The data is interpreted in row-major (C-style) order by default.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A vector containing the array elements
+    /// * `shape` - The desired shape of the array
+    ///
+    /// # Panics
+    ///
+    /// Panics if the length of `data` doesn't match the product of dimensions in `shape`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Create a 2x3 array
+    /// let data = vec![1, 2, 3, 4, 5, 6];
+    /// let arr = Array::from_vec(data, [2, 3]);
+    /// // Results in:
+    /// // [[1, 2, 3],
+    /// //  [4, 5, 6]]
+    ///
+    /// // Create a 3D array
+    /// let data = vec![1.0; 24];
+    /// let arr = Array::from_vec(data, [2, 3, 4]);
+    /// ```
     pub fn from_vec(data: Vec<T>, shape: [usize; D]) -> Self {
         Self::from_vec_major(data, shape, MajorOrder::RowMajor)
     }
 
+    /// Create an array from a vector with the specified shape and memory layout.
+    ///
+    /// This constructor allows you to specify the memory layout order (row-major or column-major).
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A vector containing the array elements
+    /// * `shape` - The desired shape of the array
+    /// * `major_order` - The memory layout order (RowMajor or ColumnMajor)
+    ///
+    /// # Panics
+    ///
+    /// Panics if the length of `data` doesn't match the product of dimensions in `shape`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    /// use vectra::core::MajorOrder;
+    ///
+    /// let data = vec![1, 2, 3, 4, 5, 6];
+    ///
+    /// // Row-major layout (default)
+    /// let arr_row = Array::from_vec_major(data.clone(), [2, 3], MajorOrder::RowMajor);
+    ///
+    /// // Column-major layout (Fortran-style)
+    /// let arr_col = Array::from_vec_major(data, [2, 3], MajorOrder::ColumnMajor);
+    /// ```
     pub fn from_vec_major(data: Vec<T>, shape: [usize; D], major_order: MajorOrder) -> Self {
         let expected_size: usize = shape.iter().product();
         if data.len() != expected_size {
@@ -287,6 +551,26 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
+    /// Create an array filled with a specific value.
+    ///
+    /// All elements in the array will be set to the provided value.
+    ///
+    /// # Arguments
+    ///
+    /// * `shape` - The desired shape of the array
+    /// * `value` - The value to fill the array with
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Create a 2x3 array filled with 42
+    /// let arr = Array::full([2, 3], 42);
+    ///
+    /// // Create a 3D array filled with 3.14
+    /// let arr_3d = Array::full([2, 2, 2], 3.14);
+    /// ```
     pub fn full(shape: [usize; D], value: T) -> Self
     where
         T: Clone,
@@ -304,7 +588,38 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
-    /// Reshape array
+    /// Reshape the array to a new shape.
+    ///
+    /// This method changes the shape of the array while preserving the total number of elements.
+    /// One dimension can be inferred by using -1, which will be calculated automatically.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_shape` - The desired new shape. Use -1 for one dimension to infer its size.
+    ///
+    /// # Panics
+    ///
+    /// * Panics if more than one dimension is set to -1
+    /// * Panics if the total number of elements doesn't match the original array
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Reshape a 1D array to 2D
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [6]);
+    /// let reshaped = arr.reshape([2, 3]);
+    /// // Results in a 2x3 array
+    ///
+    /// // Use -1 to infer one dimension
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8], [8]);
+    /// let reshaped = arr.reshape([2, -1]); // Becomes [2, 4]
+    ///
+    /// // Reshape 2D to 3D
+    /// let arr = Array::from_vec(vec![1; 24], [4, 6]);
+    /// let reshaped = arr.reshape([2, 3, 4]);
+    /// ```
     pub fn reshape<const D1: usize>(self, mut new_shape: [isize; D1]) -> Array<D1, T> {
         let len = self.shape().iter().product::<usize>();
 
@@ -338,6 +653,27 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
+    /// Add a new axis of length 1 at the specified position.
+    ///
+    /// This operation increases the dimensionality of the array by 1.
+    ///
+    /// # Arguments
+    ///
+    /// * `axis` - The position where the new axis should be inserted (supports negative indexing)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Add axis at the beginning
+    /// let arr = Array::from_vec(vec![1, 2, 3], [3]); // Shape: [3]
+    /// let unsqueezed = arr.unsqueeze(0); // Shape: [1, 3]
+    ///
+    /// // Add axis at the end
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]); // Shape: [2, 2]
+    /// let unsqueezed = arr.unsqueeze(-1); // Shape: [2, 2, 1]
+    /// ```
     pub fn unsqueeze(self, axis: isize) -> Array<{ D + 1 }, T> {
         let axis = negative_idx_to_positive(axis, D + 1);
 
@@ -350,6 +686,31 @@ impl<const D: usize, T> Array<D, T> {
         self.reshape(new_shape)
     }
 
+    /// Remove an axis of length 1 at the specified position.
+    ///
+    /// This operation decreases the dimensionality of the array by 1.
+    ///
+    /// # Arguments
+    ///
+    /// * `axis` - The position of the axis to remove (must have size 1)
+    ///
+    /// # Panics
+    ///
+    /// Panics if the specified axis doesn't have size 1.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Remove axis of size 1
+    /// let arr = Array::from_vec(vec![1, 2, 3], [1, 3]); // Shape: [1, 3]
+    /// let squeezed = arr.squeeze(0); // Shape: [3]
+    ///
+    /// // Remove last axis
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2, 1]); // Shape: [2, 2, 1]
+    /// let squeezed = arr.squeeze(-1); // Shape: [2, 2]
+    /// ```
     pub fn squeeze(self, axis: isize) -> Array<{ D - 1 }, T> {
         let axis = negative_idx_to_positive(axis, D);
 
@@ -370,6 +731,28 @@ impl<const D: usize, T> Array<D, T> {
 
     /// Permute the dimensions of the array according to the given axes
     /// Similar to PyTorch's permute function
+    /// Permute the axes of the array.
+    ///
+    /// This operation rearranges the dimensions of the array according to the specified order.
+    /// For 2D arrays, this is equivalent to transpose when axes are [1, 0].
+    ///
+    /// # Arguments
+    ///
+    /// * `axes` - The new order of axes. Must be a permutation of [0, 1, ..., D-1]
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Transpose a 2D array
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 3]);
+    /// let transposed = arr.permute([1, 0]); // Equivalent to transpose()
+    ///
+    /// // Permute a 3D array
+    /// let arr = Array::from_vec(vec![1; 24], [2, 3, 4]); // Shape: [2, 3, 4]
+    /// let permuted = arr.permute([2, 0, 1]); // Shape: [4, 2, 3]
+    /// ```
     pub fn permute(self, axes: [usize; D]) -> Self {
         // Check if all axes are valid and unique
         let mut sorted_axes = axes.clone();
@@ -392,6 +775,34 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
+    /// Concatenate arrays along the specified axis.
+    ///
+    /// All arrays must have the same shape except in the concatenation dimension.
+    ///
+    /// # Arguments
+    ///
+    /// * `arrs` - Slice of array references to concatenate
+    /// * `axis` - The axis along which to concatenate (supports negative indexing)
+    ///
+    /// # Panics
+    ///
+    /// Panics if arrays have incompatible shapes for concatenation.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Concatenate along rows (axis 0)
+    /// let arr1 = Array::from_vec(vec![1, 2, 3], [1, 3]);
+    /// let arr2 = Array::from_vec(vec![4, 5, 6], [1, 3]);
+    /// let result = Array::cat(&[&arr1, &arr2], 0); // Shape: [2, 3]
+    ///
+    /// // Concatenate along columns (axis 1)
+    /// let arr1 = Array::from_vec(vec![1, 2], [2, 1]);
+    /// let arr2 = Array::from_vec(vec![3, 4], [2, 1]);
+    /// let result = Array::cat(&[&arr1, &arr2], 1); // Shape: [2, 2]
+    /// ```
     pub fn cat(arrs: &[&Self], axis: isize) -> Self
     where
         T: Clone + Default,
@@ -494,6 +905,31 @@ impl<const D: usize, T> Array<D, T> {
     }
 
     /// Apply a closure to each element in-place, modifying the current Array
+    /// Apply a function to each element in-place.
+    ///
+    /// This method modifies the array by applying the given function to each element.
+    /// The function receives a reference to each element and returns a new value.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A function that takes a reference to an element and returns a new value
+    ///
+    /// # Returns
+    ///
+    /// Returns a mutable reference to self for method chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let mut arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+    /// arr.map_inplace(|x| x * 2);
+    /// // arr is now [[2, 4], [6, 8]]
+    ///
+    /// let mut arr_f = Array::from_vec(vec![1.0, 2.0, 3.0], [3]);
+    /// arr_f.map_inplace(|x| x.sqrt());
+    /// ```
     pub fn map_inplace<F>(&mut self, f: F) -> &mut Self
     where
         F: Fn(&T) -> T,
@@ -512,6 +948,32 @@ impl<const D: usize, T> Array<D, T> {
         self
     }
 
+    /// Gather elements along an axis using indices.
+    ///
+    /// This operation selects elements from the array along the specified axis
+    /// using the provided indices array.
+    ///
+    /// # Arguments
+    ///
+    /// * `axis` - The axis along which to gather (supports negative indexing)
+    /// * `indices` - Array of indices specifying which elements to gather
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Gather from a 2D array along axis 0 (rows)
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [3, 2]);
+    /// let indices = Array::from_vec(vec![0, 2, 1], [3, 1]);
+    /// let result = arr.gather(0, &indices);
+    /// // Selects rows 0, 2, 1 from the original array
+    ///
+    /// // Gather along axis 1 (columns)
+    /// let indices = Array::from_vec(vec![1, 0], [1, 2]);
+    /// let result = arr.gather(1, &indices);
+    /// // Selects columns 1, 0 from each row
+    /// ```
     pub fn gather(&self, axis: isize, indices: &Array<D, isize>) -> Self
     where
         T: Clone + Default,
@@ -540,6 +1002,33 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
+    /// Scatter values into the array along an axis using indices.
+    ///
+    /// This operation places values from the `values` array into positions
+    /// specified by the `indices` array along the given axis.
+    ///
+    /// # Arguments
+    ///
+    /// * `axis` - The axis along which to scatter (supports negative indexing)
+    /// * `indices` - Array of indices specifying where to place values
+    /// * `values` - Array of values to scatter
+    ///
+    /// # Panics
+    ///
+    /// Panics if `indices` and `values` don't have the same shape.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let mut arr = Array::zeros([3, 2]);
+    /// let indices = Array::from_vec(vec![0, 2], [1, 2]);
+    /// let values = Array::from_vec(vec![10, 20], [1, 2]);
+    ///
+    /// arr.scatter(0, &indices, &values);
+    /// // Places values [10, 20] into rows 0 and 2 respectively
+    /// ```
     pub fn scatter(&mut self, axis: isize, indices: &Array<D, isize>, values: &Array<D, T>)
     where
         T: Clone,
@@ -556,6 +1045,32 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
+    /// Replace elements where mask is true with corresponding values.
+    ///
+    /// This method conditionally replaces elements in the array based on a boolean mask.
+    /// Where the mask is `true`, elements are replaced with values from the `values` array.
+    ///
+    /// # Arguments
+    ///
+    /// * `mark` - Boolean mask array indicating which elements to replace
+    /// * `values` - Array of replacement values
+    ///
+    /// # Panics
+    ///
+    /// Panics if the shapes of `mark` and `values` don't match the array's shape.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let mut arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+    /// let mask = Array::from_vec(vec![true, false, false, true], [2, 2]);
+    /// let values = Array::from_vec(vec![10, 20, 30, 40], [2, 2]);
+    ///
+    /// arr.mask_where(&mask, &values);
+    /// // arr becomes [[10, 2], [3, 40]]
+    /// ```
     pub fn mask_where(&mut self, mark: &Array<D, bool>, values: &Array<D, T>)
     where
         T: Clone,
@@ -572,6 +1087,31 @@ impl<const D: usize, T> Array<D, T> {
         });
     }
 
+    /// Fill elements where mask is true with a single value.
+    ///
+    /// This method conditionally fills elements in the array based on a boolean mask.
+    /// Where the mask is `true`, elements are replaced with the specified value.
+    ///
+    /// # Arguments
+    ///
+    /// * `mark` - Boolean mask array indicating which elements to fill
+    /// * `value` - The value to fill with
+    ///
+    /// # Panics
+    ///
+    /// Panics if the shape of `mark` doesn't match the array's shape.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let mut arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+    /// let mask = Array::from_vec(vec![true, false, false, true], [2, 2]);
+    ///
+    /// arr.mask_fill(&mask, 99);
+    /// // arr becomes [[99, 2], [3, 99]]
+    /// ```
     pub fn mask_fill(&mut self, mark: &Array<D, bool>, value: T)
     where
         T: Clone,
@@ -588,6 +1128,44 @@ impl<const D: usize, T> Array<D, T> {
     }
 
     /// Broadcast array to target shape
+    /// Broadcast the array to a new shape.
+    ///
+    /// Broadcasting allows arrays with different shapes to be used together in operations.
+    /// The array is virtually expanded to match the target shape without copying data when possible.
+    ///
+    /// # Arguments
+    ///
+    /// * `target_shape` - The desired shape to broadcast to
+    ///
+    /// # Panics
+    ///
+    /// Panics if the array cannot be broadcast to the target shape.
+    ///
+    /// # Broadcasting Rules
+    ///
+    /// - Dimensions are aligned from the rightmost dimension
+    /// - Each dimension must either be 1 or match the target dimension
+    /// - Missing dimensions are treated as 1
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Broadcast a 1D array to 2D
+    /// let arr = Array::from_vec(vec![1, 2, 3], [3]);
+    /// let broadcasted = arr.broadcast_to([2, 3]);
+    /// // Results in:
+    /// // [[1, 2, 3],
+    /// //  [1, 2, 3]]
+    ///
+    /// // Broadcast with dimension of size 1
+    /// let arr = Array::from_vec(vec![1, 2], [2, 1]);
+    /// let broadcasted = arr.broadcast_to([2, 3]);
+    /// // Results in:
+    /// // [[1, 1, 1],
+    /// //  [2, 2, 2]]
+    /// ```
     pub fn broadcast_to(&self, target_shape: [usize; D]) -> Self
     where
         T: Clone,
@@ -729,7 +1307,29 @@ impl<const D: usize, T> Array<D, T> {
 
 // only for number type
 impl<const D: usize, T> Array<D, T> {
-    /// Create zero array
+    /// Create an array filled with zeros.
+    ///
+    /// This is a convenience method for creating arrays where all elements are zero.
+    /// The element type must implement the `Zero` trait.
+    ///
+    /// # Arguments
+    ///
+    /// * `shape` - The desired shape of the array
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Create a 3x3 matrix of zeros
+    /// let zeros = Array::<_, f64>::zeros([3, 3]);
+    ///
+    /// // Create a 1D array of zeros
+    /// let zeros_1d = Array::<_, i32>::zeros([10]);
+    ///
+    /// // Create a 3D array of zeros
+    /// let zeros_3d = Array::<_, f32>::zeros([2, 4, 3]);
+    /// ```
     pub fn zeros(shape: [usize; D]) -> Self
     where
         T: Clone + Zero,
@@ -737,7 +1337,29 @@ impl<const D: usize, T> Array<D, T> {
         Self::full(shape, T::zero())
     }
 
-    /// Create ones array
+    /// Create an array filled with ones.
+    ///
+    /// This is a convenience method for creating arrays where all elements are one.
+    /// The element type must implement the `One` trait.
+    ///
+    /// # Arguments
+    ///
+    /// * `shape` - The desired shape of the array
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// // Create a 2x4 matrix of ones
+    /// let ones = Array::<_, f64>::ones([2, 4]);
+    ///
+    /// // Create a 1D array of ones
+    /// let ones_1d = Array::<_, i32>::ones([5]);
+    ///
+    /// // Create a 3D array of ones
+    /// let ones_3d = Array::<_, f32>::ones([2, 2, 2]);
+    /// ```
     pub fn ones(shape: [usize; D]) -> Self
     where
         T: Clone + One,
