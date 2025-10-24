@@ -1,6 +1,6 @@
 [package]
 name = "vectra"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2024"
 authors = ["passchaos <greedwolf.dss@gmail.com>"]
 description = "A multi-dimensional array library for Rust, similar to NumPy"
@@ -8,6 +8,7 @@ license = "MIT"
 keywords = ["array", "matrix", "numpy", "ndarray", "math"]
 categories = ["mathematics", "science"]
 repository = "https://github.com/passchaos/vectra"
+documentation = "https://docs.rs/vectra"
 
 [dependencies]
 rand = "0.9.2"
