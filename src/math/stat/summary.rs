@@ -1,15 +1,43 @@
+//! Statistical summary operations for arrays.
+//!
+//! This module provides functions for computing statistical summaries
+//! such as sum, mean, variance, and standard deviation.
+
 use num_traits::Float;
 
 use crate::{NumExt, core::Array};
 
 impl<const D: usize, T: NumExt> Array<D, T> {
-    /// Sum all elements
+    /// Sum all elements in the array.
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use vectra::prelude::*;
+    /// 
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+    /// let sum = arr.sum();
+    /// assert_eq!(sum, 10);
+    /// ```
     pub fn sum(&self) -> T {
         self.multi_iter()
             .fold(T::zero(), |acc, (_, x)| acc + x.clone())
     }
 
-    /// Sum along specified axis
+    /// Sum along the specified axis.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `axis` - The axis along which to compute the sum
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use vectra::prelude::*;
+    /// 
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+    /// let sum_axis0 = arr.sum_axis(0); // Sum along rows
+    /// ```
     pub fn sum_axis(&self, axis: isize) -> Array<D, T> {
         self.map_axis(axis, |values| {
             values.into_iter().fold(T::zero(), |acc, x| acc + x.clone())
@@ -18,7 +46,17 @@ impl<const D: usize, T: NumExt> Array<D, T> {
 }
 
 impl<const D: usize, T: NumExt> Array<D, T> {
-    /// Calculate mean of all elements
+    /// Calculate the mean of all elements in the array.
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use vectra::prelude::*;
+    /// 
+    /// let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+    /// let mean: f64 = arr.mean();
+    /// assert_eq!(mean, 2.5);
+    /// ```
     pub fn mean<U>(&self) -> U
     where
         U: NumExt,
@@ -29,6 +67,20 @@ impl<const D: usize, T: NumExt> Array<D, T> {
         U::from(sum).unwrap() / U::from(size).unwrap()
     }
 
+    /// Calculate the mean along the specified axis.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `axis` - The axis along which to compute the mean
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use vectra::prelude::*;
+    /// 
+    /// let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+    /// let mean_axis0: Array<2, f64> = arr.mean_axis(0);
+    /// ```
     pub fn mean_axis<U>(&self, axis: isize) -> Array<D, U>
     where
         U: NumExt,
@@ -43,6 +95,20 @@ impl<const D: usize, T: NumExt> Array<D, T> {
 }
 
 impl<const D: usize, T: Float + NumExt> Array<D, T> {
+    /// Calculate the variance of all elements in the array.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `ddof` - Delta degrees of freedom (divisor is N - ddof)
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use vectra::prelude::*;
+    /// 
+    /// let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+    /// let variance = arr.var(0.0);
+    /// ```
     pub fn var(&self, ddof: T) -> T {
         let n = T::from(self.size()).unwrap();
         let dof = n - ddof;
@@ -64,6 +130,20 @@ impl<const D: usize, T: Float + NumExt> Array<D, T> {
         sum_sq / dof
     }
 
+    /// Calculate the standard deviation of all elements in the array.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `ddof` - Delta degrees of freedom (divisor is N - ddof)
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use vectra::prelude::*;
+    /// 
+    /// let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+    /// let std_dev = arr.std(0.0);
+    /// ```
     pub fn std(&self, ddof: T) -> T {
         self.var(ddof).sqrt()
     }

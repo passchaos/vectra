@@ -11,10 +11,19 @@ use crate::{
     utils::{dyn_dim_to_static, negative_idx_to_positive},
 };
 
+/// Trait for types that can be used as slice arguments.
+///
+/// This trait is implemented for various range types and arrays of indices,
+/// allowing flexible slicing operations on multi-dimensional arrays.
 pub trait SliceArg {
+    /// Convert the slice argument to a vector of indices for the given dimension size.
     fn op_indices(&self, guard: usize) -> Vec<usize>;
 }
 
+/// Enum wrapper for different types of slice arguments.
+///
+/// This enum allows for dynamic dispatch of slice operations when the slice type
+/// is not known at compile time.
 #[derive(Debug)]
 pub enum SliceArgKind {
     Array(Vec<isize>),
@@ -255,6 +264,20 @@ impl SliceArg for RangeInclusive<isize> {
 }
 
 impl<const D: usize, T> Array<D, T> {
+    /// Extract a slice from the array using the specified slice arguments.
+    ///
+    /// # Arguments
+    ///
+    /// * `slices` - Array of slice arguments, one for each dimension
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 3]);
+    /// let slice = arr.slice([0..1, 1..3]);
+    /// ```
     pub fn slice<S: SliceArg>(&self, slices: [S; D]) -> Array<D, T>
     where
         T: Clone + Zero,
@@ -291,6 +314,22 @@ impl<const D: usize, T> Array<D, T> {
         arr
     }
 
+    /// Assign values to a slice of the array.
+    ///
+    /// # Arguments
+    ///
+    /// * `slices` - Array of slice arguments specifying the target region
+    /// * `values` - Array containing the values to assign
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let mut arr = Array::zeros([3, 3]);
+    /// let values = Array::ones([2, 2]);
+    /// arr.slice_assign([0..2, 0..2], &values);
+    /// ```
     pub fn slice_assign<S: SliceArg>(&mut self, slices: [S; D], values: &Self)
     where
         T: Clone,
@@ -329,6 +368,21 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
+    /// Fill a slice of the array with a single value.
+    ///
+    /// # Arguments
+    ///
+    /// * `slices` - Array of slice arguments specifying the target region
+    /// * `value` - Value to fill the slice with
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let mut arr = Array::zeros([3, 3]);
+    /// arr.slice_fill([0..2, 0..2], 42);
+    /// ```
     pub fn slice_fill<S: SliceArg + Debug>(&mut self, slices: [S; D], value: T)
     where
         T: Clone,
@@ -349,6 +403,25 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
+    /// Pad the array with the specified value.
+    ///
+    /// # Arguments
+    ///
+    /// * `padding` - Tuple of (top, bottom, left, right) padding amounts
+    /// * `value` - Value to use for padding
+    ///
+    /// # Returns
+    ///
+    /// A new array with the specified padding applied.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vectra::prelude::*;
+    ///
+    /// let arr = Array::from_vec(vec![1, 2, 3, 4], [2, 2]);
+    /// let padded = arr.pad((1, 1, 1, 1), 0);
+    /// ```
     pub fn pad(&self, padding: (usize, usize, usize, usize), value: T) -> Self
     where
         T: Clone,
