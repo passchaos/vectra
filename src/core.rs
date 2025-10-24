@@ -474,6 +474,10 @@ impl<const D: usize, T> Array<D, T> {
         &self.data
     }
 
+    pub fn data_mut(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+
     /// Get shape of the array
     pub fn shape(&self) -> [usize; D] {
         self.shape

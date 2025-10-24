@@ -33,7 +33,7 @@ impl<const D: usize, T: NumExt + Float> Array<D, T> {
         &a / &a_t
     }
 
-    pub fn rms_nom(&self, eps: T) -> Self {
+    pub fn rms_norm(&self, eps: T) -> Self {
         let a = self.map(|x| x.powi(2));
         let a_t = a.sum_axis((D - 1) as isize);
 
