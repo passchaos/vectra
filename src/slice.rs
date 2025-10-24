@@ -1,4 +1,7 @@
-use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use std::{
+    fmt::Debug,
+    ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
+};
 
 use itertools::Itertools;
 
@@ -8,11 +11,84 @@ use crate::{
 };
 
 pub trait SliceArg {
-    fn out_indices(&self, gurad: usize) -> Vec<usize>;
+    fn op_indices(&self, guard: usize) -> Vec<usize>;
+}
+
+#[derive(Debug)]
+pub enum SliceArgKind {
+    Array(Vec<isize>),
+    Range(Range<isize>),
+    RangeFrom(RangeFrom<isize>),
+    RangeFull(RangeFull),
+    RangeInclusive(RangeInclusive<isize>),
+    RangeTo(RangeTo<isize>),
+    RangeToInclusive(RangeToInclusive<isize>),
+}
+
+impl SliceArg for SliceArgKind {
+    fn op_indices(&self, guard: usize) -> Vec<usize> {
+        match self {
+            SliceArgKind::Array(indices) => indices.op_indices(guard),
+            SliceArgKind::Range(range) => range.op_indices(guard),
+            SliceArgKind::RangeFrom(range) => range.op_indices(guard),
+            SliceArgKind::RangeFull(range) => range.op_indices(guard),
+            SliceArgKind::RangeInclusive(range) => range.op_indices(guard),
+            SliceArgKind::RangeTo(range) => range.op_indices(guard),
+            SliceArgKind::RangeToInclusive(range) => range.op_indices(guard),
+        }
+    }
+}
+
+impl<const D: usize> From<[isize; D]> for SliceArgKind {
+    fn from(value: [isize; D]) -> Self {
+        SliceArgKind::Array(value.to_vec())
+    }
+}
+
+impl From<Vec<isize>> for SliceArgKind {
+    fn from(value: Vec<isize>) -> Self {
+        SliceArgKind::Array(value)
+    }
+}
+
+impl From<Range<isize>> for SliceArgKind {
+    fn from(value: Range<isize>) -> Self {
+        SliceArgKind::Range(value)
+    }
+}
+
+impl From<RangeFrom<isize>> for SliceArgKind {
+    fn from(value: RangeFrom<isize>) -> Self {
+        SliceArgKind::RangeFrom(value)
+    }
+}
+
+impl From<RangeTo<isize>> for SliceArgKind {
+    fn from(value: RangeTo<isize>) -> Self {
+        SliceArgKind::RangeTo(value)
+    }
+}
+
+impl From<RangeToInclusive<isize>> for SliceArgKind {
+    fn from(value: RangeToInclusive<isize>) -> Self {
+        SliceArgKind::RangeToInclusive(value)
+    }
+}
+
+impl From<RangeInclusive<isize>> for SliceArgKind {
+    fn from(value: RangeInclusive<isize>) -> Self {
+        SliceArgKind::RangeInclusive(value)
+    }
+}
+
+impl From<RangeFull> for SliceArgKind {
+    fn from(value: RangeFull) -> Self {
+        SliceArgKind::RangeFull(value)
+    }
 }
 
 impl<const D: usize> SliceArg for [isize; D] {
-    fn out_indices(&self, guard: usize) -> Vec<usize> {
+    fn op_indices(&self, guard: usize) -> Vec<usize> {
         let mut indices = Vec::new();
 
         for &index in self {
@@ -25,22 +101,8 @@ impl<const D: usize> SliceArg for [isize; D] {
     }
 }
 
-impl SliceArg for &[isize] {
-    fn out_indices(&self, guard: usize) -> Vec<usize> {
-        let mut indices = Vec::new();
-
-        for &index in *self {
-            let index = negative_idx_to_positive(index, guard);
-
-            indices.push(index);
-        }
-
-        indices
-    }
-}
-
 impl SliceArg for Vec<isize> {
-    fn out_indices(&self, guard: usize) -> Vec<usize> {
+    fn op_indices(&self, guard: usize) -> Vec<usize> {
         let mut indices = Vec::new();
 
         for &index in self {
@@ -54,13 +116,13 @@ impl SliceArg for Vec<isize> {
 }
 
 impl SliceArg for RangeFull {
-    fn out_indices(&self, guard: usize) -> Vec<usize> {
+    fn op_indices(&self, guard: usize) -> Vec<usize> {
         (0..guard).collect()
     }
 }
 
 impl SliceArg for RangeToInclusive<isize> {
-    fn out_indices(&self, guard: usize) -> Vec<usize> {
+    fn op_indices(&self, guard: usize) -> Vec<usize> {
         let end = self.end;
 
         let guard = guard as isize;
@@ -80,7 +142,7 @@ impl SliceArg for RangeToInclusive<isize> {
 }
 
 impl SliceArg for RangeTo<isize> {
-    fn out_indices(&self, guard: usize) -> Vec<usize> {
+    fn op_indices(&self, guard: usize) -> Vec<usize> {
         let end = self.end;
 
         let guard = guard as isize;
@@ -100,7 +162,7 @@ impl SliceArg for RangeTo<isize> {
 }
 
 impl SliceArg for RangeFrom<isize> {
-    fn out_indices(&self, guard: usize) -> Vec<usize> {
+    fn op_indices(&self, guard: usize) -> Vec<usize> {
         let start = self.start;
 
         let guard = guard as isize;
@@ -120,7 +182,7 @@ impl SliceArg for RangeFrom<isize> {
 }
 
 impl SliceArg for Range<isize> {
-    fn out_indices(&self, guard: usize) -> Vec<usize> {
+    fn op_indices(&self, guard: usize) -> Vec<usize> {
         let (start, end) = (self.start, self.end);
 
         let guard = guard as isize;
@@ -156,7 +218,7 @@ impl SliceArg for Range<isize> {
 }
 
 impl SliceArg for RangeInclusive<isize> {
-    fn out_indices(&self, guard: usize) -> Vec<usize> {
+    fn op_indices(&self, guard: usize) -> Vec<usize> {
         let (&start, &end) = (self.start(), self.end());
 
         let guard = guard as isize;
@@ -201,10 +263,10 @@ impl<const D: usize, T> Array<D, T> {
 
         let slices: Vec<_> = self_shape
             .iter()
-            .zip(slices.iter())
+            .zip(slices.into_iter())
             .zip(value_shape.iter())
             .map(|((&a, b), &c)| {
-                let indices = b.out_indices(a);
+                let indices = b.op_indices(a);
                 assert_eq!(indices.len(), c);
 
                 indices
@@ -230,7 +292,7 @@ impl<const D: usize, T> Array<D, T> {
         }
     }
 
-    pub fn slice_fill<S: SliceArg>(&mut self, slices: [S; D], value: T)
+    pub fn slice_fill<S: SliceArg + Debug>(&mut self, slices: [S; D], value: T)
     where
         T: Clone,
     {
@@ -239,7 +301,7 @@ impl<const D: usize, T> Array<D, T> {
         let slices = self_shape
             .iter()
             .zip(slices.iter())
-            .map(|(&a, b)| b.out_indices(a));
+            .map(|(&a, b)| b.op_indices(a));
 
         let slices_index = slices.multi_cartesian_product();
 
@@ -314,5 +376,14 @@ mod tests {
         let arr1 = Array::from_vec(vec![1.1, 1.2, 2.1, 2.2], [2, 2]);
         arr.slice_assign([.., ..], &arr1);
         assert_eq!(arr, arr1);
+
+        arr.slice_fill(
+            [
+                SliceArgKind::Array(vec![0, -2]),
+                SliceArgKind::RangeFull(..),
+            ],
+            3.1415,
+        );
+        println!("arr: {arr:?}");
     }
 }
