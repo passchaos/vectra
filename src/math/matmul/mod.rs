@@ -1,4 +1,6 @@
-use crate::{NumExt, core::Array, math::MatmulPolicy};
+use num_traits::Zero;
+
+use crate::{NumExt, core::Array, math::MatmulPolicy, slice::SliceArgKind};
 mod float_mat;
 
 pub trait Matmul: Sized {
@@ -7,6 +9,26 @@ pub trait Matmul: Sized {
     }
 
     fn matmul_with_policy(&self, rhs: &Self, policy: MatmulPolicy) -> Self;
+}
+
+impl<T: Clone + Zero + Default> Array<3, T>
+where
+    Array<2, T>: Matmul,
+{
+    pub fn batch_matmul(&self, rhs: &Array<2, T>) -> Self {
+        let batch_size = self.shape()[0];
+
+        let mut stacked_res = vec![];
+        for i in 0..batch_size {
+            let a = self.slice::<SliceArgKind>([vec![i as isize].into(), (..).into(), (..).into()]);
+            let a = a.squeeze(0);
+
+            let res = a.matmul(rhs);
+            stacked_res.push(res);
+        }
+
+        Array::<2, T>::stack(stacked_res, 0)
+    }
 }
 
 macro_rules! impl_matmul_for_type {
@@ -269,5 +291,18 @@ mod tests {
                 assert_relative_eq!(*res, new_res);
             }
         }
+    }
+
+    #[test]
+    fn test_matmul_3d() {
+        let a = Array::from_vec(
+            vec![1.0, 2.0, 3.0, 2.0, 3.0, 4.0, 3.0, 4.0, 5.0, 4.0, 5.0, 6.0],
+            [2, 3, 2],
+        );
+
+        let b = Array::from_vec(vec![1.0, 2.0], [2, 1]);
+
+        let res = a.batch_matmul(&b);
+        println!("a: {a:?} res: {res:?}");
     }
 }
