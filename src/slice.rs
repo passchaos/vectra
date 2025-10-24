@@ -4,6 +4,7 @@ use std::{
 };
 
 use itertools::Itertools;
+use num_traits::Zero;
 
 use crate::{
     core::Array,
@@ -254,6 +255,42 @@ impl SliceArg for RangeInclusive<isize> {
 }
 
 impl<const D: usize, T> Array<D, T> {
+    pub fn slice<S: SliceArg>(&self, slices: [S; D]) -> Array<D, T>
+    where
+        T: Clone + Zero,
+    {
+        let self_shape = self.shape();
+
+        let slices: Vec<_> = self_shape
+            .iter()
+            .zip(slices.into_iter())
+            .map(|(&a, b)| b.op_indices(a))
+            .collect();
+        let slice_shape: Vec<_> = slices.iter().map(|s| s.len()).collect();
+
+        let mut arr = Self::zeros(dyn_dim_to_static(&slice_shape));
+
+        let slices_index = slices.iter().cloned().multi_cartesian_product();
+
+        for idx in slices_index {
+            let value_idx: Vec<_> = idx
+                .iter()
+                .zip(slices.iter())
+                .map(|(idx_bit, slice)| {
+                    let bit_idx = slice.iter().position(|x| x == idx_bit).unwrap();
+                    bit_idx
+                })
+                .collect();
+
+            let value_idx = dyn_dim_to_static(&value_idx).map(|i| i as isize);
+            let idx = dyn_dim_to_static(&idx).map(|i| i as isize);
+
+            arr[value_idx] = self[idx].clone();
+        }
+
+        arr
+    }
+
     pub fn slice_assign<S: SliceArg>(&mut self, slices: [S; D], values: &Self)
     where
         T: Clone,
@@ -285,8 +322,8 @@ impl<const D: usize, T> Array<D, T> {
                 })
                 .collect();
 
-            let self_idx = dyn_dim_to_static::<D>(&idx).map(|i| i as isize);
-            let value_idx = dyn_dim_to_static::<D>(&value_idx).map(|i| i as isize);
+            let self_idx = dyn_dim_to_static::<D, _>(&idx).map(|i| i as isize);
+            let value_idx = dyn_dim_to_static::<D, _>(&value_idx).map(|i| i as isize);
 
             self[self_idx] = values[value_idx].clone();
         }
@@ -306,7 +343,7 @@ impl<const D: usize, T> Array<D, T> {
         let slices_index = slices.multi_cartesian_product();
 
         for idx in slices_index {
-            let self_idx = dyn_dim_to_static::<D>(&idx).map(|i| i as isize);
+            let self_idx = dyn_dim_to_static::<D, _>(&idx).map(|i| i as isize);
 
             self[self_idx] = value.clone();
         }
@@ -352,6 +389,17 @@ impl<const D: usize, T> Array<D, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_slice_get() {
+        let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+        let slice = arr.slice([1..=1, 0..=-1]);
+        assert_eq!(slice, Array::from_vec(vec![3.0, 4.0], [1, 2]));
+
+        let arr3 = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [3, 3]);
+        let slice = arr3.slice::<SliceArgKind>([vec![0, 2].into(), (1..=2).into()]);
+        assert_eq!(slice, Array::from_vec(vec![2.0, 3.0, 8.0, 9.0], [2, 2]));
+    }
 
     #[test]
     fn test_slice_assign() {

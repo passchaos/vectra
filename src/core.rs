@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut, RangeInclusive};
 use approx::{AbsDiffEq, RelativeEq};
 use faer::{Mat, MatRef};
 use itertools::Itertools;
-use num_traits::{Float, NumCast};
+use num_traits::{Float, NumCast, One, Zero};
 
 use crate::NumExt;
 use crate::utils::{
@@ -724,14 +724,20 @@ impl<const D: usize, T> Array<D, T> {
 }
 
 // only for number type
-impl<const D: usize, T: NumExt> Array<D, T> {
+impl<const D: usize, T> Array<D, T> {
     /// Create zero array
-    pub fn zeros(shape: [usize; D]) -> Self {
+    pub fn zeros(shape: [usize; D]) -> Self
+    where
+        T: Clone + Zero,
+    {
         Self::full(shape, T::zero())
     }
 
     /// Create ones array
-    pub fn ones(shape: [usize; D]) -> Self {
+    pub fn ones(shape: [usize; D]) -> Self
+    where
+        T: Clone + One,
+    {
         Self::full(shape, T::one())
     }
 
@@ -744,7 +750,7 @@ impl<const D: usize, T: NumExt> Array<D, T> {
 
     pub fn contains_nan(&self) -> bool
     where
-        T: Float,
+        T: Float + NumExt,
     {
         let sum = self.sum();
         sum.is_nan()

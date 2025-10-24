@@ -363,7 +363,7 @@ impl<const D: usize, T> Array<D, T> {
             .into_iter()
             .multi_cartesian_product()
             .map(|idx| {
-                let idx = dyn_dim_to_static::<D>(&idx).map(|a| a as isize);
+                let idx = dyn_dim_to_static::<D, _>(&idx).map(|a| a as isize);
                 self[idx].clone()
             })
             .collect();
@@ -378,7 +378,7 @@ impl<const D: usize, T> Array<D, T> {
             .map(|n| 0..n)
             .multi_cartesian_product()
             .map(|idx| {
-                let idx = dyn_dim_to_static::<D>(&idx);
+                let idx = dyn_dim_to_static::<D, _>(&idx);
 
                 let data = self.index(idx.map(|i| i as isize));
                 (idx, data)

@@ -1,7 +1,9 @@
+use num_traits::Zero;
+
 use crate::core::MajorOrder;
 
-pub fn dyn_dim_to_static<const D: usize>(idx: &[usize]) -> [usize; D] {
-    let mut result = [0; D];
+pub fn dyn_dim_to_static<const D: usize, T: Copy + Zero>(idx: &[T]) -> [T; D] {
+    let mut result = [T::zero(); D];
     result.copy_from_slice(idx);
 
     result
