@@ -24,17 +24,17 @@ impl Matmul for Array<2, f32> {
                 let k = self.shape[1];
                 let n = rhs.shape[1];
 
-                // let l_s_r = self.strides[0];
-                // let l_s_c = self.strides[1];
-                // let r_s_r = rhs.strides[0];
-                // let r_s_c = rhs.strides[1];
-
                 let result_shape = [m, n];
                 let mut result_data = vec![0.0; result_shape.iter().product()];
 
                 match policy {
                     #[cfg(target_arch = "aarch64")]
                     MatmulPolicy::LoopRecorderSimd => {
+                        let l_s_r = self.strides[0];
+                        let l_s_c = self.strides[1];
+                        let r_s_r = rhs.strides[0];
+                        let r_s_c = rhs.strides[1];
+
                         for i in 0..m {
                             for l in 0..k {
                                 // In practice, using get_unchecked directly only reduces runtime by 1%
@@ -123,17 +123,17 @@ impl Matmul for Array<2, f64> {
                 let k = self.shape[1];
                 let n = rhs.shape[1];
 
-                // let l_s_r = self.strides[0];
-                // let l_s_c = self.strides[1];
-                // let r_s_r = rhs.strides[0];
-                // let r_s_c = rhs.strides[1];
-
                 let result_shape = [m, n];
                 let mut result_data = vec![0.0; result_shape.iter().product()];
 
                 match policy {
                     #[cfg(target_arch = "aarch64")]
                     MatmulPolicy::LoopRecorderSimd => {
+                        let l_s_r = self.strides[0];
+                        let l_s_c = self.strides[1];
+                        let r_s_r = rhs.strides[0];
+                        let r_s_c = rhs.strides[1];
+
                         for i in 0..m {
                             for l in 0..k {
                                 // In practice, using get_unchecked directly only reduces runtime by 1%
