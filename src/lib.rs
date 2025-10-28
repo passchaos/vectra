@@ -97,6 +97,7 @@
 //! - **Zero-copy Operations**: Efficient memory usage through view-based operations
 
 #![feature(generic_const_exprs)]
+#![feature(slice_ptr_get)]
 #![allow(incomplete_features)]
 
 use std::{cmp::Ordering, fmt::Debug, iter::Sum};

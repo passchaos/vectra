@@ -1,5 +1,8 @@
 use std::{
+    collections::HashSet,
     fmt::Debug,
+    hash::RandomState,
+    mem::MaybeUninit,
     ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
 };
 
@@ -7,8 +10,8 @@ use itertools::Itertools;
 use num_traits::Zero;
 
 use crate::{
-    core::Array,
-    utils::{dyn_dim_to_static, negative_idx_to_positive},
+    core::{Array, MajorOrder},
+    utils::{dyn_dim_to_static, negative_idx_to_positive, shape_indices_to_flat_idx},
 };
 
 /// Trait for types that can be used as slice arguments.
@@ -314,6 +317,62 @@ impl<const D: usize, T> Array<D, T> {
         arr
     }
 
+    pub fn slice_mut<S: SliceArg>(&mut self, slices: [S; D]) -> Array<D, &mut T> {
+        let self_shape = self.shape();
+
+        let mut index_slices = vec![];
+
+        for (&a, b) in self_shape.iter().zip(slices.into_iter()) {
+            let indices = b.op_indices(a);
+
+            let indices_set: HashSet<&usize, RandomState> = HashSet::from_iter(indices.iter());
+
+            if indices_set.len() != indices.len() {
+                panic!("contain duplicate index in slices");
+            }
+
+            index_slices.push(indices);
+        }
+
+        let slice_shape: Vec<_> = index_slices.iter().map(|s| s.len()).collect();
+        let slice_shape_static = dyn_dim_to_static(&slice_shape);
+
+        let slice_data_size = slice_shape.iter().product();
+        let mut arr = vec![];
+        for _ in 0..slice_data_size {
+            arr.push(MaybeUninit::uninit());
+        }
+
+        let slices_index = index_slices.iter().cloned().multi_cartesian_product();
+
+        let self_data_slice: *mut [T] = self.data.as_mut_slice();
+
+        for idx in slices_index {
+            let value_idx: Vec<_> = idx
+                .iter()
+                .zip(index_slices.iter())
+                .map(|(idx_bit, slice)| {
+                    let bit_idx = slice.iter().position(|x| x == idx_bit).unwrap();
+                    bit_idx
+                })
+                .collect();
+
+            let value_idx = dyn_dim_to_static(&value_idx);
+            let idx = dyn_dim_to_static(&idx);
+
+            let arr_flat_idx =
+                shape_indices_to_flat_idx(slice_shape_static, value_idx, MajorOrder::RowMajor);
+            let self_data_idx = shape_indices_to_flat_idx(self_shape, idx, MajorOrder::RowMajor);
+
+            let data_ref_mut = unsafe { self_data_slice.get_unchecked_mut(self_data_idx) };
+            arr[arr_flat_idx].write(data_ref_mut);
+        }
+
+        let arr: Vec<&mut T> = unsafe { std::mem::transmute(arr) };
+
+        Array::from_vec(arr, slice_shape_static)
+    }
+
     /// Assign values to a slice of the array.
     ///
     /// # Arguments
@@ -472,6 +531,21 @@ mod tests {
         let arr3 = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [3, 3]);
         let slice = arr3.slice::<SliceArgKind>([vec![0, 2].into(), (1..=2).into()]);
         assert_eq!(slice, Array::from_vec(vec![2.0, 3.0, 8.0, 9.0], [2, 2]));
+    }
+
+    #[test]
+    fn test_slice_get_mut() {
+        let mut arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
+        {
+            let mut slice = arr.slice_mut([1..=1, 0..=-1]);
+            println!("slice orig: {slice:?}");
+            *slice[[0, 1]] = 9.0;
+            println!("slice: {slice:?}");
+        }
+
+        println!("arr= {arr:?}");
+        // slice.fill(9.0);
+        assert_eq!(arr, Array::from_vec(vec![1.0, 2.0, 9.0, 9.0], [2, 2]));
     }
 
     #[test]
