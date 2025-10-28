@@ -539,13 +539,14 @@ mod tests {
         {
             let mut slice = arr.slice_mut([1..=1, 0..=-1]);
             println!("slice orig: {slice:?}");
+
+            *slice[[0, 0]] = 8.0;
             *slice[[0, 1]] = 9.0;
             println!("slice: {slice:?}");
         }
 
         println!("arr= {arr:?}");
-        // slice.fill(9.0);
-        assert_eq!(arr, Array::from_vec(vec![1.0, 2.0, 9.0, 9.0], [2, 2]));
+        assert_eq!(arr, Array::from_vec(vec![1.0, 2.0, 8.0, 9.0], [2, 2]));
     }
 
     #[test]
