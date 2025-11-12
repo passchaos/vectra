@@ -3,7 +3,6 @@ use std::fmt::{self, Debug};
 use std::ops::{Index, IndexMut};
 
 use approx::{AbsDiffEq, RelativeEq};
-use faer::{Mat, MatRef};
 use itertools::Itertools;
 use num_traits::{Float, NumCast, One, Zero};
 
@@ -128,40 +127,6 @@ pub struct Array<const D: usize, T> {
 }
 
 impl<T: NumExt + Debug> Array<2, T> {
-    /// Convert the 2D array to a `faer::MatRef` for interoperability with the faer linear algebra library.
-    ///
-    /// This method provides zero-copy conversion to faer's matrix type, allowing you to use
-    /// faer's optimized linear algebra operations on Vectra arrays.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use vectra::prelude::*;
-    ///
-    /// let arr = Array::from_vec(vec![1.0, 2.0, 3.0, 4.0], [2, 2]);
-    /// let faer_mat = arr.as_faer();
-    /// // Now you can use faer operations on faer_mat
-    /// ```
-    pub fn as_faer(&self) -> MatRef<'_, T> {
-        let (nrows, ncols) = (self.shape[0], self.shape[1]);
-        let res = match self.major_order {
-            MajorOrder::RowMajor => MatRef::from_row_major_slice_with_stride(
-                self.data.as_slice(),
-                nrows,
-                ncols,
-                self.strides[0],
-            ),
-            MajorOrder::ColumnMajor => MatRef::from_column_major_slice_with_stride(
-                self.data.as_slice(),
-                nrows,
-                ncols,
-                self.strides[1],
-            ),
-        };
-
-        res
-    }
-
     /// Create an n×n identity matrix.
     ///
     /// An identity matrix is a square matrix with ones on the main diagonal
@@ -234,39 +199,6 @@ impl<T> Array<2, T> {
             shape: new_shape,
             strides: new_stride,
             major_order: major_order,
-        }
-    }
-}
-
-impl<T: NumExt> From<Mat<T>> for Array<2, T> {
-    fn from(mut mat: Mat<T>) -> Self {
-        let nrows = mat.nrows();
-        let ncols = mat.ncols();
-
-        let col_stride = mat.col_stride() as usize;
-        let row_stride = mat.row_stride() as usize;
-
-        // Data may not be contiguous and could have padding, so we can only calculate data length as follows
-        let len = nrows * row_stride + ncols * col_stride;
-        // println!(
-        //     "data info: nrows= {} ncols= {} col_stride= {} row_stride= {} len= {}",
-        //     nrows, ncols, col_stride, row_stride, len
-        // );
-
-        // zero-copy
-        let data = unsafe { Vec::from_raw_parts(mat.as_ptr_mut(), len, len) };
-        // println!("data: {data:?}");
-        std::mem::forget(mat);
-
-        let shape = [nrows, ncols];
-        // let strides = compute_strides(&shape);
-        let strides = [row_stride as usize, col_stride as usize];
-
-        Self {
-            data,
-            shape,
-            strides,
-            major_order: MajorOrder::ColumnMajor,
         }
     }
 }
@@ -1619,39 +1551,6 @@ mod tests {
     }
 
     #[test]
-    fn test_faer() {
-        let arr_f = faer::mat![[1, 2, 3], [4, 5, 6]];
-        println!(
-            "strides: row= {} col= {}",
-            arr_f.row_stride(),
-            arr_f.col_stride()
-        );
-        let arr_f_i = Array::from(arr_f);
-
-        println!("aff_f_i: {arr_f_i:?} data= {:?}", arr_f_i.data);
-
-        let arr = Array::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 3]);
-        let arr_f_r = arr.as_faer();
-        println!(
-            "arr_f_r: shape= {:?} strides= {:?} {:?}",
-            arr_f_r.shape(),
-            arr_f_r.row_stride(),
-            arr_f_r.col_stride()
-        );
-        let arr_f_r_c = arr_f_r.cloned();
-        println!(
-            "arr_f_r_c: shape= {:?} strides= {:?} {:?}",
-            arr_f_r_c.shape(),
-            arr_f_r_c.row_stride(),
-            arr_f_r_c.col_stride()
-        );
-
-        let arr_f: Array<_, i32> = Array::from(arr_f_r_c);
-        assert_eq!(arr, arr_f);
-        println!("arr= {:?} arr_f= {:?}", arr, arr_f);
-    }
-
-    #[test]
     fn test_ones_and_eye() {
         let ones: Array<_, f64> = Array::ones([2, 2]);
         assert_eq!(ones[[0, 0]], 1.0);
@@ -1665,11 +1564,7 @@ mod tests {
 
     #[test]
     fn test_transpose() {
-        for policy in [
-            // MatmulPolicy::Blas,
-            MatmulPolicy::Faer,
-            // MatmulPolicy::LoopReorder,
-        ] {
+        for policy in [MatmulPolicy::Blas, MatmulPolicy::LoopReorder] {
             let l: Vec<f32> = rand::random_iter().take(20).collect();
             let r: Vec<f32> = rand::random_iter().take(20).collect();
 

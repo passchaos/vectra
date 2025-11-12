@@ -41,12 +41,6 @@ pub enum MatmulPolicy {
     /// Best for small matrices or when simplicity is preferred over performance.
     Naive,
 
-    /// Use the faer library for matrix multiplication.
-    ///
-    /// Provides good performance with optimized algorithms and is the default
-    /// on most platforms except macOS.
-    Faer,
-
     /// Use BLAS (Basic Linear Algebra Subprograms) for matrix multiplication.
     ///
     /// Typically provides the best performance when available. This is the

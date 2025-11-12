@@ -138,7 +138,6 @@ mod tests {
             MatmulPolicy::Blocking(2),
             // MatmulPolicy::LoopRecorderSimd,
             MatmulPolicy::Blas,
-            MatmulPolicy::Faer,
         ] {
             macro_rules! check_handler {
                 ($T:ty) => {
@@ -208,7 +207,6 @@ mod tests {
             MatmulPolicy::Naive,
             MatmulPolicy::Blocking(64),
             MatmulPolicy::Blas,
-            MatmulPolicy::Faer,
             MatmulPolicy::LoopReorder,
             #[cfg(target_arch = "aarch64")]
             MatmulPolicy::LoopRecorderSimd,
@@ -274,7 +272,6 @@ mod tests {
 
         for policy in [
             MatmulPolicy::Blas,
-            MatmulPolicy::Faer,
             MatmulPolicy::LoopReorder,
             // #[cfg(target_arch = "aarch64")]
             // MatmulPolicy::LoopRecorderSimd,

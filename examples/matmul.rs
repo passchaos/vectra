@@ -12,7 +12,6 @@ fn main() {
         // MatmulPolicy::LoopReorder,
         // MatmulPolicy::LoopRecorderSimd,
         MatmulPolicy::Blas,
-        MatmulPolicy::Faer,
         // MatmulPolicy::Blocking(64),
         // MatmulPolicy::Blocking(96),
         // MatmulPolicy::Blocking(128),

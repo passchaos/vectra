@@ -15,7 +15,7 @@ rand = "0.9.2"
 rand_distr = "0.5.1"
 num-traits = "0.2.19"
 approx = "0.5.1"
-faer = "0.23"
+# faer = "0.23"
 itertools = "0.14.0"
 cblas-sys = { version = "0.3", optional = true }
 blas-sys = { version = "0.9", optional = true }
