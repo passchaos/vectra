@@ -865,10 +865,10 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn sliceAxis(self: Self, axis_index: isize, slice: Slice) TensorError!Self {
+        pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) TensorError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
-            const ns = try normalizeSlice(slice, self.shape[axis]);
+            const ns = try normalizeSlice(slice_value, self.shape[axis]);
             var out_shape = try self.allocator.dupe(usize, self.shape);
             defer self.allocator.free(out_shape);
             out_shape[axis] = ns.count;
@@ -885,6 +885,18 @@ pub fn Tensor(comptime T: type) type {
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
+        }
+
+        pub fn slice(self: Self, slices: []const Slice) TensorError!Self {
+            if (slices.len != self.shape.len) return error.ShapeMismatch;
+            var current = try self.clone();
+            errdefer current.deinit();
+            for (slices, 0..) |slice_value, axis| {
+                const next = try current.sliceAxis(@intCast(axis), slice_value);
+                current.deinit();
+                current = next;
+            }
+            return current;
         }
 
         pub fn flip(self: Self, axis_index: isize) TensorError!Self {
@@ -1021,25 +1033,31 @@ pub fn Tensor(comptime T: type) type {
         pub fn movedim(self: Self, source: isize, destination: isize) TensorError!Self {
             const src = try normalizeDim(source, self.shape.len);
             const dst = try normalizeDim(destination, self.shape.len);
-            var axes = try self.allocator.alloc(usize, self.shape.len);
+            const axes = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(axes);
-            var write: usize = 0;
+            var remaining = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(remaining);
+            var remaining_len: usize = 0;
             for (0..self.shape.len) |i| {
-                if (i == dst) {
-                    axes[write] = src;
-                    write += 1;
-                }
-                if (i != src) {
-                    axes[write] = i;
-                    write += 1;
+                if (i == src) continue;
+                remaining[remaining_len] = i;
+                remaining_len += 1;
+            }
+            var read: usize = 0;
+            for (axes, 0..) |*slot, out_i| {
+                if (out_i == dst) {
+                    slot.* = src;
+                } else {
+                    slot.* = remaining[read];
+                    read += 1;
                 }
             }
             return self.permute(axes);
         }
 
-        pub fn slice1d(self: Self, slice: Slice) TensorError!Self {
+        pub fn slice1d(self: Self, slice_value: Slice) TensorError!Self {
             if (self.shape.len != 1) return error.NonVectorTensor;
-            const ns = try normalizeSlice(slice, self.shape[0]);
+            const ns = try normalizeSlice(slice_value, self.shape[0]);
             const out = try Self.empty(self.allocator, &.{ns.count});
             var idx = ns.start;
             for (out.data) |*slot| {
@@ -4814,6 +4832,66 @@ pub fn where(comptime T: type, mask: Tensor(bool), a: Tensor(T), b: Tensor(T)) T
     return Tensor(T).whereMask(mask, a, b);
 }
 
+pub fn reshape(comptime T: type, input: Tensor(T), dims: []const usize) TensorError!Tensor(T) {
+    return input.reshape(dims);
+}
+
+pub fn view(comptime T: type, input: Tensor(T), dims: []const usize) TensorError!Tensor(T) {
+    return input.view(dims);
+}
+
+pub fn flatten(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.flatten();
+}
+
+pub fn ravel(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.ravel();
+}
+
+pub fn squeeze(comptime T: type, input: Tensor(T), axis: ?isize) TensorError!Tensor(T) {
+    return input.squeeze(axis);
+}
+
+pub fn unsqueeze(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+    return input.unsqueeze(axis);
+}
+
+pub fn broadcastTo(comptime T: type, input: Tensor(T), dims: []const usize) TensorError!Tensor(T) {
+    return input.broadcastTo(dims);
+}
+
+pub fn repeat(comptime T: type, input: Tensor(T), repeats: usize, axis: isize) TensorError!Tensor(T) {
+    return input.repeat(repeats, axis);
+}
+
+pub fn tile(comptime T: type, input: Tensor(T), repeats: []const usize) TensorError!Tensor(T) {
+    return input.tile(repeats);
+}
+
+pub fn transpose(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.transpose();
+}
+
+pub fn swapaxes(comptime T: type, input: Tensor(T), dim0: isize, dim1: isize) TensorError!Tensor(T) {
+    return input.swapaxes(dim0, dim1);
+}
+
+pub fn permute(comptime T: type, input: Tensor(T), axes: []const usize) TensorError!Tensor(T) {
+    return input.permute(axes);
+}
+
+pub fn movedim(comptime T: type, input: Tensor(T), source: isize, destination: isize) TensorError!Tensor(T) {
+    return input.movedim(source, destination);
+}
+
+pub fn select(comptime T: type, input: Tensor(T), axis: isize, index: usize) TensorError!Tensor(T) {
+    return input.select(axis, index);
+}
+
+pub fn narrow(comptime T: type, input: Tensor(T), axis: isize, start: usize, length: usize) TensorError!Tensor(T) {
+    return input.narrow(axis, start, length);
+}
+
 pub fn add(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
     return a.add(b);
 }
@@ -5482,8 +5560,16 @@ pub fn diagflat(comptime T: type, input: Tensor(T), offset: isize) TensorError!T
     return input.diagflat(offset);
 }
 
-pub fn sliceAxis(comptime T: type, input: Tensor(T), axis: isize, slice: Slice) TensorError!Tensor(T) {
-    return input.sliceAxis(axis, slice);
+pub fn sliceAxis(comptime T: type, input: Tensor(T), axis: isize, slice_value: Slice) TensorError!Tensor(T) {
+    return input.sliceAxis(axis, slice_value);
+}
+
+pub fn slice(comptime T: type, input: Tensor(T), slices: []const Slice) TensorError!Tensor(T) {
+    return input.slice(slices);
+}
+
+pub fn slice1d(comptime T: type, input: Tensor(T), slice_value: Slice) TensorError!Tensor(T) {
+    return input.slice1d(slice_value);
 }
 
 pub fn flip(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
@@ -5912,22 +5998,55 @@ test "tensor pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqual(@as(usize, 3), try a.size(1));
     try std.testing.expectEqual(@as(f64, 5), try a.at(&.{ 1, 1 }));
 
-    var u = try a.unsqueeze(0);
+    var u = try unsqueeze(f64, a, 0);
     defer u.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, u.shape);
-    var s2 = try u.squeeze(null);
+    var s2 = try squeeze(f64, u, null);
     defer s2.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, s2.shape);
 
-    var p = try a.permute(&.{ 1, 0 });
+    var p = try permute(f64, a, &.{ 1, 0 });
     defer p.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, p.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, p.data);
 
-    var n = try a.narrow(1, 1, 2);
+    var n = try narrow(f64, a, 1, 1, 2);
     defer n.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, n.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5, 6 }, n.data);
+    var reshaped = try reshape(f64, a, &.{ 3, 2 });
+    defer reshaped.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, reshaped.shape);
+    var viewed = try view(f64, reshaped, &.{ 2, 3 });
+    defer viewed.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, viewed.data);
+    var flat_top = try flatten(f64, a);
+    defer flat_top.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, flat_top.shape);
+    var ravel_top = try ravel(f64, a);
+    defer ravel_top.deinit();
+    try std.testing.expectEqualSlices(f64, flat_top.data, ravel_top.data);
+    var transposed_top = try transpose(f64, a);
+    defer transposed_top.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, transposed_top.data);
+    var swapped_top = try swapaxes(f64, a, 0, 1);
+    defer swapped_top.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_top.data, swapped_top.data);
+    var moved_top = try movedim(f64, u, 0, 2);
+    defer moved_top.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, moved_top.shape);
+    var selected_top = try select(f64, a, 0, 1);
+    defer selected_top.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, selected_top.data);
+    var broadcast_top = try broadcastTo(f64, selected_top, &.{ 2, 3 });
+    defer broadcast_top.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, broadcast_top.data);
+    var repeated_top = try repeat(f64, selected_top, 2, 0);
+    defer repeated_top.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 4, 5, 5, 6, 6 }, repeated_top.data);
+    var tiled_top = try tile(f64, selected_top, &.{2});
+    defer tiled_top.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, tiled_top.data);
 }
 
 test "tensor take mask stack cat and neural helpers" {
@@ -6779,6 +6898,21 @@ test "array slice flip roll and constant padding" {
     defer sliced.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, sliced.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4, 6 }, sliced.data);
+    var sliced_top = try sliceAxis(f64, a, 1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer sliced_top.deinit();
+    try std.testing.expectEqualSlices(f64, sliced.data, sliced_top.data);
+    var multi_sliced = try slice(f64, a, &.{
+        .{ .start = 0, .stop = 2, .step = 1 },
+        .{ .start = 1, .stop = 3, .step = 1 },
+    });
+    defer multi_sliced.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, multi_sliced.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5, 6 }, multi_sliced.data);
+    var v = try array(f64, gpa, &.{ 1, 2, 3, 4, 5 }, &.{5});
+    defer v.deinit();
+    var sliced_1d = try slice1d(f64, v, .{ .start = 1, .stop = 5, .step = 2 });
+    defer sliced_1d.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 4 }, sliced_1d.data);
 
     var flipped = try a.flip(1);
     defer flipped.deinit();
