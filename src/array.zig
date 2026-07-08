@@ -1487,6 +1487,117 @@ pub fn ArrayView(comptime T: type) type {
             return owned.topk(k, axis_opt, largest, sorted);
         }
 
+        pub fn take(self: Self, indices: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.take(indices, axis_opt);
+        }
+
+        pub fn takeSigned(self: Self, indices: Array(isize), axis_opt: ?isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.takeSigned(indices, axis_opt);
+        }
+
+        pub fn takeMode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.takeMode(indices, axis_opt, mode);
+        }
+
+        pub fn indexSelect(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
+            return self.take(indices, axis_index);
+        }
+
+        pub fn indexSelectSigned(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Array(T) {
+            return self.takeSigned(indices, axis_index);
+        }
+
+        pub fn gather(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.gather(axis_index, indices);
+        }
+
+        pub fn gatherSigned(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.gatherSigned(axis_index, indices);
+        }
+
+        pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.maskedSelect(mask);
+        }
+
+        pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.compress(condition, axis_opt);
+        }
+
+        pub fn countNonzero(self: Self) usize {
+            var count: usize = 0;
+            const multi = self.allocator.alloc(usize, self.shape.len) catch return 0;
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                if (self.data[self.offset + ravelIndex(multi, self.strides)] != zero(T)) count += 1;
+            }
+            return count;
+        }
+
+        pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.flatNonzero();
+        }
+
+        pub fn nonzero(self: Self) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nonzero();
+        }
+
+        pub fn argwhere(self: Self) ArrayError!Array(usize) {
+            return self.nonzero();
+        }
+
+        pub fn whereIndices(self: Self) ArrayError!Array(usize) {
+            return self.nonzero();
+        }
+
+        pub fn unique(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.unique();
+        }
+
+        pub fn searchsorted(self: Self, values: Array(T), side: SearchSide) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.searchsorted(values, side);
+        }
+
+        pub fn bucketize(self: Self, boundaries: Array(T), side: SearchSide) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.bucketize(boundaries, side);
+        }
+
+        pub fn digitize(self: Self, bins: Array(T), right: bool) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.digitize(bins, right);
+        }
+
+        pub fn isin(self: Self, test_elements: Array(T), invert: bool) ArrayError!Array(bool) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isin(test_elements, invert);
+        }
+
         pub fn matmul(self: Self, other: Self) ArrayError!Array(T) {
             var lhs = try self.toArray();
             defer lhs.deinit();
@@ -7597,6 +7708,68 @@ test "array non contiguous view helpers" {
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
+}
+
+test "array view object indexing wrappers" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 0, 3, 4, 0, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+    var view = try a.transposeView();
+    defer view.deinit();
+
+    var take_idx = try Array(usize).fromSlice(gpa, &.{ 0, 5, 2 }, &.{3});
+    defer take_idx.deinit();
+    var flat_take = try view.take(take_idx, null);
+    defer flat_take.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 6, 0 }, flat_take.data);
+
+    var signed_idx = try Array(isize).fromSlice(gpa, &.{ -1, 0 }, &.{2});
+    defer signed_idx.deinit();
+    var signed_take = try view.indexSelectSigned(0, signed_idx);
+    defer signed_take.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, signed_take.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 6, 1, 4 }, signed_take.data);
+
+    var gather_idx = try Array(isize).fromSlice(gpa, &.{ -1, 0, 1, 0, -1, 1 }, &.{ 3, 2 });
+    defer gather_idx.deinit();
+    var gathered = try view.gatherSigned(1, gather_idx);
+    defer gathered.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 1, 0, 0, 6, 6 }, gathered.data);
+
+    var mask = try Array(bool).fromSlice(gpa, &.{ true, false, false, true, true, false }, &.{ 3, 2 });
+    defer mask.deinit();
+    var masked = try view.maskedSelect(mask);
+    defer masked.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 3 }, masked.data);
+
+    var rows = try Array(bool).fromSlice(gpa, &.{ true, false, true }, &.{3});
+    defer rows.deinit();
+    var compressed = try view.compress(rows, 0);
+    defer compressed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, compressed.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 3, 6 }, compressed.data);
+
+    try std.testing.expectEqual(@as(usize, 4), view.countNonzero());
+    var nz = try view.nonzero();
+    defer nz.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, nz.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 1, 2, 0, 2, 1 }, nz.data);
+
+    var sorted_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 2, 4 }, &.{4});
+    defer sorted_values.deinit();
+    var sorted_view = try sorted_values.asStrided(&.{4}, &.{1}, 0);
+    defer sorted_view.deinit();
+    var probes = try Array(f64).fromSlice(gpa, &.{ 2, 3 }, &.{2});
+    defer probes.deinit();
+    var positions = try sorted_view.searchsorted(probes, .right);
+    defer positions.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, positions.data);
+
+    var needles = try Array(f64).fromSlice(gpa, &.{ 3, 6 }, &.{2});
+    defer needles.deinit();
+    var members = try view.isin(needles, false);
+    defer members.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, true, true }, members.data);
 }
 
 test "array view object math sort and linalg wrappers" {
