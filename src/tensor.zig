@@ -495,6 +495,56 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        pub fn lognormal(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) TensorError!Self {
+            ensureFloat(T);
+            if (stddev_value < zero(T)) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.logNormalChecked(rng, T, mean_value, stddev_value) catch return error.InvalidShape;
+            return out;
+        }
+
+        pub fn studentT(allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) TensorError!Self {
+            ensureFloat(T);
+            if (!(dof > zero(T))) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.studentTChecked(rng, T, dof) catch return error.InvalidShape;
+            return out;
+        }
+
+        pub fn cauchy(allocator: std.mem.Allocator, dims: []const usize, median: T, scale: T, seed: u64) TensorError!Self {
+            ensureFloat(T);
+            if (!(scale > zero(T))) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.cauchyChecked(rng, T, median, scale) catch return error.InvalidShape;
+            return out;
+        }
+
+        pub fn laplace(allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) TensorError!Self {
+            ensureFloat(T);
+            if (!(scale > zero(T))) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.laplaceChecked(rng, T, location, scale) catch return error.InvalidShape;
+            return out;
+        }
+
+        pub fn weibull(allocator: std.mem.Allocator, dims: []const usize, scale: T, shape_param: T, seed: u64) TensorError!Self {
+            ensureFloat(T);
+            if (!(scale > zero(T)) or !(shape_param > zero(T))) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.weibullChecked(rng, T, scale, shape_param) catch return error.InvalidShape;
+            return out;
+        }
+
         pub fn deinit(self: *Self) void {
             self.allocator.free(self.data);
             self.allocator.free(self.shape);
@@ -2428,6 +2478,26 @@ pub fn poisson(allocator: std.mem.Allocator, dims: []const usize, lambda: f64, s
     return out;
 }
 
+pub fn lognormal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean: T, stddev: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).lognormal(allocator, dims, mean, stddev, seed);
+}
+
+pub fn studentT(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).studentT(allocator, dims, dof, seed);
+}
+
+pub fn cauchy(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, median: T, scale: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).cauchy(allocator, dims, median, scale, seed);
+}
+
+pub fn laplace(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).laplace(allocator, dims, location, scale, seed);
+}
+
+pub fn weibull(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, scale: T, shape_param: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).weibull(allocator, dims, scale, shape_param, seed);
+}
+
 pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) TensorError!Tensor(T) {
     return Tensor(T).eye(allocator, n);
 }
@@ -2744,6 +2814,29 @@ test "alea-backed advanced random distributions" {
     var p0 = try poisson(gpa, &.{8}, 0.0, 444);
     defer p0.deinit();
     try std.testing.expectEqualSlices(u64, &.{ 0, 0, 0, 0, 0, 0, 0, 0 }, p0.data);
+}
+
+test "alea-backed additional continuous distributions" {
+    const gpa = std.testing.allocator;
+    var ln = try lognormal(f64, gpa, &.{8}, 0.0, 0.0, 555);
+    defer ln.deinit();
+    for (ln.data) |v| try std.testing.expectApproxEqAbs(@as(f64, 1), v, 1e-12);
+
+    var st = try studentT(f64, gpa, &.{8}, 8.0, 666);
+    defer st.deinit();
+    for (st.data) |v| try std.testing.expect(std.math.isFinite(v));
+
+    var ca = try cauchy(f64, gpa, &.{8}, 0.0, 1.0, 777);
+    defer ca.deinit();
+    for (ca.data) |v| try std.testing.expect(std.math.isFinite(v));
+
+    var la = try laplace(f64, gpa, &.{8}, 0.0, 2.0, 888);
+    defer la.deinit();
+    for (la.data) |v| try std.testing.expect(std.math.isFinite(v));
+
+    var wb = try weibull(f64, gpa, &.{8}, 2.0, 1.5, 999);
+    defer wb.deinit();
+    for (wb.data) |v| try std.testing.expect(v >= 0);
 }
 
 test "array scatter add and reduce variants" {
