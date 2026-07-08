@@ -2550,6 +2550,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.diff(axis_index, n);
         }
 
+        pub fn trapezoid(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.trapezoid(x_values, dx, axis_index);
+        }
+
+        pub fn trapz(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
+            return self.trapezoid(x_values, dx, axis_index);
+        }
+
         pub fn argmax(self: Self) ArrayError!usize {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -8901,6 +8911,51 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn trapezoid(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
+            ensureFloat(T);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            if (x_values) |x| {
+                if (x.shape.len != 1 or x.data.len != axis_len) return error.ShapeMismatch;
+            }
+
+            var out_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(out_shape);
+            for (self.shape[0..axis], 0..) |dim, i| out_shape[i] = dim;
+            for (self.shape[axis + 1 ..], axis..) |dim, i| out_shape[i] = dim;
+
+            var out = try Self.zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0 or axis_len < 2) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                for (out_multi[0..axis], 0..) |coord, i| in_multi[i] = coord;
+                for (out_multi[axis..], axis + 1..) |coord, i| in_multi[i] = coord;
+                var total = zero(T);
+                for (0..axis_len - 1) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    const left = self.data[ravelIndex(in_multi, self.strides)];
+                    in_multi[axis] = axis_i + 1;
+                    const right = self.data[ravelIndex(in_multi, self.strides)];
+                    const width = if (x_values) |x| x.data[axis_i + 1] - x.data[axis_i] else dx;
+                    total += (left + right) * width / castValue(T, 2);
+                }
+                slot.* = total;
+            }
+            return out;
+        }
+
+        pub fn trapz(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
+            return self.trapezoid(x_values, dx, axis_index);
+        }
+
         pub fn argmax(self: Self) ArrayError!usize {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyArray;
@@ -14018,6 +14073,37 @@ test "array axis cumulative operations and diff" {
     defer d2.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, d2.shape);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, d2.data);
+
+    var trap_rows = try a.trapezoid(null, 1, 1);
+    defer trap_rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, trap_rows.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 10 }, trap_rows.data);
+    var x_values = try Array(f64).fromSlice(gpa, &.{ 0, 1, 3 }, &.{3});
+    defer x_values.deinit();
+    var trap_rows_x = try a.trapezoid(x_values, 1, 1);
+    defer trap_rows_x.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6.5, 15.5 }, trap_rows_x.data);
+    var trap_cols = try a.trapz(null, 2, 0);
+    defer trap_cols.deinit();
+    try std.testing.expectEqualSlices(usize, &.{3}, trap_cols.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, trap_cols.data);
+    var short = try Array(f64).fromSlice(gpa, &.{5}, &.{1});
+    defer short.deinit();
+    var short_trap = try short.trapezoid(null, 1, 0);
+    defer short_trap.deinit();
+    try std.testing.expectEqual(@as(usize, 0), short_trap.shape.len);
+    try std.testing.expectEqual(@as(f64, 0), short_trap.data[0]);
+
+    var view = try a.transposeView();
+    defer view.deinit();
+    var view_trap = try view.trapezoid(null, 1, 0);
+    defer view_trap.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, view_trap.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 10 }, view_trap.data);
+    var view_trap_x = try view.trapz(x_values, 1, 0);
+    defer view_trap_x.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6.5, 15.5 }, view_trap_x.data);
+    try std.testing.expectError(error.ShapeMismatch, a.trapezoid(short, 1, 1));
 }
 
 test "array unique bincount searchsorted and clipArray" {
