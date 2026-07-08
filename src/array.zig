@@ -2450,6 +2450,42 @@ pub fn ArrayView(comptime T: type) type {
             return self.flatten();
         }
 
+        pub fn atLeast1d(self: Self) ArrayError!Self {
+            if (self.shape.len >= 1) return self.clone();
+            return self.unsqueeze(0);
+        }
+
+        pub fn atLeast2d(self: Self) ArrayError!Self {
+            return switch (self.shape.len) {
+                0 => blk: {
+                    var one_d = try self.unsqueeze(0);
+                    defer one_d.deinit();
+                    break :blk one_d.unsqueeze(0);
+                },
+                1 => self.unsqueeze(0),
+                else => self.clone(),
+            };
+        }
+
+        pub fn atLeast3d(self: Self) ArrayError!Self {
+            return switch (self.shape.len) {
+                0 => blk: {
+                    var one_d = try self.unsqueeze(0);
+                    defer one_d.deinit();
+                    var two_d = try one_d.unsqueeze(0);
+                    defer two_d.deinit();
+                    break :blk two_d.unsqueeze(0);
+                },
+                1 => blk: {
+                    var two_d = try self.unsqueeze(0);
+                    defer two_d.deinit();
+                    break :blk two_d.unsqueeze(2);
+                },
+                2 => self.unsqueeze(2),
+                else => self.clone(),
+            };
+        }
+
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
             const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
             defer self.allocator.free(out_shape);
@@ -3839,6 +3875,28 @@ pub fn Array(comptime T: type) type {
 
         pub fn ravel(self: Self) ArrayError!Self {
             return self.flatten();
+        }
+
+        pub fn atLeast1d(self: Self) ArrayError!Self {
+            if (self.shape.len >= 1) return self.clone();
+            return self.reshape(&.{1});
+        }
+
+        pub fn atLeast2d(self: Self) ArrayError!Self {
+            return switch (self.shape.len) {
+                0 => self.reshape(&.{ 1, 1 }),
+                1 => self.reshape(&.{ 1, self.shape[0] }),
+                else => self.clone(),
+            };
+        }
+
+        pub fn atLeast3d(self: Self) ArrayError!Self {
+            return switch (self.shape.len) {
+                0 => self.reshape(&.{ 1, 1, 1 }),
+                1 => self.reshape(&.{ 1, self.shape[0], 1 }),
+                2 => self.reshape(&.{ self.shape[0], self.shape[1], 1 }),
+                else => self.clone(),
+            };
         }
 
         pub fn view(self: Self, dims: []const usize) ArrayError!Self {
@@ -9350,6 +9408,26 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var ravel_top = try a.ravel();
     defer ravel_top.deinit();
     try std.testing.expectEqualSlices(f64, flat_top.data, ravel_top.data);
+    var scalar = try Array(f64).fromScalar(gpa, 9);
+    defer scalar.deinit();
+    var scalar_1d = try scalar.atLeast1d();
+    defer scalar_1d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{1}, scalar_1d.shape);
+    try std.testing.expectEqualSlices(f64, &.{9}, scalar_1d.data);
+    var scalar_2d = try scalar.atLeast2d();
+    defer scalar_2d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, scalar_2d.shape);
+    try std.testing.expectEqualSlices(f64, &.{9}, scalar_2d.data);
+    var scalar_3d = try scalar.atLeast3d();
+    defer scalar_3d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, scalar_3d.shape);
+    try std.testing.expectEqualSlices(f64, &.{9}, scalar_3d.data);
+    var matrix_3d = try a.atLeast3d();
+    defer matrix_3d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, matrix_3d.shape);
+    var already_2d = try a.atLeast2d();
+    defer already_2d.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, already_2d.shape);
     var transposed_top = try a.transpose();
     defer transposed_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, transposed_top.data);
@@ -9362,6 +9440,12 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var selected_top = try a.select(0, 1);
     defer selected_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, selected_top.data);
+    var vector_2d = try selected_top.atLeast2d();
+    defer vector_2d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, vector_2d.shape);
+    var vector_3d = try selected_top.atLeast3d();
+    defer vector_3d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 3, 1 }, vector_3d.shape);
     var broadcast_top = try selected_top.broadcastTo(&.{ 2, 3 });
     defer broadcast_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, broadcast_top.data);
@@ -9610,6 +9694,33 @@ test "array non contiguous view helpers" {
     var selected_expanded_as_view = try selected.expandAs(selected_broadcast);
     defer selected_expanded_as_view.deinit();
     try std.testing.expectEqualSlices(usize, selected_broadcast.shape, selected_expanded_as_view.shape);
+
+    var scalar = try Array(f64).fromScalar(gpa, 5);
+    defer scalar.deinit();
+    var scalar_view = try scalar.asView();
+    defer scalar_view.deinit();
+    var scalar_view_1d = try scalar_view.atLeast1d();
+    defer scalar_view_1d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{1}, scalar_view_1d.shape);
+    try std.testing.expectEqualSlices(usize, &.{0}, scalar_view_1d.strides);
+    try std.testing.expectEqual(@as(f64, 5), try scalar_view_1d.get(&.{0}));
+    var scalar_view_2d = try scalar_view.atLeast2d();
+    defer scalar_view_2d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, scalar_view_2d.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0 }, scalar_view_2d.strides);
+    var selected_2d = try selected.atLeast2d();
+    defer selected_2d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 4 }, selected_2d.shape);
+    var selected_3d = try selected.atLeast3d();
+    defer selected_3d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 4, 1 }, selected_3d.shape);
+    try selected_3d.set(&.{ 0, 0, 0 }, 70);
+    try std.testing.expectEqual(@as(f64, 70), a.data[4]);
+    try selected_3d.set(&.{ 0, 0, 0 }, 50);
+    try std.testing.expectEqual(@as(f64, 50), a.data[4]);
+    var stepped_3d = try stepped.atLeast3d();
+    defer stepped_3d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 1 }, stepped_3d.shape);
 
     var transposed = try a.transposeView();
     defer transposed.deinit();
