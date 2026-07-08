@@ -167,16 +167,32 @@ pub const DType = enum {
             if (rank > 4) return .f64;
         }
         const signed = a.isSigned() or b.isSigned();
-        return switch (rank) {
-            0, 1 => if (signed) .i8 else .u8,
-            2 => if (signed) .i16 else .u16,
-            3 => if (signed) .i32 else .u32,
-            else => if (signed) .i64 else .u64,
-        };
+        if (rank <= 1) return if (signed) .i8 else .u8;
+        if (rank == 2) return if (signed) .i16 else .u16;
+        if (rank == 3) return if (signed) .i32 else .u32;
+        return if (signed) .i64 else .u64;
     }
 
     pub fn result(a: DType, b: DType) DType {
         return DType.promote(a, b);
+    }
+
+    pub fn Type(self: DType) type {
+        return switch (self) {
+            .f16 => f16,
+            .f32 => f32,
+            .f64 => f64,
+            .i8 => i8,
+            .i16 => i16,
+            .i32 => i32,
+            .i64 => i64,
+            .u8 => u8,
+            .u16 => u16,
+            .u32 => u32,
+            .u64 => u64,
+            .usize => usize,
+            .bool => bool,
+        };
     }
 
     pub fn tag(self: DType) u8 {
@@ -218,6 +234,10 @@ pub fn promoteDType(a: DType, b: DType) DType {
 
 pub fn resultDType(a: DType, b: DType) DType {
     return DType.result(a, b);
+}
+
+pub fn promoteType(comptime A: type, comptime B: type) type {
+    return DType.promote(DType.of(A), DType.of(B)).Type();
 }
 
 pub const ArrayError = error{
@@ -2171,6 +2191,60 @@ pub fn Array(comptime T: type) type {
                     return if (a <= b) a else b;
                 }
             }.f);
+        }
+
+        pub fn addPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.add(rhs);
+        }
+
+        pub fn subPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.sub(rhs);
+        }
+
+        pub fn mulPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.mul(rhs);
+        }
+
+        pub fn divPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.div(rhs);
+        }
+
+        pub fn maximumPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.maximum(rhs);
+        }
+
+        pub fn minimumPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.minimum(rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Self {
@@ -5302,6 +5376,30 @@ pub fn minimum(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.minimum(b);
 }
 
+pub fn addPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
+    return a.addPromote(B, b);
+}
+
+pub fn subPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
+    return a.subPromote(B, b);
+}
+
+pub fn mulPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
+    return a.mulPromote(B, b);
+}
+
+pub fn divPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
+    return a.divPromote(B, b);
+}
+
+pub fn maximumPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
+    return a.maximumPromote(B, b);
+}
+
+pub fn minimumPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
+    return a.minimumPromote(B, b);
+}
+
 pub fn hypot(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.hypot(b);
 }
@@ -7529,6 +7627,23 @@ test "array dtype metadata and casts cover common numeric types" {
     var half_to_float = try halves.astype(f32);
     defer half_to_float.deinit();
     try std.testing.expectEqualSlices(f32, &.{ 1.5, -2.0 }, half_to_float.data);
+    try std.testing.expectEqual(f32, promoteType(f16, f32));
+    try std.testing.expectEqual(i32, promoteType(i16, u16));
+    var small_signed = try array(i16, gpa, &.{ -1, 2, 3 }, &.{3});
+    defer small_signed.deinit();
+    var small_unsigned = try array(u16, gpa, &.{ 5, 6, 7 }, &.{3});
+    defer small_unsigned.deinit();
+    var promoted_sum = try addPromote(i16, u16, small_signed, small_unsigned);
+    defer promoted_sum.deinit();
+    try std.testing.expectEqual(DType.i32, @TypeOf(promoted_sum).dtype);
+    try std.testing.expectEqualSlices(i32, &.{ 4, 8, 10 }, promoted_sum.data);
+    var promoted_max = try small_signed.maximumPromote(u16, small_unsigned);
+    defer promoted_max.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 5, 6, 7 }, promoted_max.data);
+    var promoted_half = try mulPromote(f16, f32, halves, half_to_float);
+    defer promoted_half.deinit();
+    try std.testing.expectEqual(DType.f32, @TypeOf(promoted_half).dtype);
+    try std.testing.expectEqualSlices(f32, &.{ 2.25, 4.0 }, promoted_half.data);
 
     var r = try randint(u16, gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
