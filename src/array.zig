@@ -2777,6 +2777,30 @@ pub fn ArrayView(comptime T: type) type {
             return owned.argminAxis(axis_opt, keepdims);
         }
 
+        pub fn nanargmax(self: Self) ArrayError!usize {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanargmax();
+        }
+
+        pub fn nanargmin(self: Self) ArrayError!usize {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanargmin();
+        }
+
+        pub fn nanargmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanargmaxAxis(axis_opt, keepdims);
+        }
+
+        pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanargminAxis(axis_opt, keepdims);
+        }
+
         pub fn materializedApply(self: Self, comptime U: type, comptime method: fn (Array(T)) ArrayError!Array(U)) ArrayError!Array(U) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -9923,6 +9947,54 @@ pub fn Array(comptime T: type) type {
             }.better);
         }
 
+        pub fn nanargmax(self: Self) ArrayError!usize {
+            ensureFloat(T);
+            var found = false;
+            var best: usize = 0;
+            for (self.data, 0..) |value, i| {
+                if (opIsNan(value)) continue;
+                if (!found or lessValue(T, self.data[best], value)) {
+                    best = i;
+                    found = true;
+                }
+            }
+            if (!found) return error.EmptyArray;
+            return best;
+        }
+
+        pub fn nanargmin(self: Self) ArrayError!usize {
+            ensureFloat(T);
+            var found = false;
+            var best: usize = 0;
+            for (self.data, 0..) |value, i| {
+                if (opIsNan(value)) continue;
+                if (!found or lessValue(T, value, self.data[best])) {
+                    best = i;
+                    found = true;
+                }
+            }
+            if (!found) return error.EmptyArray;
+            return best;
+        }
+
+        pub fn nanargmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
+            ensureFloat(T);
+            return self.nanArgReduce(axis_opt, keepdims, struct {
+                fn better(a: T, b: T) bool {
+                    return lessValue(T, b, a);
+                }
+            }.better);
+        }
+
+        pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
+            ensureFloat(T);
+            return self.nanArgReduce(axis_opt, keepdims, struct {
+                fn better(a: T, b: T) bool {
+                    return lessValue(T, a, b);
+                }
+            }.better);
+        }
+
         fn argReduce(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) ArrayError!Array(usize) {
             if (self.data.len == 0) return error.EmptyArray;
             if (axis_opt == null) {
@@ -9964,6 +10036,63 @@ pub fn Array(comptime T: type) type {
                         best_axis = axis_i;
                     }
                 }
+                slot.* = best_axis;
+            }
+            return out;
+        }
+
+        fn nanArgReduce(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) ArrayError!Array(usize) {
+            if (self.data.len == 0) return error.EmptyArray;
+            if (axis_opt == null) {
+                var found = false;
+                var best: usize = 0;
+                var best_value: T = undefined;
+                for (self.data, 0..) |value, i| {
+                    if (opIsNan(value)) continue;
+                    if (!found or better(value, best_value)) {
+                        best = i;
+                        best_value = value;
+                        found = true;
+                    }
+                }
+                if (!found) return error.EmptyArray;
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Array(usize).fromSlice(self.allocator, &.{best}, out_shape);
+                }
+                return Array(usize).fromSlice(self.allocator, &.{best}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyArray;
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Array(usize).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                self.mapReducedToInput(axis, keepdims, out_multi, in_multi);
+                var found = false;
+                var best_axis: usize = 0;
+                var best_value: T = undefined;
+                for (0..self.shape[axis]) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    const value = self.data[ravelIndex(in_multi, self.strides)];
+                    if (opIsNan(value)) continue;
+                    if (!found or better(value, best_value)) {
+                        best_value = value;
+                        best_axis = axis_i;
+                        found = true;
+                    }
+                }
+                if (!found) return error.EmptyArray;
                 slot.* = best_axis;
             }
             return out;
@@ -12513,6 +12642,14 @@ test "array non contiguous view helpers" {
     var nan_corr_view = try nan_stats_view.nanCorrcoef(false);
     defer nan_corr_view.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, nan_corr_view.shape);
+    try std.testing.expectEqual(@as(usize, 5), try nan_stats_view.nanargmax());
+    try std.testing.expectEqual(@as(usize, 0), try nan_stats_view.nanargmin());
+    var nan_argmax_view = try nan_stats_view.nanargmaxAxis(0, false);
+    defer nan_argmax_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, nan_argmax_view.data);
+    var nan_argmin_view = try nan_stats_view.nanargminAxis(1, false);
+    defer nan_argmin_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1 }, nan_argmin_view.data);
     var pow_scalar_view = try stepped.powScalar(2);
     defer pow_scalar_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 900, 2500, 9801 }, pow_scalar_view.data);
@@ -13997,6 +14134,24 @@ test "array min max arg reductions and topk" {
     defer arg1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, arg1.shape);
     try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, arg1.data);
+
+    var with_nan = try Array(f64).fromSlice(gpa, &.{
+        std.math.nan(f64), 4,                 2,
+        8,                 std.math.nan(f64), 9,
+    }, &.{ 2, 3 });
+    defer with_nan.deinit();
+    try std.testing.expectEqual(@as(usize, 5), try with_nan.nanargmax());
+    try std.testing.expectEqual(@as(usize, 2), try with_nan.nanargmin());
+    var nan_argmax0 = try with_nan.nanargmaxAxis(0, false);
+    defer nan_argmax0.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 0, 1 }, nan_argmax0.data);
+    var nan_argmin1 = try with_nan.nanargminAxis(1, true);
+    defer nan_argmin1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, nan_argmin1.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 0 }, nan_argmin1.data);
+    var all_nan_args = try Array(f64).fromSlice(gpa, &.{ std.math.nan(f64), std.math.nan(f64) }, &.{2});
+    defer all_nan_args.deinit();
+    try std.testing.expectError(error.EmptyArray, all_nan_args.nanargmax());
 
     var flat_top = try a.topk(3, null, true, true);
     defer flat_top.deinit();
