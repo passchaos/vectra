@@ -39,6 +39,8 @@ pub const randint = tensor_mod.randint;
 pub const eye = tensor_mod.eye;
 pub const cat = tensor_mod.cat;
 pub const stack = tensor_mod.stack;
+pub const outer = tensor_mod.outer;
+pub const where = tensor_mod.where;
 pub const dataframe = dataframe_mod.dataframe;
 
 test {

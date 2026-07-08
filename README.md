@@ -12,12 +12,12 @@ while leaning toward PyTorch-style fluent tensor methods for common operations.
 
 - `Tensor(T)` with shape/strides, typed storage, `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
 - Creation helpers: `tensor`, `zeros`, `ones`, `full`, `empty`, `eye`, `arange`, `linspace`, `rand`, `randn`, `randint`.
-- NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `maskedSelect`, `slice1d`.
+- NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `gather`, `scatter/scatterScalar`, `maskedSelect`, `slice1d`.
 - Broadcasting elementwise arithmetic/comparisons: `add/sub/mul/div/pow`, scalar variants, `maximum/minimum`, `whereMask`, `allclose`.
 - Array transforms: `broadcastTo`, `repeat`, `tile`, `cat/concatenate`, `stack`, `sort`, `argsort`.
-- Reductions/statistics: `sum`, `prod`, `min`, `max`, `mean`, `variance`, `stddev`, `cumsum`, `cumprod`, `argmin`, `argmax`, `histogram`.
-- Neural/math functions: `exp`, `log`, `sqrt`, `sin`, `cos`, `tanh`, `relu`, `sigmoid`, `softmax`, `clip`.
-- Linear algebra: `matmul/mm`, `bmm`, `dot`, `linalg.eye`, `trace`, `det`, `inverse`, `solve`.
+- Reductions/statistics: `sum`, `prod`, `min`, `max`, `mean`, `variance`, `stddev`, `norm`, `logsumexp`, `cumsum`, `cumprod`, `argmin`, `argmax`, `histogram`.
+- Neural/math functions: `exp`, `log`, `sqrt`, `sin`, `cos`, `tanh`, `relu`, `sigmoid`, `softmax`, `logSoftmax/log_softmax`, `clip`.
+- Linear algebra: `matmul/mm`, `bmm`, `dot`, `outer`, `diagonal`, `trace`, `triu/tril`, `linalg.eye`, `det`, `inverse`, `solve`.
 - SciPy-like stats helpers: `stats.zscore`, `normalize`, `pearsonr`.
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
 - CSV read/write with simple type inference.

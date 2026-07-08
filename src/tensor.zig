@@ -839,6 +839,84 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        pub fn gather(self: Self, axis_index: isize, indices: Tensor(usize)) TensorError!Self {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
+            for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
+                if (i != axis and index_dim > self_dim) return error.ShapeMismatch;
+            }
+
+            var out = try Self.empty(self.allocator, indices.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, indices.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, indices.shape, out_multi);
+                const selected = indices.data[flat];
+                if (selected >= self.shape[axis]) return error.IndexOutOfBounds;
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = selected;
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn scatter(self: Self, axis_index: isize, indices: Tensor(usize), src: Self) TensorError!Self {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (!std.mem.eql(usize, indices.shape, src.shape)) return error.ShapeMismatch;
+            if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
+            for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
+                if (i != axis and index_dim > self_dim) return error.ShapeMismatch;
+            }
+
+            var out = try self.clone();
+            errdefer out.deinit();
+            if (indices.data.len == 0) return out;
+            const src_multi = try self.allocator.alloc(usize, indices.shape.len);
+            defer self.allocator.free(src_multi);
+            var dst_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(dst_multi);
+
+            for (src.data, 0..) |value, flat| {
+                unravelIndexInto(flat, indices.shape, src_multi);
+                const selected = indices.data[flat];
+                if (selected >= self.shape[axis]) return error.IndexOutOfBounds;
+                @memcpy(dst_multi, src_multi);
+                dst_multi[axis] = selected;
+                out.data[ravelIndex(dst_multi, out.strides)] = value;
+            }
+            return out;
+        }
+
+        pub fn scatterScalar(self: Self, axis_index: isize, indices: Tensor(usize), value: T) TensorError!Self {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
+            for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
+                if (i != axis and index_dim > self_dim) return error.ShapeMismatch;
+            }
+
+            var out = try self.clone();
+            errdefer out.deinit();
+            if (indices.data.len == 0) return out;
+            const idx_multi = try self.allocator.alloc(usize, indices.shape.len);
+            defer self.allocator.free(idx_multi);
+            var dst_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(dst_multi);
+
+            for (indices.data, 0..) |selected, flat| {
+                if (selected >= self.shape[axis]) return error.IndexOutOfBounds;
+                unravelIndexInto(flat, indices.shape, idx_multi);
+                @memcpy(dst_multi, idx_multi);
+                dst_multi[axis] = selected;
+                out.data[ravelIndex(dst_multi, out.strides)] = value;
+            }
+            return out;
+        }
+
         fn binaryTensor(self: Self, other: Self, comptime op: fn (T, T) T) TensorError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
@@ -1058,6 +1136,37 @@ pub fn Tensor(comptime T: type) type {
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = @min(@max(v, min_value), max_value);
             return out;
+        }
+
+        pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            var max_t = try self.max(axis_index, true);
+            defer max_t.deinit();
+            var shifted = try self.sub(max_t);
+            defer shifted.deinit();
+            var exp_t = try shifted.exp();
+            defer exp_t.deinit();
+            var summed = try exp_t.sum(axis_index, true);
+            defer summed.deinit();
+            var log_summed = try summed.log();
+            defer log_summed.deinit();
+            var with_max = try log_summed.add(max_t);
+            if (keepdims) return with_max;
+            errdefer with_max.deinit();
+            const squeezed = try with_max.squeeze(axis_index);
+            with_max.deinit();
+            return squeezed;
+        }
+
+        pub fn logSoftmax(self: Self, axis_index: isize) TensorError!Self {
+            ensureFloat(T);
+            var lse = try self.logsumexp(axis_index, true);
+            defer lse.deinit();
+            return self.sub(lse);
+        }
+
+        pub fn log_softmax(self: Self, axis_index: isize) TensorError!Self {
+            return self.logSoftmax(axis_index);
         }
 
         pub fn eq(self: Self, other: Self) TensorError!Tensor(bool) {
@@ -1360,6 +1469,30 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            if (p == zero(T)) return error.InvalidShape;
+            var abs_t = try self.abs();
+            defer abs_t.deinit();
+
+            if (p == one(T)) {
+                return abs_t.sum(axis_opt, keepdims);
+            }
+            if (p == castValue(T, 2)) {
+                var squared = try abs_t.mul(abs_t);
+                defer squared.deinit();
+                const summed = try squared.sum(axis_opt, keepdims);
+                for (summed.data) |*v| v.* = std.math.sqrt(v.*);
+                return summed;
+            }
+
+            var powered = try abs_t.powScalar(p);
+            defer powered.deinit();
+            var summed = try powered.sum(axis_opt, keepdims);
+            defer summed.deinit();
+            return summed.powScalar(one(T) / p);
+        }
+
         pub fn cumsum(self: Self) TensorError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -1454,6 +1587,79 @@ pub fn Tensor(comptime T: type) type {
             var acc = zero(T);
             for (self.data, other.data) |a, b| acc = addValue(T, acc, mulValue(T, a, b));
             return Self.fromSlice(self.allocator, &.{acc}, &.{});
+        }
+
+        pub fn outer(self: Self, other: Self) TensorError!Self {
+            ensureNumeric(T);
+            if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorTensor;
+            const out = try Self.empty(self.allocator, &.{ self.shape[0], other.shape[0] });
+            for (0..self.shape[0]) |i| {
+                for (0..other.shape[0]) |j| {
+                    out.data[i * other.shape[0] + j] = mulValue(T, self.data[i], other.data[j]);
+                }
+            }
+            return out;
+        }
+
+        pub fn diagonal(self: Self, offset: isize) TensorError!Self {
+            if (self.shape.len != 2) return error.NonMatrixTensor;
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            const start_row: usize = if (offset < 0) blk: {
+                const magnitude: usize = @intCast(-offset);
+                if (magnitude >= rows) return Self.empty(self.allocator, &.{0});
+                break :blk magnitude;
+            } else 0;
+            const start_col: usize = if (offset > 0) blk: {
+                const magnitude: usize = @intCast(offset);
+                if (magnitude >= cols) return Self.empty(self.allocator, &.{0});
+                break :blk magnitude;
+            } else 0;
+            const count = @min(rows - start_row, cols - start_col);
+            const out = try Self.empty(self.allocator, &.{count});
+            for (out.data, 0..) |*slot, i| {
+                slot.* = self.data[(start_row + i) * cols + start_col + i];
+            }
+            return out;
+        }
+
+        pub fn trace(self: Self) TensorError!T {
+            ensureNumeric(T);
+            if (self.shape.len != 2) return error.NonMatrixTensor;
+            const count = @min(self.shape[0], self.shape[1]);
+            var total = zero(T);
+            for (0..count) |i| total = addValue(T, total, self.data[i * self.shape[1] + i]);
+            return total;
+        }
+
+        pub fn triu(self: Self, diagonal_offset: isize) TensorError!Self {
+            ensureNumeric(T);
+            if (self.shape.len != 2) return error.NonMatrixTensor;
+            const out = try self.clone();
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            for (0..rows) |r| {
+                for (0..cols) |c| {
+                    const diag_distance = @as(isize, @intCast(c)) - @as(isize, @intCast(r));
+                    if (diag_distance < diagonal_offset) out.data[r * cols + c] = zero(T);
+                }
+            }
+            return out;
+        }
+
+        pub fn tril(self: Self, diagonal_offset: isize) TensorError!Self {
+            ensureNumeric(T);
+            if (self.shape.len != 2) return error.NonMatrixTensor;
+            const out = try self.clone();
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            for (0..rows) |r| {
+                for (0..cols) |c| {
+                    const diag_distance = @as(isize, @intCast(c)) - @as(isize, @intCast(r));
+                    if (diag_distance > diagonal_offset) out.data[r * cols + c] = zero(T);
+                }
+            }
+            return out;
         }
 
         pub fn softmax(self: Self, axis_index: isize) TensorError!Self {
@@ -1699,6 +1905,14 @@ pub fn stack(comptime T: type, allocator: std.mem.Allocator, tensors: []const Te
     return Tensor(T).stack(allocator, tensors, dim);
 }
 
+pub fn outer(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.outer(b);
+}
+
+pub fn where(comptime T: type, mask: Tensor(bool), a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return Tensor(T).whereMask(mask, a, b);
+}
+
 test "tensor creation, reshape and broadcasting" {
     const gpa = std.testing.allocator;
     var a = try tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
@@ -1814,4 +2028,66 @@ test "tensor take mask stack cat and neural helpers" {
     defer cs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 10, 15, 21 }, cs.data);
     try std.testing.expectEqual(@as(usize, 5), try a.argmax());
+}
+
+test "tensor gather scatter and scalar scatter" {
+    const gpa = std.testing.allocator;
+    var a = try tensor(f64, gpa, &.{ 10, 11, 12, 20, 21, 22 }, &.{ 2, 3 });
+    defer a.deinit();
+    var idx = try tensor(usize, gpa, &.{ 2, 1, 0, 0, 2, 1 }, &.{ 2, 3 });
+    defer idx.deinit();
+
+    var gathered = try a.gather(1, idx);
+    defer gathered.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 12, 11, 10, 20, 22, 21 }, gathered.data);
+
+    var base = try zeros(f64, gpa, &.{ 2, 3 });
+    defer base.deinit();
+    var scattered = try base.scatter(1, idx, gathered);
+    defer scattered.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 11, 12, 20, 21, 22 }, scattered.data);
+
+    var filled = try base.scatterScalar(1, idx, 7);
+    defer filled.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7, 7, 7 }, filled.data);
+}
+
+test "tensor logsoftmax norm and matrix helpers" {
+    const gpa = std.testing.allocator;
+    var logits = try tensor(f64, gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
+    defer logits.deinit();
+    var log_probs = try logits.logSoftmax(1);
+    defer log_probs.deinit();
+    var probs = try log_probs.exp();
+    defer probs.deinit();
+    var row_sums = try probs.sum(1, false);
+    defer row_sums.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[1], 1e-12);
+
+    var v = try tensor(f64, gpa, &.{ 3, 4 }, &.{2});
+    defer v.deinit();
+    var n = try v.norm(2, null, false);
+    defer n.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 5), n.data[0], 1e-12);
+
+    var w = try tensor(f64, gpa, &.{ 2, 5, 7 }, &.{3});
+    defer w.deinit();
+    var out = try v.outer(w);
+    defer out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, out.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 6, 15, 21, 8, 20, 28 }, out.data);
+
+    var m = try tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, &.{ 3, 3 });
+    defer m.deinit();
+    try std.testing.expectEqual(@as(f64, 15), try m.trace());
+    var d = try m.diagonal(0);
+    defer d.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 9 }, d.data);
+    var upper = try m.triu(0);
+    defer upper.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 0, 5, 6, 0, 0, 9 }, upper.data);
+    var lower = try m.tril(0);
+    defer lower.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 4, 5, 0, 7, 8, 9 }, lower.data);
 }
