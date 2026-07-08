@@ -19,7 +19,7 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 - Neural/math functions: `exp`, `log`, `sqrt`, `sin`, `cos`, `tanh`, `relu`, `sigmoid`, `softmax`, `logSoftmax/log_softmax`, `clip`.
 - Linear algebra: `diag/diagflat`, `matmul/mm`, `bmm`, `matvec`, `dot`, `outer`, `diagonal`, `trace`, `triu/tril`, `linalg.eye`, `det`, `inverse`, `solve`, `lu`, `solveTriangular`, `cholesky`, `qr`, `svd`, `lstsq`, `singularValues`, `matrixRank`, `cond`, `pinv`, `matrixNorm`, `eigh`, `eigvalsh`; f64 `linalg.matmul`/`matvec`/`trace`/`det`/`solve`/`inverse`/`lu`/`solveTriangular`/`cholesky`/`qr`/`svd`/`lstsq`/`singularValues`/`matrixRank`/`cond`/`pinv`/`matrixNorm`/`eigh`/`eigvalsh` use the local `../veyra` backend when available.
 - SciPy-like stats helpers: `stats.zscore`, `normalize`, `pearsonr`.
-- Sparse CSR bridge: `CsrMatrix`, `csrFromDense`, `csrFromCompressed`, CSR-to-dense, and Veyra-backed f64 CSR matvec.
+- Sparse CSR bridge: `CsrMatrix`, `csrFromDense`, `csrFromCompressed`, CSR-to-dense, transpose, stats, and Veyra-backed f64 CSR matvec/matmat.
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
 - CSV read/write with simple type inference.
 - Array IO helpers: `toBytes/fromBytes` for raw data and `toArchive/fromArchive` for a simple dtype+shape binary archive.

@@ -149,5 +149,8 @@ Array IO / serialization 当前支持：
 - `csrFromCompressed`：从 row_offsets / col_indices / values 构建 CSR。
 - `CsrMatrix.toDense()`：CSR 转回 dense Array。
 - `CsrMatrix.matvec()`：f64 路径复用 `veyra.csrMatvec`，其它 numeric dtype 保留泛型回退。
+- `CsrMatrix.matmat()`：f64 路径复用 `veyra.csrMatmat`。
+- `CsrMatrix.transpose()`：CSR 转置。
+- `sum/absSum/frobeniusNorm/density`：基础 sparse 统计。
 
 后续 sparse 扩展应继续优先检查 Veyra：CSC/BSR、sparse matmat、sparse triangular solve、iterative solvers。
