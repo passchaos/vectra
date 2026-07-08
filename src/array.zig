@@ -1390,8 +1390,20 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn putMask(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
+            return self.maskedPut(mask, values);
+        }
+
         pub fn maskedPutScalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
             return self.maskedFill(mask, value);
+        }
+
+        pub fn putMaskScalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
+            return self.maskedPutScalar(mask, value);
+        }
+
+        pub fn copyWhere(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
+            return Self.whereMask(mask, src, self);
         }
 
         pub fn putFlat(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
@@ -1479,6 +1491,11 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn argwhere(self: Self) ArrayError!Array(usize) {
+            return self.nonzero();
+        }
+
+        pub fn whereIndices(self: Self) ArrayError!Array(usize) {
+            if (comptime T != bool) @compileError("whereIndices requires Array(bool)");
             return self.nonzero();
         }
 
@@ -5960,8 +5977,20 @@ pub fn maskedPut(comptime T: type, input: Array(T), mask: Array(bool), values: A
     return input.maskedPut(mask, values);
 }
 
+pub fn putMask(comptime T: type, input: Array(T), mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
+    return input.putMask(mask, values);
+}
+
 pub fn maskedPutScalar(comptime T: type, input: Array(T), mask: Array(bool), value: T) ArrayError!Array(T) {
     return input.maskedPutScalar(mask, value);
+}
+
+pub fn putMaskScalar(comptime T: type, input: Array(T), mask: Array(bool), value: T) ArrayError!Array(T) {
+    return input.putMaskScalar(mask, value);
+}
+
+pub fn copyWhere(comptime T: type, input: Array(T), mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
+    return input.copyWhere(mask, src);
 }
 
 pub fn putFlat(comptime T: type, input: Array(T), indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
@@ -6002,6 +6031,10 @@ pub fn nonzero(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
 
 pub fn argwhere(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
     return input.argwhere();
+}
+
+pub fn whereIndices(input: Array(bool)) ArrayError!Array(usize) {
+    return input.whereIndices();
 }
 
 pub fn ravelCoords(comptime T: type, input: Array(T), coords: Array(usize)) ArrayError!Array(usize) {
@@ -6537,10 +6570,25 @@ test "array advanced indexing mutation helpers" {
     var mask_put = try maskedPut(f64, a, mask, mask_values);
     defer mask_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 20, 0, 30, 6 }, mask_put.data);
+    var mask_alias = try putMask(f64, a, mask, mask_values);
+    defer mask_alias.deinit();
+    try std.testing.expectEqualSlices(f64, mask_put.data, mask_alias.data);
 
     var mask_scalar = try a.maskedPutScalar(mask, -1);
     defer mask_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 0, -1, 0, -1, 6 }, mask_scalar.data);
+    var mask_scalar_alias = try putMaskScalar(f64, a, mask, -2);
+    defer mask_scalar_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, 0, -2, 0, -2, 6 }, mask_scalar_alias.data);
+    var mask_coords = try whereIndices(mask);
+    defer mask_coords.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, mask_coords.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 2, 1, 1 }, mask_coords.data);
+    var copy_src = try full(f64, gpa, &.{ 2, 3 }, 42);
+    defer copy_src.deinit();
+    var copied_where = try copyWhere(f64, a, mask, copy_src);
+    defer copied_where.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 42, 0, 42, 0, 42, 6 }, copied_where.data);
 
     var put_idx = try array(usize, gpa, &.{ 1, 4 }, &.{2});
     defer put_idx.deinit();
