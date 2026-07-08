@@ -4609,48 +4609,67 @@ pub fn Array(comptime T: type) type {
             return absValue(T, a);
         }
         fn opExp(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.exp(a);
             return std.math.exp(a);
         }
         fn opLog(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.log(a);
             return std.math.log(T, std.math.e, a);
         }
         fn opLog2(a: T) T {
+            if (comptime isComplex(T)) {
+                return std.math.complex.log(a).div(T.init(std.math.ln2, 0));
+            }
             return std.math.log2(a);
         }
         fn opLog10(a: T) T {
+            if (comptime isComplex(T)) {
+                return std.math.complex.log(a).div(T.init(std.math.ln10, 0));
+            }
             return std.math.log10(a);
         }
         fn opSqrt(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.sqrt(a);
             return std.math.sqrt(a);
         }
         fn opSin(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.sin(a);
             return std.math.sin(a);
         }
         fn opCos(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.cos(a);
             return std.math.cos(a);
         }
         fn opTan(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.tan(a);
             return std.math.tan(a);
         }
         fn opAsin(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.asin(a);
             return std.math.asin(a);
         }
         fn opAcos(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.acos(a);
             return std.math.acos(a);
         }
         fn opAtan(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.atan(a);
             return std.math.atan(a);
         }
         fn opSinh(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.sinh(a);
             return std.math.sinh(a);
         }
         fn opCosh(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.cosh(a);
             return std.math.cosh(a);
         }
         fn opLog1p(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.log(a.add(one(T)));
             return std.math.log1p(a);
         }
         fn opExpm1(a: T) T {
+            if (comptime isComplex(T)) return std.math.complex.exp(a).sub(one(T));
             return std.math.expm1(a);
         }
         fn opDeg2rad(a: T) T {
@@ -4702,6 +4721,7 @@ pub fn Array(comptime T: type) type {
             };
         }
         fn opIsNan(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isNan(a.re) or std.math.isNan(a.im);
             return switch (@typeInfo(T)) {
                 .float => std.math.isNan(a),
                 .int, .comptime_int => false,
@@ -4709,6 +4729,7 @@ pub fn Array(comptime T: type) type {
             };
         }
         fn opIsInf(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isInf(a.re) or std.math.isInf(a.im);
             return switch (@typeInfo(T)) {
                 .float => std.math.isInf(a),
                 .int, .comptime_int => false,
@@ -4716,6 +4737,7 @@ pub fn Array(comptime T: type) type {
             };
         }
         fn opIsFinite(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isFinite(a.re) and std.math.isFinite(a.im);
             return switch (@typeInfo(T)) {
                 .float => std.math.isFinite(a),
                 .int, .comptime_int => true,
@@ -4973,7 +4995,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn reciprocal(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opReciprocal);
         }
 
@@ -4988,37 +5010,37 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn exp(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opExp);
         }
 
         pub fn expm1(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opExpm1);
         }
 
         pub fn log(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opLog);
         }
 
         pub fn log2(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opLog2);
         }
 
         pub fn log10(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opLog10);
         }
 
         pub fn log1p(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opLog1p);
         }
 
         pub fn sqrt(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opSqrt);
         }
 
@@ -5101,49 +5123,50 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn sin(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opSin);
         }
 
         pub fn cos(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opCos);
         }
 
         pub fn tan(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opTan);
         }
 
         pub fn asin(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opAsin);
         }
 
         pub fn acos(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opAcos);
         }
 
         pub fn atan(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opAtan);
         }
 
         pub fn sinh(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opSinh);
         }
 
         pub fn cosh(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(opCosh);
         }
 
         pub fn tanh(self: Self) ArrayError!Self {
-            ensureFloat(T);
+            ensureNumeric(T);
             return self.unary(struct {
                 fn f(a: T) T {
+                    if (comptime isComplex(T)) return std.math.complex.tanh(a);
                     return std.math.tanh(a);
                 }
             }.f);
@@ -10507,6 +10530,48 @@ test "array object one dimensional convolution and correlation" {
     var empty_values = try Array(f64).empty(gpa, &.{0});
     defer empty_values.deinit();
     try std.testing.expectError(error.EmptyArray, empty_values.convolve1d(kernel, .full));
+}
+
+test "array complex unary math and predicates" {
+    const gpa = std.testing.allocator;
+    const C = Complex64;
+    var values = try Array(C).fromSlice(gpa, &.{ C.init(0, 0), C.init(1, 0), C.init(0, std.math.pi / 2.0) }, &.{3});
+    defer values.deinit();
+
+    var exp_values = try values.exp();
+    defer exp_values.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1), exp_values.data[0].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), exp_values.data[0].im, 1e-5);
+    try std.testing.expectApproxEqAbs(std.math.e, exp_values.data[1].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), exp_values.data[2].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), exp_values.data[2].im, 1e-5);
+
+    var sqrt_values = try values.sqrt();
+    defer sqrt_values.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1), sqrt_values.data[1].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), sqrt_values.data[1].im, 1e-5);
+
+    var log_values = try exp_values.log();
+    defer log_values.deinit();
+    try std.testing.expectApproxEqAbs(values.data[1].re, log_values.data[1].re, 1e-5);
+    try std.testing.expectApproxEqAbs(values.data[1].im, log_values.data[1].im, 1e-5);
+
+    var sin_values = try values.sin();
+    defer sin_values.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 0), sin_values.data[0].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), sin_values.data[0].im, 1e-5);
+
+    var special = try Array(C).fromSlice(gpa, &.{ C.init(1, 0), C.init(std.math.nan(f32), 0), C.init(0, std.math.inf(f32)) }, &.{3});
+    defer special.deinit();
+    var nan_mask = try special.isNan();
+    defer nan_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, nan_mask.data);
+    var inf_mask = try special.isInf();
+    defer inf_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, inf_mask.data);
+    var finite_mask = try special.isFinite();
+    defer finite_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, finite_mask.data);
 }
 
 test "array complex fft and inverse fft" {
