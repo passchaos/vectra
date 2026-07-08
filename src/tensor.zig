@@ -1614,6 +1614,9 @@ pub fn Tensor(comptime T: type) type {
         fn opAtan2(a: T, b: T) T {
             return std.math.atan2(a, b);
         }
+        fn opNextAfter(a: T, b: T) T {
+            return std.math.nextAfter(T, a, b);
+        }
         fn opCopysign(a: T, b: T) T {
             return std.math.copysign(a, b);
         }
@@ -1798,6 +1801,15 @@ pub fn Tensor(comptime T: type) type {
             return self.binaryTensor(other, opAtan2);
         }
 
+        pub fn nextAfter(self: Self, other: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.binaryTensor(other, opNextAfter);
+        }
+
+        pub fn nextafter(self: Self, other: Self) TensorError!Self {
+            return self.nextAfter(other);
+        }
+
         pub fn copysign(self: Self, sign_values: Self) TensorError!Self {
             ensureFloat(T);
             return self.binaryTensor(sign_values, opCopysign);
@@ -1891,6 +1903,15 @@ pub fn Tensor(comptime T: type) type {
         pub fn atan2Scalar(self: Self, scalar: T) TensorError!Self {
             ensureFloat(T);
             return self.binaryScalar(scalar, opAtan2);
+        }
+
+        pub fn nextAfterScalar(self: Self, scalar: T) TensorError!Self {
+            ensureFloat(T);
+            return self.binaryScalar(scalar, opNextAfter);
+        }
+
+        pub fn nextafterScalar(self: Self, scalar: T) TensorError!Self {
+            return self.nextAfterScalar(scalar);
         }
 
         pub fn copysignScalar(self: Self, scalar: T) TensorError!Self {
@@ -1996,6 +2017,54 @@ pub fn Tensor(comptime T: type) type {
         pub fn rad2deg(self: Self) TensorError!Self {
             ensureFloat(T);
             return self.unary(opRad2deg);
+        }
+
+        pub fn ldexp(self: Self, exponents: Tensor(i32)) TensorError!Self {
+            ensureFloat(T);
+            const out_shape = try broadcastShape(self.allocator, self.shape, exponents.shape);
+            defer self.allocator.free(out_shape);
+            const out = try Self.empty(self.allocator, out_shape);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const ai = broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
+                const ei = broadcastOffset(out_multi, out_shape.len, exponents.shape, exponents.strides);
+                slot.* = std.math.ldexp(self.data[ai], exponents.data[ei]);
+            }
+            return out;
+        }
+
+        pub fn ldexpScalar(self: Self, exponent: i32) TensorError!Self {
+            ensureFloat(T);
+            const out = try Self.empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| slot.* = std.math.ldexp(value, exponent);
+            return out;
+        }
+
+        pub const FrexpResult = struct {
+            significand: Self,
+            exponent: Tensor(i32),
+
+            pub fn deinit(self: *@This()) void {
+                self.significand.deinit();
+                self.exponent.deinit();
+                self.* = undefined;
+            }
+        };
+
+        pub fn frexp(self: Self) TensorError!FrexpResult {
+            ensureFloat(T);
+            var significand = try Self.empty(self.allocator, self.shape);
+            errdefer significand.deinit();
+            var exponent = try Tensor(i32).empty(self.allocator, self.shape);
+            errdefer exponent.deinit();
+            for (self.data, significand.data, exponent.data) |value, *sig_slot, *exp_slot| {
+                const result = std.math.frexp(value);
+                sig_slot.* = result.significand;
+                exp_slot.* = result.exponent;
+            }
+            return .{ .significand = significand, .exponent = exponent };
         }
 
         pub fn sin(self: Self) TensorError!Self {
@@ -4627,6 +4696,14 @@ pub fn atan2(comptime T: type, y: Tensor(T), x: Tensor(T)) TensorError!Tensor(T)
     return y.atan2(x);
 }
 
+pub fn nextAfter(comptime T: type, input: Tensor(T), target: Tensor(T)) TensorError!Tensor(T) {
+    return input.nextAfter(target);
+}
+
+pub fn nextafter(comptime T: type, input: Tensor(T), target: Tensor(T)) TensorError!Tensor(T) {
+    return input.nextafter(target);
+}
+
 pub fn copysign(comptime T: type, magnitude: Tensor(T), sign_values: Tensor(T)) TensorError!Tensor(T) {
     return magnitude.copysign(sign_values);
 }
@@ -4681,6 +4758,14 @@ pub fn hypotScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Te
 
 pub fn atan2Scalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
     return input.atan2Scalar(scalar);
+}
+
+pub fn nextAfterScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.nextAfterScalar(scalar);
+}
+
+pub fn nextafterScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.nextafterScalar(scalar);
 }
 
 pub fn copysignScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
@@ -4765,6 +4850,18 @@ pub fn deg2rad(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
 
 pub fn rad2deg(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
     return input.rad2deg();
+}
+
+pub fn ldexp(comptime T: type, input: Tensor(T), exponents: Tensor(i32)) TensorError!Tensor(T) {
+    return input.ldexp(exponents);
+}
+
+pub fn ldexpScalar(comptime T: type, input: Tensor(T), exponent: i32) TensorError!Tensor(T) {
+    return input.ldexpScalar(exponent);
+}
+
+pub fn frexp(comptime T: type, input: Tensor(T)) TensorError!Tensor(T).FrexpResult {
+    return input.frexp();
 }
 
 pub fn sin(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
@@ -5430,6 +5527,16 @@ test "array binary math wrappers and clamp aliases" {
     defer angles.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), angles.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi / 4.0, angles.data[1], 1e-12);
+    var next_targets = try array(f64, gpa, &.{ 2, -1 }, &.{2});
+    defer next_targets.deinit();
+    var next_values = try nextAfter(f64, y, next_targets);
+    defer next_values.deinit();
+    try std.testing.expect(next_values.data[0] > 0);
+    try std.testing.expect(next_values.data[1] < 1);
+    var next_scalar = try y.nextafterScalar(2);
+    defer next_scalar.deinit();
+    try std.testing.expect(next_scalar.data[0] > 0);
+    try std.testing.expect(next_scalar.data[1] > 1);
 
     var magnitudes = try array(f64, gpa, &.{ -1, 2, -3 }, &.{3});
     defer magnitudes.deinit();
@@ -5837,6 +5944,21 @@ test "array extended unary math and predicates" {
     try std.testing.expectApproxEqAbs(@as(f64, 0), roundtrip_degrees.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 90), roundtrip_degrees.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 180), roundtrip_degrees.data[2], 1e-12);
+
+    var significands = try array(f64, gpa, &.{ 0.5, 0.75, -0.5 }, &.{3});
+    defer significands.deinit();
+    var exponents = try array(i32, gpa, &.{ 1, 2, 3 }, &.{3});
+    defer exponents.deinit();
+    var ld = try ldexp(f64, significands, exponents);
+    defer ld.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, -4 }, ld.data);
+    var ld_scalar = try significands.ldexpScalar(2);
+    defer ld_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3, -2 }, ld_scalar.data);
+    var split = try frexp(f64, ld);
+    defer split.deinit();
+    try std.testing.expectEqualSlices(f64, significands.data, split.significand.data);
+    try std.testing.expectEqualSlices(i32, exponents.data, split.exponent.data);
 
     var angles = try array(f64, gpa, &.{ 0, std.math.pi / 2.0 }, &.{2});
     defer angles.deinit();
