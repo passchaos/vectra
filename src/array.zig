@@ -1182,6 +1182,49 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub const SplitResult = struct {
+            allocator: std.mem.Allocator,
+            items: []Self,
+
+            pub fn deinit(self: *@This()) void {
+                for (self.items) |*part| part.deinit();
+                self.allocator.free(self.items);
+                self.* = undefined;
+            }
+        };
+
+        pub fn split(self: Self, split_size: usize, axis_index: isize) ArrayError!SplitResult {
+            if (split_size == 0) return error.InvalidShape;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            const part_count = if (axis_len == 0) 0 else (axis_len + split_size - 1) / split_size;
+            const items = try self.allocator.alloc(Self, part_count);
+            errdefer self.allocator.free(items);
+            var initialized: usize = 0;
+            errdefer {
+                for (items[0..initialized]) |*part| part.deinit();
+            }
+            var start: usize = 0;
+            while (start < axis_len) : (start += split_size) {
+                const len_part = @min(split_size, axis_len - start);
+                items[initialized] = try self.narrow(axis_index, start, len_part);
+                initialized += 1;
+            }
+            return .{ .allocator = self.allocator, .items = items };
+        }
+
+        pub fn chunk(self: Self, chunks: usize, axis_index: isize) ArrayError!SplitResult {
+            if (chunks == 0) return error.InvalidShape;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            if (axis_len == 0) {
+                const items = try self.allocator.alloc(Self, 0);
+                return .{ .allocator = self.allocator, .items = items };
+            }
+            const split_size = (axis_len + chunks - 1) / chunks;
+            return self.split(split_size, axis_index);
+        }
+
         pub fn take(self: Self, indices: Array(usize), axis_opt: ?isize) ArrayError!Self {
             if (axis_opt == null) {
                 const out = try Self.empty(self.allocator, indices.shape);
@@ -5057,6 +5100,14 @@ pub fn narrow(comptime T: type, input: Array(T), axis: isize, start: usize, leng
     return input.narrow(axis, start, length);
 }
 
+pub fn split(comptime T: type, input: Array(T), split_size: usize, axis: isize) ArrayError!Array(T).SplitResult {
+    return input.split(split_size, axis);
+}
+
+pub fn chunk(comptime T: type, input: Array(T), chunks: usize, axis: isize) ArrayError!Array(T).SplitResult {
+    return input.chunk(chunks, axis);
+}
+
 pub fn add(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.add(b);
 }
@@ -5934,6 +5985,21 @@ test "array creation, reshape and broadcasting" {
     var flat = try c.flatten();
     defer flat.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, flat.shape);
+
+    var parts = try split(f64, c, 2, 1);
+    defer parts.deinit();
+    try std.testing.expectEqual(@as(usize, 2), parts.items.len);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, parts.items[0].shape);
+    try std.testing.expectEqualSlices(f64, &.{ 11, 22, 14, 25 }, parts.items[0].data);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, parts.items[1].shape);
+    try std.testing.expectEqualSlices(f64, &.{ 33, 36 }, parts.items[1].data);
+
+    var chunks = try c.chunk(2, 0);
+    defer chunks.deinit();
+    try std.testing.expectEqual(@as(usize, 2), chunks.items.len);
+    try std.testing.expectEqualSlices(f64, &.{ 11, 22, 33 }, chunks.items[0].data);
+    try std.testing.expectEqualSlices(f64, &.{ 14, 25, 36 }, chunks.items[1].data);
+    try std.testing.expectError(error.InvalidShape, c.split(0, 0));
 }
 
 test "array binary math wrappers and clamp aliases" {
@@ -6477,10 +6543,10 @@ test "array extended unary math and predicates" {
     var ld_scalar = try significands.ldexpScalar(2);
     defer ld_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, -2 }, ld_scalar.data);
-    var split = try frexp(f64, ld);
-    defer split.deinit();
-    try std.testing.expectEqualSlices(f64, significands.data, split.significand.data);
-    try std.testing.expectEqualSlices(i32, exponents.data, split.exponent.data);
+    var frexp_result = try frexp(f64, ld);
+    defer frexp_result.deinit();
+    try std.testing.expectEqualSlices(f64, significands.data, frexp_result.significand.data);
+    try std.testing.expectEqualSlices(i32, exponents.data, frexp_result.exponent.data);
 
     var angles = try array(f64, gpa, &.{ 0, std.math.pi / 2.0 }, &.{2});
     defer angles.deinit();
