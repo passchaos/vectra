@@ -2191,6 +2191,92 @@ pub fn ArrayView(comptime T: type) type {
             return owned.average(weights, axis_opt, keepdims);
         }
 
+        pub fn weightedMean(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            var owned_weights = try weights.toArray();
+            defer owned_weights.deinit();
+            return owned.weightedMean(owned_weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMeanArray(self: Self, weights: Array(T), axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.weightedMean(weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedVariance(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            var owned_weights = try weights.toArray();
+            defer owned_weights.deinit();
+            return owned.weightedVariance(owned_weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVarianceArray(self: Self, weights: Array(T), axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.weightedVariance(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVar(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.weightedVariance(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVarArray(self: Self, weights: Array(T), axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.weightedVarianceArray(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStddev(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            var owned_weights = try weights.toArray();
+            defer owned_weights.deinit();
+            return owned.weightedStddev(owned_weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStddevArray(self: Self, weights: Array(T), axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.weightedStddev(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStd(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.weightedStddev(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStdArray(self: Self, weights: Array(T), axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.weightedStddevArray(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedQuantile(self: Self, weights: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            var owned_weights = try weights.toArray();
+            defer owned_weights.deinit();
+            return owned.weightedQuantile(owned_weights, q, axis_opt, keepdims);
+        }
+
+        pub fn weightedQuantileArray(self: Self, weights: Array(T), q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.weightedQuantile(weights, q, axis_opt, keepdims);
+        }
+
+        pub fn weightedMedian(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            var owned_weights = try weights.toArray();
+            defer owned_weights.deinit();
+            return owned.weightedMedian(owned_weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMedianArray(self: Self, weights: Array(T), axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.weightedMedian(weights, axis_opt, keepdims);
+        }
+
         pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -11752,6 +11838,38 @@ test "array median quantile covariance and corrcoef" {
     var weighted_q = try value_vec.weightedQuantile(weight_vec, 0.95, null, false);
     defer weighted_q.deinit();
     try std.testing.expectEqualSlices(f64, &.{100}, weighted_q.data);
+    var view_source = try Array(f64).fromSlice(gpa, &.{ 1, 9, 2, 8, 3, 7 }, &.{ 2, 3 });
+    defer view_source.deinit();
+    var view = try view_source.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer view.deinit();
+    var view_weights = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer view_weights.deinit();
+    var weights_view = try view_weights.asView();
+    defer weights_view.deinit();
+    var view_weighted_mean = try view.weightedMean(weights_view, null, false);
+    defer view_weighted_mean.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 5.7), view_weighted_mean.data[0], 1e-12);
+    var view_weighted_mean_axis = try view.weightedMeanArray(view_weights, 1, false);
+    defer view_weighted_mean_axis.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, view_weighted_mean_axis.shape);
+    var view_weighted_var = try view.weightedVariance(weights_view, null, false, 0);
+    defer view_weighted_var.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 7.21), view_weighted_var.data[0], 1e-12);
+    var view_weighted_std = try view.weightedStddevArray(view_weights, null, false, 0);
+    defer view_weighted_std.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 7.21)), view_weighted_std.data[0], 1e-12);
+    var view_weighted_var_axis = try view.weightedVar(weights_view, 1, false, 0);
+    defer view_weighted_var_axis.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, view_weighted_var_axis.shape);
+    var view_weighted_std_axis = try view.weightedStdArray(view_weights, 1, false, 0);
+    defer view_weighted_std_axis.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, view_weighted_std_axis.shape);
+    var view_weighted_median = try view.weightedMedian(weights_view, null, false);
+    defer view_weighted_median.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 7), view_weighted_median.data[0], 1e-12);
+    var view_weighted_quantile = try view.weightedQuantileArray(view_weights, 0.25, null, false);
+    defer view_weighted_quantile.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2), view_weighted_quantile.data[0], 1e-12);
     var negative_weights = try Array(f64).fromSlice(gpa, &.{ -1, 1, 1 }, &.{3});
     defer negative_weights.deinit();
     try std.testing.expectError(error.InvalidShape, value_vec.weightedMean(negative_weights, null, false));
