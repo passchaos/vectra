@@ -3278,6 +3278,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.chunk(chunks, axis_index);
         }
 
+        pub fn unbind(self: Self, axis_index: isize) ArrayError!Array(T).SplitResult {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.unbind(axis_index);
+        }
+
         pub fn countNonzero(self: Self) usize {
             var count: usize = 0;
             const multi = self.allocator.alloc(usize, self.shape.len) catch return 0;
@@ -6380,6 +6386,22 @@ pub fn Array(comptime T: type) type {
             }
             const split_size = (axis_len + chunks - 1) / chunks;
             return self.split(split_size, axis_index);
+        }
+
+        pub fn unbind(self: Self, axis_index: isize) ArrayError!SplitResult {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            const items = try self.allocator.alloc(Self, axis_len);
+            errdefer self.allocator.free(items);
+            var initialized: usize = 0;
+            errdefer {
+                for (items[0..initialized]) |*part| part.deinit();
+            }
+            for (items, 0..) |*part, index| {
+                part.* = try self.select(@intCast(axis), index);
+                initialized += 1;
+            }
+            return .{ .allocator = self.allocator, .items = items };
         }
 
         pub fn take(self: Self, indices: Array(usize), axis_opt: ?isize) ArrayError!Self {
@@ -12391,6 +12413,18 @@ test "array pytorch numpy shape indexing and layout helpers" {
     defer n.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, n.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5, 6 }, n.data);
+    var unbound_rows = try a.unbind(0);
+    defer unbound_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 2), unbound_rows.items.len);
+    try std.testing.expectEqualSlices(usize, &.{3}, unbound_rows.items[0].shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3 }, unbound_rows.items[0].data);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, unbound_rows.items[1].data);
+    var unbound_cols = try a.unbind(-1);
+    defer unbound_cols.deinit();
+    try std.testing.expectEqual(@as(usize, 3), unbound_cols.items.len);
+    try std.testing.expectEqualSlices(usize, &.{2}, unbound_cols.items[0].shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4 }, unbound_cols.items[0].data);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 6 }, unbound_cols.items[2].data);
     var reshaped = try a.reshape(&.{ 3, 2 });
     defer reshaped.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, reshaped.shape);
@@ -12554,6 +12588,12 @@ test "array view materializing shape wrappers" {
     var view_new_ones = try view.new_ones(&.{3});
     defer view_new_ones.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1 }, view_new_ones.data);
+    var unbound_view = try view.unbind(1);
+    defer unbound_view.deinit();
+    try std.testing.expectEqual(@as(usize, 2), unbound_view.items.len);
+    try std.testing.expectEqualSlices(usize, &.{2}, unbound_view.items[0].shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, unbound_view.items[0].data);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 7 }, unbound_view.items[1].data);
 
     var repeated = try view.repeat(2, 1);
     defer repeated.deinit();
