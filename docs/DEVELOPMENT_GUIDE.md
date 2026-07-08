@@ -165,4 +165,6 @@ CSC 当前支持：
 - `cscFromDense` / `cscFromCompressed`：构建 CSC。
 - `CscMatrix.toDense()` / `toCsr()`：dense/CSR 转换。
 - `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`。
+- `transposeMatvec/transposeMatmat`：CSC 转置乘法，f64 路径复用 Veyra。
+- `rowNnz/columnNnz`、`rowSums/columnSums`、`rowNorms/columnNorms`、`density`：CSC 行列统计。
 - `sum/frobeniusNorm`：基础 CSC 统计。
