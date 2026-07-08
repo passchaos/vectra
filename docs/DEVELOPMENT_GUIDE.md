@@ -36,7 +36,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 
 API 取向：
 
-- 张量对象方法优先，例如 `x.reshape(...)`、`x.softmax(axis)`、`x.matmul(y)`。
+- 数组对象方法优先，例如 `x.reshape(...)`、`x.softmax(axis)`、`x.matmul(y)`。
 - 同时提供顶层函数包装，例如 `vx.zeros(...)`、`vx.stack(...)`、`vx.cat(...)`。
 - `axis` 与 `dim` 语义都要考虑；Zig 中如名称冲突可在实现中用 `axis_index` / `axis_opt`，文档可解释为 NumPy 的 axis / PyTorch 的 dim。
 - 先保证 CPU 版本正确、可测试、API 稳定，再做 SIMD、BLAS、GPU 等性能后端。
@@ -53,7 +53,7 @@ API 取向：
 - `signal`：卷积、滤波、FFT 相关接口。
 - `sparse`：稀疏矩阵格式与运算。
 
-原则：SciPy 模块应建立在 Tensor/Array 核心之上，不要绕过核心数据结构单独设计一套数组表示。
+原则：SciPy 模块应建立在 Array/NDArray 核心之上，不要绕过核心数据结构单独设计一套数组表示。
 
 ### P2：DataFrame / 表格数据，类比 Pandas、Polars
 
@@ -80,7 +80,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 
 ## 4. 当前已落地的基础
 
-初始化阶段已优先实现一批 Tensor/Array 能力：
+初始化阶段已优先实现一批 Array/NDArray 能力：
 
 - 创建：`tensor`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`。
 - 形状：`reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`。
@@ -93,7 +93,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 
 ## 5. 后续每次开发的执行要求
 
-- 优先补 Tensor/Array 测试，再补上层模块测试。
+- 优先补 Array/NDArray 测试，再补上层模块测试。
 - 新 API 应同时覆盖：正常路径、shape mismatch、axis/dim 错误、空张量或边界情况。
 - 任何新功能都应运行相关验证；常规至少运行：
 
@@ -115,7 +115,22 @@ zig build test
 
 后续策略：
 
-- Tensor API 保持用户友好的 NumPy/CuPy/PyTorch 风格。
+- Array/NDArray API 保持用户友好的 NumPy/CuPy/PyTorch 风格；`Tensor` 仅作为兼容别名，不作为新文档主名。
 - 底层 f64 dense linalg 优先委托 Veyra；当前 `matmul`、`matvec`、`trace`、`det`、`solve`、`inverse`、`lu`、`solveTriangular`、`cholesky`、`qr`、`svd`、`lstsq`、`singularValues`、`matrixRank`、`cond`、`pinv`、`matrixNorm`、`eigh/eigvalsh` 已接入 Veyra-compatible 路径；非 f64 或 Veyra 暂无覆盖时保留 Vectra 泛型回退。
 - SciPy-like `linalg/sparse/optimize` 扩展应优先检查 Veyra 是否已有对应算法，避免重复实现。
 - 引入 Veyra 时必须保留 Vectra 层 shape/device/dtype 错误语义，并添加端到端测试。
+
+## 7. Alea 随机后端与命名边界
+
+用户明确要求：随机数处理可以使用相邻目录 `../alea`，该库已基本覆盖所需随机数相关功能；Vectra 不应自行重复实现随机分布内核。当前扫描结论：
+
+- `alea.Rng` 与多种 deterministic engine：`DefaultPrng`、`ScalarPrng`、`FastPrng`、`Pcg64`、`Xoshiro*`、`ChaCha*` 等。
+- `alea.distributions` 覆盖 uniform、Bernoulli、normal/log-normal、exponential、Poisson、gamma、beta、Student-t、Dirichlet、multinomial、weighted sampling、unit geometry 等大量分布。
+- Vectra 当前 `rand/randn/uniform/normal/randint/bernoulli` 已接入 Alea seeded scalar streams。
+
+命名边界：
+
+- 本库不应在用户主 API 中强调 `Tensor`，因为本库不负责自动微分、训练或推理。
+- 新文档和新 API 主名应使用 `Array` / `NDArray`、`array` / `ndarray`。
+- `Tensor` / `tensor` 暂时保留为兼容别名，避免破坏已有测试和内部代码。
+- 自动微分、深度学习训练/推理相关能力应放到相邻 `../forge` 框架中处理。

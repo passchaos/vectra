@@ -33,6 +33,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     const veyra_mod = veyra_dep.module("veyra");
+    const alea_dep = b.dependency("alea", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const alea_mod = alea_dep.module("alea");
 
     const mod = b.addModule("vectra", .{
         // The root source file is the "entry point" of this module. Users of
@@ -47,6 +52,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .imports = &.{
             .{ .name = "veyra", .module = veyra_mod },
+            .{ .name = "alea", .module = alea_mod },
         },
     });
 

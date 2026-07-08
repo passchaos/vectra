@@ -2,7 +2,7 @@
 
 Vectra is a Zig 0.16 experimental data processing and numerical computing library.
 It aims for a familiar Python-like surface inspired by NumPy/CuPy/SciPy/Pandas/Polars,
-while leaning toward PyTorch-style fluent tensor methods for common operations.
+while leaning toward PyTorch-style fluent array methods for common operations. Vectra intentionally uses `Array`/`NDArray` as the primary user-facing name; automatic differentiation, training, and inference belong in the sibling `../forge` deep-learning framework.
 
 > Status: early scaffold with a real, tested CPU core. The full NumPy/SciPy/Pandas
 > ecosystem is enormous; this repository starts with a coherent architecture and
@@ -10,8 +10,8 @@ while leaning toward PyTorch-style fluent tensor methods for common operations.
 
 ## What is included now
 
-- `Tensor(T)` with shape/strides, typed storage, `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
-- Creation helpers: `tensor`, `zeros`, `ones`, `full`, `empty`, `eye`, `arange`, `linspace`, `rand`, `randn`, `randint`.
+- `Array(T)` / `NDArray(T)` with shape/strides, typed storage, `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
+- Creation helpers: `array`, `ndarray`, `zeros`, `ones`, `full`, `empty`, `eye`, `arange`, `linspace`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`; random generation uses the local `../alea` backend.
 - NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `gather`, `scatter/scatterScalar`, `maskedSelect`, `slice1d`.
 - Broadcasting elementwise arithmetic/comparisons: `add/sub/mul/div/pow`, scalar variants, `maximum/minimum`, `whereMask`, `allclose`.
 - Array transforms: `broadcastTo`, `repeat`, `tile`, `cat/concatenate`, `stack`, `sort`, `argsort`.
@@ -30,7 +30,7 @@ const std = @import("std");
 const vx = @import("vectra");
 
 pub fn demo(allocator: std.mem.Allocator) !void {
-    var a = try vx.tensor(f64, allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try vx.array(f64, allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
 
     var bias = try vx.ones(f64, allocator, &.{3});
@@ -42,7 +42,7 @@ pub fn demo(allocator: std.mem.Allocator) !void {
     var probs = try y.softmax(1); // PyTorch-like method API
     defer probs.deinit();
 
-    var picked_idx = try vx.tensor(usize, allocator, &.{ 2, 0 }, &.{2});
+    var picked_idx = try vx.array(usize, allocator, &.{ 2, 0 }, &.{2});
     defer picked_idx.deinit();
     var picked = try y.indexSelect(1, picked_idx); // torch.index_select / np.take style
     defer picked.deinit();
@@ -57,6 +57,10 @@ pub fn demo(allocator: std.mem.Allocator) !void {
     defer grouped.deinit();
 }
 ```
+
+## Alea backend
+
+Vectra uses the sibling [`../alea`](../alea) Zig package as a local path dependency for random generation and distributions. Current array random helpers delegate seeded scalar random streams to Alea for uniform, normal, integer range, and Bernoulli generation. Future random distributions should prefer Alea rather than reimplementing RNG kernels inside Vectra.
 
 ## Veyra backend
 

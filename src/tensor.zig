@@ -1,4 +1,5 @@
 const std = @import("std");
+const alea = @import("alea");
 
 pub const Backend = enum {
     cpu,
@@ -370,14 +371,7 @@ pub fn Tensor(comptime T: type) type {
         }
 
         pub fn rand(allocator: std.mem.Allocator, dims: []const usize, seed: u64) TensorError!Self {
-            ensureFloat(T);
-            var prng = std.Random.DefaultPrng.init(seed);
-            const rng = prng.random();
-            const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| {
-                slot.* = rng.float(T);
-            }
-            return out;
+            return Self.uniform(allocator, dims, zero(T), one(T), seed);
         }
 
         pub fn fromSlice(allocator: std.mem.Allocator, values: []const T, dims: []const usize) TensorError!Self {
@@ -406,21 +400,41 @@ pub fn Tensor(comptime T: type) type {
         }
 
         pub fn randn(allocator: std.mem.Allocator, dims: []const usize, seed: u64) TensorError!Self {
-            ensureFloat(T);
-            var prng = std.Random.DefaultPrng.init(seed);
-            const rng = prng.random();
+            return Self.normal(allocator, dims, zero(T), one(T), seed);
+        }
+
+        pub fn uniform(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) TensorError!Self {
+            if (comptime !isNumeric(T)) @compileError("uniform requires a numeric array type");
+            if (low > high) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
             const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = rng.floatNorm(T);
+            for (out.data) |*slot| slot.* = alea.distributions.uniform(rng, T, low, high);
+            return out;
+        }
+
+        pub fn normal(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) TensorError!Self {
+            ensureFloat(T);
+            if (stddev_value < zero(T)) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.normal(rng, T, mean_value, stddev_value);
             return out;
         }
 
         pub fn randint(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) TensorError!Self {
-            if (comptime @typeInfo(T) != .int) @compileError("randint requires an integer tensor type");
-            if (low >= high) return error.InvalidShape;
-            var prng = std.Random.DefaultPrng.init(seed);
-            const rng = prng.random();
+            if (comptime @typeInfo(T) != .int) @compileError("randint requires an integer array type");
+            return Self.uniform(allocator, dims, low, high, seed);
+        }
+
+        pub fn bernoulli(allocator: std.mem.Allocator, dims: []const usize, p: f64, seed: u64) TensorError!Self {
+            if (comptime T != bool) @compileError("bernoulli requires Array(bool)");
+            if (p < 0 or p > 1) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
             const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = rng.intRangeLessThan(T, low, high);
+            for (out.data) |*slot| slot.* = alea.distributions.bernoulli(rng, p);
             return out;
         }
 
@@ -2124,6 +2138,9 @@ pub fn Tensor(comptime T: type) type {
     };
 }
 
+pub const Array = Tensor;
+pub const NDArray = Tensor;
+
 fn printShape(writer: *std.Io.Writer, shape: []const usize) std.Io.Writer.Error!void {
     try writer.print("(", .{});
     for (shape, 0..) |d, i| {
@@ -2147,6 +2164,14 @@ fn printFlatData(comptime T: type, writer: *std.Io.Writer, data: []const T) std.
 
 pub fn tensor(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) TensorError!Tensor(T) {
     return Tensor(T).fromSlice(allocator, values, dims);
+}
+
+pub fn array(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) TensorError!Array(T) {
+    return Array(T).fromSlice(allocator, values, dims);
+}
+
+pub fn ndarray(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) TensorError!NDArray(T) {
+    return NDArray(T).fromSlice(allocator, values, dims);
 }
 
 pub fn zeros(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) TensorError!Tensor(T) {
@@ -2181,8 +2206,20 @@ pub fn randn(comptime T: type, allocator: std.mem.Allocator, dims: []const usize
     return Tensor(T).randn(allocator, dims, seed);
 }
 
+pub fn uniform(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).uniform(allocator, dims, low, high, seed);
+}
+
+pub fn normal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean: T, stddev: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).normal(allocator, dims, mean, stddev, seed);
+}
+
 pub fn randint(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) TensorError!Tensor(T) {
     return Tensor(T).randint(allocator, dims, low, high, seed);
+}
+
+pub fn bernoulli(allocator: std.mem.Allocator, dims: []const usize, p: f64, seed: u64) TensorError!Tensor(bool) {
+    return Tensor(bool).bernoulli(allocator, dims, p, seed);
 }
 
 pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) TensorError!Tensor(T) {
@@ -2438,4 +2475,30 @@ test "tensor bool all any axis reductions" {
     defer all_global.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, all_global.shape);
     try std.testing.expectEqualSlices(bool, &.{false}, all_global.data);
+}
+
+test "array aliases and alea-backed random distributions" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer a.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, a.shape);
+
+    var u = try uniform(f64, gpa, &.{16}, -2.0, 3.0, 123);
+    defer u.deinit();
+    for (u.data) |v| try std.testing.expect(v >= -2.0 and v < 3.0);
+
+    var n = try normal(f64, gpa, &.{8}, 10.0, 0.0, 123);
+    defer n.deinit();
+    for (n.data) |v| try std.testing.expectEqual(@as(f64, 10.0), v);
+
+    var r = try randint(i64, gpa, &.{32}, 2, 7, 456);
+    defer r.deinit();
+    for (r.data) |v| try std.testing.expect(v >= 2 and v < 7);
+
+    var b0 = try bernoulli(gpa, &.{4}, 0.0, 789);
+    defer b0.deinit();
+    try std.testing.expect(!b0.any());
+    var b1 = try bernoulli(gpa, &.{4}, 1.0, 789);
+    defer b1.deinit();
+    try std.testing.expect(b1.all());
 }
