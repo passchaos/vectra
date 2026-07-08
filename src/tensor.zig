@@ -2023,6 +2023,10 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
+        pub fn equal(self: Self, other: Self) TensorError!Tensor(bool) {
+            return self.eq(other);
+        }
+
         pub fn gt(self: Self, other: Self) TensorError!Tensor(bool) {
             ensureNumeric(T);
             return self.compare(other, struct {
@@ -2030,6 +2034,10 @@ pub fn Tensor(comptime T: type) type {
                     return a > b;
                 }
             }.f);
+        }
+
+        pub fn greater(self: Self, other: Self) TensorError!Tensor(bool) {
+            return self.gt(other);
         }
 
         pub fn lt(self: Self, other: Self) TensorError!Tensor(bool) {
@@ -2041,12 +2049,20 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
+        pub fn less(self: Self, other: Self) TensorError!Tensor(bool) {
+            return self.lt(other);
+        }
+
         pub fn ne(self: Self, other: Self) TensorError!Tensor(bool) {
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
                     return a != b;
                 }
             }.f);
+        }
+
+        pub fn notEqual(self: Self, other: Self) TensorError!Tensor(bool) {
+            return self.ne(other);
         }
 
         pub fn ge(self: Self, other: Self) TensorError!Tensor(bool) {
@@ -2058,9 +2074,69 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
+        pub fn greaterEqual(self: Self, other: Self) TensorError!Tensor(bool) {
+            return self.ge(other);
+        }
+
         pub fn le(self: Self, other: Self) TensorError!Tensor(bool) {
             ensureNumeric(T);
             return self.compare(other, struct {
+                fn f(a: T, b: T) bool {
+                    return a <= b;
+                }
+            }.f);
+        }
+
+        pub fn lessEqual(self: Self, other: Self) TensorError!Tensor(bool) {
+            return self.le(other);
+        }
+
+        pub fn eqScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a == b;
+                }
+            }.f);
+        }
+
+        pub fn neScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a != b;
+                }
+            }.f);
+        }
+
+        pub fn gtScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+            ensureNumeric(T);
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a > b;
+                }
+            }.f);
+        }
+
+        pub fn geScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+            ensureNumeric(T);
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a >= b;
+                }
+            }.f);
+        }
+
+        pub fn ltScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+            ensureNumeric(T);
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a < b;
+                }
+            }.f);
+        }
+
+        pub fn leScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+            ensureNumeric(T);
+            return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
                     return a <= b;
                 }
@@ -2098,6 +2174,12 @@ pub fn Tensor(comptime T: type) type {
                 const bi = broadcastOffset(out_multi, out_shape.len, other.shape, other.strides);
                 slot.* = op(self.data[ai], other.data[bi]);
             }
+            return out;
+        }
+
+        fn compareScalar(self: Self, scalar: T, comptime op: fn (T, T) bool) TensorError!Tensor(bool) {
+            const out = try Tensor(bool).empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| slot.* = op(value, scalar);
             return out;
         }
 
@@ -2204,11 +2286,47 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
+        pub fn logicalAndScalar(self: Self, scalar: bool) TensorError!Self {
+            if (comptime T != bool) @compileError("logicalAndScalar requires Tensor(bool)");
+            return self.binaryScalar(scalar, struct {
+                fn f(a: bool, b: bool) bool {
+                    return a and b;
+                }
+            }.f);
+        }
+
         pub fn logicalOr(self: Self, other: Self) TensorError!Self {
             if (comptime T != bool) @compileError("logicalOr requires Tensor(bool)");
             return self.binaryTensor(other, struct {
                 fn f(a: bool, b: bool) bool {
                     return a or b;
+                }
+            }.f);
+        }
+
+        pub fn logicalOrScalar(self: Self, scalar: bool) TensorError!Self {
+            if (comptime T != bool) @compileError("logicalOrScalar requires Tensor(bool)");
+            return self.binaryScalar(scalar, struct {
+                fn f(a: bool, b: bool) bool {
+                    return a or b;
+                }
+            }.f);
+        }
+
+        pub fn logicalXor(self: Self, other: Self) TensorError!Self {
+            if (comptime T != bool) @compileError("logicalXor requires Tensor(bool)");
+            return self.binaryTensor(other, struct {
+                fn f(a: bool, b: bool) bool {
+                    return a != b;
+                }
+            }.f);
+        }
+
+        pub fn logicalXorScalar(self: Self, scalar: bool) TensorError!Self {
+            if (comptime T != bool) @compileError("logicalXorScalar requires Tensor(bool)");
+            return self.binaryScalar(scalar, struct {
+                fn f(a: bool, b: bool) bool {
+                    return a != b;
                 }
             }.f);
         }
@@ -4288,6 +4406,110 @@ pub fn clamp(comptime T: type, input: Tensor(T), min_value: T, max_value: T) Ten
     return input.clamp(min_value, max_value);
 }
 
+pub fn eq(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.eq(b);
+}
+
+pub fn equal(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.equal(b);
+}
+
+pub fn ne(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.ne(b);
+}
+
+pub fn notEqual(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.notEqual(b);
+}
+
+pub fn gt(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.gt(b);
+}
+
+pub fn greater(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.greater(b);
+}
+
+pub fn ge(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.ge(b);
+}
+
+pub fn greaterEqual(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.greaterEqual(b);
+}
+
+pub fn lt(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.lt(b);
+}
+
+pub fn less(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.less(b);
+}
+
+pub fn le(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.le(b);
+}
+
+pub fn lessEqual(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+    return a.lessEqual(b);
+}
+
+pub fn eqScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+    return input.eqScalar(scalar);
+}
+
+pub fn neScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+    return input.neScalar(scalar);
+}
+
+pub fn gtScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+    return input.gtScalar(scalar);
+}
+
+pub fn geScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+    return input.geScalar(scalar);
+}
+
+pub fn ltScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+    return input.ltScalar(scalar);
+}
+
+pub fn leScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+    return input.leScalar(scalar);
+}
+
+pub fn allclose(comptime T: type, a: Tensor(T), b: Tensor(T), rtol: T, atol: T) TensorError!bool {
+    return a.allclose(b, rtol, atol);
+}
+
+pub fn logicalNot(input: Tensor(bool)) TensorError!Tensor(bool) {
+    return input.logicalNot();
+}
+
+pub fn logicalAnd(a: Tensor(bool), b: Tensor(bool)) TensorError!Tensor(bool) {
+    return a.logicalAnd(b);
+}
+
+pub fn logicalOr(a: Tensor(bool), b: Tensor(bool)) TensorError!Tensor(bool) {
+    return a.logicalOr(b);
+}
+
+pub fn logicalXor(a: Tensor(bool), b: Tensor(bool)) TensorError!Tensor(bool) {
+    return a.logicalXor(b);
+}
+
+pub fn logicalAndScalar(input: Tensor(bool), scalar: bool) TensorError!Tensor(bool) {
+    return input.logicalAndScalar(scalar);
+}
+
+pub fn logicalOrScalar(input: Tensor(bool), scalar: bool) TensorError!Tensor(bool) {
+    return input.logicalOrScalar(scalar);
+}
+
+pub fn logicalXorScalar(input: Tensor(bool), scalar: bool) TensorError!Tensor(bool) {
+    return input.logicalXorScalar(scalar);
+}
+
 pub fn isNan(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
     return input.isNan();
 }
@@ -4661,6 +4883,65 @@ test "array binary math wrappers and clamp aliases" {
     var rem_scalar = try remainderScalar(i32, ints, 4);
     defer rem_scalar.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 3, 1, 3 }, rem_scalar.data);
+}
+
+test "array comparison and logical wrappers" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer a.deinit();
+    var b = try array(f64, gpa, &.{ 1, 0 }, &.{2});
+    defer b.deinit();
+
+    var eq_out = try equal(f64, a, b);
+    defer eq_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, eq_out.data);
+    var ne_out = try notEqual(f64, a, b);
+    defer ne_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, ne_out.data);
+    var gt_out = try greater(f64, a, b);
+    defer gt_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, gt_out.data);
+    var ge_out = try ge(f64, a, b);
+    defer ge_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, ge_out.data);
+    var lt_out = try less(f64, a, b);
+    defer lt_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lt_out.data);
+    var le_out = try le(f64, a, b);
+    defer le_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, le_out.data);
+
+    var eq_scalar_out = try eqScalar(f64, a, 2);
+    defer eq_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, eq_scalar_out.data);
+    var ge_scalar_out = try a.geScalar(3);
+    defer ge_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, ge_scalar_out.data);
+    var lt_scalar_out = try ltScalar(f64, a, 3);
+    defer lt_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false }, lt_scalar_out.data);
+
+    try std.testing.expect(try allclose(f64, a, a, 1e-12, 1e-12));
+
+    var m1 = try array(bool, gpa, &.{ true, false, true, false }, &.{ 2, 2 });
+    defer m1.deinit();
+    var m2 = try array(bool, gpa, &.{ true, true }, &.{2});
+    defer m2.deinit();
+    var not_out = try logicalNot(m1);
+    defer not_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, not_out.data);
+    var and_out = try logicalAnd(m1, m2);
+    defer and_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, and_out.data);
+    var or_out = try logicalOr(m1, m2);
+    defer or_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, or_out.data);
+    var xor_out = try logicalXor(m1, m2);
+    defer xor_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, xor_out.data);
+    var xor_scalar_out = try logicalXorScalar(m1, true);
+    defer xor_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, xor_scalar_out.data);
 }
 
 test "tensor reductions and matmul" {
