@@ -4,6 +4,14 @@ const veyra = @import("veyra");
 
 pub const LinalgError = tensor_mod.TensorError || error{ SingularMatrix, NotPositiveDefinite, BackendFailure } || std.mem.Allocator.Error;
 
+pub const MatrixNormOrder = enum {
+    fro,
+    one,
+    inf,
+    two,
+    nuclear,
+};
+
 fn toVeyraMatrix(a: tensor_mod.Tensor(f64)) LinalgError!veyra.Matrix(f64) {
     if (a.shape.len != 2) return error.NonMatrixTensor;
     return veyra.Matrix(f64).fromSlice(a.allocator, a.shape[0], a.shape[1], .row_major, a.data) catch return error.BackendFailure;
@@ -45,6 +53,19 @@ pub fn SvdResult(comptime T: type) type {
             self.u.deinit();
             self.s.deinit();
             self.vt.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
+pub fn EighResult(comptime T: type) type {
+    return struct {
+        values: tensor_mod.Tensor(T),
+        vectors: tensor_mod.Tensor(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.values.deinit();
+            self.vectors.deinit();
             self.* = undefined;
         }
     };
@@ -328,6 +349,108 @@ pub fn pinv(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError
     var u_t = try factors.u.transpose();
     defer u_t.deinit();
     return matmul(T, left, u_t);
+}
+
+pub fn matrixNorm(comptime T: type, a: tensor_mod.Tensor(T), order: MatrixNormOrder, tolerance: T) LinalgError!T {
+    if (a.shape.len != 2) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("matrixNorm requires floating-point tensors");
+    if (T == f64) return matrixNormF64(@as(tensor_mod.Tensor(f64), a), order, @as(f64, tolerance));
+    return matrixNormReference(T, a, order, tolerance);
+}
+
+fn matrixNormF64(a: tensor_mod.Tensor(f64), order: MatrixNormOrder, tolerance: f64) LinalgError!f64 {
+    var matrix = try toVeyraMatrix(a);
+    defer matrix.deinit();
+    return switch (order) {
+        .fro => veyra.frobeniusNorm(f64, matrix.asView()),
+        .one => veyra.matrixOneNorm(f64, matrix.asView()),
+        .inf => veyra.matrixInfNorm(f64, matrix.asView()),
+        .two => blk: {
+            var values = try singularValues(f64, a, tolerance);
+            defer values.deinit();
+            if (values.data.len == 0) break :blk 0;
+            var max_value = values.data[0];
+            for (values.data[1..]) |v| {
+                if (v > max_value) max_value = v;
+            }
+            break :blk max_value;
+        },
+        .nuclear => blk: {
+            var values = try singularValues(f64, a, tolerance);
+            defer values.deinit();
+            var total: f64 = 0;
+            for (values.data) |v| total += v;
+            break :blk total;
+        },
+    };
+}
+
+fn matrixNormReference(comptime T: type, a: tensor_mod.Tensor(T), order: MatrixNormOrder, tolerance: T) LinalgError!T {
+    return switch (order) {
+        .fro => blk: {
+            var total: T = 0;
+            for (a.data) |v| total += v * v;
+            break :blk std.math.sqrt(total);
+        },
+        .one => blk: {
+            var best: T = 0;
+            for (0..a.shape[1]) |c| {
+                var total: T = 0;
+                for (0..a.shape[0]) |r| total += @abs(a.data[r * a.shape[1] + c]);
+                if (total > best) best = total;
+            }
+            break :blk best;
+        },
+        .inf => blk: {
+            var best: T = 0;
+            for (0..a.shape[0]) |r| {
+                var total: T = 0;
+                for (0..a.shape[1]) |c| total += @abs(a.data[r * a.shape[1] + c]);
+                if (total > best) best = total;
+            }
+            break :blk best;
+        },
+        .two, .nuclear => blk: {
+            var values = try singularValues(T, a, tolerance);
+            defer values.deinit();
+            if (order == .two) {
+                if (values.data.len == 0) break :blk 0;
+                var max_value = values.data[0];
+                for (values.data[1..]) |v| {
+                    if (v > max_value) max_value = v;
+                }
+                break :blk max_value;
+            }
+            var total: T = 0;
+            for (values.data) |v| total += v;
+            break :blk total;
+        },
+    };
+}
+
+pub fn eigh(comptime T: type, a: tensor_mod.Tensor(T), max_sweeps: usize, tolerance: T) LinalgError!EighResult(T) {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("eigh requires floating-point tensors");
+    if (T == f64) return eighF64(@as(tensor_mod.Tensor(f64), a), max_sweeps, @as(f64, tolerance));
+    return error.BackendFailure;
+}
+
+fn eighF64(a: tensor_mod.Tensor(f64), max_sweeps: usize, tolerance: f64) LinalgError!EighResult(f64) {
+    var matrix = try toVeyraMatrix(a);
+    defer matrix.deinit();
+    var eig = veyra.symmetricEigenJacobi(f64, a.allocator, matrix.asView(), max_sweeps, tolerance) catch |err| return mapVeyraError(err);
+    defer eig.deinit();
+    var values = try fromVeyraVector(a.allocator, &eig.eigenvalues);
+    errdefer values.deinit();
+    var vectors = try fromVeyraMatrix(a.allocator, &eig.eigenvectors);
+    errdefer vectors.deinit();
+    return .{ .values = values, .vectors = vectors };
+}
+
+pub fn eigvalsh(comptime T: type, a: tensor_mod.Tensor(T), max_sweeps: usize, tolerance: T) LinalgError!tensor_mod.Tensor(T) {
+    var result = try eigh(T, a, max_sweeps, tolerance);
+    defer result.deinit();
+    return result.values.clone();
 }
 
 pub fn lstsq(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T), tolerance: T) LinalgError!tensor_mod.Tensor(T) {
@@ -615,4 +738,42 @@ test "linalg singular values rank condition and pinv" {
     var ident = try eye(f64, gpa, 2);
     defer ident.deinit();
     try std.testing.expect(try projected.allclose(ident, 1e-10, 1e-10));
+}
+
+test "linalg matrix norms use Veyra-compatible paths" {
+    const gpa = std.testing.allocator;
+    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, -2, 3, -4, 5, -6 }, &.{ 2, 3 });
+    defer a.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(91.0)), try matrixNorm(f64, a, .fro, 1e-12), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9), try matrixNorm(f64, a, .one, 1e-12), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try matrixNorm(f64, a, .inf, 1e-12), 1e-12);
+}
+
+test "linalg symmetric eigen decomposition" {
+    const gpa = std.testing.allocator;
+    var a = try tensor_mod.tensor(f64, gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
+    defer a.deinit();
+    var result = try eigh(f64, a, 64, 1e-12);
+    defer result.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, result.values.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, result.vectors.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), result.values.data[0], 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), result.values.data[1], 1e-10);
+
+    var diag = try tensor_mod.Tensor(f64).zeros(gpa, &.{ 2, 2 });
+    defer diag.deinit();
+    diag.data[0] = result.values.data[0];
+    diag.data[3] = result.values.data[1];
+    var vd = try matmul(f64, result.vectors, diag);
+    defer vd.deinit();
+    var vt = try result.vectors.transpose();
+    defer vt.deinit();
+    var reconstructed = try matmul(f64, vd, vt);
+    defer reconstructed.deinit();
+    try std.testing.expect(try reconstructed.allclose(a, 1e-10, 1e-10));
+
+    var values_only = try eigvalsh(f64, a, 64, 1e-12);
+    defer values_only.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), values_only.data[0], 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), values_only.data[1], 1e-10);
 }

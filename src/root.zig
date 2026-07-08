@@ -51,6 +51,10 @@ pub const singularValues = linalg.singularValues;
 pub const matrixRank = linalg.matrixRank;
 pub const cond = linalg.cond;
 pub const pinv = linalg.pinv;
+pub const matrixNorm = linalg.matrixNorm;
+pub const MatrixNormOrder = linalg.MatrixNormOrder;
+pub const eigh = linalg.eigh;
+pub const eigvalsh = linalg.eigvalsh;
 pub const dataframe = dataframe_mod.dataframe;
 
 test {
