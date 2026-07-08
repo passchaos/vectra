@@ -1405,6 +1405,30 @@ pub fn ArrayView(comptime T: type) type {
             return method(lhs, rhs);
         }
 
+        fn ownedUnary(self: Self, comptime R: type, comptime method: fn (Array(T)) ArrayError!R) ArrayError!R {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return method(owned);
+        }
+
+        fn ownedWith(self: Self, arg: anytype, comptime R: type, comptime method: anytype) ArrayError!R {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return method(owned, arg);
+        }
+
+        fn ownedWith2(self: Self, arg1: anytype, arg2: anytype, comptime R: type, comptime method: anytype) ArrayError!R {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return method(owned, arg1, arg2);
+        }
+
+        fn ownedWith3(self: Self, arg1: anytype, arg2: anytype, arg3: anytype, comptime R: type, comptime method: anytype) ArrayError!R {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return method(owned, arg1, arg2, arg3);
+        }
+
         pub fn addArray(self: Self, other: Array(T)) ArrayError!Array(T) {
             var other_view = try other.asView();
             defer other_view.deinit();
@@ -1618,21 +1642,15 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn powScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.powScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).powScalar);
         }
 
         pub fn floorDivScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.floorDivScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).floorDivScalar);
         }
 
         pub fn modScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.modScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).modScalar);
         }
 
         pub fn remainderScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -1640,15 +1658,11 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn maximumScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.maximumScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).maximumScalar);
         }
 
         pub fn minimumScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.minimumScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).minimumScalar);
         }
 
         pub fn clipMin(self: Self, min_value: T) ArrayError!Array(T) {
@@ -1668,15 +1682,11 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.hypotScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).hypotScalar);
         }
 
         pub fn atan2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.atan2Scalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).atan2Scalar);
         }
 
         pub fn arctan2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -1684,9 +1694,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn nextAfterScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.nextAfterScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).nextAfterScalar);
         }
 
         pub fn nextafterScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -1694,21 +1702,15 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn copysignScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.copysignScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).copysignScalar);
         }
 
         pub fn heavisideScalar(self: Self, value_at_zero: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.heavisideScalar(value_at_zero);
+            return self.ownedWith(value_at_zero, Array(T), Array(T).heavisideScalar);
         }
 
         pub fn logAddExpScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.logAddExpScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).logAddExpScalar);
         }
 
         pub fn logaddexpScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -1716,9 +1718,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logAddExp2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.logAddExp2Scalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).logAddExp2Scalar);
         }
 
         pub fn logaddexp2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -1726,15 +1726,11 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn xlogyScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.xlogyScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).xlogyScalar);
         }
 
         pub fn ldexpScalar(self: Self, exponent: i32) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.ldexpScalar(exponent);
+            return self.ownedWith(exponent, Array(T), Array(T).ldexpScalar);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -1890,123 +1886,83 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn square(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.square();
+            return self.ownedUnary(Array(T), Array(T).square);
         }
 
         pub fn reciprocal(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.reciprocal();
+            return self.ownedUnary(Array(T), Array(T).reciprocal);
         }
 
         pub fn sign(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.sign();
+            return self.ownedUnary(Array(T), Array(T).sign);
         }
 
         pub fn signbit(self: Self) ArrayError!Array(bool) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.signbit();
+            return self.ownedUnary(Array(bool), Array(T).signbit);
         }
 
         pub fn exp(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.exp();
+            return self.ownedUnary(Array(T), Array(T).exp);
         }
 
         pub fn exp2(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.exp2();
+            return self.ownedUnary(Array(T), Array(T).exp2);
         }
 
         pub fn expm1(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.expm1();
+            return self.ownedUnary(Array(T), Array(T).expm1);
         }
 
         pub fn log(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.log();
+            return self.ownedUnary(Array(T), Array(T).log);
         }
 
         pub fn log2(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.log2();
+            return self.ownedUnary(Array(T), Array(T).log2);
         }
 
         pub fn log10(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.log10();
+            return self.ownedUnary(Array(T), Array(T).log10);
         }
 
         pub fn log1p(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.log1p();
+            return self.ownedUnary(Array(T), Array(T).log1p);
         }
 
         pub fn sqrt(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.sqrt();
+            return self.ownedUnary(Array(T), Array(T).sqrt);
         }
 
         pub fn rsqrt(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.rsqrt();
+            return self.ownedUnary(Array(T), Array(T).rsqrt);
         }
 
         pub fn cbrt(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cbrt();
+            return self.ownedUnary(Array(T), Array(T).cbrt);
         }
 
         pub fn floor(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.floor();
+            return self.ownedUnary(Array(T), Array(T).floor);
         }
 
         pub fn ceil(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.ceil();
+            return self.ownedUnary(Array(T), Array(T).ceil);
         }
 
         pub fn round(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.round();
+            return self.ownedUnary(Array(T), Array(T).round);
         }
 
         pub fn trunc(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.trunc();
+            return self.ownedUnary(Array(T), Array(T).trunc);
         }
 
         pub fn deg2rad(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.deg2rad();
+            return self.ownedUnary(Array(T), Array(T).deg2rad);
         }
 
         pub fn rad2deg(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.rad2deg();
+            return self.ownedUnary(Array(T), Array(T).rad2deg);
         }
 
         pub fn radians(self: Self) ArrayError!Array(T) {
@@ -2018,33 +1974,23 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn sinc(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.sinc();
+            return self.ownedUnary(Array(T), Array(T).sinc);
         }
 
         pub fn sin(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.sin();
+            return self.ownedUnary(Array(T), Array(T).sin);
         }
 
         pub fn cos(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cos();
+            return self.ownedUnary(Array(T), Array(T).cos);
         }
 
         pub fn tan(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.tan();
+            return self.ownedUnary(Array(T), Array(T).tan);
         }
 
         pub fn asin(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.asin();
+            return self.ownedUnary(Array(T), Array(T).asin);
         }
 
         pub fn arcsin(self: Self) ArrayError!Array(T) {
@@ -2052,9 +1998,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn acos(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.acos();
+            return self.ownedUnary(Array(T), Array(T).acos);
         }
 
         pub fn arccos(self: Self) ArrayError!Array(T) {
@@ -2062,9 +2006,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn atan(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.atan();
+            return self.ownedUnary(Array(T), Array(T).atan);
         }
 
         pub fn arctan(self: Self) ArrayError!Array(T) {
@@ -2072,27 +2014,19 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn sinh(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.sinh();
+            return self.ownedUnary(Array(T), Array(T).sinh);
         }
 
         pub fn cosh(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cosh();
+            return self.ownedUnary(Array(T), Array(T).cosh);
         }
 
         pub fn tanh(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.tanh();
+            return self.ownedUnary(Array(T), Array(T).tanh);
         }
 
         pub fn asinh(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.asinh();
+            return self.ownedUnary(Array(T), Array(T).asinh);
         }
 
         pub fn arcsinh(self: Self) ArrayError!Array(T) {
@@ -2100,9 +2034,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn acosh(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.acosh();
+            return self.ownedUnary(Array(T), Array(T).acosh);
         }
 
         pub fn arccosh(self: Self) ArrayError!Array(T) {
@@ -2110,9 +2042,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn atanh(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.atanh();
+            return self.ownedUnary(Array(T), Array(T).atanh);
         }
 
         pub fn arctanh(self: Self) ArrayError!Array(T) {
@@ -2120,57 +2050,39 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn relu(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.relu();
+            return self.ownedUnary(Array(T), Array(T).relu);
         }
 
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.leakyRelu(negative_slope);
+            return self.ownedWith(negative_slope, Array(T), Array(T).leakyRelu);
         }
 
         pub fn sigmoid(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.sigmoid();
+            return self.ownedUnary(Array(T), Array(T).sigmoid);
         }
 
         pub fn expit(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.expit();
+            return self.ownedUnary(Array(T), Array(T).expit);
         }
 
         pub fn logit(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.logit();
+            return self.ownedUnary(Array(T), Array(T).logit);
         }
 
         pub fn softplus(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.softplus();
+            return self.ownedUnary(Array(T), Array(T).softplus);
         }
 
         pub fn softsign(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.softsign();
+            return self.ownedUnary(Array(T), Array(T).softsign);
         }
 
         pub fn gelu(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.gelu();
+            return self.ownedUnary(Array(T), Array(T).gelu);
         }
 
         pub fn clip(self: Self, min_value: T, max_value: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.clip(min_value, max_value);
+            return self.ownedWith2(min_value, max_value, Array(T), Array(T).clip);
         }
 
         pub fn clamp(self: Self, min_value: T, max_value: T) ArrayError!Array(T) {
@@ -2178,9 +2090,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isNan(self: Self) ArrayError!Array(bool) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.isNan();
+            return self.ownedUnary(Array(bool), Array(T).isNan);
         }
 
         pub fn isnan(self: Self) ArrayError!Array(bool) {
@@ -2188,9 +2098,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isInf(self: Self) ArrayError!Array(bool) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.isInf();
+            return self.ownedUnary(Array(bool), Array(T).isInf);
         }
 
         pub fn isinf(self: Self) ArrayError!Array(bool) {
@@ -2198,9 +2106,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isPosInf(self: Self) ArrayError!Array(bool) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.isPosInf();
+            return self.ownedUnary(Array(bool), Array(T).isPosInf);
         }
 
         pub fn isposinf(self: Self) ArrayError!Array(bool) {
@@ -2208,9 +2114,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isNegInf(self: Self) ArrayError!Array(bool) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.isNegInf();
+            return self.ownedUnary(Array(bool), Array(T).isNegInf);
         }
 
         pub fn isneginf(self: Self) ArrayError!Array(bool) {
@@ -2218,9 +2122,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isFinite(self: Self) ArrayError!Array(bool) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.isFinite();
+            return self.ownedUnary(Array(bool), Array(T).isFinite);
         }
 
         pub fn isfinite(self: Self) ArrayError!Array(bool) {
@@ -2228,9 +2130,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalNot(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.logicalNot();
+            return self.ownedUnary(Array(T), Array(T).logicalNot);
         }
 
         pub fn logicalAnd(self: Self, other: Self) ArrayError!Array(T) {
@@ -2248,9 +2148,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalAndScalar(self: Self, scalar: bool) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.logicalAndScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).logicalAndScalar);
         }
 
         pub fn logicalOr(self: Self, other: Self) ArrayError!Array(T) {
@@ -2268,9 +2166,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalOrScalar(self: Self, scalar: bool) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.logicalOrScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).logicalOrScalar);
         }
 
         pub fn logicalXor(self: Self, other: Self) ArrayError!Array(T) {
@@ -2288,9 +2184,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalXorScalar(self: Self, scalar: bool) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.logicalXorScalar(scalar);
+            return self.ownedWith(scalar, Array(T), Array(T).logicalXorScalar);
         }
 
         pub fn isclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
@@ -2310,15 +2204,11 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.iscloseScalar(scalar, rtol, atol);
+            return self.ownedWith3(scalar, rtol, atol, Array(bool), Array(T).iscloseScalar);
         }
 
         pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!bool {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.allcloseScalar(scalar, rtol, atol);
+            return self.ownedWith3(scalar, rtol, atol, bool, Array(T).allcloseScalar);
         }
 
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
