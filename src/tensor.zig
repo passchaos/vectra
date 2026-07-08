@@ -1194,12 +1194,83 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        pub fn maskedPut(self: Self, mask: Tensor(bool), values: Self) TensorError!Self {
+            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            var out = try self.broadcastTo(out_shape);
+            errdefer out.deinit();
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var count: usize = 0;
+            for (0..product(out_shape)) |i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const mi = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                if (mask.data[mi]) count += 1;
+            }
+            if (values.data.len != 1 and values.data.len != count) return error.ShapeMismatch;
+            var write: usize = 0;
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const mi = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                if (mask.data[mi]) {
+                    slot.* = values.data[if (values.data.len == 1) 0 else write];
+                    write += 1;
+                }
+            }
+            return out;
+        }
+
+        pub fn maskedPutScalar(self: Self, mask: Tensor(bool), value: T) TensorError!Self {
+            return self.maskedFill(mask, value);
+        }
+
+        pub fn putFlat(self: Self, indices: Tensor(usize), values: Self) TensorError!Self {
+            if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
+            var out = try self.clone();
+            errdefer out.deinit();
+            for (indices.data, 0..) |idx, i| {
+                if (idx >= out.data.len) return error.IndexOutOfBounds;
+                out.data[idx] = values.data[if (values.data.len == 1) 0 else i];
+            }
+            return out;
+        }
+
+        pub fn putFlatScalar(self: Self, indices: Tensor(usize), value: T) TensorError!Self {
+            var out = try self.clone();
+            errdefer out.deinit();
+            for (indices.data) |idx| {
+                if (idx >= out.data.len) return error.IndexOutOfBounds;
+                out.data[idx] = value;
+            }
+            return out;
+        }
+
+        pub fn indexPut(self: Self, indices: Tensor(usize), values: Self) TensorError!Self {
+            return self.putFlat(indices, values);
+        }
+
+        pub fn indexPutScalar(self: Self, indices: Tensor(usize), value: T) TensorError!Self {
+            return self.putFlatScalar(indices, value);
+        }
+
         pub fn countNonzero(self: Self) usize {
             var count: usize = 0;
             for (self.data) |v| {
                 if (v != zero(T)) count += 1;
             }
             return count;
+        }
+
+        pub fn flatNonzero(self: Self) TensorError!Tensor(usize) {
+            const count = self.countNonzero();
+            const out = try Tensor(usize).empty(self.allocator, &.{count});
+            var write: usize = 0;
+            for (self.data, 0..) |value, flat| {
+                if (value == zero(T)) continue;
+                out.data[write] = flat;
+                write += 1;
+            }
+            return out;
         }
 
         pub fn nonzero(self: Self) TensorError!Tensor(usize) {
@@ -1214,6 +1285,53 @@ pub fn Tensor(comptime T: type) type {
                 unravelIndexInto(flat, self.shape, multi);
                 @memcpy(out.data[write * self.shape.len ..][0..self.shape.len], multi);
                 write += 1;
+            }
+            return out;
+        }
+
+        pub fn argwhere(self: Self) TensorError!Tensor(usize) {
+            return self.nonzero();
+        }
+
+        pub fn compress(self: Self, condition: Tensor(bool), axis_opt: ?isize) TensorError!Self {
+            if (condition.shape.len != 1) return error.ShapeMismatch;
+            if (axis_opt == null) {
+                var flat = try self.flatten();
+                defer flat.deinit();
+                if (condition.data.len != flat.data.len) return error.ShapeMismatch;
+                return flat.maskedSelect(condition);
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (condition.data.len != self.shape[axis]) return error.ShapeMismatch;
+            var selected_count: usize = 0;
+            for (condition.data) |keep| {
+                if (keep) selected_count += 1;
+            }
+            const selected = try self.allocator.alloc(usize, selected_count);
+            defer self.allocator.free(selected);
+            var write: usize = 0;
+            for (condition.data, 0..) |keep, i| {
+                if (keep) {
+                    selected[write] = i;
+                    write += 1;
+                }
+            }
+
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = selected_count;
+            const out = try Self.empty(self.allocator, out_shape);
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = selected[out_multi[axis]];
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
         }
@@ -4246,12 +4364,48 @@ pub fn maskedScatter(comptime T: type, input: Tensor(T), mask: Tensor(bool), src
     return input.maskedScatter(mask, src);
 }
 
+pub fn maskedPut(comptime T: type, input: Tensor(T), mask: Tensor(bool), values: Tensor(T)) TensorError!Tensor(T) {
+    return input.maskedPut(mask, values);
+}
+
+pub fn maskedPutScalar(comptime T: type, input: Tensor(T), mask: Tensor(bool), value: T) TensorError!Tensor(T) {
+    return input.maskedPutScalar(mask, value);
+}
+
+pub fn putFlat(comptime T: type, input: Tensor(T), indices: Tensor(usize), values: Tensor(T)) TensorError!Tensor(T) {
+    return input.putFlat(indices, values);
+}
+
+pub fn putFlatScalar(comptime T: type, input: Tensor(T), indices: Tensor(usize), value: T) TensorError!Tensor(T) {
+    return input.putFlatScalar(indices, value);
+}
+
+pub fn indexPut(comptime T: type, input: Tensor(T), indices: Tensor(usize), values: Tensor(T)) TensorError!Tensor(T) {
+    return input.indexPut(indices, values);
+}
+
+pub fn indexPutScalar(comptime T: type, input: Tensor(T), indices: Tensor(usize), value: T) TensorError!Tensor(T) {
+    return input.indexPutScalar(indices, value);
+}
+
 pub fn countNonzero(comptime T: type, input: Tensor(T)) usize {
     return input.countNonzero();
 }
 
+pub fn flatNonzero(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+    return input.flatNonzero();
+}
+
 pub fn nonzero(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
     return input.nonzero();
+}
+
+pub fn argwhere(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+    return input.argwhere();
+}
+
+pub fn compress(comptime T: type, input: Tensor(T), condition: Tensor(bool), axis: ?isize) TensorError!Tensor(T) {
+    return input.compress(condition, axis);
 }
 
 test "tensor creation, reshape and broadcasting" {
@@ -4369,6 +4523,74 @@ test "tensor take mask stack cat and neural helpers" {
     defer cs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 10, 15, 21 }, cs.data);
     try std.testing.expectEqual(@as(usize, 5), try a.argmax());
+}
+
+test "array advanced indexing mutation helpers" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 0, 3, 0, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var flat_idx = try a.flatNonzero();
+    defer flat_idx.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 5 }, flat_idx.data);
+
+    var coords = try argwhere(f64, a);
+    defer coords.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, coords.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 2, 1, 1, 1, 2 }, coords.data);
+
+    var cond = try array(bool, gpa, &.{ true, false, true }, &.{3});
+    defer cond.deinit();
+    var compressed_cols = try compress(f64, a, cond, 1);
+    defer compressed_cols.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, compressed_cols.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 0, 6 }, compressed_cols.data);
+
+    var flat_cond = try array(bool, gpa, &.{ true, false, false, true, true, false }, &.{6});
+    defer flat_cond.deinit();
+    var compressed_flat = try a.compress(flat_cond, null);
+    defer compressed_flat.deinit();
+    try std.testing.expectEqualSlices(usize, &.{3}, compressed_flat.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 5 }, compressed_flat.data);
+
+    var mask = try array(bool, gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
+    defer mask.deinit();
+    var mask_values = try array(f64, gpa, &.{ 10, 20, 30 }, &.{3});
+    defer mask_values.deinit();
+    var mask_put = try maskedPut(f64, a, mask, mask_values);
+    defer mask_put.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 0, 20, 0, 30, 6 }, mask_put.data);
+
+    var mask_scalar = try a.maskedPutScalar(mask, -1);
+    defer mask_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 0, -1, 0, -1, 6 }, mask_scalar.data);
+
+    var put_idx = try array(usize, gpa, &.{ 1, 4 }, &.{2});
+    defer put_idx.deinit();
+    var put_values = try array(f64, gpa, &.{ 11, 44 }, &.{2});
+    defer put_values.deinit();
+    var put_flat = try putFlat(f64, a, put_idx, put_values);
+    defer put_flat.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 11, 3, 0, 44, 6 }, put_flat.data);
+
+    var put_scalar = try a.putFlatScalar(put_idx, 7);
+    defer put_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 7, 3, 0, 7, 6 }, put_scalar.data);
+
+    var index_put = try indexPut(f64, a, put_idx, put_values);
+    defer index_put.deinit();
+    try std.testing.expectEqualSlices(f64, put_flat.data, index_put.data);
+
+    var index_put_scalar = try indexPutScalar(f64, a, put_idx, 9);
+    defer index_put_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 9, 3, 0, 9, 6 }, index_put_scalar.data);
+
+    var bad_values = try array(f64, gpa, &.{ 1, 2 }, &.{2});
+    defer bad_values.deinit();
+    try std.testing.expectError(error.ShapeMismatch, a.maskedPut(mask, bad_values));
+    var bad_indices = try array(usize, gpa, &.{6}, &.{1});
+    defer bad_indices.deinit();
+    try std.testing.expectError(error.IndexOutOfBounds, a.putFlatScalar(bad_indices, 1));
 }
 
 test "array extended unary math and predicates" {
