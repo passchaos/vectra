@@ -6689,19 +6689,99 @@ pub fn Array(comptime T: type) type {
 
         pub fn matmul(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (self.shape.len != 2 or other.shape.len != 2) return error.NonMatrixArray;
-            const m = self.shape[0];
-            const k = self.shape[1];
-            if (other.shape[0] != k) return error.ShapeMismatch;
-            const n = other.shape[1];
-            var out = try Self.zeros(self.allocator, &.{ m, n });
-            for (0..m) |i| {
-                for (0..n) |j| {
-                    var acc = zero(T);
-                    for (0..k) |p| {
-                        acc = addValue(T, acc, mulValue(T, self.data[i * k + p], other.data[p * n + j]));
+            if (self.shape.len == 0 or other.shape.len == 0) return error.NonMatrixArray;
+            const lhs_vec = self.shape.len == 1;
+            const rhs_vec = other.shape.len == 1;
+            const lhs_k = self.shape[self.shape.len - 1];
+            const rhs_k = if (rhs_vec) other.shape[0] else other.shape[other.shape.len - 2];
+            if (lhs_k != rhs_k) return error.ShapeMismatch;
+
+            if (lhs_vec and rhs_vec) return self.dot(other);
+
+            const lhs_batch = if (lhs_vec) self.shape[0..0] else self.shape[0 .. self.shape.len - 2];
+            const rhs_batch = if (rhs_vec) other.shape[0..0] else other.shape[0 .. other.shape.len - 2];
+            const batch_shape = try broadcastShape(self.allocator, lhs_batch, rhs_batch);
+            defer self.allocator.free(batch_shape);
+
+            const lhs_m: usize = if (lhs_vec) 1 else self.shape[self.shape.len - 2];
+            const rhs_n: usize = if (rhs_vec) 1 else other.shape[other.shape.len - 1];
+            const out_rank = batch_shape.len + @as(usize, if (lhs_vec or rhs_vec) 1 else 2);
+            var out_shape = try self.allocator.alloc(usize, out_rank);
+            defer self.allocator.free(out_shape);
+            for (batch_shape, 0..) |dim, idx| out_shape[idx] = dim;
+            if (lhs_vec) {
+                out_shape[batch_shape.len] = rhs_n;
+            } else if (rhs_vec) {
+                out_shape[batch_shape.len] = lhs_m;
+            } else {
+                out_shape[batch_shape.len] = lhs_m;
+                out_shape[batch_shape.len + 1] = rhs_n;
+            }
+
+            var out = try Self.zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const batch_multi = try self.allocator.alloc(usize, batch_shape.len);
+            defer self.allocator.free(batch_multi);
+            const batch_count = product(batch_shape);
+            var write_index: usize = 0;
+            for (0..batch_count) |batch_flat| {
+                unravelIndexInto(batch_flat, batch_shape, batch_multi);
+                var lhs_batch_offset: usize = 0;
+                if (!lhs_vec) {
+                    const lhs_batch_rank = self.shape.len - 2;
+                    const leading = batch_shape.len - lhs_batch_rank;
+                    for (0..lhs_batch_rank) |axis| {
+                        const coord = if (self.shape[axis] == 1) 0 else batch_multi[leading + axis];
+                        lhs_batch_offset += coord * self.strides[axis];
                     }
-                    out.data[i * n + j] = acc;
+                }
+                var rhs_batch_offset: usize = 0;
+                if (!rhs_vec) {
+                    const rhs_batch_rank = other.shape.len - 2;
+                    const leading = batch_shape.len - rhs_batch_rank;
+                    for (0..rhs_batch_rank) |axis| {
+                        const coord = if (other.shape[axis] == 1) 0 else batch_multi[leading + axis];
+                        rhs_batch_offset += coord * other.strides[axis];
+                    }
+                }
+
+                if (lhs_vec) {
+                    for (0..rhs_n) |col| {
+                        var acc = zero(T);
+                        for (0..lhs_k) |inner_i| {
+                            const lhs_value = self.data[inner_i * self.strides[0]];
+                            const rhs_value = other.data[rhs_batch_offset + inner_i * other.strides[other.shape.len - 2] + col * other.strides[other.shape.len - 1]];
+                            acc = addValue(T, acc, mulValue(T, lhs_value, rhs_value));
+                        }
+                        out.data[write_index] = acc;
+                        write_index += 1;
+                    }
+                } else if (rhs_vec) {
+                    for (0..lhs_m) |row| {
+                        var acc = zero(T);
+                        for (0..lhs_k) |inner_i| {
+                            const lhs_value = self.data[lhs_batch_offset + row * self.strides[self.shape.len - 2] + inner_i * self.strides[self.shape.len - 1]];
+                            const rhs_value = other.data[inner_i * other.strides[0]];
+                            acc = addValue(T, acc, mulValue(T, lhs_value, rhs_value));
+                        }
+                        out.data[write_index] = acc;
+                        write_index += 1;
+                    }
+                } else {
+                    for (0..lhs_m) |row| {
+                        for (0..rhs_n) |col| {
+                            var acc = zero(T);
+                            for (0..lhs_k) |inner_i| {
+                                const lhs_value = self.data[lhs_batch_offset + row * self.strides[self.shape.len - 2] + inner_i * self.strides[self.shape.len - 1]];
+                                const rhs_value = other.data[rhs_batch_offset + inner_i * other.strides[other.shape.len - 2] + col * other.strides[other.shape.len - 1]];
+                                acc = addValue(T, acc, mulValue(T, lhs_value, rhs_value));
+                            }
+                            out.data[write_index] = acc;
+                            write_index += 1;
+                        }
+                    }
                 }
             }
             return out;
@@ -7978,6 +8058,63 @@ test "array reductions and matmul" {
     defer matrix_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, matrix_product.shape);
     try std.testing.expectEqualSlices(f64, &.{ 14, 32, 32, 77 }, matrix_product.data);
+}
+
+test "array object generalized matmul semantics" {
+    const gpa = std.testing.allocator;
+    var v = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
+    defer v.deinit();
+    var w = try Array(f64).fromSlice(gpa, &.{ 4, 5, 6 }, &.{3});
+    defer w.deinit();
+    var dot_out = try v.matmul(w);
+    defer dot_out.deinit();
+    try std.testing.expectEqual(@as(usize, 0), dot_out.shape.len);
+    try std.testing.expectEqual(@as(f64, 32), dot_out.data[0]);
+
+    var m = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer m.deinit();
+    var mv = try m.matmul(v);
+    defer mv.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, mv.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 14, 32 }, mv.data);
+
+    var vm_rhs = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 3, 2 });
+    defer vm_rhs.deinit();
+    var vm = try v.matmul(vm_rhs);
+    defer vm.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, vm.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 22, 28 }, vm.data);
+
+    var batch_a = try Array(f64).fromSlice(gpa, &.{
+        1, 2, 3, 4,
+        5, 6, 7, 8,
+    }, &.{ 2, 2, 2 });
+    defer batch_a.deinit();
+    var batch_b = try Array(f64).fromSlice(gpa, &.{
+        1, 0,
+        0, 1,
+    }, &.{ 1, 2, 2 });
+    defer batch_b.deinit();
+    var batch_out = try batch_a.matmul(batch_b);
+    defer batch_out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, batch_out.shape);
+    try std.testing.expectEqualSlices(f64, batch_a.data, batch_out.data);
+
+    var left_broadcast = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 1, 2, 2 });
+    defer left_broadcast.deinit();
+    var right_batch = try Array(f64).fromSlice(gpa, &.{
+        1, 0, 0, 1,
+        2, 0, 0, 2,
+    }, &.{ 2, 2, 2 });
+    defer right_batch.deinit();
+    var broad_out = try left_broadcast.matmul(right_batch);
+    defer broad_out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, broad_out.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 2, 4, 6, 8 }, broad_out.data);
+
+    var bad_vec = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
+    defer bad_vec.deinit();
+    try std.testing.expectError(error.ShapeMismatch, v.matmul(bad_vec));
 }
 
 test "array contraction and vector algebra helpers" {
