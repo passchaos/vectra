@@ -680,6 +680,23 @@ fn unflattenShape(
     return out;
 }
 
+fn validateStridedBounds(data_len: usize, offset: usize, dims: []const usize, stride_values: []const usize) ArrayError!void {
+    if (dims.len != stride_values.len) return error.InvalidShape;
+    if (offset > data_len) return error.IndexOutOfBounds;
+    var empty = false;
+    var max_offset = offset;
+    for (dims, stride_values) |dim, stride_value| {
+        if (dim == 0) {
+            empty = true;
+            continue;
+        }
+        const span = std.math.mul(usize, dim - 1, stride_value) catch return error.InvalidShape;
+        max_offset = std.math.add(usize, max_offset, span) catch return error.InvalidShape;
+    }
+    if (empty) return;
+    if (max_offset >= data_len) return error.IndexOutOfBounds;
+}
+
 pub fn ArrayView(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -815,6 +832,12 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn contiguous(self: Self) ArrayError!Array(T) {
             return self.toArray();
+        }
+
+        pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) ArrayError!Self {
+            const view_offset = std.math.add(usize, self.offset, offset) catch return error.InvalidShape;
+            try validateStridedBounds(self.data.len, view_offset, dims, stride_values);
+            return Self.init(self.allocator, self.data, dims, stride_values, view_offset, self.device);
         }
 
         fn broadcastOffsetOf(self: Self, out_multi: []const usize, out_rank: usize) usize {
@@ -2224,6 +2247,11 @@ pub fn Array(comptime T: type) type {
 
         pub fn asView(self: Self) ArrayError!ArrayView(T) {
             return ArrayView(T).fromArray(self);
+        }
+
+        pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) ArrayError!ArrayView(T) {
+            try validateStridedBounds(self.data.len, offset, dims, stride_values);
+            return ArrayView(T).init(self.allocator, self.data, dims, stride_values, offset, self.device);
         }
 
         pub fn sliceAxisView(self: Self, axis_index: isize, slice_value: Slice) ArrayError!ArrayView(T) {
@@ -7342,6 +7370,48 @@ test "array non contiguous view helpers" {
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
+}
+
+test "array object asStrided view helpers" {
+    const gpa = std.testing.allocator;
+    var base = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{6});
+    defer base.deinit();
+
+    var windows = try base.asStrided(&.{ 4, 3 }, &.{ 1, 1 }, 0);
+    defer windows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 3 }, windows.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, windows.strides);
+    var owned = try windows.toArray();
+    defer owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{
+        1, 2, 3,
+        2, 3, 4,
+        3, 4, 5,
+        4, 5, 6,
+    }, owned.data);
+
+    try windows.set(&.{ 0, 1 }, 20);
+    try std.testing.expectEqual(@as(f64, 20), base.data[1]);
+    try std.testing.expectEqual(@as(f64, 20), try windows.get(&.{ 1, 0 }));
+
+    var shifted = try base.asStrided(&.{ 2, 2 }, &.{ 2, 1 }, 1);
+    defer shifted.deinit();
+    var shifted_owned = try shifted.toArray();
+    defer shifted_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 20, 3, 4, 5 }, shifted_owned.data);
+
+    var base_view = try base.asView();
+    defer base_view.deinit();
+    var every_other = try base_view.asStrided(&.{3}, &.{2}, 0);
+    defer every_other.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, every_other.strides);
+    var every_other_owned = try every_other.toArray();
+    defer every_other_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5 }, every_other_owned.data);
+
+    try std.testing.expectError(error.IndexOutOfBounds, base.asStrided(&.{ 4, 3 }, &.{ 2, 1 }, 0));
+    try std.testing.expectError(error.IndexOutOfBounds, base.asStrided(&.{1}, &.{1}, 99));
+    try std.testing.expectError(error.InvalidShape, base.asStrided(&.{ 2, 2 }, &.{1}, 0));
 }
 
 test "array object shape inference helpers" {
