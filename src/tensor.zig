@@ -1286,6 +1286,62 @@ pub fn Tensor(comptime T: type) type {
             return false;
         }
 
+        pub fn allAxis(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            if (comptime T != bool) @compileError("allAxis requires Tensor(bool)");
+            return self.boolReduce(axis_opt, keepdims, true, struct {
+                fn f(a: bool, b: bool) bool {
+                    return a and b;
+                }
+            }.f);
+        }
+
+        pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            if (comptime T != bool) @compileError("anyAxis requires Tensor(bool)");
+            return self.boolReduce(axis_opt, keepdims, false, struct {
+                fn f(a: bool, b: bool) bool {
+                    return a or b;
+                }
+            }.f);
+        }
+
+        fn boolReduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: bool, comptime op: fn (bool, bool) bool) TensorError!Self {
+            if (axis_opt == null) {
+                var total = init_value;
+                for (self.data) |v| total = op(total, v);
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{total}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{total}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Self.full(self.allocator, out_shape, init_value);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+
+            for (self.data, 0..) |v, flat| {
+                unravelIndexInto(flat, self.shape, in_multi);
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                const out_index = ravelIndex(out_multi, out.strides);
+                out.data[out_index] = op(out.data[out_index], v);
+            }
+            return out;
+        }
+
         pub fn logicalNot(self: Self) TensorError!Self {
             if (comptime T != bool) @compileError("logicalNot requires Tensor(bool)");
             const out = try Self.empty(self.allocator, self.shape);
@@ -2359,4 +2415,27 @@ test "tensor min max arg reductions and topk" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, row_top.values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 2, 4 }, row_top.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2, 0 }, row_top.indices.data);
+}
+
+test "tensor bool all any axis reductions" {
+    const gpa = std.testing.allocator;
+    var mask = try tensor(bool, gpa, &.{ true, true, false, true, false, false }, &.{ 2, 3 });
+    defer mask.deinit();
+    try std.testing.expect(!mask.all());
+    try std.testing.expect(mask.any());
+
+    var all0 = try mask.allAxis(0, false);
+    defer all0.deinit();
+    try std.testing.expectEqualSlices(usize, &.{3}, all0.shape);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, all0.data);
+
+    var any1 = try mask.anyAxis(1, true);
+    defer any1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, any1.shape);
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, any1.data);
+
+    var all_global = try mask.allAxis(null, true);
+    defer all_global.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, all_global.shape);
+    try std.testing.expectEqualSlices(bool, &.{false}, all_global.data);
 }

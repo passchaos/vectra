@@ -15,7 +15,7 @@ while leaning toward PyTorch-style fluent tensor methods for common operations.
 - NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `gather`, `scatter/scatterScalar`, `maskedSelect`, `slice1d`.
 - Broadcasting elementwise arithmetic/comparisons: `add/sub/mul/div/pow`, scalar variants, `maximum/minimum`, `whereMask`, `allclose`.
 - Array transforms: `broadcastTo`, `repeat`, `tile`, `cat/concatenate`, `stack`, `sort`, `argsort`.
-- Reductions/statistics: `sum`, `prod`, `min`, `max`, `mean`, `variance`, `stddev`, `norm`, `logsumexp`, `cumsum`, `cumprod`, `argmin`, `argmax`, `argminAxis/argmaxAxis`, `topk`, `histogram`.
+- Reductions/statistics: `sum`, `prod`, `min`, `max`, `allAxis`, `anyAxis`, `mean`, `variance`, `stddev`, `norm`, `logsumexp`, `cumsum`, `cumprod`, `argmin`, `argmax`, `argminAxis/argmaxAxis`, `topk`, `histogram`.
 - Neural/math functions: `exp`, `log`, `sqrt`, `sin`, `cos`, `tanh`, `relu`, `sigmoid`, `softmax`, `logSoftmax/log_softmax`, `clip`.
 - Linear algebra: `matmul/mm`, `bmm`, `matvec`, `dot`, `outer`, `diagonal`, `trace`, `triu/tril`, `linalg.eye`, `det`, `inverse`, `solve`, `lu`, `solveTriangular`, `cholesky`, `qr`, `svd`, `lstsq`, `singularValues`, `matrixRank`, `cond`, `pinv`, `matrixNorm`, `eigh`, `eigvalsh`; f64 `linalg.matmul`/`matvec`/`trace`/`det`/`solve`/`inverse`/`lu`/`solveTriangular`/`cholesky`/`qr`/`svd`/`lstsq`/`singularValues`/`matrixRank`/`cond`/`pinv`/`matrixNorm`/`eigh`/`eigvalsh` use the local `../veyra` backend when available.
 - SciPy-like stats helpers: `stats.zscore`, `normalize`, `pearsonr`.
