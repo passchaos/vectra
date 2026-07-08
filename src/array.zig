@@ -2247,6 +2247,18 @@ pub fn ArrayView(comptime T: type) type {
             return self.isNormal();
         }
 
+        pub fn isReal(self: Self) ArrayError!Array(bool) {
+            return self.ownedUnary(Array(bool), Array(T).isReal);
+        }
+
+        pub fn isreal(self: Self) ArrayError!Array(bool) {
+            return self.isReal();
+        }
+
+        pub fn iscomplex(self: Self) ArrayError!Array(bool) {
+            return self.ownedUnary(Array(bool), Array(T).iscomplex);
+        }
+
         pub fn logicalNot(self: Self) ArrayError!Array(T) {
             return self.ownedUnary(Array(T), Array(T).logicalNot);
         }
@@ -8005,6 +8017,32 @@ pub fn Array(comptime T: type) type {
             return self.isNormal();
         }
 
+        pub fn isReal(self: Self) ArrayError!Array(bool) {
+            var out = try Array(bool).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (comptime isComplex(T)) {
+                for (self.data, out.data) |value, *slot| slot.* = value.im == 0;
+            } else {
+                @memset(out.data, true);
+            }
+            return out;
+        }
+
+        pub fn isreal(self: Self) ArrayError!Array(bool) {
+            return self.isReal();
+        }
+
+        pub fn iscomplex(self: Self) ArrayError!Array(bool) {
+            var out = try Array(bool).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (comptime isComplex(T)) {
+                for (self.data, out.data) |value, *slot| slot.* = value.im != 0;
+            } else {
+                @memset(out.data, false);
+            }
+            return out;
+        }
+
         pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             var max_t = try self.max(axis_index, true);
@@ -12690,6 +12728,12 @@ test "array view object unary predicate wrappers" {
     var normal_alias = try view.isnormal();
     defer normal_alias.deinit();
     try std.testing.expectEqualSlices(bool, normal.data, normal_alias.data);
+    var real_mask = try view.isreal();
+    defer real_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true }, real_mask.data);
+    var complex_mask = try view.iscomplex();
+    defer complex_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false }, complex_mask.data);
     var nan_mask = try view.isnan();
     defer nan_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, true }, nan_mask.data);
@@ -12914,6 +12958,12 @@ test "array view object math sort and linalg wrappers" {
     var phases = try complex_view.phase();
     defer phases.deinit();
     try std.testing.expectEqualSlices(f32, angles.data, phases.data);
+    var complex_real_mask = try complex_view.isReal();
+    defer complex_real_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, complex_real_mask.data);
+    var complex_value_mask = try complex_view.iscomplex();
+    defer complex_value_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, complex_value_mask.data);
 }
 
 test "array object unfold sliding-window views" {
@@ -15161,6 +15211,12 @@ test "array complex unary math and predicates" {
     var phases = try values.phase();
     defer phases.deinit();
     try std.testing.expectEqualSlices(f32, angles.data, phases.data);
+    var real_mask = try values.isreal();
+    defer real_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, real_mask.data);
+    var complex_mask = try values.iscomplex();
+    defer complex_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, complex_mask.data);
 
     var special = try Array(C).fromSlice(gpa, &.{ C.init(1, 0), C.init(std.math.nan(f32), 0), C.init(0, std.math.inf(f32)) }, &.{3});
     defer special.deinit();
