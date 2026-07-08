@@ -2250,6 +2250,295 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) TensorError!Self {
+            ensureFloat(T);
+            const out = try Self.empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| {
+                slot.* = if (std.math.isNan(value))
+                    nan_value
+                else if (std.math.isPositiveInf(value))
+                    posinf_value
+                else if (std.math.isNegativeInf(value))
+                    neginf_value
+                else
+                    value;
+            }
+            return out;
+        }
+
+        pub fn nan_to_num(self: Self, nan_value: T, posinf_value: T, neginf_value: T) TensorError!Self {
+            return self.nanToNum(nan_value, posinf_value, neginf_value);
+        }
+
+        pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            if (axis_opt == null) {
+                var total = zero(T);
+                for (self.data) |value| {
+                    if (!std.math.isNan(value)) total += value;
+                }
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{total}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{total}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Self.zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+
+            for (self.data, 0..) |value, flat| {
+                if (std.math.isNan(value)) continue;
+                unravelIndexInto(flat, self.shape, in_multi);
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                out.data[ravelIndex(out_multi, out.strides)] += value;
+            }
+            return out;
+        }
+
+        fn nanmeanWithCounts(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!struct { values: Self, counts: Tensor(usize) } {
+            if (axis_opt == null) {
+                var total = zero(T);
+                var count: usize = 0;
+                for (self.data) |value| {
+                    if (std.math.isNan(value)) continue;
+                    total += value;
+                    count += 1;
+                }
+                const result = if (count == 0) std.math.nan(T) else total / castValue(T, count);
+                const out_shape = if (keepdims) try keepDimsAllOnes(self.allocator, self.shape.len) else try self.allocator.dupe(usize, &.{});
+                defer self.allocator.free(out_shape);
+                var values = try Self.fromSlice(self.allocator, &.{result}, out_shape);
+                errdefer values.deinit();
+                var counts = try Tensor(usize).fromSlice(self.allocator, &.{count}, out_shape);
+                errdefer counts.deinit();
+                return .{ .values = values, .counts = counts };
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var values = try Self.zeros(self.allocator, out_shape);
+            errdefer values.deinit();
+            var counts = try Tensor(usize).zeros(self.allocator, out_shape);
+            errdefer counts.deinit();
+            if (values.data.len == 0) return .{ .values = values, .counts = counts };
+
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+
+            for (self.data, 0..) |value, flat| {
+                if (std.math.isNan(value)) continue;
+                unravelIndexInto(flat, self.shape, in_multi);
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                const out_index = ravelIndex(out_multi, values.strides);
+                values.data[out_index] += value;
+                counts.data[out_index] += 1;
+            }
+
+            for (values.data, counts.data) |*value, count| {
+                value.* = if (count == 0) std.math.nan(T) else value.* / castValue(T, count);
+            }
+            return .{ .values = values, .counts = counts };
+        }
+
+        pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            var result = try self.nanmeanWithCounts(axis_opt, keepdims);
+            result.counts.deinit();
+            return result.values;
+        }
+
+        pub fn nanvar(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+            ensureFloat(T);
+            if (axis_opt == null) {
+                var mean_value = zero(T);
+                var count: usize = 0;
+                for (self.data) |value| {
+                    if (std.math.isNan(value)) continue;
+                    mean_value += value;
+                    count += 1;
+                }
+                if (count == 0) {
+                    const result = std.math.nan(T);
+                    if (keepdims) {
+                        const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                        defer self.allocator.free(out_shape);
+                        return Self.fromSlice(self.allocator, &.{result}, out_shape);
+                    }
+                    return Self.fromSlice(self.allocator, &.{result}, &.{});
+                }
+                mean_value /= castValue(T, count);
+                var total = zero(T);
+                for (self.data) |value| {
+                    if (std.math.isNan(value)) continue;
+                    const delta = value - mean_value;
+                    total += delta * delta;
+                }
+                const denom = castValue(T, count) - correction;
+                const result = if (denom > zero(T)) total / denom else std.math.nan(T);
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{result}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{result}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            var mean_result = try self.nanmeanWithCounts(axis_opt, true);
+            defer mean_result.values.deinit();
+            defer mean_result.counts.deinit();
+
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Self.zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var mean_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(mean_multi);
+
+            for (self.data, 0..) |value, flat| {
+                if (std.math.isNan(value)) continue;
+                unravelIndexInto(flat, self.shape, in_multi);
+                @memcpy(mean_multi, in_multi);
+                mean_multi[axis] = 0;
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                const delta = value - mean_result.values.data[ravelIndex(mean_multi, mean_result.values.strides)];
+                out.data[ravelIndex(out_multi, out.strides)] += delta * delta;
+            }
+
+            for (out.data, 0..) |*value, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                if (keepdims) {
+                    @memcpy(mean_multi, out_multi);
+                } else {
+                    for (out_multi[0..axis], 0..) |coord, i| mean_multi[i] = coord;
+                    for (out_multi[axis..], axis + 1..) |coord, i| mean_multi[i] = coord;
+                }
+                mean_multi[axis] = 0;
+                const count = mean_result.counts.data[ravelIndex(mean_multi, mean_result.counts.strides)];
+                const denom = castValue(T, count) - correction;
+                value.* = if (count == 0 or !(denom > zero(T))) std.math.nan(T) else value.* / denom;
+            }
+            return out;
+        }
+
+        pub fn nanstd(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+            const out = try self.nanvar(axis_opt, keepdims, correction);
+            for (out.data) |*value| value.* = std.math.sqrt(value.*);
+            return out;
+        }
+
+        fn nanExtreme(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) TensorError!Self {
+            if (axis_opt == null) {
+                var found = false;
+                var best = zero(T);
+                for (self.data) |value| {
+                    if (std.math.isNan(value)) continue;
+                    if (!found or better(value, best)) {
+                        best = value;
+                        found = true;
+                    }
+                }
+                const result = if (found) best else std.math.nan(T);
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{result}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{result}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            const seen = try self.allocator.alloc(bool, out.data.len);
+            defer self.allocator.free(seen);
+            @memset(seen, false);
+
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+
+            for (self.data, 0..) |value, flat| {
+                if (std.math.isNan(value)) continue;
+                unravelIndexInto(flat, self.shape, in_multi);
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                const out_index = ravelIndex(out_multi, out.strides);
+                if (!seen[out_index] or better(value, out.data[out_index])) {
+                    out.data[out_index] = value;
+                    seen[out_index] = true;
+                }
+            }
+            for (out.data, seen) |*value, was_seen| {
+                if (!was_seen) value.* = std.math.nan(T);
+            }
+            return out;
+        }
+
+        pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            return self.nanExtreme(axis_opt, keepdims, struct {
+                fn f(a: T, b: T) bool {
+                    return a < b;
+                }
+            }.f);
+        }
+
+        pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            return self.nanExtreme(axis_opt, keepdims, struct {
+                fn f(a: T, b: T) bool {
+                    return a > b;
+                }
+            }.f);
+        }
+
         fn quantileFromSorted(sorted_values: []const T, q: T) T {
             const max_index = sorted_values.len - 1;
             const position = q * castValue(T, max_index);
@@ -2316,6 +2605,79 @@ pub fn Tensor(comptime T: type) type {
         pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
             ensureFloat(T);
             return self.quantile(castValue(T, 0.5), axis_opt, keepdims);
+        }
+
+        pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            if (q < zero(T) or q > one(T)) return error.InvalidShape;
+            if (self.data.len == 0) return error.EmptyTensor;
+            if (axis_opt == null) {
+                const scratch = try self.allocator.alloc(T, self.data.len);
+                defer self.allocator.free(scratch);
+                var count: usize = 0;
+                for (self.data) |value| {
+                    if (std.math.isNan(value)) continue;
+                    scratch[count] = value;
+                    count += 1;
+                }
+                std.sort.insertion(T, scratch[0..count], {}, struct {
+                    fn lessThan(_: void, a: T, b: T) bool {
+                        return lessValue(T, a, b);
+                    }
+                }.lessThan);
+                const result = if (count == 0) std.math.nan(T) else quantileFromSorted(scratch[0..count], q);
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{result}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{result}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyTensor;
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            const scratch = try self.allocator.alloc(T, self.shape[axis]);
+            defer self.allocator.free(scratch);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                self.mapReducedToInput(axis, keepdims, out_multi, in_multi);
+                var count: usize = 0;
+                for (0..self.shape[axis]) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    const value = self.data[ravelIndex(in_multi, self.strides)];
+                    if (std.math.isNan(value)) continue;
+                    scratch[count] = value;
+                    count += 1;
+                }
+                std.sort.insertion(T, scratch[0..count], {}, struct {
+                    fn lessThan(_: void, a: T, b: T) bool {
+                        return lessValue(T, a, b);
+                    }
+                }.lessThan);
+                slot.* = if (count == 0) std.math.nan(T) else quantileFromSorted(scratch[0..count], q);
+            }
+            return out;
+        }
+
+        pub fn nanpercentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            return self.nanquantile(p / castValue(T, 100), axis_opt, keepdims);
+        }
+
+        pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            return self.nanquantile(castValue(T, 0.5), axis_opt, keepdims);
         }
 
         fn observationValue(self: Self, variable: usize, observation: usize, rowvar: bool) T {
@@ -3700,6 +4062,50 @@ pub fn corrcoef(comptime T: type, input: Tensor(T), rowvar: bool) TensorError!Te
     return input.corrcoef(rowvar);
 }
 
+pub fn nanToNum(comptime T: type, input: Tensor(T), nan_value: T, posinf_value: T, neginf_value: T) TensorError!Tensor(T) {
+    return input.nanToNum(nan_value, posinf_value, neginf_value);
+}
+
+pub fn nan_to_num(comptime T: type, input: Tensor(T), nan_value: T, posinf_value: T, neginf_value: T) TensorError!Tensor(T) {
+    return input.nan_to_num(nan_value, posinf_value, neginf_value);
+}
+
+pub fn nansum(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.nansum(axis, keepdims);
+}
+
+pub fn nanmean(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.nanmean(axis, keepdims);
+}
+
+pub fn nanvar(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+    return input.nanvar(axis, keepdims, correction);
+}
+
+pub fn nanstd(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+    return input.nanstd(axis, keepdims, correction);
+}
+
+pub fn nanmin(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.nanmin(axis, keepdims);
+}
+
+pub fn nanmax(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.nanmax(axis, keepdims);
+}
+
+pub fn nanmedian(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.nanmedian(axis, keepdims);
+}
+
+pub fn nanquantile(comptime T: type, input: Tensor(T), q: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.nanquantile(q, axis, keepdims);
+}
+
+pub fn nanpercentile(comptime T: type, input: Tensor(T), p: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.nanpercentile(p, axis, keepdims);
+}
+
 pub fn sort(comptime T: type, input: Tensor(T), axis: ?isize) TensorError!Tensor(T) {
     return input.sort(axis);
 }
@@ -4235,6 +4641,84 @@ test "array median quantile covariance and corrcoef" {
     defer corr_scalar.deinit();
     try std.testing.expectEqual(@as(usize, 0), corr_scalar.shape.len);
     try std.testing.expectApproxEqAbs(@as(f64, 1), corr_scalar.data[0], 1e-12);
+}
+
+test "array nan cleanup and nan-aware statistics" {
+    const gpa = std.testing.allocator;
+    const nan = std.math.nan(f64);
+    const inf = std.math.inf(f64);
+    var a = try array(f64, gpa, &.{
+        1,   nan, 3,
+        nan, nan, 6,
+        7,   8,   inf,
+    }, &.{ 3, 3 });
+    defer a.deinit();
+
+    var cleaned = try nanToNum(f64, a, 0, 99, -99);
+    defer cleaned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 3, 0, 0, 6, 7, 8, 99 }, cleaned.data);
+
+    var row_sum = try a.nansum(1, false);
+    defer row_sum.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 6, inf }, row_sum.data);
+    var col_sum_keep = try nansum(f64, a, 0, true);
+    defer col_sum_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, col_sum_keep.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 8, 8, inf }, col_sum_keep.data);
+
+    var row_mean = try nanmean(f64, a, 1, false);
+    defer row_mean.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 6, inf }, row_mean.data);
+    var col_mean = try a.nanmean(0, false);
+    defer col_mean.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 8, inf }, col_mean.data);
+
+    var clean_stats = try array(f64, gpa, &.{
+        1, nan, 3,
+        2, nan, 6,
+        3, 8,   9,
+    }, &.{ 3, 3 });
+    defer clean_stats.deinit();
+    var variance_cols = try nanvar(f64, clean_stats, 0, false, 0);
+    defer variance_cols.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), variance_cols.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), variance_cols.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 6), variance_cols.data[2], 1e-12);
+    var std_cols = try clean_stats.nanstd(0, false, 0);
+    defer std_cols.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0 / 3.0)), std_cols.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), std_cols.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 6)), std_cols.data[2], 1e-12);
+
+    var mins = try clean_stats.nanmin(0, false);
+    defer mins.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 8, 3 }, mins.data);
+    var maxs = try nanmax(f64, clean_stats, 1, false);
+    defer maxs.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 6, 9 }, maxs.data);
+
+    var med = try nanmedian(f64, clean_stats, 0, false);
+    defer med.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 8, 6 }, med.data);
+    var q = try clean_stats.nanquantile(0.25, 0, true);
+    defer q.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, q.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 8, 4.5 }, q.data);
+    var pct = try nanpercentile(f64, clean_stats, 75, 1, false);
+    defer pct.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2.5, 5, 8.5 }, pct.data);
+
+    var all_nan = try array(f64, gpa, &.{ nan, nan }, &.{2});
+    defer all_nan.deinit();
+    var all_nan_mean = try all_nan.nanmean(null, false);
+    defer all_nan_mean.deinit();
+    try std.testing.expect(std.math.isNan(all_nan_mean.data[0]));
+    var all_nan_min = try all_nan.nanmin(null, false);
+    defer all_nan_min.deinit();
+    try std.testing.expect(std.math.isNan(all_nan_min.data[0]));
+    var all_nan_quantile = try all_nan.nanquantile(0.5, null, false);
+    defer all_nan_quantile.deinit();
+    try std.testing.expect(std.math.isNan(all_nan_quantile.data[0]));
 }
 
 test "array sort argsort and partition axes" {
