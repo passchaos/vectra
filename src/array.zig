@@ -1483,8 +1483,9 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn ravelCoords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
-            if (coords.shape.len != 2 or coords.shape[1] != self.shape.len) return error.ShapeMismatch;
-            var out = try Array(usize).empty(self.allocator, &.{coords.shape[0]});
+            if (coords.shape.len == 0 or coords.shape[coords.shape.len - 1] != self.shape.len) return error.ShapeMismatch;
+            const out_shape = coords.shape[0 .. coords.shape.len - 1];
+            var out = try Array(usize).empty(self.allocator, out_shape);
             errdefer out.deinit();
             for (out.data, 0..) |*slot, row| {
                 var offset: usize = 0;
@@ -1499,7 +1500,11 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn unravelFlat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
-            var out = try Array(usize).empty(self.allocator, &.{ indices.data.len, self.shape.len });
+            var out_shape = try self.allocator.alloc(usize, indices.shape.len + 1);
+            defer self.allocator.free(out_shape);
+            @memcpy(out_shape[0..indices.shape.len], indices.shape);
+            out_shape[indices.shape.len] = self.shape.len;
+            var out = try Array(usize).empty(self.allocator, out_shape);
             errdefer out.deinit();
             if (self.shape.len == 0) {
                 for (indices.data) |idx| {
@@ -6397,6 +6402,28 @@ test "array advanced indexing mutation helpers" {
     var coord_scalar_put = try a.putCoordsScalar(coords, -5);
     defer coord_scalar_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -5, 0, -5, 0, -5, -5 }, coord_scalar_put.data);
+    var grid_coords = try array(usize, gpa, &.{
+        0, 0, 0, 2,
+        1, 1, 1, 2,
+    }, &.{ 2, 2, 2 });
+    defer grid_coords.deinit();
+    var grid_flat = try ravelCoords(f64, a, grid_coords);
+    defer grid_flat.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, grid_flat.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 5 }, grid_flat.data);
+    var grid_values = try takeCoords(f64, a, grid_coords);
+    defer grid_values.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, grid_values.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5, 6 }, grid_values.data);
+    var grid_coords_roundtrip = try unravelFlat(f64, a, grid_flat);
+    defer grid_coords_roundtrip.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, grid_coords_roundtrip.shape);
+    try std.testing.expectEqualSlices(usize, grid_coords.data, grid_coords_roundtrip.data);
+    var grid_replacements = try array(f64, gpa, &.{ 10, 30, 50, 60 }, &.{ 2, 2 });
+    defer grid_replacements.deinit();
+    var grid_put = try putCoords(f64, a, grid_coords, grid_replacements);
+    defer grid_put.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 0, 50, 60 }, grid_put.data);
     var bad_coords = try array(usize, gpa, &.{ 2, 0 }, &.{ 1, 2 });
     defer bad_coords.deinit();
     try std.testing.expectError(error.IndexOutOfBounds, a.takeCoords(bad_coords));
