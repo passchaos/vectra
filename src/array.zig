@@ -784,6 +784,78 @@ pub fn ArrayView(comptime T: type) type {
             return self.copyFromView(source_view);
         }
 
+        fn viewValueAtFlat(source: Self, flat: usize, scratch: []usize) T {
+            if (source.numel() == 1) return source.data[source.offset];
+            unravelIndexInto(flat, source.shape, scratch);
+            return source.data[source.offset + ravelIndex(scratch, source.strides)];
+        }
+
+        pub fn maskedFill(self: Self, mask: Array(bool), value: T) ArrayError!void {
+            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                if (mask.data[broadcastOffset(multi, self.shape.len, mask.shape, mask.strides)]) {
+                    self.data[self.offset + ravelIndex(multi, self.strides)] = value;
+                }
+            }
+        }
+
+        pub fn maskedCopyFromView(self: Self, mask: Array(bool), values: Self) ArrayError!void {
+            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            var count: usize = 0;
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                if (mask.data[broadcastOffset(multi, self.shape.len, mask.shape, mask.strides)]) count += 1;
+            }
+            if (values.numel() != 1 and values.numel() != count) return error.ShapeMismatch;
+            const value_multi = try self.allocator.alloc(usize, values.shape.len);
+            defer self.allocator.free(value_multi);
+            var write: usize = 0;
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                if (mask.data[broadcastOffset(multi, self.shape.len, mask.shape, mask.strides)]) {
+                    self.data[self.offset + ravelIndex(multi, self.strides)] = viewValueAtFlat(values, write, value_multi);
+                    write += 1;
+                }
+            }
+        }
+
+        pub fn maskedCopyFromArray(self: Self, mask: Array(bool), values: Array(T)) ArrayError!void {
+            var values_view = try values.asView();
+            defer values_view.deinit();
+            return self.maskedCopyFromView(mask, values_view);
+        }
+
+        pub fn copyWhereFromView(self: Self, mask: Array(bool), source: Self) ArrayError!void {
+            const tmp_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(tmp_shape);
+            const out_shape = try broadcastShape(self.allocator, tmp_shape, source.shape);
+            defer self.allocator.free(out_shape);
+            if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                if (mask.data[broadcastOffset(multi, self.shape.len, mask.shape, mask.strides)]) {
+                    self.data[self.offset + ravelIndex(multi, self.strides)] = source.data[source.broadcastOffsetOf(multi, self.shape.len)];
+                }
+            }
+        }
+
+        pub fn copyWhereFromArray(self: Self, mask: Array(bool), source: Array(T)) ArrayError!void {
+            var source_view = try source.asView();
+            defer source_view.deinit();
+            return self.copyWhereFromView(mask, source_view);
+        }
+
         fn assignView(self: Self, source: Self, comptime op: fn (T, T) T) ArrayError!void {
             const out_shape = try broadcastShape(self.allocator, self.shape, source.shape);
             defer self.allocator.free(out_shape);
@@ -1717,6 +1789,36 @@ pub fn Array(comptime T: type) type {
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.copyFromView(source);
+        }
+
+        pub fn maskedFillAssign(self: Self, mask: Array(bool), value: T) ArrayError!void {
+            var dest_view = try self.asView();
+            defer dest_view.deinit();
+            return dest_view.maskedFill(mask, value);
+        }
+
+        pub fn maskedCopyFrom(self: Self, mask: Array(bool), values: Self) ArrayError!void {
+            var dest_view = try self.asView();
+            defer dest_view.deinit();
+            return dest_view.maskedCopyFromArray(mask, values);
+        }
+
+        pub fn maskedCopyFromView(self: Self, mask: Array(bool), values: ArrayView(T)) ArrayError!void {
+            var dest_view = try self.asView();
+            defer dest_view.deinit();
+            return dest_view.maskedCopyFromView(mask, values);
+        }
+
+        pub fn copyWhereAssign(self: Self, mask: Array(bool), source: Self) ArrayError!void {
+            var dest_view = try self.asView();
+            defer dest_view.deinit();
+            return dest_view.copyWhereFromArray(mask, source);
+        }
+
+        pub fn copyWhereAssignView(self: Self, mask: Array(bool), source: ArrayView(T)) ArrayError!void {
+            var dest_view = try self.asView();
+            defer dest_view.deinit();
+            return dest_view.copyWhereFromView(mask, source);
         }
 
         pub fn addAssign(self: Self, source: Self) ArrayError!void {
@@ -6971,6 +7073,50 @@ test "array object in-place assignment helpers" {
     var bad_source = try Array(f64).ones(gpa, &.{ 2, 2 });
     defer bad_source.deinit();
     try std.testing.expectError(error.ShapeMismatch, copied.copyFrom(bad_source));
+}
+
+test "array object masked in-place assignment helpers" {
+    const gpa = std.testing.allocator;
+    var base = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
+    defer base.deinit();
+    var view_mask = try Array(bool).fromSlice(gpa, &.{ true, false, false, true }, &.{ 2, 2 });
+    defer view_mask.deinit();
+
+    var cols = try base.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer cols.deinit();
+    try cols.maskedFill(view_mask, -1);
+    try std.testing.expectEqualSlices(f64, &.{ -1, 2, 3, 4, 5, 6, -1, 8 }, base.data);
+
+    var replacements = try Array(f64).fromSlice(gpa, &.{ 10, 20 }, &.{2});
+    defer replacements.deinit();
+    try cols.maskedCopyFromArray(view_mask, replacements);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6, 20, 8 }, base.data);
+
+    var source_rows = try Array(f64).fromSlice(gpa, &.{ 100, 200 }, &.{ 2, 1 });
+    defer source_rows.deinit();
+    try cols.copyWhereFromArray(view_mask, source_rows);
+    try std.testing.expectEqualSlices(f64, &.{ 100, 2, 3, 4, 5, 6, 200, 8 }, base.data);
+
+    var full = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer full.deinit();
+    var mask = try Array(bool).fromSlice(gpa, &.{ false, true, false, true, false, true }, &.{ 2, 3 });
+    defer mask.deinit();
+    try full.maskedFillAssign(mask, 0);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 3, 0, 5, 0 }, full.data);
+
+    var masked_values = try Array(f64).fromSlice(gpa, &.{ 7, 8, 9 }, &.{3});
+    defer masked_values.deinit();
+    try full.maskedCopyFrom(mask, masked_values);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 7, 3, 8, 5, 9 }, full.data);
+
+    var where_src = try Array(f64).fromSlice(gpa, &.{ 10, 20 }, &.{ 2, 1 });
+    defer where_src.deinit();
+    try full.copyWhereAssign(mask, where_src);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 10, 3, 20, 5, 20 }, full.data);
+
+    var bad_values = try Array(f64).ones(gpa, &.{2});
+    defer bad_values.deinit();
+    try std.testing.expectError(error.ShapeMismatch, full.maskedCopyFrom(mask, bad_values));
 }
 
 test "array take mask stack cat and neural helpers" {
