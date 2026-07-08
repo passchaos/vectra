@@ -1946,6 +1946,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.rad2deg();
         }
 
+        pub fn sinc(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sinc();
+        }
+
         pub fn sin(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2016,6 +2022,18 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.sigmoid();
+        }
+
+        pub fn expit(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.expit();
+        }
+
+        pub fn logit(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logit();
         }
 
         pub fn softplus(self: Self) ArrayError!Array(T) {
@@ -6617,6 +6635,30 @@ pub fn Array(comptime T: type) type {
             if (comptime isComplex(T)) return std.math.complex.exp(a).sub(one(T));
             return std.math.expm1(a);
         }
+        fn opSinc(a: T) T {
+            if (comptime T == BFloat16) {
+                const value = a.toF32();
+                if (value == 0) return one(T);
+                const scaled = std.math.pi * value;
+                return BFloat16.fromF32(std.math.sin(scaled) / scaled);
+            }
+            const scaled = castValue(T, std.math.pi) * a;
+            return if (a == zero(T)) one(T) else std.math.sin(scaled) / scaled;
+        }
+        fn opLogit(a: T) T {
+            if (comptime T == BFloat16) {
+                const value = a.toF32();
+                return BFloat16.fromF32(std.math.log(f32, std.math.e, value / (@as(f32, 1) - value)));
+            }
+            return std.math.log(T, std.math.e, a / (one(T) - a));
+        }
+        fn opExpit(a: T) T {
+            if (comptime T == BFloat16) {
+                const value = a.toF32();
+                return BFloat16.fromF32(@as(f32, 1) / (@as(f32, 1) + std.math.exp(-value)));
+            }
+            return one(T) / (one(T) + std.math.exp(-a));
+        }
         fn opDeg2rad(a: T) T {
             return a * castValue(T, std.math.pi / 180.0);
         }
@@ -7081,6 +7123,11 @@ pub fn Array(comptime T: type) type {
             return self.unary(opRad2deg);
         }
 
+        pub fn sinc(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(opSinc);
+        }
+
         pub fn ldexp(self: Self, exponents: Array(i32)) ArrayError!Self {
             ensureFloat(T);
             const out_shape = try broadcastShape(self.allocator, self.shape, exponents.shape);
@@ -7198,12 +7245,17 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn sigmoid(self: Self) ArrayError!Self {
+            return self.expit();
+        }
+
+        pub fn expit(self: Self) ArrayError!Self {
             ensureFloat(T);
-            return self.unary(struct {
-                fn f(a: T) T {
-                    return one(T) / (one(T) + std.math.exp(-a));
-                }
-            }.f);
+            return self.unary(opExpit);
+        }
+
+        pub fn logit(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(opLogit);
         }
 
         pub fn softplus(self: Self) ArrayError!Self {
@@ -11726,6 +11778,40 @@ test "array view object unary predicate wrappers" {
     var exp_out = try view.exp();
     defer exp_out.deinit();
     try std.testing.expectApproxEqAbs(std.math.exp(@as(f64, -1)), exp_out.data[0], 1e-12);
+    var view_sigmoid = try view.sigmoid();
+    defer view_sigmoid.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1) / (@as(f64, 1) + @exp(@as(f64, 1))), view_sigmoid.data[0], 1e-12);
+    var view_expit = try view.expit();
+    defer view_expit.deinit();
+    for (view_sigmoid.data, view_expit.data) |expected, actual| {
+        if (std.math.isNan(expected)) {
+            try std.testing.expect(std.math.isNan(actual));
+        } else {
+            try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+        }
+    }
+
+    var probs = try Array(f64).fromSlice(gpa, &.{ 0.25, 0.5, 0.75, 0.125 }, &.{ 2, 2 });
+    defer probs.deinit();
+    var probs_view = try probs.transposeView();
+    defer probs_view.deinit();
+    var view_logit = try probs_view.logit();
+    defer view_logit.deinit();
+    try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 3)), view_logit.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 3)), view_logit.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), view_logit.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 7)), view_logit.data[3], 1e-12);
+
+    var sinc_values = try Array(f64).fromSlice(gpa, &.{ -1, 0, 0.5, 1 }, &.{ 2, 2 });
+    defer sinc_values.deinit();
+    var sinc_view = try sinc_values.transposeView();
+    defer sinc_view.deinit();
+    var view_sinc = try sinc_view.sinc();
+    defer view_sinc.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), view_sinc.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2) / std.math.pi, view_sinc.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), view_sinc.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), view_sinc.data[3], 1e-12);
 
     var finite_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer finite_values.deinit();
@@ -12171,6 +12257,31 @@ test "array take mask stack cat and neural helpers" {
     defer gelu_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, -0.04540230591222494), gelu_out.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.996362607918227), gelu_out.data[5], 1e-12);
+    var sigmoid_out = try shifted.sigmoid();
+    defer sigmoid_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1) / (@as(f64, 1) + @exp(@as(f64, 2))), sigmoid_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), sigmoid_out.data[2], 1e-12);
+    var expit_out = try shifted.expit();
+    defer expit_out.deinit();
+    try std.testing.expectEqualSlices(f64, sigmoid_out.data, expit_out.data);
+    var probs_for_logit = try Array(f64).fromSlice(gpa, &.{ 0, 0.25, 0.5, 0.75, 1 }, &.{5});
+    defer probs_for_logit.deinit();
+    var logits_out = try probs_for_logit.logit();
+    defer logits_out.deinit();
+    try std.testing.expect(std.math.isNegativeInf(logits_out.data[0]));
+    try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 3)), logits_out.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), logits_out.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 3)), logits_out.data[3], 1e-12);
+    try std.testing.expect(std.math.isPositiveInf(logits_out.data[4]));
+    var sinc_in = try Array(f64).fromSlice(gpa, &.{ -1, 0, 0.5, 1, 2 }, &.{5});
+    defer sinc_in.deinit();
+    var sinc_out = try sinc_in.sinc();
+    defer sinc_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), sinc_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), sinc_out.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2) / std.math.pi, sinc_out.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), sinc_out.data[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), sinc_out.data[4], 1e-12);
     var cs = try a.cumsum();
     defer cs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 10, 15, 21 }, cs.data);
