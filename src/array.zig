@@ -2098,6 +2098,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.compress(condition, axis_opt);
         }
 
+        pub fn repeat(self: Self, repeats: usize, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.repeat(repeats, axis_index);
+        }
+
         pub fn repeatInterleave(self: Self, repeats: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2108,6 +2114,72 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.repeatInterleaveScalar(repeat_count, axis_opt);
+        }
+
+        pub fn tile(self: Self, repeats: []const usize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.tile(repeats);
+        }
+
+        pub fn flip(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.flip(axis_index);
+        }
+
+        pub fn roll(self: Self, shift: isize, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.roll(shift, axis_index);
+        }
+
+        pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.padConstant(before, after, value);
+        }
+
+        pub fn padEdge(self: Self, before: []const usize, after: []const usize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.padEdge(before, after);
+        }
+
+        pub fn padReflect(self: Self, before: []const usize, after: []const usize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.padReflect(before, after);
+        }
+
+        pub fn padWrap(self: Self, before: []const usize, after: []const usize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.padWrap(before, after);
+        }
+
+        pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.padSymmetric(before, after);
+        }
+
+        pub fn slice1d(self: Self, slice_value: Slice) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.slice1d(slice_value);
+        }
+
+        pub fn split(self: Self, split_size: usize, axis_index: isize) ArrayError!Array(T).SplitResult {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.split(split_size, axis_index);
+        }
+
+        pub fn chunk(self: Self, chunks: usize, axis_index: isize) ArrayError!Array(T).SplitResult {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.chunk(chunks, axis_index);
         }
 
         pub fn countNonzero(self: Self) usize {
@@ -9093,6 +9165,101 @@ test "array object style repeat interleave" {
     defer bad_flat_repeats.deinit();
     try std.testing.expectError(error.ShapeMismatch, a.repeatInterleave(bad_flat_repeats, null));
     try std.testing.expectError(error.InvalidAxis, a.repeatInterleaveScalar(1, 2));
+}
+
+test "array view materializing shape wrappers" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
+    defer a.deinit();
+
+    var view = try a.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, view.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, view.strides);
+
+    var repeated = try view.repeat(2, 1);
+    defer repeated.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, repeated.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 3, 3, 5, 5, 7, 7 }, repeated.data);
+
+    var tiled = try view.tile(&.{ 1, 2 });
+    defer tiled.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, tiled.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 1, 3, 5, 7, 5, 7 }, tiled.data);
+
+    var flipped = try view.flip(1);
+    defer flipped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 1, 7, 5 }, flipped.data);
+
+    var rolled = try view.roll(1, 0);
+    defer rolled.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 7, 1, 3 }, rolled.data);
+
+    var padded = try view.padConstant(&.{ 1, 1 }, &.{ 0, 1 }, 0);
+    defer padded.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 4 }, padded.shape);
+    try std.testing.expectEqualSlices(f64, &.{
+        0, 0, 0, 0,
+        0, 1, 3, 0,
+        0, 5, 7, 0,
+    }, padded.data);
+
+    var edge = try view.padEdge(&.{ 1, 1 }, &.{ 0, 0 });
+    defer edge.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, edge.shape);
+    try std.testing.expectEqualSlices(f64, &.{
+        1, 1, 3,
+        1, 1, 3,
+        5, 5, 7,
+    }, edge.data);
+
+    var reflect = try view.padReflect(&.{ 1, 1 }, &.{ 0, 0 });
+    defer reflect.deinit();
+    try std.testing.expectEqualSlices(f64, &.{
+        7, 5, 7,
+        3, 1, 3,
+        7, 5, 7,
+    }, reflect.data);
+
+    var wrapped = try view.padWrap(&.{ 1, 1 }, &.{ 0, 1 });
+    defer wrapped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{
+        7, 5, 7, 5,
+        3, 1, 3, 1,
+        7, 5, 7, 5,
+    }, wrapped.data);
+
+    var symmetric = try view.padSymmetric(&.{ 1, 1 }, &.{ 0, 0 });
+    defer symmetric.deinit();
+    try std.testing.expectEqualSlices(f64, &.{
+        1, 1, 3,
+        1, 1, 3,
+        5, 5, 7,
+    }, symmetric.data);
+
+    var vector = try a.selectView(0, 1);
+    defer vector.deinit();
+    var sliced = try vector.slice1d(.{ .start = 1, .stop = 4, .step = 2 });
+    defer sliced.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6, 8 }, sliced.data);
+
+    var parts = try view.split(1, 1);
+    defer parts.deinit();
+    try std.testing.expectEqual(@as(usize, 2), parts.items.len);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, parts.items[0].data);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 7 }, parts.items[1].data);
+
+    var chunks = try view.chunk(2, 0);
+    defer chunks.deinit();
+    try std.testing.expectEqual(@as(usize, 2), chunks.items.len);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3 }, chunks.items[0].data);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 7 }, chunks.items[1].data);
+
+    try std.testing.expectError(error.ShapeMismatch, view.tile(&.{2}));
+    try std.testing.expectError(error.InvalidAxis, view.flip(2));
+    try std.testing.expectError(error.ShapeMismatch, view.padConstant(&.{1}, &.{1}, 0));
+    try std.testing.expectError(error.InvalidShape, view.split(0, 1));
+    try std.testing.expectError(error.InvalidShape, view.chunk(0, 1));
 }
 
 test "array non contiguous view helpers" {
