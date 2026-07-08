@@ -2679,6 +2679,34 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.matmul(other);
         }
 
+        pub fn bmm(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.bmm(rhs);
+        }
+
+        pub fn bmmArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.bmm(other);
+        }
+
+        pub fn matvec(self: Self, vector: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try vector.toArray();
+            defer rhs.deinit();
+            return lhs.matvec(rhs);
+        }
+
+        pub fn matvecArray(self: Self, vector: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.matvec(vector);
+        }
+
         pub fn dot(self: Self, other: Self) ArrayError!Array(T) {
             var lhs = try self.toArray();
             defer lhs.deinit();
@@ -2687,12 +2715,82 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.dot(rhs);
         }
 
+        pub fn vdot(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.vdot(rhs);
+        }
+
+        pub fn vdotArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.vdot(other);
+        }
+
+        pub fn vecdot(self: Self, other: Self, axis_index: isize) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.vecdot(rhs, axis_index);
+        }
+
+        pub fn vecdotArray(self: Self, other: Array(T), axis_index: isize) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.vecdot(other, axis_index);
+        }
+
+        pub fn inner(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.inner(rhs);
+        }
+
+        pub fn innerArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.inner(other);
+        }
+
         pub fn outer(self: Self, other: Self) ArrayError!Array(T) {
             var lhs = try self.toArray();
             defer lhs.deinit();
             var rhs = try other.toArray();
             defer rhs.deinit();
             return lhs.outer(rhs);
+        }
+
+        pub fn cross(self: Self, other: Self, axis_index: isize) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.cross(rhs, axis_index);
+        }
+
+        pub fn crossArray(self: Self, other: Array(T), axis_index: isize) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.cross(other, axis_index);
+        }
+
+        pub fn contractAxes(self: Self, other: Self, axes_self: []const usize, axes_other: []const usize) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.contractAxes(rhs, axes_self, axes_other);
+        }
+
+        pub fn contractAxesArray(self: Self, other: Array(T), axes_self: []const usize, axes_other: []const usize) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.contractAxes(other, axes_self, axes_other);
         }
 
         pub fn trace(self: Self) ArrayError!T {
@@ -9753,6 +9851,65 @@ test "array contraction and vector algebra helpers" {
     var batch_out = try batch_a.bmm(batch_b);
     defer batch_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 10, 12, 14, 16 }, batch_out.data);
+
+    var base_matrix = try Array(f64).fromSlice(gpa, &.{ 1, 9, 2, 8, 3, 7, 4, 6, 5, 5 }, &.{ 2, 5 });
+    defer base_matrix.deinit();
+    var matrix_view = try base_matrix.sliceAxisView(1, .{ .start = 0, .stop = 5, .step = 2 });
+    defer matrix_view.deinit();
+    var vec = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30 }, &.{3});
+    defer vec.deinit();
+    var matvec_view = try matrix_view.matvecArray(vec);
+    defer matvec_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 140, 340 }, matvec_view.data);
+    var rhs_matrix = try Array(f64).fromSlice(gpa, &.{ 1, 0, 0, 1, 2, 1 }, &.{ 3, 2 });
+    defer rhs_matrix.deinit();
+    var matmul_view = try matrix_view.matmulArray(rhs_matrix);
+    defer matmul_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 5, 17, 11 }, matmul_view.data);
+    var lhs_view = try matrix_view.select(0, 0);
+    defer lhs_view.deinit();
+    var rhs_view = try matrix_view.select(0, 1);
+    defer rhs_view.deinit();
+    var dot_view = try lhs_view.dot(rhs_view);
+    defer dot_view.deinit();
+    try std.testing.expectEqual(@as(f64, 34), dot_view.data[0]);
+    var vdot_view = try matrix_view.vdotArray(a);
+    defer vdot_view.deinit();
+    try std.testing.expectEqual(@as(f64, 102), vdot_view.data[0]);
+    var vecdot_view = try matrix_view.vecdotArray(a, 1);
+    defer vecdot_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 14, 88 }, vecdot_view.data);
+    var inner_view = try matrix_view.innerArray(a);
+    defer inner_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, inner_view.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 14, 32, 34, 88 }, inner_view.data);
+    var outer_view = try lhs_view.outer(rhs_view);
+    defer outer_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 6, 5, 14, 12, 10, 21, 18, 15 }, outer_view.data);
+    var cross_lhs = try Array(f64).fromSlice(gpa, &.{ 1, 9, 0, 8, 0, 7, 0, 6, 1, 5 }, &.{ 2, 5 });
+    defer cross_lhs.deinit();
+    var cross_rhs = try Array(f64).fromSlice(gpa, &.{ 0, 9, 1, 8, 0, 7, 0, 6, 0, 5 }, &.{ 2, 5 });
+    defer cross_rhs.deinit();
+    var cross_lhs_view = try cross_lhs.sliceAxisView(1, .{ .start = 0, .stop = 5, .step = 2 });
+    defer cross_lhs_view.deinit();
+    var cross_rhs_view = try cross_rhs.sliceAxisView(1, .{ .start = 0, .stop = 5, .step = 2 });
+    defer cross_rhs_view.deinit();
+    var cross_view = try cross_lhs_view.cross(cross_rhs_view, -1);
+    defer cross_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 1, 0, 0, 0 }, cross_view.data);
+    var contract_view = try matrix_view.contractAxesArray(td_b, &.{1}, &.{0});
+    defer contract_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 58, 64, 158, 176 }, contract_view.data);
+    var batch_view = try batch_a.sliceAxisView(0, .{ .start = 0, .stop = 2, .step = 1 });
+    defer batch_view.deinit();
+    var batch_rhs_view = try batch_b.asView();
+    defer batch_rhs_view.deinit();
+    var bmm_view = try batch_view.bmm(batch_rhs_view);
+    defer bmm_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 10, 12, 14, 16 }, bmm_view.data);
+    var bad_vec = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
+    defer bad_vec.deinit();
+    try std.testing.expectError(error.ShapeMismatch, matrix_view.matvecArray(bad_vec));
 
     try std.testing.expectError(error.ShapeMismatch, td_a.contractAxes(td_b, &.{0}, &.{0}));
     var bad_cross = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
