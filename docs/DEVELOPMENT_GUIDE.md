@@ -94,7 +94,7 @@ Pandas/Polars 能力排在数组与 SciPy 之后。
 - ArrayView 也支持对象式 materializing 索引/搜索包装：`take/takeSigned`、`indexSelect/indexSelectSigned`、`gather/gatherSigned`、`maskedSelect`、`compress`、`nonzero/argwhere/whereIndices`、`unique`、`searchsorted`、`bucketize`、`digitize`、`isin`。
 - 排序/选择：`sort`、`sortBy`、`sortDescending`、`argsort`、`argsortAxis`、`argsortDescending`、`sortWithIndices`、`partition`、`argpartition`、`topk(sorted=true/false)`。
 - 离散/计数/集合：`unique`、`uniqueWithCounts`、`union1d`、`intersect1d`、`setdiff1d`、`setxor1d`、`bincount`、`bincountWeighted`。
-- 组合/矩阵/信号基础辅助：`cat/concatenate`、`stack`、`diag/diagflat`、`diagonal`、`trace`、`triu/tril`、`dot`、`inner/vecdot/vdot`、`outer`、`cross`、`contractAxes`、支持 1D/2D/batched broadcasting 的广义 `matmul/mm`、`matvec/bmm`、1D/2D `convolve*` / `correlate*` 与 `ConvMode.full/same/valid`、complex `fft/ifft`、`fftAxis/ifftAxis`、`fftAxes/ifftAxes`、`fft2/ifft2`；`linalg.matmul/matvec/det/solve/inverse/lu/solveTriangular/cholesky/qr/svd/lstsq/singularValues/matrixRank/cond/pinv/matrixNorm/eigh/eigvalsh`。
+- 组合/矩阵/信号基础辅助：`cat/concatenate`、`stack`、`diag/diagflat`、`diagonal`、`trace`、`triu/tril`、`dot`、`inner/vecdot/vdot`、`outer`、`cross`、`contractAxes`、支持 1D/2D/batched broadcasting 的广义 `matmul/mm`、`matvec/bmm`、1D/2D `convolve*` / `correlate*` 与 `ConvMode.full/same/valid`、real `rfft/irfft`、complex `fft/ifft`、`fftAxis/ifftAxis`、`fftAxes/ifftAxes`、`fft2/ifft2`；`linalg.matmul/matvec/det/solve/inverse/lu/solveTriangular/cholesky/qr/svd/lstsq/singularValues/matrixRank/cond/pinv/matrixNorm/eigh/eigvalsh`。
 - 基础 linalg/stats/DataFrame 也有初版，但它们不是下一阶段最高优先级。
 
 ## 5. 后续每次开发的执行要求

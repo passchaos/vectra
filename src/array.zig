@@ -439,6 +439,17 @@ fn complexRealType(comptime T: type) type {
     @compileError("operation requires a complex array, got " ++ @typeName(T));
 }
 
+fn complexTypeForReal(comptime T: type) type {
+    if (comptime T == f64) return Complex128;
+    if (comptime T == f32 or T == f16 or T == BFloat16) return Complex64;
+    return Complex64;
+}
+
+fn realTypeForComplex(comptime T: type) type {
+    if (comptime T == Complex128) return f64;
+    return f32;
+}
+
 fn ensureOrderable(comptime T: type) void {
     switch (@typeInfo(T)) {
         .bool, .int, .float, .comptime_int, .comptime_float => {},
@@ -2224,6 +2235,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.ifft();
         }
 
+        pub fn rfft(self: Self) ArrayError!Array(complexTypeForReal(T)) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.rfft();
+        }
+
+        pub fn irfft(self: Self, output_len: ?usize) ArrayError!Array(realTypeForComplex(T)) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.irfft(output_len);
+        }
+
         pub fn fftAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3013,6 +3036,59 @@ pub fn Array(comptime T: type) type {
 
         pub fn ifft(self: Self) ArrayError!Self {
             return self.fftWithSign(true);
+        }
+
+        pub fn rfft(self: Self) ArrayError!Array(complexTypeForReal(T)) {
+            ensureFloat(T);
+            if (self.shape.len != 1) return error.NonVectorArray;
+            const C = complexTypeForReal(T);
+            const Real = complexRealType(C);
+            const n = self.shape[0];
+            const out_len = n / 2 + 1;
+            var out = try Array(C).empty(self.allocator, &.{out_len});
+            errdefer out.deinit();
+            if (n == 0) return out;
+            const n_real: Real = @floatFromInt(n);
+            for (0..out_len) |k| {
+                const k_real: Real = @floatFromInt(k);
+                var acc = C.init(0, 0);
+                for (0..n) |j| {
+                    const j_real: Real = @floatFromInt(j);
+                    const angle = -castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
+                    const twiddle = C.init(@cos(angle), @sin(angle));
+                    acc = acc.add(C.init(castValue(Real, self.data[j]), 0).mul(twiddle));
+                }
+                out.data[k] = acc;
+            }
+            return out;
+        }
+
+        pub fn irfft(self: Self, output_len: ?usize) ArrayError!Array(realTypeForComplex(T)) {
+            ensureComplex(T);
+            if (self.shape.len != 1) return error.NonVectorArray;
+            const Real = realTypeForComplex(T);
+            const n = output_len orelse if (self.data.len == 0) 0 else (self.data.len - 1) * 2;
+            if (self.data.len != n / 2 + 1) return error.ShapeMismatch;
+            var out = try Array(Real).empty(self.allocator, &.{n});
+            errdefer out.deinit();
+            if (n == 0) return out;
+            const n_real: Real = @floatFromInt(n);
+            for (0..n) |j| {
+                const j_real: Real = @floatFromInt(j);
+                var acc = zero(T);
+                for (0..n) |k| {
+                    const spectrum_value = if (k < self.data.len)
+                        self.data[k]
+                    else
+                        self.data[n - k].conjugate();
+                    const k_real: Real = @floatFromInt(k);
+                    const angle = castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
+                    const twiddle = T.init(@cos(angle), @sin(angle));
+                    acc = acc.add(spectrum_value.mul(twiddle));
+                }
+                out.data[j] = acc.re / n_real;
+            }
+            return out;
         }
 
         pub fn fftAxis(self: Self, axis_index: isize) ArrayError!Self {
@@ -10722,6 +10798,46 @@ test "array complex axis fft and inverse fft" {
     defer view_fft.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, view_fft.shape);
     try std.testing.expectApproxEqAbs(@as(f32, 1), view_fft.data[0].re, 1e-5);
+}
+
+test "array real fft and inverse real fft" {
+    const gpa = std.testing.allocator;
+    var impulse = try Array(f64).fromSlice(gpa, &.{ 1, 0, 0, 0 }, &.{4});
+    defer impulse.deinit();
+    var spectrum = try impulse.rfft();
+    defer spectrum.deinit();
+    try std.testing.expectEqualSlices(usize, &.{3}, spectrum.shape);
+    for (spectrum.data) |value| {
+        try std.testing.expectApproxEqAbs(@as(f64, 1), value.re, 1e-12);
+        try std.testing.expectApproxEqAbs(@as(f64, 0), value.im, 1e-12);
+    }
+    var recovered = try spectrum.irfft(null);
+    defer recovered.deinit();
+    try std.testing.expectEqualSlices(usize, &.{4}, recovered.shape);
+    for (recovered.data, impulse.data) |actual, expected| try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+
+    var signal = try Array(f64).fromSlice(gpa, &.{ 1, 2, -1, 0.5, 3 }, &.{5});
+    defer signal.deinit();
+    var signal_spectrum = try signal.rfft();
+    defer signal_spectrum.deinit();
+    try std.testing.expectEqualSlices(usize, &.{3}, signal_spectrum.shape);
+    var signal_recovered = try signal_spectrum.irfft(5);
+    defer signal_recovered.deinit();
+    for (signal_recovered.data, signal.data) |actual, expected| try std.testing.expectApproxEqAbs(expected, actual, 1e-11);
+
+    var as_f32 = try Array(f32).fromSlice(gpa, &.{ 1, 0, 0, 0 }, &.{4});
+    defer as_f32.deinit();
+    var spectrum32 = try as_f32.rfft();
+    defer spectrum32.deinit();
+    try std.testing.expectEqual(DType.c64, @TypeOf(spectrum32).dtype);
+    var roundtrip32 = try spectrum32.irfft(null);
+    defer roundtrip32.deinit();
+    try std.testing.expectEqual(DType.f32, @TypeOf(roundtrip32).dtype);
+
+    var matrix_real = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer matrix_real.deinit();
+    try std.testing.expectError(error.NonVectorArray, matrix_real.rfft());
+    try std.testing.expectError(error.ShapeMismatch, spectrum.irfft(6));
 }
 
 test "array complex two dimensional fft helpers" {
