@@ -11,13 +11,13 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 ## What is included now
 
 - `Array(T)` / `NDArray(T)` with shape/strides, typed storage, `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
-- Creation helpers: `array`, `ndarray`, `zeros`, `ones`, `full`, `empty`, `eye`, `arange`, `linspace`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`, `exponential`, `gamma`, `beta`, `poisson`; random generation uses the local `../alea` backend.
+- Creation helpers: `array`, `ndarray`, `arrayScalar`, `zeros`, `ones`, `full`, `empty`, `emptyLike`, `zerosLike`, `onesLike`, `fullLike`, `eye`, `arange`, `linspace`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`, `exponential`, `gamma`, `beta`, `poisson`; random generation uses the local `../alea` backend.
 - NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `gather`, `scatter/scatterScalar`, `scatterAdd`, `scatterReduce`, `maskedSelect`, `slice1d`.
 - Broadcasting elementwise arithmetic/comparisons: `add/sub/mul/div/pow`, scalar variants, `maximum/minimum`, `whereMask`, `allclose`.
 - Array transforms: `broadcastTo`, `repeat`, `tile`, `cat/concatenate`, `stack`, `sort`, `argsort`.
 - Reductions/statistics: `sum`, `prod`, `min`, `max`, `allAxis`, `anyAxis`, `mean`, `variance`, `stddev`, `norm`, `logsumexp`, `cumsum`, `cumprod`, `argmin`, `argmax`, `argminAxis/argmaxAxis`, `topk(sorted=true/false)`, `histogram`.
 - Neural/math functions: `exp`, `log`, `sqrt`, `sin`, `cos`, `tanh`, `relu`, `sigmoid`, `softmax`, `logSoftmax/log_softmax`, `clip`.
-- Linear algebra: `matmul/mm`, `bmm`, `matvec`, `dot`, `outer`, `diagonal`, `trace`, `triu/tril`, `linalg.eye`, `det`, `inverse`, `solve`, `lu`, `solveTriangular`, `cholesky`, `qr`, `svd`, `lstsq`, `singularValues`, `matrixRank`, `cond`, `pinv`, `matrixNorm`, `eigh`, `eigvalsh`; f64 `linalg.matmul`/`matvec`/`trace`/`det`/`solve`/`inverse`/`lu`/`solveTriangular`/`cholesky`/`qr`/`svd`/`lstsq`/`singularValues`/`matrixRank`/`cond`/`pinv`/`matrixNorm`/`eigh`/`eigvalsh` use the local `../veyra` backend when available.
+- Linear algebra: `diag/diagflat`, `matmul/mm`, `bmm`, `matvec`, `dot`, `outer`, `diagonal`, `trace`, `triu/tril`, `linalg.eye`, `det`, `inverse`, `solve`, `lu`, `solveTriangular`, `cholesky`, `qr`, `svd`, `lstsq`, `singularValues`, `matrixRank`, `cond`, `pinv`, `matrixNorm`, `eigh`, `eigvalsh`; f64 `linalg.matmul`/`matvec`/`trace`/`det`/`solve`/`inverse`/`lu`/`solveTriangular`/`cholesky`/`qr`/`svd`/`lstsq`/`singularValues`/`matrixRank`/`cond`/`pinv`/`matrixNorm`/`eigh`/`eigvalsh` use the local `../veyra` backend when available.
 - SciPy-like stats helpers: `stats.zscore`, `normalize`, `pearsonr`.
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
 - CSV read/write with simple type inference.

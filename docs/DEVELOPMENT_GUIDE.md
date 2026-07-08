@@ -82,13 +82,13 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 
 初始化阶段已优先实现一批 Array/NDArray 能力：
 
-- 创建：`array/ndarray`（`tensor` 兼容别名）、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`。
+- 创建：`array/ndarray`（`tensor` 兼容别名）、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
 - 形状：`reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`。
 - 索引：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`maskedSelect`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、scalar variants、`maximum/minimum`、`whereMask`、比较、`allclose`。
 - 数学/NN：`exp`、`log`、`sqrt`、`sin`、`cos`、`tanh`、`relu`、`sigmoid`、`softmax`、`logSoftmax/log_softmax`、`clip`。
 - 归约：`sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`argmin`、`argmax`、`argminAxis/argmaxAxis`、`topk(sorted=true/false)`。
-- 组合/矩阵辅助：`cat/concatenate`、`stack`、`outer`、`diagonal`、`trace`、`triu/tril`；`linalg.matmul/matvec/det/solve/inverse/lu/solveTriangular/cholesky/qr/svd/lstsq/singularValues/matrixRank/cond/pinv/matrixNorm/eigh/eigvalsh`。
+- 组合/矩阵辅助：`cat/concatenate`、`stack`、`diag/diagflat`、`outer`、`diagonal`、`trace`、`triu/tril`；`linalg.matmul/matvec/det/solve/inverse/lu/solveTriangular/cholesky/qr/svd/lstsq/singularValues/matrixRank/cond/pinv/matrixNorm/eigh/eigvalsh`。
 - 基础 linalg/stats/DataFrame 也有初版，但它们不是下一阶段最高优先级。
 
 ## 5. 后续每次开发的执行要求

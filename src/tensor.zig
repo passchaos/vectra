@@ -342,6 +342,26 @@ pub fn Tensor(comptime T: type) type {
             return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides };
         }
 
+        pub fn fromScalar(allocator: std.mem.Allocator, value: T) TensorError!Self {
+            return Self.fromSlice(allocator, &.{value}, &.{});
+        }
+
+        pub fn emptyLike(self: Self) TensorError!Self {
+            return Self.empty(self.allocator, self.shape);
+        }
+
+        pub fn zerosLike(self: Self) TensorError!Self {
+            return Self.zeros(self.allocator, self.shape);
+        }
+
+        pub fn onesLike(self: Self) TensorError!Self {
+            return Self.ones(self.allocator, self.shape);
+        }
+
+        pub fn fullLike(self: Self, value: T) TensorError!Self {
+            return Self.full(self.allocator, self.shape, value);
+        }
+
         pub fn arange(allocator: std.mem.Allocator, start: T, stop: T, step: T) TensorError!Self {
             ensureNumeric(T);
             if (step == zero(T)) return error.InvalidShape;
@@ -2052,6 +2072,28 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        pub fn diag(self: Self, offset: isize) TensorError!Self {
+            if (self.shape.len == 1) return self.diagflat(offset);
+            if (self.shape.len == 2) return self.diagonal(offset);
+            return error.InvalidShape;
+        }
+
+        pub fn diagflat(self: Self, offset: isize) TensorError!Self {
+            var flat = try self.flatten();
+            defer flat.deinit();
+            const n = flat.data.len;
+            const magnitude: usize = if (offset < 0) @intCast(-offset) else @intCast(offset);
+            const matrix_size = n + magnitude;
+            const out = try Self.zeros(self.allocator, &.{ matrix_size, matrix_size });
+            const cols = matrix_size;
+            for (flat.data, 0..) |value, i| {
+                const row = if (offset < 0) i + magnitude else i;
+                const col = if (offset > 0) i + magnitude else i;
+                out.data[row * cols + col] = value;
+            }
+            return out;
+        }
+
         pub fn trace(self: Self) TensorError!T {
             ensureNumeric(T);
             if (self.shape.len != 2) return error.NonMatrixTensor;
@@ -2313,6 +2355,26 @@ pub fn empty(comptime T: type, allocator: std.mem.Allocator, dims: []const usize
     return Tensor(T).empty(allocator, dims);
 }
 
+pub fn arrayScalar(comptime T: type, allocator: std.mem.Allocator, value: T) TensorError!Tensor(T) {
+    return Tensor(T).fromScalar(allocator, value);
+}
+
+pub fn emptyLike(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.emptyLike();
+}
+
+pub fn zerosLike(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.zerosLike();
+}
+
+pub fn onesLike(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.onesLike();
+}
+
+pub fn fullLike(comptime T: type, input: Tensor(T), value: T) TensorError!Tensor(T) {
+    return input.fullLike(value);
+}
+
 pub fn arange(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, step: T) TensorError!Tensor(T) {
     return Tensor(T).arange(allocator, start, stop, step);
 }
@@ -2384,6 +2446,14 @@ pub fn outer(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T)
 
 pub fn where(comptime T: type, mask: Tensor(bool), a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
     return Tensor(T).whereMask(mask, a, b);
+}
+
+pub fn diag(comptime T: type, input: Tensor(T), offset: isize) TensorError!Tensor(T) {
+    return input.diag(offset);
+}
+
+pub fn diagflat(comptime T: type, input: Tensor(T), offset: isize) TensorError!Tensor(T) {
+    return input.diagflat(offset);
 }
 
 test "tensor creation, reshape and broadcasting" {
@@ -2704,4 +2774,44 @@ test "array scatter add and reduce variants" {
     var scalar_added = try base.scatterAddScalar(1, idx, 2);
     defer scalar_added.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 4, 0, 2, 0, 4 }, scalar_added.data);
+}
+
+test "array creation like scalar diag and diagflat" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var z = try a.zerosLike();
+    defer z.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, z.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0, 0, 0 }, z.data);
+
+    var o = try onesLike(f64, a);
+    defer o.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, o.data);
+
+    var f = try fullLike(f64, a, 7);
+    defer f.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7, 7, 7 }, f.data);
+
+    var s = try arrayScalar(f64, gpa, 42);
+    defer s.deinit();
+    try std.testing.expectEqual(@as(usize, 0), s.shape.len);
+    try std.testing.expectEqual(@as(f64, 42), try s.item());
+
+    var v = try array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    defer v.deinit();
+    var d0 = try v.diag(0);
+    defer d0.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, d0.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 2, 0, 0, 0, 3 }, d0.data);
+
+    var d1 = try v.diagflat(1);
+    defer d1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 4 }, d1.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0 }, d1.data);
+
+    var extracted = try a.diag(0);
+    defer extracted.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, extracted.data);
 }
