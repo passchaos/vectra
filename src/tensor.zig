@@ -273,6 +273,13 @@ pub const Slice = struct {
     step: isize = 1,
 };
 
+pub const ScatterReduce = enum {
+    sum,
+    prod,
+    min,
+    max,
+};
+
 fn normalizeSlice(s: Slice, len: usize) TensorError!struct { start: usize, stop: usize, step: usize, count: usize } {
     if (s.step <= 0) return error.InvalidShape;
     const length: isize = @intCast(len);
@@ -929,6 +936,83 @@ pub fn Tensor(comptime T: type) type {
                 out.data[ravelIndex(dst_multi, out.strides)] = value;
             }
             return out;
+        }
+
+        fn validateScatterShapes(self: Self, axis: usize, indices: Tensor(usize), src_shape: []const usize) TensorError!void {
+            if (indices.shape.len != self.shape.len or src_shape.len != self.shape.len) return error.ShapeMismatch;
+            if (!std.mem.eql(usize, indices.shape, src_shape)) return error.ShapeMismatch;
+            for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
+                if (i != axis and index_dim > self_dim) return error.ShapeMismatch;
+            }
+        }
+
+        fn applyScatterReduce(current: T, value: T, reduction: ScatterReduce) T {
+            return switch (reduction) {
+                .sum => addValue(T, current, value),
+                .prod => mulValue(T, current, value),
+                .min => if (value < current) value else current,
+                .max => if (value > current) value else current,
+            };
+        }
+
+        pub fn scatterReduce(self: Self, axis_index: isize, indices: Tensor(usize), src: Self, reduction: ScatterReduce) TensorError!Self {
+            ensureNumeric(T);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            try self.validateScatterShapes(axis, indices, src.shape);
+
+            var out = try self.clone();
+            errdefer out.deinit();
+            if (indices.data.len == 0) return out;
+            const src_multi = try self.allocator.alloc(usize, indices.shape.len);
+            defer self.allocator.free(src_multi);
+            var dst_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(dst_multi);
+
+            for (src.data, 0..) |value, flat| {
+                unravelIndexInto(flat, indices.shape, src_multi);
+                const selected = indices.data[flat];
+                if (selected >= self.shape[axis]) return error.IndexOutOfBounds;
+                @memcpy(dst_multi, src_multi);
+                dst_multi[axis] = selected;
+                const out_index = ravelIndex(dst_multi, out.strides);
+                out.data[out_index] = applyScatterReduce(out.data[out_index], value, reduction);
+            }
+            return out;
+        }
+
+        pub fn scatterAdd(self: Self, axis_index: isize, indices: Tensor(usize), src: Self) TensorError!Self {
+            return self.scatterReduce(axis_index, indices, src, .sum);
+        }
+
+        pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: Tensor(usize), value: T, reduction: ScatterReduce) TensorError!Self {
+            ensureNumeric(T);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
+            for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
+                if (i != axis and index_dim > self_dim) return error.ShapeMismatch;
+            }
+
+            var out = try self.clone();
+            errdefer out.deinit();
+            if (indices.data.len == 0) return out;
+            const idx_multi = try self.allocator.alloc(usize, indices.shape.len);
+            defer self.allocator.free(idx_multi);
+            var dst_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(dst_multi);
+
+            for (indices.data, 0..) |selected, flat| {
+                if (selected >= self.shape[axis]) return error.IndexOutOfBounds;
+                unravelIndexInto(flat, indices.shape, idx_multi);
+                @memcpy(dst_multi, idx_multi);
+                dst_multi[axis] = selected;
+                const out_index = ravelIndex(dst_multi, out.strides);
+                out.data[out_index] = applyScatterReduce(out.data[out_index], value, reduction);
+            }
+            return out;
+        }
+
+        pub fn scatterAddScalar(self: Self, axis_index: isize, indices: Tensor(usize), value: T) TensorError!Self {
+            return self.scatterReduceScalar(axis_index, indices, value, .sum);
         }
 
         fn binaryTensor(self: Self, other: Self, comptime op: fn (T, T) T) TensorError!Self {
@@ -2501,4 +2585,34 @@ test "array aliases and alea-backed random distributions" {
     var b1 = try bernoulli(gpa, &.{4}, 1.0, 789);
     defer b1.deinit();
     try std.testing.expect(b1.all());
+}
+
+test "array scatter add and reduce variants" {
+    const gpa = std.testing.allocator;
+    var base = try zeros(f64, gpa, &.{ 2, 3 });
+    defer base.deinit();
+    var idx = try array(usize, gpa, &.{ 0, 1, 1, 2, 0, 2 }, &.{ 2, 3 });
+    defer idx.deinit();
+    var src = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer src.deinit();
+
+    var added = try base.scatterAdd(1, idx, src);
+    defer added.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 0, 5, 0, 10 }, added.data);
+
+    var ones_base = try ones(f64, gpa, &.{ 2, 3 });
+    defer ones_base.deinit();
+    var prod = try ones_base.scatterReduce(1, idx, src, .prod);
+    defer prod.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 6, 1, 5, 1, 24 }, prod.data);
+
+    var max_base = try full(f64, gpa, &.{ 2, 3 }, -100);
+    defer max_base.deinit();
+    var maxed = try max_base.scatterReduce(1, idx, src, .max);
+    defer maxed.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, -100, 5, -100, 6 }, maxed.data);
+
+    var scalar_added = try base.scatterAddScalar(1, idx, 2);
+    defer scalar_added.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 4, 0, 2, 0, 4 }, scalar_added.data);
 }

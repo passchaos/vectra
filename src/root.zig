@@ -20,6 +20,7 @@ pub const Tensor = tensor_mod.Tensor; // Deprecated compatibility alias; use Arr
 pub const Device = tensor_mod.Device;
 pub const DType = tensor_mod.DType;
 pub const Slice = tensor_mod.Slice;
+pub const ScatterReduce = tensor_mod.ScatterReduce;
 pub const TensorError = tensor_mod.TensorError;
 
 pub const Series = series_mod.Series;
