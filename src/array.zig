@@ -2135,6 +2135,28 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn dirichlet(allocator: std.mem.Allocator, alpha: []const T, samples: usize, seed: u64) ArrayError!Self {
+            ensureFloat(T);
+            const distribution = alea.distributions.Dirichlet(T).init(alpha) catch return error.InvalidShape;
+            var out = try Self.empty(allocator, &.{ samples, alpha.len });
+            errdefer out.deinit();
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            distribution.sampleManyIntoChecked(rng, out.data) catch return error.InvalidShape;
+            return out;
+        }
+
+        pub fn multinomial(allocator: std.mem.Allocator, trials: u64, probabilities: []const f64, samples: usize, seed: u64) ArrayError!Self {
+            if (comptime T != u64) @compileError("multinomial requires Array(u64)");
+            const distribution = alea.distributions.Multinomial.init(trials, probabilities) catch return error.InvalidShape;
+            var out = try Self.empty(allocator, &.{ samples, probabilities.len });
+            errdefer out.deinit();
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            distribution.sampleManyIntoChecked(rng, out.data) catch return error.InvalidShape;
+            return out;
+        }
+
         pub fn uniform(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Self {
             if (comptime !isNumeric(T)) @compileError("uniform requires a numeric array type");
             if (low > high) return error.InvalidShape;
@@ -8946,6 +8968,39 @@ test "alea-backed object random permutation and sampling" {
     var bad_weights = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
     defer bad_weights.deinit();
     try std.testing.expectError(error.ShapeMismatch, source.choiceWeighted(bad_weights, 1, 1));
+}
+
+test "alea-backed object multinomial and dirichlet distributions" {
+    const gpa = std.testing.allocator;
+    var dir = try Array(f64).dirichlet(gpa, &.{ 1.0, 2.0, 3.0 }, 4, 12345);
+    defer dir.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 3 }, dir.shape);
+    for (0..4) |row| {
+        const total = dir.data[row * 3] + dir.data[row * 3 + 1] + dir.data[row * 3 + 2];
+        try std.testing.expectApproxEqAbs(@as(f64, 1), total, 1e-12);
+        try std.testing.expect(dir.data[row * 3] >= 0);
+        try std.testing.expect(dir.data[row * 3 + 1] >= 0);
+        try std.testing.expect(dir.data[row * 3 + 2] >= 0);
+    }
+
+    var degenerate_dir = try Array(f64).dirichlet(gpa, &.{ 2.0, std.math.inf(f64), 3.0 }, 2, 2222);
+    defer degenerate_dir.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 1, 0, 0, 1, 0 }, degenerate_dir.data);
+
+    var counts = try Array(u64).multinomial(gpa, 20, &.{ 1.0, 2.0, 3.0 }, 5, 54321);
+    defer counts.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 5, 3 }, counts.shape);
+    for (0..5) |row| {
+        const total = counts.data[row * 3] + counts.data[row * 3 + 1] + counts.data[row * 3 + 2];
+        try std.testing.expectEqual(@as(u64, 20), total);
+    }
+
+    var fixed_counts = try Array(u64).multinomial(gpa, 7, &.{ 0.0, 5.0, 0.0 }, 3, 4444);
+    defer fixed_counts.deinit();
+    try std.testing.expectEqualSlices(u64, &.{ 0, 7, 0, 0, 7, 0, 0, 7, 0 }, fixed_counts.data);
+
+    try std.testing.expectError(error.InvalidShape, Array(f64).dirichlet(gpa, &.{ 1.0, 0.0 }, 1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(u64).multinomial(gpa, 5, &.{ 0.0, 0.0 }, 1, 1));
 }
 
 test "alea-backed advanced random distributions" {
