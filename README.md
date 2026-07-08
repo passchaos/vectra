@@ -10,7 +10,7 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 
 ## What is included now
 
-- `Array(T)` / `NDArray(T)` with shape/strides, typed storage, `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
+- `Array(T)` / `NDArray(T)` with shape/strides, typed storage (`bool`, `i8/i16/i32/i64`, `u8/u16/u32/u64/usize`, `f32/f64`), `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
 - Creation helpers: `array`, `ndarray`, `arrayScalar`, `zeros`, `ones`, `full`, `empty`, `emptyLike`, `zerosLike`, `onesLike`, `fullLike`, `eye`, `arange`, `linspace`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`, `exponential`, `gamma`, `beta`, `poisson`, `lognormal`, `studentT`, `cauchy`, `laplace`, `weibull`; random generation uses the local `../alea` backend.
 - NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `takeAlongAxis/putAlongAxis`, `gather`, `scatter/scatterScalar`, `scatterAdd`, `scatterReduce`, `maskedSelect`, `maskedFill`, `maskedScatter`, `nonzero/countNonzero`, `slice1d`.
 - Broadcasting elementwise arithmetic/comparisons: `add/sub/mul/div/pow`, scalar variants, `maximum/minimum`, `whereMask`, `allclose`.
@@ -86,7 +86,7 @@ The package targets Zig `0.16.0` and uses the new `std.Io` writer APIs.
 ## Roadmap
 
 - Richer indexing/views and non-contiguous arrays.
-- More dtypes, nullable values, categorical/string kernels.
+- Nullable values, categorical/string kernels, complex numbers, f16/bf16.
 - Polars-like lazy query plans and expression DSL.
 - BLAS/LAPACK/FFT/sparse integrations.
 - GPU backend implementation behind the existing `Device` surface.

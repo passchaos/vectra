@@ -31,7 +31,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - 归约：sum、prod、min、max、mean、var、std、argmin、argmax、cumsum、cumprod。
 - 线性代数基础：dot、matmul/mm、bmm、outer、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库。
 - 神经网络常用数学函数：relu、sigmoid、tanh、softmax、log_softmax、cross_entropy 相关基础。
-- dtype 转换与类型提升规则：尽量接近 NumPy/PyTorch 直觉。
+- dtype 转换与类型提升规则：当前支持 `bool`、常用有符号/无符号整数、`usize`、`f32/f64` 和基础 dtype metadata；后续继续补 complex、f16/bf16 与 promotion。
 - 设备抽象：先保持 CPU 正确；CUDA/GPU API 形态参考 CuPy/PyTorch，后续再接入真实后端。
 
 API 取向：

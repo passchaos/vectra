@@ -30,9 +30,14 @@ pub const Device = struct {
 pub const DType = enum {
     f32,
     f64,
+    i8,
+    i16,
     i32,
     i64,
     u8,
+    u16,
+    u32,
+    u64,
     usize,
     bool,
 
@@ -40,13 +45,70 @@ pub const DType = enum {
         return switch (T) {
             f32 => .f32,
             f64 => .f64,
+            i8 => .i8,
+            i16 => .i16,
             i32 => .i32,
             i64 => .i64,
             u8 => .u8,
+            u16 => .u16,
+            u32 => .u32,
+            u64 => .u64,
             usize => .usize,
             bool => .bool,
             else => @compileError("unsupported Vectra dtype: " ++ @typeName(T)),
         };
+    }
+
+    pub fn name(self: DType) []const u8 {
+        return switch (self) {
+            .f32 => "f32",
+            .f64 => "f64",
+            .i8 => "i8",
+            .i16 => "i16",
+            .i32 => "i32",
+            .i64 => "i64",
+            .u8 => "u8",
+            .u16 => "u16",
+            .u32 => "u32",
+            .u64 => "u64",
+            .usize => "usize",
+            .bool => "bool",
+        };
+    }
+
+    pub fn byteSize(self: DType) usize {
+        return switch (self) {
+            .bool, .i8, .u8 => 1,
+            .i16, .u16 => 2,
+            .f32, .i32, .u32 => 4,
+            .f64, .i64, .u64 => 8,
+            .usize => @sizeOf(usize),
+        };
+    }
+
+    pub fn isFloat(self: DType) bool {
+        return switch (self) {
+            .f32, .f64 => true,
+            else => false,
+        };
+    }
+
+    pub fn isInteger(self: DType) bool {
+        return switch (self) {
+            .i8, .i16, .i32, .i64, .u8, .u16, .u32, .u64, .usize => true,
+            else => false,
+        };
+    }
+
+    pub fn isSigned(self: DType) bool {
+        return switch (self) {
+            .i8, .i16, .i32, .i64 => true,
+            else => false,
+        };
+    }
+
+    pub fn isBool(self: DType) bool {
+        return self == .bool;
     }
 };
 
@@ -3164,4 +3226,34 @@ test "array slice flip roll and constant padding" {
         0, 1, 2, 3, 0, 0,
         0, 4, 5, 6, 0, 0,
     }, padded.data);
+}
+
+test "array dtype metadata and casts cover common numeric types" {
+    try std.testing.expectEqual(DType.i8, DType.of(i8));
+    try std.testing.expectEqual(DType.i16, DType.of(i16));
+    try std.testing.expectEqual(DType.u16, DType.of(u16));
+    try std.testing.expectEqual(DType.u32, DType.of(u32));
+    try std.testing.expectEqual(DType.u64, DType.of(u64));
+    try std.testing.expectEqualStrings("u64", DType.u64.name());
+    try std.testing.expectEqual(@as(usize, 8), DType.u64.byteSize());
+    try std.testing.expect(DType.f32.isFloat());
+    try std.testing.expect(DType.i16.isInteger());
+    try std.testing.expect(DType.i16.isSigned());
+    try std.testing.expect(DType.bool.isBool());
+
+    const gpa = std.testing.allocator;
+    var ints = try array(i16, gpa, &.{ -1, 0, 2 }, &.{3});
+    defer ints.deinit();
+    var floats = try ints.astype(f32);
+    defer floats.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ -1, 0, 2 }, floats.data);
+    var unsigned = try array(u32, gpa, &.{ 1, 2, 3 }, &.{3});
+    defer unsigned.deinit();
+    var widened = try unsigned.astype(u64);
+    defer widened.deinit();
+    try std.testing.expectEqualSlices(u64, &.{ 1, 2, 3 }, widened.data);
+
+    var r = try randint(u16, gpa, &.{16}, 10, 20, 42);
+    defer r.deinit();
+    for (r.data) |v| try std.testing.expect(v >= 10 and v < 20);
 }
