@@ -3060,6 +3060,109 @@ pub fn Array(comptime T: type) type {
             return trimConvolutionResult(full_result, self.data.len, kernel.data.len, mode);
         }
 
+        fn trimConvolution2DResult(full_result_in: Self, input_shape: []const usize, kernel_shape: []const usize, mode: ConvMode) ArrayError!Self {
+            var full_result = full_result_in;
+            switch (mode) {
+                .full => return full_result,
+                .same, .valid => {
+                    const out_rows: usize = switch (mode) {
+                        .same => input_shape[0],
+                        .valid => if (input_shape[0] >= kernel_shape[0]) input_shape[0] - kernel_shape[0] + 1 else kernel_shape[0] - input_shape[0] + 1,
+                        .full => unreachable,
+                    };
+                    const out_cols: usize = switch (mode) {
+                        .same => input_shape[1],
+                        .valid => if (input_shape[1] >= kernel_shape[1]) input_shape[1] - kernel_shape[1] + 1 else kernel_shape[1] - input_shape[1] + 1,
+                        .full => unreachable,
+                    };
+                    const start_row: usize = switch (mode) {
+                        .same => (full_result.shape[0] - out_rows) / 2,
+                        .valid => @min(input_shape[0], kernel_shape[0]) - 1,
+                        .full => unreachable,
+                    };
+                    const start_col: usize = switch (mode) {
+                        .same => (full_result.shape[1] - out_cols) / 2,
+                        .valid => @min(input_shape[1], kernel_shape[1]) - 1,
+                        .full => unreachable,
+                    };
+                    var out = try Self.empty(full_result.allocator, &.{ out_rows, out_cols });
+                    errdefer out.deinit();
+                    for (0..out_rows) |row| {
+                        const src_start = (start_row + row) * full_result.shape[1] + start_col;
+                        @memcpy(out.data[row * out_cols ..][0..out_cols], full_result.data[src_start..][0..out_cols]);
+                    }
+                    full_result.deinit();
+                    return out;
+                },
+            }
+        }
+
+        pub fn convolve2d(self: Self, kernel: Self, mode: ConvMode) ArrayError!Self {
+            ensureNumeric(T);
+            if (self.shape.len != 2 or kernel.shape.len != 2) return error.NonMatrixArray;
+            if (self.data.len == 0 or kernel.data.len == 0) return error.EmptyArray;
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            const kernel_rows = kernel.shape[0];
+            const kernel_cols = kernel.shape[1];
+            var full_result = try Self.full(self.allocator, &.{ rows + kernel_rows - 1, cols + kernel_cols - 1 }, zero(T));
+            errdefer full_result.deinit();
+            for (0..full_result.shape[0]) |out_row| {
+                for (0..full_result.shape[1]) |out_col| {
+                    var acc = zero(T);
+                    for (0..rows) |row| {
+                        if (out_row < row) continue;
+                        const kernel_row = out_row - row;
+                        if (kernel_row >= kernel_rows) continue;
+                        for (0..cols) |col| {
+                            if (out_col < col) continue;
+                            const kernel_col = out_col - col;
+                            if (kernel_col >= kernel_cols) continue;
+                            acc = addValue(T, acc, mulValue(T, self.data[row * cols + col], kernel.data[kernel_row * kernel_cols + kernel_col]));
+                        }
+                    }
+                    full_result.data[out_row * full_result.shape[1] + out_col] = acc;
+                }
+            }
+            return trimConvolution2DResult(full_result, self.shape, kernel.shape, mode);
+        }
+
+        pub fn correlate2d(self: Self, kernel: Self, mode: ConvMode) ArrayError!Self {
+            ensureNumeric(T);
+            if (self.shape.len != 2 or kernel.shape.len != 2) return error.NonMatrixArray;
+            if (self.data.len == 0 or kernel.data.len == 0) return error.EmptyArray;
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            const kernel_rows = kernel.shape[0];
+            const kernel_cols = kernel.shape[1];
+            var full_result = try Self.full(self.allocator, &.{ rows + kernel_rows - 1, cols + kernel_cols - 1 }, zero(T));
+            errdefer full_result.deinit();
+            const row_lag_offset = kernel_rows - 1;
+            const col_lag_offset = kernel_cols - 1;
+            for (0..full_result.shape[0]) |out_row| {
+                const row_lag: isize = @as(isize, @intCast(out_row)) - @as(isize, @intCast(row_lag_offset));
+                for (0..full_result.shape[1]) |out_col| {
+                    const col_lag: isize = @as(isize, @intCast(out_col)) - @as(isize, @intCast(col_lag_offset));
+                    var acc = zero(T);
+                    for (0..kernel_rows) |kernel_row| {
+                        const row_signed = @as(isize, @intCast(kernel_row)) + row_lag;
+                        if (row_signed < 0) continue;
+                        const row: usize = @intCast(row_signed);
+                        if (row >= rows) continue;
+                        for (0..kernel_cols) |kernel_col| {
+                            const col_signed = @as(isize, @intCast(kernel_col)) + col_lag;
+                            if (col_signed < 0) continue;
+                            const col: usize = @intCast(col_signed);
+                            if (col >= cols) continue;
+                            acc = addValue(T, acc, mulValue(T, self.data[row * cols + col], kernel.data[kernel_row * kernel_cols + kernel_col]));
+                        }
+                    }
+                    full_result.data[out_row * full_result.shape[1] + out_col] = acc;
+                }
+            }
+            return trimConvolution2DResult(full_result, self.shape, kernel.shape, mode);
+        }
+
         pub fn to(self: Self, device: Device) ArrayError!Self {
             if (!device.isAvailable()) return error.InvalidDevice;
             var out = try self.clone();
@@ -10317,6 +10420,52 @@ test "array dtype metadata and casts cover common numeric types" {
     var r = try Array(u16).randint(gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
     for (r.data) |v| try std.testing.expect(v >= 10 and v < 20);
+}
+
+test "array object two dimensional convolution and correlation" {
+    const gpa = std.testing.allocator;
+    var image = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer image.deinit();
+    var kernel = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer kernel.deinit();
+
+    var conv_full = try image.convolve2d(kernel, .full);
+    defer conv_full.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, conv_full.shape);
+    try std.testing.expectEqualSlices(f64, &.{
+        1, 4,  4,
+        6, 20, 16,
+        9, 24, 16,
+    }, conv_full.data);
+
+    var conv_same = try image.convolve2d(kernel, .same);
+    defer conv_same.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, conv_same.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 6, 20 }, conv_same.data);
+
+    var conv_valid = try image.convolve2d(kernel, .valid);
+    defer conv_valid.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, conv_valid.shape);
+    try std.testing.expectEqualSlices(f64, &.{20}, conv_valid.data);
+
+    var corr_full = try image.correlate2d(kernel, .full);
+    defer corr_full.deinit();
+    try std.testing.expectEqualSlices(f64, &.{
+        4,  11, 6,
+        14, 30, 14,
+        6,  11, 4,
+    }, corr_full.data);
+
+    var corr_same = try image.correlate2d(kernel, .same);
+    defer corr_same.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 11, 14, 30 }, corr_same.data);
+
+    var vector = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
+    defer vector.deinit();
+    try std.testing.expectError(error.NonMatrixArray, vector.convolve2d(kernel, .full));
+    var empty_image = try Array(f64).empty(gpa, &.{ 0, 2 });
+    defer empty_image.deinit();
+    try std.testing.expectError(error.EmptyArray, empty_image.convolve2d(kernel, .full));
 }
 
 test "array object one dimensional convolution and correlation" {
