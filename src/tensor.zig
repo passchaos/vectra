@@ -624,13 +624,13 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn cauchy(allocator: std.mem.Allocator, dims: []const usize, median: T, scale: T, seed: u64) TensorError!Self {
+        pub fn cauchy(allocator: std.mem.Allocator, dims: []const usize, median_value: T, scale: T, seed: u64) TensorError!Self {
             ensureFloat(T);
             if (!(scale > zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
             const rng = alea.Rng.init(&engine);
             const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.cauchyChecked(rng, T, median, scale) catch return error.InvalidShape;
+            for (out.data) |*slot| slot.* = alea.distributions.cauchyChecked(rng, T, median_value, scale) catch return error.InvalidShape;
             return out;
         }
 
@@ -2250,6 +2250,137 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        fn quantileFromSorted(sorted_values: []const T, q: T) T {
+            const max_index = sorted_values.len - 1;
+            const position = q * castValue(T, max_index);
+            const lower_float = @floor(position);
+            const lower: usize = @intFromFloat(lower_float);
+            const upper = @min(lower + 1, max_index);
+            const weight = position - lower_float;
+            return sorted_values[lower] * (one(T) - weight) + sorted_values[upper] * weight;
+        }
+
+        pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            if (q < zero(T) or q > one(T)) return error.InvalidShape;
+            if (self.data.len == 0) return error.EmptyTensor;
+            if (axis_opt == null) {
+                var sorted_values = try self.sort(null);
+                defer sorted_values.deinit();
+                const result = quantileFromSorted(sorted_values.data, q);
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{result}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{result}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyTensor;
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            const scratch = try self.allocator.alloc(T, self.shape[axis]);
+            defer self.allocator.free(scratch);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                self.mapReducedToInput(axis, keepdims, out_multi, in_multi);
+                for (scratch, 0..) |*value, axis_i| {
+                    in_multi[axis] = axis_i;
+                    value.* = self.data[ravelIndex(in_multi, self.strides)];
+                }
+                std.sort.insertion(T, scratch, {}, struct {
+                    fn lessThan(_: void, a: T, b: T) bool {
+                        return lessValue(T, a, b);
+                    }
+                }.lessThan);
+                slot.* = quantileFromSorted(scratch, q);
+            }
+            return out;
+        }
+
+        pub fn percentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            return self.quantile(p / castValue(T, 100), axis_opt, keepdims);
+        }
+
+        pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            return self.quantile(castValue(T, 0.5), axis_opt, keepdims);
+        }
+
+        fn observationValue(self: Self, variable: usize, observation: usize, rowvar: bool) T {
+            if (rowvar) return self.data[variable * self.shape[1] + observation];
+            return self.data[observation * self.shape[1] + variable];
+        }
+
+        pub fn cov(self: Self, rowvar: bool, correction: T) TensorError!Self {
+            ensureFloat(T);
+            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.shape.len == 1) {
+                const observations = self.data.len;
+                const denom = castValue(T, observations) - correction;
+                if (!(denom > zero(T))) return error.InvalidShape;
+                return self.variance(null, false, correction);
+            }
+            if (self.shape.len != 2) return error.NonMatrixTensor;
+            const variables = if (rowvar) self.shape[0] else self.shape[1];
+            const observations = if (rowvar) self.shape[1] else self.shape[0];
+            if (variables == 0 or observations == 0) return error.EmptyTensor;
+            const denom = castValue(T, observations) - correction;
+            if (!(denom > zero(T))) return error.InvalidShape;
+
+            const means = try self.allocator.alloc(T, variables);
+            defer self.allocator.free(means);
+            @memset(means, zero(T));
+            for (0..variables) |i| {
+                for (0..observations) |j| means[i] += self.observationValue(i, j, rowvar);
+                means[i] /= castValue(T, observations);
+            }
+
+            var out = try Self.empty(self.allocator, &.{ variables, variables });
+            errdefer out.deinit();
+            for (0..variables) |i| {
+                for (0..variables) |j| {
+                    var total = zero(T);
+                    for (0..observations) |k| {
+                        total += (self.observationValue(i, k, rowvar) - means[i]) * (self.observationValue(j, k, rowvar) - means[j]);
+                    }
+                    out.data[i * variables + j] = total / denom;
+                }
+            }
+            return out;
+        }
+
+        pub fn corrcoef(self: Self, rowvar: bool) TensorError!Self {
+            ensureFloat(T);
+            if (self.shape.len == 1) {
+                if (self.data.len < 2) return error.InvalidShape;
+                return Self.fromSlice(self.allocator, &.{one(T)}, &.{});
+            }
+            var covariance = try self.cov(rowvar, one(T));
+            defer covariance.deinit();
+            const variables = covariance.shape[0];
+            var out = try Self.empty(self.allocator, covariance.shape);
+            errdefer out.deinit();
+            for (0..variables) |i| {
+                for (0..variables) |j| {
+                    const denom = std.math.sqrt(covariance.data[i * variables + i] * covariance.data[j * variables + j]);
+                    out.data[i * variables + j] = covariance.data[i * variables + j] / denom;
+                }
+            }
+            return out;
+        }
+
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
             ensureFloat(T);
             if (p == zero(T)) return error.InvalidShape;
@@ -3373,8 +3504,8 @@ pub fn studentT(comptime T: type, allocator: std.mem.Allocator, dims: []const us
     return Tensor(T).studentT(allocator, dims, dof, seed);
 }
 
-pub fn cauchy(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, median: T, scale: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).cauchy(allocator, dims, median, scale, seed);
+pub fn cauchy(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, median_value: T, scale: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).cauchy(allocator, dims, median_value, scale, seed);
 }
 
 pub fn laplace(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) TensorError!Tensor(T) {
@@ -3547,6 +3678,26 @@ pub fn logSoftmax(comptime T: type, input: Tensor(T), axis: isize) TensorError!T
 
 pub fn log_softmax(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
     return input.log_softmax(axis);
+}
+
+pub fn median(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.median(axis, keepdims);
+}
+
+pub fn quantile(comptime T: type, input: Tensor(T), q: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.quantile(q, axis, keepdims);
+}
+
+pub fn percentile(comptime T: type, input: Tensor(T), p: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.percentile(p, axis, keepdims);
+}
+
+pub fn cov(comptime T: type, input: Tensor(T), rowvar: bool, correction: T) TensorError!Tensor(T) {
+    return input.cov(rowvar, correction);
+}
+
+pub fn corrcoef(comptime T: type, input: Tensor(T), rowvar: bool) TensorError!Tensor(T) {
+    return input.corrcoef(rowvar);
 }
 
 pub fn sort(comptime T: type, input: Tensor(T), axis: ?isize) TensorError!Tensor(T) {
@@ -4022,6 +4173,68 @@ test "tensor min max arg reductions and topk" {
     defer row_unsorted.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 9, 5, 4, 8 }, row_unsorted.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 0, 1 }, row_unsorted.indices.data);
+}
+
+test "array median quantile covariance and corrcoef" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 4, 2, 8, 3, 9 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var med_flat = try median(f64, a, null, false);
+    defer med_flat.deinit();
+    try std.testing.expectEqual(@as(usize, 0), med_flat.shape.len);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.5), med_flat.data[0], 1e-12);
+
+    var med_rows = try a.median(1, false);
+    defer med_rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, med_rows.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 8 }, med_rows.data);
+
+    var q_cols = try quantile(f64, a, 0.25, 0, true);
+    defer q_cols.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, q_cols.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 2.75, 3.25, 3.75 }, q_cols.data);
+
+    var p_flat = try percentile(f64, a, 75, null, false);
+    defer p_flat.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 7), p_flat.data[0], 1e-12);
+    try std.testing.expectError(error.InvalidShape, a.quantile(1.5, null, false));
+
+    var obs_by_var = try array(f64, gpa, &.{
+        1, 2,
+        2, 4,
+        3, 6,
+    }, &.{ 3, 2 });
+    defer obs_by_var.deinit();
+
+    var covariance = try cov(f64, obs_by_var, false, 1);
+    defer covariance.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, covariance.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 2, 4 }, covariance.data);
+
+    var corr = try obs_by_var.corrcoef(false);
+    defer corr.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, corr.data);
+
+    var rowvar_data = try array(f64, gpa, &.{
+        1, 2, 3,
+        2, 4, 6,
+    }, &.{ 2, 3 });
+    defer rowvar_data.deinit();
+    var row_cov = try rowvar_data.cov(true, 1);
+    defer row_cov.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 2, 4 }, row_cov.data);
+
+    var v = try array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    defer v.deinit();
+    var var_scalar = try v.cov(true, 1);
+    defer var_scalar.deinit();
+    try std.testing.expectEqual(@as(usize, 0), var_scalar.shape.len);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), var_scalar.data[0], 1e-12);
+    var corr_scalar = try corrcoef(f64, v, true);
+    defer corr_scalar.deinit();
+    try std.testing.expectEqual(@as(usize, 0), corr_scalar.shape.len);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), corr_scalar.data[0], 1e-12);
 }
 
 test "array sort argsort and partition axes" {
