@@ -869,13 +869,37 @@ pub fn ArrayView(comptime T: type) type {
             return self.shape.len;
         }
 
+        pub fn dim(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn rank(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn numDims(self: Self) usize {
+            return self.ndim();
+        }
+
         pub fn numel(self: Self) usize {
             return product(self.shape);
+        }
+
+        pub fn nelement(self: Self) usize {
+            return self.numel();
+        }
+
+        pub fn isEmpty(self: Self) bool {
+            return self.numel() == 0;
         }
 
         pub fn size(self: Self, axis_opt: ?isize) ArrayError!usize {
             if (axis_opt) |axis_index| return self.shape[try normalizeDim(axis_index, self.shape.len)];
             return self.numel();
+        }
+
+        pub fn shapeAt(self: Self, axis_index: isize) ArrayError!usize {
+            return self.shape[try normalizeDim(axis_index, self.shape.len)];
         }
 
         pub fn len(self: Self) ArrayError!usize {
@@ -885,6 +909,19 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn stride(self: Self, axis_index: isize) ArrayError!usize {
             return self.strides[try normalizeDim(axis_index, self.shape.len)];
+        }
+
+        pub fn strideAt(self: Self, axis_index: isize) ArrayError!usize {
+            return self.stride(axis_index);
+        }
+
+        pub fn elementSize(self: Self) usize {
+            _ = self;
+            return @sizeOf(T);
+        }
+
+        pub fn nbytes(self: Self) usize {
+            return self.numel() * @sizeOf(T);
         }
 
         pub fn sameShape(self: Self, other: Self) bool {
@@ -904,6 +941,10 @@ pub fn ArrayView(comptime T: type) type {
                 expected *= self.shape[i];
             }
             return true;
+        }
+
+        pub fn is_contiguous(self: Self) bool {
+            return self.isContiguous();
         }
 
         fn offsetOf(self: Self, indices: []const usize) ArrayError!usize {
@@ -980,6 +1021,54 @@ pub fn ArrayView(comptime T: type) type {
             return self.toArray();
         }
 
+        pub fn emptyLike(self: Self) ArrayError!Array(T) {
+            return Array(T).empty(self.allocator, self.shape);
+        }
+
+        pub fn zerosLike(self: Self) ArrayError!Array(T) {
+            return Array(T).zeros(self.allocator, self.shape);
+        }
+
+        pub fn onesLike(self: Self) ArrayError!Array(T) {
+            return Array(T).ones(self.allocator, self.shape);
+        }
+
+        pub fn fullLike(self: Self, value: T) ArrayError!Array(T) {
+            return Array(T).full(self.allocator, self.shape, value);
+        }
+
+        pub fn newEmpty(self: Self, dims: []const usize) ArrayError!Array(T) {
+            return Array(T).empty(self.allocator, dims);
+        }
+
+        pub fn new_empty(self: Self, dims: []const usize) ArrayError!Array(T) {
+            return self.newEmpty(dims);
+        }
+
+        pub fn newZeros(self: Self, dims: []const usize) ArrayError!Array(T) {
+            return Array(T).zeros(self.allocator, dims);
+        }
+
+        pub fn new_zeros(self: Self, dims: []const usize) ArrayError!Array(T) {
+            return self.newZeros(dims);
+        }
+
+        pub fn newOnes(self: Self, dims: []const usize) ArrayError!Array(T) {
+            return Array(T).ones(self.allocator, dims);
+        }
+
+        pub fn new_ones(self: Self, dims: []const usize) ArrayError!Array(T) {
+            return self.newOnes(dims);
+        }
+
+        pub fn newFull(self: Self, dims: []const usize, value: T) ArrayError!Array(T) {
+            return Array(T).full(self.allocator, dims, value);
+        }
+
+        pub fn new_full(self: Self, dims: []const usize, value: T) ArrayError!Array(T) {
+            return self.newFull(dims, value);
+        }
+
         pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -1017,9 +1106,9 @@ pub fn ArrayView(comptime T: type) type {
             defer self.allocator.free(dims);
             const stride_values = try self.allocator.alloc(usize, self.strides.len + 1);
             defer self.allocator.free(stride_values);
-            for (self.shape[0..axis], 0..) |dim, i| dims[i] = dim;
+            for (self.shape[0..axis], 0..) |extent, i| dims[i] = extent;
             dims[axis] = window_count;
-            for (self.shape[axis + 1 ..], axis + 1..) |dim, i| dims[i] = dim;
+            for (self.shape[axis + 1 ..], axis + 1..) |extent, i| dims[i] = extent;
             dims[dims.len - 1] = window_size;
             for (self.strides[0..axis], 0..) |stride_value, i| stride_values[i] = stride_value;
             stride_values[axis] = self.strides[axis] * step;
@@ -2347,8 +2436,8 @@ pub fn ArrayView(comptime T: type) type {
                 @memcpy(out_shape, self.shape);
                 out_shape[axis] = 1;
             } else {
-                for (self.shape[0..axis], 0..) |dim, i| out_shape[i] = dim;
-                for (self.shape[axis + 1 ..], axis..) |dim, i| out_shape[i] = dim;
+                for (self.shape[0..axis], 0..) |extent, i| out_shape[i] = extent;
+                for (self.shape[axis + 1 ..], axis..) |extent, i| out_shape[i] = extent;
             }
             return out_shape;
         }
@@ -2362,8 +2451,8 @@ pub fn ArrayView(comptime T: type) type {
             }
         }
 
-        fn keepDimsAllOnes(allocator: std.mem.Allocator, rank: usize) ArrayError![]usize {
-            const dims = try allocator.alloc(usize, rank);
+        fn keepDimsAllOnes(allocator: std.mem.Allocator, rank_count: usize) ArrayError![]usize {
+            const dims = try allocator.alloc(usize, rank_count);
             @memset(dims, 1);
             return dims;
         }
@@ -3961,8 +4050,8 @@ pub fn ArrayView(comptime T: type) type {
             const shape = try self.allocator.alloc(usize, self.shape.len - 1);
             errdefer self.allocator.free(shape);
             const strides = try self.allocator.alloc(usize, self.strides.len - 1);
-            for (self.shape[0..axis], 0..) |dim, i| shape[i] = dim;
-            for (self.shape[axis + 1 ..], axis..) |dim, i| shape[i] = dim;
+            for (self.shape[0..axis], 0..) |extent, i| shape[i] = extent;
+            for (self.shape[axis + 1 ..], axis..) |extent, i| shape[i] = extent;
             for (self.strides[0..axis], 0..) |stride_value, i| strides[i] = stride_value;
             for (self.strides[axis + 1 ..], axis..) |stride_value, i| strides[i] = stride_value;
             return .{
@@ -3987,15 +4076,15 @@ pub fn ArrayView(comptime T: type) type {
             defer stride_list.deinit(self.allocator);
             if (axis_opt) |axis_index| {
                 const axis = try normalizeDim(axis_index, self.shape.len);
-                for (self.shape, self.strides, 0..) |dim, stride_value, i| {
-                    if (i == axis and dim == 1) continue;
-                    try shape_list.append(self.allocator, dim);
+                for (self.shape, self.strides, 0..) |extent, stride_value, i| {
+                    if (i == axis and extent == 1) continue;
+                    try shape_list.append(self.allocator, extent);
                     try stride_list.append(self.allocator, stride_value);
                 }
             } else {
-                for (self.shape, self.strides) |dim, stride_value| {
-                    if (dim == 1) continue;
-                    try shape_list.append(self.allocator, dim);
+                for (self.shape, self.strides) |extent, stride_value| {
+                    if (extent == 1) continue;
+                    try shape_list.append(self.allocator, extent);
                     try stride_list.append(self.allocator, stride_value);
                 }
             }
@@ -4003,19 +4092,19 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
-            const rank = self.shape.len + 1;
+            const rank_count = self.shape.len + 1;
             const axis = if (axis_index < 0) blk: {
-                const signed_rank: isize = @intCast(rank);
+                const signed_rank: isize = @intCast(rank_count);
                 const normalized = signed_rank + axis_index;
                 if (normalized < 0 or normalized >= signed_rank) return error.InvalidAxis;
                 break :blk @as(usize, @intCast(normalized));
-            } else try canonicalAxis(@intCast(axis_index), rank);
-            const shape = try self.allocator.alloc(usize, rank);
+            } else try canonicalAxis(@intCast(axis_index), rank_count);
+            const shape = try self.allocator.alloc(usize, rank_count);
             errdefer self.allocator.free(shape);
-            const strides = try self.allocator.alloc(usize, rank);
-            for (self.shape[0..axis], 0..) |dim, i| shape[i] = dim;
+            const strides = try self.allocator.alloc(usize, rank_count);
+            for (self.shape[0..axis], 0..) |extent, i| shape[i] = extent;
             shape[axis] = 1;
-            for (self.shape[axis..], axis + 1..) |dim, i| shape[i] = dim;
+            for (self.shape[axis..], axis + 1..) |extent, i| shape[i] = extent;
             for (self.strides[0..axis], 0..) |stride_value, i| strides[i] = stride_value;
             strides[axis] = 0;
             for (self.strides[axis..], axis + 1..) |stride_value, i| strides[i] = stride_value;
@@ -4204,6 +4293,38 @@ pub fn Array(comptime T: type) type {
 
         pub fn fullLike(self: Self, value: T) ArrayError!Self {
             return Self.full(self.allocator, self.shape, value);
+        }
+
+        pub fn newEmpty(self: Self, dims: []const usize) ArrayError!Self {
+            return Self.empty(self.allocator, dims);
+        }
+
+        pub fn new_empty(self: Self, dims: []const usize) ArrayError!Self {
+            return self.newEmpty(dims);
+        }
+
+        pub fn newZeros(self: Self, dims: []const usize) ArrayError!Self {
+            return Self.zeros(self.allocator, dims);
+        }
+
+        pub fn new_zeros(self: Self, dims: []const usize) ArrayError!Self {
+            return self.newZeros(dims);
+        }
+
+        pub fn newOnes(self: Self, dims: []const usize) ArrayError!Self {
+            return Self.ones(self.allocator, dims);
+        }
+
+        pub fn new_ones(self: Self, dims: []const usize) ArrayError!Self {
+            return self.newOnes(dims);
+        }
+
+        pub fn newFull(self: Self, dims: []const usize, value: T) ArrayError!Self {
+            return Self.full(self.allocator, dims, value);
+        }
+
+        pub fn new_full(self: Self, dims: []const usize, value: T) ArrayError!Self {
+            return self.newFull(dims, value);
         }
 
         pub fn arange(allocator: std.mem.Allocator, start: T, stop: T, step: T) ArrayError!Self {
@@ -5278,9 +5399,33 @@ pub fn Array(comptime T: type) type {
             return self.shape.len;
         }
 
+        pub fn dim(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn rank(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn numDims(self: Self) usize {
+            return self.ndim();
+        }
+
         pub fn size(self: Self, axis_opt: ?isize) ArrayError!usize {
             if (axis_opt) |d| return self.shape[try normalizeDim(d, self.shape.len)];
             return self.numel();
+        }
+
+        pub fn nelement(self: Self) usize {
+            return self.numel();
+        }
+
+        pub fn isEmpty(self: Self) bool {
+            return self.numel() == 0;
+        }
+
+        pub fn shapeAt(self: Self, axis_index: isize) ArrayError!usize {
+            return self.shape[try normalizeDim(axis_index, self.shape.len)];
         }
 
         pub fn len(self: Self) ArrayError!usize {
@@ -5290,6 +5435,19 @@ pub fn Array(comptime T: type) type {
 
         pub fn stride(self: Self, axis_index: isize) ArrayError!usize {
             return self.strides[try normalizeDim(axis_index, self.shape.len)];
+        }
+
+        pub fn strideAt(self: Self, axis_index: isize) ArrayError!usize {
+            return self.stride(axis_index);
+        }
+
+        pub fn elementSize(self: Self) usize {
+            _ = self;
+            return @sizeOf(T);
+        }
+
+        pub fn nbytes(self: Self) usize {
+            return self.numel() * @sizeOf(T);
         }
 
         pub fn sameShape(self: Self, other: Self) bool {
@@ -5305,6 +5463,10 @@ pub fn Array(comptime T: type) type {
                 expected *= self.shape[i];
             }
             return true;
+        }
+
+        pub fn is_contiguous(self: Self) bool {
+            return self.isContiguous();
         }
 
         pub fn contiguous(self: Self) ArrayError!Self {
@@ -5545,14 +5707,14 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
-            const rank = self.shape.len + 1;
+            const rank_count = self.shape.len + 1;
             const axis = if (axis_index < 0) blk: {
-                const signed_rank: isize = @intCast(rank);
+                const signed_rank: isize = @intCast(rank_count);
                 const normalized = signed_rank + axis_index;
                 if (normalized < 0 or normalized >= signed_rank) return error.InvalidAxis;
                 break :blk @as(usize, @intCast(normalized));
-            } else try canonicalAxis(@intCast(axis_index), rank);
-            var dims = try self.allocator.alloc(usize, rank);
+            } else try canonicalAxis(@intCast(axis_index), rank_count);
+            var dims = try self.allocator.alloc(usize, rank_count);
             defer self.allocator.free(dims);
             for (self.shape[0..axis], 0..) |d, i| dims[i] = d;
             dims[axis] = 1;
@@ -5640,8 +5802,8 @@ pub fn Array(comptime T: type) type {
 
             var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
             defer self.allocator.free(slice_shape);
-            for (self.shape[0..axis], 0..) |dim, i| slice_shape[i] = dim;
-            for (self.shape[axis + 1 ..], axis..) |dim, i| slice_shape[i] = dim;
+            for (self.shape[0..axis], 0..) |extent, i| slice_shape[i] = extent;
+            for (self.shape[axis + 1 ..], axis..) |extent, i| slice_shape[i] = extent;
             const slice_count = try numelFrom(slice_shape);
             const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
             defer self.allocator.free(slice_multi);
@@ -5924,7 +6086,7 @@ pub fn Array(comptime T: type) type {
             if (self.data.len == 0) return error.EmptyArray;
             var out_shape = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(out_shape);
-            for (self.shape, before, after, 0..) |dim, before_i, after_i, axis| out_shape[axis] = dim + before_i + after_i;
+            for (self.shape, before, after, 0..) |extent, before_i, after_i, axis| out_shape[axis] = extent + before_i + after_i;
             var out = try Self.empty(self.allocator, out_shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
@@ -5934,8 +6096,8 @@ pub fn Array(comptime T: type) type {
             defer self.allocator.free(in_multi);
             for (out.data, 0..) |*slot, flat| {
                 unravelIndexInto(flat, out_shape, out_multi);
-                for (out_multi, before, self.shape, 0..) |coord, before_i, dim, axis| {
-                    in_multi[axis] = edgePadCoord(coord, before_i, dim);
+                for (out_multi, before, self.shape, 0..) |coord, before_i, extent, axis| {
+                    in_multi[axis] = edgePadCoord(coord, before_i, extent);
                 }
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
@@ -5947,10 +6109,10 @@ pub fn Array(comptime T: type) type {
             if (self.data.len == 0) return error.EmptyArray;
             var out_shape = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(out_shape);
-            for (self.shape, before, after, 0..) |dim, before_i, after_i, axis| {
-                if (dim < 2 and (before_i != 0 or after_i != 0)) return error.InvalidShape;
-                if (dim >= 2 and (before_i >= dim or after_i >= dim)) return error.InvalidShape;
-                out_shape[axis] = dim + before_i + after_i;
+            for (self.shape, before, after, 0..) |extent, before_i, after_i, axis| {
+                if (extent < 2 and (before_i != 0 or after_i != 0)) return error.InvalidShape;
+                if (extent >= 2 and (before_i >= extent or after_i >= extent)) return error.InvalidShape;
+                out_shape[axis] = extent + before_i + after_i;
             }
             var out = try Self.empty(self.allocator, out_shape);
             errdefer out.deinit();
@@ -5961,8 +6123,8 @@ pub fn Array(comptime T: type) type {
             defer self.allocator.free(in_multi);
             for (out.data, 0..) |*slot, flat| {
                 unravelIndexInto(flat, out_shape, out_multi);
-                for (out_multi, before, self.shape, 0..) |coord, before_i, dim, axis| {
-                    in_multi[axis] = if (dim == 1) 0 else reflectPadCoord(coord, before_i, dim);
+                for (out_multi, before, self.shape, 0..) |coord, before_i, extent, axis| {
+                    in_multi[axis] = if (extent == 1) 0 else reflectPadCoord(coord, before_i, extent);
                 }
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
@@ -5974,7 +6136,7 @@ pub fn Array(comptime T: type) type {
             if (self.data.len == 0) return error.EmptyArray;
             var out_shape = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(out_shape);
-            for (self.shape, before, after, 0..) |dim, before_i, after_i, axis| out_shape[axis] = dim + before_i + after_i;
+            for (self.shape, before, after, 0..) |extent, before_i, after_i, axis| out_shape[axis] = extent + before_i + after_i;
             var out = try Self.empty(self.allocator, out_shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
@@ -5984,8 +6146,8 @@ pub fn Array(comptime T: type) type {
             defer self.allocator.free(in_multi);
             for (out.data, 0..) |*slot, flat| {
                 unravelIndexInto(flat, out_shape, out_multi);
-                for (out_multi, before, self.shape, 0..) |coord, before_i, dim, axis| {
-                    in_multi[axis] = wrapPadCoord(coord, before_i, dim);
+                for (out_multi, before, self.shape, 0..) |coord, before_i, extent, axis| {
+                    in_multi[axis] = wrapPadCoord(coord, before_i, extent);
                 }
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
@@ -5997,7 +6159,7 @@ pub fn Array(comptime T: type) type {
             if (self.data.len == 0) return error.EmptyArray;
             var out_shape = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(out_shape);
-            for (self.shape, before, after, 0..) |dim, before_i, after_i, axis| out_shape[axis] = dim + before_i + after_i;
+            for (self.shape, before, after, 0..) |extent, before_i, after_i, axis| out_shape[axis] = extent + before_i + after_i;
             var out = try Self.empty(self.allocator, out_shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
@@ -6007,8 +6169,8 @@ pub fn Array(comptime T: type) type {
             defer self.allocator.free(in_multi);
             for (out.data, 0..) |*slot, flat| {
                 unravelIndexInto(flat, out_shape, out_multi);
-                for (out_multi, before, self.shape, 0..) |coord, before_i, dim, axis| {
-                    in_multi[axis] = symmetricPadCoord(coord, before_i, dim);
+                for (out_multi, before, self.shape, 0..) |coord, before_i, extent, axis| {
+                    in_multi[axis] = symmetricPadCoord(coord, before_i, extent);
                 }
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
@@ -8758,8 +8920,8 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        fn keepDimsAllOnes(allocator: std.mem.Allocator, rank: usize) ArrayError![]usize {
-            const dims = try allocator.alloc(usize, rank);
+        fn keepDimsAllOnes(allocator: std.mem.Allocator, rank_count: usize) ArrayError![]usize {
+            const dims = try allocator.alloc(usize, rank_count);
             @memset(dims, 1);
             return dims;
         }
@@ -9975,8 +10137,8 @@ pub fn Array(comptime T: type) type {
 
             var out_shape = try self.allocator.alloc(usize, self.shape.len - 1);
             defer self.allocator.free(out_shape);
-            for (self.shape[0..axis], 0..) |dim, i| out_shape[i] = dim;
-            for (self.shape[axis + 1 ..], axis..) |dim, i| out_shape[i] = dim;
+            for (self.shape[0..axis], 0..) |extent, i| out_shape[i] = extent;
+            for (self.shape[axis + 1 ..], axis..) |extent, i| out_shape[i] = extent;
 
             var out = try Self.zeros(self.allocator, out_shape);
             errdefer out.deinit();
@@ -10024,8 +10186,8 @@ pub fn Array(comptime T: type) type {
 
             var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
             defer self.allocator.free(slice_shape);
-            for (self.shape[0..axis], 0..) |dim, i| slice_shape[i] = dim;
-            for (self.shape[axis + 1 ..], axis..) |dim, i| slice_shape[i] = dim;
+            for (self.shape[0..axis], 0..) |extent, i| slice_shape[i] = extent;
+            for (self.shape[axis + 1 ..], axis..) |extent, i| slice_shape[i] = extent;
 
             const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
             defer self.allocator.free(slice_multi);
@@ -10383,7 +10545,7 @@ pub fn Array(comptime T: type) type {
             const out_rank = batch_shape.len + @as(usize, if (lhs_vec or rhs_vec) 1 else 2);
             var out_shape = try self.allocator.alloc(usize, out_rank);
             defer self.allocator.free(out_shape);
-            for (batch_shape, 0..) |dim, idx| out_shape[idx] = dim;
+            for (batch_shape, 0..) |extent, idx| out_shape[idx] = extent;
             if (lhs_vec) {
                 out_shape[batch_shape.len] = rhs_n;
             } else if (rhs_vec) {
@@ -10544,12 +10706,12 @@ pub fn Array(comptime T: type) type {
             const out_shape = try self.allocator.alloc(usize, out_rank);
             defer self.allocator.free(out_shape);
             var write: usize = 0;
-            for (self.shape[0 .. self.shape.len - 1]) |dim| {
-                out_shape[write] = dim;
+            for (self.shape[0 .. self.shape.len - 1]) |extent| {
+                out_shape[write] = extent;
                 write += 1;
             }
-            for (other.shape[0 .. other.shape.len - 1]) |dim| {
-                out_shape[write] = dim;
+            for (other.shape[0 .. other.shape.len - 1]) |extent| {
+                out_shape[write] = extent;
                 write += 1;
             }
 
@@ -10663,15 +10825,15 @@ pub fn Array(comptime T: type) type {
             const out_shape = try self.allocator.alloc(usize, out_rank);
             defer self.allocator.free(out_shape);
             var out_pos: usize = 0;
-            for (self.shape, 0..) |dim, axis| {
+            for (self.shape, 0..) |extent, axis| {
                 if (!seen_self[axis]) {
-                    out_shape[out_pos] = dim;
+                    out_shape[out_pos] = extent;
                     out_pos += 1;
                 }
             }
-            for (other.shape, 0..) |dim, axis| {
+            for (other.shape, 0..) |extent, axis| {
                 if (!seen_other[axis]) {
-                    out_shape[out_pos] = dim;
+                    out_shape[out_pos] = extent;
                     out_pos += 1;
                 }
             }
@@ -11196,13 +11358,13 @@ pub fn Array(comptime T: type) type {
 
         pub fn concatenate(allocator: std.mem.Allocator, arrays: []const Self, axis_index: isize) ArrayError!Self {
             if (arrays.len == 0) return error.EmptyArray;
-            const rank = arrays[0].shape.len;
-            const axis = try normalizeDim(axis_index, rank);
+            const rank_count = arrays[0].shape.len;
+            const axis = try normalizeDim(axis_index, rank_count);
             var out_shape = try allocator.dupe(usize, arrays[0].shape);
             defer allocator.free(out_shape);
             out_shape[axis] = 0;
             for (arrays) |t| {
-                if (t.shape.len != rank) return error.ShapeMismatch;
+                if (t.shape.len != rank_count) return error.ShapeMismatch;
                 for (t.shape, 0..) |d, i| {
                     if (i == axis) continue;
                     if (d != arrays[0].shape[i]) return error.ShapeMismatch;
@@ -11213,7 +11375,7 @@ pub fn Array(comptime T: type) type {
             if (out.data.len == 0) return out;
             const out_multi = try allocator.alloc(usize, out_shape.len);
             defer allocator.free(out_multi);
-            var in_multi = try allocator.alloc(usize, rank);
+            var in_multi = try allocator.alloc(usize, rank_count);
             defer allocator.free(in_multi);
             for (out.data, 0..) |*slot, flat| {
                 unravelIndexInto(flat, out_shape, out_multi);
@@ -11237,14 +11399,14 @@ pub fn Array(comptime T: type) type {
 
         pub fn stack(allocator: std.mem.Allocator, arrays: []const Self, axis_index: isize) ArrayError!Self {
             if (arrays.len == 0) return error.EmptyArray;
-            const rank = arrays[0].shape.len + 1;
+            const rank_count = arrays[0].shape.len + 1;
             const axis = if (axis_index < 0) blk: {
-                const signed_rank: isize = @intCast(rank);
+                const signed_rank: isize = @intCast(rank_count);
                 const normalized = signed_rank + axis_index;
                 if (normalized < 0 or normalized >= signed_rank) return error.InvalidAxis;
                 break :blk @as(usize, @intCast(normalized));
-            } else try canonicalAxis(@intCast(axis_index), rank);
-            const out_shape = try allocator.alloc(usize, rank);
+            } else try canonicalAxis(@intCast(axis_index), rank_count);
+            const out_shape = try allocator.alloc(usize, rank_count);
             defer allocator.free(out_shape);
             for (arrays[1..]) |t| {
                 if (!std.mem.eql(usize, t.shape, arrays[0].shape)) return error.ShapeMismatch;
@@ -11413,8 +11575,8 @@ pub fn Array(comptime T: type) type {
             offset += 2;
             std.mem.writeInt(u64, out[offset..][0..8], @intCast(self.data.len), .little);
             offset += 8;
-            for (self.shape) |dim| {
-                std.mem.writeInt(u64, out[offset..][0..8], @intCast(dim), .little);
+            for (self.shape) |extent| {
+                std.mem.writeInt(u64, out[offset..][0..8], @intCast(extent), .little);
                 offset += 8;
             }
             @memcpy(out[offset..][0..data_bytes.len], data_bytes);
@@ -11443,15 +11605,15 @@ pub fn Array(comptime T: type) type {
             const archived_dtype = DType.fromTag(archive[offset]) orelse return error.InvalidShape;
             if (archived_dtype != DType.of(T)) return error.TypeUnsupported;
             offset += 1;
-            const rank = std.mem.readInt(u16, archive[offset..][0..2], .little);
+            const rank_count = std.mem.readInt(u16, archive[offset..][0..2], .little);
             offset += 2;
             const element_count: usize = @intCast(std.mem.readInt(u64, archive[offset..][0..8], .little));
             offset += 8;
-            if (archive.len < min_len + @as(usize, rank) * 8) return error.InvalidShape;
-            const dims = try allocator.alloc(usize, rank);
+            if (archive.len < min_len + @as(usize, rank_count) * 8) return error.InvalidShape;
+            const dims = try allocator.alloc(usize, rank_count);
             defer allocator.free(dims);
-            for (dims) |*dim| {
-                dim.* = @intCast(std.mem.readInt(u64, archive[offset..][0..8], .little));
+            for (dims) |*extent| {
+                extent.* = @intCast(std.mem.readInt(u64, archive[offset..][0..8], .little));
                 offset += 8;
             }
             const n = try numelFrom(dims);
@@ -12188,8 +12350,30 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
     try std.testing.expectEqual(@as(usize, 2), a.ndim());
+    try std.testing.expectEqual(@as(usize, 2), a.dim());
+    try std.testing.expectEqual(@as(usize, 2), a.rank());
+    try std.testing.expectEqual(@as(usize, 2), a.numDims());
+    try std.testing.expectEqual(@as(usize, 6), a.numel());
+    try std.testing.expectEqual(@as(usize, 6), a.nelement());
+    try std.testing.expect(!a.isEmpty());
     try std.testing.expectEqual(@as(usize, 3), try a.size(1));
+    try std.testing.expectEqual(@as(usize, 3), try a.shapeAt(-1));
+    try std.testing.expectEqual(@as(usize, 3), try a.strideAt(0));
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.elementSize());
+    try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), a.nbytes());
+    try std.testing.expect(a.is_contiguous());
     try std.testing.expectEqual(@as(f64, 5), try a.at(&.{ 1, 1 }));
+    var empty_meta = try Array(f64).zeros(gpa, &.{ 0, 3 });
+    defer empty_meta.deinit();
+    try std.testing.expect(empty_meta.isEmpty());
+    try std.testing.expectEqual(@as(usize, 0), empty_meta.nbytes());
+    var new_zeros = try a.newZeros(&.{2});
+    defer new_zeros.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, new_zeros.data);
+    var new_full = try a.new_full(&.{ 1, 2 }, 7);
+    defer new_full.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, new_full.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 7 }, new_full.data);
 
     var u = try a.unsqueeze(0);
     defer u.deinit();
@@ -12349,6 +12533,27 @@ test "array view materializing shape wrappers" {
     defer view.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, view.shape);
     try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, view.strides);
+    try std.testing.expectEqual(@as(usize, 2), view.dim());
+    try std.testing.expectEqual(@as(usize, 2), view.rank());
+    try std.testing.expectEqual(@as(usize, 2), view.numDims());
+    try std.testing.expectEqual(@as(usize, 4), view.numel());
+    try std.testing.expectEqual(@as(usize, 4), view.nelement());
+    try std.testing.expect(!view.isEmpty());
+    try std.testing.expectEqual(@as(usize, 2), try view.shapeAt(-1));
+    try std.testing.expectEqual(@as(usize, 2), try view.strideAt(1));
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), view.elementSize());
+    try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), view.nbytes());
+    try std.testing.expect(!view.is_contiguous());
+    var view_zeros = try view.zerosLike();
+    defer view_zeros.deinit();
+    try std.testing.expectEqualSlices(usize, view.shape, view_zeros.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0 }, view_zeros.data);
+    var view_full = try view.fullLike(7);
+    defer view_full.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7 }, view_full.data);
+    var view_new_ones = try view.new_ones(&.{3});
+    defer view_new_ones.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1 }, view_new_ones.data);
 
     var repeated = try view.repeat(2, 1);
     defer repeated.deinit();
