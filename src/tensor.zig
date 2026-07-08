@@ -1553,6 +1553,12 @@ pub fn Tensor(comptime T: type) type {
         fn opAtan2(a: T, b: T) T {
             return std.math.atan2(a, b);
         }
+        fn opCopysign(a: T, b: T) T {
+            return std.math.copysign(a, b);
+        }
+        fn opHeaviside(a: T, b: T) T {
+            return if (a < zero(T)) zero(T) else if (a > zero(T)) one(T) else b;
+        }
         fn opNeg(a: T) T {
             return -a;
         }
@@ -1564,6 +1570,12 @@ pub fn Tensor(comptime T: type) type {
         }
         fn opLog(a: T) T {
             return std.math.log(T, std.math.e, a);
+        }
+        fn opLog2(a: T) T {
+            return std.math.log2(a);
+        }
+        fn opLog10(a: T) T {
+            return std.math.log10(a);
         }
         fn opSqrt(a: T) T {
             return std.math.sqrt(a);
@@ -1597,6 +1609,12 @@ pub fn Tensor(comptime T: type) type {
         }
         fn opExpm1(a: T) T {
             return std.math.expm1(a);
+        }
+        fn opDeg2rad(a: T) T {
+            return a * castValue(T, std.math.pi / 180.0);
+        }
+        fn opRad2deg(a: T) T {
+            return a * castValue(T, 180.0 / std.math.pi);
         }
         fn opFloor(a: T) T {
             return switch (@typeInfo(T)) {
@@ -1719,6 +1737,16 @@ pub fn Tensor(comptime T: type) type {
             return self.binaryTensor(other, opAtan2);
         }
 
+        pub fn copysign(self: Self, sign_values: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.binaryTensor(sign_values, opCopysign);
+        }
+
+        pub fn heaviside(self: Self, values_at_zero: Self) TensorError!Self {
+            ensureNumeric(T);
+            return self.binaryTensor(values_at_zero, opHeaviside);
+        }
+
         pub fn maximum(self: Self, other: Self) TensorError!Self {
             ensureNumeric(T);
             return self.binaryTensor(other, struct {
@@ -1804,6 +1832,16 @@ pub fn Tensor(comptime T: type) type {
             return self.binaryScalar(scalar, opAtan2);
         }
 
+        pub fn copysignScalar(self: Self, scalar: T) TensorError!Self {
+            ensureFloat(T);
+            return self.binaryScalar(scalar, opCopysign);
+        }
+
+        pub fn heavisideScalar(self: Self, value_at_zero: T) TensorError!Self {
+            ensureNumeric(T);
+            return self.binaryScalar(value_at_zero, opHeaviside);
+        }
+
         pub fn neg(self: Self) TensorError!Self {
             ensureNumeric(T);
             return self.unary(opNeg);
@@ -1849,6 +1887,16 @@ pub fn Tensor(comptime T: type) type {
             return self.unary(opLog);
         }
 
+        pub fn log2(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opLog2);
+        }
+
+        pub fn log10(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opLog10);
+        }
+
         pub fn log1p(self: Self) TensorError!Self {
             ensureFloat(T);
             return self.unary(opLog1p);
@@ -1877,6 +1925,16 @@ pub fn Tensor(comptime T: type) type {
         pub fn trunc(self: Self) TensorError!Self {
             ensureNumeric(T);
             return self.unary(opTrunc);
+        }
+
+        pub fn deg2rad(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opDeg2rad);
+        }
+
+        pub fn rad2deg(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opRad2deg);
         }
 
         pub fn sin(self: Self) TensorError!Self {
@@ -4246,6 +4304,14 @@ pub fn atan2(comptime T: type, y: Tensor(T), x: Tensor(T)) TensorError!Tensor(T)
     return y.atan2(x);
 }
 
+pub fn copysign(comptime T: type, magnitude: Tensor(T), sign_values: Tensor(T)) TensorError!Tensor(T) {
+    return magnitude.copysign(sign_values);
+}
+
+pub fn heaviside(comptime T: type, input: Tensor(T), values_at_zero: Tensor(T)) TensorError!Tensor(T) {
+    return input.heaviside(values_at_zero);
+}
+
 pub fn addScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
     return input.addScalar(scalar);
 }
@@ -4294,6 +4360,14 @@ pub fn atan2Scalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Te
     return input.atan2Scalar(scalar);
 }
 
+pub fn copysignScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.copysignScalar(scalar);
+}
+
+pub fn heavisideScalar(comptime T: type, input: Tensor(T), value_at_zero: T) TensorError!Tensor(T) {
+    return input.heavisideScalar(value_at_zero);
+}
+
 pub fn neg(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
     return input.neg();
 }
@@ -4330,6 +4404,14 @@ pub fn log(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
     return input.log();
 }
 
+pub fn log2(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.log2();
+}
+
+pub fn log10(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.log10();
+}
+
 pub fn log1p(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
     return input.log1p();
 }
@@ -4352,6 +4434,14 @@ pub fn round(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
 
 pub fn trunc(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
     return input.trunc();
+}
+
+pub fn deg2rad(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.deg2rad();
+}
+
+pub fn rad2deg(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.rad2deg();
 }
 
 pub fn sin(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
@@ -4870,6 +4960,28 @@ test "array binary math wrappers and clamp aliases" {
     try std.testing.expectApproxEqAbs(@as(f64, 0), angles.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi / 4.0, angles.data[1], 1e-12);
 
+    var magnitudes = try array(f64, gpa, &.{ -1, 2, -3 }, &.{3});
+    defer magnitudes.deinit();
+    var signs_for_copy = try array(f64, gpa, &.{ 4, -5, -6 }, &.{3});
+    defer signs_for_copy.deinit();
+    var copied = try copysign(f64, magnitudes, signs_for_copy);
+    defer copied.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, -2, -3 }, copied.data);
+    var copied_scalar = try magnitudes.copysignScalar(-1);
+    defer copied_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, -2, -3 }, copied_scalar.data);
+
+    var heav = try array(f64, gpa, &.{ -2, 0, 3 }, &.{3});
+    defer heav.deinit();
+    var hzero = try array(f64, gpa, &.{0.5}, &.{1});
+    defer hzero.deinit();
+    var heav_out = try heaviside(f64, heav, hzero);
+    defer heav_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0.5, 1 }, heav_out.data);
+    var heav_scalar = try heav.heavisideScalar(0.25);
+    defer heav_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0.25, 1 }, heav_scalar.data);
+
     var ints = try array(i32, gpa, &.{ -5, 5, 7 }, &.{3});
     defer ints.deinit();
     var divisors = try array(i32, gpa, &.{ 2, 2, 3 }, &.{3});
@@ -5158,6 +5270,28 @@ test "array extended unary math and predicates" {
     defer l1.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), l1.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.ln2, l1.data[1], 1e-12);
+    var powers = try array(f64, gpa, &.{ 1, 10, 100 }, &.{3});
+    defer powers.deinit();
+    var log2_out = try log2(f64, powers);
+    defer log2_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), log2_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log2(@as(f64, 10)), log2_out.data[1], 1e-12);
+    var log10_out = try powers.log10();
+    defer log10_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 1, 2 }, log10_out.data);
+
+    var degrees = try array(f64, gpa, &.{ 0, 90, 180 }, &.{3});
+    defer degrees.deinit();
+    var radians = try deg2rad(f64, degrees);
+    defer radians.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), radians.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pi / 2.0, radians.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pi, radians.data[2], 1e-12);
+    var roundtrip_degrees = try rad2deg(f64, radians);
+    defer roundtrip_degrees.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), roundtrip_degrees.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 90), roundtrip_degrees.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 180), roundtrip_degrees.data[2], 1e-12);
 
     var angles = try array(f64, gpa, &.{ 0, std.math.pi / 2.0 }, &.{2});
     defer angles.deinit();
