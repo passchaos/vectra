@@ -2683,6 +2683,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.nanToNum(nan_value, posinf_value, neginf_value);
         }
 
+        pub fn nanToNumDefault(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanToNumDefault();
+        }
+
+        pub fn nan_to_num_default(self: Self) ArrayError!Array(T) {
+            return self.nanToNumDefault();
+        }
+
         pub fn cumsum(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -8799,15 +8809,23 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn maxFiniteValue() T {
+            if (comptime T == BFloat16) return .{ .bits = 0x7f7f };
+            return switch (@typeInfo(T)) {
+                .float => std.math.floatMax(T),
+                else => @compileError("maxFiniteValue requires a floating-point array"),
+            };
+        }
+
         pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Self {
             ensureFloat(T);
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
-                slot.* = if (std.math.isNan(value))
+                slot.* = if (opIsNan(value))
                     nan_value
-                else if (std.math.isPositiveInf(value))
+                else if (opIsPosInf(value))
                     posinf_value
-                else if (std.math.isNegativeInf(value))
+                else if (opIsNegInf(value))
                     neginf_value
                 else
                     value;
@@ -8817,6 +8835,15 @@ pub fn Array(comptime T: type) type {
 
         pub fn nan_to_num(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Self {
             return self.nanToNum(nan_value, posinf_value, neginf_value);
+        }
+
+        pub fn nanToNumDefault(self: Self) ArrayError!Self {
+            const max_value = maxFiniteValue();
+            return self.nanToNum(zero(T), max_value, negValue(T, max_value));
+        }
+
+        pub fn nan_to_num_default(self: Self) ArrayError!Self {
+            return self.nanToNumDefault();
         }
 
         pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
@@ -12734,6 +12761,12 @@ test "array non contiguous view helpers" {
     var cleaned_view = try special_view.nanToNum(0, 9, -9);
     defer cleaned_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 9, -9 }, cleaned_view.data);
+    var default_cleaned_view = try special_view.nanToNumDefault();
+    defer default_cleaned_view.deinit();
+    try std.testing.expectEqual(@as(f64, 1), default_cleaned_view.data[0]);
+    try std.testing.expectEqual(@as(f64, 0), default_cleaned_view.data[1]);
+    try std.testing.expect(default_cleaned_view.data[2] > 1e300);
+    try std.testing.expect(default_cleaned_view.data[3] < -1e300);
     var nan_stats = try Array(f64).fromSlice(gpa, &.{ 1, 2, std.math.nan(f64), 4, 5, 6 }, &.{ 2, 3 });
     defer nan_stats.deinit();
     var nan_stats_view = try nan_stats.transposeView();
@@ -15820,6 +15853,11 @@ test "array bfloat16 arithmetic and reductions" {
     var nan_mask = try special.isNan();
     defer nan_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, true }, nan_mask.data);
+    var cleaned_default = try special.nan_to_num_default();
+    defer cleaned_default.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1), cleaned_default.data[0].toF32(), 1e-2);
+    try std.testing.expect(cleaned_default.data[1].toF32() > 3e38);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), cleaned_default.data[2].toF32(), 1e-2);
 }
 
 test "array complex dtype and arithmetic" {
