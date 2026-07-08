@@ -581,6 +581,62 @@ fn canonicalAxis(axis: usize, rank: usize) ArrayError!usize {
     return axis;
 }
 
+fn normalizeUniqueAxes(allocator: std.mem.Allocator, axes: []const isize, rank: usize) ArrayError![]usize {
+    const normalized = try allocator.alloc(usize, axes.len);
+    errdefer allocator.free(normalized);
+    var seen = try allocator.alloc(bool, rank);
+    defer allocator.free(seen);
+    @memset(seen, false);
+    for (axes, 0..) |axis_index, i| {
+        const axis = try normalizeDim(axis_index, rank);
+        if (seen[axis]) return error.InvalidAxis;
+        seen[axis] = true;
+        normalized[i] = axis;
+    }
+    return normalized;
+}
+
+fn movedimManyAxes(allocator: std.mem.Allocator, rank: usize, sources: []const isize, destinations: []const isize) ArrayError![]usize {
+    if (sources.len != destinations.len) return error.ShapeMismatch;
+    const normalized_sources = try normalizeUniqueAxes(allocator, sources, rank);
+    defer allocator.free(normalized_sources);
+    const normalized_destinations = try normalizeUniqueAxes(allocator, destinations, rank);
+    defer allocator.free(normalized_destinations);
+
+    var is_source = try allocator.alloc(bool, rank);
+    defer allocator.free(is_source);
+    @memset(is_source, false);
+    for (normalized_sources) |axis| is_source[axis] = true;
+
+    const remaining = try allocator.alloc(usize, rank - sources.len);
+    defer allocator.free(remaining);
+    var remaining_len: usize = 0;
+    for (0..rank) |axis| {
+        if (is_source[axis]) continue;
+        remaining[remaining_len] = axis;
+        remaining_len += 1;
+    }
+
+    const axes = try allocator.alloc(usize, rank);
+    errdefer allocator.free(axes);
+    var read_remaining: usize = 0;
+    for (axes, 0..) |*slot, out_axis| {
+        var placed = false;
+        for (normalized_sources, normalized_destinations) |source_axis, destination_axis| {
+            if (destination_axis == out_axis) {
+                slot.* = source_axis;
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            slot.* = remaining[read_remaining];
+            read_remaining += 1;
+        }
+    }
+    return axes;
+}
+
 fn product(dims: []const usize) usize {
     var out: usize = 1;
     for (dims) |d| out *= d;
@@ -4165,6 +4221,33 @@ pub fn ArrayView(comptime T: type) type {
             return self.squeezeDim(axis_index);
         }
 
+        pub fn squeezeAxes(self: Self, axes: []const isize) ArrayError!Self {
+            if (axes.len == 0) return self.clone();
+            const normalized_axes = try normalizeUniqueAxes(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var squeeze_mask = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(squeeze_mask);
+            @memset(squeeze_mask, false);
+            for (normalized_axes) |axis| {
+                if (self.shape[axis] != 1) return error.ShapeMismatch;
+                squeeze_mask[axis] = true;
+            }
+            var shape_list: std.ArrayList(usize) = .empty;
+            defer shape_list.deinit(self.allocator);
+            var stride_list: std.ArrayList(usize) = .empty;
+            defer stride_list.deinit(self.allocator);
+            for (self.shape, self.strides, 0..) |extent, stride_value, axis| {
+                if (squeeze_mask[axis]) continue;
+                try shape_list.append(self.allocator, extent);
+                try stride_list.append(self.allocator, stride_value);
+            }
+            return Self.init(self.allocator, self.data, shape_list.items, stride_list.items, self.offset, self.device);
+        }
+
+        pub fn squeeze_axes(self: Self, axes: []const isize) ArrayError!Self {
+            return self.squeezeAxes(axes);
+        }
+
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
             const rank_count = self.shape.len + 1;
             const axis = if (axis_index < 0) blk: {
@@ -4314,6 +4397,16 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn moveaxis(self: Self, source: isize, destination: isize) ArrayError!Self {
             return self.movedim(source, destination);
+        }
+
+        pub fn moveaxes(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
+            const axes = try movedimManyAxes(self.allocator, self.shape.len, sources, destinations);
+            defer self.allocator.free(axes);
+            return self.permute(axes);
+        }
+
+        pub fn move_axes(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
+            return self.moveaxes(sources, destinations);
         }
 
         pub fn transpose(self: Self) ArrayError!Self {
@@ -5856,6 +5949,30 @@ pub fn Array(comptime T: type) type {
             return self.squeezeDim(axis_index);
         }
 
+        pub fn squeezeAxes(self: Self, axes: []const isize) ArrayError!Self {
+            if (axes.len == 0) return self.clone();
+            const normalized_axes = try normalizeUniqueAxes(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var squeeze_mask = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(squeeze_mask);
+            @memset(squeeze_mask, false);
+            for (normalized_axes) |axis| {
+                if (self.shape[axis] != 1) return error.ShapeMismatch;
+                squeeze_mask[axis] = true;
+            }
+            var dims_list: std.ArrayList(usize) = .empty;
+            defer dims_list.deinit(self.allocator);
+            for (self.shape, 0..) |extent, axis| {
+                if (squeeze_mask[axis]) continue;
+                try dims_list.append(self.allocator, extent);
+            }
+            return self.reshape(dims_list.items);
+        }
+
+        pub fn squeeze_axes(self: Self, axes: []const isize) ArrayError!Self {
+            return self.squeezeAxes(axes);
+        }
+
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
             const rank_count = self.shape.len + 1;
             const axis = if (axis_index < 0) blk: {
@@ -6452,6 +6569,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn moveaxis(self: Self, source: isize, destination: isize) ArrayError!Self {
             return self.movedim(source, destination);
+        }
+
+        pub fn moveaxes(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
+            const axes = try movedimManyAxes(self.allocator, self.shape.len, sources, destinations);
+            defer self.allocator.free(axes);
+            return self.permute(axes);
+        }
+
+        pub fn move_axes(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
+            return self.moveaxes(sources, destinations);
         }
 
         pub fn slice1d(self: Self, slice_value: Slice) ArrayError!Self {
@@ -12652,6 +12779,13 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var squeezed_alias = try u_alias.squeezeDim(-1);
     defer squeezed_alias.deinit();
     try std.testing.expectEqualSlices(usize, a.shape, squeezed_alias.shape);
+    var multi_singletons = try a.reshape(&.{ 1, 2, 1, 3 });
+    defer multi_singletons.deinit();
+    var squeezed_axes = try multi_singletons.squeeze_axes(&.{ 0, 2 });
+    defer squeezed_axes.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, squeezed_axes.shape);
+    try std.testing.expectError(error.ShapeMismatch, multi_singletons.squeezeAxes(&.{1}));
+    try std.testing.expectError(error.InvalidAxis, multi_singletons.squeezeAxes(&.{ 0, 0 }));
 
     var p = try a.permute(&.{ 1, 0 });
     defer p.deinit();
@@ -12737,6 +12871,11 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var moveaxis_top = try u.moveaxis(0, -1);
     defer moveaxis_top.deinit();
     try std.testing.expectEqualSlices(usize, moved_top.shape, moveaxis_top.shape);
+    var moved_many = try cube.move_axes(&.{ 0, 2 }, &.{ 2, 0 });
+    defer moved_many.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, moved_many.shape);
+    try std.testing.expectError(error.ShapeMismatch, cube.moveaxes(&.{0}, &.{ 1, 2 }));
+    try std.testing.expectError(error.InvalidAxis, cube.moveaxes(&.{ 0, 0 }, &.{ 1, 2 }));
     var selected_top = try a.select(0, 1);
     defer selected_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, selected_top.data);
@@ -12892,6 +13031,12 @@ test "array view materializing shape wrappers" {
     var view_squeezed = try view_unsqueezed.squeeze_dim(0);
     defer view_squeezed.deinit();
     try std.testing.expectEqualSlices(usize, view.shape, view_squeezed.shape);
+    var view_squeezed_axes = try view_unsqueezed.squeezeAxes(&.{0});
+    defer view_squeezed_axes.deinit();
+    try std.testing.expectEqualSlices(usize, view.shape, view_squeezed_axes.shape);
+    var view_moved_many = try view_unsqueezed.moveaxes(&.{ 0, 2 }, &.{ 2, 0 });
+    defer view_moved_many.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 1 }, view_moved_many.shape);
     var unbound_view = try view.unbind(1);
     defer unbound_view.deinit();
     try std.testing.expectEqual(@as(usize, 2), unbound_view.items.len);
