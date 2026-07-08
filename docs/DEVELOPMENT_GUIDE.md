@@ -153,5 +153,6 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.transpose()`：CSR 转置。
 - `sum/absSum/frobeniusNorm/density`：基础 sparse 统计。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：CSR 行列统计，f64 路径优先复用 Veyra。
+- `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSR 结构诊断，f64 路径优先复用 Veyra。
 
 后续 sparse 扩展应继续优先检查 Veyra：CSC/BSR、sparse matmat、sparse triangular solve、iterative solvers。

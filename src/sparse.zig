@@ -391,6 +391,148 @@ pub fn CsrMatrix(comptime T: type) type {
             veyra.csrColumnNormsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
+
+        pub fn diagonal(self: Self) SparseError!array_mod.Array(T) {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) return self.diagonalF64();
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    if (self.col_indices[pos] == r) {
+                        out.data[r] = self.values[pos];
+                        break;
+                    }
+                }
+            }
+            return out;
+        }
+
+        fn diagonalF64(self: Self) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
+            defer out.deinit();
+            veyra.csrDiagonal(f64, view, out.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
+        }
+
+        pub fn trace(self: Self) SparseError!T {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CsrMatrix(f64), self).asVeyraView();
+                return veyra.csrTrace(f64, view) catch return error.BackendFailure;
+            }
+            var total = zero(T);
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    if (self.col_indices[pos] == r) {
+                        total += self.values[pos];
+                        break;
+                    }
+                }
+            }
+            return total;
+        }
+
+        pub fn missingDiagonalCount(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CsrMatrix(f64), self).asVeyraView();
+                return veyra.csrMissingDiagonalCount(f64, view) catch return error.BackendFailure;
+            }
+            var count: usize = 0;
+            for (0..self.rows) |r| {
+                var found = false;
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    if (self.col_indices[pos] == r) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) count += 1;
+            }
+            return count;
+        }
+
+        pub fn zeroDiagonalCount(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CsrMatrix(f64), self).asVeyraView();
+                return veyra.csrZeroDiagonalCount(f64, view) catch return error.BackendFailure;
+            }
+            var count: usize = 0;
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    if (self.col_indices[pos] == r) {
+                        if (self.values[pos] == zero(T)) count += 1;
+                        break;
+                    }
+                }
+            }
+            return count;
+        }
+
+        pub fn bandwidth(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CsrMatrix(f64), self).asVeyraView();
+                return veyra.csrBandwidth(f64, view) catch return error.BackendFailure;
+            }
+            var bw: usize = 0;
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    const c = self.col_indices[pos];
+                    const distance = if (r > c) r - c else c - r;
+                    if (distance > bw) bw = distance;
+                }
+            }
+            return bw;
+        }
+
+        pub fn structurallySymmetric(self: Self) SparseError!bool {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CsrMatrix(f64), self).asVeyraView();
+                return veyra.csrStructurallySymmetric(f64, view) catch return error.BackendFailure;
+            }
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    if (!self.hasEntry(self.col_indices[pos], r)) return false;
+                }
+            }
+            return true;
+        }
+
+        pub fn numericallySymmetric(self: Self, tolerance: T) SparseError!bool {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CsrMatrix(f64), self).asVeyraView();
+                return veyra.csrNumericallySymmetric(f64, view, tolerance) catch return error.BackendFailure;
+            }
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    const mirror = self.get(self.col_indices[pos], r) orelse return false;
+                    if (absValue(T, self.values[pos] - mirror) > tolerance) return false;
+                }
+            }
+            return true;
+        }
+
+        pub fn get(self: Self, row: usize, col: usize) ?T {
+            if (row >= self.rows or col >= self.cols) return null;
+            for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                const current = self.col_indices[pos];
+                if (current == col) return self.values[pos];
+                if (current > col) return null;
+            }
+            return null;
+        }
+
+        fn hasEntry(self: Self, row: usize, col: usize) bool {
+            return self.get(row, col) != null;
+        }
     };
 }
 
@@ -514,4 +656,40 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
+}
+
+test "csr sparse diagonal trace bandwidth and symmetry" {
+    const gpa = std.testing.allocator;
+    var symmetric_dense = try array_mod.array(f64, gpa, &.{
+        4, 1, 0,
+        1, 5, 2,
+        0, 2, 6,
+    }, &.{ 3, 3 });
+    defer symmetric_dense.deinit();
+    var symmetric = try csrFromDense(f64, symmetric_dense);
+    defer symmetric.deinit();
+
+    var diagonal = try symmetric.diagonal();
+    defer diagonal.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, diagonal.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.trace(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
+    try std.testing.expect(try symmetric.structurallySymmetric());
+    try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
+
+    var nonsym_dense = try array_mod.array(f64, gpa, &.{
+        1, 2, 0,
+        0, 0, 3,
+        0, 0, 4,
+    }, &.{ 3, 3 });
+    defer nonsym_dense.deinit();
+    var nonsym = try csrFromDense(f64, nonsym_dense);
+    defer nonsym.deinit();
+    try std.testing.expectEqual(@as(usize, 1), try nonsym.missingDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 0), try nonsym.zeroDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 1), try nonsym.bandwidth());
+    try std.testing.expect(!(try nonsym.structurallySymmetric()));
+    try std.testing.expect(!(try nonsym.numericallySymmetric(1e-12)));
 }
