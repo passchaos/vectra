@@ -3493,6 +3493,172 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        fn observationWeight(weights: Self, observation: usize, observations: usize) TensorError!T {
+            if (weights.data.len == 1) return weights.data[0];
+            if (weights.shape.len != 1 or weights.data.len != observations) return error.ShapeMismatch;
+            return weights.data[observation];
+        }
+
+        pub fn weightedCov(self: Self, weights: Self, rowvar: bool, correction: T) TensorError!Self {
+            ensureFloat(T);
+            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.shape.len == 1) {
+                const observations = self.data.len;
+                var weight_sum = zero(T);
+                var total = zero(T);
+                for (self.data, 0..) |value, i| {
+                    const weight = try observationWeight(weights, i, observations);
+                    if (weight < zero(T)) return error.InvalidShape;
+                    total += value * weight;
+                    weight_sum += weight;
+                }
+                const denom = weight_sum - correction;
+                if (!(weight_sum > zero(T)) or !(denom > zero(T))) return error.InvalidShape;
+                const mean_value = total / weight_sum;
+                var sq_total = zero(T);
+                for (self.data, 0..) |value, i| {
+                    const weight = try observationWeight(weights, i, observations);
+                    const delta = value - mean_value;
+                    sq_total += weight * delta * delta;
+                }
+                return Self.fromSlice(self.allocator, &.{sq_total / denom}, &.{});
+            }
+            if (self.shape.len != 2) return error.NonMatrixTensor;
+            const variables = if (rowvar) self.shape[0] else self.shape[1];
+            const observations = if (rowvar) self.shape[1] else self.shape[0];
+            if (variables == 0 or observations == 0) return error.EmptyTensor;
+
+            var weight_sum = zero(T);
+            for (0..observations) |obs| {
+                const weight = try observationWeight(weights, obs, observations);
+                if (weight < zero(T)) return error.InvalidShape;
+                weight_sum += weight;
+            }
+            const denom = weight_sum - correction;
+            if (!(weight_sum > zero(T)) or !(denom > zero(T))) return error.InvalidShape;
+
+            const means = try self.allocator.alloc(T, variables);
+            defer self.allocator.free(means);
+            @memset(means, zero(T));
+            for (0..variables) |i| {
+                for (0..observations) |obs| means[i] += self.observationValue(i, obs, rowvar) * (try observationWeight(weights, obs, observations));
+                means[i] /= weight_sum;
+            }
+
+            var out = try Self.empty(self.allocator, &.{ variables, variables });
+            errdefer out.deinit();
+            for (0..variables) |i| {
+                for (0..variables) |j| {
+                    var total = zero(T);
+                    for (0..observations) |obs| {
+                        const weight = try observationWeight(weights, obs, observations);
+                        total += weight * (self.observationValue(i, obs, rowvar) - means[i]) * (self.observationValue(j, obs, rowvar) - means[j]);
+                    }
+                    out.data[i * variables + j] = total / denom;
+                }
+            }
+            return out;
+        }
+
+        pub fn weightedCorrcoef(self: Self, weights: Self, rowvar: bool) TensorError!Self {
+            ensureFloat(T);
+            if (self.shape.len == 1) {
+                if (self.data.len < 2) return error.InvalidShape;
+                return Self.fromSlice(self.allocator, &.{one(T)}, &.{});
+            }
+            var covariance = try self.weightedCov(weights, rowvar, one(T));
+            defer covariance.deinit();
+            const variables = covariance.shape[0];
+            var out = try Self.empty(self.allocator, covariance.shape);
+            errdefer out.deinit();
+            for (0..variables) |i| {
+                for (0..variables) |j| {
+                    const denom = std.math.sqrt(covariance.data[i * variables + i] * covariance.data[j * variables + j]);
+                    out.data[i * variables + j] = covariance.data[i * variables + j] / denom;
+                }
+            }
+            return out;
+        }
+
+        pub fn nanCov(self: Self, rowvar: bool, correction: T) TensorError!Self {
+            ensureFloat(T);
+            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.shape.len == 1) {
+                var count: usize = 0;
+                var total = zero(T);
+                for (self.data) |value| {
+                    if (std.math.isNan(value)) continue;
+                    total += value;
+                    count += 1;
+                }
+                const denom = castValue(T, count) - correction;
+                if (count == 0 or !(denom > zero(T))) return error.InvalidShape;
+                const mean_value = total / castValue(T, count);
+                var sq_total = zero(T);
+                for (self.data) |value| {
+                    if (std.math.isNan(value)) continue;
+                    const delta = value - mean_value;
+                    sq_total += delta * delta;
+                }
+                return Self.fromSlice(self.allocator, &.{sq_total / denom}, &.{});
+            }
+            if (self.shape.len != 2) return error.NonMatrixTensor;
+            const variables = if (rowvar) self.shape[0] else self.shape[1];
+            const observations = if (rowvar) self.shape[1] else self.shape[0];
+            if (variables == 0 or observations == 0) return error.EmptyTensor;
+
+            var out = try Self.empty(self.allocator, &.{ variables, variables });
+            errdefer out.deinit();
+            for (0..variables) |i| {
+                for (0..variables) |j| {
+                    var count: usize = 0;
+                    var sum_i = zero(T);
+                    var sum_j = zero(T);
+                    for (0..observations) |obs| {
+                        const vi = self.observationValue(i, obs, rowvar);
+                        const vj = self.observationValue(j, obs, rowvar);
+                        if (std.math.isNan(vi) or std.math.isNan(vj)) continue;
+                        sum_i += vi;
+                        sum_j += vj;
+                        count += 1;
+                    }
+                    const denom = castValue(T, count) - correction;
+                    if (count == 0 or !(denom > zero(T))) return error.InvalidShape;
+                    const mean_i = sum_i / castValue(T, count);
+                    const mean_j = sum_j / castValue(T, count);
+                    var total = zero(T);
+                    for (0..observations) |obs| {
+                        const vi = self.observationValue(i, obs, rowvar);
+                        const vj = self.observationValue(j, obs, rowvar);
+                        if (std.math.isNan(vi) or std.math.isNan(vj)) continue;
+                        total += (vi - mean_i) * (vj - mean_j);
+                    }
+                    out.data[i * variables + j] = total / denom;
+                }
+            }
+            return out;
+        }
+
+        pub fn nanCorrcoef(self: Self, rowvar: bool) TensorError!Self {
+            ensureFloat(T);
+            if (self.shape.len == 1) {
+                if (self.data.len < 2) return error.InvalidShape;
+                return Self.fromSlice(self.allocator, &.{one(T)}, &.{});
+            }
+            var covariance = try self.nanCov(rowvar, one(T));
+            defer covariance.deinit();
+            const variables = covariance.shape[0];
+            var out = try Self.empty(self.allocator, covariance.shape);
+            errdefer out.deinit();
+            for (0..variables) |i| {
+                for (0..variables) |j| {
+                    const denom = std.math.sqrt(covariance.data[i * variables + i] * covariance.data[j * variables + j]);
+                    out.data[i * variables + j] = covariance.data[i * variables + j] / denom;
+                }
+            }
+            return out;
+        }
+
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
             ensureFloat(T);
             if (p == zero(T)) return error.InvalidShape;
@@ -5176,6 +5342,22 @@ pub fn corrcoef(comptime T: type, input: Tensor(T), rowvar: bool) TensorError!Te
     return input.corrcoef(rowvar);
 }
 
+pub fn weightedCov(comptime T: type, input: Tensor(T), weights: Tensor(T), rowvar: bool, correction: T) TensorError!Tensor(T) {
+    return input.weightedCov(weights, rowvar, correction);
+}
+
+pub fn weightedCorrcoef(comptime T: type, input: Tensor(T), weights: Tensor(T), rowvar: bool) TensorError!Tensor(T) {
+    return input.weightedCorrcoef(weights, rowvar);
+}
+
+pub fn nanCov(comptime T: type, input: Tensor(T), rowvar: bool, correction: T) TensorError!Tensor(T) {
+    return input.nanCov(rowvar, correction);
+}
+
+pub fn nanCorrcoef(comptime T: type, input: Tensor(T), rowvar: bool) TensorError!Tensor(T) {
+    return input.nanCorrcoef(rowvar);
+}
+
 pub fn nanToNum(comptime T: type, input: Tensor(T), nan_value: T, posinf_value: T, neginf_value: T) TensorError!Tensor(T) {
     return input.nanToNum(nan_value, posinf_value, neginf_value);
 }
@@ -6139,6 +6321,7 @@ test "tensor min max arg reductions and topk" {
 
 test "array median quantile covariance and corrcoef" {
     const gpa = std.testing.allocator;
+    const nan = std.math.nan(f64);
     var a = try array(f64, gpa, &.{ 1, 4, 2, 8, 3, 9 }, &.{ 2, 3 });
     defer a.deinit();
 
@@ -6218,6 +6401,30 @@ test "array median quantile covariance and corrcoef" {
     var corr = try obs_by_var.corrcoef(false);
     defer corr.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, corr.data);
+    var obs_weights = try array(f64, gpa, &.{ 1, 2, 1 }, &.{3});
+    defer obs_weights.deinit();
+    var weighted_covariance = try weightedCov(f64, obs_by_var, obs_weights, false, 1);
+    defer weighted_covariance.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), weighted_covariance.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 3.0), weighted_covariance.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 3.0), weighted_covariance.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 8.0 / 3.0), weighted_covariance.data[3], 1e-12);
+    var weighted_corr = try obs_by_var.weightedCorrcoef(obs_weights, false);
+    defer weighted_corr.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, weighted_corr.data);
+
+    var nan_obs = try array(f64, gpa, &.{
+        1,   2,
+        nan, nan,
+        3,   6,
+    }, &.{ 3, 2 });
+    defer nan_obs.deinit();
+    var nan_covariance = try nanCov(f64, nan_obs, false, 1);
+    defer nan_covariance.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 4, 4, 8 }, nan_covariance.data);
+    var nan_corr = try nan_obs.nanCorrcoef(false);
+    defer nan_corr.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, nan_corr.data);
 
     var rowvar_data = try array(f64, gpa, &.{
         1, 2, 3,
