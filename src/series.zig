@@ -81,8 +81,16 @@ pub fn Series(comptime T: type) type {
             return Self.init(self.allocator, self.name, self.data[self.data.len - count ..]);
         }
 
+        pub fn toArray(self: Self) tensor_mod.TensorError!tensor_mod.Array(T) {
+            return tensor_mod.Array(T).fromSlice(self.allocator, self.data, &.{self.data.len});
+        }
+
+        pub fn toNDArray(self: Self) tensor_mod.TensorError!tensor_mod.NDArray(T) {
+            return self.toArray();
+        }
+
         pub fn toTensor(self: Self) tensor_mod.TensorError!tensor_mod.Tensor(T) {
-            return tensor_mod.Tensor(T).fromSlice(self.allocator, self.data, &.{self.data.len});
+            return self.toArray();
         }
 
         fn map(self: Self, comptime op: fn (T) T) DataError!Self {

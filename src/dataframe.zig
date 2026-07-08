@@ -246,7 +246,7 @@ pub const DataFrame = struct {
         return DataFrame.init(self.allocator, defs_list.items);
     }
 
-    pub fn toTensor(self: DataFrame, comptime T: type, names: []const []const u8) (DataError || tensor_mod.TensorError)!tensor_mod.Tensor(T) {
+    pub fn toArray(self: DataFrame, comptime T: type, names: []const []const u8) (DataError || tensor_mod.TensorError)!tensor_mod.Array(T) {
         var values = try self.allocator.alloc(T, self.rows * names.len);
         defer self.allocator.free(values);
         for (0..self.rows) |r| {
@@ -260,7 +260,15 @@ pub const DataFrame = struct {
                 };
             }
         }
-        return tensor_mod.Tensor(T).fromSlice(self.allocator, values, &.{ self.rows, names.len });
+        return tensor_mod.Array(T).fromSlice(self.allocator, values, &.{ self.rows, names.len });
+    }
+
+    pub fn toNDArray(self: DataFrame, comptime T: type, names: []const []const u8) (DataError || tensor_mod.TensorError)!tensor_mod.NDArray(T) {
+        return self.toArray(T, names);
+    }
+
+    pub fn toTensor(self: DataFrame, comptime T: type, names: []const []const u8) (DataError || tensor_mod.TensorError)!tensor_mod.Tensor(T) {
+        return self.toArray(T, names);
     }
 
     pub fn readCsv(allocator: std.mem.Allocator, text: []const u8, has_header: bool) DataError!DataFrame {

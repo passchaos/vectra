@@ -64,7 +64,7 @@ Vectra uses the sibling [`../alea`](../alea) Zig package as a local path depende
 
 ## Veyra backend
 
-Vectra uses the sibling [`../veyra`](../veyra) Zig package as a local path dependency for foundational math and linear algebra. Current f64 `linalg` paths delegate matrix multiplication, matrix-vector products, trace, determinant, solve, inverse, LU, triangular solve, Cholesky, QR, SVD, least-squares, rank/condition helpers, pseudo-inverse, matrix norms, and symmetric eigen decomposition to Veyra-compatible dense matrix APIs while Tensor methods keep dependency-free generic fallbacks. Future SciPy-like and high-performance BLAS/LAPACK-style work should prefer Veyra where it already provides tested kernels or decompositions.
+Vectra uses the sibling [`../veyra`](../veyra) Zig package as a local path dependency for foundational math and linear algebra. Current f64 `linalg` paths delegate matrix multiplication, matrix-vector products, trace, determinant, solve, inverse, LU, triangular solve, Cholesky, QR, SVD, least-squares, rank/condition helpers, pseudo-inverse, matrix norms, and symmetric eigen decomposition to Veyra-compatible dense matrix APIs while Array methods keep dependency-free generic fallbacks. Future SciPy-like and high-performance BLAS/LAPACK-style work should prefer Veyra where it already provides tested kernels or decompositions.
 
 ## Development priorities
 
@@ -85,7 +85,7 @@ The package targets Zig `0.16.0` and uses the new `std.Io` writer APIs.
 
 ## Roadmap
 
-- Richer indexing/views and non-contiguous tensors.
+- Richer indexing/views and non-contiguous arrays.
 - More dtypes, nullable values, categorical/string kernels.
 - Polars-like lazy query plans and expression DSL.
 - BLAS/LAPACK/FFT/sparse integrations.

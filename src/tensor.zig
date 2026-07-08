@@ -2122,7 +2122,7 @@ pub fn Tensor(comptime T: type) type {
         }
 
         pub fn print(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
-            try writer.print("Tensor({s}, shape=", .{@typeName(T)});
+            try writer.print("Array({s}, shape=", .{@typeName(T)});
             try printShape(writer, self.shape);
             try writer.print(", data=", .{});
             try printFlatData(T, writer, self.data);

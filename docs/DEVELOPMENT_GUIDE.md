@@ -65,9 +65,9 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 - 行列选择、过滤、排序、join、groupby、aggregation、pivot/melt。
 - Polars 风格表达式 DSL 与 lazy query plan。
 - CSV/JSON/Arrow/Parquet IO。
-- 与 Tensor 的互转：数值列转矩阵、张量结果回填列。
+- 与 Array/NDArray 的互转：数值列转矩阵、数组结果回填列。
 
-原则：DataFrame 不应抢占 Tensor 核心的开发优先级；它应复用底层 array kernel 和 dtype 规则。
+原则：DataFrame 不应抢占 Array/NDArray 核心的开发优先级；它应复用底层 array kernel 和 dtype 规则。
 
 ## 3. 已讨论并确认的 API 风格
 
@@ -82,7 +82,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 
 初始化阶段已优先实现一批 Array/NDArray 能力：
 
-- 创建：`tensor`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`。
+- 创建：`array/ndarray`（`tensor` 兼容别名）、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`。
 - 形状：`reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`。
 - 索引：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`gather`、`scatter/scatterScalar`、`maskedSelect`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、scalar variants、`maximum/minimum`、`whereMask`、比较、`allclose`。

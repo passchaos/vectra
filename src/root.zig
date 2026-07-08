@@ -1,9 +1,9 @@
 //! Vectra is an experimental Zig-native data processing and numerical computing
-//! toolkit inspired by NumPy/CuPy/SciPy/Pandas/Polars, with PyTorch-style tensor
+//! toolkit inspired by NumPy/CuPy/SciPy/Pandas/Polars, with PyTorch-style array
 //! method names where that makes code more fluent.
 //!
 //! The current implementation provides a compact, dependency-free CPU core:
-//! typed tensors, broadcasting arithmetic, reductions, linalg/stat helpers,
+//! typed arrays, broadcasting arithmetic, reductions, linalg/stat helpers,
 //! typed Series, heterogeneous DataFrame operations, and CSV IO. CUDA/GPU is
 //! represented in the API surface and returns `error.InvalidDevice` until a real
 //! backend is wired in.
