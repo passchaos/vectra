@@ -2206,6 +2206,30 @@ pub fn ArrayView(comptime T: type) type {
             return owned.magnitude();
         }
 
+        pub fn fft(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.fft();
+        }
+
+        pub fn ifft(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.ifft();
+        }
+
+        pub fn fftAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.fftAxis(axis_index);
+        }
+
+        pub fn ifftAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.ifftAxis(axis_index);
+        }
+
         pub fn reshape(self: Self, dims: []const usize) ArrayError!Self {
             if (!self.isContiguous()) return error.InvalidShape;
             const n = try numelFrom(dims);
@@ -2918,12 +2942,55 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn fftAxisWithSign(self: Self, axis_index: isize, inverse: bool) ArrayError!Self {
+            ensureComplex(T);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const n = self.shape[axis];
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const Real = complexRealType(T);
+            const n_real: Real = @floatFromInt(n);
+            const direction: Real = if (inverse) 1 else -1;
+            const out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, out_multi);
+                const k = out_multi[axis];
+                const k_real: Real = @floatFromInt(k);
+                var acc = zero(T);
+                @memcpy(in_multi, out_multi);
+                for (0..n) |j| {
+                    in_multi[axis] = j;
+                    const j_real: Real = @floatFromInt(j);
+                    const angle = direction * castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
+                    const twiddle = T.init(@cos(angle), @sin(angle));
+                    acc = acc.add(self.data[ravelIndex(in_multi, self.strides)].mul(twiddle));
+                }
+                slot.* = if (inverse) acc.div(T.init(n_real, 0)) else acc;
+            }
+            return out;
+        }
+
         pub fn fft(self: Self) ArrayError!Self {
             return self.fftWithSign(false);
         }
 
         pub fn ifft(self: Self) ArrayError!Self {
             return self.fftWithSign(true);
+        }
+
+        pub fn fftAxis(self: Self, axis_index: isize) ArrayError!Self {
+            return self.fftAxisWithSign(axis_index, false);
+        }
+
+        pub fn ifftAxis(self: Self, axis_index: isize) ArrayError!Self {
+            return self.fftAxisWithSign(axis_index, true);
         }
 
         fn trimConvolutionResult(full_result_in: Self, left_len: usize, right_len: usize, mode: ConvMode) ArrayError!Self {
@@ -10327,6 +10394,55 @@ test "array complex fft and inverse fft" {
     var matrix_complex = try Array(C).fromSlice(gpa, &.{ C.init(1, 0), C.init(0, 0), C.init(0, 0), C.init(1, 0) }, &.{ 2, 2 });
     defer matrix_complex.deinit();
     try std.testing.expectError(error.NonVectorArray, matrix_complex.fft());
+}
+
+test "array complex axis fft and inverse fft" {
+    const gpa = std.testing.allocator;
+    const C = Complex64;
+    var rows = try Array(C).fromSlice(gpa, &.{
+        C.init(1, 0), C.init(0, 0), C.init(0, 0), C.init(0, 0),
+        C.init(0, 0), C.init(1, 0), C.init(0, 0), C.init(0, 0),
+    }, &.{ 2, 4 });
+    defer rows.deinit();
+
+    var row_fft = try rows.fftAxis(1);
+    defer row_fft.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, row_fft.shape);
+    for (row_fft.data[0..4]) |value| {
+        try std.testing.expectApproxEqAbs(@as(f32, 1), value.re, 1e-5);
+        try std.testing.expectApproxEqAbs(@as(f32, 0), value.im, 1e-5);
+    }
+    try std.testing.expectApproxEqAbs(@as(f32, 1), row_fft.data[4].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), row_fft.data[4].im, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), row_fft.data[5].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, -1), row_fft.data[5].im, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, -1), row_fft.data[6].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), row_fft.data[6].im, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), row_fft.data[7].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), row_fft.data[7].im, 1e-5);
+
+    var row_roundtrip = try row_fft.ifftAxis(1);
+    defer row_roundtrip.deinit();
+    for (row_roundtrip.data, rows.data) |actual, expected| {
+        try std.testing.expectApproxEqAbs(expected.re, actual.re, 1e-5);
+        try std.testing.expectApproxEqAbs(expected.im, actual.im, 1e-5);
+    }
+
+    var cols = try Array(C).fromSlice(gpa, &.{ C.init(1, 0), C.init(0, 0), C.init(0, 0), C.init(1, 0) }, &.{ 2, 2 });
+    defer cols.deinit();
+    var col_fft = try cols.fftAxis(0);
+    defer col_fft.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1), col_fft.data[0].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), col_fft.data[1].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), col_fft.data[2].re, 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, -1), col_fft.data[3].re, 1e-5);
+
+    var transposed = try rows.transposeView();
+    defer transposed.deinit();
+    var view_fft = try transposed.fftAxis(0);
+    defer view_fft.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, view_fft.shape);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), view_fft.data[0].re, 1e-5);
 }
 
 test "array bfloat16 arithmetic and reductions" {
