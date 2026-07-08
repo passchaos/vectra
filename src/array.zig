@@ -596,6 +596,16 @@ fn normalizeUniqueAxes(allocator: std.mem.Allocator, axes: []const isize, rank: 
     return normalized;
 }
 
+fn normalizeAxesDescending(allocator: std.mem.Allocator, axes: []const isize, rank: usize) ArrayError![]usize {
+    const normalized = try normalizeUniqueAxes(allocator, axes, rank);
+    std.sort.insertion(usize, normalized, {}, struct {
+        fn lessThan(_: void, lhs: usize, rhs: usize) bool {
+            return lhs > rhs;
+        }
+    }.lessThan);
+    return normalized;
+}
+
 fn movedimManyAxes(allocator: std.mem.Allocator, rank: usize, sources: []const isize, destinations: []const isize) ArrayError![]usize {
     if (sources.len != destinations.len) return error.ShapeMismatch;
     const normalized_sources = try normalizeUniqueAxes(allocator, sources, rank);
@@ -2604,9 +2614,29 @@ pub fn ArrayView(comptime T: type) type {
             return self.reduce(axis_opt, keepdims, zero(T), opAdd);
         }
 
+        pub fn sumAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sumAxes(axes, keepdims);
+        }
+
+        pub fn sum_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.sumAxes(axes, keepdims);
+        }
+
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.reduce(axis_opt, keepdims, one(T), opMul);
+        }
+
+        pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.prodAxes(axes, keepdims);
+        }
+
+        pub fn prod_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.prodAxes(axes, keepdims);
         }
 
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -2622,6 +2652,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.min(axis_opt, keepdims);
         }
 
+        pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.minAxes(axes, keepdims);
+        }
+
+        pub fn min_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.minAxes(axes, keepdims);
+        }
+
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.reduceFirst(axis_opt, keepdims, struct {
@@ -2633,6 +2673,16 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn amax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             return self.max(axis_opt, keepdims);
+        }
+
+        pub fn maxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.maxAxes(axes, keepdims);
+        }
+
+        pub fn max_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.maxAxes(axes, keepdims);
         }
 
         pub fn ptp(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -2656,6 +2706,16 @@ pub fn ArrayView(comptime T: type) type {
             const out = try self.sum(axis_opt, keepdims);
             for (out.data) |*value| value.* /= divisor;
             return out;
+        }
+
+        pub fn meanAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.meanAxes(axes, keepdims);
+        }
+
+        pub fn mean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.meanAxes(axes, keepdims);
         }
 
         pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -3399,10 +3459,30 @@ pub fn ArrayView(comptime T: type) type {
             return owned.allAxis(axis_opt, keepdims);
         }
 
+        pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.allAxes(axes, keepdims);
+        }
+
+        pub fn all_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.allAxes(axes, keepdims);
+        }
+
         pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.anyAxis(axis_opt, keepdims);
+        }
+
+        pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.anyAxes(axes, keepdims);
+        }
+
+        pub fn any_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.anyAxes(axes, keepdims);
         }
 
         pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
@@ -9044,6 +9124,24 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            if (comptime T != bool) @compileError("allAxes requires Array(bool)");
+            return self.reduceAxes(axes, keepdims, Self.allAxis);
+        }
+
+        pub fn all_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.allAxes(axes, keepdims);
+        }
+
+        pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            if (comptime T != bool) @compileError("anyAxes requires Array(bool)");
+            return self.reduceAxes(axes, keepdims, Self.anyAxis);
+        }
+
+        pub fn any_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.anyAxes(axes, keepdims);
+        }
+
         fn boolReduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: bool, comptime op: fn (bool, bool) bool) ArrayError!Self {
             if (axis_opt == null) {
                 var total = init_value;
@@ -9189,6 +9287,56 @@ pub fn Array(comptime T: type) type {
             return max_values.sub(min_values);
         }
 
+        fn reduceAxes(self: Self, axes: []const isize, keepdims: bool, comptime reducer: fn (Self, ?isize, bool) ArrayError!Self) ArrayError!Self {
+            if (axes.len == 0) return self.clone();
+            const normalized_axes = try normalizeAxesDescending(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var current = try self.clone();
+            errdefer current.deinit();
+            for (normalized_axes) |axis| {
+                const next = try reducer(current, @intCast(axis), keepdims);
+                current.deinit();
+                current = next;
+            }
+            return current;
+        }
+
+        pub fn sumAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureNumeric(T);
+            return self.reduceAxes(axes, keepdims, Self.sum);
+        }
+
+        pub fn sum_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.sumAxes(axes, keepdims);
+        }
+
+        pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureNumeric(T);
+            return self.reduceAxes(axes, keepdims, Self.prod);
+        }
+
+        pub fn prod_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.prodAxes(axes, keepdims);
+        }
+
+        pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureNumeric(T);
+            return self.reduceAxes(axes, keepdims, Self.min);
+        }
+
+        pub fn min_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.minAxes(axes, keepdims);
+        }
+
+        pub fn maxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureNumeric(T);
+            return self.reduceAxes(axes, keepdims, Self.max);
+        }
+
+        pub fn max_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.maxAxes(axes, keepdims);
+        }
+
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
             var out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - 1);
             if (keepdims) {
@@ -9307,6 +9455,15 @@ pub fn Array(comptime T: type) type {
             const divisor: T = if (axis_opt) |d| castValue(T, self.shape[try normalizeDim(d, self.shape.len)]) else castValue(T, self.data.len);
             for (out.data) |*v| v.* /= divisor;
             return out;
+        }
+
+        pub fn meanAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            return self.reduceAxes(axes, keepdims, Self.mean);
+        }
+
+        pub fn mean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.meanAxes(axes, keepdims);
         }
 
         pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
@@ -12714,6 +12871,41 @@ test "array scipy-like statistics and softmax" {
     var std_top = try a.stddev(null, false, 0);
     defer std_top.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.118033988749895), std_top.data[0], 1e-12);
+
+    var cube = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 2, 2 });
+    defer cube.deinit();
+    var sum_axes = try cube.sumAxes(&.{ 0, 2 }, false);
+    defer sum_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, sum_axes.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 14, 22 }, sum_axes.data);
+    var sum_axes_keep = try cube.sum_axes(&.{ 0, 2 }, true);
+    defer sum_axes_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, sum_axes_keep.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 14, 22 }, sum_axes_keep.data);
+    var prod_axes = try cube.prodAxes(&.{ 0, 2 }, false);
+    defer prod_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 60, 672 }, prod_axes.data);
+    var min_axes = try cube.minAxes(&.{ 0, 2 }, false);
+    defer min_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3 }, min_axes.data);
+    var max_axes = try cube.max_axes(&.{ 0, 2 }, false);
+    defer max_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6, 8 }, max_axes.data);
+    var mean_axes = try cube.meanAxes(&.{ 0, 2 }, false);
+    defer mean_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3.5, 5.5 }, mean_axes.data);
+    try std.testing.expectError(error.InvalidAxis, cube.sumAxes(&.{ 0, 0 }, false));
+
+    var bool_cube = try Array(bool).fromSlice(gpa, &.{ true, true, false, true, true, true, true, true }, &.{ 2, 2, 2 });
+    defer bool_cube.deinit();
+    var all_axes = try bool_cube.allAxes(&.{ 0, 2 }, false);
+    defer all_axes.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false }, all_axes.data);
+    var any_axes = try bool_cube.any_axes(&.{ 0, 2 }, true);
+    defer any_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, any_axes.shape);
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, any_axes.data);
+
     var norm_top = try a.norm(2, null, false);
     defer norm_top.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 30)), norm_top.data[0], 1e-12);
@@ -13734,6 +13926,13 @@ test "array view object statistics wrappers" {
     var nmax0 = try view.nanmax(0, false);
     defer nmax0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 6 }, nmax0.data);
+    var view_sum_axes = try view.sumAxes(&.{ 0, 1 }, false);
+    defer view_sum_axes.deinit();
+    try std.testing.expect(std.math.isNan(view_sum_axes.data[0]));
+    var view_mean_axes = try view.mean_axes(&.{ 0, 1 }, true);
+    defer view_mean_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, view_mean_axes.shape);
+    try std.testing.expect(std.math.isNan(view_mean_axes.data[0]));
     var amin0 = try view.amin(0, false);
     defer amin0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4 }, amin0.data);
