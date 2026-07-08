@@ -1680,6 +1680,10 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
+        pub fn equalScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.eqScalar(scalar);
+        }
+
         pub fn gtScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
@@ -1689,6 +1693,10 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
+        pub fn greaterScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.gtScalar(scalar);
+        }
+
         pub fn ltScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
@@ -1696,6 +1704,10 @@ pub fn ArrayView(comptime T: type) type {
                     return a < b;
                 }
             }.f);
+        }
+
+        pub fn lessScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.ltScalar(scalar);
         }
 
         pub fn ne(self: Self, other: Self) ArrayError!Array(bool) {
@@ -1756,6 +1768,10 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
+        pub fn notEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.neScalar(scalar);
+        }
+
         pub fn geScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
@@ -1765,6 +1781,10 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
+        pub fn greaterEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.geScalar(scalar);
+        }
+
         pub fn leScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
@@ -1772,6 +1792,10 @@ pub fn ArrayView(comptime T: type) type {
                     return a <= b;
                 }
             }.f);
+        }
+
+        pub fn lessEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.leScalar(scalar);
         }
 
         pub fn square(self: Self) ArrayError!Array(T) {
@@ -1970,6 +1994,26 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn isinf(self: Self) ArrayError!Array(bool) {
             return self.isInf();
+        }
+
+        pub fn isPosInf(self: Self) ArrayError!Array(bool) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isPosInf();
+        }
+
+        pub fn isposinf(self: Self) ArrayError!Array(bool) {
+            return self.isPosInf();
+        }
+
+        pub fn isNegInf(self: Self) ArrayError!Array(bool) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isNegInf();
+        }
+
+        pub fn isneginf(self: Self) ArrayError!Array(bool) {
+            return self.isNegInf();
         }
 
         pub fn isFinite(self: Self) ArrayError!Array(bool) {
@@ -6528,6 +6572,22 @@ pub fn Array(comptime T: type) type {
                 else => @compileError("isInf requires a numeric array"),
             };
         }
+        fn opIsPosInf(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isPositiveInf(a.re) or std.math.isPositiveInf(a.im);
+            return switch (@typeInfo(T)) {
+                .float => std.math.isPositiveInf(a),
+                .int, .comptime_int => false,
+                else => @compileError("isPosInf requires a numeric array"),
+            };
+        }
+        fn opIsNegInf(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isNegativeInf(a.re) or std.math.isNegativeInf(a.im);
+            return switch (@typeInfo(T)) {
+                .float => std.math.isNegativeInf(a),
+                .int, .comptime_int => false,
+                else => @compileError("isNegInf requires a numeric array"),
+            };
+        }
         fn opIsFinite(a: T) bool {
             if (comptime isComplex(T)) return std.math.isFinite(a.re) and std.math.isFinite(a.im);
             return switch (@typeInfo(T)) {
@@ -7011,6 +7071,24 @@ pub fn Array(comptime T: type) type {
             return self.isInf();
         }
 
+        pub fn isPosInf(self: Self) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.unaryBool(opIsPosInf);
+        }
+
+        pub fn isposinf(self: Self) ArrayError!Array(bool) {
+            return self.isPosInf();
+        }
+
+        pub fn isNegInf(self: Self) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.unaryBool(opIsNegInf);
+        }
+
+        pub fn isneginf(self: Self) ArrayError!Array(bool) {
+            return self.isNegInf();
+        }
+
         pub fn isFinite(self: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.unaryBool(opIsFinite);
@@ -7135,12 +7213,20 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn equalScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.eqScalar(scalar);
+        }
+
         pub fn neScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
                     return a != b;
                 }
             }.f);
+        }
+
+        pub fn notEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.neScalar(scalar);
         }
 
         pub fn gtScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -7152,6 +7238,10 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn greaterScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.gtScalar(scalar);
+        }
+
         pub fn geScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
@@ -7159,6 +7249,10 @@ pub fn Array(comptime T: type) type {
                     return a >= b;
                 }
             }.f);
+        }
+
+        pub fn greaterEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.geScalar(scalar);
         }
 
         pub fn ltScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -7170,6 +7264,10 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn lessScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.ltScalar(scalar);
+        }
+
         pub fn leScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
@@ -7177,6 +7275,10 @@ pub fn Array(comptime T: type) type {
                     return a <= b;
                 }
             }.f);
+        }
+
+        pub fn lessEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.leScalar(scalar);
         }
 
         pub fn allclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!bool {
@@ -10183,12 +10285,24 @@ test "array comparison and logical wrappers" {
     var eq_scalar_out = try a.eqScalar(2);
     defer eq_scalar_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, eq_scalar_out.data);
+    var equal_scalar_out = try a.equalScalar(2);
+    defer equal_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, eq_scalar_out.data, equal_scalar_out.data);
     var ge_scalar_out = try a.geScalar(3);
     defer ge_scalar_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, ge_scalar_out.data);
+    var greater_equal_scalar_out = try a.greaterEqualScalar(3);
+    defer greater_equal_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, ge_scalar_out.data, greater_equal_scalar_out.data);
     var lt_scalar_out = try a.ltScalar(3);
     defer lt_scalar_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, false }, lt_scalar_out.data);
+    var less_scalar_out = try a.lessScalar(3);
+    defer less_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, lt_scalar_out.data, less_scalar_out.data);
+    var not_equal_scalar_out = try a.notEqualScalar(2);
+    defer not_equal_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, not_equal_scalar_out.data);
 
     try std.testing.expect(try a.allclose(a, 1e-12, 1e-12));
 
@@ -10823,6 +10937,15 @@ test "array non contiguous view helpers" {
     var stepped_lt = try stepped.less(stepped_clamped_view);
     defer stepped_lt.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, stepped_lt.data);
+    var stepped_equal_scalar = try stepped.equalScalar(30);
+    defer stepped_equal_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, stepped_equal_scalar.data);
+    var stepped_greater_scalar = try stepped.greaterScalar(40);
+    defer stepped_greater_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, stepped_greater_scalar.data);
+    var stepped_not_equal_scalar = try stepped.notEqualScalar(30);
+    defer stepped_not_equal_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, stepped_not_equal_scalar.data);
 
     var selected = try a.selectView(0, 1);
     defer selected.deinit();
@@ -12052,6 +12175,22 @@ test "array extended unary math and predicates" {
     var inf_mask = try special.isinf();
     defer inf_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false }, inf_mask.data);
+    var posinf_mask = try special.isPosInf();
+    defer posinf_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, posinf_mask.data);
+    var neg_special = try Array(f64).fromSlice(gpa, &.{ -std.math.inf(f64), 1, std.math.inf(f64) }, &.{3});
+    defer neg_special.deinit();
+    var neginf_mask = try neg_special.isneginf();
+    defer neginf_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, neginf_mask.data);
+    var special_view = try neg_special.asView();
+    defer special_view.deinit();
+    var view_posinf = try special_view.isposinf();
+    defer view_posinf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, view_posinf.data);
+    var view_neginf = try special_view.isNegInf();
+    defer view_neginf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, view_neginf.data);
     var nan_mask = try special.isnan();
     defer nan_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, true }, nan_mask.data);
