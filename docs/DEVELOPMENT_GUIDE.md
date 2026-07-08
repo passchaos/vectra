@@ -139,3 +139,15 @@ Array IO / serialization 当前支持：
 - 新文档和新 API 主名应使用 `Array` / `NDArray`、`array` / `ndarray`。
 - `Tensor` / `tensor` 暂时保留为兼容别名，避免破坏已有测试和内部代码。
 - 自动微分、深度学习训练/推理相关能力应放到相邻 `../forge` 框架中处理。
+
+## 8. Sparse / CSR 当前支持
+
+当前已开始接入 SciPy-like sparse 能力，优先复用 `../veyra.sparse`：
+
+- `CsrMatrix(T)`：Vectra 自有 CSR 所有权包装。
+- `csrFromDense`：从 dense Array/NDArray 生成 CSR。
+- `csrFromCompressed`：从 row_offsets / col_indices / values 构建 CSR。
+- `CsrMatrix.toDense()`：CSR 转回 dense Array。
+- `CsrMatrix.matvec()`：f64 路径复用 `veyra.csrMatvec`，其它 numeric dtype 保留泛型回退。
+
+后续 sparse 扩展应继续优先检查 Veyra：CSC/BSR、sparse matmat、sparse triangular solve、iterative solvers。

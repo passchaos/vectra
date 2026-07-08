@@ -13,6 +13,7 @@ pub const series_mod = @import("series.zig");
 pub const dataframe_mod = @import("dataframe.zig");
 pub const linalg = @import("linalg.zig");
 pub const stats = @import("stats.zig");
+pub const sparse = @import("sparse.zig");
 
 pub const Array = tensor_mod.Array;
 pub const NDArray = tensor_mod.NDArray;
@@ -28,6 +29,9 @@ pub const DataFrame = dataframe_mod.DataFrame;
 pub const Column = dataframe_mod.Column;
 pub const ColumnDef = dataframe_mod.ColumnDef;
 pub const DataError = dataframe_mod.DataError;
+pub const CsrMatrix = sparse.CsrMatrix;
+pub const csrFromDense = sparse.csrFromDense;
+pub const csrFromCompressed = sparse.csrFromCompressed;
 
 pub const array = tensor_mod.array;
 pub const ndarray = tensor_mod.ndarray;
@@ -105,4 +109,5 @@ test {
     _ = dataframe_mod;
     _ = linalg;
     _ = stats;
+    _ = sparse;
 }
