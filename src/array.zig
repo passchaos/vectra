@@ -2128,10 +2128,22 @@ pub fn ArrayView(comptime T: type) type {
             return owned.flip(axis_index);
         }
 
+        pub fn flipAxes(self: Self, axes: []const isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.flipAxes(axes);
+        }
+
         pub fn roll(self: Self, shift: isize, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.roll(shift, axis_index);
+        }
+
+        pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.rollAxes(shifts, axes);
         }
 
         pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) ArrayError!Array(T) {
@@ -3917,7 +3929,8 @@ pub fn Array(comptime T: type) type {
         pub fn flip(self: Self, axis_index: isize) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
-            const out = try Self.empty(self.allocator, self.shape);
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
             if (out.data.len == 0) return out;
             const out_multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(out_multi);
@@ -3932,6 +3945,35 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn flipAxes(self: Self, axes: []const isize) ArrayError!Self {
+            if (axes.len == 0) return self.clone();
+            const normalized_axes = try self.allocator.alloc(usize, axes.len);
+            defer self.allocator.free(normalized_axes);
+            var seen = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(seen);
+            @memset(seen, false);
+            for (axes, 0..) |axis_index, i| {
+                const axis = try normalizeDim(axis_index, self.shape.len);
+                if (seen[axis]) return error.InvalidAxis;
+                seen[axis] = true;
+                normalized_axes[i] = axis;
+            }
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                for (normalized_axes) |axis| in_multi[axis] = self.shape[axis] - 1 - out_multi[axis];
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
         pub fn roll(self: Self, shift: isize, axis_index: isize) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
@@ -3939,7 +3981,8 @@ pub fn Array(comptime T: type) type {
             if (len_axis == 0) return self.clone();
             const signed_len: isize = @intCast(len_axis);
             const normalized_shift: usize = @intCast(@mod(shift, signed_len));
-            const out = try Self.empty(self.allocator, self.shape);
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
             const out_multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(out_multi);
             var in_multi = try self.allocator.alloc(usize, self.shape.len);
@@ -3948,6 +3991,45 @@ pub fn Array(comptime T: type) type {
                 unravelIndexInto(flat, self.shape, out_multi);
                 @memcpy(in_multi, out_multi);
                 in_multi[axis] = (out_multi[axis] + len_axis - normalized_shift) % len_axis;
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) ArrayError!Self {
+            if (shifts.len != axes.len) return error.ShapeMismatch;
+            if (shifts.len == 0) return self.clone();
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const normalized_axes = try self.allocator.alloc(usize, axes.len);
+            defer self.allocator.free(normalized_axes);
+            const normalized_shifts = try self.allocator.alloc(usize, axes.len);
+            defer self.allocator.free(normalized_shifts);
+            var seen = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(seen);
+            @memset(seen, false);
+            for (axes, 0..) |axis_index, i| {
+                const axis = try normalizeDim(axis_index, self.shape.len);
+                if (seen[axis]) return error.InvalidAxis;
+                seen[axis] = true;
+                normalized_axes[i] = axis;
+                const len_axis = self.shape[axis];
+                normalized_shifts[i] = if (len_axis == 0) 0 else @intCast(@mod(shifts[i], @as(isize, @intCast(len_axis))));
+            }
+
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                for (normalized_axes, normalized_shifts) |axis, normalized_shift| {
+                    const len_axis = self.shape[axis];
+                    in_multi[axis] = if (len_axis == 0) 0 else (out_multi[axis] + len_axis - normalized_shift) % len_axis;
+                }
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
@@ -9191,9 +9273,17 @@ test "array view materializing shape wrappers" {
     defer flipped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 7, 5 }, flipped.data);
 
+    var flipped_axes = try view.flipAxes(&.{ 0, 1 });
+    defer flipped_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 5, 3, 1 }, flipped_axes.data);
+
     var rolled = try view.roll(1, 0);
     defer rolled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 1, 3 }, rolled.data);
+
+    var rolled_axes = try view.rollAxes(&.{ 1, 1 }, &.{ 0, 1 });
+    defer rolled_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 5, 3, 1 }, rolled_axes.data);
 
     var padded = try view.padConstant(&.{ 1, 1 }, &.{ 0, 1 }, 0);
     defer padded.deinit();
@@ -9257,6 +9347,9 @@ test "array view materializing shape wrappers" {
 
     try std.testing.expectError(error.ShapeMismatch, view.tile(&.{2}));
     try std.testing.expectError(error.InvalidAxis, view.flip(2));
+    try std.testing.expectError(error.InvalidAxis, view.flipAxes(&.{ 0, 0 }));
+    try std.testing.expectError(error.ShapeMismatch, view.rollAxes(&.{1}, &.{ 0, 1 }));
+    try std.testing.expectError(error.InvalidAxis, view.rollAxes(&.{ 1, 1 }, &.{ 0, 0 }));
     try std.testing.expectError(error.ShapeMismatch, view.padConstant(&.{1}, &.{1}, 0));
     try std.testing.expectError(error.InvalidShape, view.split(0, 1));
     try std.testing.expectError(error.InvalidShape, view.chunk(0, 1));
@@ -10952,6 +11045,14 @@ test "array slice flip roll and constant padding" {
     defer flipped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 2, 1, 6, 5, 4 }, flipped.data);
 
+    var flipped_axes = try a.flipAxes(&.{ 0, -1 });
+    defer flipped_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6, 5, 4, 3, 2, 1 }, flipped_axes.data);
+
+    var flip_clone = try a.flipAxes(&.{});
+    defer flip_clone.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, flip_clone.data);
+
     var rolled = try a.roll(1, 1);
     defer rolled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 2, 6, 4, 5 }, rolled.data);
@@ -10959,6 +11060,18 @@ test "array slice flip roll and constant padding" {
     var rolled_neg = try a.roll(-1, 0);
     defer rolled_neg.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 1, 2, 3 }, rolled_neg.data);
+
+    var rolled_axes = try a.rollAxes(&.{ 1, -1 }, &.{ 0, 1 });
+    defer rolled_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 6, 4, 2, 3, 1 }, rolled_axes.data);
+
+    var roll_clone = try a.rollAxes(&.{}, &.{});
+    defer roll_clone.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, roll_clone.data);
+
+    try std.testing.expectError(error.InvalidAxis, a.flipAxes(&.{ 0, 0 }));
+    try std.testing.expectError(error.ShapeMismatch, a.rollAxes(&.{1}, &.{ 0, 1 }));
+    try std.testing.expectError(error.InvalidAxis, a.rollAxes(&.{ 1, 1 }, &.{ 0, 0 }));
 
     var padded = try a.padConstant(&.{ 1, 1 }, &.{ 0, 2 }, 0);
     defer padded.deinit();
