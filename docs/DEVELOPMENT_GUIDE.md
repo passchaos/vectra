@@ -88,7 +88,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 - 广播与逐元素：`add/sub/mul/div/pow`、scalar variants、`maximum/minimum`、`whereMask`、比较、`allclose`。
 - 数学/NN：`exp`、`log`、`sqrt`、`sin`、`cos`、`tanh`、`relu`、`sigmoid`、`softmax`、`logSoftmax/log_softmax`、`clip`。
 - 归约：`sum`、`prod`、`min`、`max`、`mean`、`variance`、`stddev`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`argmin`、`argmax`、`argminAxis/argmaxAxis`、`topk`。
-- 组合/矩阵辅助：`cat/concatenate`、`stack`、`outer`、`diagonal`、`trace`、`triu/tril`。
+- 组合/矩阵辅助：`cat/concatenate`、`stack`、`outer`、`diagonal`、`trace`、`triu/tril`；`linalg.matmul/matvec/inverse/cholesky/qr`。
 - 基础 linalg/stats/DataFrame 也有初版，但它们不是下一阶段最高优先级。
 
 ## 5. 后续每次开发的执行要求
@@ -116,6 +116,6 @@ zig build test
 后续策略：
 
 - Tensor API 保持用户友好的 NumPy/CuPy/PyTorch 风格。
-- 底层 f64 dense linalg 优先委托 Veyra；非 f64 或 Veyra 暂无覆盖时保留 Vectra 泛型回退。
+- 底层 f64 dense linalg 优先委托 Veyra；当前 `matmul`、`matvec`、`trace`、`inverse`、`cholesky`、`qr` 已接入 Veyra-compatible 路径；非 f64 或 Veyra 暂无覆盖时保留 Vectra 泛型回退。
 - SciPy-like `linalg/sparse/optimize` 扩展应优先检查 Veyra 是否已有对应算法，避免重复实现。
 - 引入 Veyra 时必须保留 Vectra 层 shape/device/dtype 错误语义，并添加端到端测试。

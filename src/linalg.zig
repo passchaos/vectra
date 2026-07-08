@@ -2,7 +2,7 @@ const std = @import("std");
 const tensor_mod = @import("tensor.zig");
 const veyra = @import("veyra");
 
-pub const LinalgError = tensor_mod.TensorError || error{ SingularMatrix, BackendFailure } || std.mem.Allocator.Error;
+pub const LinalgError = tensor_mod.TensorError || error{ SingularMatrix, NotPositiveDefinite, BackendFailure } || std.mem.Allocator.Error;
 
 fn toVeyraMatrix(a: tensor_mod.Tensor(f64)) LinalgError!veyra.Matrix(f64) {
     if (a.shape.len != 2) return error.NonMatrixTensor;
@@ -13,10 +13,43 @@ fn fromVeyraMatrix(allocator: std.mem.Allocator, matrix: *const veyra.Matrix(f64
     return tensor_mod.Tensor(f64).fromSlice(allocator, matrix.data, &.{ matrix.rows, matrix.cols });
 }
 
+fn toVeyraVector(x: tensor_mod.Tensor(f64)) LinalgError!veyra.Vector(f64) {
+    if (x.shape.len != 1) return error.NonVectorTensor;
+    return veyra.Vector(f64).fromSlice(x.allocator, x.data) catch return error.BackendFailure;
+}
+
+fn fromVeyraVector(allocator: std.mem.Allocator, vector: *const veyra.Vector(f64)) LinalgError!tensor_mod.Tensor(f64) {
+    return tensor_mod.Tensor(f64).fromSlice(allocator, vector.data, &.{vector.len()});
+}
+
+pub fn QrResult(comptime T: type) type {
+    return struct {
+        q: tensor_mod.Tensor(T),
+        r: tensor_mod.Tensor(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.q.deinit();
+            self.r.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
 fn mapVeyraInverseError(err: anyerror) LinalgError {
     return switch (err) {
         error.Singular => error.SingularMatrix,
         error.DimensionMismatch => error.NonMatrixTensor,
+        error.OutOfMemory => error.OutOfMemory,
+        else => error.BackendFailure,
+    };
+}
+
+fn mapVeyraError(err: anyerror) LinalgError {
+    return switch (err) {
+        error.Singular => error.SingularMatrix,
+        error.NotPositiveDefinite => error.NotPositiveDefinite,
+        error.DimensionMismatch => error.ShapeMismatch,
+        error.IndexOutOfBounds => error.IndexOutOfBounds,
         error.OutOfMemory => error.OutOfMemory,
         else => error.BackendFailure,
     };
@@ -57,6 +90,133 @@ fn matmulF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64)) LinalgError!t
     defer out_matrix.deinit();
     veyra.matmul(f64, lhs.asView(), rhs.asView(), out_matrix.asMut()) catch return error.BackendFailure;
     return fromVeyraMatrix(a.allocator, &out_matrix);
+}
+
+pub fn matvec(comptime T: type, a: tensor_mod.Tensor(T), x: tensor_mod.Tensor(T)) LinalgError!tensor_mod.Tensor(T) {
+    if (a.shape.len != 2) return error.NonMatrixTensor;
+    if (x.shape.len != 1) return error.NonVectorTensor;
+    if (a.shape[1] != x.shape[0]) return error.ShapeMismatch;
+    if (T == f64) return matvecF64(@as(tensor_mod.Tensor(f64), a), @as(tensor_mod.Tensor(f64), x));
+
+    var out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{a.shape[0]});
+    for (0..a.shape[0]) |r| {
+        var acc: T = 0;
+        for (0..a.shape[1]) |c| acc += a.data[r * a.shape[1] + c] * x.data[c];
+        out.data[r] = acc;
+    }
+    return out;
+}
+
+fn matvecF64(a: tensor_mod.Tensor(f64), x: tensor_mod.Tensor(f64)) LinalgError!tensor_mod.Tensor(f64) {
+    var matrix = try toVeyraMatrix(a);
+    defer matrix.deinit();
+    var vector = try toVeyraVector(x);
+    defer vector.deinit();
+    var out_vector = veyra.Vector(f64).zeros(a.allocator, a.shape[0]) catch return error.BackendFailure;
+    defer out_vector.deinit();
+    veyra.matvec(f64, matrix.asView(), vector.asView(), out_vector.asMut()) catch return error.BackendFailure;
+    return fromVeyraVector(a.allocator, &out_vector);
+}
+
+pub fn cholesky(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!tensor_mod.Tensor(T) {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("cholesky requires floating-point tensors");
+    if (T == f64) return choleskyF64(@as(tensor_mod.Tensor(f64), a));
+
+    const n = a.shape[0];
+    var out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ n, n });
+    for (0..n) |i| {
+        for (0..i + 1) |j| {
+            var sum: T = 0;
+            for (0..j) |k| sum += out.data[i * n + k] * out.data[j * n + k];
+            if (i == j) {
+                const value = a.data[i * n + i] - sum;
+                if (value <= 0) return error.NotPositiveDefinite;
+                out.data[i * n + j] = std.math.sqrt(value);
+            } else {
+                const denom = out.data[j * n + j];
+                if (denom == 0) return error.NotPositiveDefinite;
+                out.data[i * n + j] = (a.data[i * n + j] - sum) / denom;
+            }
+        }
+    }
+    return out;
+}
+
+fn choleskyF64(a: tensor_mod.Tensor(f64)) LinalgError!tensor_mod.Tensor(f64) {
+    var matrix = try toVeyraMatrix(a);
+    defer matrix.deinit();
+    var factorization = veyra.cholesky(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
+    defer factorization.deinit();
+    var out = try tensor_mod.Tensor(f64).zeros(a.allocator, &.{ a.shape[0], a.shape[1] });
+    errdefer out.deinit();
+    const l = factorization.lView();
+    for (0..a.shape[0]) |r| {
+        for (0..r + 1) |c| out.data[r * a.shape[1] + c] = l.get(r, c);
+    }
+    return out;
+}
+
+pub fn qr(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!QrResult(T) {
+    if (a.shape.len != 2) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("qr requires floating-point tensors");
+    if (T == f64) return qrF64(@as(tensor_mod.Tensor(f64), a));
+    return qrReference(T, a);
+}
+
+fn qrF64(a: tensor_mod.Tensor(f64)) LinalgError!QrResult(f64) {
+    var matrix = try toVeyraMatrix(a);
+    defer matrix.deinit();
+    var factorization = veyra.qr(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
+    defer factorization.deinit();
+
+    var q_matrix = veyra.Matrix(f64).identity(a.allocator, a.shape[0], .row_major) catch return error.BackendFailure;
+    defer q_matrix.deinit();
+    var q_out_matrix = veyra.Matrix(f64).zeros(a.allocator, a.shape[0], a.shape[0], .row_major) catch return error.BackendFailure;
+    defer q_out_matrix.deinit();
+    factorization.applyQMatrix(q_matrix.asView(), q_out_matrix.asMut()) catch |err| return mapVeyraError(err);
+
+    var q = try fromVeyraMatrix(a.allocator, &q_out_matrix);
+    errdefer q.deinit();
+    var r = try tensor_mod.Tensor(f64).zeros(a.allocator, &.{ a.shape[0], a.shape[1] });
+    errdefer r.deinit();
+    const rv = factorization.rView();
+    for (0..a.shape[0]) |row| {
+        for (row..a.shape[1]) |col| {
+            if (row < rv.rows and col < rv.cols) r.data[row * a.shape[1] + col] = rv.get(row, col);
+        }
+    }
+    return .{ .q = q, .r = r };
+}
+
+fn qrReference(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!QrResult(T) {
+    const m = a.shape[0];
+    const n = a.shape[1];
+    var q = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ m, m });
+    errdefer q.deinit();
+    var r = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ m, n });
+    errdefer r.deinit();
+
+    // Classical Gram-Schmidt for the first n columns; complete remaining Q columns from basis vectors.
+    for (0..m) |basis_col| {
+        for (0..m) |row| q.data[row * m + basis_col] = if (row == basis_col) 1 else 0;
+    }
+    for (0..n) |j| {
+        for (0..m) |row| q.data[row * m + j] = a.data[row * n + j];
+        for (0..j) |i| {
+            var dot: T = 0;
+            for (0..m) |row| dot += q.data[row * m + i] * a.data[row * n + j];
+            r.data[i * n + j] = dot;
+            for (0..m) |row| q.data[row * m + j] -= dot * q.data[row * m + i];
+        }
+        var norm_sq: T = 0;
+        for (0..m) |row| norm_sq += q.data[row * m + j] * q.data[row * m + j];
+        if (norm_sq == 0) return error.SingularMatrix;
+        const norm = std.math.sqrt(norm_sq);
+        r.data[j * n + j] = norm;
+        for (0..m) |row| q.data[row * m + j] /= norm;
+    }
+    return .{ .q = q, .r = r };
 }
 
 pub fn det(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!T {
@@ -176,4 +336,41 @@ test "linalg f64 matmul uses Veyra-compatible path" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 58, 64, 139, 154 }, out.data);
     try std.testing.expectEqual(@as(f64, 212), try trace(f64, out));
+}
+
+test "linalg matvec and cholesky use Veyra-compatible paths" {
+    const gpa = std.testing.allocator;
+    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+    var x = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    defer x.deinit();
+    var y = try matvec(f64, a, x);
+    defer y.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 14, 32 }, y.data);
+
+    var spd = try tensor_mod.tensor(f64, gpa, &.{ 25, 15, -5, 15, 18, 0, -5, 0, 11 }, &.{ 3, 3 });
+    defer spd.deinit();
+    var l = try cholesky(f64, spd);
+    defer l.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 5), l.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), l.data[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1), l.data[6], 1e-12);
+    var lt = try l.transpose();
+    defer lt.deinit();
+    var reconstructed = try matmul(f64, l, lt);
+    defer reconstructed.deinit();
+    try std.testing.expect(try reconstructed.allclose(spd, 1e-12, 1e-12));
+}
+
+test "linalg qr reconstructs matrix" {
+    const gpa = std.testing.allocator;
+    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    defer a.deinit();
+    var factors = try qr(f64, a);
+    defer factors.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, factors.q.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, factors.r.shape);
+    var reconstructed = try matmul(f64, factors.q, factors.r);
+    defer reconstructed.deinit();
+    try std.testing.expect(try reconstructed.allclose(a, 1e-10, 1e-10));
 }

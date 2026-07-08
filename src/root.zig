@@ -41,6 +41,10 @@ pub const cat = tensor_mod.cat;
 pub const stack = tensor_mod.stack;
 pub const outer = tensor_mod.outer;
 pub const where = tensor_mod.where;
+pub const matmul = linalg.matmul;
+pub const matvec = linalg.matvec;
+pub const cholesky = linalg.cholesky;
+pub const qr = linalg.qr;
 pub const dataframe = dataframe_mod.dataframe;
 
 test {
