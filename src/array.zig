@@ -2297,6 +2297,42 @@ pub fn ArrayView(comptime T: type) type {
             return owned.trace();
         }
 
+        pub fn traceOffset(self: Self, offset: isize) ArrayError!T {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.traceOffset(offset);
+        }
+
+        pub fn diagonal(self: Self, offset: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.diagonal(offset);
+        }
+
+        pub fn diag(self: Self, offset: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.diag(offset);
+        }
+
+        pub fn diagflat(self: Self, offset: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.diagflat(offset);
+        }
+
+        pub fn triu(self: Self, diagonal_offset: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.triu(diagonal_offset);
+        }
+
+        pub fn tril(self: Self, diagonal_offset: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.tril(diagonal_offset);
+        }
+
         pub fn real(self: Self) ArrayError!Array(complexRealType(T)) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2835,6 +2871,20 @@ pub fn Array(comptime T: type) type {
         pub fn eye(allocator: std.mem.Allocator, n: usize) ArrayError!Self {
             const out = try Self.zeros(allocator, &.{ n, n });
             for (0..n) |i| out.data[i * n + i] = one(T);
+            return out;
+        }
+
+        pub fn identity(allocator: std.mem.Allocator, n: usize) ArrayError!Self {
+            return Self.eye(allocator, n);
+        }
+
+        pub fn eyeRect(allocator: std.mem.Allocator, rows: usize, cols: usize, diagonal_offset: isize) ArrayError!Self {
+            const out = try Self.zeros(allocator, &.{ rows, cols });
+            const start_row: usize = if (diagonal_offset < 0) @intCast(-diagonal_offset) else 0;
+            const start_col: usize = if (diagonal_offset > 0) @intCast(diagonal_offset) else 0;
+            if (start_row >= rows or start_col >= cols) return out;
+            const count = @min(rows - start_row, cols - start_col);
+            for (0..count) |i| out.data[(start_row + i) * cols + start_col + i] = one(T);
             return out;
         }
 
@@ -8080,11 +8130,27 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn trace(self: Self) ArrayError!T {
+            return self.traceOffset(0);
+        }
+
+        pub fn traceOffset(self: Self, offset: isize) ArrayError!T {
             ensureNumeric(T);
             if (self.shape.len != 2) return error.NonMatrixArray;
-            const count = @min(self.shape[0], self.shape[1]);
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            const start_row: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= rows) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const start_col: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= cols) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const count = @min(rows - start_row, cols - start_col);
             var total = zero(T);
-            for (0..count) |i| total = addValue(T, total, self.data[i * self.shape[1] + i]);
+            for (0..count) |i| total = addValue(T, total, self.data[(start_row + i) * cols + start_col + i]);
             return total;
         }
 
@@ -10559,6 +10625,9 @@ test "array logsoftmax norm and matrix helpers" {
     var m = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, &.{ 3, 3 });
     defer m.deinit();
     try std.testing.expectEqual(@as(f64, 15), try m.trace());
+    try std.testing.expectEqual(@as(f64, 8), try m.traceOffset(1));
+    try std.testing.expectEqual(@as(f64, 12), try m.traceOffset(-1));
+    try std.testing.expectEqual(@as(f64, 0), try m.traceOffset(9));
     var d = try m.diagonal(0);
     defer d.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 9 }, d.data);
@@ -10568,6 +10637,28 @@ test "array logsoftmax norm and matrix helpers" {
     var lower = try m.tril(0);
     defer lower.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 4, 5, 0, 7, 8, 9 }, lower.data);
+
+    var mt = try m.transposeView();
+    defer mt.deinit();
+    try std.testing.expectEqual(@as(f64, 15), try mt.trace());
+    try std.testing.expectEqual(@as(f64, 12), try mt.traceOffset(1));
+    var mt_diag = try mt.diagonal(1);
+    defer mt_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 8 }, mt_diag.data);
+    var mt_diag_main = try mt.diag(0);
+    defer mt_diag_main.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 9 }, mt_diag_main.data);
+    var mt_upper = try mt.triu(1);
+    defer mt_upper.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 4, 7, 0, 0, 8, 0, 0, 0 }, mt_upper.data);
+    var mt_lower = try mt.tril(-1);
+    defer mt_lower.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 2, 0, 0, 3, 6, 0 }, mt_lower.data);
+    var mt_row = try mt.select(0, 0);
+    defer mt_row.deinit();
+    var mt_row_diag = try mt_row.diag(0);
+    defer mt_row_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 4, 0, 0, 0, 7 }, mt_row_diag.data);
 }
 
 test "array min max arg reductions and topk" {
@@ -11133,6 +11224,24 @@ test "array creation like scalar diag and diagflat" {
     var extracted = try a.diag(0);
     defer extracted.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, extracted.data);
+
+    var ident = try Array(f64).identity(gpa, 3);
+    defer ident.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 1, 0, 0, 0, 1 }, ident.data);
+
+    var rect = try Array(f64).eyeRect(gpa, 2, 4, 1);
+    defer rect.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, rect.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 1, 0, 0, 0, 0, 1, 0 }, rect.data);
+
+    var neg_rect = try Array(f64).eyeRect(gpa, 3, 2, -1);
+    defer neg_rect.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, neg_rect.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 1, 0, 0, 1 }, neg_rect.data);
+
+    var out_of_band = try Array(f64).eyeRect(gpa, 2, 2, 3);
+    defer out_of_band.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0 }, out_of_band.data);
 }
 
 test "array advanced indexing and mask mutation helpers" {
