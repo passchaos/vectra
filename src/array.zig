@@ -1798,6 +1798,150 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
+        pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.variance(axis_opt, keepdims, correction);
+        }
+
+        pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.stddev(axis_opt, keepdims, correction);
+        }
+
+        pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.median(axis_opt, keepdims);
+        }
+
+        pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.quantile(q, axis_opt, keepdims);
+        }
+
+        pub fn percentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.percentile(p, axis_opt, keepdims);
+        }
+
+        pub fn average(self: Self, weights: ?Array(T), axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.average(weights, axis_opt, keepdims);
+        }
+
+        pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nansum(axis_opt, keepdims);
+        }
+
+        pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanmean(axis_opt, keepdims);
+        }
+
+        pub fn nanvar(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanvar(axis_opt, keepdims, correction);
+        }
+
+        pub fn nanstd(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanstd(axis_opt, keepdims, correction);
+        }
+
+        pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanmin(axis_opt, keepdims);
+        }
+
+        pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanmax(axis_opt, keepdims);
+        }
+
+        pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanmedian(axis_opt, keepdims);
+        }
+
+        pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanquantile(q, axis_opt, keepdims);
+        }
+
+        pub fn nanpercentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanpercentile(p, axis_opt, keepdims);
+        }
+
+        pub fn cumsum(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cumsum();
+        }
+
+        pub fn cumprod(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cumprod();
+        }
+
+        pub fn cumsumAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cumsumAxis(axis_index);
+        }
+
+        pub fn cumprodAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cumprodAxis(axis_index);
+        }
+
+        pub fn diff(self: Self, axis_index: isize, n: usize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.diff(axis_index, n);
+        }
+
+        pub fn argmax(self: Self) ArrayError!usize {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.argmax();
+        }
+
+        pub fn argmin(self: Self) ArrayError!usize {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.argmin();
+        }
+
+        pub fn argmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.argmaxAxis(axis_opt, keepdims);
+        }
+
+        pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.argminAxis(axis_opt, keepdims);
+        }
+
         pub fn materializedApply(self: Self, comptime U: type, comptime method: fn (Array(T)) ArrayError!Array(U)) ArrayError!Array(U) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -8161,6 +8305,77 @@ test "array view object indexing wrappers" {
     var members = try view.isin(needles, false);
     defer members.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, true, true }, members.data);
+}
+
+test "array view object statistics wrappers" {
+    const gpa = std.testing.allocator;
+    const nan = std.math.nan(f64);
+    var a = try Array(f64).fromSlice(gpa, &.{
+        1, 2, nan,
+        4, 5, 6,
+    }, &.{ 2, 3 });
+    defer a.deinit();
+    var view = try a.transposeView();
+    defer view.deinit();
+
+    var sum0 = try view.sum(0, false);
+    defer sum0.deinit();
+    try std.testing.expect(std.math.isNan(sum0.data[0]));
+    try std.testing.expectEqual(@as(f64, 15), sum0.data[1]);
+    var mean1 = try view.mean(1, false);
+    defer mean1.deinit();
+    try std.testing.expectEqual(@as(f64, 2.5), mean1.data[0]);
+    try std.testing.expectEqual(@as(f64, 3.5), mean1.data[1]);
+    try std.testing.expect(std.math.isNan(mean1.data[2]));
+    var var1 = try view.variance(1, false, 0);
+    defer var1.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.25), var1.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.25), var1.data[1], 1e-12);
+
+    var median0 = try view.median(0, false);
+    defer median0.deinit();
+    try std.testing.expect(std.math.isNan(median0.data[0]));
+    try std.testing.expectEqual(@as(f64, 5), median0.data[1]);
+    var q0 = try view.quantile(0.5, 0, true);
+    defer q0.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, q0.shape);
+    try std.testing.expect(std.math.isNan(q0.data[0]));
+    try std.testing.expectEqual(@as(f64, 5), q0.data[1]);
+
+    var nmedian0 = try view.nanmedian(0, false);
+    defer nmedian0.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 5 }, nmedian0.data);
+
+    var nsum0 = try view.nansum(0, false);
+    defer nsum0.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 15 }, nsum0.data);
+    var nmean1 = try view.nanmean(1, false);
+    defer nmean1.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2.5, 3.5, 6 }, nmean1.data);
+    var nmax0 = try view.nanmax(0, false);
+    defer nmax0.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 6 }, nmax0.data);
+
+    var cums = try view.cumsumAxis(0);
+    defer cums.deinit();
+    try std.testing.expectEqual(@as(f64, 1), cums.data[0]);
+    try std.testing.expectEqual(@as(f64, 4), cums.data[1]);
+    try std.testing.expectEqual(@as(f64, 3), cums.data[2]);
+    try std.testing.expectEqual(@as(f64, 9), cums.data[3]);
+    try std.testing.expect(std.math.isNan(cums.data[4]));
+    try std.testing.expectEqual(@as(f64, 15), cums.data[5]);
+    var d = try view.diff(0, 1);
+    defer d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, d.shape);
+    try std.testing.expectEqual(@as(f64, 1), d.data[0]);
+    try std.testing.expectEqual(@as(f64, 1), d.data[1]);
+    try std.testing.expect(std.math.isNan(d.data[2]));
+    try std.testing.expectEqual(@as(f64, 1), d.data[3]);
+
+    try std.testing.expectEqual(@as(usize, 5), try view.argmax());
+    var argmin0 = try view.argminAxis(0, false);
+    defer argmin0.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0 }, argmin0.data);
 }
 
 test "array view object unary predicate wrappers" {
