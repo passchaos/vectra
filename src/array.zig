@@ -40,9 +40,11 @@ pub const DType = enum {
     u64,
     usize,
     bool,
+    f16,
 
     pub fn of(comptime T: type) DType {
         return switch (T) {
+            f16 => .f16,
             f32 => .f32,
             f64 => .f64,
             i8 => .i8,
@@ -61,6 +63,7 @@ pub const DType = enum {
 
     pub fn name(self: DType) []const u8 {
         return switch (self) {
+            .f16 => "f16",
             .f32 => "f32",
             .f64 => "f64",
             .i8 => "i8",
@@ -79,7 +82,7 @@ pub const DType = enum {
     pub fn byteSize(self: DType) usize {
         return switch (self) {
             .bool, .i8, .u8 => 1,
-            .i16, .u16 => 2,
+            .f16, .i16, .u16 => 2,
             .f32, .i32, .u32 => 4,
             .f64, .i64, .u64 => 8,
             .usize => @sizeOf(usize),
@@ -88,7 +91,7 @@ pub const DType = enum {
 
     pub fn isFloat(self: DType) bool {
         return switch (self) {
-            .f32, .f64 => true,
+            .f16, .f32, .f64 => true,
             else => false,
         };
     }
@@ -111,12 +114,78 @@ pub const DType = enum {
         return self == .bool;
     }
 
+    pub fn bitSize(self: DType) usize {
+        return self.byteSize() * 8;
+    }
+
+    pub fn canCast(self: DType, target: DType) bool {
+        if (self == target) return true;
+        if (self.isBool() and target.isBool()) return true;
+        if (self.isBool()) return target.isInteger() or target.isFloat();
+        if (target.isBool()) return self.isInteger() or self.isFloat();
+        return (self.isInteger() or self.isFloat()) and (target.isInteger() or target.isFloat());
+    }
+
+    fn floatRank(self: DType) usize {
+        return switch (self) {
+            .f16 => 1,
+            .f32 => 2,
+            .f64 => 3,
+            else => 0,
+        };
+    }
+
+    fn intRank(self: DType) usize {
+        return switch (self) {
+            .bool => 0,
+            .i8, .u8 => 1,
+            .i16, .u16 => 2,
+            .i32, .u32 => 3,
+            .i64, .u64, .usize => 4,
+            else => 0,
+        };
+    }
+
+    pub fn promote(a: DType, b: DType) DType {
+        if (a == b) return a;
+        if (a.isBool()) return b;
+        if (b.isBool()) return a;
+        if (a.isFloat() or b.isFloat()) {
+            const rank = @max(a.floatRank(), b.floatRank());
+            if (rank >= 3) return .f64;
+            if (rank == 2) return .f32;
+            return .f16;
+        }
+        var rank = @max(a.intRank(), b.intRank());
+        const a_unsigned = a.isInteger() and !a.isSigned();
+        const b_unsigned = b.isInteger() and !b.isSigned();
+        const mixed_signedness = (a.isSigned() and b_unsigned) or (b.isSigned() and a_unsigned);
+        if (mixed_signedness) {
+            const signed_rank = if (a.isSigned()) a.intRank() else b.intRank();
+            const unsigned_rank = if (a_unsigned) a.intRank() else b.intRank();
+            if (unsigned_rank >= signed_rank) rank += 1;
+            if (rank > 4) return .f64;
+        }
+        const signed = a.isSigned() or b.isSigned();
+        return switch (rank) {
+            0, 1 => if (signed) .i8 else .u8,
+            2 => if (signed) .i16 else .u16,
+            3 => if (signed) .i32 else .u32,
+            else => if (signed) .i64 else .u64,
+        };
+    }
+
+    pub fn result(a: DType, b: DType) DType {
+        return DType.promote(a, b);
+    }
+
     pub fn tag(self: DType) u8 {
         return @intFromEnum(self);
     }
 
     pub fn fromTag(tag_value: u8) ?DType {
         return switch (tag_value) {
+            @intFromEnum(DType.f16) => .f16,
             @intFromEnum(DType.f32) => .f32,
             @intFromEnum(DType.f64) => .f64,
             @intFromEnum(DType.i8) => .i8,
@@ -138,6 +207,18 @@ pub const Archive = struct {
     pub const magic = [_]u8{ 'V', 'X', 'A', 'R', 'R', '0', '1', 0 };
     pub const version: u8 = 1;
 };
+
+pub fn canCastDType(from: DType, to: DType) bool {
+    return from.canCast(to);
+}
+
+pub fn promoteDType(a: DType, b: DType) DType {
+    return DType.promote(a, b);
+}
+
+pub fn resultDType(a: DType, b: DType) DType {
+    return DType.result(a, b);
+}
 
 pub const ArrayError = error{
     ShapeMismatch,
@@ -7411,6 +7492,7 @@ test "array slice flip roll and constant padding" {
 }
 
 test "array dtype metadata and casts cover common numeric types" {
+    try std.testing.expectEqual(DType.f16, DType.of(f16));
     try std.testing.expectEqual(DType.i8, DType.of(i8));
     try std.testing.expectEqual(DType.i16, DType.of(i16));
     try std.testing.expectEqual(DType.u16, DType.of(u16));
@@ -7418,10 +7500,18 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(DType.u64, DType.of(u64));
     try std.testing.expectEqualStrings("u64", DType.u64.name());
     try std.testing.expectEqual(@as(usize, 8), DType.u64.byteSize());
+    try std.testing.expectEqualStrings("f16", DType.f16.name());
+    try std.testing.expectEqual(@as(usize, 2), DType.f16.byteSize());
     try std.testing.expect(DType.f32.isFloat());
     try std.testing.expect(DType.i16.isInteger());
     try std.testing.expect(DType.i16.isSigned());
     try std.testing.expect(DType.bool.isBool());
+    try std.testing.expect(DType.bool.canCast(.f32));
+    try std.testing.expect(canCastDType(.f16, .f64));
+    try std.testing.expectEqual(DType.f64, DType.promote(.f32, .f64));
+    try std.testing.expectEqual(DType.f32, promoteDType(.f16, .f32));
+    try std.testing.expectEqual(DType.i32, resultDType(.i16, .u16));
+    try std.testing.expectEqual(DType.u64, DType.promote(.u32, .u64));
 
     const gpa = std.testing.allocator;
     var ints = try array(i16, gpa, &.{ -1, 0, 2 }, &.{3});
@@ -7434,6 +7524,11 @@ test "array dtype metadata and casts cover common numeric types" {
     var widened = try unsigned.astype(u64);
     defer widened.deinit();
     try std.testing.expectEqualSlices(u64, &.{ 1, 2, 3 }, widened.data);
+    var halves = try array(f16, gpa, &.{ @as(f16, 1.5), @as(f16, -2.0) }, &.{2});
+    defer halves.deinit();
+    var half_to_float = try halves.astype(f32);
+    defer half_to_float.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ 1.5, -2.0 }, half_to_float.data);
 
     var r = try randint(u16, gpa, &.{16}, 10, 20, 42);
     defer r.deinit();

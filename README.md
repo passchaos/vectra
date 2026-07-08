@@ -10,7 +10,7 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 
 ## What is included now
 
-- `Array(T)` / `NDArray(T)` with shape/strides, typed storage (`bool`, `i8/i16/i32/i64`, `u8/u16/u32/u64/usize`, `f32/f64`), `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
+- `Array(T)` / `NDArray(T)` with shape/strides, typed storage (`bool`, `i8/i16/i32/i64`, `u8/u16/u32/u64/usize`, `f16/f32/f64`), dtype metadata (`canCastDType`, `promoteDType`, `resultDType`), `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
 - Creation helpers: `array`, `ndarray`, `arrayScalar`, `zeros`, `ones`, `full`, `empty`, `emptyLike`, `zerosLike`, `onesLike`, `fullLike`, `eye`, `arange`, `linspace`, `logspace`, `geomspace`, `meshgrid` with `MeshGridIndexing.xy/ij`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`, `exponential`, `gamma`, `beta`, `poisson`, `lognormal`, `studentT`, `cauchy`, `laplace`, `weibull`; random generation uses the local `../alea` backend.
 - NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `takeMode` with `IndexMode.raise/wrap/clip`, `takeAlongAxis/putAlongAxis`, coordinate indexing with prefix-shaped coordinate arrays (`ravelCoords`, `unravelFlat`, `takeCoords`, `putCoords/putCoordsScalar`) and broadcasted coordinate arrays (`ravelMultiIndex`, `takeMultiIndex`, `putMultiIndex/putMultiIndexScalar`), `gather`, `scatter/scatterScalar`, `scatterAdd`, `scatterReduce`, `scatterReduceScalar`, `scatterAddScalar`, `maskedSelect`, `maskedFill`, `maskedScatter`, `maskedPut/maskedPutScalar`, `putMask/putMaskScalar`, `copyWhere`, `whereIndices`, `putFlat/putFlatMode/putFlatScalar/putFlatScalarMode`, `indexPut/indexPutScalar`, `compress`, `flatNonzero`, `nonzero/argwhere/countNonzero`, `isin`, `slice1d`.
 - Broadcasting elementwise arithmetic/comparisons: `add/sub/mul/div/pow`, `floorDiv`, `mod/remainder`, scalar variants, `maximum/minimum`, `hypot`, `atan2`, `copysign`, `heaviside`, comparisons (`eq/equal`, `ne/notEqual`, `gt/greater`, `ge/greaterEqual`, `lt/less`, `le/lessEqual`, scalar variants), boolean logic (`logicalNot`, `logicalAnd`, `logicalOr`, `logicalXor`, scalar variants), `whereMask`, `isclose`, `allclose`.
@@ -95,7 +95,7 @@ The package targets Zig `0.16.0` and uses the new `std.Io` writer APIs.
 ## Roadmap
 
 - Richer indexing/views and non-contiguous arrays.
-- Nullable values, categorical/string kernels, complex numbers, f16/bf16.
+- Nullable values, categorical/string kernels, complex numbers, bf16, richer promotion policy.
 - Polars-like lazy query plans and expression DSL.
 - BLAS/LAPACK/FFT/sparse integrations.
 - GPU backend implementation behind the existing `Device` surface.

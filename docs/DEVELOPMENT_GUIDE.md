@@ -32,7 +32,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - 排序/选择：任意 axis/dim 的 `sort/argsort`、descending variants、`sortWithIndices`、`partition/argpartition`、`topk`。
 - 线性代数基础：dot、matmul/mm、bmm、outer、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库。
 - 数学/神经网络常用函数：neg/abs/square/reciprocal/sign、nextAfter/ldexp/frexp、exp/log/log2/log10/sqrt、log1p/expm1、floor/ceil/round/trunc、deg2rad/rad2deg、三角/反三角/双曲函数、copysign/heaviside、isnan/isinf/isfinite、relu、sigmoid、tanh、softmax、log_softmax、cross_entropy 相关基础。
-- dtype 转换与类型提升规则：当前支持 `bool`、常用有符号/无符号整数、`usize`、`f32/f64` 和基础 dtype metadata；后续继续补 complex、f16/bf16 与 promotion。
+- dtype 转换与类型提升规则：当前支持 `bool`、常用有符号/无符号整数、`usize`、`f16/f32/f64`、`canCastDType`、`promoteDType/resultDType` 等基础 dtype metadata；后续继续补 complex、bf16 与更完整 promotion。
 - 设备抽象：先保持 CPU 正确；CUDA/GPU API 形态参考 CuPy/PyTorch，后续再接入真实后端。
 
 API 取向：
