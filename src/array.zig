@@ -472,6 +472,12 @@ fn broadcastOffset(out_multi: []const usize, out_rank: usize, in_shape: []const 
     return offset;
 }
 
+fn broadcastAxisExtent(out_rank: usize, in_shape: []const usize, axis: usize) ?usize {
+    const leading = out_rank - in_shape.len;
+    if (axis < leading) return null;
+    return in_shape[axis - leading];
+}
+
 pub const Slice = struct {
     start: isize = 0,
     stop: ?isize = null,
@@ -4443,6 +4449,28 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn matvec(self: Self, vector: Self) ArrayError!Self {
+            ensureNumeric(T);
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            if (vector.shape.len != 1) return error.NonVectorArray;
+            if (self.shape[1] != vector.shape[0]) return error.ShapeMismatch;
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            const out = try Self.empty(self.allocator, &.{rows});
+            for (out.data, 0..) |*slot, row| {
+                var acc = zero(T);
+                for (0..cols) |col| {
+                    acc = addValue(
+                        T,
+                        acc,
+                        mulValue(T, self.data[row * self.strides[0] + col * self.strides[1]], vector.data[col * vector.strides[0]]),
+                    );
+                }
+                slot.* = acc;
+            }
+            return out;
+        }
+
         pub fn dot(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
@@ -4450,6 +4478,75 @@ pub fn Array(comptime T: type) type {
             var acc = zero(T);
             for (self.data, other.data) |a, b| acc = addValue(T, acc, mulValue(T, a, b));
             return Self.fromSlice(self.allocator, &.{acc}, &.{});
+        }
+
+        pub fn vdot(self: Self, other: Self) ArrayError!Self {
+            ensureNumeric(T);
+            if (self.data.len != other.data.len) return error.ShapeMismatch;
+            var acc = zero(T);
+            for (self.data, other.data) |a, b| acc = addValue(T, acc, mulValue(T, a, b));
+            return Self.fromSlice(self.allocator, &.{acc}, &.{});
+        }
+
+        pub fn vecdot(self: Self, other: Self, axis_index: isize) ArrayError!Self {
+            ensureNumeric(T);
+            var product_out = try self.mul(other);
+            defer product_out.deinit();
+            return product_out.sum(axis_index, false);
+        }
+
+        pub fn inner(self: Self, other: Self) ArrayError!Self {
+            ensureNumeric(T);
+            if (self.shape.len == 0 or other.shape.len == 0) return self.mul(other);
+            const lhs_contract = self.shape[self.shape.len - 1];
+            const rhs_contract = other.shape[other.shape.len - 1];
+            if (lhs_contract != rhs_contract) return error.ShapeMismatch;
+
+            const out_rank = self.shape.len + other.shape.len - 2;
+            const out_shape = try self.allocator.alloc(usize, out_rank);
+            defer self.allocator.free(out_shape);
+            var write: usize = 0;
+            for (self.shape[0 .. self.shape.len - 1]) |dim| {
+                out_shape[write] = dim;
+                write += 1;
+            }
+            for (other.shape[0 .. other.shape.len - 1]) |dim| {
+                out_shape[write] = dim;
+                write += 1;
+            }
+
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                var lhs_base: usize = 0;
+                for (self.shape[0 .. self.shape.len - 1], self.strides[0 .. self.shape.len - 1], 0..) |_, stride_value, i| {
+                    lhs_base += out_multi[i] * stride_value;
+                }
+                var rhs_base: usize = 0;
+                const rhs_start = self.shape.len - 1;
+                for (other.shape[0 .. other.shape.len - 1], other.strides[0 .. other.shape.len - 1], 0..) |_, stride_value, i| {
+                    rhs_base += out_multi[rhs_start + i] * stride_value;
+                }
+                var acc = zero(T);
+                for (0..lhs_contract) |axis_i| {
+                    acc = addValue(
+                        T,
+                        acc,
+                        mulValue(
+                            T,
+                            self.data[lhs_base + axis_i * self.strides[self.shape.len - 1]],
+                            other.data[rhs_base + axis_i * other.strides[other.shape.len - 1]],
+                        ),
+                    );
+                }
+                slot.* = acc;
+            }
+            return out;
         }
 
         pub fn outer(self: Self, other: Self) ArrayError!Self {
@@ -4460,6 +4557,130 @@ pub fn Array(comptime T: type) type {
                 for (0..other.shape[0]) |j| {
                     out.data[i * other.shape[0] + j] = mulValue(T, self.data[i], other.data[j]);
                 }
+            }
+            return out;
+        }
+
+        pub fn cross(self: Self, other: Self, axis_index: isize) ArrayError!Self {
+            ensureNumeric(T);
+            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            const axis = try normalizeDim(axis_index, out_shape.len);
+            if (out_shape[axis] != 3) return error.ShapeMismatch;
+            if ((broadcastAxisExtent(out_shape.len, self.shape, axis) orelse return error.ShapeMismatch) != 3) return error.ShapeMismatch;
+            if ((broadcastAxisExtent(out_shape.len, other.shape, axis) orelse return error.ShapeMismatch) != 3) return error.ShapeMismatch;
+
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const component = out_multi[axis];
+                out_multi[axis] = 0;
+                const a0 = self.data[broadcastOffset(out_multi, out_shape.len, self.shape, self.strides)];
+                const b0 = other.data[broadcastOffset(out_multi, out_shape.len, other.shape, other.strides)];
+                out_multi[axis] = 1;
+                const a1 = self.data[broadcastOffset(out_multi, out_shape.len, self.shape, self.strides)];
+                const b1 = other.data[broadcastOffset(out_multi, out_shape.len, other.shape, other.strides)];
+                out_multi[axis] = 2;
+                const a2 = self.data[broadcastOffset(out_multi, out_shape.len, self.shape, self.strides)];
+                const b2 = other.data[broadcastOffset(out_multi, out_shape.len, other.shape, other.strides)];
+                out_multi[axis] = component;
+                slot.* = switch (component) {
+                    0 => a1 * b2 - a2 * b1,
+                    1 => a2 * b0 - a0 * b2,
+                    else => a0 * b1 - a1 * b0,
+                };
+            }
+            return out;
+        }
+
+        pub fn contractAxes(self: Self, other: Self, axes_self: []const usize, axes_other: []const usize) ArrayError!Self {
+            ensureNumeric(T);
+            if (axes_self.len != axes_other.len) return error.InvalidShape;
+
+            const seen_self = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(seen_self);
+            @memset(seen_self, false);
+            const seen_other = try self.allocator.alloc(bool, other.shape.len);
+            defer self.allocator.free(seen_other);
+            @memset(seen_other, false);
+
+            const contract_shape = try self.allocator.alloc(usize, axes_self.len);
+            defer self.allocator.free(contract_shape);
+            for (axes_self, axes_other, 0..) |lhs_axis_raw, rhs_axis_raw, i| {
+                const lhs_axis = try canonicalAxis(lhs_axis_raw, self.shape.len);
+                const rhs_axis = try canonicalAxis(rhs_axis_raw, other.shape.len);
+                if (seen_self[lhs_axis] or seen_other[rhs_axis]) return error.InvalidAxis;
+                if (self.shape[lhs_axis] != other.shape[rhs_axis]) return error.ShapeMismatch;
+                seen_self[lhs_axis] = true;
+                seen_other[rhs_axis] = true;
+                contract_shape[i] = self.shape[lhs_axis];
+            }
+
+            const out_rank = self.shape.len + other.shape.len - axes_self.len * 2;
+            const out_shape = try self.allocator.alloc(usize, out_rank);
+            defer self.allocator.free(out_shape);
+            var out_pos: usize = 0;
+            for (self.shape, 0..) |dim, axis| {
+                if (!seen_self[axis]) {
+                    out_shape[out_pos] = dim;
+                    out_pos += 1;
+                }
+            }
+            for (other.shape, 0..) |dim, axis| {
+                if (!seen_other[axis]) {
+                    out_shape[out_pos] = dim;
+                    out_pos += 1;
+                }
+            }
+
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var self_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(self_multi);
+            var other_multi = try self.allocator.alloc(usize, other.shape.len);
+            defer self.allocator.free(other_multi);
+            const contract_multi = try self.allocator.alloc(usize, contract_shape.len);
+            defer self.allocator.free(contract_multi);
+
+            const contract_count = product(contract_shape);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                out_pos = 0;
+                for (self.shape, 0..) |_, axis| {
+                    if (!seen_self[axis]) {
+                        self_multi[axis] = out_multi[out_pos];
+                        out_pos += 1;
+                    }
+                }
+                for (other.shape, 0..) |_, axis| {
+                    if (!seen_other[axis]) {
+                        other_multi[axis] = out_multi[out_pos];
+                        out_pos += 1;
+                    }
+                }
+
+                var acc = zero(T);
+                for (0..contract_count) |contract_flat| {
+                    unravelIndexInto(contract_flat, contract_shape, contract_multi);
+                    for (axes_self, axes_other, 0..) |lhs_axis, rhs_axis, contract_axis| {
+                        self_multi[lhs_axis] = contract_multi[contract_axis];
+                        other_multi[rhs_axis] = contract_multi[contract_axis];
+                    }
+                    acc = addValue(
+                        T,
+                        acc,
+                        mulValue(T, self.data[ravelIndex(self_multi, self.strides)], other.data[ravelIndex(other_multi, other.strides)]),
+                    );
+                }
+                slot.* = acc;
             }
             return out;
         }
@@ -5371,6 +5592,46 @@ pub fn outer(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.outer(b);
 }
 
+pub fn matmul(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.matmul(b);
+}
+
+pub fn mm(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.mm(b);
+}
+
+pub fn bmm(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.bmm(b);
+}
+
+pub fn matvec(comptime T: type, a: Array(T), vector: Array(T)) ArrayError!Array(T) {
+    return a.matvec(vector);
+}
+
+pub fn dot(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.dot(b);
+}
+
+pub fn inner(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.inner(b);
+}
+
+pub fn vecdot(comptime T: type, a: Array(T), b: Array(T), axis: isize) ArrayError!Array(T) {
+    return a.vecdot(b, axis);
+}
+
+pub fn vdot(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.vdot(b);
+}
+
+pub fn cross(comptime T: type, a: Array(T), b: Array(T), axis: isize) ArrayError!Array(T) {
+    return a.cross(b, axis);
+}
+
+pub fn contractAxes(comptime T: type, a: Array(T), b: Array(T), axes_a: []const usize, axes_b: []const usize) ArrayError!Array(T) {
+    return a.contractAxes(b, axes_a, axes_b);
+}
+
 pub fn where(comptime T: type, mask: Array(bool), a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return Array(T).whereMask(mask, a, b);
 }
@@ -6151,6 +6412,22 @@ pub fn diagflat(comptime T: type, input: Array(T), offset: isize) ArrayError!Arr
     return input.diagflat(offset);
 }
 
+pub fn diagonal(comptime T: type, input: Array(T), offset: isize) ArrayError!Array(T) {
+    return input.diagonal(offset);
+}
+
+pub fn trace(comptime T: type, input: Array(T)) ArrayError!T {
+    return input.trace();
+}
+
+pub fn triu(comptime T: type, input: Array(T), diagonal_offset: isize) ArrayError!Array(T) {
+    return input.triu(diagonal_offset);
+}
+
+pub fn tril(comptime T: type, input: Array(T), diagonal_offset: isize) ArrayError!Array(T) {
+    return input.tril(diagonal_offset);
+}
+
 pub fn sliceAxis(comptime T: type, input: Array(T), axis: isize, slice_value: Slice) ArrayError!Array(T) {
     return input.sliceAxis(axis, slice_value);
 }
@@ -6622,10 +6899,84 @@ test "array reductions and matmul" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, arg1.data);
     var t = try a.transpose();
     defer t.deinit();
-    var mm = try a.matmul(t);
-    defer mm.deinit();
-    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, mm.shape);
-    try std.testing.expectEqualSlices(f64, &.{ 14, 32, 32, 77 }, mm.data);
+    var matrix_product = try a.matmul(t);
+    defer matrix_product.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, matrix_product.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 14, 32, 32, 77 }, matrix_product.data);
+}
+
+test "array contraction and vector algebra helpers" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+    var x = try array(f64, gpa, &.{ 10, 20, 30 }, &.{3});
+    defer x.deinit();
+
+    var y = try a.matvec(x);
+    defer y.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, y.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 140, 320 }, y.data);
+    var y_top = try matvec(f64, a, x);
+    defer y_top.deinit();
+    try std.testing.expectEqualSlices(f64, y.data, y_top.data);
+
+    var lhs = try array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    defer lhs.deinit();
+    var rhs = try array(f64, gpa, &.{ 4, 5, 6 }, &.{3});
+    defer rhs.deinit();
+    var dot_out = try dot(f64, lhs, rhs);
+    defer dot_out.deinit();
+    try std.testing.expectEqual(@as(usize, 0), dot_out.shape.len);
+    try std.testing.expectEqual(@as(f64, 32), dot_out.data[0]);
+
+    var left_inner = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer left_inner.deinit();
+    var right_inner = try array(f64, gpa, &.{ 10, 20, 30, 40, 50, 60 }, &.{ 2, 3 });
+    defer right_inner.deinit();
+    var inner_out = try inner(f64, left_inner, right_inner);
+    defer inner_out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, inner_out.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 140, 320, 320, 770 }, inner_out.data);
+
+    var vecdot_out = try vecdot(f64, left_inner, right_inner, 1);
+    defer vecdot_out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, vecdot_out.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 140, 770 }, vecdot_out.data);
+
+    var flat_vdot = try vdot(f64, left_inner, right_inner);
+    defer flat_vdot.deinit();
+    try std.testing.expectEqual(@as(f64, 910), flat_vdot.data[0]);
+
+    var cross_a = try array(f64, gpa, &.{ 1, 0, 0, 0, 1, 0 }, &.{ 2, 3 });
+    defer cross_a.deinit();
+    var cross_b = try array(f64, gpa, &.{ 0, 1, 0 }, &.{ 1, 3 });
+    defer cross_b.deinit();
+    var cross_out = try cross(f64, cross_a, cross_b, -1);
+    defer cross_out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, cross_out.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 1, 0, 0, 0 }, cross_out.data);
+
+    var td_a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer td_a.deinit();
+    var td_b = try array(f64, gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
+    defer td_b.deinit();
+    var td = try contractAxes(f64, td_a, td_b, &.{1}, &.{0});
+    defer td.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, td.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 58, 64, 139, 154 }, td.data);
+
+    var batch_a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 2, 2 });
+    defer batch_a.deinit();
+    var batch_b = try array(f64, gpa, &.{ 1, 0, 0, 1, 2, 0, 0, 2 }, &.{ 2, 2, 2 });
+    defer batch_b.deinit();
+    var batch_out = try bmm(f64, batch_a, batch_b);
+    defer batch_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 10, 12, 14, 16 }, batch_out.data);
+
+    try std.testing.expectError(error.ShapeMismatch, contractAxes(f64, td_a, td_b, &.{0}, &.{0}));
+    var bad_cross = try array(f64, gpa, &.{ 1, 2 }, &.{2});
+    defer bad_cross.deinit();
+    try std.testing.expectError(error.ShapeMismatch, cross(f64, bad_cross, bad_cross, 0));
 }
 
 test "array scipy-like statistics and softmax" {

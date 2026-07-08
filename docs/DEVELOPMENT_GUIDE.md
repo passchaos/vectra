@@ -30,7 +30,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - 广播逐元素运算：加减乘除、幂、floorDiv/mod/remainder、hypot/atan2、copysign/heaviside、比较及 scalar 比较、逻辑运算及 scalar 逻辑、where、clip/clamp/clipArray、maximum/minimum。
 - 归约与统计：sum、prod、min、max、mean、var、std、median、quantile/percentile、weighted mean/var/std/quantile/cov/corrcoef、cov/corrcoef、nan_to_num 与 nan-aware 统计/cov/corrcoef、argmin、argmax、cumsum、cumprod。
 - 排序/选择：任意 axis/dim 的 `sort/argsort`、descending variants、`sortWithIndices`、`partition/argpartition`、`topk`。
-- 线性代数基础：dot、matmul/mm、bmm、outer、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库。
+- 线性代数基础：dot、inner/vecdot/vdot、outer、cross、contractAxes、matmul/mm、matvec、bmm、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库。
 - 数学/神经网络常用函数：neg/abs/square/reciprocal/sign、nextAfter/ldexp/frexp、exp/log/log2/log10/sqrt、log1p/expm1、floor/ceil/round/trunc、deg2rad/rad2deg、三角/反三角/双曲函数、copysign/heaviside、isnan/isinf/isfinite、relu、sigmoid、tanh、softmax、log_softmax、cross_entropy 相关基础。
 - dtype 转换与类型提升规则：当前支持 `bool`、常用有符号/无符号整数、`usize`、`f16/f32/f64`、`canCastDType`、`promoteDType/resultDType`、`promoteType` 与一批 promoted mixed-dtype 运算；后续继续补 complex、bf16 与更完整 promotion。
 - 设备抽象：先保持 CPU 正确；CUDA/GPU API 形态参考 CuPy/PyTorch，后续再接入真实后端。
@@ -91,7 +91,7 @@ Pandas/Polars 能力排在数组与 SciPy 之后。
 - 归约/统计：方法与顶层包装形式的 `sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`median`、`quantile`、`percentile`、`weightedMean`、`average`、`weightedVariance/weightedVar`、`weightedStddev/weightedStd`、`weightedQuantile`、`weightedMedian`、`weightedCov`、`weightedCorrcoef`、`cov`、`corrcoef`、`nanToNum/nan_to_num`、`nansum`、`nanmean`、`nanvar`、`nanstd`、`nanmin`、`nanmax`、`nanmedian`、`nanquantile`、`nanpercentile`、`nanCov`、`nanCorrcoef`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`cumsumAxis/cumprodAxis`、`diff`、`argmin`、`argmax`、`argminAxis/argmaxAxis`。
 - 排序/选择：`sort`、`sortBy`、`sortDescending`、`argsort`、`argsortAxis`、`argsortDescending`、`sortWithIndices`、`partition`、`argpartition`、`topk(sorted=true/false)`。
 - 离散/计数/集合：`unique`、`uniqueWithCounts`、`union1d`、`intersect1d`、`setdiff1d`、`setxor1d`、`bincount`、`bincountWeighted`。
-- 组合/矩阵辅助：`cat/concatenate`、`stack`、`diag/diagflat`、`outer`、`diagonal`、`trace`、`triu/tril`；`linalg.matmul/matvec/det/solve/inverse/lu/solveTriangular/cholesky/qr/svd/lstsq/singularValues/matrixRank/cond/pinv/matrixNorm/eigh/eigvalsh`。
+- 组合/矩阵辅助：`cat/concatenate`、`stack`、`diag/diagflat`、`diagonal`、`trace`、`triu/tril`、`dot`、`inner/vecdot/vdot`、`outer`、`cross`、`contractAxes`、`matmul/mm/matvec/bmm`；`linalg.matmul/matvec/det/solve/inverse/lu/solveTriangular/cholesky/qr/svd/lstsq/singularValues/matrixRank/cond/pinv/matrixNorm/eigh/eigvalsh`。
 - 基础 linalg/stats/DataFrame 也有初版，但它们不是下一阶段最高优先级。
 
 ## 5. 后续每次开发的执行要求
