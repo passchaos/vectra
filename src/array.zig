@@ -2931,6 +2931,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.nansum(axis_opt, keepdims);
         }
 
+        pub fn nansumAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nansumAxes(axes, keepdims);
+        }
+
+        pub fn nansum_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.nansumAxes(axes, keepdims);
+        }
+
         pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2955,10 +2965,30 @@ pub fn ArrayView(comptime T: type) type {
             return owned.nanmin(axis_opt, keepdims);
         }
 
+        pub fn nanminAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanminAxes(axes, keepdims);
+        }
+
+        pub fn nanmin_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.nanminAxes(axes, keepdims);
+        }
+
         pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.nanmax(axis_opt, keepdims);
+        }
+
+        pub fn nanmaxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanmaxAxes(axes, keepdims);
+        }
+
+        pub fn nanmax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.nanmaxAxes(axes, keepdims);
         }
 
         pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -9929,6 +9959,15 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn nansumAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            return self.reduceAxes(axes, keepdims, Self.nansum);
+        }
+
+        pub fn nansum_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.nansumAxes(axes, keepdims);
+        }
+
         fn nanmeanWithCounts(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!struct { values: Self, counts: Array(usize) } {
             if (axis_opt == null) {
                 var total = zero(T);
@@ -10147,6 +10186,15 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn nanminAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            return self.reduceAxes(axes, keepdims, Self.nanmin);
+        }
+
+        pub fn nanmin_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.nanminAxes(axes, keepdims);
+        }
+
         pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.nanExtreme(axis_opt, keepdims, struct {
@@ -10154,6 +10202,15 @@ pub fn Array(comptime T: type) type {
                     return a > b;
                 }
             }.f);
+        }
+
+        pub fn nanmaxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            return self.reduceAxes(axes, keepdims, Self.nanmax);
+        }
+
+        pub fn nanmax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.nanmaxAxes(axes, keepdims);
         }
 
         fn quantileFromSorted(sorted_values: []const T, q: T) T {
@@ -14292,6 +14349,12 @@ test "array view object statistics wrappers" {
     var view_var_axes = try view.varianceAxes(&.{ 0, 1 }, false, 0);
     defer view_var_axes.deinit();
     try std.testing.expect(std.math.isNan(view_var_axes.data[0]));
+    var view_nansum_axes = try view.nansumAxes(&.{ 0, 1 }, false);
+    defer view_nansum_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{18}, view_nansum_axes.data);
+    var view_nanmax_axes = try view.nanmax_axes(&.{ 0, 1 }, false);
+    defer view_nanmax_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{6}, view_nanmax_axes.data);
     var amin0 = try view.amin(0, false);
     defer amin0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4 }, amin0.data);
