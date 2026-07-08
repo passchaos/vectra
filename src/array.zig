@@ -1839,7 +1839,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.compareView(other, struct {
                 fn f(a: T, b: T) bool {
-                    return a > b;
+                    return lessValue(T, b, a);
                 }
             }.f);
         }
@@ -1848,7 +1848,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.compareView(other, struct {
                 fn f(a: T, b: T) bool {
-                    return a < b;
+                    return lessValue(T, a, b);
                 }
             }.f);
         }
@@ -1869,7 +1869,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
-                    return a > b;
+                    return lessValue(T, b, a);
                 }
             }.f);
         }
@@ -1882,7 +1882,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
-                    return a < b;
+                    return lessValue(T, a, b);
                 }
             }.f);
         }
@@ -1907,7 +1907,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.compareView(other, struct {
                 fn f(a: T, b: T) bool {
-                    return a >= b;
+                    return !lessValue(T, a, b);
                 }
             }.f);
         }
@@ -1920,7 +1920,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.compareView(other, struct {
                 fn f(a: T, b: T) bool {
-                    return a <= b;
+                    return !lessValue(T, b, a);
                 }
             }.f);
         }
@@ -1957,7 +1957,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
-                    return a >= b;
+                    return !lessValue(T, a, b);
                 }
             }.f);
         }
@@ -1970,7 +1970,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
-                    return a <= b;
+                    return !lessValue(T, b, a);
                 }
             }.f);
         }
@@ -7510,7 +7510,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.binaryArray(other, struct {
                 fn f(a: T, b: T) T {
-                    return if (a >= b) a else b;
+                    return if (lessValue(T, a, b)) b else a;
                 }
             }.f);
         }
@@ -7519,7 +7519,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.binaryArray(other, struct {
                 fn f(a: T, b: T) T {
-                    return if (a <= b) a else b;
+                    return if (lessValue(T, b, a)) b else a;
                 }
             }.f);
         }
@@ -7631,7 +7631,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.binaryScalar(scalar, struct {
                 fn f(a: T, b: T) T {
-                    return if (a >= b) a else b;
+                    return if (lessValue(T, a, b)) b else a;
                 }
             }.f);
         }
@@ -7640,7 +7640,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.binaryScalar(scalar, struct {
                 fn f(a: T, b: T) T {
-                    return if (a <= b) a else b;
+                    return if (lessValue(T, b, a)) b else a;
                 }
             }.f);
         }
@@ -8220,7 +8220,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
-                    return a > b;
+                    return lessValue(T, b, a);
                 }
             }.f);
         }
@@ -8233,7 +8233,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
-                    return a < b;
+                    return lessValue(T, a, b);
                 }
             }.f);
         }
@@ -8258,7 +8258,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
-                    return a >= b;
+                    return !lessValue(T, a, b);
                 }
             }.f);
         }
@@ -8271,7 +8271,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
-                    return a <= b;
+                    return !lessValue(T, b, a);
                 }
             }.f);
         }
@@ -8308,7 +8308,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
-                    return a > b;
+                    return lessValue(T, b, a);
                 }
             }.f);
         }
@@ -8321,7 +8321,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
-                    return a >= b;
+                    return !lessValue(T, a, b);
                 }
             }.f);
         }
@@ -8334,7 +8334,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
-                    return a < b;
+                    return lessValue(T, a, b);
                 }
             }.f);
         }
@@ -8347,7 +8347,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
-                    return a <= b;
+                    return !lessValue(T, b, a);
                 }
             }.f);
         }
@@ -9999,7 +9999,7 @@ pub fn Array(comptime T: type) type {
             if (self.data.len == 0) return error.EmptyArray;
             var best: usize = 0;
             for (self.data[1..], 1..) |v, i| {
-                if (v > self.data[best]) best = i;
+                if (lessValue(T, self.data[best], v)) best = i;
             }
             return best;
         }
@@ -10009,7 +10009,7 @@ pub fn Array(comptime T: type) type {
             if (self.data.len == 0) return error.EmptyArray;
             var best: usize = 0;
             for (self.data[1..], 1..) |v, i| {
-                if (v < self.data[best]) best = i;
+                if (lessValue(T, v, self.data[best])) best = i;
             }
             return best;
         }
@@ -10018,7 +10018,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.argReduce(axis_opt, keepdims, struct {
                 fn better(a: T, b: T) bool {
-                    return a > b;
+                    return lessValue(T, b, a);
                 }
             }.better);
         }
@@ -10027,7 +10027,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             return self.argReduce(axis_opt, keepdims, struct {
                 fn better(a: T, b: T) bool {
-                    return a < b;
+                    return lessValue(T, a, b);
                 }
             }.better);
         }
@@ -15740,6 +15740,35 @@ test "array bfloat16 arithmetic and reductions" {
     var abs_out = try a.abs();
     defer abs_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, 3.0), abs_out.data[2].toF32(), 1e-2);
+    var cmp_rhs = try Array(BFloat16).fromSlice(gpa, &.{
+        BFloat16.fromF32(1.0),
+        BFloat16.fromF32(3.0),
+        BFloat16.fromF32(-4.0),
+    }, &.{3});
+    defer cmp_rhs.deinit();
+    var gt_mask = try a.gt(cmp_rhs);
+    defer gt_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, gt_mask.data);
+    var le_mask = try a.le(cmp_rhs);
+    defer le_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, le_mask.data);
+    var max_out = try a.maximum(cmp_rhs);
+    defer max_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1.25), max_out.data[0].toF32(), 1e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, 3.0), max_out.data[1].toF32(), 1e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, -3.0), max_out.data[2].toF32(), 1e-2);
+    var min_scalar = try a.minimumScalar(BFloat16.fromF32(2.0));
+    defer min_scalar.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1.25), min_scalar.data[0].toF32(), 1e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, 2.0), min_scalar.data[1].toF32(), 1e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, -3.0), min_scalar.data[2].toF32(), 1e-2);
+    try std.testing.expectEqual(@as(usize, 1), try a.argmax());
+    try std.testing.expectEqual(@as(usize, 2), try a.argmin());
+    var a_row = try a.reshape(&.{ 1, 3 });
+    defer a_row.deinit();
+    var argmax_axis = try a_row.argmaxAxis(1, false);
+    defer argmax_axis.deinit();
+    try std.testing.expectEqualSlices(usize, &.{1}, argmax_axis.data);
 
     var unary_source = try Array(BFloat16).fromSlice(gpa, &.{
         BFloat16.fromF32(0.0),
