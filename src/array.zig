@@ -1760,6 +1760,17 @@ pub fn Array(comptime T: type) type {
             return Self.uniform(allocator, dims, zero(T), one(T), seed);
         }
 
+        pub fn permutation(allocator: std.mem.Allocator, n: usize, seed: u64) ArrayError!Self {
+            if (comptime T != usize) @compileError("permutation requires Array(usize)");
+            var out = try Self.empty(allocator, &.{n});
+            errdefer out.deinit();
+            for (out.data, 0..) |*slot, i| slot.* = i;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            rng.shuffle(usize, out.data);
+            return out;
+        }
+
         pub fn fromSlice(allocator: std.mem.Allocator, values: []const T, dims: []const usize) ArrayError!Self {
             const n = try numelFrom(dims);
             if (values.len != n) return error.ShapeMismatch;
@@ -1787,6 +1798,64 @@ pub fn Array(comptime T: type) type {
 
         pub fn randn(allocator: std.mem.Allocator, dims: []const usize, seed: u64) ArrayError!Self {
             return Self.normal(allocator, dims, zero(T), one(T), seed);
+        }
+
+        pub fn shuffle(self: Self, seed: u64) ArrayError!Self {
+            var out = try self.clone();
+            errdefer out.deinit();
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            rng.shuffle(T, out.data);
+            return out;
+        }
+
+        pub fn shuffleInPlace(self: Self, seed: u64) void {
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            rng.shuffle(T, self.data);
+        }
+
+        pub fn choice(self: Self, count: usize, replacement: bool, seed: u64) ArrayError!Self {
+            if (count == 0) return Self.empty(self.allocator, &.{0});
+            if (self.data.len == 0) return error.EmptyArray;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            if (replacement) {
+                var out = try Self.empty(self.allocator, &.{count});
+                errdefer out.deinit();
+                for (out.data) |*slot| {
+                    const idx = rng.intRangeLessThan(usize, 0, self.data.len);
+                    slot.* = self.data[idx];
+                }
+                return out;
+            }
+            if (count > self.data.len) return error.ShapeMismatch;
+            const sampled = rng.sampleWithoutReplacement(T, self.allocator, self.data, count) catch |err| switch (err) {
+                error.OutOfMemory => return error.OutOfMemory,
+                else => return error.InvalidShape,
+            };
+            errdefer self.allocator.free(sampled);
+            const shape = try self.allocator.dupe(usize, &.{count});
+            errdefer self.allocator.free(shape);
+            const strides = try stridesFor(self.allocator, shape);
+            return .{ .allocator = self.allocator, .data = sampled, .shape = shape, .strides = strides, .device = self.device };
+        }
+
+        pub fn choiceWeighted(self: Self, weights: Array(f64), count: usize, seed: u64) ArrayError!Self {
+            if (weights.data.len != self.data.len) return error.ShapeMismatch;
+            if (count == 0) return Self.empty(self.allocator, &.{0});
+            if (self.data.len == 0) return error.EmptyArray;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const indices = rng.weightedIndexBatchChecked(self.allocator, count, weights.data) catch |err| switch (err) {
+                error.OutOfMemory => return error.OutOfMemory,
+                else => return error.InvalidShape,
+            };
+            defer self.allocator.free(indices);
+            var out = try Self.empty(self.allocator, &.{count});
+            errdefer out.deinit();
+            for (out.data, indices) |*slot, idx| slot.* = self.data[idx];
+            return out;
         }
 
         pub fn uniform(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Self {
@@ -8195,6 +8264,56 @@ test "array aliases and alea-backed random distributions" {
     var b1 = try Array(bool).bernoulli(gpa, &.{4}, 1.0, 789);
     defer b1.deinit();
     try std.testing.expect(b1.all());
+}
+
+test "alea-backed object random permutation and sampling" {
+    const gpa = std.testing.allocator;
+    var source = try Array(i32).fromSlice(gpa, &.{ 10, 20, 30, 40, 50 }, &.{5});
+    defer source.deinit();
+
+    var perm = try Array(usize).permutation(gpa, 5, 1234);
+    defer perm.deinit();
+    try std.testing.expectEqualSlices(usize, &.{5}, perm.shape);
+    var sorted_perm = try perm.sort(null);
+    defer sorted_perm.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3, 4 }, sorted_perm.data);
+
+    var shuffled = try source.shuffle(5678);
+    defer shuffled.deinit();
+    var sorted_shuffled = try shuffled.sort(null);
+    defer sorted_shuffled.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 10, 20, 30, 40, 50 }, sorted_shuffled.data);
+    try std.testing.expectEqualSlices(i32, &.{ 10, 20, 30, 40, 50 }, source.data);
+
+    var in_place = try source.clone();
+    defer in_place.deinit();
+    in_place.shuffleInPlace(5678);
+    try std.testing.expectEqualSlices(i32, shuffled.data, in_place.data);
+
+    var picked = try source.choice(8, true, 9012);
+    defer picked.deinit();
+    try std.testing.expectEqualSlices(usize, &.{8}, picked.shape);
+    for (picked.data) |value| try std.testing.expect(value == 10 or value == 20 or value == 30 or value == 40 or value == 50);
+
+    var picked_unique = try source.choice(3, false, 3456);
+    defer picked_unique.deinit();
+    try std.testing.expectEqualSlices(usize, &.{3}, picked_unique.shape);
+    var picked_sorted = try picked_unique.sort(null);
+    defer picked_sorted.deinit();
+    for (picked_sorted.data[1..], picked_sorted.data[0 .. picked_sorted.data.len - 1]) |value, prev| {
+        try std.testing.expect(value != prev);
+    }
+
+    var weights = try Array(f64).fromSlice(gpa, &.{ 0, 0, 1, 0, 0 }, &.{5});
+    defer weights.deinit();
+    var weighted = try source.choiceWeighted(weights, 4, 7777);
+    defer weighted.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 30, 30, 30, 30 }, weighted.data);
+
+    try std.testing.expectError(error.ShapeMismatch, source.choice(6, false, 1));
+    var bad_weights = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
+    defer bad_weights.deinit();
+    try std.testing.expectError(error.ShapeMismatch, source.choiceWeighted(bad_weights, 1, 1));
 }
 
 test "alea-backed advanced random distributions" {

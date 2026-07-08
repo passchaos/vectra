@@ -127,8 +127,8 @@ zig build test
 用户明确要求：随机数处理可以使用相邻目录 `../alea`，该库已基本覆盖所需随机数相关功能；Vectra 不应自行重复实现随机分布内核。当前扫描结论：
 
 - `alea.Rng` 与多种 deterministic engine：`DefaultPrng`、`ScalarPrng`、`FastPrng`、`Pcg64`、`Xoshiro*`、`ChaCha*` 等。
-- `alea.distributions` 覆盖 uniform、Bernoulli、normal/log-normal、exponential、Poisson、gamma、beta、Student-t、Dirichlet、multinomial、weighted sampling、unit geometry 等大量分布。
-- Vectra 当前 `rand/randn/uniform/normal/randint/bernoulli/exponential/gamma/beta/poisson/lognormal/studentT/cauchy/laplace/weibull` 已接入 Alea seeded scalar streams。
+- `alea.distributions` 覆盖 uniform、Bernoulli、normal/log-normal、exponential、Poisson、gamma、beta、Student-t、Dirichlet、multinomial、weighted sampling、unit geometry 等大量分布，`alea.Rng` 还提供 shuffle、sampleWithoutReplacement、weightedIndex 等采样基础。
+- Vectra 当前 `rand/randn/uniform/normal/randint/bernoulli/permutation/shuffle/shuffleInPlace/choice/choiceWeighted/exponential/gamma/beta/poisson/lognormal/studentT/cauchy/laplace/weibull` 已接入 Alea seeded scalar streams 或 Alea 采样工具。
 
 Array IO / serialization 当前支持：
 
