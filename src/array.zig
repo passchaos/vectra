@@ -2473,6 +2473,10 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
+        pub fn amin(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            return self.min(axis_opt, keepdims);
+        }
+
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.reduceFirst(axis_opt, keepdims, struct {
@@ -2480,6 +2484,18 @@ pub fn ArrayView(comptime T: type) type {
                     return if (lessValue(T, a, b)) b else a;
                 }
             }.f);
+        }
+
+        pub fn amax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            return self.max(axis_opt, keepdims);
+        }
+
+        pub fn ptp(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var max_values = try self.max(axis_opt, keepdims);
+            defer max_values.deinit();
+            var min_values = try self.min(axis_opt, keepdims);
+            defer min_values.deinit();
+            return max_values.sub(min_values);
         }
 
         pub fn mean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -8610,6 +8626,10 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn amin(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
+            return self.min(axis_opt, keepdims);
+        }
+
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyArray;
@@ -8618,6 +8638,18 @@ pub fn Array(comptime T: type) type {
                     return if (lessValue(T, a, b)) b else a;
                 }
             }.f);
+        }
+
+        pub fn amax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
+            return self.max(axis_opt, keepdims);
+        }
+
+        pub fn ptp(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
+            var max_values = try self.max(axis_opt, keepdims);
+            defer max_values.deinit();
+            var min_values = try self.min(axis_opt, keepdims);
+            defer min_values.deinit();
+            return max_values.sub(min_values);
         }
 
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
@@ -11858,9 +11890,22 @@ test "array reductions and matmul" {
     var mn = try a.min(null, false);
     defer mn.deinit();
     try std.testing.expectEqualSlices(f64, &.{1}, mn.data);
+    var amin_keep = try a.amin(null, true);
+    defer amin_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, amin_keep.shape);
+    try std.testing.expectEqualSlices(f64, &.{1}, amin_keep.data);
     var mx = try a.max(1, false);
     defer mx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 6 }, mx.data);
+    var amax_cols = try a.amax(0, false);
+    defer amax_cols.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, amax_cols.data);
+    var ptp_cols = try a.ptp(0, false);
+    defer ptp_cols.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3 }, ptp_cols.data);
+    var ptp_flat = try a.ptp(null, false);
+    defer ptp_flat.deinit();
+    try std.testing.expectEqualSlices(f64, &.{5}, ptp_flat.data);
     var cs = try a.cumsum();
     defer cs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 10, 15, 21 }, cs.data);
@@ -12966,6 +13011,20 @@ test "array view object statistics wrappers" {
     var nmax0 = try view.nanmax(0, false);
     defer nmax0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 6 }, nmax0.data);
+    var amin0 = try view.amin(0, false);
+    defer amin0.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4 }, amin0.data);
+    var amax1 = try view.amax(1, true);
+    defer amax1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 1 }, amax1.shape);
+    try std.testing.expectEqual(@as(f64, 4), amax1.data[0]);
+    try std.testing.expectEqual(@as(f64, 5), amax1.data[1]);
+    try std.testing.expect(std.math.isNan(amax1.data[2]));
+    var range1 = try view.ptp(1, false);
+    defer range1.deinit();
+    try std.testing.expectEqual(@as(f64, 3), range1.data[0]);
+    try std.testing.expectEqual(@as(f64, 3), range1.data[1]);
+    try std.testing.expect(std.math.isNan(range1.data[2]));
 
     var cums = try view.cumsumAxis(0);
     defer cums.deinit();
