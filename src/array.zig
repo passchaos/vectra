@@ -2468,7 +2468,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
-                    return if (b < a) b else a;
+                    return if (lessValue(T, b, a)) b else a;
                 }
             }.f);
         }
@@ -2477,7 +2477,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
-                    return if (b > a) b else a;
+                    return if (lessValue(T, a, b)) b else a;
                 }
             }.f);
         }
@@ -8595,7 +8595,7 @@ pub fn Array(comptime T: type) type {
             if (self.data.len == 0) return error.EmptyArray;
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
-                    return if (b < a) b else a;
+                    return if (lessValue(T, b, a)) b else a;
                 }
             }.f);
         }
@@ -8605,7 +8605,7 @@ pub fn Array(comptime T: type) type {
             if (self.data.len == 0) return error.EmptyArray;
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
-                    return if (b > a) b else a;
+                    return if (lessValue(T, a, b)) b else a;
                 }
             }.f);
         }
@@ -15757,6 +15757,12 @@ test "array bfloat16 arithmetic and reductions" {
     try std.testing.expectApproxEqAbs(@as(f32, 1.25), max_out.data[0].toF32(), 1e-2);
     try std.testing.expectApproxEqAbs(@as(f32, 3.0), max_out.data[1].toF32(), 1e-2);
     try std.testing.expectApproxEqAbs(@as(f32, -3.0), max_out.data[2].toF32(), 1e-2);
+    var max_reduce = try a.max(null, false);
+    defer max_reduce.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 2.5), max_reduce.data[0].toF32(), 1e-2);
+    var min_reduce = try a.min(null, false);
+    defer min_reduce.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, -3.0), min_reduce.data[0].toF32(), 1e-2);
     var min_scalar = try a.minimumScalar(BFloat16.fromF32(2.0));
     defer min_scalar.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, 1.25), min_scalar.data[0].toF32(), 1e-2);
