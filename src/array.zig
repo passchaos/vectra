@@ -2098,6 +2098,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.compress(condition, axis_opt);
         }
 
+        pub fn repeatInterleave(self: Self, repeats: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.repeatInterleave(repeats, axis_opt);
+        }
+
+        pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.repeatInterleaveScalar(repeat_count, axis_opt);
+        }
+
         pub fn countNonzero(self: Self) usize {
             var count: usize = 0;
             const multi = self.allocator.alloc(usize, self.shape.len) catch return 0;
@@ -3688,12 +3700,28 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn repeatInterleaveTotal(source_len: usize, repeats: Array(usize)) ArrayError!usize {
+            if (repeats.data.len != 1 and repeats.data.len != source_len) return error.ShapeMismatch;
+            if (repeats.data.len == 1) {
+                return std.math.mul(usize, source_len, repeats.data[0]) catch return error.InvalidShape;
+            }
+            var total: usize = 0;
+            for (repeats.data) |repeat_count| {
+                total = std.math.add(usize, total, repeat_count) catch return error.InvalidShape;
+            }
+            return total;
+        }
+
+        fn repeatInterleaveCount(repeats: Array(usize), source_index: usize) usize {
+            return if (repeats.data.len == 1) repeats.data[0] else repeats.data[source_index];
+        }
+
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
             var out_shape = try self.allocator.dupe(usize, self.shape);
             defer self.allocator.free(out_shape);
-            out_shape[axis] *= repeats;
+            out_shape[axis] = std.math.mul(usize, out_shape[axis], repeats) catch return error.InvalidShape;
             var out = try Self.empty(self.allocator, out_shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
@@ -3708,6 +3736,76 @@ pub fn Array(comptime T: type) type {
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
+        }
+
+        pub fn repeatInterleave(self: Self, repeats: Array(usize), axis_opt: ?isize) ArrayError!Self {
+            if (axis_opt == null) {
+                const total = try repeatInterleaveTotal(self.data.len, repeats);
+                var out = try Self.empty(self.allocator, &.{total});
+                errdefer out.deinit();
+                var write: usize = 0;
+                for (self.data, 0..) |value, source_index| {
+                    const repeat_count = repeatInterleaveCount(repeats, source_index);
+                    for (0..repeat_count) |_| {
+                        out.data[write] = value;
+                        write += 1;
+                    }
+                }
+                return out;
+            }
+
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const total = try repeatInterleaveTotal(self.shape[axis], repeats);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = total;
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |dim, i| slice_shape[i] = dim;
+            for (self.shape[axis + 1 ..], axis..) |dim, i| slice_shape[i] = dim;
+            const slice_count = try numelFrom(slice_shape);
+            const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+
+            for (0..slice_count) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| {
+                    in_multi[i] = coord;
+                    out_multi[i] = coord;
+                }
+                for (slice_multi[axis..], axis + 1..) |coord, i| {
+                    in_multi[i] = coord;
+                    out_multi[i] = coord;
+                }
+
+                var out_axis: usize = 0;
+                for (0..self.shape[axis]) |source_axis| {
+                    in_multi[axis] = source_axis;
+                    const value = self.data[ravelIndex(in_multi, self.strides)];
+                    const repeat_count = repeatInterleaveCount(repeats, source_axis);
+                    for (0..repeat_count) |_| {
+                        out_multi[axis] = out_axis;
+                        out.data[ravelIndex(out_multi, out.strides)] = value;
+                        out_axis += 1;
+                    }
+                }
+            }
+            return out;
+        }
+
+        pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Self {
+            var repeats = try Array(usize).fromScalar(self.allocator, repeat_count);
+            defer repeats.deinit();
+            return self.repeatInterleave(repeats, axis_opt);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) ArrayError!Self {
@@ -8935,6 +9033,66 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var tiled_top = try selected_top.tile(&.{2});
     defer tiled_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, tiled_top.data);
+}
+
+test "array object style repeat interleave" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var flat_repeats = try Array(usize).fromSlice(gpa, &.{ 0, 2, 1, 3, 0, 1 }, &.{6});
+    defer flat_repeats.deinit();
+    var flat = try a.repeatInterleave(flat_repeats, null);
+    defer flat.deinit();
+    try std.testing.expectEqualSlices(usize, &.{7}, flat.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 2, 3, 4, 4, 4, 6 }, flat.data);
+
+    var col_repeats = try Array(usize).fromSlice(gpa, &.{ 1, 0, 2 }, &.{3});
+    defer col_repeats.deinit();
+    var cols = try a.repeatInterleave(col_repeats, 1);
+    defer cols.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, cols.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 3, 4, 6, 6 }, cols.data);
+
+    var row_repeats = try Array(usize).fromSlice(gpa, &.{ 2, 0 }, &.{2});
+    defer row_repeats.deinit();
+    var rows = try a.repeatInterleave(row_repeats, 0);
+    defer rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, rows.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 1, 2, 3 }, rows.data);
+
+    var scalar_flat = try a.repeatInterleaveScalar(2, null);
+    defer scalar_flat.deinit();
+    try std.testing.expectEqualSlices(usize, &.{12}, scalar_flat.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6 }, scalar_flat.data);
+
+    var scalar_axis = try a.repeatInterleaveScalar(2, -1);
+    defer scalar_axis.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 6 }, scalar_axis.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6 }, scalar_axis.data);
+
+    var zero_axis = try a.repeatInterleaveScalar(0, 1);
+    defer zero_axis.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 0 }, zero_axis.shape);
+    try std.testing.expectEqual(@as(usize, 0), zero_axis.data.len);
+
+    var view = try a.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer view.deinit();
+    var view_repeats = try Array(usize).fromSlice(gpa, &.{ 2, 1 }, &.{2});
+    defer view_repeats.deinit();
+    var view_repeated = try view.repeatInterleave(view_repeats, 1);
+    defer view_repeated.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_repeated.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 3, 4, 4, 6 }, view_repeated.data);
+
+    var bad_axis_repeats = try Array(usize).fromSlice(gpa, &.{ 1, 2 }, &.{2});
+    defer bad_axis_repeats.deinit();
+    try std.testing.expectError(error.ShapeMismatch, a.repeatInterleave(bad_axis_repeats, 1));
+
+    var bad_flat_repeats = try Array(usize).fromSlice(gpa, &.{ 1, 1, 1, 1, 1 }, &.{5});
+    defer bad_flat_repeats.deinit();
+    try std.testing.expectError(error.ShapeMismatch, a.repeatInterleave(bad_flat_repeats, null));
+    try std.testing.expectError(error.InvalidAxis, a.repeatInterleaveScalar(1, 2));
 }
 
 test "array non contiguous view helpers" {
