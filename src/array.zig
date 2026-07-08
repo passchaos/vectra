@@ -2178,6 +2178,18 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.allclose(rhs, rtol, atol);
         }
 
+        pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.iscloseScalar(scalar, rtol, atol);
+        }
+
+        pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!bool {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.allcloseScalar(scalar, rtol, atol);
+        }
+
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
             var out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - 1);
             if (keepdims) {
@@ -7497,6 +7509,23 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
+            ensureFloat(T);
+            const out = try Array(bool).empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| {
+                slot.* = @abs(value - scalar) <= atol + rtol * @abs(scalar);
+            }
+            return out;
+        }
+
+        pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!bool {
+            ensureFloat(T);
+            for (self.data) |value| {
+                if (@abs(value - scalar) > atol + rtol * @abs(scalar)) return false;
+            }
+            return true;
+        }
+
         fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
             const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
@@ -10629,6 +10658,10 @@ test "array comparison and logical wrappers" {
     defer close_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, close_mask.data);
     try std.testing.expect(!try a.allclose(close_target, 0.0, 0.01));
+    var scalar_close = try a.iscloseScalar(2.0, 0.0, 1.0);
+    defer scalar_close.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, scalar_close.data);
+    try std.testing.expect(!try a.allcloseScalar(2.0, 0.0, 1.0));
 }
 
 test "array reductions and matmul" {
@@ -11706,6 +11739,10 @@ test "array view object unary predicate wrappers" {
     defer close.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, close.data);
     try std.testing.expect(try finite_view.allclose(finite_view, 0, 0));
+    var view_close_scalar = try finite_view.iscloseScalar(2, 0, 1);
+    defer view_close_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, view_close_scalar.data);
+    try std.testing.expect(!try finite_view.allcloseScalar(2, 0, 1));
 }
 
 test "array view object math sort and linalg wrappers" {
