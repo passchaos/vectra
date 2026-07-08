@@ -3044,6 +3044,161 @@ pub fn Tensor(comptime T: type) type {
             return self.quantile(castValue(T, 0.5), axis_opt, keepdims);
         }
 
+        fn checkedBroadcastWeights(self: Self, weights: Self) TensorError!Self {
+            const out_shape = try broadcastShape(self.allocator, self.shape, weights.shape);
+            defer self.allocator.free(out_shape);
+            if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
+            return weights.broadcastTo(self.shape);
+        }
+
+        pub fn weightedMean(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            var full_weights = try self.checkedBroadcastWeights(weights);
+            defer full_weights.deinit();
+
+            if (axis_opt == null) {
+                var total = zero(T);
+                var weight_sum = zero(T);
+                for (self.data, full_weights.data) |value, weight| {
+                    if (weight < zero(T)) return error.InvalidShape;
+                    total += value * weight;
+                    weight_sum += weight;
+                }
+                if (!(weight_sum > zero(T))) return error.InvalidShape;
+                const result = total / weight_sum;
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{result}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{result}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var totals = try Self.zeros(self.allocator, out_shape);
+            errdefer totals.deinit();
+            var weight_sums = try Self.zeros(self.allocator, out_shape);
+            defer weight_sums.deinit();
+            if (totals.data.len == 0) return totals;
+
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (self.data, full_weights.data, 0..) |value, weight, flat| {
+                if (weight < zero(T)) return error.InvalidShape;
+                unravelIndexInto(flat, self.shape, in_multi);
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                const out_index = ravelIndex(out_multi, totals.strides);
+                totals.data[out_index] += value * weight;
+                weight_sums.data[out_index] += weight;
+            }
+
+            for (totals.data, weight_sums.data) |*value, weight_sum| {
+                if (!(weight_sum > zero(T))) return error.InvalidShape;
+                value.* /= weight_sum;
+            }
+            return totals;
+        }
+
+        pub fn average(self: Self, weights: ?Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            if (weights) |w| return self.weightedMean(w, axis_opt, keepdims);
+            return self.mean(axis_opt, keepdims);
+        }
+
+        fn weightedQuantileFromScratch(self: Self, values: []T, weights: []T, count: usize, q: T) TensorError!T {
+            if (count == 0) return error.EmptyTensor;
+            const order = try self.allocator.alloc(usize, count);
+            defer self.allocator.free(order);
+            var total_weight = zero(T);
+            for (order, 0..) |*slot, i| {
+                if (weights[i] < zero(T)) return error.InvalidShape;
+                slot.* = i;
+                total_weight += weights[i];
+            }
+            if (!(total_weight > zero(T))) return error.InvalidShape;
+            const Ctx = struct {
+                values: []const T,
+                fn lessThan(ctx: @This(), a: usize, b: usize) bool {
+                    return lessValue(T, ctx.values[a], ctx.values[b]);
+                }
+            };
+            std.sort.insertion(usize, order, Ctx{ .values = values[0..count] }, Ctx.lessThan);
+            const threshold = q * total_weight;
+            var cumulative = zero(T);
+            for (order) |idx| {
+                cumulative += weights[idx];
+                if (cumulative >= threshold) return values[idx];
+            }
+            return values[order[count - 1]];
+        }
+
+        pub fn weightedQuantile(self: Self, weights: Self, q: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            if (q < zero(T) or q > one(T)) return error.InvalidShape;
+            if (self.data.len == 0) return error.EmptyTensor;
+            var full_weights = try self.checkedBroadcastWeights(weights);
+            defer full_weights.deinit();
+
+            if (axis_opt == null) {
+                const values = try self.allocator.dupe(T, self.data);
+                defer self.allocator.free(values);
+                const weight_values = try self.allocator.dupe(T, full_weights.data);
+                defer self.allocator.free(weight_values);
+                const result = try self.weightedQuantileFromScratch(values, weight_values, values.len, q);
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{result}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{result}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyTensor;
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            const values = try self.allocator.alloc(T, self.shape[axis]);
+            defer self.allocator.free(values);
+            const weight_values = try self.allocator.alloc(T, self.shape[axis]);
+            defer self.allocator.free(weight_values);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                self.mapReducedToInput(axis, keepdims, out_multi, in_multi);
+                for (0..self.shape[axis]) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    const source_index = ravelIndex(in_multi, self.strides);
+                    values[axis_i] = self.data[source_index];
+                    weight_values[axis_i] = full_weights.data[source_index];
+                }
+                slot.* = try self.weightedQuantileFromScratch(values, weight_values, self.shape[axis], q);
+            }
+            return out;
+        }
+
+        pub fn weightedMedian(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+            ensureFloat(T);
+            return self.weightedQuantile(weights, castValue(T, 0.5), axis_opt, keepdims);
+        }
+
         pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
             ensureFloat(T);
             if (q < zero(T) or q > one(T)) return error.InvalidShape;
@@ -4795,6 +4950,22 @@ pub fn percentile(comptime T: type, input: Tensor(T), p: T, axis: ?isize, keepdi
     return input.percentile(p, axis, keepdims);
 }
 
+pub fn weightedMean(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.weightedMean(weights, axis, keepdims);
+}
+
+pub fn average(comptime T: type, input: Tensor(T), weights: ?Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.average(weights, axis, keepdims);
+}
+
+pub fn weightedQuantile(comptime T: type, input: Tensor(T), weights: Tensor(T), q: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.weightedQuantile(weights, q, axis, keepdims);
+}
+
+pub fn weightedMedian(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.weightedMedian(weights, axis, keepdims);
+}
+
 pub fn cov(comptime T: type, input: Tensor(T), rowvar: bool, correction: T) TensorError!Tensor(T) {
     return input.cov(rowvar, correction);
 }
@@ -5763,6 +5934,33 @@ test "array median quantile covariance and corrcoef" {
     defer p_flat.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 7), p_flat.data[0], 1e-12);
     try std.testing.expectError(error.InvalidShape, a.quantile(1.5, null, false));
+
+    var weights = try array(f64, gpa, &.{ 1, 1, 1, 3, 3, 3 }, &.{ 2, 3 });
+    defer weights.deinit();
+    var weighted_mean_flat = try weightedMean(f64, a, weights, null, false);
+    defer weighted_mean_flat.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 67.0 / 12.0), weighted_mean_flat.data[0], 1e-12);
+    var average_rows = try average(f64, a, weights, 1, false);
+    defer average_rows.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 3.0), average_rows.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0 / 3.0), average_rows.data[1], 1e-12);
+    var unweighted_average = try average(f64, a, null, null, false);
+    defer unweighted_average.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 4.5), unweighted_average.data[0], 1e-12);
+
+    var value_vec = try array(f64, gpa, &.{ 1, 10, 100 }, &.{3});
+    defer value_vec.deinit();
+    var weight_vec = try array(f64, gpa, &.{ 1, 8, 1 }, &.{3});
+    defer weight_vec.deinit();
+    var weighted_med = try weightedMedian(f64, value_vec, weight_vec, null, false);
+    defer weighted_med.deinit();
+    try std.testing.expectEqualSlices(f64, &.{10}, weighted_med.data);
+    var weighted_q = try value_vec.weightedQuantile(weight_vec, 0.95, null, false);
+    defer weighted_q.deinit();
+    try std.testing.expectEqualSlices(f64, &.{100}, weighted_q.data);
+    var negative_weights = try array(f64, gpa, &.{ -1, 1, 1 }, &.{3});
+    defer negative_weights.deinit();
+    try std.testing.expectError(error.InvalidShape, value_vec.weightedMean(negative_weights, null, false));
 
     var obs_by_var = try array(f64, gpa, &.{
         1, 2,
