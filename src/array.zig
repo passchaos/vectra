@@ -4273,34 +4273,208 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn exponential(allocator: std.mem.Allocator, dims: []const usize, rate: T, seed: u64) ArrayError!Self {
+        fn randomFromAlea(
+            allocator: std.mem.Allocator,
+            dims: []const usize,
+            seed: u64,
+            context: anytype,
+            comptime sampler: anytype,
+        ) ArrayError!Self {
             ensureFloat(T);
-            if (!(rate > zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
             const rng = alea.Rng.init(&engine);
-            const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.exponentialChecked(rng, T, rate) catch return error.InvalidShape;
+            var out = try Self.empty(allocator, dims);
+            errdefer out.deinit();
+            if (out.data.len == 0) {
+                _ = try sampler(rng, context);
+                return out;
+            }
+            for (out.data) |*slot| slot.* = try sampler(rng, context);
             return out;
+        }
+
+        pub fn exponential(allocator: std.mem.Allocator, dims: []const usize, rate: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, rate, struct {
+                fn f(rng: alea.Rng, value: T) ArrayError!T {
+                    return alea.distributions.exponentialChecked(rng, T, value) catch error.InvalidShape;
+                }
+            }.f);
         }
 
         pub fn gamma(allocator: std.mem.Allocator, dims: []const usize, shape_param: T, scale: T, seed: u64) ArrayError!Self {
-            ensureFloat(T);
-            if (!(shape_param > zero(T)) or !(scale >= zero(T))) return error.InvalidShape;
-            var engine = alea.ScalarPrng.init(seed);
-            const rng = alea.Rng.init(&engine);
-            const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.gammaChecked(rng, T, shape_param, scale) catch return error.InvalidShape;
-            return out;
+            return randomFromAlea(allocator, dims, seed, .{ .shape = shape_param, .scale = scale }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.gammaChecked(rng, T, params.shape, params.scale) catch error.InvalidShape;
+                }
+            }.f);
         }
 
         pub fn beta(allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) ArrayError!Self {
-            ensureFloat(T);
-            if (!(alpha > zero(T)) or !(beta_param > zero(T))) return error.InvalidShape;
-            var engine = alea.ScalarPrng.init(seed);
-            const rng = alea.Rng.init(&engine);
-            const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.betaChecked(rng, T, alpha, beta_param) catch return error.InvalidShape;
-            return out;
+            return randomFromAlea(allocator, dims, seed, .{ .alpha = alpha, .beta_param = beta_param }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.betaChecked(rng, T, params.alpha, params.beta_param) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn halfNormal(allocator: std.mem.Allocator, dims: []const usize, scale: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, scale, struct {
+                fn f(rng: alea.Rng, value: T) ArrayError!T {
+                    return alea.distributions.halfNormalChecked(rng, T, value) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn chiSquared(allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, dof, struct {
+                fn f(rng: alea.Rng, value: T) ArrayError!T {
+                    return alea.distributions.chiSquaredChecked(rng, T, value) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn chi(allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, dof, struct {
+                fn f(rng: alea.Rng, value: T) ArrayError!T {
+                    return alea.distributions.chiChecked(rng, T, value) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn erlang(allocator: std.mem.Allocator, dims: []const usize, shape: u64, scale: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .shape = shape, .scale = scale }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.erlangChecked(rng, T, params.shape, params.scale) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn fisherF(allocator: std.mem.Allocator, dims: []const usize, d1: T, d2: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .d1 = d1, .d2 = d2 }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.fisherFChecked(rng, T, params.d1, params.d2) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn triangular(allocator: std.mem.Allocator, dims: []const usize, min_value: T, mode_value: T, max_value: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .min_value = min_value, .mode_value = mode_value, .max_value = max_value }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.triangularChecked(rng, T, params.min_value, params.mode_value, params.max_value) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn arcsine(allocator: std.mem.Allocator, dims: []const usize, min_value: T, max_value: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .min_value = min_value, .max_value = max_value }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.arcsineChecked(rng, T, params.min_value, params.max_value) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn logistic(allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .location = location, .scale = scale }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.logisticChecked(rng, T, params.location, params.scale) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn logLogistic(allocator: std.mem.Allocator, dims: []const usize, scale: T, shape: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .scale = scale, .shape = shape }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.logLogisticChecked(rng, T, params.scale, params.shape) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn kumaraswamy(allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .alpha = alpha, .beta_param = beta_param }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.kumaraswamyChecked(rng, T, params.alpha, params.beta_param) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn powerFunction(allocator: std.mem.Allocator, dims: []const usize, min_value: T, max_value: T, shape: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .min_value = min_value, .max_value = max_value, .shape = shape }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.powerFunctionChecked(rng, T, params.min_value, params.max_value, params.shape) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn rayleigh(allocator: std.mem.Allocator, dims: []const usize, scale: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, scale, struct {
+                fn f(rng: alea.Rng, value: T) ArrayError!T {
+                    return alea.distributions.rayleighChecked(rng, T, value) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn maxwell(allocator: std.mem.Allocator, dims: []const usize, scale: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, scale, struct {
+                fn f(rng: alea.Rng, value: T) ArrayError!T {
+                    return alea.distributions.maxwellChecked(rng, T, value) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn pareto(allocator: std.mem.Allocator, dims: []const usize, scale: T, shape: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .scale = scale, .shape = shape }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.paretoChecked(rng, T, params.scale, params.shape) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn gumbel(allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .location = location, .scale = scale }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.gumbelChecked(rng, T, params.location, params.scale) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn frechet(allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, shape: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .location = location, .scale = scale, .shape = shape }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.frechetChecked(rng, T, params.location, params.scale, params.shape) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn skewNormal(allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, shape: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .location = location, .scale = scale, .shape = shape }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.skewNormalChecked(rng, T, params.location, params.scale, params.shape) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn pert(allocator: std.mem.Allocator, dims: []const usize, min_value: T, mode_value: T, max_value: T, shape: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .min_value = min_value, .mode_value = mode_value, .max_value = max_value, .shape = shape }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.pertChecked(rng, T, params.min_value, params.mode_value, params.max_value, params.shape) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn inverseGaussian(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, shape: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .mean_value = mean_value, .shape = shape }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.inverseGaussianChecked(rng, T, params.mean_value, params.shape) catch error.InvalidShape;
+                }
+            }.f);
+        }
+
+        pub fn normalInverseGaussian(allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) ArrayError!Self {
+            return randomFromAlea(allocator, dims, seed, .{ .alpha = alpha, .beta_param = beta_param }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.normalInverseGaussianChecked(rng, T, params.alpha, params.beta_param) catch error.InvalidShape;
+                }
+            }.f);
         }
 
         pub fn poisson(allocator: std.mem.Allocator, dims: []const usize, lambda: f64, seed: u64) ArrayError!Self {
@@ -4308,59 +4482,50 @@ pub fn Array(comptime T: type) type {
             if (!(lambda >= 0)) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
             const rng = alea.Rng.init(&engine);
-            const out = try Self.empty(allocator, dims);
+            var out = try Self.empty(allocator, dims);
+            errdefer out.deinit();
             for (out.data) |*slot| slot.* = alea.distributions.poissonChecked(rng, lambda) catch return error.InvalidShape;
             return out;
         }
 
         pub fn lognormal(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) ArrayError!Self {
-            ensureFloat(T);
-            if (stddev_value < zero(T)) return error.InvalidShape;
-            var engine = alea.ScalarPrng.init(seed);
-            const rng = alea.Rng.init(&engine);
-            const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.logNormalChecked(rng, T, mean_value, stddev_value) catch return error.InvalidShape;
-            return out;
+            return randomFromAlea(allocator, dims, seed, .{ .mean_value = mean_value, .stddev_value = stddev_value }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.logNormalChecked(rng, T, params.mean_value, params.stddev_value) catch error.InvalidShape;
+                }
+            }.f);
         }
 
         pub fn studentT(allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) ArrayError!Self {
-            ensureFloat(T);
-            if (!(dof > zero(T))) return error.InvalidShape;
-            var engine = alea.ScalarPrng.init(seed);
-            const rng = alea.Rng.init(&engine);
-            const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.studentTChecked(rng, T, dof) catch return error.InvalidShape;
-            return out;
+            return randomFromAlea(allocator, dims, seed, dof, struct {
+                fn f(rng: alea.Rng, value: T) ArrayError!T {
+                    return alea.distributions.studentTChecked(rng, T, value) catch error.InvalidShape;
+                }
+            }.f);
         }
 
         pub fn cauchy(allocator: std.mem.Allocator, dims: []const usize, median_value: T, scale: T, seed: u64) ArrayError!Self {
-            ensureFloat(T);
-            if (!(scale > zero(T))) return error.InvalidShape;
-            var engine = alea.ScalarPrng.init(seed);
-            const rng = alea.Rng.init(&engine);
-            const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.cauchyChecked(rng, T, median_value, scale) catch return error.InvalidShape;
-            return out;
+            return randomFromAlea(allocator, dims, seed, .{ .median_value = median_value, .scale = scale }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.cauchyChecked(rng, T, params.median_value, params.scale) catch error.InvalidShape;
+                }
+            }.f);
         }
 
         pub fn laplace(allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) ArrayError!Self {
-            ensureFloat(T);
-            if (!(scale > zero(T))) return error.InvalidShape;
-            var engine = alea.ScalarPrng.init(seed);
-            const rng = alea.Rng.init(&engine);
-            const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.laplaceChecked(rng, T, location, scale) catch return error.InvalidShape;
-            return out;
+            return randomFromAlea(allocator, dims, seed, .{ .location = location, .scale = scale }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.laplaceChecked(rng, T, params.location, params.scale) catch error.InvalidShape;
+                }
+            }.f);
         }
 
         pub fn weibull(allocator: std.mem.Allocator, dims: []const usize, scale: T, shape_param: T, seed: u64) ArrayError!Self {
-            ensureFloat(T);
-            if (!(scale > zero(T)) or !(shape_param > zero(T))) return error.InvalidShape;
-            var engine = alea.ScalarPrng.init(seed);
-            const rng = alea.Rng.init(&engine);
-            const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.weibullChecked(rng, T, scale, shape_param) catch return error.InvalidShape;
-            return out;
+            return randomFromAlea(allocator, dims, seed, .{ .scale = scale, .shape_param = shape_param }, struct {
+                fn f(rng: alea.Rng, params: anytype) ArrayError!T {
+                    return alea.distributions.weibullChecked(rng, T, params.scale, params.shape_param) catch error.InvalidShape;
+                }
+            }.f);
         }
 
         pub fn deinit(self: *Self) void {
@@ -13540,6 +13705,130 @@ test "alea-backed additional continuous distributions" {
     var wb = try Array(f64).weibull(gpa, &.{8}, 2.0, 1.5, 999);
     defer wb.deinit();
     for (wb.data) |v| try std.testing.expect(v >= 0);
+}
+
+test "alea-backed expanded continuous distributions" {
+    const gpa = std.testing.allocator;
+    const dims = &.{3};
+
+    var half_normal_zero = try Array(f64).halfNormal(gpa, dims, 0, 101);
+    defer half_normal_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, half_normal_zero.data);
+
+    var chi_squared_zero = try Array(f64).chiSquared(gpa, dims, 0, 102);
+    defer chi_squared_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, chi_squared_zero.data);
+
+    var chi_zero = try Array(f64).chi(gpa, dims, 0, 103);
+    defer chi_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, chi_zero.data);
+
+    var erlang_zero = try Array(f64).erlang(gpa, dims, 2, 0, 104);
+    defer erlang_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, erlang_zero.data);
+
+    var fisher_one = try Array(f64).fisherF(gpa, dims, std.math.inf(f64), std.math.inf(f64), 105);
+    defer fisher_one.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1 }, fisher_one.data);
+
+    var triangular_const = try Array(f64).triangular(gpa, dims, 2, 2, 2, 106);
+    defer triangular_const.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 2, 2 }, triangular_const.data);
+
+    var arcsine_const = try Array(f64).arcsine(gpa, dims, 3, 3, 107);
+    defer arcsine_const.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3 }, arcsine_const.data);
+
+    var logistic_const = try Array(f64).logistic(gpa, dims, 4, 0, 108);
+    defer logistic_const.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 4, 4 }, logistic_const.data);
+
+    var log_logistic_zero = try Array(f64).logLogistic(gpa, dims, 0, 2, 109);
+    defer log_logistic_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, log_logistic_zero.data);
+
+    var kumaraswamy_one = try Array(f64).kumaraswamy(gpa, dims, std.math.inf(f64), 1, 110);
+    defer kumaraswamy_one.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1 }, kumaraswamy_one.data);
+
+    var power_const = try Array(f64).powerFunction(gpa, dims, 5, 5, 2, 111);
+    defer power_const.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 5, 5 }, power_const.data);
+
+    var rayleigh_zero = try Array(f64).rayleigh(gpa, dims, 0, 112);
+    defer rayleigh_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, rayleigh_zero.data);
+
+    var maxwell_zero = try Array(f64).maxwell(gpa, dims, 0, 113);
+    defer maxwell_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, maxwell_zero.data);
+
+    var pareto_zero = try Array(f64).pareto(gpa, dims, 0, 2, 114);
+    defer pareto_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, pareto_zero.data);
+
+    var gumbel_const = try Array(f64).gumbel(gpa, dims, 6, 0, 115);
+    defer gumbel_const.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6, 6, 6 }, gumbel_const.data);
+
+    var frechet_const = try Array(f64).frechet(gpa, dims, 7, 0, 2, 116);
+    defer frechet_const.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7 }, frechet_const.data);
+
+    var skew_const = try Array(f64).skewNormal(gpa, dims, 8, 0, 0, 117);
+    defer skew_const.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 8, 8, 8 }, skew_const.data);
+
+    var pert_const = try Array(f64).pert(gpa, dims, 9, 9, 9, 4, 118);
+    defer pert_const.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9 }, pert_const.data);
+
+    var inverse_gaussian_zero = try Array(f64).inverseGaussian(gpa, dims, 0, 1, 119);
+    defer inverse_gaussian_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, inverse_gaussian_zero.data);
+
+    var normal_inverse_gaussian_zero = try Array(f64).normalInverseGaussian(gpa, dims, std.math.inf(f64), 0, 120);
+    defer normal_inverse_gaussian_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, normal_inverse_gaussian_zero.data);
+
+    var bounded = try Array(f64).triangular(gpa, &.{16}, 0, 0.5, 1, 201);
+    defer bounded.deinit();
+    for (bounded.data) |v| try std.testing.expect(v >= 0 and v <= 1);
+
+    var beta_like = try Array(f64).kumaraswamy(gpa, &.{16}, 2, 3, 202);
+    defer beta_like.deinit();
+    for (beta_like.data) |v| try std.testing.expect(v >= 0 and v <= 1);
+
+    var pert = try Array(f64).pert(gpa, &.{16}, -1, 0, 2, 4, 203);
+    defer pert.deinit();
+    for (pert.data) |v| try std.testing.expect(v >= -1 and v <= 2);
+
+    var positive_tail = try Array(f64).pareto(gpa, &.{16}, 1, 2, 204);
+    defer positive_tail.deinit();
+    for (positive_tail.data) |v| try std.testing.expect(v >= 1 and std.math.isFinite(v));
+
+    var nig = try Array(f64).normalInverseGaussian(gpa, &.{16}, 2, 0.5, 205);
+    defer nig.deinit();
+    for (nig.data) |v| try std.testing.expect(std.math.isFinite(v));
+
+    try std.testing.expectError(error.InvalidShape, Array(f64).halfNormal(gpa, &.{1}, -1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).chiSquared(gpa, &.{1}, -1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).erlang(gpa, &.{1}, 0, 1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).triangular(gpa, &.{1}, 0, 2, 1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).arcsine(gpa, &.{1}, 1, 0, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).logistic(gpa, &.{1}, 0, -1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).logLogistic(gpa, &.{1}, 1, 0, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).kumaraswamy(gpa, &.{1}, 0, 1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).powerFunction(gpa, &.{1}, 1, 0, 1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).rayleigh(gpa, &.{1}, -1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).maxwell(gpa, &.{1}, -1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).pareto(gpa, &.{1}, 1, 0, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).gumbel(gpa, &.{1}, 0, -1, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).frechet(gpa, &.{1}, 0, 1, 0, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).skewNormal(gpa, &.{1}, 0, -1, 0, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).pert(gpa, &.{1}, 0, 2, 1, 4, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).inverseGaussian(gpa, &.{1}, 1, 0, 1));
+    try std.testing.expectError(error.InvalidShape, Array(f64).normalInverseGaussian(gpa, &.{1}, 1, 1, 1));
 }
 
 test "array scatter add and reduce variants" {
