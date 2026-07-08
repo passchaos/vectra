@@ -2938,6 +2938,62 @@ pub fn ArrayView(comptime T: type) type {
             return owned.ifft2();
         }
 
+        pub fn convolve1d(self: Self, kernel: Self, mode: ConvMode) ArrayError!Array(T) {
+            var signal_values = try self.toArray();
+            defer signal_values.deinit();
+            var kernel_values = try kernel.toArray();
+            defer kernel_values.deinit();
+            return signal_values.convolve1d(kernel_values, mode);
+        }
+
+        pub fn convolve1dArray(self: Self, kernel: Array(T), mode: ConvMode) ArrayError!Array(T) {
+            var signal_values = try self.toArray();
+            defer signal_values.deinit();
+            return signal_values.convolve1d(kernel, mode);
+        }
+
+        pub fn correlate1d(self: Self, kernel: Self, mode: ConvMode) ArrayError!Array(T) {
+            var signal_values = try self.toArray();
+            defer signal_values.deinit();
+            var kernel_values = try kernel.toArray();
+            defer kernel_values.deinit();
+            return signal_values.correlate1d(kernel_values, mode);
+        }
+
+        pub fn correlate1dArray(self: Self, kernel: Array(T), mode: ConvMode) ArrayError!Array(T) {
+            var signal_values = try self.toArray();
+            defer signal_values.deinit();
+            return signal_values.correlate1d(kernel, mode);
+        }
+
+        pub fn convolve2d(self: Self, kernel: Self, mode: ConvMode) ArrayError!Array(T) {
+            var image_values = try self.toArray();
+            defer image_values.deinit();
+            var kernel_values = try kernel.toArray();
+            defer kernel_values.deinit();
+            return image_values.convolve2d(kernel_values, mode);
+        }
+
+        pub fn convolve2dArray(self: Self, kernel: Array(T), mode: ConvMode) ArrayError!Array(T) {
+            var image_values = try self.toArray();
+            defer image_values.deinit();
+            return image_values.convolve2d(kernel, mode);
+        }
+
+        pub fn correlate2d(self: Self, kernel: Self, mode: ConvMode) ArrayError!Array(T) {
+            var image_values = try self.toArray();
+            defer image_values.deinit();
+            var kernel_values = try kernel.toArray();
+            defer kernel_values.deinit();
+            return image_values.correlate2d(kernel_values, mode);
+        }
+
+        pub fn correlate2dArray(self: Self, kernel: Array(T), mode: ConvMode) ArrayError!Array(T) {
+            var image_values = try self.toArray();
+            defer image_values.deinit();
+            return image_values.correlate2d(kernel, mode);
+        }
+
         pub fn reshape(self: Self, dims: []const usize) ArrayError!Self {
             if (!self.isContiguous()) return error.InvalidShape;
             const n = try numelFrom(dims);
@@ -12473,6 +12529,26 @@ test "array object two dimensional convolution and correlation" {
     defer corr_same.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 11, 14, 30 }, corr_same.data);
 
+    var image_base = try Array(f64).fromSlice(gpa, &.{ 1, 9, 2, 8, 3, 7, 4, 6, 5, 5, 6, 4 }, &.{ 3, 4 });
+    defer image_base.deinit();
+    var image_view = try image_base.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer image_view.deinit();
+    var kernel_base = try Array(f64).fromSlice(gpa, &.{ 1, 0, 2, 0, 3, 0, 4, 0 }, &.{ 2, 4 });
+    defer kernel_base.deinit();
+    var kernel_view = try kernel_base.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer kernel_view.deinit();
+    var view_conv = try image_view.convolve2d(kernel_view, .valid);
+    defer view_conv.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, view_conv.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 20, 40 }, view_conv.data);
+    var view_corr = try image_view.correlate2d(kernel_view, .valid);
+    defer view_corr.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 30, 50 }, view_corr.data);
+    var view_conv_same = try image_view.convolve2dArray(kernel, .same);
+    defer view_conv_same.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, view_conv_same.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 6, 20, 14, 40 }, view_conv_same.data);
+
     var vector = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
     defer vector.deinit();
     try std.testing.expectError(error.NonMatrixArray, vector.convolve2d(kernel, .full));
@@ -12513,6 +12589,24 @@ test "array object one dimensional convolution and correlation" {
     var valid_reversed = try kernel.convolve1d(long_kernel, .valid);
     defer valid_reversed.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 7, 10 }, valid_reversed.data);
+
+    var signal_base = try Array(f64).fromSlice(gpa, &.{ 1, 9, 2, 8, 3, 7, 4 }, &.{7});
+    defer signal_base.deinit();
+    var signal_view = try signal_base.sliceAxisView(0, .{ .start = 0, .stop = 7, .step = 2 });
+    defer signal_view.deinit();
+    var kernel_base = try Array(f64).fromSlice(gpa, &.{ 1, 9, 2 }, &.{3});
+    defer kernel_base.deinit();
+    var kernel_view = try kernel_base.sliceAxisView(0, .{ .start = 0, .stop = 3, .step = 2 });
+    defer kernel_view.deinit();
+    var view_conv = try signal_view.convolve1d(kernel_view, .full);
+    defer view_conv.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 7, 10, 8 }, view_conv.data);
+    var view_corr = try signal_view.correlate1d(kernel_view, .same);
+    defer view_corr.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 5, 8, 11 }, view_corr.data);
+    var view_conv_array = try signal_view.convolve1dArray(kernel, .valid);
+    defer view_conv_array.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 7, 10 }, view_conv_array.data);
 
     var matrix_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer matrix_values.deinit();
