@@ -445,6 +445,36 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        pub fn exponential(allocator: std.mem.Allocator, dims: []const usize, rate: T, seed: u64) TensorError!Self {
+            ensureFloat(T);
+            if (!(rate > zero(T))) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.exponentialChecked(rng, T, rate) catch return error.InvalidShape;
+            return out;
+        }
+
+        pub fn gamma(allocator: std.mem.Allocator, dims: []const usize, shape_param: T, scale: T, seed: u64) TensorError!Self {
+            ensureFloat(T);
+            if (!(shape_param > zero(T)) or !(scale >= zero(T))) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.gammaChecked(rng, T, shape_param, scale) catch return error.InvalidShape;
+            return out;
+        }
+
+        pub fn beta(allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) TensorError!Self {
+            ensureFloat(T);
+            if (!(alpha > zero(T)) or !(beta_param > zero(T))) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.betaChecked(rng, T, alpha, beta_param) catch return error.InvalidShape;
+            return out;
+        }
+
         pub fn deinit(self: *Self) void {
             self.allocator.free(self.data);
             self.allocator.free(self.shape);
@@ -2315,6 +2345,27 @@ pub fn bernoulli(allocator: std.mem.Allocator, dims: []const usize, p: f64, seed
     return Tensor(bool).bernoulli(allocator, dims, p, seed);
 }
 
+pub fn exponential(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, rate: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).exponential(allocator, dims, rate, seed);
+}
+
+pub fn gamma(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, shape_param: T, scale: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).gamma(allocator, dims, shape_param, scale, seed);
+}
+
+pub fn beta(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).beta(allocator, dims, alpha, beta_param, seed);
+}
+
+pub fn poisson(allocator: std.mem.Allocator, dims: []const usize, lambda: f64, seed: u64) TensorError!Tensor(u64) {
+    if (!(lambda >= 0)) return error.InvalidShape;
+    var engine = alea.ScalarPrng.init(seed);
+    const rng = alea.Rng.init(&engine);
+    const out = try Tensor(u64).empty(allocator, dims);
+    for (out.data) |*slot| slot.* = alea.distributions.poissonChecked(rng, lambda) catch return error.InvalidShape;
+    return out;
+}
+
 pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) TensorError!Tensor(T) {
     return Tensor(T).eye(allocator, n);
 }
@@ -2604,6 +2655,25 @@ test "array aliases and alea-backed random distributions" {
     var b1 = try bernoulli(gpa, &.{4}, 1.0, 789);
     defer b1.deinit();
     try std.testing.expect(b1.all());
+}
+
+test "alea-backed advanced random distributions" {
+    const gpa = std.testing.allocator;
+    var e = try exponential(f64, gpa, &.{16}, 2.0, 111);
+    defer e.deinit();
+    for (e.data) |v| try std.testing.expect(v >= 0);
+
+    var g0 = try gamma(f64, gpa, &.{4}, 2.0, 0.0, 222);
+    defer g0.deinit();
+    for (g0.data) |v| try std.testing.expectEqual(@as(f64, 0), v);
+
+    var be = try beta(f64, gpa, &.{16}, 2.0, 5.0, 333);
+    defer be.deinit();
+    for (be.data) |v| try std.testing.expect(v >= 0 and v <= 1);
+
+    var p0 = try poisson(gpa, &.{8}, 0.0, 444);
+    defer p0.deinit();
+    try std.testing.expectEqualSlices(u64, &.{ 0, 0, 0, 0, 0, 0, 0, 0 }, p0.data);
 }
 
 test "array scatter add and reduce variants" {

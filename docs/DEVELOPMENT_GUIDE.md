@@ -126,7 +126,7 @@ zig build test
 
 - `alea.Rng` 与多种 deterministic engine：`DefaultPrng`、`ScalarPrng`、`FastPrng`、`Pcg64`、`Xoshiro*`、`ChaCha*` 等。
 - `alea.distributions` 覆盖 uniform、Bernoulli、normal/log-normal、exponential、Poisson、gamma、beta、Student-t、Dirichlet、multinomial、weighted sampling、unit geometry 等大量分布。
-- Vectra 当前 `rand/randn/uniform/normal/randint/bernoulli` 已接入 Alea seeded scalar streams。
+- Vectra 当前 `rand/randn/uniform/normal/randint/bernoulli/exponential/gamma/beta/poisson` 已接入 Alea seeded scalar streams。
 
 命名边界：
 

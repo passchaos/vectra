@@ -11,7 +11,7 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 ## What is included now
 
 - `Array(T)` / `NDArray(T)` with shape/strides, typed storage, `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
-- Creation helpers: `array`, `ndarray`, `zeros`, `ones`, `full`, `empty`, `eye`, `arange`, `linspace`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`; random generation uses the local `../alea` backend.
+- Creation helpers: `array`, `ndarray`, `zeros`, `ones`, `full`, `empty`, `eye`, `arange`, `linspace`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`, `exponential`, `gamma`, `beta`, `poisson`; random generation uses the local `../alea` backend.
 - NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `gather`, `scatter/scatterScalar`, `scatterAdd`, `scatterReduce`, `maskedSelect`, `slice1d`.
 - Broadcasting elementwise arithmetic/comparisons: `add/sub/mul/div/pow`, scalar variants, `maximum/minimum`, `whereMask`, `allclose`.
 - Array transforms: `broadcastTo`, `repeat`, `tile`, `cat/concatenate`, `stack`, `sort`, `argsort`.
@@ -60,7 +60,7 @@ pub fn demo(allocator: std.mem.Allocator) !void {
 
 ## Alea backend
 
-Vectra uses the sibling [`../alea`](../alea) Zig package as a local path dependency for random generation and distributions. Current array random helpers delegate seeded scalar random streams to Alea for uniform, normal, integer range, and Bernoulli generation. Future random distributions should prefer Alea rather than reimplementing RNG kernels inside Vectra.
+Vectra uses the sibling [`../alea`](../alea) Zig package as a local path dependency for random generation and distributions. Current array random helpers delegate seeded scalar random streams to Alea for uniform, normal, integer range, Bernoulli, exponential, gamma, beta, and Poisson generation. Future random distributions should prefer Alea rather than reimplementing RNG kernels inside Vectra.
 
 ## Veyra backend
 
