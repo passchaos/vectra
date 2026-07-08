@@ -2592,6 +2592,30 @@ pub fn ArrayView(comptime T: type) type {
             return count;
         }
 
+        pub fn all(self: Self) bool {
+            var owned = self.toArray() catch return false;
+            defer owned.deinit();
+            return owned.all();
+        }
+
+        pub fn any(self: Self) bool {
+            var owned = self.toArray() catch return false;
+            defer owned.deinit();
+            return owned.any();
+        }
+
+        pub fn allAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.allAxis(axis_opt, keepdims);
+        }
+
+        pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.anyAxis(axis_opt, keepdims);
+        }
+
         pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -11943,6 +11967,20 @@ test "array bool all any axis reductions" {
 
     var view = try mask.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
     defer view.deinit();
+    try std.testing.expect(!view.all());
+    try std.testing.expect(view.any());
+    var view_all0 = try view.allAxis(0, false);
+    defer view_all0.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, view_all0.shape);
+    try std.testing.expectEqualSlices(bool, &.{ true, false }, view_all0.data);
+    var view_any1 = try view.anyAxis(1, true);
+    defer view_any1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, view_any1.shape);
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, view_any1.data);
+    var view_all_global = try view.allAxis(null, true);
+    defer view_all_global.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, view_all_global.shape);
+    try std.testing.expectEqualSlices(bool, &.{false}, view_all_global.data);
     var not_view = try view.logicalNot();
     defer not_view.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, not_view.data);
