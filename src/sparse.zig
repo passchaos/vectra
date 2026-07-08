@@ -257,6 +257,140 @@ pub fn CsrMatrix(comptime T: type) type {
             }
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
+
+        pub fn rowNnz(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |r| out.data[r] = self.row_offsets[r + 1] - self.row_offsets[r];
+            return out;
+        }
+
+        pub fn columnNnz(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.col_indices) |col| out.data[col] += 1;
+            return out;
+        }
+
+        pub fn rowSums(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            if (comptime T == f64) return self.rowSumsF64();
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| out.data[r] += self.values[pos];
+            }
+            return out;
+        }
+
+        fn rowSumsF64(self: Self) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
+            defer out.deinit();
+            veyra.csrRowSums(f64, view, out.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
+        }
+
+        pub fn columnSums(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            if (comptime T == f64) return self.columnSumsF64();
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| out.data[self.col_indices[pos]] += self.values[pos];
+            }
+            return out;
+        }
+
+        fn columnSumsF64(self: Self) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
+            defer out.deinit();
+            veyra.csrColumnSumsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
+        }
+
+        pub fn rowAbsSums(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            if (comptime T == f64) return self.rowAbsSumsF64();
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| out.data[r] += absValue(T, self.values[pos]);
+            }
+            return out;
+        }
+
+        fn rowAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
+            defer out.deinit();
+            veyra.csrRowAbsSums(f64, view, out.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
+        }
+
+        pub fn columnAbsSums(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            if (comptime T == f64) return self.columnAbsSumsF64();
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| out.data[self.col_indices[pos]] += absValue(T, self.values[pos]);
+            }
+            return out;
+        }
+
+        fn columnAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
+            defer out.deinit();
+            veyra.csrColumnAbsSumsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
+        }
+
+        pub fn rowNorms(self: Self) SparseError!array_mod.Array(T) {
+            ensureFloat(T);
+            if (comptime T == f64) return self.rowNormsF64();
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |r| {
+                var total = zero(T);
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| total += self.values[pos] * self.values[pos];
+                out.data[r] = @sqrt(total);
+            }
+            return out;
+        }
+
+        fn rowNormsF64(self: Self) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
+            defer out.deinit();
+            veyra.csrRowNorms(f64, view, out.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
+        }
+
+        pub fn columnNorms(self: Self) SparseError!array_mod.Array(T) {
+            ensureFloat(T);
+            if (comptime T == f64) return self.columnNormsF64();
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    const col = self.col_indices[pos];
+                    out.data[col] += self.values[pos] * self.values[pos];
+                }
+            }
+            for (out.data) |*value| value.* = @sqrt(value.*);
+            return out;
+        }
+
+        fn columnNormsF64(self: Self) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
+            defer out.deinit();
+            veyra.csrColumnNormsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
+        }
     };
 }
 
@@ -336,4 +470,48 @@ test "csr sparse matmat transpose and statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 6), csr.absSum(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(14.0)), csr.frobeniusNorm(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try csr.density(), 1e-12);
+}
+
+test "csr sparse row and column statistics" {
+    const gpa = std.testing.allocator;
+    var dense = try array_mod.array(f64, gpa, &.{
+        1, 0, -2,
+        0, 3, 0,
+        4, 0, 5,
+    }, &.{ 3, 3 });
+    defer dense.deinit();
+    var csr = try csrFromDense(f64, dense);
+    defer csr.deinit();
+
+    var row_nnz = try csr.rowNnz();
+    defer row_nnz.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, row_nnz.data);
+    var col_nnz = try csr.columnNnz();
+    defer col_nnz.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, col_nnz.data);
+
+    var row_sums = try csr.rowSums();
+    defer row_sums.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 3, 9 }, row_sums.data);
+    var col_sums = try csr.columnSums();
+    defer col_sums.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 3, 3 }, col_sums.data);
+
+    var row_abs = try csr.rowAbsSums();
+    defer row_abs.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 9 }, row_abs.data);
+    var col_abs = try csr.columnAbsSums();
+    defer col_abs.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 3, 7 }, col_abs.data);
+
+    var row_norms = try csr.rowNorms();
+    defer row_norms.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(5.0)), row_norms.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), row_norms.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(41.0)), row_norms.data[2], 1e-12);
+    var col_norms = try csr.columnNorms();
+    defer col_norms.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
 }
