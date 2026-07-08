@@ -840,6 +840,27 @@ pub fn ArrayView(comptime T: type) type {
             return Self.init(self.allocator, self.data, dims, stride_values, view_offset, self.device);
         }
 
+        pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!Self {
+            if (window_size == 0 or step == 0) return error.InvalidShape;
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (window_size > self.shape[axis]) return error.InvalidShape;
+            const window_count = (self.shape[axis] - window_size) / step + 1;
+            const dims = try self.allocator.alloc(usize, self.shape.len + 1);
+            defer self.allocator.free(dims);
+            const stride_values = try self.allocator.alloc(usize, self.strides.len + 1);
+            defer self.allocator.free(stride_values);
+            for (self.shape[0..axis], 0..) |dim, i| dims[i] = dim;
+            dims[axis] = window_count;
+            for (self.shape[axis + 1 ..], axis + 1..) |dim, i| dims[i] = dim;
+            dims[dims.len - 1] = window_size;
+            for (self.strides[0..axis], 0..) |stride_value, i| stride_values[i] = stride_value;
+            stride_values[axis] = self.strides[axis] * step;
+            for (self.strides[axis + 1 ..], axis + 1..) |stride_value, i| stride_values[i] = stride_value;
+            stride_values[stride_values.len - 1] = self.strides[axis];
+            return self.asStrided(dims, stride_values, 0);
+        }
+
         fn broadcastOffsetOf(self: Self, out_multi: []const usize, out_rank: usize) usize {
             return self.offset + broadcastOffset(out_multi, out_rank, self.shape, self.strides);
         }
@@ -2252,6 +2273,12 @@ pub fn Array(comptime T: type) type {
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) ArrayError!ArrayView(T) {
             try validateStridedBounds(self.data.len, offset, dims, stride_values);
             return ArrayView(T).init(self.allocator, self.data, dims, stride_values, offset, self.device);
+        }
+
+        pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.unfold(axis_index, window_size, step);
         }
 
         pub fn sliceAxisView(self: Self, axis_index: isize, slice_value: Slice) ArrayError!ArrayView(T) {
@@ -7370,6 +7397,63 @@ test "array non contiguous view helpers" {
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
+}
+
+test "array object unfold sliding-window views" {
+    const gpa = std.testing.allocator;
+    var v = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5 }, &.{5});
+    defer v.deinit();
+
+    var windows = try v.unfold(0, 3, 1);
+    defer windows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, windows.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, windows.strides);
+    var owned = try windows.toArray();
+    defer owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{
+        1, 2, 3,
+        2, 3, 4,
+        3, 4, 5,
+    }, owned.data);
+
+    try windows.set(&.{ 0, 1 }, 20);
+    try std.testing.expectEqual(@as(f64, 20), v.data[1]);
+    try std.testing.expectEqual(@as(f64, 20), try windows.get(&.{ 1, 0 }));
+
+    var stepped = try v.unfold(0, 2, 2);
+    defer stepped.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stepped.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, stepped.strides);
+    var stepped_owned = try stepped.toArray();
+    defer stepped_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 20, 3, 4 }, stepped_owned.data);
+
+    var m = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer m.deinit();
+    var col_windows = try m.unfold(1, 2, 1);
+    defer col_windows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, col_windows.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 3, 1, 1 }, col_windows.strides);
+    var col_owned = try col_windows.toArray();
+    defer col_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{
+        1, 2,
+        2, 3,
+        4, 5,
+        5, 6,
+    }, col_owned.data);
+
+    var base_view = try m.asView();
+    defer base_view.deinit();
+    var row_windows = try base_view.unfold(0, 2, 1);
+    defer row_windows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 3, 2 }, row_windows.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 3, 1, 3 }, row_windows.strides);
+
+    try std.testing.expectError(error.InvalidShape, v.unfold(0, 0, 1));
+    try std.testing.expectError(error.InvalidShape, v.unfold(0, 2, 0));
+    try std.testing.expectError(error.InvalidShape, v.unfold(0, 99, 1));
+    try std.testing.expectError(error.InvalidAxis, v.unfold(1, 2, 1));
 }
 
 test "array object asStrided view helpers" {
