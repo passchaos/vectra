@@ -687,6 +687,186 @@ pub fn CsrMatrix(comptime T: type) type {
     };
 }
 
+pub fn CscMatrix(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        allocator: std.mem.Allocator,
+        rows: usize,
+        cols: usize,
+        col_offsets: []usize,
+        row_indices: []usize,
+        values: []T,
+
+        pub fn fromCompressedSlices(
+            allocator: std.mem.Allocator,
+            rows: usize,
+            cols: usize,
+            col_offsets: []const usize,
+            row_indices: []const usize,
+            values: []const T,
+        ) SparseError!Self {
+            if (col_offsets.len != cols + 1) return error.ShapeMismatch;
+            if (row_indices.len != values.len) return error.ShapeMismatch;
+            if (col_offsets[0] != 0 or col_offsets[col_offsets.len - 1] != values.len) return error.ShapeMismatch;
+            for (col_offsets[1..], col_offsets[0 .. col_offsets.len - 1]) |current, previous| {
+                if (current < previous) return error.ShapeMismatch;
+            }
+            for (row_indices) |row| if (row >= rows) return error.IndexOutOfBounds;
+            return .{
+                .allocator = allocator,
+                .rows = rows,
+                .cols = cols,
+                .col_offsets = try allocator.dupe(usize, col_offsets),
+                .row_indices = try allocator.dupe(usize, row_indices),
+                .values = try allocator.dupe(T, values),
+            };
+        }
+
+        pub fn fromDense(input: array_mod.Array(T)) SparseError!Self {
+            if (input.shape.len != 2) return error.NonMatrixTensor;
+            const rows = input.shape[0];
+            const cols = input.shape[1];
+            var nonzero_count: usize = 0;
+            for (input.data) |value| {
+                if (isNonZero(T, value)) nonzero_count += 1;
+            }
+            var col_offsets = try input.allocator.alloc(usize, cols + 1);
+            errdefer input.allocator.free(col_offsets);
+            var row_indices = try input.allocator.alloc(usize, nonzero_count);
+            errdefer input.allocator.free(row_indices);
+            var values = try input.allocator.alloc(T, nonzero_count);
+            errdefer input.allocator.free(values);
+            var write: usize = 0;
+            col_offsets[0] = 0;
+            for (0..cols) |c| {
+                for (0..rows) |r| {
+                    const value = input.data[r * cols + c];
+                    if (isNonZero(T, value)) {
+                        row_indices[write] = r;
+                        values[write] = value;
+                        write += 1;
+                    }
+                }
+                col_offsets[c + 1] = write;
+            }
+            return .{ .allocator = input.allocator, .rows = rows, .cols = cols, .col_offsets = col_offsets, .row_indices = row_indices, .values = values };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.allocator.free(self.col_offsets);
+            self.allocator.free(self.row_indices);
+            self.allocator.free(self.values);
+            self.* = undefined;
+        }
+
+        pub fn nnz(self: Self) usize {
+            return self.values.len;
+        }
+
+        pub fn asVeyraView(self: Self) SparseError!veyra.CscView(T) {
+            return veyra.CscView(T).fromSlices(self.rows, self.cols, self.col_offsets, self.row_indices, self.values) catch return error.BackendFailure;
+        }
+
+        pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, self.cols });
+            errdefer out.deinit();
+            for (0..self.cols) |c| {
+                for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| out.data[self.row_indices[pos] * self.cols + c] = self.values[pos];
+            }
+            return out;
+        }
+
+        pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return CsrMatrix(T).fromDense(dense);
+        }
+
+        pub fn matvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            if (x.shape.len != 1) return error.NonVectorTensor;
+            if (x.shape[0] != self.cols) return error.ShapeMismatch;
+            if (comptime T == f64) return self.matvecF64(@as(array_mod.Array(f64), x));
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.cols) |c| {
+                for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| out.data[self.row_indices[pos]] += self.values[pos] * x.data[c];
+            }
+            return out;
+        }
+
+        fn matvecF64(self: Self, x: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
+            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            var rhs = veyra.Vector(f64).fromSlice(self.allocator, x.data) catch return error.BackendFailure;
+            defer rhs.deinit();
+            var dst = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
+            defer dst.deinit();
+            veyra.cscMatvec(f64, view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
+        }
+
+        pub fn matmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            if (rhs.shape.len != 2) return error.NonMatrixTensor;
+            if (rhs.shape[0] != self.cols) return error.ShapeMismatch;
+            if (comptime T == f64) return self.matmatF64(@as(array_mod.Array(f64), rhs));
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, rhs.shape[1] });
+            errdefer out.deinit();
+            for (0..self.cols) |c| {
+                for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| {
+                    const row = self.row_indices[pos];
+                    const value = self.values[pos];
+                    for (0..rhs.shape[1]) |rhs_col| out.data[row * rhs.shape[1] + rhs_col] += value * rhs.data[c * rhs.shape[1] + rhs_col];
+                }
+            }
+            return out;
+        }
+
+        fn matmatF64(self: Self, rhs: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
+            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            var rhs_matrix = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
+            defer rhs_matrix.deinit();
+            var dst = veyra.Matrix(f64).zeros(self.allocator, self.rows, rhs.shape[1], .row_major) catch return error.BackendFailure;
+            defer dst.deinit();
+            veyra.cscMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
+        }
+
+        pub fn sum(self: Self) T {
+            ensureNumeric(T);
+            var total = zero(T);
+            for (self.values) |value| total += value;
+            return total;
+        }
+
+        pub fn frobeniusNorm(self: Self) T {
+            ensureFloat(T);
+            if (comptime T == f64) {
+                const view = @as(CscMatrix(f64), self).asVeyraView() catch return 0;
+                return @as(T, @floatCast(veyra.cscFrobeniusNorm(f64, view)));
+            }
+            var total = zero(T);
+            for (self.values) |value| total += value * value;
+            return @sqrt(total);
+        }
+    };
+}
+
+pub fn cscFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!CscMatrix(T) {
+    return CscMatrix(T).fromDense(input);
+}
+
+pub fn cscFromCompressed(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    rows: usize,
+    cols: usize,
+    col_offsets: []const usize,
+    row_indices: []const usize,
+    values: []const T,
+) SparseError!CscMatrix(T) {
+    return CscMatrix(T).fromCompressedSlices(allocator, rows, cols, col_offsets, row_indices, values);
+}
+
 pub fn csrFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!CsrMatrix(T) {
     return CsrMatrix(T).fromDense(input);
 }
@@ -894,4 +1074,49 @@ test "csr sparse transpose products and triangular solves" {
     var check_m = try lower.matmat(solved_m);
     defer check_m.deinit();
     try std.testing.expect(try check_m.allclose(lower_rhs_m, 1e-12, 1e-12));
+}
+
+test "csc sparse bridge dense roundtrip matvec matmat and csr transpose" {
+    const gpa = std.testing.allocator;
+    var dense = try array_mod.array(f64, gpa, &.{
+        10, 0, 2, 0,
+        0,  3, 0, 4,
+        5,  0, 0, 6,
+    }, &.{ 3, 4 });
+    defer dense.deinit();
+    var csc = try cscFromDense(f64, dense);
+    defer csc.deinit();
+    try std.testing.expectEqual(@as(usize, 6), csc.nnz());
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 4, 6 }, csc.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0, 1, 2 }, csc.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 5, 3, 2, 4, 6 }, csc.values);
+
+    var dense2 = try csc.toDense();
+    defer dense2.deinit();
+    try std.testing.expectEqualSlices(f64, dense.data, dense2.data);
+
+    var x = try array_mod.array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{4});
+    defer x.deinit();
+    var y = try csc.matvec(x);
+    defer y.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 16, 22, 29 }, y.data);
+
+    var rhs = try array_mod.array(f64, gpa, &.{
+        1, 2,
+        2, 4,
+        3, 6,
+        4, 8,
+    }, &.{ 4, 2 });
+    defer rhs.deinit();
+    var product = try csc.matmat(rhs);
+    defer product.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 16, 32, 22, 44, 29, 58 }, product.data);
+
+    var csr = try csc.toCsr();
+    defer csr.deinit();
+    var csr_dense = try csr.toDense();
+    defer csr_dense.deinit();
+    try std.testing.expectEqualSlices(f64, dense.data, csr_dense.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 30), csc.sum(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(190.0)), csc.frobeniusNorm(), 1e-12);
 }

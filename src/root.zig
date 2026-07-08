@@ -30,8 +30,11 @@ pub const Column = dataframe_mod.Column;
 pub const ColumnDef = dataframe_mod.ColumnDef;
 pub const DataError = dataframe_mod.DataError;
 pub const CsrMatrix = sparse.CsrMatrix;
+pub const CscMatrix = sparse.CscMatrix;
 pub const csrFromDense = sparse.csrFromDense;
 pub const csrFromCompressed = sparse.csrFromCompressed;
+pub const cscFromDense = sparse.cscFromDense;
+pub const cscFromCompressed = sparse.cscFromCompressed;
 
 pub const array = tensor_mod.array;
 pub const ndarray = tensor_mod.ndarray;

@@ -158,3 +158,11 @@ Array IO / serialization 当前支持：
 - `solveTriangular`：CSR sparse triangular solve，支持 vector/matrix RHS，f64 路径复用 Veyra。
 
 后续 sparse 扩展应继续优先检查 Veyra：CSC/BSR、sparse matmat、sparse triangular solve、iterative solvers。
+
+CSC 当前支持：
+
+- `CscMatrix(T)`：Vectra 自有 CSC 所有权包装。
+- `cscFromDense` / `cscFromCompressed`：构建 CSC。
+- `CscMatrix.toDense()` / `toCsr()`：dense/CSR 转换。
+- `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`。
+- `sum/frobeniusNorm`：基础 CSC 统计。
