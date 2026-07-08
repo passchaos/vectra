@@ -55,6 +55,7 @@ pub const matrixNorm = linalg.matrixNorm;
 pub const MatrixNormOrder = linalg.MatrixNormOrder;
 pub const eigh = linalg.eigh;
 pub const eigvalsh = linalg.eigvalsh;
+pub const lu = linalg.lu;
 pub const dataframe = dataframe_mod.dataframe;
 
 test {
