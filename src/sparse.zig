@@ -1,8 +1,8 @@
 const std = @import("std");
 const veyra = @import("veyra");
-const array_mod = @import("tensor.zig");
+const array_mod = @import("array.zig");
 
-pub const SparseError = array_mod.TensorError || error{BackendFailure} || std.mem.Allocator.Error;
+pub const SparseError = array_mod.ArrayError || error{BackendFailure} || std.mem.Allocator.Error;
 
 pub const Triangle = enum { lower, upper };
 pub const Diagonal = enum { non_unit, unit };
@@ -98,7 +98,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn fromDense(input: array_mod.Array(T)) SparseError!Self {
-            if (input.shape.len != 2) return error.NonMatrixTensor;
+            if (input.shape.len != 2) return error.NonMatrixArray;
             const rows = input.shape[0];
             const cols = input.shape[1];
             var nonzero_count: usize = 0;
@@ -163,7 +163,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn matvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
-            if (x.shape.len != 1) return error.NonVectorTensor;
+            if (x.shape.len != 1) return error.NonVectorArray;
             if (x.shape[0] != self.cols) return error.ShapeMismatch;
             if (T == f64) return self.matvecF64(@as(array_mod.Array(f64), x));
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
@@ -189,7 +189,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn matmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
-            if (rhs.shape.len != 2) return error.NonMatrixTensor;
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
             if (rhs.shape[0] != self.cols) return error.ShapeMismatch;
             if (T == f64) return self.matmatF64(@as(array_mod.Array(f64), rhs));
             var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, rhs.shape[1] });
@@ -217,7 +217,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn transposeMatvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
-            if (x.shape.len != 1) return error.NonVectorTensor;
+            if (x.shape.len != 1) return error.NonVectorArray;
             if (x.shape[0] != self.rows) return error.ShapeMismatch;
             if (comptime T == f64) return self.transposeMatvecF64(@as(array_mod.Array(f64), x));
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
@@ -239,7 +239,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn transposeMatmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
-            if (rhs.shape.len != 2) return error.NonMatrixTensor;
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
             if (rhs.shape[0] != self.rows) return error.ShapeMismatch;
             if (comptime T == f64) return self.transposeMatmatF64(@as(array_mod.Array(f64), rhs));
             var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.cols, rhs.shape[1] });
@@ -464,7 +464,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn diagonal(self: Self) SparseError!array_mod.Array(T) {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) return self.diagonalF64();
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
             errdefer out.deinit();
@@ -489,7 +489,7 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn trace(self: Self) SparseError!T {
             ensureNumeric(T);
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CsrMatrix(f64), self).asVeyraView();
                 return veyra.csrTrace(f64, view) catch return error.BackendFailure;
@@ -507,7 +507,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn missingDiagonalCount(self: Self) SparseError!usize {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CsrMatrix(f64), self).asVeyraView();
                 return veyra.csrMissingDiagonalCount(f64, view) catch return error.BackendFailure;
@@ -527,7 +527,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn zeroDiagonalCount(self: Self) SparseError!usize {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CsrMatrix(f64), self).asVeyraView();
                 return veyra.csrZeroDiagonalCount(f64, view) catch return error.BackendFailure;
@@ -545,7 +545,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn bandwidth(self: Self) SparseError!usize {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CsrMatrix(f64), self).asVeyraView();
                 return veyra.csrBandwidth(f64, view) catch return error.BackendFailure;
@@ -562,7 +562,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn structurallySymmetric(self: Self) SparseError!bool {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CsrMatrix(f64), self).asVeyraView();
                 return veyra.csrStructurallySymmetric(f64, view) catch return error.BackendFailure;
@@ -577,7 +577,7 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn numericallySymmetric(self: Self, tolerance: T) SparseError!bool {
             ensureNumeric(T);
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CsrMatrix(f64), self).asVeyraView();
                 return veyra.csrNumericallySymmetric(f64, view, tolerance) catch return error.BackendFailure;
@@ -606,7 +606,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
             if (rhs.shape[0] != self.rows) return error.ShapeMismatch;
             if (comptime T == f64) return self.solveTriangularF64(@as(array_mod.Array(f64), rhs), triangle, diag_kind);
@@ -724,7 +724,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn fromDense(input: array_mod.Array(T)) SparseError!Self {
-            if (input.shape.len != 2) return error.NonMatrixTensor;
+            if (input.shape.len != 2) return error.NonMatrixArray;
             const rows = input.shape[0];
             const cols = input.shape[1];
             var nonzero_count: usize = 0;
@@ -784,7 +784,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn matvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
-            if (x.shape.len != 1) return error.NonVectorTensor;
+            if (x.shape.len != 1) return error.NonVectorArray;
             if (x.shape[0] != self.cols) return error.ShapeMismatch;
             if (comptime T == f64) return self.matvecF64(@as(array_mod.Array(f64), x));
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
@@ -806,7 +806,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn matmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
-            if (rhs.shape.len != 2) return error.NonMatrixTensor;
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
             if (rhs.shape[0] != self.cols) return error.ShapeMismatch;
             if (comptime T == f64) return self.matmatF64(@as(array_mod.Array(f64), rhs));
             var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, rhs.shape[1] });
@@ -832,7 +832,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn transposeMatvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
-            if (x.shape.len != 1) return error.NonVectorTensor;
+            if (x.shape.len != 1) return error.NonVectorArray;
             if (x.shape[0] != self.rows) return error.ShapeMismatch;
             if (comptime T == f64) return self.transposeMatvecF64(@as(array_mod.Array(f64), x));
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
@@ -856,7 +856,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn transposeMatmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
-            if (rhs.shape.len != 2) return error.NonMatrixTensor;
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
             if (rhs.shape[0] != self.rows) return error.ShapeMismatch;
             if (comptime T == f64) return self.transposeMatmatF64(@as(array_mod.Array(f64), rhs));
             var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.cols, rhs.shape[1] });
@@ -1016,7 +1016,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn diagonal(self: Self) SparseError!array_mod.Array(T) {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) return self.diagonalF64();
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
             errdefer out.deinit();
@@ -1034,7 +1034,7 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn trace(self: Self) SparseError!T {
             ensureNumeric(T);
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CscMatrix(f64), self).asVeyraView();
                 return veyra.cscTrace(f64, view) catch return error.BackendFailure;
@@ -1045,7 +1045,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn missingDiagonalCount(self: Self) SparseError!usize {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CscMatrix(f64), self).asVeyraView();
                 return veyra.cscMissingDiagonalCount(f64, view) catch return error.BackendFailure;
@@ -1058,7 +1058,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn zeroDiagonalCount(self: Self) SparseError!usize {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CscMatrix(f64), self).asVeyraView();
                 return veyra.cscZeroDiagonalCount(f64, view) catch return error.BackendFailure;
@@ -1073,7 +1073,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn bandwidth(self: Self) SparseError!usize {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CscMatrix(f64), self).asVeyraView();
                 return veyra.cscBandwidth(f64, view) catch return error.BackendFailure;
@@ -1090,7 +1090,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn structurallySymmetric(self: Self) SparseError!bool {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CscMatrix(f64), self).asVeyraView();
                 return veyra.cscStructurallySymmetric(f64, view) catch return error.BackendFailure;
@@ -1103,7 +1103,7 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn numericallySymmetric(self: Self, tolerance: T) SparseError!bool {
             ensureNumeric(T);
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (comptime T == f64) {
                 const view = try @as(CscMatrix(f64), self).asVeyraView();
                 return veyra.cscNumericallySymmetric(f64, view, tolerance) catch return error.BackendFailure;
@@ -1119,7 +1119,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
-            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (self.rows != self.cols) return error.NonMatrixArray;
             if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
             if (rhs.shape[0] != self.rows) return error.ShapeMismatch;
             if (comptime T == f64) return self.solveTriangularF64(@as(array_mod.Array(f64), rhs), triangle, diag_kind);

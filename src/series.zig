@@ -1,5 +1,5 @@
 const std = @import("std");
-const tensor_mod = @import("tensor.zig");
+const array_mod = @import("array.zig");
 
 pub const DataError = error{
     LengthMismatch,
@@ -81,15 +81,11 @@ pub fn Series(comptime T: type) type {
             return Self.init(self.allocator, self.name, self.data[self.data.len - count ..]);
         }
 
-        pub fn toArray(self: Self) tensor_mod.TensorError!tensor_mod.Array(T) {
-            return tensor_mod.Array(T).fromSlice(self.allocator, self.data, &.{self.data.len});
+        pub fn toArray(self: Self) array_mod.ArrayError!array_mod.Array(T) {
+            return array_mod.Array(T).fromSlice(self.allocator, self.data, &.{self.data.len});
         }
 
-        pub fn toNDArray(self: Self) tensor_mod.TensorError!tensor_mod.NDArray(T) {
-            return self.toArray();
-        }
-
-        pub fn toTensor(self: Self) tensor_mod.TensorError!tensor_mod.Tensor(T) {
+        pub fn toNDArray(self: Self) array_mod.ArrayError!array_mod.NDArray(T) {
             return self.toArray();
         }
 

@@ -10,7 +10,7 @@ pub fn main(init: std.process.Init) !void {
     var stdout_file_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
     const out = &stdout_file_writer.interface;
 
-    var a = try vx.tensor(f64, allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try vx.array(f64, allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
     var b = try vx.ones(f64, allocator, &.{3});
     defer b.deinit();

@@ -17,14 +17,14 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 
 后续开发必须按以下顺序推进，不要过早把主要精力放到 DataFrame 或上层分析功能上。
 
-### P0：数组 / 张量核心，类比 NumPy、CuPy、PyTorch
+### P0：数组核心，类比 NumPy、CuPy、PyTorch
 
 这是当前最高优先级。
 
 优先完善：
 
-- 张量数据结构：shape、stride、dtype、device、内存布局、contiguous/non-contiguous view。
-- 创建函数：`tensor`、`zeros`、`ones`、`empty`、`full`、`eye`、`arange`、`linspace`、随机初始化等。
+- 数组数据结构：shape、stride、dtype、device、内存布局、contiguous/non-contiguous view。
+- 创建函数：`array`、`zeros`、`ones`、`empty`、`full`、`eye`、`arange`、`linspace`、随机初始化等。
 - 索引与切片：整数索引、range/slice、bool mask、坐标索引、take/gather/scatter、IndexMode raise/wrap/clip、masked/index put、compress、advanced indexing、membership/search helpers。
 - 形状变换：reshape/view、flatten/ravel、squeeze/unsqueeze、transpose/permute/swapaxes/movedim、broadcast、repeat/tile、slice/sliceAxis/slice1d、flip、roll、padConstant。
 - 广播逐元素运算：加减乘除、幂、floorDiv/mod/remainder、hypot/atan2、copysign/heaviside、比较及 scalar 比较、逻辑运算及 scalar 逻辑、where、clip/clamp/clipArray、maximum/minimum。
@@ -44,7 +44,7 @@ API 取向：
 
 ### P1：SciPy 风格数值算法
 
-在张量核心足够稳定后，再系统扩展 SciPy 类能力。
+在数组核心足够稳定后，再系统扩展 SciPy 类能力。
 
 优先模块：
 
@@ -58,7 +58,7 @@ API 取向：
 
 ### P2：DataFrame / 表格数据，类比 Pandas、Polars
 
-Pandas/Polars 能力排在数组/张量与 SciPy 之后。
+Pandas/Polars 能力排在数组与 SciPy 之后。
 
 后续扩展方向：
 
@@ -83,7 +83,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 
 初始化阶段已优先实现一批 Array/NDArray 能力：
 
-- 创建：`array/ndarray`（`tensor` 兼容别名）、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
+- 创建：`array/ndarray`、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
 - 形状：方法与顶层包装形式的 `reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`、`broadcastTo`、`repeat`、`tile`、`slice/sliceAxis/slice1d`、`flip`、`roll`、`padConstant`。
 - 索引/搜索：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeMode(IndexMode.raise/wrap/clip)`、`takeAlongAxis/putAlongAxis`、坐标索引 `ravelCoords/unravelFlat/takeCoords/putCoords/putCoordsScalar`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`scatterReduceScalar/scatterAddScalar`、`maskedSelect`、`maskedFill`、`maskedScatter`、`maskedPut/maskedPutScalar`、`putFlat/putFlatMode/putFlatScalar/putFlatScalarMode`、`indexPut/indexPutScalar`、`compress`、`flatNonzero`、`nonzero/argwhere/countNonzero`、`isin`、`searchsorted`、`bucketize`、`digitize`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、`floorDiv`、`mod/remainder`、scalar variants、`maximum/minimum`、`hypot`、`atan2`、`copysign`、`heaviside`、`whereMask`、`eq/equal`、`ne/notEqual`、`gt/greater`、`ge/greaterEqual`、`lt/less`、`le/lessEqual`、scalar 比较、`logicalNot/logicalAnd/logicalOr/logicalXor`、scalar 逻辑、`isclose`、`allclose`。
@@ -97,7 +97,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 ## 5. 后续每次开发的执行要求
 
 - 优先补 Array/NDArray 测试，再补上层模块测试。
-- 新 API 应同时覆盖：正常路径、shape mismatch、axis/dim 错误、空张量或边界情况。
+- 新 API 应同时覆盖：正常路径、shape mismatch、axis/dim 错误、空数组或边界情况。
 - 任何新功能都应运行相关验证；常规至少运行：
 
 ```sh
@@ -118,7 +118,7 @@ zig build test
 
 后续策略：
 
-- Array/NDArray API 保持用户友好的 NumPy/CuPy/PyTorch 风格；`Tensor` 仅作为兼容别名，不作为新文档主名。
+- Array/NDArray API 保持用户友好的 NumPy/CuPy/PyTorch 风格；新文档和新 API 主名统一使用 `Array` / `NDArray`、`array` / `ndarray`。
 - 底层 f64 dense linalg 优先委托 Veyra；当前 `matmul`、`matvec`、`trace`、`det`、`solve`、`inverse`、`lu`、`solveTriangular`、`cholesky`、`qr`、`svd`、`lstsq`、`singularValues`、`matrixRank`、`cond`、`pinv`、`matrixNorm`、`eigh/eigvalsh` 已接入 Veyra-compatible 路径；非 f64 或 Veyra 暂无覆盖时保留 Vectra 泛型回退。
 - SciPy-like `linalg/sparse/optimize` 扩展应优先检查 Veyra 是否已有对应算法，避免重复实现。
 - 引入 Veyra 时必须保留 Vectra 层 shape/device/dtype 错误语义，并添加端到端测试。
@@ -138,9 +138,9 @@ Array IO / serialization 当前支持：
 
 命名边界：
 
-- 本库不应在用户主 API 中强调 `Tensor`，因为本库不负责自动微分、训练或推理。
+- 本库不应引入自动微分/训练/推理框架式命名，因为这些能力属于相邻 `../forge`。
 - 新文档和新 API 主名应使用 `Array` / `NDArray`、`array` / `ndarray`。
-- `Tensor` / `tensor` 暂时保留为兼容别名，避免破坏已有测试和内部代码。
+- 不再保留深度学习框架式数组命名作为兼容别名；历史调用应迁移到 `Array` / `array`。
 - 自动微分、深度学习训练/推理相关能力应放到相邻 `../forge` 框架中处理。
 
 ## 8. Sparse / CSR 当前支持

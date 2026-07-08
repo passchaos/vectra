@@ -79,7 +79,7 @@ Vectra uses the sibling [`../veyra`](../veyra) Zig package as a local path depen
 
 Future work should follow the documented order in [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md):
 
-1. NumPy/CuPy/PyTorch-like array and tensor functionality first.
+1. NumPy/CuPy/PyTorch-like Array/NDArray functionality first.
 2. SciPy-like numerical algorithms second.
 3. Pandas/Polars-like DataFrame and lazy tabular processing third.
 

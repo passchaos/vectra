@@ -20,7 +20,7 @@ pub const Device = struct {
         return switch (self.backend) {
             .cpu => true,
             // CUDA is represented in the public API so users can write PyTorch-like
-            // code today. A future backend can make this true without changing tensor
+            // code today. A future backend can make this true without changing array
             // call sites.
             .cuda => false,
         };
@@ -139,16 +139,16 @@ pub const Archive = struct {
     pub const version: u8 = 1;
 };
 
-pub const TensorError = error{
+pub const ArrayError = error{
     ShapeMismatch,
     InvalidShape,
     InvalidAxis,
     InvalidDevice,
     InvalidPermutation,
     IndexOutOfBounds,
-    NonMatrixTensor,
-    NonVectorTensor,
-    EmptyTensor,
+    NonMatrixArray,
+    NonVectorArray,
+    EmptyArray,
     TypeUnsupported,
 } || std.mem.Allocator.Error;
 
@@ -156,7 +156,7 @@ pub const Shape = struct {
     allocator: std.mem.Allocator,
     dims: []usize,
 
-    pub fn init(allocator: std.mem.Allocator, dims: []const usize) TensorError!Shape {
+    pub fn init(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Shape {
         const owned = try allocator.dupe(usize, dims);
         return .{ .allocator = allocator, .dims = owned };
     }
@@ -174,12 +174,12 @@ pub const Shape = struct {
         return std.mem.eql(usize, self.dims, other.dims);
     }
 
-    pub fn numel(self: Shape) TensorError!usize {
+    pub fn numel(self: Shape) ArrayError!usize {
         return numelFrom(self.dims);
     }
 };
 
-pub fn numelFrom(dims: []const usize) TensorError!usize {
+pub fn numelFrom(dims: []const usize) ArrayError!usize {
     if (dims.len == 0) return 1;
     var n: usize = 1;
     for (dims) |d| {
@@ -188,7 +188,7 @@ pub fn numelFrom(dims: []const usize) TensorError!usize {
     return n;
 }
 
-pub fn stridesFor(allocator: std.mem.Allocator, dims: []const usize) TensorError![]usize {
+pub fn stridesFor(allocator: std.mem.Allocator, dims: []const usize) ArrayError![]usize {
     const strides = try allocator.alloc(usize, dims.len);
     var stride: usize = 1;
     var i = dims.len;
@@ -212,17 +212,17 @@ fn isNumeric(comptime T: type) bool {
 }
 
 fn ensureNumeric(comptime T: type) void {
-    if (comptime !isNumeric(T)) @compileError("operation requires a numeric tensor, got " ++ @typeName(T));
+    if (comptime !isNumeric(T)) @compileError("operation requires a numeric array, got " ++ @typeName(T));
 }
 
 fn ensureFloat(comptime T: type) void {
-    if (comptime !isFloat(T)) @compileError("operation requires a floating-point tensor, got " ++ @typeName(T));
+    if (comptime !isFloat(T)) @compileError("operation requires a floating-point array, got " ++ @typeName(T));
 }
 
 fn ensureOrderable(comptime T: type) void {
     switch (@typeInfo(T)) {
         .bool, .int, .float, .comptime_int, .comptime_float => {},
-        else => @compileError("ordering requires a bool or numeric tensor, got " ++ @typeName(T)),
+        else => @compileError("ordering requires a bool or numeric array, got " ++ @typeName(T)),
     }
 }
 
@@ -230,7 +230,7 @@ fn lessValue(comptime T: type, a: T, b: T) bool {
     return switch (@typeInfo(T)) {
         .bool => !a and b,
         .int, .float, .comptime_int, .comptime_float => a < b,
-        else => @compileError("ordering requires a bool or numeric tensor, got " ++ @typeName(T)),
+        else => @compileError("ordering requires a bool or numeric array, got " ++ @typeName(T)),
     };
 }
 
@@ -255,7 +255,7 @@ fn castValue(comptime T: type, value: anytype) T {
             .float, .comptime_float => value != 0,
             else => @compileError("cannot cast " ++ @typeName(V) ++ " to bool"),
         },
-        else => @compileError("unsupported tensor scalar type: " ++ @typeName(T)),
+        else => @compileError("unsupported array scalar type: " ++ @typeName(T)),
     };
 }
 
@@ -291,18 +291,18 @@ fn absValue(comptime T: type, value: T) T {
     return switch (@typeInfo(T)) {
         .int => if (@typeInfo(T).int.signedness == .signed and value < 0) -value else value,
         .float => @abs(value),
-        else => @compileError("abs requires a numeric tensor"),
+        else => @compileError("abs requires a numeric array"),
     };
 }
 
-fn normalizeDim(dim: isize, rank: usize) TensorError!usize {
+fn normalizeDim(dim: isize, rank: usize) ArrayError!usize {
     const signed_rank: isize = @intCast(rank);
     const normalized = if (dim < 0) signed_rank + dim else dim;
     if (normalized < 0 or normalized >= signed_rank) return error.InvalidAxis;
     return @intCast(normalized);
 }
 
-fn canonicalAxis(axis: usize, rank: usize) TensorError!usize {
+fn canonicalAxis(axis: usize, rank: usize) ArrayError!usize {
     if (axis >= rank) return error.InvalidAxis;
     return axis;
 }
@@ -313,7 +313,7 @@ fn product(dims: []const usize) usize {
     return out;
 }
 
-fn normalizeIndex(index: isize, len: usize) TensorError!usize {
+fn normalizeIndex(index: isize, len: usize) ArrayError!usize {
     const signed_len: isize = @intCast(len);
     const normalized = if (index < 0) signed_len + index else index;
     if (normalized < 0 or normalized >= signed_len) return error.IndexOutOfBounds;
@@ -342,7 +342,7 @@ fn ravelIndex(indices: []const usize, strides: []const usize) usize {
     return offset;
 }
 
-fn broadcastShape(allocator: std.mem.Allocator, a: []const usize, b: []const usize) TensorError![]usize {
+fn broadcastShape(allocator: std.mem.Allocator, a: []const usize, b: []const usize) ArrayError![]usize {
     const rank = @max(a.len, b.len);
     const out = try allocator.alloc(usize, rank);
     errdefer allocator.free(out);
@@ -395,7 +395,7 @@ pub const IndexMode = enum {
     clip,
 };
 
-fn normalizeSlice(s: Slice, len: usize) TensorError!struct { start: usize, stop: usize, step: usize, count: usize } {
+fn normalizeSlice(s: Slice, len: usize) ArrayError!struct { start: usize, stop: usize, step: usize, count: usize } {
     if (s.step <= 0) return error.InvalidShape;
     const length: isize = @intCast(len);
     var start = if (s.start < 0) length + s.start else s.start;
@@ -411,7 +411,7 @@ fn normalizeSlice(s: Slice, len: usize) TensorError!struct { start: usize, stop:
     return .{ .start = u_start, .stop = u_stop, .step = u_step, .count = count };
 }
 
-pub fn Tensor(comptime T: type) type {
+pub fn Array(comptime T: type) type {
     return struct {
         const Self = @This();
 
@@ -424,7 +424,7 @@ pub fn Tensor(comptime T: type) type {
         pub const Scalar = T;
         pub const dtype = DType.of(T);
 
-        pub fn init(allocator: std.mem.Allocator, dims: []const usize) TensorError!Self {
+        pub fn init(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             const n = try numelFrom(dims);
             const values = try allocator.alloc(T, n);
             @memset(values, zero(T));
@@ -434,21 +434,21 @@ pub fn Tensor(comptime T: type) type {
             return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides };
         }
 
-        pub fn full(allocator: std.mem.Allocator, dims: []const usize, value: T) TensorError!Self {
+        pub fn full(allocator: std.mem.Allocator, dims: []const usize, value: T) ArrayError!Self {
             const out = try Self.init(allocator, dims);
             @memset(out.data, value);
             return out;
         }
 
-        pub fn zeros(allocator: std.mem.Allocator, dims: []const usize) TensorError!Self {
+        pub fn zeros(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             return Self.full(allocator, dims, zero(T));
         }
 
-        pub fn ones(allocator: std.mem.Allocator, dims: []const usize) TensorError!Self {
+        pub fn ones(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             return Self.full(allocator, dims, one(T));
         }
 
-        pub fn empty(allocator: std.mem.Allocator, dims: []const usize) TensorError!Self {
+        pub fn empty(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             const n = try numelFrom(dims);
             const values = try allocator.alloc(T, n);
             const shape = try allocator.dupe(usize, dims);
@@ -457,27 +457,27 @@ pub fn Tensor(comptime T: type) type {
             return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides };
         }
 
-        pub fn fromScalar(allocator: std.mem.Allocator, value: T) TensorError!Self {
+        pub fn fromScalar(allocator: std.mem.Allocator, value: T) ArrayError!Self {
             return Self.fromSlice(allocator, &.{value}, &.{});
         }
 
-        pub fn emptyLike(self: Self) TensorError!Self {
+        pub fn emptyLike(self: Self) ArrayError!Self {
             return Self.empty(self.allocator, self.shape);
         }
 
-        pub fn zerosLike(self: Self) TensorError!Self {
+        pub fn zerosLike(self: Self) ArrayError!Self {
             return Self.zeros(self.allocator, self.shape);
         }
 
-        pub fn onesLike(self: Self) TensorError!Self {
+        pub fn onesLike(self: Self) ArrayError!Self {
             return Self.ones(self.allocator, self.shape);
         }
 
-        pub fn fullLike(self: Self, value: T) TensorError!Self {
+        pub fn fullLike(self: Self, value: T) ArrayError!Self {
             return Self.full(self.allocator, self.shape, value);
         }
 
-        pub fn arange(allocator: std.mem.Allocator, start: T, stop: T, step: T) TensorError!Self {
+        pub fn arange(allocator: std.mem.Allocator, start: T, stop: T, step: T) ArrayError!Self {
             ensureNumeric(T);
             if (step == zero(T)) return error.InvalidShape;
             var count: usize = 0;
@@ -496,7 +496,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn linspace(allocator: std.mem.Allocator, start: T, stop: T, count: usize) TensorError!Self {
+        pub fn linspace(allocator: std.mem.Allocator, start: T, stop: T, count: usize) ArrayError!Self {
             ensureNumeric(T);
             var out = try Self.empty(allocator, &.{count});
             if (count == 0) return out;
@@ -512,11 +512,11 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn rand(allocator: std.mem.Allocator, dims: []const usize, seed: u64) TensorError!Self {
+        pub fn rand(allocator: std.mem.Allocator, dims: []const usize, seed: u64) ArrayError!Self {
             return Self.uniform(allocator, dims, zero(T), one(T), seed);
         }
 
-        pub fn fromSlice(allocator: std.mem.Allocator, values: []const T, dims: []const usize) TensorError!Self {
+        pub fn fromSlice(allocator: std.mem.Allocator, values: []const T, dims: []const usize) ArrayError!Self {
             const n = try numelFrom(dims);
             if (values.len != n) return error.ShapeMismatch;
             const data = try allocator.dupe(T, values);
@@ -527,7 +527,7 @@ pub fn Tensor(comptime T: type) type {
             return .{ .allocator = allocator, .data = data, .shape = shape, .strides = strides };
         }
 
-        pub fn fromNested2D(allocator: std.mem.Allocator, comptime rows: usize, comptime cols: usize, values: [rows][cols]T) TensorError!Self {
+        pub fn fromNested2D(allocator: std.mem.Allocator, comptime rows: usize, comptime cols: usize, values: [rows][cols]T) ArrayError!Self {
             var out = try Self.empty(allocator, &.{ rows, cols });
             for (0..rows) |r| {
                 @memcpy(out.data[r * cols ..][0..cols], values[r][0..]);
@@ -535,17 +535,17 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn eye(allocator: std.mem.Allocator, n: usize) TensorError!Self {
+        pub fn eye(allocator: std.mem.Allocator, n: usize) ArrayError!Self {
             const out = try Self.zeros(allocator, &.{ n, n });
             for (0..n) |i| out.data[i * n + i] = one(T);
             return out;
         }
 
-        pub fn randn(allocator: std.mem.Allocator, dims: []const usize, seed: u64) TensorError!Self {
+        pub fn randn(allocator: std.mem.Allocator, dims: []const usize, seed: u64) ArrayError!Self {
             return Self.normal(allocator, dims, zero(T), one(T), seed);
         }
 
-        pub fn uniform(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) TensorError!Self {
+        pub fn uniform(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Self {
             if (comptime !isNumeric(T)) @compileError("uniform requires a numeric array type");
             if (low > high) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -555,7 +555,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn normal(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) TensorError!Self {
+        pub fn normal(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
             if (stddev_value < zero(T)) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -565,12 +565,12 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn randint(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) TensorError!Self {
+        pub fn randint(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Self {
             if (comptime @typeInfo(T) != .int) @compileError("randint requires an integer array type");
             return Self.uniform(allocator, dims, low, high, seed);
         }
 
-        pub fn bernoulli(allocator: std.mem.Allocator, dims: []const usize, p: f64, seed: u64) TensorError!Self {
+        pub fn bernoulli(allocator: std.mem.Allocator, dims: []const usize, p: f64, seed: u64) ArrayError!Self {
             if (comptime T != bool) @compileError("bernoulli requires Array(bool)");
             if (p < 0 or p > 1) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -580,7 +580,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn exponential(allocator: std.mem.Allocator, dims: []const usize, rate: T, seed: u64) TensorError!Self {
+        pub fn exponential(allocator: std.mem.Allocator, dims: []const usize, rate: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
             if (!(rate > zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -590,7 +590,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn gamma(allocator: std.mem.Allocator, dims: []const usize, shape_param: T, scale: T, seed: u64) TensorError!Self {
+        pub fn gamma(allocator: std.mem.Allocator, dims: []const usize, shape_param: T, scale: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
             if (!(shape_param > zero(T)) or !(scale >= zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -600,7 +600,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn beta(allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) TensorError!Self {
+        pub fn beta(allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
             if (!(alpha > zero(T)) or !(beta_param > zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -610,7 +610,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn lognormal(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) TensorError!Self {
+        pub fn lognormal(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
             if (stddev_value < zero(T)) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -620,7 +620,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn studentT(allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) TensorError!Self {
+        pub fn studentT(allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
             if (!(dof > zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -630,7 +630,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn cauchy(allocator: std.mem.Allocator, dims: []const usize, median_value: T, scale: T, seed: u64) TensorError!Self {
+        pub fn cauchy(allocator: std.mem.Allocator, dims: []const usize, median_value: T, scale: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
             if (!(scale > zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -640,7 +640,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn laplace(allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) TensorError!Self {
+        pub fn laplace(allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
             if (!(scale > zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -650,7 +650,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn weibull(allocator: std.mem.Allocator, dims: []const usize, scale: T, shape_param: T, seed: u64) TensorError!Self {
+        pub fn weibull(allocator: std.mem.Allocator, dims: []const usize, scale: T, shape_param: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
             if (!(scale > zero(T)) or !(shape_param > zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
@@ -667,30 +667,30 @@ pub fn Tensor(comptime T: type) type {
             self.* = undefined;
         }
 
-        pub fn clone(self: Self) TensorError!Self {
+        pub fn clone(self: Self) ArrayError!Self {
             return Self.fromSlice(self.allocator, self.data, self.shape);
         }
 
-        pub fn astype(self: Self, comptime U: type) TensorError!Tensor(U) {
-            const out = try Tensor(U).empty(self.allocator, self.shape);
+        pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
+            const out = try Array(U).empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| {
                 slot.* = castValue(U, v);
             }
             return out;
         }
 
-        pub fn to(self: Self, device: Device) TensorError!Self {
+        pub fn to(self: Self, device: Device) ArrayError!Self {
             if (!device.isAvailable()) return error.InvalidDevice;
             var out = try self.clone();
             out.device = device;
             return out;
         }
 
-        pub fn cpu(self: Self) TensorError!Self {
+        pub fn cpu(self: Self) ArrayError!Self {
             return self.to(.cpu);
         }
 
-        pub fn cuda(self: Self, index: usize) TensorError!Self {
+        pub fn cuda(self: Self, index: usize) ArrayError!Self {
             return self.to(Device.cuda(index));
         }
 
@@ -702,17 +702,17 @@ pub fn Tensor(comptime T: type) type {
             return self.shape.len;
         }
 
-        pub fn size(self: Self, axis_opt: ?isize) TensorError!usize {
+        pub fn size(self: Self, axis_opt: ?isize) ArrayError!usize {
             if (axis_opt) |d| return self.shape[try normalizeDim(d, self.shape.len)];
             return self.numel();
         }
 
-        pub fn len(self: Self) TensorError!usize {
+        pub fn len(self: Self) ArrayError!usize {
             if (self.shape.len == 0) return error.InvalidShape;
             return self.shape[0];
         }
 
-        pub fn stride(self: Self, axis_index: isize) TensorError!usize {
+        pub fn stride(self: Self, axis_index: isize) ArrayError!usize {
             return self.strides[try normalizeDim(axis_index, self.shape.len)];
         }
 
@@ -731,7 +731,7 @@ pub fn Tensor(comptime T: type) type {
             return true;
         }
 
-        pub fn contiguous(self: Self) TensorError!Self {
+        pub fn contiguous(self: Self) ArrayError!Self {
             return self.clone();
         }
 
@@ -739,7 +739,7 @@ pub fn Tensor(comptime T: type) type {
             return self.shape.len == 0 or (self.shape.len == 1 and self.shape[0] == 1);
         }
 
-        fn offsetOf(self: Self, indices: []const usize) TensorError!usize {
+        fn offsetOf(self: Self, indices: []const usize) ArrayError!usize {
             if (indices.len != self.shape.len) return error.InvalidShape;
             var offset: usize = 0;
             for (indices, self.shape, self.strides) |idx, extent, stride_value| {
@@ -749,29 +749,29 @@ pub fn Tensor(comptime T: type) type {
             return offset;
         }
 
-        pub fn get(self: Self, indices: []const usize) TensorError!T {
+        pub fn get(self: Self, indices: []const usize) ArrayError!T {
             return self.data[try self.offsetOf(indices)];
         }
 
-        pub fn set(self: *Self, indices: []const usize, value: T) TensorError!void {
+        pub fn set(self: *Self, indices: []const usize, value: T) ArrayError!void {
             self.data[try self.offsetOf(indices)] = value;
         }
 
-        pub fn at(self: Self, indices: []const usize) TensorError!T {
+        pub fn at(self: Self, indices: []const usize) ArrayError!T {
             return self.get(indices);
         }
 
-        pub fn put(self: *Self, indices: []const usize, value: T) TensorError!void {
+        pub fn put(self: *Self, indices: []const usize, value: T) ArrayError!void {
             return self.set(indices, value);
         }
 
-        pub fn item(self: Self) TensorError!T {
+        pub fn item(self: Self) ArrayError!T {
             if (!self.isScalar()) return error.ShapeMismatch;
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             return self.data[0];
         }
 
-        pub fn reshape(self: Self, dims: []const usize) TensorError!Self {
+        pub fn reshape(self: Self, dims: []const usize) ArrayError!Self {
             const n = try numelFrom(dims);
             if (n != self.data.len) return error.ShapeMismatch;
             var out = try self.clone();
@@ -782,19 +782,19 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn flatten(self: Self) TensorError!Self {
+        pub fn flatten(self: Self) ArrayError!Self {
             return self.reshape(&.{self.data.len});
         }
 
-        pub fn ravel(self: Self) TensorError!Self {
+        pub fn ravel(self: Self) ArrayError!Self {
             return self.flatten();
         }
 
-        pub fn view(self: Self, dims: []const usize) TensorError!Self {
+        pub fn view(self: Self, dims: []const usize) ArrayError!Self {
             return self.reshape(dims);
         }
 
-        pub fn squeeze(self: Self, axis_opt: ?isize) TensorError!Self {
+        pub fn squeeze(self: Self, axis_opt: ?isize) ArrayError!Self {
             var dims_list: std.ArrayList(usize) = .empty;
             defer dims_list.deinit(self.allocator);
             if (axis_opt) |d| {
@@ -814,7 +814,7 @@ pub fn Tensor(comptime T: type) type {
             return self.reshape(dims_list.items);
         }
 
-        pub fn unsqueeze(self: Self, axis_index: isize) TensorError!Self {
+        pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
             const rank = self.shape.len + 1;
             const axis = if (axis_index < 0) blk: {
                 const signed_rank: isize = @intCast(rank);
@@ -830,7 +830,7 @@ pub fn Tensor(comptime T: type) type {
             return self.reshape(dims);
         }
 
-        pub fn broadcastTo(self: Self, dims: []const usize) TensorError!Self {
+        pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, dims);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, dims)) return error.ShapeMismatch;
@@ -844,7 +844,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn repeat(self: Self, repeats: usize, axis_index: isize) TensorError!Self {
+        pub fn repeat(self: Self, repeats: usize, axis_index: isize) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
             var out_shape = try self.allocator.dupe(usize, self.shape);
@@ -865,7 +865,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) TensorError!Self {
+        pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
             const ns = try normalizeSlice(slice_value, self.shape[axis]);
@@ -887,7 +887,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn slice(self: Self, slices: []const Slice) TensorError!Self {
+        pub fn slice(self: Self, slices: []const Slice) ArrayError!Self {
             if (slices.len != self.shape.len) return error.ShapeMismatch;
             var current = try self.clone();
             errdefer current.deinit();
@@ -899,7 +899,7 @@ pub fn Tensor(comptime T: type) type {
             return current;
         }
 
-        pub fn flip(self: Self, axis_index: isize) TensorError!Self {
+        pub fn flip(self: Self, axis_index: isize) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
             const out = try Self.empty(self.allocator, self.shape);
@@ -917,7 +917,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn roll(self: Self, shift: isize, axis_index: isize) TensorError!Self {
+        pub fn roll(self: Self, shift: isize, axis_index: isize) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
             const len_axis = self.shape[axis];
@@ -938,7 +938,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) TensorError!Self {
+        pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) ArrayError!Self {
             if (before.len != self.shape.len or after.len != self.shape.len) return error.ShapeMismatch;
             var out_shape = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(out_shape);
@@ -958,7 +958,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn tile(self: Self, repeats: []const usize) TensorError!Self {
+        pub fn tile(self: Self, repeats: []const usize) ArrayError!Self {
             if (repeats.len != self.shape.len) return error.ShapeMismatch;
             var out_shape = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(out_shape);
@@ -977,8 +977,8 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn transpose(self: Self) TensorError!Self {
-            if (self.shape.len != 2) return error.NonMatrixTensor;
+        pub fn transpose(self: Self) ArrayError!Self {
+            if (self.shape.len != 2) return error.NonMatrixArray;
             const rows = self.shape[0];
             const cols = self.shape[1];
             var out = try Self.empty(self.allocator, &.{ cols, rows });
@@ -990,11 +990,11 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn T_(self: Self) TensorError!Self {
+        pub fn T_(self: Self) ArrayError!Self {
             return self.transpose();
         }
 
-        pub fn swapaxes(self: Self, dim0: isize, dim1: isize) TensorError!Self {
+        pub fn swapaxes(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
             const a0 = try normalizeDim(dim0, self.shape.len);
             const a1 = try normalizeDim(dim1, self.shape.len);
             var perm = try self.allocator.alloc(usize, self.shape.len);
@@ -1004,7 +1004,7 @@ pub fn Tensor(comptime T: type) type {
             return self.permute(perm);
         }
 
-        pub fn permute(self: Self, axes: []const usize) TensorError!Self {
+        pub fn permute(self: Self, axes: []const usize) ArrayError!Self {
             if (axes.len != self.shape.len) return error.InvalidPermutation;
             var seen = try self.allocator.alloc(bool, axes.len);
             defer self.allocator.free(seen);
@@ -1030,7 +1030,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn movedim(self: Self, source: isize, destination: isize) TensorError!Self {
+        pub fn movedim(self: Self, source: isize, destination: isize) ArrayError!Self {
             const src = try normalizeDim(source, self.shape.len);
             const dst = try normalizeDim(destination, self.shape.len);
             const axes = try self.allocator.alloc(usize, self.shape.len);
@@ -1055,8 +1055,8 @@ pub fn Tensor(comptime T: type) type {
             return self.permute(axes);
         }
 
-        pub fn slice1d(self: Self, slice_value: Slice) TensorError!Self {
-            if (self.shape.len != 1) return error.NonVectorTensor;
+        pub fn slice1d(self: Self, slice_value: Slice) ArrayError!Self {
+            if (self.shape.len != 1) return error.NonVectorArray;
             const ns = try normalizeSlice(slice_value, self.shape[0]);
             const out = try Self.empty(self.allocator, &.{ns.count});
             var idx = ns.start;
@@ -1067,7 +1067,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn select(self: Self, axis_index: isize, index: usize) TensorError!Self {
+        pub fn select(self: Self, axis_index: isize, index: usize) ArrayError!Self {
             const axis = try normalizeDim(axis_index, self.shape.len);
             if (index >= self.shape[axis]) return error.IndexOutOfBounds;
             if (self.shape.len == 0) return error.InvalidAxis;
@@ -1094,7 +1094,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) TensorError!Self {
+        pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) ArrayError!Self {
             const axis = try normalizeDim(axis_index, self.shape.len);
             if (start > self.shape[axis] or start + length > self.shape[axis]) return error.IndexOutOfBounds;
             var out_shape = try self.allocator.dupe(usize, self.shape);
@@ -1115,7 +1115,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn take(self: Self, indices: Tensor(usize), axis_opt: ?isize) TensorError!Self {
+        pub fn take(self: Self, indices: Array(usize), axis_opt: ?isize) ArrayError!Self {
             if (axis_opt == null) {
                 const out = try Self.empty(self.allocator, indices.shape);
                 for (indices.data, out.data) |idx, *slot| {
@@ -1145,7 +1145,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        fn applyIndexMode(idx: usize, extent: usize, mode: IndexMode) TensorError!usize {
+        fn applyIndexMode(idx: usize, extent: usize, mode: IndexMode) ArrayError!usize {
             if (extent == 0) return error.IndexOutOfBounds;
             return switch (mode) {
                 .raise => if (idx >= extent) error.IndexOutOfBounds else idx,
@@ -1154,7 +1154,7 @@ pub fn Tensor(comptime T: type) type {
             };
         }
 
-        pub fn takeMode(self: Self, indices: Tensor(usize), axis_opt: ?isize, mode: IndexMode) TensorError!Self {
+        pub fn takeMode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Self {
             if (axis_opt == null) {
                 const out = try Self.empty(self.allocator, indices.shape);
                 for (indices.data, out.data) |idx, *slot| {
@@ -1181,19 +1181,19 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn indexSelect(self: Self, axis_index: isize, indices: Tensor(usize)) TensorError!Self {
+        pub fn indexSelect(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Self {
             return self.take(indices, axis_index);
         }
 
-        pub fn takeAlongAxis(self: Self, indices: Tensor(usize), axis_index: isize) TensorError!Self {
+        pub fn takeAlongAxis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Self {
             return self.gather(axis_index, indices);
         }
 
-        pub fn putAlongAxis(self: Self, indices: Tensor(usize), src: Self, axis_index: isize) TensorError!Self {
+        pub fn putAlongAxis(self: Self, indices: Array(usize), src: Self, axis_index: isize) ArrayError!Self {
             return self.scatter(axis_index, indices, src);
         }
 
-        pub fn maskedSelect(self: Self, mask: Tensor(bool)) TensorError!Self {
+        pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -1218,7 +1218,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn maskedFill(self: Self, mask: Tensor(bool), value: T) TensorError!Self {
+        pub fn maskedFill(self: Self, mask: Array(bool), value: T) ArrayError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try self.broadcastTo(out_shape);
@@ -1233,7 +1233,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn maskedScatter(self: Self, mask: Tensor(bool), src: Self) TensorError!Self {
+        pub fn maskedScatter(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try self.broadcastTo(out_shape);
@@ -1254,7 +1254,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn maskedPut(self: Self, mask: Tensor(bool), values: Self) TensorError!Self {
+        pub fn maskedPut(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try self.broadcastTo(out_shape);
@@ -1280,11 +1280,11 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn maskedPutScalar(self: Self, mask: Tensor(bool), value: T) TensorError!Self {
+        pub fn maskedPutScalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
             return self.maskedFill(mask, value);
         }
 
-        pub fn putFlat(self: Self, indices: Tensor(usize), values: Self) TensorError!Self {
+        pub fn putFlat(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
             if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
             var out = try self.clone();
             errdefer out.deinit();
@@ -1295,7 +1295,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn putFlatMode(self: Self, indices: Tensor(usize), values: Self, mode: IndexMode) TensorError!Self {
+        pub fn putFlatMode(self: Self, indices: Array(usize), values: Self, mode: IndexMode) ArrayError!Self {
             if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
             var out = try self.clone();
             errdefer out.deinit();
@@ -1305,7 +1305,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn putFlatScalar(self: Self, indices: Tensor(usize), value: T) TensorError!Self {
+        pub fn putFlatScalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
             var out = try self.clone();
             errdefer out.deinit();
             for (indices.data) |idx| {
@@ -1315,7 +1315,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn putFlatScalarMode(self: Self, indices: Tensor(usize), value: T, mode: IndexMode) TensorError!Self {
+        pub fn putFlatScalarMode(self: Self, indices: Array(usize), value: T, mode: IndexMode) ArrayError!Self {
             var out = try self.clone();
             errdefer out.deinit();
             for (indices.data) |idx| {
@@ -1324,11 +1324,11 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn indexPut(self: Self, indices: Tensor(usize), values: Self) TensorError!Self {
+        pub fn indexPut(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
             return self.putFlat(indices, values);
         }
 
-        pub fn indexPutScalar(self: Self, indices: Tensor(usize), value: T) TensorError!Self {
+        pub fn indexPutScalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
             return self.putFlatScalar(indices, value);
         }
 
@@ -1340,9 +1340,9 @@ pub fn Tensor(comptime T: type) type {
             return count;
         }
 
-        pub fn flatNonzero(self: Self) TensorError!Tensor(usize) {
+        pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
             const count = self.countNonzero();
-            const out = try Tensor(usize).empty(self.allocator, &.{count});
+            const out = try Array(usize).empty(self.allocator, &.{count});
             var write: usize = 0;
             for (self.data, 0..) |value, flat| {
                 if (value == zero(T)) continue;
@@ -1352,9 +1352,9 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn nonzero(self: Self) TensorError!Tensor(usize) {
+        pub fn nonzero(self: Self) ArrayError!Array(usize) {
             const count = self.countNonzero();
-            const out = try Tensor(usize).empty(self.allocator, &.{ count, self.shape.len });
+            const out = try Array(usize).empty(self.allocator, &.{ count, self.shape.len });
             if (count == 0 or self.shape.len == 0) return out;
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
@@ -1368,13 +1368,13 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn argwhere(self: Self) TensorError!Tensor(usize) {
+        pub fn argwhere(self: Self) ArrayError!Array(usize) {
             return self.nonzero();
         }
 
-        pub fn ravelCoords(self: Self, coords: Tensor(usize)) TensorError!Tensor(usize) {
+        pub fn ravelCoords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
             if (coords.shape.len != 2 or coords.shape[1] != self.shape.len) return error.ShapeMismatch;
-            var out = try Tensor(usize).empty(self.allocator, &.{coords.shape[0]});
+            var out = try Array(usize).empty(self.allocator, &.{coords.shape[0]});
             errdefer out.deinit();
             for (out.data, 0..) |*slot, row| {
                 var offset: usize = 0;
@@ -1388,8 +1388,8 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn unravelFlat(self: Self, indices: Tensor(usize)) TensorError!Tensor(usize) {
-            var out = try Tensor(usize).empty(self.allocator, &.{ indices.data.len, self.shape.len });
+        pub fn unravelFlat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
+            var out = try Array(usize).empty(self.allocator, &.{ indices.data.len, self.shape.len });
             errdefer out.deinit();
             if (self.shape.len == 0) {
                 for (indices.data) |idx| {
@@ -1407,25 +1407,25 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn takeCoords(self: Self, coords: Tensor(usize)) TensorError!Self {
+        pub fn takeCoords(self: Self, coords: Array(usize)) ArrayError!Self {
             var flat = try self.ravelCoords(coords);
             defer flat.deinit();
             return self.take(flat, null);
         }
 
-        pub fn putCoords(self: Self, coords: Tensor(usize), values: Self) TensorError!Self {
+        pub fn putCoords(self: Self, coords: Array(usize), values: Self) ArrayError!Self {
             var flat = try self.ravelCoords(coords);
             defer flat.deinit();
             return self.putFlat(flat, values);
         }
 
-        pub fn putCoordsScalar(self: Self, coords: Tensor(usize), value: T) TensorError!Self {
+        pub fn putCoordsScalar(self: Self, coords: Array(usize), value: T) ArrayError!Self {
             var flat = try self.ravelCoords(coords);
             defer flat.deinit();
             return self.putFlatScalar(flat, value);
         }
 
-        pub fn compress(self: Self, condition: Tensor(bool), axis_opt: ?isize) TensorError!Self {
+        pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Self {
             if (condition.shape.len != 1) return error.ShapeMismatch;
             if (axis_opt == null) {
                 var flat = try self.flatten();
@@ -1468,7 +1468,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn gather(self: Self, axis_index: isize, indices: Tensor(usize)) TensorError!Self {
+        pub fn gather(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Self {
             const axis = try normalizeDim(axis_index, self.shape.len);
             if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
             for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
@@ -1494,7 +1494,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn scatter(self: Self, axis_index: isize, indices: Tensor(usize), src: Self) TensorError!Self {
+        pub fn scatter(self: Self, axis_index: isize, indices: Array(usize), src: Self) ArrayError!Self {
             const axis = try normalizeDim(axis_index, self.shape.len);
             if (!std.mem.eql(usize, indices.shape, src.shape)) return error.ShapeMismatch;
             if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
@@ -1521,7 +1521,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn scatterScalar(self: Self, axis_index: isize, indices: Tensor(usize), value: T) TensorError!Self {
+        pub fn scatterScalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Self {
             const axis = try normalizeDim(axis_index, self.shape.len);
             if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
             for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
@@ -1546,7 +1546,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        fn validateScatterShapes(self: Self, axis: usize, indices: Tensor(usize), src_shape: []const usize) TensorError!void {
+        fn validateScatterShapes(self: Self, axis: usize, indices: Array(usize), src_shape: []const usize) ArrayError!void {
             if (indices.shape.len != self.shape.len or src_shape.len != self.shape.len) return error.ShapeMismatch;
             if (!std.mem.eql(usize, indices.shape, src_shape)) return error.ShapeMismatch;
             for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
@@ -1563,7 +1563,7 @@ pub fn Tensor(comptime T: type) type {
             };
         }
 
-        pub fn scatterReduce(self: Self, axis_index: isize, indices: Tensor(usize), src: Self, reduction: ScatterReduce) TensorError!Self {
+        pub fn scatterReduce(self: Self, axis_index: isize, indices: Array(usize), src: Self, reduction: ScatterReduce) ArrayError!Self {
             ensureNumeric(T);
             const axis = try normalizeDim(axis_index, self.shape.len);
             try self.validateScatterShapes(axis, indices, src.shape);
@@ -1588,11 +1588,11 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn scatterAdd(self: Self, axis_index: isize, indices: Tensor(usize), src: Self) TensorError!Self {
+        pub fn scatterAdd(self: Self, axis_index: isize, indices: Array(usize), src: Self) ArrayError!Self {
             return self.scatterReduce(axis_index, indices, src, .sum);
         }
 
-        pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: Tensor(usize), value: T, reduction: ScatterReduce) TensorError!Self {
+        pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: Array(usize), value: T, reduction: ScatterReduce) ArrayError!Self {
             ensureNumeric(T);
             const axis = try normalizeDim(axis_index, self.shape.len);
             if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
@@ -1619,11 +1619,11 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn scatterAddScalar(self: Self, axis_index: isize, indices: Tensor(usize), value: T) TensorError!Self {
+        pub fn scatterAddScalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Self {
             return self.scatterReduceScalar(axis_index, indices, value, .sum);
         }
 
-        fn binaryTensor(self: Self, other: Self, comptime op: fn (T, T) T) TensorError!Self {
+        fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out = try Self.empty(self.allocator, out_shape);
@@ -1640,20 +1640,20 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) TensorError!Self {
+        fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Self {
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = op(v, scalar);
             return out;
         }
 
-        fn unary(self: Self, comptime op: fn (T) T) TensorError!Self {
+        fn unary(self: Self, comptime op: fn (T) T) ArrayError!Self {
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = op(v);
             return out;
         }
 
-        fn unaryBool(self: Self, comptime op: fn (T) bool) TensorError!Tensor(bool) {
-            const out = try Tensor(bool).empty(self.allocator, self.shape);
+        fn unaryBool(self: Self, comptime op: fn (T) bool) ArrayError!Array(bool) {
+            const out = try Array(bool).empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = op(v);
             return out;
         }
@@ -1823,132 +1823,132 @@ pub fn Tensor(comptime T: type) type {
             };
         }
 
-        pub fn add(self: Self, other: Self) TensorError!Self {
+        pub fn add(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(other, opAdd);
+            return self.binaryArray(other, opAdd);
         }
 
-        pub fn sub(self: Self, other: Self) TensorError!Self {
+        pub fn sub(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(other, opSub);
+            return self.binaryArray(other, opSub);
         }
 
-        pub fn mul(self: Self, other: Self) TensorError!Self {
+        pub fn mul(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(other, opMul);
+            return self.binaryArray(other, opMul);
         }
 
-        pub fn div(self: Self, other: Self) TensorError!Self {
+        pub fn div(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(other, opDiv);
+            return self.binaryArray(other, opDiv);
         }
 
-        pub fn pow(self: Self, other: Self) TensorError!Self {
+        pub fn pow(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(other, opPow);
+            return self.binaryArray(other, opPow);
         }
 
-        pub fn floorDiv(self: Self, other: Self) TensorError!Self {
+        pub fn floorDiv(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(other, opFloorDiv);
+            return self.binaryArray(other, opFloorDiv);
         }
 
-        pub fn mod(self: Self, other: Self) TensorError!Self {
+        pub fn mod(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(other, opMod);
+            return self.binaryArray(other, opMod);
         }
 
-        pub fn remainder(self: Self, other: Self) TensorError!Self {
+        pub fn remainder(self: Self, other: Self) ArrayError!Self {
             return self.mod(other);
         }
 
-        pub fn hypot(self: Self, other: Self) TensorError!Self {
+        pub fn hypot(self: Self, other: Self) ArrayError!Self {
             ensureFloat(T);
-            return self.binaryTensor(other, opHypot);
+            return self.binaryArray(other, opHypot);
         }
 
-        pub fn atan2(self: Self, other: Self) TensorError!Self {
+        pub fn atan2(self: Self, other: Self) ArrayError!Self {
             ensureFloat(T);
-            return self.binaryTensor(other, opAtan2);
+            return self.binaryArray(other, opAtan2);
         }
 
-        pub fn nextAfter(self: Self, other: Self) TensorError!Self {
+        pub fn nextAfter(self: Self, other: Self) ArrayError!Self {
             ensureFloat(T);
-            return self.binaryTensor(other, opNextAfter);
+            return self.binaryArray(other, opNextAfter);
         }
 
-        pub fn nextafter(self: Self, other: Self) TensorError!Self {
+        pub fn nextafter(self: Self, other: Self) ArrayError!Self {
             return self.nextAfter(other);
         }
 
-        pub fn copysign(self: Self, sign_values: Self) TensorError!Self {
+        pub fn copysign(self: Self, sign_values: Self) ArrayError!Self {
             ensureFloat(T);
-            return self.binaryTensor(sign_values, opCopysign);
+            return self.binaryArray(sign_values, opCopysign);
         }
 
-        pub fn heaviside(self: Self, values_at_zero: Self) TensorError!Self {
+        pub fn heaviside(self: Self, values_at_zero: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(values_at_zero, opHeaviside);
+            return self.binaryArray(values_at_zero, opHeaviside);
         }
 
-        pub fn maximum(self: Self, other: Self) TensorError!Self {
+        pub fn maximum(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(other, struct {
+            return self.binaryArray(other, struct {
                 fn f(a: T, b: T) T {
                     return if (a >= b) a else b;
                 }
             }.f);
         }
 
-        pub fn minimum(self: Self, other: Self) TensorError!Self {
+        pub fn minimum(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            return self.binaryTensor(other, struct {
+            return self.binaryArray(other, struct {
                 fn f(a: T, b: T) T {
                     return if (a <= b) a else b;
                 }
             }.f);
         }
 
-        pub fn addScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn addScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opAdd);
         }
 
-        pub fn subScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn subScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opSub);
         }
 
-        pub fn mulScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn mulScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opMul);
         }
 
-        pub fn divScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn divScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opDiv);
         }
 
-        pub fn powScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn powScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opPow);
         }
 
-        pub fn floorDivScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn floorDivScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opFloorDiv);
         }
 
-        pub fn modScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn modScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opMod);
         }
 
-        pub fn remainderScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn remainderScalar(self: Self, scalar: T) ArrayError!Self {
             return self.modScalar(scalar);
         }
 
-        pub fn maximumScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn maximumScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, struct {
                 fn f(a: T, b: T) T {
@@ -1957,7 +1957,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn minimumScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn minimumScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, struct {
                 fn f(a: T, b: T) T {
@@ -1966,131 +1966,131 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn hypotScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn hypotScalar(self: Self, scalar: T) ArrayError!Self {
             ensureFloat(T);
             return self.binaryScalar(scalar, opHypot);
         }
 
-        pub fn atan2Scalar(self: Self, scalar: T) TensorError!Self {
+        pub fn atan2Scalar(self: Self, scalar: T) ArrayError!Self {
             ensureFloat(T);
             return self.binaryScalar(scalar, opAtan2);
         }
 
-        pub fn nextAfterScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn nextAfterScalar(self: Self, scalar: T) ArrayError!Self {
             ensureFloat(T);
             return self.binaryScalar(scalar, opNextAfter);
         }
 
-        pub fn nextafterScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn nextafterScalar(self: Self, scalar: T) ArrayError!Self {
             return self.nextAfterScalar(scalar);
         }
 
-        pub fn copysignScalar(self: Self, scalar: T) TensorError!Self {
+        pub fn copysignScalar(self: Self, scalar: T) ArrayError!Self {
             ensureFloat(T);
             return self.binaryScalar(scalar, opCopysign);
         }
 
-        pub fn heavisideScalar(self: Self, value_at_zero: T) TensorError!Self {
+        pub fn heavisideScalar(self: Self, value_at_zero: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(value_at_zero, opHeaviside);
         }
 
-        pub fn neg(self: Self) TensorError!Self {
+        pub fn neg(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opNeg);
         }
 
-        pub fn abs(self: Self) TensorError!Self {
+        pub fn abs(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opAbs);
         }
 
-        pub fn square(self: Self) TensorError!Self {
+        pub fn square(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opSquare);
         }
 
-        pub fn reciprocal(self: Self) TensorError!Self {
+        pub fn reciprocal(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opReciprocal);
         }
 
-        pub fn sign(self: Self) TensorError!Self {
+        pub fn sign(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opSign);
         }
 
-        pub fn signbit(self: Self) TensorError!Tensor(bool) {
+        pub fn signbit(self: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.unaryBool(opSignbit);
         }
 
-        pub fn exp(self: Self) TensorError!Self {
+        pub fn exp(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opExp);
         }
 
-        pub fn expm1(self: Self) TensorError!Self {
+        pub fn expm1(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opExpm1);
         }
 
-        pub fn log(self: Self) TensorError!Self {
+        pub fn log(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opLog);
         }
 
-        pub fn log2(self: Self) TensorError!Self {
+        pub fn log2(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opLog2);
         }
 
-        pub fn log10(self: Self) TensorError!Self {
+        pub fn log10(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opLog10);
         }
 
-        pub fn log1p(self: Self) TensorError!Self {
+        pub fn log1p(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opLog1p);
         }
 
-        pub fn sqrt(self: Self) TensorError!Self {
+        pub fn sqrt(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opSqrt);
         }
 
-        pub fn floor(self: Self) TensorError!Self {
+        pub fn floor(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opFloor);
         }
 
-        pub fn ceil(self: Self) TensorError!Self {
+        pub fn ceil(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opCeil);
         }
 
-        pub fn round(self: Self) TensorError!Self {
+        pub fn round(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opRound);
         }
 
-        pub fn trunc(self: Self) TensorError!Self {
+        pub fn trunc(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opTrunc);
         }
 
-        pub fn deg2rad(self: Self) TensorError!Self {
+        pub fn deg2rad(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opDeg2rad);
         }
 
-        pub fn rad2deg(self: Self) TensorError!Self {
+        pub fn rad2deg(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opRad2deg);
         }
 
-        pub fn ldexp(self: Self, exponents: Tensor(i32)) TensorError!Self {
+        pub fn ldexp(self: Self, exponents: Array(i32)) ArrayError!Self {
             ensureFloat(T);
             const out_shape = try broadcastShape(self.allocator, self.shape, exponents.shape);
             defer self.allocator.free(out_shape);
@@ -2106,7 +2106,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn ldexpScalar(self: Self, exponent: i32) TensorError!Self {
+        pub fn ldexpScalar(self: Self, exponent: i32) ArrayError!Self {
             ensureFloat(T);
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| slot.* = std.math.ldexp(value, exponent);
@@ -2115,7 +2115,7 @@ pub fn Tensor(comptime T: type) type {
 
         pub const FrexpResult = struct {
             significand: Self,
-            exponent: Tensor(i32),
+            exponent: Array(i32),
 
             pub fn deinit(self: *@This()) void {
                 self.significand.deinit();
@@ -2124,11 +2124,11 @@ pub fn Tensor(comptime T: type) type {
             }
         };
 
-        pub fn frexp(self: Self) TensorError!FrexpResult {
+        pub fn frexp(self: Self) ArrayError!FrexpResult {
             ensureFloat(T);
             var significand = try Self.empty(self.allocator, self.shape);
             errdefer significand.deinit();
-            var exponent = try Tensor(i32).empty(self.allocator, self.shape);
+            var exponent = try Array(i32).empty(self.allocator, self.shape);
             errdefer exponent.deinit();
             for (self.data, significand.data, exponent.data) |value, *sig_slot, *exp_slot| {
                 const result = std.math.frexp(value);
@@ -2138,47 +2138,47 @@ pub fn Tensor(comptime T: type) type {
             return .{ .significand = significand, .exponent = exponent };
         }
 
-        pub fn sin(self: Self) TensorError!Self {
+        pub fn sin(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opSin);
         }
 
-        pub fn cos(self: Self) TensorError!Self {
+        pub fn cos(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opCos);
         }
 
-        pub fn tan(self: Self) TensorError!Self {
+        pub fn tan(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opTan);
         }
 
-        pub fn asin(self: Self) TensorError!Self {
+        pub fn asin(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opAsin);
         }
 
-        pub fn acos(self: Self) TensorError!Self {
+        pub fn acos(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opAcos);
         }
 
-        pub fn atan(self: Self) TensorError!Self {
+        pub fn atan(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opAtan);
         }
 
-        pub fn sinh(self: Self) TensorError!Self {
+        pub fn sinh(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opSinh);
         }
 
-        pub fn cosh(self: Self) TensorError!Self {
+        pub fn cosh(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opCosh);
         }
 
-        pub fn tanh(self: Self) TensorError!Self {
+        pub fn tanh(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(struct {
                 fn f(a: T) T {
@@ -2187,7 +2187,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn relu(self: Self) TensorError!Self {
+        pub fn relu(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(struct {
                 fn f(a: T) T {
@@ -2196,7 +2196,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn sigmoid(self: Self) TensorError!Self {
+        pub fn sigmoid(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(struct {
                 fn f(a: T) T {
@@ -2205,45 +2205,45 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn clip(self: Self, min_value: T, max_value: T) TensorError!Self {
+        pub fn clip(self: Self, min_value: T, max_value: T) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = @min(@max(v, min_value), max_value);
             return out;
         }
 
-        pub fn clamp(self: Self, min_value: T, max_value: T) TensorError!Self {
+        pub fn clamp(self: Self, min_value: T, max_value: T) ArrayError!Self {
             return self.clip(min_value, max_value);
         }
 
-        pub fn isNan(self: Self) TensorError!Tensor(bool) {
+        pub fn isNan(self: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.unaryBool(opIsNan);
         }
 
-        pub fn isnan(self: Self) TensorError!Tensor(bool) {
+        pub fn isnan(self: Self) ArrayError!Array(bool) {
             return self.isNan();
         }
 
-        pub fn isInf(self: Self) TensorError!Tensor(bool) {
+        pub fn isInf(self: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.unaryBool(opIsInf);
         }
 
-        pub fn isinf(self: Self) TensorError!Tensor(bool) {
+        pub fn isinf(self: Self) ArrayError!Array(bool) {
             return self.isInf();
         }
 
-        pub fn isFinite(self: Self) TensorError!Tensor(bool) {
+        pub fn isFinite(self: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.unaryBool(opIsFinite);
         }
 
-        pub fn isfinite(self: Self) TensorError!Tensor(bool) {
+        pub fn isfinite(self: Self) ArrayError!Array(bool) {
             return self.isFinite();
         }
 
-        pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) TensorError!Self {
+        pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             var max_t = try self.max(axis_index, true);
             defer max_t.deinit();
@@ -2263,18 +2263,18 @@ pub fn Tensor(comptime T: type) type {
             return squeezed;
         }
 
-        pub fn logSoftmax(self: Self, axis_index: isize) TensorError!Self {
+        pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Self {
             ensureFloat(T);
             var lse = try self.logsumexp(axis_index, true);
             defer lse.deinit();
             return self.sub(lse);
         }
 
-        pub fn log_softmax(self: Self, axis_index: isize) TensorError!Self {
+        pub fn log_softmax(self: Self, axis_index: isize) ArrayError!Self {
             return self.logSoftmax(axis_index);
         }
 
-        pub fn eq(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
                     return a == b;
@@ -2282,11 +2282,11 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn equal(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn equal(self: Self, other: Self) ArrayError!Array(bool) {
             return self.eq(other);
         }
 
-        pub fn gt(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn gt(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
@@ -2295,11 +2295,11 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn greater(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn greater(self: Self, other: Self) ArrayError!Array(bool) {
             return self.gt(other);
         }
 
-        pub fn lt(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn lt(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
@@ -2308,11 +2308,11 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn less(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn less(self: Self, other: Self) ArrayError!Array(bool) {
             return self.lt(other);
         }
 
-        pub fn ne(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn ne(self: Self, other: Self) ArrayError!Array(bool) {
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
                     return a != b;
@@ -2320,11 +2320,11 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn notEqual(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn notEqual(self: Self, other: Self) ArrayError!Array(bool) {
             return self.ne(other);
         }
 
-        pub fn ge(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn ge(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
@@ -2333,11 +2333,11 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn greaterEqual(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn greaterEqual(self: Self, other: Self) ArrayError!Array(bool) {
             return self.ge(other);
         }
 
-        pub fn le(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn le(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compare(other, struct {
                 fn f(a: T, b: T) bool {
@@ -2346,11 +2346,11 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn lessEqual(self: Self, other: Self) TensorError!Tensor(bool) {
+        pub fn lessEqual(self: Self, other: Self) ArrayError!Array(bool) {
             return self.le(other);
         }
 
-        pub fn eqScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+        pub fn eqScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
                     return a == b;
@@ -2358,7 +2358,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn neScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+        pub fn neScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
                     return a != b;
@@ -2366,7 +2366,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn gtScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+        pub fn gtScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
@@ -2375,7 +2375,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn geScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+        pub fn geScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
@@ -2384,7 +2384,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn ltScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+        pub fn ltScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
@@ -2393,7 +2393,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn leScalar(self: Self, scalar: T) TensorError!Tensor(bool) {
+        pub fn leScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
@@ -2402,7 +2402,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn allclose(self: Self, other: Self, rtol: T, atol: T) TensorError!bool {
+        pub fn allclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!bool {
             ensureFloat(T);
             const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
@@ -2419,11 +2419,11 @@ pub fn Tensor(comptime T: type) type {
             return true;
         }
 
-        pub fn isclose(self: Self, other: Self, rtol: T, atol: T) TensorError!Tensor(bool) {
+        pub fn isclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
             ensureFloat(T);
             const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
-            const out = try Tensor(bool).empty(self.allocator, out_shape);
+            const out = try Array(bool).empty(self.allocator, out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
             defer self.allocator.free(out_multi);
             for (out.data, 0..) |*slot, i| {
@@ -2437,10 +2437,10 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) TensorError!Tensor(bool) {
+        fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
             const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
-            const out = try Tensor(bool).empty(self.allocator, out_shape);
+            const out = try Array(bool).empty(self.allocator, out_shape);
 
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
             defer self.allocator.free(out_multi);
@@ -2454,13 +2454,13 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        fn compareScalar(self: Self, scalar: T, comptime op: fn (T, T) bool) TensorError!Tensor(bool) {
-            const out = try Tensor(bool).empty(self.allocator, self.shape);
+        fn compareScalar(self: Self, scalar: T, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
+            const out = try Array(bool).empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| slot.* = op(value, scalar);
             return out;
         }
 
-        pub fn whereMask(mask: Tensor(bool), a: Self, b: Self) TensorError!Self {
+        pub fn whereMask(mask: Array(bool), a: Self, b: Self) ArrayError!Self {
             const tmp_shape = try broadcastShape(a.allocator, a.shape, b.shape);
             defer a.allocator.free(tmp_shape);
             const out_shape = try broadcastShape(a.allocator, tmp_shape, mask.shape);
@@ -2480,19 +2480,19 @@ pub fn Tensor(comptime T: type) type {
         }
 
         pub fn all(self: Self) bool {
-            if (comptime T != bool) @compileError("all requires Tensor(bool)");
+            if (comptime T != bool) @compileError("all requires Array(bool)");
             for (self.data) |v| if (!v) return false;
             return true;
         }
 
         pub fn any(self: Self) bool {
-            if (comptime T != bool) @compileError("any requires Tensor(bool)");
+            if (comptime T != bool) @compileError("any requires Array(bool)");
             for (self.data) |v| if (v) return true;
             return false;
         }
 
-        pub fn allAxis(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
-            if (comptime T != bool) @compileError("allAxis requires Tensor(bool)");
+        pub fn allAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
+            if (comptime T != bool) @compileError("allAxis requires Array(bool)");
             return self.boolReduce(axis_opt, keepdims, true, struct {
                 fn f(a: bool, b: bool) bool {
                     return a and b;
@@ -2500,8 +2500,8 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
-            if (comptime T != bool) @compileError("anyAxis requires Tensor(bool)");
+        pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
+            if (comptime T != bool) @compileError("anyAxis requires Array(bool)");
             return self.boolReduce(axis_opt, keepdims, false, struct {
                 fn f(a: bool, b: bool) bool {
                     return a or b;
@@ -2509,7 +2509,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        fn boolReduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: bool, comptime op: fn (bool, bool) bool) TensorError!Self {
+        fn boolReduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: bool, comptime op: fn (bool, bool) bool) ArrayError!Self {
             if (axis_opt == null) {
                 var total = init_value;
                 for (self.data) |v| total = op(total, v);
@@ -2547,24 +2547,24 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn logicalNot(self: Self) TensorError!Self {
-            if (comptime T != bool) @compileError("logicalNot requires Tensor(bool)");
+        pub fn logicalNot(self: Self) ArrayError!Self {
+            if (comptime T != bool) @compileError("logicalNot requires Array(bool)");
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = !v;
             return out;
         }
 
-        pub fn logicalAnd(self: Self, other: Self) TensorError!Self {
-            if (comptime T != bool) @compileError("logicalAnd requires Tensor(bool)");
-            return self.binaryTensor(other, struct {
+        pub fn logicalAnd(self: Self, other: Self) ArrayError!Self {
+            if (comptime T != bool) @compileError("logicalAnd requires Array(bool)");
+            return self.binaryArray(other, struct {
                 fn f(a: bool, b: bool) bool {
                     return a and b;
                 }
             }.f);
         }
 
-        pub fn logicalAndScalar(self: Self, scalar: bool) TensorError!Self {
-            if (comptime T != bool) @compileError("logicalAndScalar requires Tensor(bool)");
+        pub fn logicalAndScalar(self: Self, scalar: bool) ArrayError!Self {
+            if (comptime T != bool) @compileError("logicalAndScalar requires Array(bool)");
             return self.binaryScalar(scalar, struct {
                 fn f(a: bool, b: bool) bool {
                     return a and b;
@@ -2572,17 +2572,17 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn logicalOr(self: Self, other: Self) TensorError!Self {
-            if (comptime T != bool) @compileError("logicalOr requires Tensor(bool)");
-            return self.binaryTensor(other, struct {
+        pub fn logicalOr(self: Self, other: Self) ArrayError!Self {
+            if (comptime T != bool) @compileError("logicalOr requires Array(bool)");
+            return self.binaryArray(other, struct {
                 fn f(a: bool, b: bool) bool {
                     return a or b;
                 }
             }.f);
         }
 
-        pub fn logicalOrScalar(self: Self, scalar: bool) TensorError!Self {
-            if (comptime T != bool) @compileError("logicalOrScalar requires Tensor(bool)");
+        pub fn logicalOrScalar(self: Self, scalar: bool) ArrayError!Self {
+            if (comptime T != bool) @compileError("logicalOrScalar requires Array(bool)");
             return self.binaryScalar(scalar, struct {
                 fn f(a: bool, b: bool) bool {
                     return a or b;
@@ -2590,17 +2590,17 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn logicalXor(self: Self, other: Self) TensorError!Self {
-            if (comptime T != bool) @compileError("logicalXor requires Tensor(bool)");
-            return self.binaryTensor(other, struct {
+        pub fn logicalXor(self: Self, other: Self) ArrayError!Self {
+            if (comptime T != bool) @compileError("logicalXor requires Array(bool)");
+            return self.binaryArray(other, struct {
                 fn f(a: bool, b: bool) bool {
                     return a != b;
                 }
             }.f);
         }
 
-        pub fn logicalXorScalar(self: Self, scalar: bool) TensorError!Self {
-            if (comptime T != bool) @compileError("logicalXorScalar requires Tensor(bool)");
+        pub fn logicalXorScalar(self: Self, scalar: bool) ArrayError!Self {
+            if (comptime T != bool) @compileError("logicalXorScalar requires Array(bool)");
             return self.binaryScalar(scalar, struct {
                 fn f(a: bool, b: bool) bool {
                     return a != b;
@@ -2608,19 +2608,19 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn sum(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn sum(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             return self.reduce(axis_opt, keepdims, zero(T), opAdd);
         }
 
-        pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             return self.reduce(axis_opt, keepdims, one(T), opMul);
         }
 
-        pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (b < a) b else a;
@@ -2628,9 +2628,9 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (b > a) b else a;
@@ -2638,7 +2638,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        fn reducedShape(self: Self, axis: usize, keepdims: bool) TensorError![]usize {
+        fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
             var out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - 1);
             if (keepdims) {
                 @memcpy(out_shape, self.shape);
@@ -2660,8 +2660,8 @@ pub fn Tensor(comptime T: type) type {
             }
         }
 
-        fn reduceFirst(self: Self, axis_opt: ?isize, keepdims: bool, comptime op: fn (T, T) T) TensorError!Self {
-            if (self.data.len == 0) return error.EmptyTensor;
+        fn reduceFirst(self: Self, axis_opt: ?isize, keepdims: bool, comptime op: fn (T, T) T) ArrayError!Self {
+            if (self.data.len == 0) return error.EmptyArray;
             if (axis_opt == null) {
                 var total = self.data[0];
                 for (self.data[1..]) |v| total = op(total, v);
@@ -2674,7 +2674,7 @@ pub fn Tensor(comptime T: type) type {
             }
 
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
-            if (self.shape[axis] == 0) return error.EmptyTensor;
+            if (self.shape[axis] == 0) return error.EmptyArray;
             const out_shape = try self.reducedShape(axis, keepdims);
             defer self.allocator.free(out_shape);
             var out = try Self.empty(self.allocator, out_shape);
@@ -2699,7 +2699,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        fn reduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: T, comptime op: fn (T, T) T) TensorError!Self {
+        fn reduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: T, comptime op: fn (T, T) T) ArrayError!Self {
             if (axis_opt == null) {
                 var total = init_value;
                 for (self.data) |v| total = op(total, v);
@@ -2744,13 +2744,13 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        fn keepDimsAllOnes(allocator: std.mem.Allocator, rank: usize) TensorError![]usize {
+        fn keepDimsAllOnes(allocator: std.mem.Allocator, rank: usize) ArrayError![]usize {
             const dims = try allocator.alloc(usize, rank);
             @memset(dims, 1);
             return dims;
         }
 
-        pub fn mean(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn mean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             const out = try self.sum(axis_opt, keepdims);
             const divisor: T = if (axis_opt) |d| castValue(T, self.shape[try normalizeDim(d, self.shape.len)]) else castValue(T, self.data.len);
@@ -2758,12 +2758,12 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+        pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
             if (axis_opt != null) {
                 const axis = try normalizeDim(axis_opt.?, self.shape.len);
                 const n = self.shape[axis];
-                if (n == 0) return error.EmptyTensor;
+                if (n == 0) return error.EmptyArray;
                 var mean_t = try self.mean(axis_opt, true);
                 defer mean_t.deinit();
                 var out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - 1);
@@ -2802,7 +2802,7 @@ pub fn Tensor(comptime T: type) type {
                 return out;
             }
 
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             var mean_value: T = zero(T);
             for (self.data) |v| mean_value += v;
             mean_value /= castValue(T, self.data.len);
@@ -2821,13 +2821,13 @@ pub fn Tensor(comptime T: type) type {
             return Self.fromSlice(self.allocator, &.{result}, &.{});
         }
 
-        pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+        pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             const out = try self.variance(axis_opt, keepdims, correction);
             for (out.data) |*v| v.* = std.math.sqrt(v.*);
             return out;
         }
 
-        pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) TensorError!Self {
+        pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Self {
             ensureFloat(T);
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
@@ -2843,11 +2843,11 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn nan_to_num(self: Self, nan_value: T, posinf_value: T, neginf_value: T) TensorError!Self {
+        pub fn nan_to_num(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Self {
             return self.nanToNum(nan_value, posinf_value, neginf_value);
         }
 
-        pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (axis_opt == null) {
                 var total = zero(T);
@@ -2889,7 +2889,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        fn nanmeanWithCounts(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!struct { values: Self, counts: Tensor(usize) } {
+        fn nanmeanWithCounts(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!struct { values: Self, counts: Array(usize) } {
             if (axis_opt == null) {
                 var total = zero(T);
                 var count: usize = 0;
@@ -2903,7 +2903,7 @@ pub fn Tensor(comptime T: type) type {
                 defer self.allocator.free(out_shape);
                 var values = try Self.fromSlice(self.allocator, &.{result}, out_shape);
                 errdefer values.deinit();
-                var counts = try Tensor(usize).fromSlice(self.allocator, &.{count}, out_shape);
+                var counts = try Array(usize).fromSlice(self.allocator, &.{count}, out_shape);
                 errdefer counts.deinit();
                 return .{ .values = values, .counts = counts };
             }
@@ -2913,7 +2913,7 @@ pub fn Tensor(comptime T: type) type {
             defer self.allocator.free(out_shape);
             var values = try Self.zeros(self.allocator, out_shape);
             errdefer values.deinit();
-            var counts = try Tensor(usize).zeros(self.allocator, out_shape);
+            var counts = try Array(usize).zeros(self.allocator, out_shape);
             errdefer counts.deinit();
             if (values.data.len == 0) return .{ .values = values, .counts = counts };
 
@@ -2943,14 +2943,14 @@ pub fn Tensor(comptime T: type) type {
             return .{ .values = values, .counts = counts };
         }
 
-        pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             var result = try self.nanmeanWithCounts(axis_opt, keepdims);
             result.counts.deinit();
             return result.values;
         }
 
-        pub fn nanvar(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+        pub fn nanvar(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
             if (axis_opt == null) {
                 var mean_value = zero(T);
@@ -3036,13 +3036,13 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn nanstd(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+        pub fn nanstd(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             const out = try self.nanvar(axis_opt, keepdims, correction);
             for (out.data) |*value| value.* = std.math.sqrt(value.*);
             return out;
         }
 
-        fn nanExtreme(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) TensorError!Self {
+        fn nanExtreme(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) ArrayError!Self {
             if (axis_opt == null) {
                 var found = false;
                 var best = zero(T);
@@ -3098,7 +3098,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.nanExtreme(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) bool {
@@ -3107,7 +3107,7 @@ pub fn Tensor(comptime T: type) type {
             }.f);
         }
 
-        pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.nanExtreme(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) bool {
@@ -3126,10 +3126,10 @@ pub fn Tensor(comptime T: type) type {
             return sorted_values[lower] * (one(T) - weight) + sorted_values[upper] * weight;
         }
 
-        pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (q < zero(T) or q > one(T)) return error.InvalidShape;
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             if (axis_opt == null) {
                 var sorted_values = try self.sort(null);
                 defer sorted_values.deinit();
@@ -3143,7 +3143,7 @@ pub fn Tensor(comptime T: type) type {
             }
 
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
-            if (self.shape[axis] == 0) return error.EmptyTensor;
+            if (self.shape[axis] == 0) return error.EmptyArray;
             const out_shape = try self.reducedShape(axis, keepdims);
             defer self.allocator.free(out_shape);
             var out = try Self.empty(self.allocator, out_shape);
@@ -3174,24 +3174,24 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn percentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn percentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.quantile(p / castValue(T, 100), axis_opt, keepdims);
         }
 
-        pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.quantile(castValue(T, 0.5), axis_opt, keepdims);
         }
 
-        fn checkedBroadcastWeights(self: Self, weights: Self) TensorError!Self {
+        fn checkedBroadcastWeights(self: Self, weights: Self) ArrayError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, weights.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
             return weights.broadcastTo(self.shape);
         }
 
-        pub fn weightedMean(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn weightedMean(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             var full_weights = try self.checkedBroadcastWeights(weights);
             defer full_weights.deinit();
@@ -3249,13 +3249,13 @@ pub fn Tensor(comptime T: type) type {
             return totals;
         }
 
-        pub fn average(self: Self, weights: ?Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn average(self: Self, weights: ?Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (weights) |w| return self.weightedMean(w, axis_opt, keepdims);
             return self.mean(axis_opt, keepdims);
         }
 
-        pub fn weightedVariance(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+        pub fn weightedVariance(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
             var full_weights = try self.checkedBroadcastWeights(weights);
             defer full_weights.deinit();
@@ -3330,22 +3330,22 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn weightedVar(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+        pub fn weightedVar(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             return self.weightedVariance(weights, axis_opt, keepdims, correction);
         }
 
-        pub fn weightedStddev(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+        pub fn weightedStddev(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             const out = try self.weightedVariance(weights, axis_opt, keepdims, correction);
             for (out.data) |*value| value.* = std.math.sqrt(value.*);
             return out;
         }
 
-        pub fn weightedStd(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+        pub fn weightedStd(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             return self.weightedStddev(weights, axis_opt, keepdims, correction);
         }
 
-        fn weightedQuantileFromScratch(self: Self, values: []T, weights: []T, count: usize, q: T) TensorError!T {
-            if (count == 0) return error.EmptyTensor;
+        fn weightedQuantileFromScratch(self: Self, values: []T, weights: []T, count: usize, q: T) ArrayError!T {
+            if (count == 0) return error.EmptyArray;
             const order = try self.allocator.alloc(usize, count);
             defer self.allocator.free(order);
             var total_weight = zero(T);
@@ -3371,10 +3371,10 @@ pub fn Tensor(comptime T: type) type {
             return values[order[count - 1]];
         }
 
-        pub fn weightedQuantile(self: Self, weights: Self, q: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn weightedQuantile(self: Self, weights: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (q < zero(T) or q > one(T)) return error.InvalidShape;
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             var full_weights = try self.checkedBroadcastWeights(weights);
             defer full_weights.deinit();
 
@@ -3393,7 +3393,7 @@ pub fn Tensor(comptime T: type) type {
             }
 
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
-            if (self.shape[axis] == 0) return error.EmptyTensor;
+            if (self.shape[axis] == 0) return error.EmptyArray;
             const out_shape = try self.reducedShape(axis, keepdims);
             defer self.allocator.free(out_shape);
             var out = try Self.empty(self.allocator, out_shape);
@@ -3423,15 +3423,15 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn weightedMedian(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn weightedMedian(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.weightedQuantile(weights, castValue(T, 0.5), axis_opt, keepdims);
         }
 
-        pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (q < zero(T) or q > one(T)) return error.InvalidShape;
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             if (axis_opt == null) {
                 const scratch = try self.allocator.alloc(T, self.data.len);
                 defer self.allocator.free(scratch);
@@ -3456,7 +3456,7 @@ pub fn Tensor(comptime T: type) type {
             }
 
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
-            if (self.shape[axis] == 0) return error.EmptyTensor;
+            if (self.shape[axis] == 0) return error.EmptyArray;
             const out_shape = try self.reducedShape(axis, keepdims);
             defer self.allocator.free(out_shape);
             var out = try Self.empty(self.allocator, out_shape);
@@ -3491,12 +3491,12 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn nanpercentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn nanpercentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.nanquantile(p / castValue(T, 100), axis_opt, keepdims);
         }
 
-        pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.nanquantile(castValue(T, 0.5), axis_opt, keepdims);
         }
@@ -3506,19 +3506,19 @@ pub fn Tensor(comptime T: type) type {
             return self.data[observation * self.shape[1] + variable];
         }
 
-        pub fn cov(self: Self, rowvar: bool, correction: T) TensorError!Self {
+        pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             if (self.shape.len == 1) {
                 const observations = self.data.len;
                 const denom = castValue(T, observations) - correction;
                 if (!(denom > zero(T))) return error.InvalidShape;
                 return self.variance(null, false, correction);
             }
-            if (self.shape.len != 2) return error.NonMatrixTensor;
+            if (self.shape.len != 2) return error.NonMatrixArray;
             const variables = if (rowvar) self.shape[0] else self.shape[1];
             const observations = if (rowvar) self.shape[1] else self.shape[0];
-            if (variables == 0 or observations == 0) return error.EmptyTensor;
+            if (variables == 0 or observations == 0) return error.EmptyArray;
             const denom = castValue(T, observations) - correction;
             if (!(denom > zero(T))) return error.InvalidShape;
 
@@ -3544,7 +3544,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn corrcoef(self: Self, rowvar: bool) TensorError!Self {
+        pub fn corrcoef(self: Self, rowvar: bool) ArrayError!Self {
             ensureFloat(T);
             if (self.shape.len == 1) {
                 if (self.data.len < 2) return error.InvalidShape;
@@ -3564,15 +3564,15 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        fn observationWeight(weights: Self, observation: usize, observations: usize) TensorError!T {
+        fn observationWeight(weights: Self, observation: usize, observations: usize) ArrayError!T {
             if (weights.data.len == 1) return weights.data[0];
             if (weights.shape.len != 1 or weights.data.len != observations) return error.ShapeMismatch;
             return weights.data[observation];
         }
 
-        pub fn weightedCov(self: Self, weights: Self, rowvar: bool, correction: T) TensorError!Self {
+        pub fn weightedCov(self: Self, weights: Self, rowvar: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             if (self.shape.len == 1) {
                 const observations = self.data.len;
                 var weight_sum = zero(T);
@@ -3594,10 +3594,10 @@ pub fn Tensor(comptime T: type) type {
                 }
                 return Self.fromSlice(self.allocator, &.{sq_total / denom}, &.{});
             }
-            if (self.shape.len != 2) return error.NonMatrixTensor;
+            if (self.shape.len != 2) return error.NonMatrixArray;
             const variables = if (rowvar) self.shape[0] else self.shape[1];
             const observations = if (rowvar) self.shape[1] else self.shape[0];
-            if (variables == 0 or observations == 0) return error.EmptyTensor;
+            if (variables == 0 or observations == 0) return error.EmptyArray;
 
             var weight_sum = zero(T);
             for (0..observations) |obs| {
@@ -3631,7 +3631,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn weightedCorrcoef(self: Self, weights: Self, rowvar: bool) TensorError!Self {
+        pub fn weightedCorrcoef(self: Self, weights: Self, rowvar: bool) ArrayError!Self {
             ensureFloat(T);
             if (self.shape.len == 1) {
                 if (self.data.len < 2) return error.InvalidShape;
@@ -3651,9 +3651,9 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn nanCov(self: Self, rowvar: bool, correction: T) TensorError!Self {
+        pub fn nanCov(self: Self, rowvar: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             if (self.shape.len == 1) {
                 var count: usize = 0;
                 var total = zero(T);
@@ -3673,10 +3673,10 @@ pub fn Tensor(comptime T: type) type {
                 }
                 return Self.fromSlice(self.allocator, &.{sq_total / denom}, &.{});
             }
-            if (self.shape.len != 2) return error.NonMatrixTensor;
+            if (self.shape.len != 2) return error.NonMatrixArray;
             const variables = if (rowvar) self.shape[0] else self.shape[1];
             const observations = if (rowvar) self.shape[1] else self.shape[0];
-            if (variables == 0 or observations == 0) return error.EmptyTensor;
+            if (variables == 0 or observations == 0) return error.EmptyArray;
 
             var out = try Self.empty(self.allocator, &.{ variables, variables });
             errdefer out.deinit();
@@ -3710,7 +3710,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn nanCorrcoef(self: Self, rowvar: bool) TensorError!Self {
+        pub fn nanCorrcoef(self: Self, rowvar: bool) ArrayError!Self {
             ensureFloat(T);
             if (self.shape.len == 1) {
                 if (self.data.len < 2) return error.InvalidShape;
@@ -3730,7 +3730,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) TensorError!Self {
+        pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (p == zero(T)) return error.InvalidShape;
             var abs_t = try self.abs();
@@ -3754,7 +3754,7 @@ pub fn Tensor(comptime T: type) type {
             return summed.powScalar(one(T) / p);
         }
 
-        pub fn cumsum(self: Self) TensorError!Self {
+        pub fn cumsum(self: Self) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
             var acc = zero(T);
@@ -3765,7 +3765,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn cumprod(self: Self) TensorError!Self {
+        pub fn cumprod(self: Self) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
             var acc = one(T);
@@ -3776,17 +3776,17 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn cumsumAxis(self: Self, axis_index: isize) TensorError!Self {
+        pub fn cumsumAxis(self: Self, axis_index: isize) ArrayError!Self {
             ensureNumeric(T);
             return self.cumulativeAxis(axis_index, zero(T), opAdd);
         }
 
-        pub fn cumprodAxis(self: Self, axis_index: isize) TensorError!Self {
+        pub fn cumprodAxis(self: Self, axis_index: isize) ArrayError!Self {
             ensureNumeric(T);
             return self.cumulativeAxis(axis_index, one(T), opMul);
         }
 
-        fn cumulativeAxis(self: Self, axis_index: isize, init_value: T, comptime op: fn (T, T) T) TensorError!Self {
+        fn cumulativeAxis(self: Self, axis_index: isize, init_value: T, comptime op: fn (T, T) T) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
             var out = try Self.empty(self.allocator, self.shape);
@@ -3817,7 +3817,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn diff(self: Self, axis_index: isize, n: usize) TensorError!Self {
+        pub fn diff(self: Self, axis_index: isize, n: usize) ArrayError!Self {
             ensureNumeric(T);
             if (n == 0) return self.clone();
             var current = try self.diffOnce(axis_index);
@@ -3831,7 +3831,7 @@ pub fn Tensor(comptime T: type) type {
             return current;
         }
 
-        fn diffOnce(self: Self, axis_index: isize) TensorError!Self {
+        fn diffOnce(self: Self, axis_index: isize) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
             var out_shape = try self.allocator.dupe(usize, self.shape);
@@ -3856,9 +3856,9 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn argmax(self: Self) TensorError!usize {
+        pub fn argmax(self: Self) ArrayError!usize {
             ensureNumeric(T);
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             var best: usize = 0;
             for (self.data[1..], 1..) |v, i| {
                 if (v > self.data[best]) best = i;
@@ -3866,9 +3866,9 @@ pub fn Tensor(comptime T: type) type {
             return best;
         }
 
-        pub fn argmin(self: Self) TensorError!usize {
+        pub fn argmin(self: Self) ArrayError!usize {
             ensureNumeric(T);
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             var best: usize = 0;
             for (self.data[1..], 1..) |v, i| {
                 if (v < self.data[best]) best = i;
@@ -3876,7 +3876,7 @@ pub fn Tensor(comptime T: type) type {
             return best;
         }
 
-        pub fn argmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Tensor(usize) {
+        pub fn argmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             ensureNumeric(T);
             return self.argReduce(axis_opt, keepdims, struct {
                 fn better(a: T, b: T) bool {
@@ -3885,7 +3885,7 @@ pub fn Tensor(comptime T: type) type {
             }.better);
         }
 
-        pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Tensor(usize) {
+        pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             ensureNumeric(T);
             return self.argReduce(axis_opt, keepdims, struct {
                 fn better(a: T, b: T) bool {
@@ -3894,8 +3894,8 @@ pub fn Tensor(comptime T: type) type {
             }.better);
         }
 
-        fn argReduce(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) TensorError!Tensor(usize) {
-            if (self.data.len == 0) return error.EmptyTensor;
+        fn argReduce(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) ArrayError!Array(usize) {
+            if (self.data.len == 0) return error.EmptyArray;
             if (axis_opt == null) {
                 var best: usize = 0;
                 for (self.data[1..], 1..) |v, i| {
@@ -3904,16 +3904,16 @@ pub fn Tensor(comptime T: type) type {
                 if (keepdims) {
                     const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
                     defer self.allocator.free(out_shape);
-                    return Tensor(usize).fromSlice(self.allocator, &.{best}, out_shape);
+                    return Array(usize).fromSlice(self.allocator, &.{best}, out_shape);
                 }
-                return Tensor(usize).fromSlice(self.allocator, &.{best}, &.{});
+                return Array(usize).fromSlice(self.allocator, &.{best}, &.{});
             }
 
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
-            if (self.shape[axis] == 0) return error.EmptyTensor;
+            if (self.shape[axis] == 0) return error.EmptyArray;
             const out_shape = try self.reducedShape(axis, keepdims);
             defer self.allocator.free(out_shape);
-            var out = try Tensor(usize).empty(self.allocator, out_shape);
+            var out = try Array(usize).empty(self.allocator, out_shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -3942,7 +3942,7 @@ pub fn Tensor(comptime T: type) type {
 
         pub const TopK = struct {
             values: Self,
-            indices: Tensor(usize),
+            indices: Array(usize),
 
             pub fn deinit(self: *@This()) void {
                 self.values.deinit();
@@ -3951,14 +3951,14 @@ pub fn Tensor(comptime T: type) type {
             }
         };
 
-        pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) TensorError!TopK {
+        pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) ArrayError!TopK {
             ensureNumeric(T);
-            if (self.data.len == 0 and k > 0) return error.EmptyTensor;
+            if (self.data.len == 0 and k > 0) return error.EmptyArray;
             if (axis_opt == null) return self.topkFlat(k, largest, sorted);
             return self.topkAxis(k, try normalizeDim(axis_opt.?, self.shape.len), largest, sorted);
         }
 
-        fn topkFlat(self: Self, k: usize, largest: bool, sorted: bool) TensorError!TopK {
+        fn topkFlat(self: Self, k: usize, largest: bool, sorted: bool) ArrayError!TopK {
             if (k > self.data.len) return error.InvalidShape;
             const order = try self.allocator.alloc(usize, self.data.len);
             defer self.allocator.free(order);
@@ -3979,7 +3979,7 @@ pub fn Tensor(comptime T: type) type {
 
             var values = try Self.empty(self.allocator, &.{k});
             errdefer values.deinit();
-            var indices = try Tensor(usize).empty(self.allocator, &.{k});
+            var indices = try Array(usize).empty(self.allocator, &.{k});
             errdefer indices.deinit();
             for (0..k) |i| {
                 const idx = order[i];
@@ -3989,7 +3989,7 @@ pub fn Tensor(comptime T: type) type {
             return .{ .values = values, .indices = indices };
         }
 
-        fn topkAxis(self: Self, k: usize, axis: usize, largest: bool, sorted: bool) TensorError!TopK {
+        fn topkAxis(self: Self, k: usize, axis: usize, largest: bool, sorted: bool) ArrayError!TopK {
             const axis_len = self.shape[axis];
             if (k > axis_len) return error.InvalidShape;
             var out_shape = try self.allocator.dupe(usize, self.shape);
@@ -3997,7 +3997,7 @@ pub fn Tensor(comptime T: type) type {
             out_shape[axis] = k;
             var values = try Self.empty(self.allocator, out_shape);
             errdefer values.deinit();
-            var indices = try Tensor(usize).empty(self.allocator, out_shape);
+            var indices = try Array(usize).empty(self.allocator, out_shape);
             errdefer indices.deinit();
 
             var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
@@ -4014,18 +4014,18 @@ pub fn Tensor(comptime T: type) type {
             defer self.allocator.free(order);
 
             const Ctx = struct {
-                tensor: Self,
+                array: Self,
                 axis: usize,
                 base_multi: []const usize,
                 largest: bool,
 
                 fn valueAt(ctx: @This(), axis_i: usize) T {
                     var offset: usize = 0;
-                    for (ctx.tensor.shape, ctx.tensor.strides, 0..) |_, stride_value, dim_i| {
+                    for (ctx.array.shape, ctx.array.strides, 0..) |_, stride_value, dim_i| {
                         const coord = if (dim_i == ctx.axis) axis_i else ctx.base_multi[dim_i];
                         offset += coord * stride_value;
                     }
-                    return ctx.tensor.data[offset];
+                    return ctx.array.data[offset];
                 }
 
                 fn lessThan(ctx: @This(), a: usize, b: usize) bool {
@@ -4040,7 +4040,7 @@ pub fn Tensor(comptime T: type) type {
                 for (slice_multi[0..axis], 0..) |coord, i| base_multi[i] = coord;
                 for (slice_multi[axis..], axis + 1..) |coord, i| base_multi[i] = coord;
                 for (order, 0..) |*slot, i| slot.* = i;
-                std.sort.insertion(usize, order, Ctx{ .tensor = self, .axis = axis, .base_multi = base_multi, .largest = largest }, Ctx.lessThan);
+                std.sort.insertion(usize, order, Ctx{ .array = self, .axis = axis, .base_multi = base_multi, .largest = largest }, Ctx.lessThan);
                 if (!sorted) std.sort.insertion(usize, order[0..k], {}, struct {
                     fn lessThan(_: void, a: usize, b: usize) bool {
                         return a < b;
@@ -4060,9 +4060,9 @@ pub fn Tensor(comptime T: type) type {
             return .{ .values = values, .indices = indices };
         }
 
-        pub fn matmul(self: Self, other: Self) TensorError!Self {
+        pub fn matmul(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (self.shape.len != 2 or other.shape.len != 2) return error.NonMatrixTensor;
+            if (self.shape.len != 2 or other.shape.len != 2) return error.NonMatrixArray;
             const m = self.shape[0];
             const k = self.shape[1];
             if (other.shape[0] != k) return error.ShapeMismatch;
@@ -4080,13 +4080,13 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn mm(self: Self, other: Self) TensorError!Self {
+        pub fn mm(self: Self, other: Self) ArrayError!Self {
             return self.matmul(other);
         }
 
-        pub fn bmm(self: Self, other: Self) TensorError!Self {
+        pub fn bmm(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (self.shape.len != 3 or other.shape.len != 3) return error.NonMatrixTensor;
+            if (self.shape.len != 3 or other.shape.len != 3) return error.NonMatrixArray;
             const batch = self.shape[0];
             if (other.shape[0] != batch or self.shape[2] != other.shape[1]) return error.ShapeMismatch;
             const m = self.shape[1];
@@ -4105,18 +4105,18 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn dot(self: Self, other: Self) TensorError!Self {
+        pub fn dot(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorTensor;
+            if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
             if (self.shape[0] != other.shape[0]) return error.ShapeMismatch;
             var acc = zero(T);
             for (self.data, other.data) |a, b| acc = addValue(T, acc, mulValue(T, a, b));
             return Self.fromSlice(self.allocator, &.{acc}, &.{});
         }
 
-        pub fn outer(self: Self, other: Self) TensorError!Self {
+        pub fn outer(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorTensor;
+            if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
             const out = try Self.empty(self.allocator, &.{ self.shape[0], other.shape[0] });
             for (0..self.shape[0]) |i| {
                 for (0..other.shape[0]) |j| {
@@ -4126,8 +4126,8 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn diagonal(self: Self, offset: isize) TensorError!Self {
-            if (self.shape.len != 2) return error.NonMatrixTensor;
+        pub fn diagonal(self: Self, offset: isize) ArrayError!Self {
+            if (self.shape.len != 2) return error.NonMatrixArray;
             const rows = self.shape[0];
             const cols = self.shape[1];
             const start_row: usize = if (offset < 0) blk: {
@@ -4148,13 +4148,13 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn diag(self: Self, offset: isize) TensorError!Self {
+        pub fn diag(self: Self, offset: isize) ArrayError!Self {
             if (self.shape.len == 1) return self.diagflat(offset);
             if (self.shape.len == 2) return self.diagonal(offset);
             return error.InvalidShape;
         }
 
-        pub fn diagflat(self: Self, offset: isize) TensorError!Self {
+        pub fn diagflat(self: Self, offset: isize) ArrayError!Self {
             var flat = try self.flatten();
             defer flat.deinit();
             const n = flat.data.len;
@@ -4170,18 +4170,18 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn trace(self: Self) TensorError!T {
+        pub fn trace(self: Self) ArrayError!T {
             ensureNumeric(T);
-            if (self.shape.len != 2) return error.NonMatrixTensor;
+            if (self.shape.len != 2) return error.NonMatrixArray;
             const count = @min(self.shape[0], self.shape[1]);
             var total = zero(T);
             for (0..count) |i| total = addValue(T, total, self.data[i * self.shape[1] + i]);
             return total;
         }
 
-        pub fn triu(self: Self, diagonal_offset: isize) TensorError!Self {
+        pub fn triu(self: Self, diagonal_offset: isize) ArrayError!Self {
             ensureNumeric(T);
-            if (self.shape.len != 2) return error.NonMatrixTensor;
+            if (self.shape.len != 2) return error.NonMatrixArray;
             const out = try self.clone();
             const rows = self.shape[0];
             const cols = self.shape[1];
@@ -4194,9 +4194,9 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn tril(self: Self, diagonal_offset: isize) TensorError!Self {
+        pub fn tril(self: Self, diagonal_offset: isize) ArrayError!Self {
             ensureNumeric(T);
-            if (self.shape.len != 2) return error.NonMatrixTensor;
+            if (self.shape.len != 2) return error.NonMatrixArray;
             const out = try self.clone();
             const rows = self.shape[0];
             const cols = self.shape[1];
@@ -4209,7 +4209,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn softmax(self: Self, axis_index: isize) TensorError!Self {
+        pub fn softmax(self: Self, axis_index: isize) ArrayError!Self {
             ensureFloat(T);
             const axis = try normalizeDim(axis_index, self.shape.len);
             var max_t = try self.max(@as(isize, @intCast(axis)), true);
@@ -4225,7 +4225,7 @@ pub fn Tensor(comptime T: type) type {
 
         pub const SortResult = struct {
             values: Self,
-            indices: Tensor(usize),
+            indices: Array(usize),
 
             pub fn deinit(self: *@This()) void {
                 self.values.deinit();
@@ -4238,40 +4238,40 @@ pub fn Tensor(comptime T: type) type {
             return if (descending) lessValue(T, b, a) else lessValue(T, a, b);
         }
 
-        pub fn sort(self: Self, axis_opt: ?isize) TensorError!Self {
+        pub fn sort(self: Self, axis_opt: ?isize) ArrayError!Self {
             return self.sortBy(axis_opt, false);
         }
 
-        pub fn sortDescending(self: Self, axis_opt: ?isize) TensorError!Self {
+        pub fn sortDescending(self: Self, axis_opt: ?isize) ArrayError!Self {
             return self.sortBy(axis_opt, true);
         }
 
-        pub fn sortBy(self: Self, axis_opt: ?isize, descending: bool) TensorError!Self {
+        pub fn sortBy(self: Self, axis_opt: ?isize, descending: bool) ArrayError!Self {
             var result = try self.sortWithIndices(axis_opt, descending);
             result.indices.deinit();
             return result.values;
         }
 
-        pub fn argsort(self: Self) TensorError!Tensor(usize) {
+        pub fn argsort(self: Self) ArrayError!Array(usize) {
             return self.argsortAxis(null, false);
         }
 
-        pub fn argsortDescending(self: Self) TensorError!Tensor(usize) {
+        pub fn argsortDescending(self: Self) ArrayError!Array(usize) {
             return self.argsortAxis(null, true);
         }
 
-        pub fn argsortAxis(self: Self, axis_opt: ?isize, descending: bool) TensorError!Tensor(usize) {
+        pub fn argsortAxis(self: Self, axis_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             var result = try self.sortWithIndices(axis_opt, descending);
             result.values.deinit();
             return result.indices;
         }
 
-        pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) TensorError!SortResult {
+        pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) ArrayError!SortResult {
             ensureOrderable(T);
             if (axis_opt == null) {
                 var values = try self.flatten();
                 errdefer values.deinit();
-                var indices = try Tensor(usize).empty(self.allocator, &.{self.data.len});
+                var indices = try Array(usize).empty(self.allocator, &.{self.data.len});
                 errdefer indices.deinit();
                 for (indices.data, 0..) |*slot, i| slot.* = i;
                 const Ctx = struct {
@@ -4289,7 +4289,7 @@ pub fn Tensor(comptime T: type) type {
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
             var values = try Self.empty(self.allocator, self.shape);
             errdefer values.deinit();
-            var indices = try Tensor(usize).empty(self.allocator, self.shape);
+            var indices = try Array(usize).empty(self.allocator, self.shape);
             errdefer indices.deinit();
             if (values.data.len == 0) return .{ .values = values, .indices = indices };
 
@@ -4308,18 +4308,18 @@ pub fn Tensor(comptime T: type) type {
             defer self.allocator.free(order);
 
             const Ctx = struct {
-                tensor: Self,
+                array: Self,
                 axis: usize,
                 base_multi: []const usize,
                 descending: bool,
 
                 fn valueAt(ctx: @This(), axis_i: usize) T {
                     var offset: usize = 0;
-                    for (ctx.tensor.shape, ctx.tensor.strides, 0..) |_, stride_value, dim_i| {
+                    for (ctx.array.shape, ctx.array.strides, 0..) |_, stride_value, dim_i| {
                         const coord = if (dim_i == ctx.axis) axis_i else ctx.base_multi[dim_i];
                         offset += coord * stride_value;
                     }
-                    return ctx.tensor.data[offset];
+                    return ctx.array.data[offset];
                 }
 
                 fn lessThan(ctx: @This(), a: usize, b: usize) bool {
@@ -4332,7 +4332,7 @@ pub fn Tensor(comptime T: type) type {
                 for (slice_multi[0..axis], 0..) |coord, i| base_multi[i] = coord;
                 for (slice_multi[axis..], axis + 1..) |coord, i| base_multi[i] = coord;
                 for (order, 0..) |*slot, i| slot.* = i;
-                std.sort.insertion(usize, order, Ctx{ .tensor = self, .axis = axis, .base_multi = base_multi, .descending = descending }, Ctx.lessThan);
+                std.sort.insertion(usize, order, Ctx{ .array = self, .axis = axis, .base_multi = base_multi, .descending = descending }, Ctx.lessThan);
 
                 for (0..axis_len) |rank_i| {
                     @memcpy(out_multi, base_multi);
@@ -4347,12 +4347,12 @@ pub fn Tensor(comptime T: type) type {
             return .{ .values = values, .indices = indices };
         }
 
-        fn partitionLen(self: Self, axis_opt: ?isize) TensorError!usize {
+        fn partitionLen(self: Self, axis_opt: ?isize) ArrayError!usize {
             if (axis_opt) |axis_index| return self.shape[try normalizeDim(axis_index, self.shape.len)];
             return self.data.len;
         }
 
-        pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) TensorError!Self {
+        pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) ArrayError!Self {
             ensureOrderable(T);
             const len_axis = try self.partitionLen(axis_opt);
             if (kth >= len_axis) return error.InvalidShape;
@@ -4363,7 +4363,7 @@ pub fn Tensor(comptime T: type) type {
             return self.sortBy(axis_opt, descending);
         }
 
-        pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) TensorError!Tensor(usize) {
+        pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             ensureOrderable(T);
             const len_axis = try self.partitionLen(axis_opt);
             if (kth >= len_axis) return error.InvalidShape;
@@ -4372,7 +4372,7 @@ pub fn Tensor(comptime T: type) type {
 
         pub const UniqueCounts = struct {
             values: Self,
-            counts: Tensor(usize),
+            counts: Array(usize),
 
             pub fn deinit(self: *@This()) void {
                 self.values.deinit();
@@ -4381,7 +4381,7 @@ pub fn Tensor(comptime T: type) type {
             }
         };
 
-        pub fn unique(self: Self) TensorError!Self {
+        pub fn unique(self: Self) ArrayError!Self {
             if (comptime T != bool) ensureNumeric(T);
             if (self.data.len == 0) return Self.empty(self.allocator, &.{0});
             var flat = try self.flatten();
@@ -4399,12 +4399,12 @@ pub fn Tensor(comptime T: type) type {
             return Self.fromSlice(self.allocator, flat.data[0..count], &.{count});
         }
 
-        pub fn uniqueWithCounts(self: Self) TensorError!UniqueCounts {
+        pub fn uniqueWithCounts(self: Self) ArrayError!UniqueCounts {
             if (comptime T != bool) ensureNumeric(T);
             if (self.data.len == 0) {
                 var values = try Self.empty(self.allocator, &.{0});
                 errdefer values.deinit();
-                var counts = try Tensor(usize).empty(self.allocator, &.{0});
+                var counts = try Array(usize).empty(self.allocator, &.{0});
                 errdefer counts.deinit();
                 return .{ .values = values, .counts = counts };
             }
@@ -4428,7 +4428,7 @@ pub fn Tensor(comptime T: type) type {
 
             var values = try Self.empty(self.allocator, &.{distinct});
             errdefer values.deinit();
-            var counts = try Tensor(usize).empty(self.allocator, &.{distinct});
+            var counts = try Array(usize).empty(self.allocator, &.{distinct});
             errdefer counts.deinit();
 
             var write: usize = 0;
@@ -4451,7 +4451,7 @@ pub fn Tensor(comptime T: type) type {
             return .{ .values = values, .counts = counts };
         }
 
-        fn valueAsIndex(value: T) TensorError!usize {
+        fn valueAsIndex(value: T) ArrayError!usize {
             switch (@typeInfo(T)) {
                 .int => |info| {
                     if (info.signedness == .signed and value < 0) return error.InvalidShape;
@@ -4462,20 +4462,20 @@ pub fn Tensor(comptime T: type) type {
             }
         }
 
-        pub fn bincount(self: Self, minlength: usize) TensorError!Tensor(usize) {
+        pub fn bincount(self: Self, minlength: usize) ArrayError!Array(usize) {
             if (comptime @typeInfo(T) != .int) @compileError("bincount requires an integer array");
             var size_out = minlength;
             for (self.data) |value| {
                 const idx = try valueAsIndex(value);
                 if (idx + 1 > size_out) size_out = idx + 1;
             }
-            var out = try Tensor(usize).zeros(self.allocator, &.{size_out});
+            var out = try Array(usize).zeros(self.allocator, &.{size_out});
             errdefer out.deinit();
             for (self.data) |value| out.data[try valueAsIndex(value)] += 1;
             return out;
         }
 
-        pub fn bincountWeighted(self: Self, comptime W: type, weights: Tensor(W), minlength: usize) TensorError!Tensor(W) {
+        pub fn bincountWeighted(self: Self, comptime W: type, weights: Array(W), minlength: usize) ArrayError!Array(W) {
             if (comptime @typeInfo(T) != .int) @compileError("bincountWeighted requires an integer input array");
             if (comptime !isNumeric(W)) @compileError("bincountWeighted requires numeric weights");
             if (weights.data.len != self.data.len) return error.ShapeMismatch;
@@ -4484,16 +4484,16 @@ pub fn Tensor(comptime T: type) type {
                 const idx = try valueAsIndex(value);
                 if (idx + 1 > size_out) size_out = idx + 1;
             }
-            var out = try Tensor(W).zeros(self.allocator, &.{size_out});
+            var out = try Array(W).zeros(self.allocator, &.{size_out});
             errdefer out.deinit();
             for (self.data, weights.data) |value, weight| out.data[try valueAsIndex(value)] += weight;
             return out;
         }
 
-        pub fn searchsorted(self: Self, values: Self, side: SearchSide) TensorError!Tensor(usize) {
+        pub fn searchsorted(self: Self, values: Self, side: SearchSide) ArrayError!Array(usize) {
             ensureNumeric(T);
-            if (self.shape.len != 1) return error.NonVectorTensor;
-            var out = try Tensor(usize).empty(self.allocator, values.shape);
+            if (self.shape.len != 1) return error.NonVectorArray;
+            var out = try Array(usize).empty(self.allocator, values.shape);
             errdefer out.deinit();
             for (values.data, out.data) |needle_value, *slot| {
                 var lo: usize = 0;
@@ -4511,17 +4511,17 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn bucketize(self: Self, boundaries: Self, side: SearchSide) TensorError!Tensor(usize) {
+        pub fn bucketize(self: Self, boundaries: Self, side: SearchSide) ArrayError!Array(usize) {
             return boundaries.searchsorted(self, side);
         }
 
-        pub fn digitize(self: Self, bins: Self, right: bool) TensorError!Tensor(usize) {
+        pub fn digitize(self: Self, bins: Self, right: bool) ArrayError!Array(usize) {
             return bins.searchsorted(self, if (right) .left else .right);
         }
 
-        pub fn isin(self: Self, test_elements: Self, invert: bool) TensorError!Tensor(bool) {
+        pub fn isin(self: Self, test_elements: Self, invert: bool) ArrayError!Array(bool) {
             if (comptime T != bool) ensureNumeric(T);
-            var out = try Tensor(bool).empty(self.allocator, self.shape);
+            var out = try Array(bool).empty(self.allocator, self.shape);
             errdefer out.deinit();
             for (self.data, out.data) |value, *slot| {
                 var found = false;
@@ -4536,25 +4536,25 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn clipArray(self: Self, min_values: Self, max_values: Self) TensorError!Self {
+        pub fn clipArray(self: Self, min_values: Self, max_values: Self) ArrayError!Self {
             ensureNumeric(T);
             var lower = try self.maximum(min_values);
             defer lower.deinit();
             return lower.minimum(max_values);
         }
 
-        pub fn concatenate(allocator: std.mem.Allocator, tensors: []const Self, axis_index: isize) TensorError!Self {
-            if (tensors.len == 0) return error.EmptyTensor;
-            const rank = tensors[0].shape.len;
+        pub fn concatenate(allocator: std.mem.Allocator, arrays: []const Self, axis_index: isize) ArrayError!Self {
+            if (arrays.len == 0) return error.EmptyArray;
+            const rank = arrays[0].shape.len;
             const axis = try normalizeDim(axis_index, rank);
-            var out_shape = try allocator.dupe(usize, tensors[0].shape);
+            var out_shape = try allocator.dupe(usize, arrays[0].shape);
             defer allocator.free(out_shape);
             out_shape[axis] = 0;
-            for (tensors) |t| {
+            for (arrays) |t| {
                 if (t.shape.len != rank) return error.ShapeMismatch;
                 for (t.shape, 0..) |d, i| {
                     if (i == axis) continue;
-                    if (d != tensors[0].shape[i]) return error.ShapeMismatch;
+                    if (d != arrays[0].shape[i]) return error.ShapeMismatch;
                 }
                 out_shape[axis] += t.shape[axis];
             }
@@ -4568,25 +4568,25 @@ pub fn Tensor(comptime T: type) type {
                 unravelIndexInto(flat, out_shape, out_multi);
                 var base: usize = 0;
                 var selected: usize = 0;
-                while (selected < tensors.len) : (selected += 1) {
-                    const next = base + tensors[selected].shape[axis];
+                while (selected < arrays.len) : (selected += 1) {
+                    const next = base + arrays[selected].shape[axis];
                     if (out_multi[axis] < next) break;
                     base = next;
                 }
                 @memcpy(in_multi, out_multi);
                 in_multi[axis] = out_multi[axis] - base;
-                slot.* = tensors[selected].data[ravelIndex(in_multi, tensors[selected].strides)];
+                slot.* = arrays[selected].data[ravelIndex(in_multi, arrays[selected].strides)];
             }
             return out;
         }
 
-        pub fn cat(allocator: std.mem.Allocator, tensors: []const Self, axis_index: isize) TensorError!Self {
-            return Self.concatenate(allocator, tensors, axis_index);
+        pub fn cat(allocator: std.mem.Allocator, arrays: []const Self, axis_index: isize) ArrayError!Self {
+            return Self.concatenate(allocator, arrays, axis_index);
         }
 
-        pub fn stack(allocator: std.mem.Allocator, tensors: []const Self, axis_index: isize) TensorError!Self {
-            if (tensors.len == 0) return error.EmptyTensor;
-            const rank = tensors[0].shape.len + 1;
+        pub fn stack(allocator: std.mem.Allocator, arrays: []const Self, axis_index: isize) ArrayError!Self {
+            if (arrays.len == 0) return error.EmptyArray;
+            const rank = arrays[0].shape.len + 1;
             const axis = if (axis_index < 0) blk: {
                 const signed_rank: isize = @intCast(rank);
                 const normalized = signed_rank + axis_index;
@@ -4595,32 +4595,32 @@ pub fn Tensor(comptime T: type) type {
             } else try canonicalAxis(@intCast(axis_index), rank);
             const out_shape = try allocator.alloc(usize, rank);
             defer allocator.free(out_shape);
-            for (tensors[1..]) |t| {
-                if (!std.mem.eql(usize, t.shape, tensors[0].shape)) return error.ShapeMismatch;
+            for (arrays[1..]) |t| {
+                if (!std.mem.eql(usize, t.shape, arrays[0].shape)) return error.ShapeMismatch;
             }
             for (out_shape, 0..) |*slot, i| {
-                slot.* = if (i < axis) tensors[0].shape[i] else if (i == axis) tensors.len else tensors[0].shape[i - 1];
+                slot.* = if (i < axis) arrays[0].shape[i] else if (i == axis) arrays.len else arrays[0].shape[i - 1];
             }
             const out = try Self.empty(allocator, out_shape);
             if (out.data.len == 0) return out;
             const out_multi = try allocator.alloc(usize, out_shape.len);
             defer allocator.free(out_multi);
-            var in_multi = try allocator.alloc(usize, tensors[0].shape.len);
+            var in_multi = try allocator.alloc(usize, arrays[0].shape.len);
             defer allocator.free(in_multi);
             for (out.data, 0..) |*slot, flat| {
                 unravelIndexInto(flat, out_shape, out_multi);
-                const tensor_index = out_multi[axis];
+                const array_index = out_multi[axis];
                 for (out_multi[0..axis], 0..) |coord, i| in_multi[i] = coord;
                 for (out_multi[axis + 1 ..], axis..) |coord, i| in_multi[i] = coord;
-                slot.* = tensors[tensor_index].data[ravelIndex(in_multi, tensors[tensor_index].strides)];
+                slot.* = arrays[array_index].data[ravelIndex(in_multi, arrays[array_index].strides)];
             }
             return out;
         }
 
-        pub fn histogram(self: Self, bins: usize, range: ?struct { min: T, max: T }) TensorError!struct { counts: Tensor(usize), edges: Self } {
+        pub fn histogram(self: Self, bins: usize, range: ?struct { min: T, max: T }) ArrayError!struct { counts: Array(usize), edges: Self } {
             ensureFloat(T);
             if (bins == 0) return error.InvalidShape;
-            if (self.data.len == 0) return error.EmptyTensor;
+            if (self.data.len == 0) return error.EmptyArray;
             var min_v = range orelse .{ .min = self.data[0], .max = self.data[0] };
             if (range == null) {
                 for (self.data[1..]) |v| {
@@ -4628,7 +4628,7 @@ pub fn Tensor(comptime T: type) type {
                     if (v > min_v.max) min_v.max = v;
                 }
             }
-            var counts = try Tensor(usize).zeros(self.allocator, &.{bins});
+            var counts = try Array(usize).zeros(self.allocator, &.{bins});
             errdefer counts.deinit();
             var edges = try Self.linspace(self.allocator, min_v.min, min_v.max, bins + 1);
             errdefer edges.deinit();
@@ -4641,11 +4641,11 @@ pub fn Tensor(comptime T: type) type {
             return .{ .counts = counts, .edges = edges };
         }
 
-        pub fn toBytes(self: Self, allocator: std.mem.Allocator) TensorError![]u8 {
+        pub fn toBytes(self: Self, allocator: std.mem.Allocator) ArrayError![]u8 {
             return allocator.dupe(u8, std.mem.sliceAsBytes(self.data));
         }
 
-        pub fn fromBytes(allocator: std.mem.Allocator, bytes: []const u8, dims: []const usize) TensorError!Self {
+        pub fn fromBytes(allocator: std.mem.Allocator, bytes: []const u8, dims: []const usize) ArrayError!Self {
             const n = try numelFrom(dims);
             if (bytes.len != n * @sizeOf(T)) return error.InvalidShape;
             const out = try Self.empty(allocator, dims);
@@ -4653,7 +4653,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn toArchive(self: Self, allocator: std.mem.Allocator) TensorError![]u8 {
+        pub fn toArchive(self: Self, allocator: std.mem.Allocator) ArrayError![]u8 {
             const header_len = Archive.magic.len + 1 + 1 + 2 + 8 + self.shape.len * 8;
             const data_bytes = std.mem.sliceAsBytes(self.data);
             const out = try allocator.alloc(u8, header_len + data_bytes.len);
@@ -4675,7 +4675,7 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
-        pub fn fromArchive(allocator: std.mem.Allocator, archive: []const u8) TensorError!Self {
+        pub fn fromArchive(allocator: std.mem.Allocator, archive: []const u8) ArrayError!Self {
             const min_len = Archive.magic.len + 1 + 1 + 2 + 8;
             if (archive.len < min_len) return error.InvalidShape;
             if (!std.mem.eql(u8, archive[0..Archive.magic.len], Archive.magic[0..])) return error.InvalidShape;
@@ -4711,7 +4711,7 @@ pub fn Tensor(comptime T: type) type {
             try writer.print(")", .{});
         }
 
-        pub fn toOwnedString(self: Self, allocator: std.mem.Allocator) TensorError![]u8 {
+        pub fn toOwnedString(self: Self, allocator: std.mem.Allocator) ArrayError![]u8 {
             var aw: std.Io.Writer.Allocating = .init(allocator);
             errdefer aw.deinit();
             self.print(&aw.writer) catch return error.OutOfMemory;
@@ -4720,8 +4720,7 @@ pub fn Tensor(comptime T: type) type {
     };
 }
 
-pub const Array = Tensor;
-pub const NDArray = Tensor;
+pub const NDArray = Array;
 
 fn printShape(writer: *std.Io.Writer, shape: []const usize) std.Io.Writer.Error!void {
     try writer.print("(", .{});
@@ -4744,1060 +4743,1056 @@ fn printFlatData(comptime T: type, writer: *std.Io.Writer, data: []const T) std.
     try writer.print("]", .{});
 }
 
-pub fn tensor(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) TensorError!Tensor(T) {
-    return Tensor(T).fromSlice(allocator, values, dims);
-}
-
-pub fn array(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) TensorError!Array(T) {
+pub fn array(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) ArrayError!Array(T) {
     return Array(T).fromSlice(allocator, values, dims);
 }
 
-pub fn ndarray(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) TensorError!NDArray(T) {
+pub fn ndarray(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) ArrayError!NDArray(T) {
     return NDArray(T).fromSlice(allocator, values, dims);
 }
 
-pub fn zeros(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) TensorError!Tensor(T) {
-    return Tensor(T).zeros(allocator, dims);
+pub fn zeros(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) ArrayError!Array(T) {
+    return Array(T).zeros(allocator, dims);
 }
 
-pub fn ones(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) TensorError!Tensor(T) {
-    return Tensor(T).ones(allocator, dims);
+pub fn ones(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) ArrayError!Array(T) {
+    return Array(T).ones(allocator, dims);
 }
 
-pub fn full(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, value: T) TensorError!Tensor(T) {
-    return Tensor(T).full(allocator, dims, value);
+pub fn full(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, value: T) ArrayError!Array(T) {
+    return Array(T).full(allocator, dims, value);
 }
 
-pub fn empty(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) TensorError!Tensor(T) {
-    return Tensor(T).empty(allocator, dims);
+pub fn empty(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) ArrayError!Array(T) {
+    return Array(T).empty(allocator, dims);
 }
 
-pub fn arrayScalar(comptime T: type, allocator: std.mem.Allocator, value: T) TensorError!Tensor(T) {
-    return Tensor(T).fromScalar(allocator, value);
+pub fn arrayScalar(comptime T: type, allocator: std.mem.Allocator, value: T) ArrayError!Array(T) {
+    return Array(T).fromScalar(allocator, value);
 }
 
-pub fn emptyLike(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn emptyLike(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.emptyLike();
 }
 
-pub fn zerosLike(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn zerosLike(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.zerosLike();
 }
 
-pub fn onesLike(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn onesLike(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.onesLike();
 }
 
-pub fn fullLike(comptime T: type, input: Tensor(T), value: T) TensorError!Tensor(T) {
+pub fn fullLike(comptime T: type, input: Array(T), value: T) ArrayError!Array(T) {
     return input.fullLike(value);
 }
 
-pub fn arange(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, step: T) TensorError!Tensor(T) {
-    return Tensor(T).arange(allocator, start, stop, step);
+pub fn arange(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, step: T) ArrayError!Array(T) {
+    return Array(T).arange(allocator, start, stop, step);
 }
 
-pub fn linspace(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, count: usize) TensorError!Tensor(T) {
-    return Tensor(T).linspace(allocator, start, stop, count);
+pub fn linspace(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, count: usize) ArrayError!Array(T) {
+    return Array(T).linspace(allocator, start, stop, count);
 }
 
-pub fn rand(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).rand(allocator, dims, seed);
+pub fn rand(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, seed: u64) ArrayError!Array(T) {
+    return Array(T).rand(allocator, dims, seed);
 }
 
-pub fn randn(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).randn(allocator, dims, seed);
+pub fn randn(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, seed: u64) ArrayError!Array(T) {
+    return Array(T).randn(allocator, dims, seed);
 }
 
-pub fn uniform(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).uniform(allocator, dims, low, high, seed);
+pub fn uniform(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).uniform(allocator, dims, low, high, seed);
 }
 
-pub fn normal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).normal(allocator, dims, mean_value, stddev_value, seed);
+pub fn normal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).normal(allocator, dims, mean_value, stddev_value, seed);
 }
 
-pub fn randint(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).randint(allocator, dims, low, high, seed);
+pub fn randint(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).randint(allocator, dims, low, high, seed);
 }
 
-pub fn bernoulli(allocator: std.mem.Allocator, dims: []const usize, p: f64, seed: u64) TensorError!Tensor(bool) {
-    return Tensor(bool).bernoulli(allocator, dims, p, seed);
+pub fn bernoulli(allocator: std.mem.Allocator, dims: []const usize, p: f64, seed: u64) ArrayError!Array(bool) {
+    return Array(bool).bernoulli(allocator, dims, p, seed);
 }
 
-pub fn exponential(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, rate: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).exponential(allocator, dims, rate, seed);
+pub fn exponential(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, rate: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).exponential(allocator, dims, rate, seed);
 }
 
-pub fn gamma(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, shape_param: T, scale: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).gamma(allocator, dims, shape_param, scale, seed);
+pub fn gamma(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, shape_param: T, scale: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).gamma(allocator, dims, shape_param, scale, seed);
 }
 
-pub fn beta(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).beta(allocator, dims, alpha, beta_param, seed);
+pub fn beta(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).beta(allocator, dims, alpha, beta_param, seed);
 }
 
-pub fn poisson(allocator: std.mem.Allocator, dims: []const usize, lambda: f64, seed: u64) TensorError!Tensor(u64) {
+pub fn poisson(allocator: std.mem.Allocator, dims: []const usize, lambda: f64, seed: u64) ArrayError!Array(u64) {
     if (!(lambda >= 0)) return error.InvalidShape;
     var engine = alea.ScalarPrng.init(seed);
     const rng = alea.Rng.init(&engine);
-    const out = try Tensor(u64).empty(allocator, dims);
+    const out = try Array(u64).empty(allocator, dims);
     for (out.data) |*slot| slot.* = alea.distributions.poissonChecked(rng, lambda) catch return error.InvalidShape;
     return out;
 }
 
-pub fn lognormal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).lognormal(allocator, dims, mean_value, stddev_value, seed);
+pub fn lognormal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).lognormal(allocator, dims, mean_value, stddev_value, seed);
 }
 
-pub fn studentT(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).studentT(allocator, dims, dof, seed);
+pub fn studentT(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).studentT(allocator, dims, dof, seed);
 }
 
-pub fn cauchy(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, median_value: T, scale: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).cauchy(allocator, dims, median_value, scale, seed);
+pub fn cauchy(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, median_value: T, scale: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).cauchy(allocator, dims, median_value, scale, seed);
 }
 
-pub fn laplace(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).laplace(allocator, dims, location, scale, seed);
+pub fn laplace(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).laplace(allocator, dims, location, scale, seed);
 }
 
-pub fn weibull(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, scale: T, shape_param: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).weibull(allocator, dims, scale, shape_param, seed);
+pub fn weibull(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, scale: T, shape_param: T, seed: u64) ArrayError!Array(T) {
+    return Array(T).weibull(allocator, dims, scale, shape_param, seed);
 }
 
-pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) TensorError!Tensor(T) {
-    return Tensor(T).eye(allocator, n);
+pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) ArrayError!Array(T) {
+    return Array(T).eye(allocator, n);
 }
 
-pub fn cat(comptime T: type, allocator: std.mem.Allocator, tensors: []const Tensor(T), dim: isize) TensorError!Tensor(T) {
-    return Tensor(T).cat(allocator, tensors, dim);
+pub fn cat(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T), dim: isize) ArrayError!Array(T) {
+    return Array(T).cat(allocator, arrays, dim);
 }
 
-pub fn stack(comptime T: type, allocator: std.mem.Allocator, tensors: []const Tensor(T), dim: isize) TensorError!Tensor(T) {
-    return Tensor(T).stack(allocator, tensors, dim);
+pub fn stack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T), dim: isize) ArrayError!Array(T) {
+    return Array(T).stack(allocator, arrays, dim);
 }
 
-pub fn outer(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn outer(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.outer(b);
 }
 
-pub fn where(comptime T: type, mask: Tensor(bool), a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
-    return Tensor(T).whereMask(mask, a, b);
+pub fn where(comptime T: type, mask: Array(bool), a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return Array(T).whereMask(mask, a, b);
 }
 
-pub fn reshape(comptime T: type, input: Tensor(T), dims: []const usize) TensorError!Tensor(T) {
+pub fn reshape(comptime T: type, input: Array(T), dims: []const usize) ArrayError!Array(T) {
     return input.reshape(dims);
 }
 
-pub fn view(comptime T: type, input: Tensor(T), dims: []const usize) TensorError!Tensor(T) {
+pub fn view(comptime T: type, input: Array(T), dims: []const usize) ArrayError!Array(T) {
     return input.view(dims);
 }
 
-pub fn flatten(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn flatten(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.flatten();
 }
 
-pub fn ravel(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn ravel(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.ravel();
 }
 
-pub fn squeeze(comptime T: type, input: Tensor(T), axis: ?isize) TensorError!Tensor(T) {
+pub fn squeeze(comptime T: type, input: Array(T), axis: ?isize) ArrayError!Array(T) {
     return input.squeeze(axis);
 }
 
-pub fn unsqueeze(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+pub fn unsqueeze(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
     return input.unsqueeze(axis);
 }
 
-pub fn broadcastTo(comptime T: type, input: Tensor(T), dims: []const usize) TensorError!Tensor(T) {
+pub fn broadcastTo(comptime T: type, input: Array(T), dims: []const usize) ArrayError!Array(T) {
     return input.broadcastTo(dims);
 }
 
-pub fn repeat(comptime T: type, input: Tensor(T), repeats: usize, axis: isize) TensorError!Tensor(T) {
+pub fn repeat(comptime T: type, input: Array(T), repeats: usize, axis: isize) ArrayError!Array(T) {
     return input.repeat(repeats, axis);
 }
 
-pub fn tile(comptime T: type, input: Tensor(T), repeats: []const usize) TensorError!Tensor(T) {
+pub fn tile(comptime T: type, input: Array(T), repeats: []const usize) ArrayError!Array(T) {
     return input.tile(repeats);
 }
 
-pub fn transpose(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn transpose(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.transpose();
 }
 
-pub fn swapaxes(comptime T: type, input: Tensor(T), dim0: isize, dim1: isize) TensorError!Tensor(T) {
+pub fn swapaxes(comptime T: type, input: Array(T), dim0: isize, dim1: isize) ArrayError!Array(T) {
     return input.swapaxes(dim0, dim1);
 }
 
-pub fn permute(comptime T: type, input: Tensor(T), axes: []const usize) TensorError!Tensor(T) {
+pub fn permute(comptime T: type, input: Array(T), axes: []const usize) ArrayError!Array(T) {
     return input.permute(axes);
 }
 
-pub fn movedim(comptime T: type, input: Tensor(T), source: isize, destination: isize) TensorError!Tensor(T) {
+pub fn movedim(comptime T: type, input: Array(T), source: isize, destination: isize) ArrayError!Array(T) {
     return input.movedim(source, destination);
 }
 
-pub fn select(comptime T: type, input: Tensor(T), axis: isize, index: usize) TensorError!Tensor(T) {
+pub fn select(comptime T: type, input: Array(T), axis: isize, index: usize) ArrayError!Array(T) {
     return input.select(axis, index);
 }
 
-pub fn narrow(comptime T: type, input: Tensor(T), axis: isize, start: usize, length: usize) TensorError!Tensor(T) {
+pub fn narrow(comptime T: type, input: Array(T), axis: isize, start: usize, length: usize) ArrayError!Array(T) {
     return input.narrow(axis, start, length);
 }
 
-pub fn add(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn add(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.add(b);
 }
 
-pub fn sub(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn sub(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.sub(b);
 }
 
-pub fn mul(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn mul(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.mul(b);
 }
 
-pub fn div(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn div(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.div(b);
 }
 
-pub fn pow(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn pow(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.pow(b);
 }
 
-pub fn floorDiv(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn floorDiv(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.floorDiv(b);
 }
 
-pub fn mod(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn mod(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.mod(b);
 }
 
-pub fn remainder(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn remainder(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.remainder(b);
 }
 
-pub fn maximum(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn maximum(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.maximum(b);
 }
 
-pub fn minimum(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn minimum(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.minimum(b);
 }
 
-pub fn hypot(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+pub fn hypot(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
     return a.hypot(b);
 }
 
-pub fn atan2(comptime T: type, y: Tensor(T), x: Tensor(T)) TensorError!Tensor(T) {
+pub fn atan2(comptime T: type, y: Array(T), x: Array(T)) ArrayError!Array(T) {
     return y.atan2(x);
 }
 
-pub fn nextAfter(comptime T: type, input: Tensor(T), target: Tensor(T)) TensorError!Tensor(T) {
+pub fn nextAfter(comptime T: type, input: Array(T), target: Array(T)) ArrayError!Array(T) {
     return input.nextAfter(target);
 }
 
-pub fn nextafter(comptime T: type, input: Tensor(T), target: Tensor(T)) TensorError!Tensor(T) {
+pub fn nextafter(comptime T: type, input: Array(T), target: Array(T)) ArrayError!Array(T) {
     return input.nextafter(target);
 }
 
-pub fn copysign(comptime T: type, magnitude: Tensor(T), sign_values: Tensor(T)) TensorError!Tensor(T) {
+pub fn copysign(comptime T: type, magnitude: Array(T), sign_values: Array(T)) ArrayError!Array(T) {
     return magnitude.copysign(sign_values);
 }
 
-pub fn heaviside(comptime T: type, input: Tensor(T), values_at_zero: Tensor(T)) TensorError!Tensor(T) {
+pub fn heaviside(comptime T: type, input: Array(T), values_at_zero: Array(T)) ArrayError!Array(T) {
     return input.heaviside(values_at_zero);
 }
 
-pub fn addScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn addScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.addScalar(scalar);
 }
 
-pub fn subScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn subScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.subScalar(scalar);
 }
 
-pub fn mulScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn mulScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.mulScalar(scalar);
 }
 
-pub fn divScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn divScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.divScalar(scalar);
 }
 
-pub fn powScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn powScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.powScalar(scalar);
 }
 
-pub fn floorDivScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn floorDivScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.floorDivScalar(scalar);
 }
 
-pub fn modScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn modScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.modScalar(scalar);
 }
 
-pub fn remainderScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn remainderScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.remainderScalar(scalar);
 }
 
-pub fn maximumScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn maximumScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.maximumScalar(scalar);
 }
 
-pub fn minimumScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn minimumScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.minimumScalar(scalar);
 }
 
-pub fn hypotScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn hypotScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.hypotScalar(scalar);
 }
 
-pub fn atan2Scalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn atan2Scalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.atan2Scalar(scalar);
 }
 
-pub fn nextAfterScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn nextAfterScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.nextAfterScalar(scalar);
 }
 
-pub fn nextafterScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn nextafterScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.nextafterScalar(scalar);
 }
 
-pub fn copysignScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+pub fn copysignScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
     return input.copysignScalar(scalar);
 }
 
-pub fn heavisideScalar(comptime T: type, input: Tensor(T), value_at_zero: T) TensorError!Tensor(T) {
+pub fn heavisideScalar(comptime T: type, input: Array(T), value_at_zero: T) ArrayError!Array(T) {
     return input.heavisideScalar(value_at_zero);
 }
 
-pub fn neg(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn neg(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.neg();
 }
 
-pub fn abs(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn abs(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.abs();
 }
 
-pub fn square(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn square(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.square();
 }
 
-pub fn reciprocal(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn reciprocal(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.reciprocal();
 }
 
-pub fn sign(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn sign(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.sign();
 }
 
-pub fn signbit(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+pub fn signbit(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
     return input.signbit();
 }
 
-pub fn exp(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn exp(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.exp();
 }
 
-pub fn expm1(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn expm1(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.expm1();
 }
 
-pub fn log(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn log(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.log();
 }
 
-pub fn log2(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn log2(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.log2();
 }
 
-pub fn log10(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn log10(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.log10();
 }
 
-pub fn log1p(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn log1p(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.log1p();
 }
 
-pub fn sqrt(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn sqrt(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.sqrt();
 }
 
-pub fn floor(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn floor(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.floor();
 }
 
-pub fn ceil(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn ceil(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.ceil();
 }
 
-pub fn round(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn round(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.round();
 }
 
-pub fn trunc(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn trunc(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.trunc();
 }
 
-pub fn deg2rad(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn deg2rad(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.deg2rad();
 }
 
-pub fn rad2deg(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn rad2deg(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.rad2deg();
 }
 
-pub fn ldexp(comptime T: type, input: Tensor(T), exponents: Tensor(i32)) TensorError!Tensor(T) {
+pub fn ldexp(comptime T: type, input: Array(T), exponents: Array(i32)) ArrayError!Array(T) {
     return input.ldexp(exponents);
 }
 
-pub fn ldexpScalar(comptime T: type, input: Tensor(T), exponent: i32) TensorError!Tensor(T) {
+pub fn ldexpScalar(comptime T: type, input: Array(T), exponent: i32) ArrayError!Array(T) {
     return input.ldexpScalar(exponent);
 }
 
-pub fn frexp(comptime T: type, input: Tensor(T)) TensorError!Tensor(T).FrexpResult {
+pub fn frexp(comptime T: type, input: Array(T)) ArrayError!Array(T).FrexpResult {
     return input.frexp();
 }
 
-pub fn sin(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn sin(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.sin();
 }
 
-pub fn cos(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn cos(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.cos();
 }
 
-pub fn tan(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn tan(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.tan();
 }
 
-pub fn asin(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn asin(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.asin();
 }
 
-pub fn acos(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn acos(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.acos();
 }
 
-pub fn atan(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn atan(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.atan();
 }
 
-pub fn sinh(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn sinh(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.sinh();
 }
 
-pub fn cosh(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn cosh(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.cosh();
 }
 
-pub fn tanh(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn tanh(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.tanh();
 }
 
-pub fn relu(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn relu(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.relu();
 }
 
-pub fn sigmoid(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn sigmoid(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.sigmoid();
 }
 
-pub fn clip(comptime T: type, input: Tensor(T), min_value: T, max_value: T) TensorError!Tensor(T) {
+pub fn clip(comptime T: type, input: Array(T), min_value: T, max_value: T) ArrayError!Array(T) {
     return input.clip(min_value, max_value);
 }
 
-pub fn clamp(comptime T: type, input: Tensor(T), min_value: T, max_value: T) TensorError!Tensor(T) {
+pub fn clamp(comptime T: type, input: Array(T), min_value: T, max_value: T) ArrayError!Array(T) {
     return input.clamp(min_value, max_value);
 }
 
-pub fn eq(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn eq(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.eq(b);
 }
 
-pub fn equal(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn equal(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.equal(b);
 }
 
-pub fn ne(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn ne(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.ne(b);
 }
 
-pub fn notEqual(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn notEqual(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.notEqual(b);
 }
 
-pub fn gt(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn gt(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.gt(b);
 }
 
-pub fn greater(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn greater(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.greater(b);
 }
 
-pub fn ge(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn ge(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.ge(b);
 }
 
-pub fn greaterEqual(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn greaterEqual(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.greaterEqual(b);
 }
 
-pub fn lt(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn lt(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.lt(b);
 }
 
-pub fn less(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn less(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.less(b);
 }
 
-pub fn le(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn le(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.le(b);
 }
 
-pub fn lessEqual(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(bool) {
+pub fn lessEqual(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
     return a.lessEqual(b);
 }
 
-pub fn eqScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+pub fn eqScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
     return input.eqScalar(scalar);
 }
 
-pub fn neScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+pub fn neScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
     return input.neScalar(scalar);
 }
 
-pub fn gtScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+pub fn gtScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
     return input.gtScalar(scalar);
 }
 
-pub fn geScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+pub fn geScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
     return input.geScalar(scalar);
 }
 
-pub fn ltScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+pub fn ltScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
     return input.ltScalar(scalar);
 }
 
-pub fn leScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(bool) {
+pub fn leScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
     return input.leScalar(scalar);
 }
 
-pub fn allclose(comptime T: type, a: Tensor(T), b: Tensor(T), rtol: T, atol: T) TensorError!bool {
+pub fn allclose(comptime T: type, a: Array(T), b: Array(T), rtol: T, atol: T) ArrayError!bool {
     return a.allclose(b, rtol, atol);
 }
 
-pub fn isclose(comptime T: type, a: Tensor(T), b: Tensor(T), rtol: T, atol: T) TensorError!Tensor(bool) {
+pub fn isclose(comptime T: type, a: Array(T), b: Array(T), rtol: T, atol: T) ArrayError!Array(bool) {
     return a.isclose(b, rtol, atol);
 }
 
-pub fn logicalNot(input: Tensor(bool)) TensorError!Tensor(bool) {
+pub fn logicalNot(input: Array(bool)) ArrayError!Array(bool) {
     return input.logicalNot();
 }
 
-pub fn logicalAnd(a: Tensor(bool), b: Tensor(bool)) TensorError!Tensor(bool) {
+pub fn logicalAnd(a: Array(bool), b: Array(bool)) ArrayError!Array(bool) {
     return a.logicalAnd(b);
 }
 
-pub fn logicalOr(a: Tensor(bool), b: Tensor(bool)) TensorError!Tensor(bool) {
+pub fn logicalOr(a: Array(bool), b: Array(bool)) ArrayError!Array(bool) {
     return a.logicalOr(b);
 }
 
-pub fn logicalXor(a: Tensor(bool), b: Tensor(bool)) TensorError!Tensor(bool) {
+pub fn logicalXor(a: Array(bool), b: Array(bool)) ArrayError!Array(bool) {
     return a.logicalXor(b);
 }
 
-pub fn logicalAndScalar(input: Tensor(bool), scalar: bool) TensorError!Tensor(bool) {
+pub fn logicalAndScalar(input: Array(bool), scalar: bool) ArrayError!Array(bool) {
     return input.logicalAndScalar(scalar);
 }
 
-pub fn logicalOrScalar(input: Tensor(bool), scalar: bool) TensorError!Tensor(bool) {
+pub fn logicalOrScalar(input: Array(bool), scalar: bool) ArrayError!Array(bool) {
     return input.logicalOrScalar(scalar);
 }
 
-pub fn logicalXorScalar(input: Tensor(bool), scalar: bool) TensorError!Tensor(bool) {
+pub fn logicalXorScalar(input: Array(bool), scalar: bool) ArrayError!Array(bool) {
     return input.logicalXorScalar(scalar);
 }
 
-pub fn isNan(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+pub fn isNan(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
     return input.isNan();
 }
 
-pub fn isnan(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+pub fn isnan(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
     return input.isnan();
 }
 
-pub fn isInf(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+pub fn isInf(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
     return input.isInf();
 }
 
-pub fn isinf(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+pub fn isinf(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
     return input.isinf();
 }
 
-pub fn isFinite(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+pub fn isFinite(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
     return input.isFinite();
 }
 
-pub fn isfinite(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+pub fn isfinite(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
     return input.isfinite();
 }
 
-pub fn logsumexp(comptime T: type, input: Tensor(T), axis: isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn logsumexp(comptime T: type, input: Array(T), axis: isize, keepdims: bool) ArrayError!Array(T) {
     return input.logsumexp(axis, keepdims);
 }
 
-pub fn logSoftmax(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+pub fn logSoftmax(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
     return input.logSoftmax(axis);
 }
 
-pub fn log_softmax(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+pub fn log_softmax(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
     return input.log_softmax(axis);
 }
 
-pub fn sum(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn sum(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.sum(axis, keepdims);
 }
 
-pub fn prod(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn prod(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.prod(axis, keepdims);
 }
 
-pub fn min(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn min(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.min(axis, keepdims);
 }
 
-pub fn max(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn max(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.max(axis, keepdims);
 }
 
-pub fn mean(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn mean(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.mean(axis, keepdims);
 }
 
-pub fn variance(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+pub fn variance(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
     return input.variance(axis, keepdims, correction);
 }
 
-pub fn stddev(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+pub fn stddev(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
     return input.stddev(axis, keepdims, correction);
 }
 
-pub fn norm(comptime T: type, input: Tensor(T), p: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn norm(comptime T: type, input: Array(T), p: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.norm(p, axis, keepdims);
 }
 
-pub fn cumsum(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn cumsum(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.cumsum();
 }
 
-pub fn cumprod(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn cumprod(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.cumprod();
 }
 
-pub fn argmax(comptime T: type, input: Tensor(T)) TensorError!usize {
+pub fn argmax(comptime T: type, input: Array(T)) ArrayError!usize {
     return input.argmax();
 }
 
-pub fn argmin(comptime T: type, input: Tensor(T)) TensorError!usize {
+pub fn argmin(comptime T: type, input: Array(T)) ArrayError!usize {
     return input.argmin();
 }
 
-pub fn argmaxAxis(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(usize) {
+pub fn argmaxAxis(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(usize) {
     return input.argmaxAxis(axis, keepdims);
 }
 
-pub fn argminAxis(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(usize) {
+pub fn argminAxis(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(usize) {
     return input.argminAxis(axis, keepdims);
 }
 
-pub fn allAxis(input: Tensor(bool), axis: ?isize, keepdims: bool) TensorError!Tensor(bool) {
+pub fn allAxis(input: Array(bool), axis: ?isize, keepdims: bool) ArrayError!Array(bool) {
     return input.allAxis(axis, keepdims);
 }
 
-pub fn anyAxis(input: Tensor(bool), axis: ?isize, keepdims: bool) TensorError!Tensor(bool) {
+pub fn anyAxis(input: Array(bool), axis: ?isize, keepdims: bool) ArrayError!Array(bool) {
     return input.anyAxis(axis, keepdims);
 }
 
-pub fn median(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn median(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.median(axis, keepdims);
 }
 
-pub fn quantile(comptime T: type, input: Tensor(T), q: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn quantile(comptime T: type, input: Array(T), q: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.quantile(q, axis, keepdims);
 }
 
-pub fn percentile(comptime T: type, input: Tensor(T), p: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn percentile(comptime T: type, input: Array(T), p: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.percentile(p, axis, keepdims);
 }
 
-pub fn weightedMean(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn weightedMean(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.weightedMean(weights, axis, keepdims);
 }
 
-pub fn average(comptime T: type, input: Tensor(T), weights: ?Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn average(comptime T: type, input: Array(T), weights: ?Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.average(weights, axis, keepdims);
 }
 
-pub fn weightedVariance(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+pub fn weightedVariance(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
     return input.weightedVariance(weights, axis, keepdims, correction);
 }
 
-pub fn weightedVar(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+pub fn weightedVar(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
     return input.weightedVar(weights, axis, keepdims, correction);
 }
 
-pub fn weightedStddev(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+pub fn weightedStddev(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
     return input.weightedStddev(weights, axis, keepdims, correction);
 }
 
-pub fn weightedStd(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+pub fn weightedStd(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
     return input.weightedStd(weights, axis, keepdims, correction);
 }
 
-pub fn weightedQuantile(comptime T: type, input: Tensor(T), weights: Tensor(T), q: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn weightedQuantile(comptime T: type, input: Array(T), weights: Array(T), q: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.weightedQuantile(weights, q, axis, keepdims);
 }
 
-pub fn weightedMedian(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn weightedMedian(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.weightedMedian(weights, axis, keepdims);
 }
 
-pub fn cov(comptime T: type, input: Tensor(T), rowvar: bool, correction: T) TensorError!Tensor(T) {
+pub fn cov(comptime T: type, input: Array(T), rowvar: bool, correction: T) ArrayError!Array(T) {
     return input.cov(rowvar, correction);
 }
 
-pub fn corrcoef(comptime T: type, input: Tensor(T), rowvar: bool) TensorError!Tensor(T) {
+pub fn corrcoef(comptime T: type, input: Array(T), rowvar: bool) ArrayError!Array(T) {
     return input.corrcoef(rowvar);
 }
 
-pub fn weightedCov(comptime T: type, input: Tensor(T), weights: Tensor(T), rowvar: bool, correction: T) TensorError!Tensor(T) {
+pub fn weightedCov(comptime T: type, input: Array(T), weights: Array(T), rowvar: bool, correction: T) ArrayError!Array(T) {
     return input.weightedCov(weights, rowvar, correction);
 }
 
-pub fn weightedCorrcoef(comptime T: type, input: Tensor(T), weights: Tensor(T), rowvar: bool) TensorError!Tensor(T) {
+pub fn weightedCorrcoef(comptime T: type, input: Array(T), weights: Array(T), rowvar: bool) ArrayError!Array(T) {
     return input.weightedCorrcoef(weights, rowvar);
 }
 
-pub fn nanCov(comptime T: type, input: Tensor(T), rowvar: bool, correction: T) TensorError!Tensor(T) {
+pub fn nanCov(comptime T: type, input: Array(T), rowvar: bool, correction: T) ArrayError!Array(T) {
     return input.nanCov(rowvar, correction);
 }
 
-pub fn nanCorrcoef(comptime T: type, input: Tensor(T), rowvar: bool) TensorError!Tensor(T) {
+pub fn nanCorrcoef(comptime T: type, input: Array(T), rowvar: bool) ArrayError!Array(T) {
     return input.nanCorrcoef(rowvar);
 }
 
-pub fn nanToNum(comptime T: type, input: Tensor(T), nan_value: T, posinf_value: T, neginf_value: T) TensorError!Tensor(T) {
+pub fn nanToNum(comptime T: type, input: Array(T), nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
     return input.nanToNum(nan_value, posinf_value, neginf_value);
 }
 
-pub fn nan_to_num(comptime T: type, input: Tensor(T), nan_value: T, posinf_value: T, neginf_value: T) TensorError!Tensor(T) {
+pub fn nan_to_num(comptime T: type, input: Array(T), nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
     return input.nan_to_num(nan_value, posinf_value, neginf_value);
 }
 
-pub fn nansum(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn nansum(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.nansum(axis, keepdims);
 }
 
-pub fn nanmean(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn nanmean(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.nanmean(axis, keepdims);
 }
 
-pub fn nanvar(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+pub fn nanvar(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
     return input.nanvar(axis, keepdims, correction);
 }
 
-pub fn nanstd(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+pub fn nanstd(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
     return input.nanstd(axis, keepdims, correction);
 }
 
-pub fn nanmin(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn nanmin(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.nanmin(axis, keepdims);
 }
 
-pub fn nanmax(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn nanmax(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.nanmax(axis, keepdims);
 }
 
-pub fn nanmedian(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn nanmedian(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.nanmedian(axis, keepdims);
 }
 
-pub fn nanquantile(comptime T: type, input: Tensor(T), q: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn nanquantile(comptime T: type, input: Array(T), q: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.nanquantile(q, axis, keepdims);
 }
 
-pub fn nanpercentile(comptime T: type, input: Tensor(T), p: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+pub fn nanpercentile(comptime T: type, input: Array(T), p: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
     return input.nanpercentile(p, axis, keepdims);
 }
 
-pub fn sort(comptime T: type, input: Tensor(T), axis: ?isize) TensorError!Tensor(T) {
+pub fn sort(comptime T: type, input: Array(T), axis: ?isize) ArrayError!Array(T) {
     return input.sort(axis);
 }
 
-pub fn sortBy(comptime T: type, input: Tensor(T), axis: ?isize, descending: bool) TensorError!Tensor(T) {
+pub fn sortBy(comptime T: type, input: Array(T), axis: ?isize, descending: bool) ArrayError!Array(T) {
     return input.sortBy(axis, descending);
 }
 
-pub fn sortDescending(comptime T: type, input: Tensor(T), axis: ?isize) TensorError!Tensor(T) {
+pub fn sortDescending(comptime T: type, input: Array(T), axis: ?isize) ArrayError!Array(T) {
     return input.sortDescending(axis);
 }
 
-pub fn argsort(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+pub fn argsort(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
     return input.argsort();
 }
 
-pub fn argsortAxis(comptime T: type, input: Tensor(T), axis: ?isize, descending: bool) TensorError!Tensor(usize) {
+pub fn argsortAxis(comptime T: type, input: Array(T), axis: ?isize, descending: bool) ArrayError!Array(usize) {
     return input.argsortAxis(axis, descending);
 }
 
-pub fn argsortDescending(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+pub fn argsortDescending(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
     return input.argsortDescending();
 }
 
-pub fn sortWithIndices(comptime T: type, input: Tensor(T), axis: ?isize, descending: bool) TensorError!Tensor(T).SortResult {
+pub fn sortWithIndices(comptime T: type, input: Array(T), axis: ?isize, descending: bool) ArrayError!Array(T).SortResult {
     return input.sortWithIndices(axis, descending);
 }
 
-pub fn partition(comptime T: type, input: Tensor(T), kth: usize, axis: ?isize, descending: bool) TensorError!Tensor(T) {
+pub fn partition(comptime T: type, input: Array(T), kth: usize, axis: ?isize, descending: bool) ArrayError!Array(T) {
     return input.partition(kth, axis, descending);
 }
 
-pub fn argpartition(comptime T: type, input: Tensor(T), kth: usize, axis: ?isize, descending: bool) TensorError!Tensor(usize) {
+pub fn argpartition(comptime T: type, input: Array(T), kth: usize, axis: ?isize, descending: bool) ArrayError!Array(usize) {
     return input.argpartition(kth, axis, descending);
 }
 
-pub fn unique(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+pub fn unique(comptime T: type, input: Array(T)) ArrayError!Array(T) {
     return input.unique();
 }
 
-pub fn uniqueWithCounts(comptime T: type, input: Tensor(T)) TensorError!Tensor(T).UniqueCounts {
+pub fn uniqueWithCounts(comptime T: type, input: Array(T)) ArrayError!Array(T).UniqueCounts {
     return input.uniqueWithCounts();
 }
 
-pub fn bincount(comptime T: type, input: Tensor(T), minlength: usize) TensorError!Tensor(usize) {
+pub fn bincount(comptime T: type, input: Array(T), minlength: usize) ArrayError!Array(usize) {
     return input.bincount(minlength);
 }
 
-pub fn bincountWeighted(comptime T: type, comptime W: type, input: Tensor(T), weights: Tensor(W), minlength: usize) TensorError!Tensor(W) {
+pub fn bincountWeighted(comptime T: type, comptime W: type, input: Array(T), weights: Array(W), minlength: usize) ArrayError!Array(W) {
     return input.bincountWeighted(W, weights, minlength);
 }
 
-pub fn searchsorted(comptime T: type, sorted: Tensor(T), values: Tensor(T), side: SearchSide) TensorError!Tensor(usize) {
+pub fn searchsorted(comptime T: type, sorted: Array(T), values: Array(T), side: SearchSide) ArrayError!Array(usize) {
     return sorted.searchsorted(values, side);
 }
 
-pub fn bucketize(comptime T: type, input: Tensor(T), boundaries: Tensor(T), side: SearchSide) TensorError!Tensor(usize) {
+pub fn bucketize(comptime T: type, input: Array(T), boundaries: Array(T), side: SearchSide) ArrayError!Array(usize) {
     return input.bucketize(boundaries, side);
 }
 
-pub fn digitize(comptime T: type, input: Tensor(T), bins: Tensor(T), right: bool) TensorError!Tensor(usize) {
+pub fn digitize(comptime T: type, input: Array(T), bins: Array(T), right: bool) ArrayError!Array(usize) {
     return input.digitize(bins, right);
 }
 
-pub fn isin(comptime T: type, input: Tensor(T), test_elements: Tensor(T), invert: bool) TensorError!Tensor(bool) {
+pub fn isin(comptime T: type, input: Array(T), test_elements: Array(T), invert: bool) ArrayError!Array(bool) {
     return input.isin(test_elements, invert);
 }
 
-pub fn clipArray(comptime T: type, input: Tensor(T), min_values: Tensor(T), max_values: Tensor(T)) TensorError!Tensor(T) {
+pub fn clipArray(comptime T: type, input: Array(T), min_values: Array(T), max_values: Array(T)) ArrayError!Array(T) {
     return input.clipArray(min_values, max_values);
 }
 
-pub fn diag(comptime T: type, input: Tensor(T), offset: isize) TensorError!Tensor(T) {
+pub fn diag(comptime T: type, input: Array(T), offset: isize) ArrayError!Array(T) {
     return input.diag(offset);
 }
 
-pub fn diagflat(comptime T: type, input: Tensor(T), offset: isize) TensorError!Tensor(T) {
+pub fn diagflat(comptime T: type, input: Array(T), offset: isize) ArrayError!Array(T) {
     return input.diagflat(offset);
 }
 
-pub fn sliceAxis(comptime T: type, input: Tensor(T), axis: isize, slice_value: Slice) TensorError!Tensor(T) {
+pub fn sliceAxis(comptime T: type, input: Array(T), axis: isize, slice_value: Slice) ArrayError!Array(T) {
     return input.sliceAxis(axis, slice_value);
 }
 
-pub fn slice(comptime T: type, input: Tensor(T), slices: []const Slice) TensorError!Tensor(T) {
+pub fn slice(comptime T: type, input: Array(T), slices: []const Slice) ArrayError!Array(T) {
     return input.slice(slices);
 }
 
-pub fn slice1d(comptime T: type, input: Tensor(T), slice_value: Slice) TensorError!Tensor(T) {
+pub fn slice1d(comptime T: type, input: Array(T), slice_value: Slice) ArrayError!Array(T) {
     return input.slice1d(slice_value);
 }
 
-pub fn flip(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+pub fn flip(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
     return input.flip(axis);
 }
 
-pub fn roll(comptime T: type, input: Tensor(T), shift: isize, axis: isize) TensorError!Tensor(T) {
+pub fn roll(comptime T: type, input: Array(T), shift: isize, axis: isize) ArrayError!Array(T) {
     return input.roll(shift, axis);
 }
 
-pub fn padConstant(comptime T: type, input: Tensor(T), before: []const usize, after: []const usize, value: T) TensorError!Tensor(T) {
+pub fn padConstant(comptime T: type, input: Array(T), before: []const usize, after: []const usize, value: T) ArrayError!Array(T) {
     return input.padConstant(before, after, value);
 }
 
-pub fn cumsumAxis(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+pub fn cumsumAxis(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
     return input.cumsumAxis(axis);
 }
 
-pub fn cumprodAxis(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+pub fn cumprodAxis(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
     return input.cumprodAxis(axis);
 }
 
-pub fn diff(comptime T: type, input: Tensor(T), axis: isize, n: usize) TensorError!Tensor(T) {
+pub fn diff(comptime T: type, input: Array(T), axis: isize, n: usize) ArrayError!Array(T) {
     return input.diff(axis, n);
 }
 
-pub fn toBytes(comptime T: type, input: Tensor(T), allocator: std.mem.Allocator) TensorError![]u8 {
+pub fn toBytes(comptime T: type, input: Array(T), allocator: std.mem.Allocator) ArrayError![]u8 {
     return input.toBytes(allocator);
 }
 
-pub fn fromBytes(comptime T: type, allocator: std.mem.Allocator, bytes: []const u8, dims: []const usize) TensorError!Tensor(T) {
-    return Tensor(T).fromBytes(allocator, bytes, dims);
+pub fn fromBytes(comptime T: type, allocator: std.mem.Allocator, bytes: []const u8, dims: []const usize) ArrayError!Array(T) {
+    return Array(T).fromBytes(allocator, bytes, dims);
 }
 
-pub fn toArchive(comptime T: type, input: Tensor(T), allocator: std.mem.Allocator) TensorError![]u8 {
+pub fn toArchive(comptime T: type, input: Array(T), allocator: std.mem.Allocator) ArrayError![]u8 {
     return input.toArchive(allocator);
 }
 
-pub fn fromArchive(comptime T: type, allocator: std.mem.Allocator, archive: []const u8) TensorError!Tensor(T) {
-    return Tensor(T).fromArchive(allocator, archive);
+pub fn fromArchive(comptime T: type, allocator: std.mem.Allocator, archive: []const u8) ArrayError!Array(T) {
+    return Array(T).fromArchive(allocator, archive);
 }
 
-pub fn take(comptime T: type, input: Tensor(T), indices: Tensor(usize), axis: ?isize) TensorError!Tensor(T) {
+pub fn take(comptime T: type, input: Array(T), indices: Array(usize), axis: ?isize) ArrayError!Array(T) {
     return input.take(indices, axis);
 }
 
-pub fn takeMode(comptime T: type, input: Tensor(T), indices: Tensor(usize), axis: ?isize, mode: IndexMode) TensorError!Tensor(T) {
+pub fn takeMode(comptime T: type, input: Array(T), indices: Array(usize), axis: ?isize, mode: IndexMode) ArrayError!Array(T) {
     return input.takeMode(indices, axis, mode);
 }
 
-pub fn indexSelect(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize)) TensorError!Tensor(T) {
+pub fn indexSelect(comptime T: type, input: Array(T), axis: isize, indices: Array(usize)) ArrayError!Array(T) {
     return input.indexSelect(axis, indices);
 }
 
-pub fn takeAlongAxis(comptime T: type, input: Tensor(T), indices: Tensor(usize), axis: isize) TensorError!Tensor(T) {
+pub fn takeAlongAxis(comptime T: type, input: Array(T), indices: Array(usize), axis: isize) ArrayError!Array(T) {
     return input.takeAlongAxis(indices, axis);
 }
 
-pub fn putAlongAxis(comptime T: type, input: Tensor(T), indices: Tensor(usize), src: Tensor(T), axis: isize) TensorError!Tensor(T) {
+pub fn putAlongAxis(comptime T: type, input: Array(T), indices: Array(usize), src: Array(T), axis: isize) ArrayError!Array(T) {
     return input.putAlongAxis(indices, src, axis);
 }
 
-pub fn gather(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize)) TensorError!Tensor(T) {
+pub fn gather(comptime T: type, input: Array(T), axis: isize, indices: Array(usize)) ArrayError!Array(T) {
     return input.gather(axis, indices);
 }
 
-pub fn scatter(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), src: Tensor(T)) TensorError!Tensor(T) {
+pub fn scatter(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
     return input.scatter(axis, indices, src);
 }
 
-pub fn scatterScalar(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), value: T) TensorError!Tensor(T) {
+pub fn scatterScalar(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
     return input.scatterScalar(axis, indices, value);
 }
 
-pub fn scatterReduce(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), src: Tensor(T), reduction: ScatterReduce) TensorError!Tensor(T) {
+pub fn scatterReduce(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), src: Array(T), reduction: ScatterReduce) ArrayError!Array(T) {
     return input.scatterReduce(axis, indices, src, reduction);
 }
 
-pub fn scatterAdd(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), src: Tensor(T)) TensorError!Tensor(T) {
+pub fn scatterAdd(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
     return input.scatterAdd(axis, indices, src);
 }
 
-pub fn scatterReduceScalar(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), value: T, reduction: ScatterReduce) TensorError!Tensor(T) {
+pub fn scatterReduceScalar(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), value: T, reduction: ScatterReduce) ArrayError!Array(T) {
     return input.scatterReduceScalar(axis, indices, value, reduction);
 }
 
-pub fn scatterAddScalar(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), value: T) TensorError!Tensor(T) {
+pub fn scatterAddScalar(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
     return input.scatterAddScalar(axis, indices, value);
 }
 
-pub fn maskedFill(comptime T: type, input: Tensor(T), mask: Tensor(bool), value: T) TensorError!Tensor(T) {
+pub fn maskedFill(comptime T: type, input: Array(T), mask: Array(bool), value: T) ArrayError!Array(T) {
     return input.maskedFill(mask, value);
 }
 
-pub fn maskedScatter(comptime T: type, input: Tensor(T), mask: Tensor(bool), src: Tensor(T)) TensorError!Tensor(T) {
+pub fn maskedScatter(comptime T: type, input: Array(T), mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
     return input.maskedScatter(mask, src);
 }
 
-pub fn maskedPut(comptime T: type, input: Tensor(T), mask: Tensor(bool), values: Tensor(T)) TensorError!Tensor(T) {
+pub fn maskedPut(comptime T: type, input: Array(T), mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
     return input.maskedPut(mask, values);
 }
 
-pub fn maskedPutScalar(comptime T: type, input: Tensor(T), mask: Tensor(bool), value: T) TensorError!Tensor(T) {
+pub fn maskedPutScalar(comptime T: type, input: Array(T), mask: Array(bool), value: T) ArrayError!Array(T) {
     return input.maskedPutScalar(mask, value);
 }
 
-pub fn putFlat(comptime T: type, input: Tensor(T), indices: Tensor(usize), values: Tensor(T)) TensorError!Tensor(T) {
+pub fn putFlat(comptime T: type, input: Array(T), indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
     return input.putFlat(indices, values);
 }
 
-pub fn putFlatMode(comptime T: type, input: Tensor(T), indices: Tensor(usize), values: Tensor(T), mode: IndexMode) TensorError!Tensor(T) {
+pub fn putFlatMode(comptime T: type, input: Array(T), indices: Array(usize), values: Array(T), mode: IndexMode) ArrayError!Array(T) {
     return input.putFlatMode(indices, values, mode);
 }
 
-pub fn putFlatScalar(comptime T: type, input: Tensor(T), indices: Tensor(usize), value: T) TensorError!Tensor(T) {
+pub fn putFlatScalar(comptime T: type, input: Array(T), indices: Array(usize), value: T) ArrayError!Array(T) {
     return input.putFlatScalar(indices, value);
 }
 
-pub fn putFlatScalarMode(comptime T: type, input: Tensor(T), indices: Tensor(usize), value: T, mode: IndexMode) TensorError!Tensor(T) {
+pub fn putFlatScalarMode(comptime T: type, input: Array(T), indices: Array(usize), value: T, mode: IndexMode) ArrayError!Array(T) {
     return input.putFlatScalarMode(indices, value, mode);
 }
 
-pub fn indexPut(comptime T: type, input: Tensor(T), indices: Tensor(usize), values: Tensor(T)) TensorError!Tensor(T) {
+pub fn indexPut(comptime T: type, input: Array(T), indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
     return input.indexPut(indices, values);
 }
 
-pub fn indexPutScalar(comptime T: type, input: Tensor(T), indices: Tensor(usize), value: T) TensorError!Tensor(T) {
+pub fn indexPutScalar(comptime T: type, input: Array(T), indices: Array(usize), value: T) ArrayError!Array(T) {
     return input.indexPutScalar(indices, value);
 }
 
-pub fn countNonzero(comptime T: type, input: Tensor(T)) usize {
+pub fn countNonzero(comptime T: type, input: Array(T)) usize {
     return input.countNonzero();
 }
 
-pub fn flatNonzero(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+pub fn flatNonzero(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
     return input.flatNonzero();
 }
 
-pub fn nonzero(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+pub fn nonzero(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
     return input.nonzero();
 }
 
-pub fn argwhere(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+pub fn argwhere(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
     return input.argwhere();
 }
 
-pub fn ravelCoords(comptime T: type, input: Tensor(T), coords: Tensor(usize)) TensorError!Tensor(usize) {
+pub fn ravelCoords(comptime T: type, input: Array(T), coords: Array(usize)) ArrayError!Array(usize) {
     return input.ravelCoords(coords);
 }
 
-pub fn unravelFlat(comptime T: type, input: Tensor(T), indices: Tensor(usize)) TensorError!Tensor(usize) {
+pub fn unravelFlat(comptime T: type, input: Array(T), indices: Array(usize)) ArrayError!Array(usize) {
     return input.unravelFlat(indices);
 }
 
-pub fn takeCoords(comptime T: type, input: Tensor(T), coords: Tensor(usize)) TensorError!Tensor(T) {
+pub fn takeCoords(comptime T: type, input: Array(T), coords: Array(usize)) ArrayError!Array(T) {
     return input.takeCoords(coords);
 }
 
-pub fn putCoords(comptime T: type, input: Tensor(T), coords: Tensor(usize), values: Tensor(T)) TensorError!Tensor(T) {
+pub fn putCoords(comptime T: type, input: Array(T), coords: Array(usize), values: Array(T)) ArrayError!Array(T) {
     return input.putCoords(coords, values);
 }
 
-pub fn putCoordsScalar(comptime T: type, input: Tensor(T), coords: Tensor(usize), value: T) TensorError!Tensor(T) {
+pub fn putCoordsScalar(comptime T: type, input: Array(T), coords: Array(usize), value: T) ArrayError!Array(T) {
     return input.putCoordsScalar(coords, value);
 }
 
-pub fn compress(comptime T: type, input: Tensor(T), condition: Tensor(bool), axis: ?isize) TensorError!Tensor(T) {
+pub fn compress(comptime T: type, input: Array(T), condition: Array(bool), axis: ?isize) ArrayError!Array(T) {
     return input.compress(condition, axis);
 }
 
-test "tensor creation, reshape and broadcasting" {
+test "array creation, reshape and broadcasting" {
     const gpa = std.testing.allocator;
-    var a = try tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var b = try tensor(f64, gpa, &.{ 10, 20, 30 }, &.{3});
+    var b = try array(f64, gpa, &.{ 10, 20, 30 }, &.{3});
     defer b.deinit();
     var c = try a.add(b);
     defer c.deinit();
@@ -5982,9 +5977,9 @@ test "array comparison and logical wrappers" {
     try std.testing.expect(!try allclose(f64, a, close_target, 0.0, 0.01));
 }
 
-test "tensor reductions and matmul" {
+test "array reductions and matmul" {
     const gpa = std.testing.allocator;
-    var a = try tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
     var s0 = try sum(f64, a, 0, false);
     defer s0.deinit();
@@ -6021,9 +6016,9 @@ test "tensor reductions and matmul" {
     try std.testing.expectEqualSlices(f64, &.{ 14, 32, 32, 77 }, mm.data);
 }
 
-test "tensor scipy-like statistics and softmax" {
+test "array scipy-like statistics and softmax" {
     const gpa = std.testing.allocator;
-    var a = try tensor(f64, gpa, &.{ 1, 2, 3, 4 }, &.{4});
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{4});
     defer a.deinit();
     var mean_value = try a.mean(null, false);
     defer mean_value.deinit();
@@ -6044,7 +6039,7 @@ test "tensor scipy-like statistics and softmax" {
     defer norm_top.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 30)), norm_top.data[0], 1e-12);
 
-    var logits = try tensor(f64, gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
+    var logits = try array(f64, gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
     defer logits.deinit();
     var probs = try logits.softmax(1);
     defer probs.deinit();
@@ -6053,7 +6048,7 @@ test "tensor scipy-like statistics and softmax" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[1], 1e-12);
 
-    var mask = try tensor(bool, gpa, &.{ true, true, false, true }, &.{ 2, 2 });
+    var mask = try array(bool, gpa, &.{ true, true, false, true }, &.{ 2, 2 });
     defer mask.deinit();
     var all_rows = try allAxis(mask, 1, false);
     defer all_rows.deinit();
@@ -6063,9 +6058,9 @@ test "tensor scipy-like statistics and softmax" {
     try std.testing.expectEqualSlices(bool, &.{ true, true }, any_cols.data);
 }
 
-test "tensor pytorch numpy shape indexing and layout helpers" {
+test "array pytorch numpy shape indexing and layout helpers" {
     const gpa = std.testing.allocator;
-    var a = try tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
     try std.testing.expectEqual(@as(usize, 2), a.ndim());
     try std.testing.expectEqual(@as(usize, 3), try a.size(1));
@@ -6122,11 +6117,11 @@ test "tensor pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, tiled_top.data);
 }
 
-test "tensor take mask stack cat and neural helpers" {
+test "array take mask stack cat and neural helpers" {
     const gpa = std.testing.allocator;
-    var a = try tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var idx = try tensor(usize, gpa, &.{ 2, 0 }, &.{2});
+    var idx = try array(usize, gpa, &.{ 2, 0 }, &.{2});
     defer idx.deinit();
     var picked = try a.indexSelect(1, idx);
     defer picked.deinit();
@@ -6136,29 +6131,29 @@ test "tensor take mask stack cat and neural helpers" {
     defer picked_top.deinit();
     try std.testing.expectEqualSlices(f64, picked.data, picked_top.data);
 
-    var wrap_idx = try tensor(usize, gpa, &.{ 0, 7 }, &.{2});
+    var wrap_idx = try array(usize, gpa, &.{ 0, 7 }, &.{2});
     defer wrap_idx.deinit();
     var take_wrapped = try takeMode(f64, a, wrap_idx, null, .wrap);
     defer take_wrapped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2 }, take_wrapped.data);
-    var clip_idx = try tensor(usize, gpa, &.{ 0, 99 }, &.{2});
+    var clip_idx = try array(usize, gpa, &.{ 0, 99 }, &.{2});
     defer clip_idx.deinit();
     var take_clipped = try a.takeMode(clip_idx, 1, .clip);
     defer take_clipped.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, take_clipped.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4, 6 }, take_clipped.data);
 
-    var mask = try tensor(bool, gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
+    var mask = try array(bool, gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
     defer mask.deinit();
     var masked = try a.maskedSelect(mask);
     defer masked.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5 }, masked.data);
 
-    const pieces = [_]Tensor(f64){ a, a };
-    var st = try Tensor(f64).stack(gpa, pieces[0..], 1);
+    const pieces = [_]Array(f64){ a, a };
+    var st = try Array(f64).stack(gpa, pieces[0..], 1);
     defer st.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2, 3 }, st.shape);
-    var ca = try Tensor(f64).cat(gpa, pieces[0..], 0);
+    var ca = try Array(f64).cat(gpa, pieces[0..], 0);
     defer ca.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 3 }, ca.shape);
 
@@ -6414,11 +6409,11 @@ test "array extended unary math and predicates" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, true }, int_finite.data);
 }
 
-test "tensor gather scatter and scalar scatter" {
+test "array gather scatter and scalar scatter" {
     const gpa = std.testing.allocator;
-    var a = try tensor(f64, gpa, &.{ 10, 11, 12, 20, 21, 22 }, &.{ 2, 3 });
+    var a = try array(f64, gpa, &.{ 10, 11, 12, 20, 21, 22 }, &.{ 2, 3 });
     defer a.deinit();
-    var idx = try tensor(usize, gpa, &.{ 2, 1, 0, 0, 2, 1 }, &.{ 2, 3 });
+    var idx = try array(usize, gpa, &.{ 2, 1, 0, 0, 2, 1 }, &.{ 2, 3 });
     defer idx.deinit();
 
     var gathered = try a.gather(1, idx);
@@ -6448,9 +6443,9 @@ test "tensor gather scatter and scalar scatter" {
     try std.testing.expectEqualSlices(f64, &.{ 2, 2, 2, 2, 2, 2 }, scalar_added.data);
 }
 
-test "tensor logsoftmax norm and matrix helpers" {
+test "array logsoftmax norm and matrix helpers" {
     const gpa = std.testing.allocator;
-    var logits = try tensor(f64, gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
+    var logits = try array(f64, gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
     defer logits.deinit();
     var log_probs = try logits.logSoftmax(1);
     defer log_probs.deinit();
@@ -6461,20 +6456,20 @@ test "tensor logsoftmax norm and matrix helpers" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[1], 1e-12);
 
-    var v = try tensor(f64, gpa, &.{ 3, 4 }, &.{2});
+    var v = try array(f64, gpa, &.{ 3, 4 }, &.{2});
     defer v.deinit();
     var n = try v.norm(2, null, false);
     defer n.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 5), n.data[0], 1e-12);
 
-    var w = try tensor(f64, gpa, &.{ 2, 5, 7 }, &.{3});
+    var w = try array(f64, gpa, &.{ 2, 5, 7 }, &.{3});
     defer w.deinit();
     var out = try v.outer(w);
     defer out.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 6, 15, 21, 8, 20, 28 }, out.data);
 
-    var m = try tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, &.{ 3, 3 });
+    var m = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, &.{ 3, 3 });
     defer m.deinit();
     try std.testing.expectEqual(@as(f64, 15), try m.trace());
     var d = try m.diagonal(0);
@@ -6488,9 +6483,9 @@ test "tensor logsoftmax norm and matrix helpers" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 4, 5, 0, 7, 8, 9 }, lower.data);
 }
 
-test "tensor min max arg reductions and topk" {
+test "array min max arg reductions and topk" {
     const gpa = std.testing.allocator;
-    var a = try tensor(f64, gpa, &.{ 9, 1, 5, 4, 8, 2 }, &.{ 2, 3 });
+    var a = try array(f64, gpa, &.{ 9, 1, 5, 4, 8, 2 }, &.{ 2, 3 });
     defer a.deinit();
 
     var min0 = try a.min(0, false);
@@ -6785,9 +6780,9 @@ test "array sort argsort and partition axes" {
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, sorted_flags.data);
 }
 
-test "tensor bool all any axis reductions" {
+test "array bool all any axis reductions" {
     const gpa = std.testing.allocator;
-    var mask = try tensor(bool, gpa, &.{ true, true, false, true, false, false }, &.{ 2, 3 });
+    var mask = try array(bool, gpa, &.{ true, true, false, true, false, false }, &.{ 2, 3 });
     defer mask.deinit();
     try std.testing.expect(!mask.all());
     try std.testing.expect(mask.any());

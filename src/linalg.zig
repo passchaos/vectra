@@ -1,8 +1,8 @@
 const std = @import("std");
-const tensor_mod = @import("tensor.zig");
+const array_mod = @import("array.zig");
 const veyra = @import("veyra");
 
-pub const LinalgError = tensor_mod.TensorError || error{ SingularMatrix, NotPositiveDefinite, BackendFailure } || std.mem.Allocator.Error;
+pub const LinalgError = array_mod.ArrayError || error{ SingularMatrix, NotPositiveDefinite, BackendFailure } || std.mem.Allocator.Error;
 
 pub const MatrixNormOrder = enum {
     fro,
@@ -22,28 +22,28 @@ pub const Diagonal = enum {
     unit,
 };
 
-fn toVeyraMatrix(a: tensor_mod.Tensor(f64)) LinalgError!veyra.Matrix(f64) {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
+fn toVeyraMatrix(a: array_mod.Array(f64)) LinalgError!veyra.Matrix(f64) {
+    if (a.shape.len != 2) return error.NonMatrixArray;
     return veyra.Matrix(f64).fromSlice(a.allocator, a.shape[0], a.shape[1], .row_major, a.data) catch return error.BackendFailure;
 }
 
-fn fromVeyraMatrix(allocator: std.mem.Allocator, matrix: *const veyra.Matrix(f64)) LinalgError!tensor_mod.Tensor(f64) {
-    return tensor_mod.Tensor(f64).fromSlice(allocator, matrix.data, &.{ matrix.rows, matrix.cols });
+fn fromVeyraMatrix(allocator: std.mem.Allocator, matrix: *const veyra.Matrix(f64)) LinalgError!array_mod.Array(f64) {
+    return array_mod.Array(f64).fromSlice(allocator, matrix.data, &.{ matrix.rows, matrix.cols });
 }
 
-fn toVeyraVector(x: tensor_mod.Tensor(f64)) LinalgError!veyra.Vector(f64) {
-    if (x.shape.len != 1) return error.NonVectorTensor;
+fn toVeyraVector(x: array_mod.Array(f64)) LinalgError!veyra.Vector(f64) {
+    if (x.shape.len != 1) return error.NonVectorArray;
     return veyra.Vector(f64).fromSlice(x.allocator, x.data) catch return error.BackendFailure;
 }
 
-fn fromVeyraVector(allocator: std.mem.Allocator, vector: *const veyra.Vector(f64)) LinalgError!tensor_mod.Tensor(f64) {
-    return tensor_mod.Tensor(f64).fromSlice(allocator, vector.data, &.{vector.len()});
+fn fromVeyraVector(allocator: std.mem.Allocator, vector: *const veyra.Vector(f64)) LinalgError!array_mod.Array(f64) {
+    return array_mod.Array(f64).fromSlice(allocator, vector.data, &.{vector.len()});
 }
 
 pub fn QrResult(comptime T: type) type {
     return struct {
-        q: tensor_mod.Tensor(T),
-        r: tensor_mod.Tensor(T),
+        q: array_mod.Array(T),
+        r: array_mod.Array(T),
 
         pub fn deinit(self: *@This()) void {
             self.q.deinit();
@@ -55,9 +55,9 @@ pub fn QrResult(comptime T: type) type {
 
 pub fn SvdResult(comptime T: type) type {
     return struct {
-        u: tensor_mod.Tensor(T),
-        s: tensor_mod.Tensor(T),
-        vt: tensor_mod.Tensor(T),
+        u: array_mod.Array(T),
+        s: array_mod.Array(T),
+        vt: array_mod.Array(T),
 
         pub fn deinit(self: *@This()) void {
             self.u.deinit();
@@ -70,8 +70,8 @@ pub fn SvdResult(comptime T: type) type {
 
 pub fn EighResult(comptime T: type) type {
     return struct {
-        values: tensor_mod.Tensor(T),
-        vectors: tensor_mod.Tensor(T),
+        values: array_mod.Array(T),
+        vectors: array_mod.Array(T),
 
         pub fn deinit(self: *@This()) void {
             self.values.deinit();
@@ -83,9 +83,9 @@ pub fn EighResult(comptime T: type) type {
 
 pub fn LuResult(comptime T: type) type {
     return struct {
-        p: tensor_mod.Tensor(T),
-        l: tensor_mod.Tensor(T),
-        u: tensor_mod.Tensor(T),
+        p: array_mod.Array(T),
+        l: array_mod.Array(T),
+        u: array_mod.Array(T),
 
         pub fn deinit(self: *@This()) void {
             self.p.deinit();
@@ -99,7 +99,7 @@ pub fn LuResult(comptime T: type) type {
 fn mapVeyraInverseError(err: anyerror) LinalgError {
     return switch (err) {
         error.Singular => error.SingularMatrix,
-        error.DimensionMismatch => error.NonMatrixTensor,
+        error.DimensionMismatch => error.NonMatrixArray,
         error.OutOfMemory => error.OutOfMemory,
         else => error.BackendFailure,
     };
@@ -130,16 +130,16 @@ fn toVeyraDiagonal(diagonal: Diagonal) veyra.DiagonalKind {
     };
 }
 
-pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) LinalgError!tensor_mod.Tensor(T) {
-    var out = try tensor_mod.Tensor(T).zeros(allocator, &.{ n, n });
+pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) LinalgError!array_mod.Array(T) {
+    var out = try array_mod.Array(T).zeros(allocator, &.{ n, n });
     for (0..n) |i| out.data[i * n + i] = 1;
     return out;
 }
 
-pub fn trace(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!T {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
+pub fn trace(comptime T: type, a: array_mod.Array(T)) LinalgError!T {
+    if (a.shape.len != 2) return error.NonMatrixArray;
     if (T == f64 and a.shape[0] == a.shape[1]) {
-        var matrix = try toVeyraMatrix(@as(tensor_mod.Tensor(f64), a));
+        var matrix = try toVeyraMatrix(@as(array_mod.Array(f64), a));
         defer matrix.deinit();
         return veyra.trace(f64, matrix.asView()) catch return error.BackendFailure;
     }
@@ -149,13 +149,13 @@ pub fn trace(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!T {
     return total;
 }
 
-pub fn matmul(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T)) LinalgError!tensor_mod.Tensor(T) {
-    if (T == f64) return matmulF64(@as(tensor_mod.Tensor(f64), a), @as(tensor_mod.Tensor(f64), b));
+pub fn matmul(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
+    if (T == f64) return matmulF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), b));
     return a.matmul(b);
 }
 
-fn matmulF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64)) LinalgError!tensor_mod.Tensor(f64) {
-    if (a.shape.len != 2 or b.shape.len != 2) return error.NonMatrixTensor;
+fn matmulF64(a: array_mod.Array(f64), b: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
+    if (a.shape.len != 2 or b.shape.len != 2) return error.NonMatrixArray;
     if (a.shape[1] != b.shape[0]) return error.ShapeMismatch;
     var lhs = try toVeyraMatrix(a);
     defer lhs.deinit();
@@ -167,13 +167,13 @@ fn matmulF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64)) LinalgError!t
     return fromVeyraMatrix(a.allocator, &out_matrix);
 }
 
-pub fn matvec(comptime T: type, a: tensor_mod.Tensor(T), x: tensor_mod.Tensor(T)) LinalgError!tensor_mod.Tensor(T) {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
-    if (x.shape.len != 1) return error.NonVectorTensor;
+pub fn matvec(comptime T: type, a: array_mod.Array(T), x: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
+    if (a.shape.len != 2) return error.NonMatrixArray;
+    if (x.shape.len != 1) return error.NonVectorArray;
     if (a.shape[1] != x.shape[0]) return error.ShapeMismatch;
-    if (T == f64) return matvecF64(@as(tensor_mod.Tensor(f64), a), @as(tensor_mod.Tensor(f64), x));
+    if (T == f64) return matvecF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), x));
 
-    const out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{a.shape[0]});
+    const out = try array_mod.Array(T).zeros(a.allocator, &.{a.shape[0]});
     for (0..a.shape[0]) |r| {
         var acc: T = 0;
         for (0..a.shape[1]) |c| acc += a.data[r * a.shape[1] + c] * x.data[c];
@@ -182,7 +182,7 @@ pub fn matvec(comptime T: type, a: tensor_mod.Tensor(T), x: tensor_mod.Tensor(T)
     return out;
 }
 
-fn matvecF64(a: tensor_mod.Tensor(f64), x: tensor_mod.Tensor(f64)) LinalgError!tensor_mod.Tensor(f64) {
+fn matvecF64(a: array_mod.Array(f64), x: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var vector = try toVeyraVector(x);
@@ -193,13 +193,13 @@ fn matvecF64(a: tensor_mod.Tensor(f64), x: tensor_mod.Tensor(f64)) LinalgError!t
     return fromVeyraVector(a.allocator, &out_vector);
 }
 
-pub fn cholesky(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!tensor_mod.Tensor(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("cholesky requires floating-point tensors");
-    if (T == f64) return choleskyF64(@as(tensor_mod.Tensor(f64), a));
+pub fn cholesky(comptime T: type, a: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("cholesky requires floating-point arrays");
+    if (T == f64) return choleskyF64(@as(array_mod.Array(f64), a));
 
     const n = a.shape[0];
-    var out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ n, n });
+    var out = try array_mod.Array(T).zeros(a.allocator, &.{ n, n });
     for (0..n) |i| {
         for (0..i + 1) |j| {
             var sum: T = 0;
@@ -218,12 +218,12 @@ pub fn cholesky(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!tensor_mo
     return out;
 }
 
-fn choleskyF64(a: tensor_mod.Tensor(f64)) LinalgError!tensor_mod.Tensor(f64) {
+fn choleskyF64(a: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var factorization = veyra.cholesky(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
     defer factorization.deinit();
-    var out = try tensor_mod.Tensor(f64).zeros(a.allocator, &.{ a.shape[0], a.shape[1] });
+    var out = try array_mod.Array(f64).zeros(a.allocator, &.{ a.shape[0], a.shape[1] });
     errdefer out.deinit();
     const l = factorization.lView();
     for (0..a.shape[0]) |r| {
@@ -232,14 +232,14 @@ fn choleskyF64(a: tensor_mod.Tensor(f64)) LinalgError!tensor_mod.Tensor(f64) {
     return out;
 }
 
-pub fn qr(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!QrResult(T) {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("qr requires floating-point tensors");
-    if (T == f64) return qrF64(@as(tensor_mod.Tensor(f64), a));
+pub fn qr(comptime T: type, a: array_mod.Array(T)) LinalgError!QrResult(T) {
+    if (a.shape.len != 2) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("qr requires floating-point arrays");
+    if (T == f64) return qrF64(@as(array_mod.Array(f64), a));
     return qrReference(T, a);
 }
 
-fn qrF64(a: tensor_mod.Tensor(f64)) LinalgError!QrResult(f64) {
+fn qrF64(a: array_mod.Array(f64)) LinalgError!QrResult(f64) {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var factorization = veyra.qr(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
@@ -253,7 +253,7 @@ fn qrF64(a: tensor_mod.Tensor(f64)) LinalgError!QrResult(f64) {
 
     var q = try fromVeyraMatrix(a.allocator, &q_out_matrix);
     errdefer q.deinit();
-    var r = try tensor_mod.Tensor(f64).zeros(a.allocator, &.{ a.shape[0], a.shape[1] });
+    var r = try array_mod.Array(f64).zeros(a.allocator, &.{ a.shape[0], a.shape[1] });
     errdefer r.deinit();
     const rv = factorization.rView();
     for (0..a.shape[0]) |row| {
@@ -264,12 +264,12 @@ fn qrF64(a: tensor_mod.Tensor(f64)) LinalgError!QrResult(f64) {
     return .{ .q = q, .r = r };
 }
 
-fn qrReference(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!QrResult(T) {
+fn qrReference(comptime T: type, a: array_mod.Array(T)) LinalgError!QrResult(T) {
     const m = a.shape[0];
     const n = a.shape[1];
-    var q = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ m, m });
+    var q = try array_mod.Array(T).zeros(a.allocator, &.{ m, m });
     errdefer q.deinit();
-    var r = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ m, n });
+    var r = try array_mod.Array(T).zeros(a.allocator, &.{ m, n });
     errdefer r.deinit();
 
     // Classical Gram-Schmidt for the first n columns; complete remaining Q columns from basis vectors.
@@ -294,14 +294,14 @@ fn qrReference(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!QrResult(T
     return .{ .q = q, .r = r };
 }
 
-pub fn svd(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!SvdResult(T) {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("svd requires floating-point tensors");
-    if (T == f64) return svdF64(@as(tensor_mod.Tensor(f64), a), @as(f64, tolerance));
+pub fn svd(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!SvdResult(T) {
+    if (a.shape.len != 2) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("svd requires floating-point arrays");
+    if (T == f64) return svdF64(@as(array_mod.Array(f64), a), @as(f64, tolerance));
     return error.BackendFailure;
 }
 
-fn svdF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!SvdResult(f64) {
+fn svdF64(a: array_mod.Array(f64), tolerance: f64) LinalgError!SvdResult(f64) {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
@@ -315,18 +315,18 @@ fn svdF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!SvdResult(f64) 
     return .{ .u = u, .s = s_values, .vt = vt };
 }
 
-pub fn singularValues(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!tensor_mod.Tensor(T) {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("singularValues requires floating-point tensors");
+pub fn singularValues(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!array_mod.Array(T) {
+    if (a.shape.len != 2) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("singularValues requires floating-point arrays");
     var factors = try svd(T, a, tolerance);
     defer factors.deinit();
     return factors.s.clone();
 }
 
-pub fn matrixRank(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!usize {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("matrixRank requires floating-point tensors");
-    if (T == f64) return matrixRankF64(@as(tensor_mod.Tensor(f64), a), @as(f64, tolerance));
+pub fn matrixRank(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!usize {
+    if (a.shape.len != 2) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("matrixRank requires floating-point arrays");
+    if (T == f64) return matrixRankF64(@as(array_mod.Array(f64), a), @as(f64, tolerance));
     var values = try singularValues(T, a, tolerance);
     defer values.deinit();
     var rank_value: usize = 0;
@@ -336,7 +336,7 @@ pub fn matrixRank(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) Linal
     return rank_value;
 }
 
-fn matrixRankF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!usize {
+fn matrixRankF64(a: array_mod.Array(f64), tolerance: f64) LinalgError!usize {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
@@ -344,10 +344,10 @@ fn matrixRankF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!usize {
     return decomposition.rank(tolerance);
 }
 
-pub fn cond(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!T {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("cond requires floating-point tensors");
-    if (T == f64) return condF64(@as(tensor_mod.Tensor(f64), a), @as(f64, tolerance));
+pub fn cond(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!T {
+    if (a.shape.len != 2) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("cond requires floating-point arrays");
+    if (T == f64) return condF64(@as(array_mod.Array(f64), a), @as(f64, tolerance));
     var values = try singularValues(T, a, tolerance);
     defer values.deinit();
     if (values.data.len == 0) return error.InvalidShape;
@@ -361,7 +361,7 @@ pub fn cond(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError
     return max_sigma / min_resolved;
 }
 
-fn condF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!f64 {
+fn condF64(a: array_mod.Array(f64), tolerance: f64) LinalgError!f64 {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
@@ -369,14 +369,14 @@ fn condF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!f64 {
     return decomposition.conditionNumber(tolerance) catch |err| return mapVeyraError(err);
 }
 
-pub fn pinv(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!tensor_mod.Tensor(T) {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("pinv requires floating-point tensors");
+pub fn pinv(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!array_mod.Array(T) {
+    if (a.shape.len != 2) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("pinv requires floating-point arrays");
     var factors = try svd(T, a, tolerance);
     defer factors.deinit();
 
     const k = factors.s.data.len;
-    var sigma_inv = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ k, k });
+    var sigma_inv = try array_mod.Array(T).zeros(a.allocator, &.{ k, k });
     defer sigma_inv.deinit();
     for (factors.s.data, 0..) |sigma, i| {
         if (sigma > tolerance) sigma_inv.data[i * k + i] = 1 / sigma;
@@ -390,14 +390,14 @@ pub fn pinv(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError
     return matmul(T, left, u_t);
 }
 
-pub fn matrixNorm(comptime T: type, a: tensor_mod.Tensor(T), order: MatrixNormOrder, tolerance: T) LinalgError!T {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("matrixNorm requires floating-point tensors");
-    if (T == f64) return matrixNormF64(@as(tensor_mod.Tensor(f64), a), order, @as(f64, tolerance));
+pub fn matrixNorm(comptime T: type, a: array_mod.Array(T), order: MatrixNormOrder, tolerance: T) LinalgError!T {
+    if (a.shape.len != 2) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("matrixNorm requires floating-point arrays");
+    if (T == f64) return matrixNormF64(@as(array_mod.Array(f64), a), order, @as(f64, tolerance));
     return matrixNormReference(T, a, order, tolerance);
 }
 
-fn matrixNormF64(a: tensor_mod.Tensor(f64), order: MatrixNormOrder, tolerance: f64) LinalgError!f64 {
+fn matrixNormF64(a: array_mod.Array(f64), order: MatrixNormOrder, tolerance: f64) LinalgError!f64 {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     return switch (order) {
@@ -424,7 +424,7 @@ fn matrixNormF64(a: tensor_mod.Tensor(f64), order: MatrixNormOrder, tolerance: f
     };
 }
 
-fn matrixNormReference(comptime T: type, a: tensor_mod.Tensor(T), order: MatrixNormOrder, tolerance: T) LinalgError!T {
+fn matrixNormReference(comptime T: type, a: array_mod.Array(T), order: MatrixNormOrder, tolerance: T) LinalgError!T {
     return switch (order) {
         .fro => blk: {
             var total: T = 0;
@@ -467,14 +467,14 @@ fn matrixNormReference(comptime T: type, a: tensor_mod.Tensor(T), order: MatrixN
     };
 }
 
-pub fn eigh(comptime T: type, a: tensor_mod.Tensor(T), max_sweeps: usize, tolerance: T) LinalgError!EighResult(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("eigh requires floating-point tensors");
-    if (T == f64) return eighF64(@as(tensor_mod.Tensor(f64), a), max_sweeps, @as(f64, tolerance));
+pub fn eigh(comptime T: type, a: array_mod.Array(T), max_sweeps: usize, tolerance: T) LinalgError!EighResult(T) {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("eigh requires floating-point arrays");
+    if (T == f64) return eighF64(@as(array_mod.Array(f64), a), max_sweeps, @as(f64, tolerance));
     return error.BackendFailure;
 }
 
-fn eighF64(a: tensor_mod.Tensor(f64), max_sweeps: usize, tolerance: f64) LinalgError!EighResult(f64) {
+fn eighF64(a: array_mod.Array(f64), max_sweeps: usize, tolerance: f64) LinalgError!EighResult(f64) {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var eig = veyra.symmetricEigenJacobi(f64, a.allocator, matrix.asView(), max_sweeps, tolerance) catch |err| return mapVeyraError(err);
@@ -486,19 +486,19 @@ fn eighF64(a: tensor_mod.Tensor(f64), max_sweeps: usize, tolerance: f64) LinalgE
     return .{ .values = values, .vectors = vectors };
 }
 
-pub fn eigvalsh(comptime T: type, a: tensor_mod.Tensor(T), max_sweeps: usize, tolerance: T) LinalgError!tensor_mod.Tensor(T) {
+pub fn eigvalsh(comptime T: type, a: array_mod.Array(T), max_sweeps: usize, tolerance: T) LinalgError!array_mod.Array(T) {
     var result = try eigh(T, a, max_sweeps, tolerance);
     defer result.deinit();
     return result.values.clone();
 }
 
-pub fn lstsq(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T), tolerance: T) LinalgError!tensor_mod.Tensor(T) {
-    if (a.shape.len != 2) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("lstsq requires floating-point tensors");
-    if (T == f64) return lstsqF64(@as(tensor_mod.Tensor(f64), a), @as(tensor_mod.Tensor(f64), b), @as(f64, tolerance));
+pub fn lstsq(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T), tolerance: T) LinalgError!array_mod.Array(T) {
+    if (a.shape.len != 2) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("lstsq requires floating-point arrays");
+    if (T == f64) return lstsqF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), b), @as(f64, tolerance));
 
     // Basic fallback for vector RHS using QR. Matrix RHS can be added when needed.
-    if (b.shape.len != 1) return error.NonVectorTensor;
+    if (b.shape.len != 1) return error.NonVectorArray;
     var factors = try qr(T, a);
     defer factors.deinit();
     var qt = try factors.q.transpose();
@@ -506,7 +506,7 @@ pub fn lstsq(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T),
     var y_full = try matvec(T, qt, b);
     defer y_full.deinit();
     const n = a.shape[1];
-    var x = try tensor_mod.Tensor(T).zeros(a.allocator, &.{n});
+    var x = try array_mod.Array(T).zeros(a.allocator, &.{n});
     var i = n;
     while (i > 0) {
         i -= 1;
@@ -519,7 +519,7 @@ pub fn lstsq(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T),
     return x;
 }
 
-fn lstsqF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!tensor_mod.Tensor(f64) {
+fn lstsqF64(a: array_mod.Array(f64), b: array_mod.Array(f64), tolerance: f64) LinalgError!array_mod.Array(f64) {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
@@ -547,24 +547,24 @@ fn lstsqF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64), tolerance: f64
     return error.InvalidShape;
 }
 
-pub fn lu(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!LuResult(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("lu requires floating-point tensors");
-    if (T == f64) return luF64(@as(tensor_mod.Tensor(f64), a));
+pub fn lu(comptime T: type, a: array_mod.Array(T)) LinalgError!LuResult(T) {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("lu requires floating-point arrays");
+    if (T == f64) return luF64(@as(array_mod.Array(f64), a));
     return luReference(T, a);
 }
 
-fn luF64(a: tensor_mod.Tensor(f64)) LinalgError!LuResult(f64) {
+fn luF64(a: array_mod.Array(f64)) LinalgError!LuResult(f64) {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var factorization = veyra.lu(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
     defer factorization.deinit();
     const n = a.shape[0];
-    var p = try tensor_mod.Tensor(f64).zeros(a.allocator, &.{ n, n });
+    var p = try array_mod.Array(f64).zeros(a.allocator, &.{ n, n });
     errdefer p.deinit();
-    var l = try tensor_mod.Tensor(f64).zeros(a.allocator, &.{ n, n });
+    var l = try array_mod.Array(f64).zeros(a.allocator, &.{ n, n });
     errdefer l.deinit();
-    var u = try tensor_mod.Tensor(f64).zeros(a.allocator, &.{ n, n });
+    var u = try array_mod.Array(f64).zeros(a.allocator, &.{ n, n });
     errdefer u.deinit();
     const perm = factorization.permutationView();
     const factors = factorization.factors.asView();
@@ -578,11 +578,11 @@ fn luF64(a: tensor_mod.Tensor(f64)) LinalgError!LuResult(f64) {
     return .{ .p = p, .l = l, .u = u };
 }
 
-fn luReference(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!LuResult(T) {
+fn luReference(comptime T: type, a: array_mod.Array(T)) LinalgError!LuResult(T) {
     const n = a.shape[0];
-    var p = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ n, n });
+    var p = try array_mod.Array(T).zeros(a.allocator, &.{ n, n });
     errdefer p.deinit();
-    var l = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ n, n });
+    var l = try array_mod.Array(T).zeros(a.allocator, &.{ n, n });
     errdefer l.deinit();
     var u = try a.clone();
     errdefer u.deinit();
@@ -617,16 +617,16 @@ fn luReference(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!LuResult(T
     return .{ .p = p, .l = l, .u = u };
 }
 
-pub fn solveTriangular(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T), triangle: Triangle, diagonal: Diagonal) LinalgError!tensor_mod.Tensor(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
+pub fn solveTriangular(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T), triangle: Triangle, diagonal: Diagonal) LinalgError!array_mod.Array(T) {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
     if (b.shape.len != 1 and b.shape.len != 2) return error.InvalidShape;
     if (b.shape[0] != a.shape[0]) return error.ShapeMismatch;
-    if (@typeInfo(T) != .float) @compileError("solveTriangular requires floating-point tensors");
-    if (T == f64) return solveTriangularF64(@as(tensor_mod.Tensor(f64), a), @as(tensor_mod.Tensor(f64), b), triangle, diagonal);
+    if (@typeInfo(T) != .float) @compileError("solveTriangular requires floating-point arrays");
+    if (T == f64) return solveTriangularF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), b), triangle, diagonal);
     return solveTriangularReference(T, a, b, triangle, diagonal);
 }
 
-fn solveTriangularF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64), triangle: Triangle, diagonal: Diagonal) LinalgError!tensor_mod.Tensor(f64) {
+fn solveTriangularF64(a: array_mod.Array(f64), b: array_mod.Array(f64), triangle: Triangle, diagonal: Diagonal) LinalgError!array_mod.Array(f64) {
     var triangular = try toVeyraMatrix(a);
     defer triangular.deinit();
     const options: veyra.dense.TriangularSolveOptions = .{ .triangle = toVeyraTriangle(triangle), .diagonal = toVeyraDiagonal(diagonal) };
@@ -648,13 +648,13 @@ fn solveTriangularF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64), tria
     return fromVeyraMatrix(a.allocator, &dst);
 }
 
-fn solveTriangularReference(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T), triangle: Triangle, diagonal: Diagonal) LinalgError!tensor_mod.Tensor(T) {
+fn solveTriangularReference(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T), triangle: Triangle, diagonal: Diagonal) LinalgError!array_mod.Array(T) {
     if (b.shape.len == 1) {
-        const out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{a.shape[0]});
+        const out = try array_mod.Array(T).zeros(a.allocator, &.{a.shape[0]});
         try solveTriangularVectorReference(T, a, b.data, out.data, triangle, diagonal);
         return out;
     }
-    var out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ a.shape[0], b.shape[1] });
+    var out = try array_mod.Array(T).zeros(a.allocator, &.{ a.shape[0], b.shape[1] });
     for (0..b.shape[1]) |col| {
         var rhs_col = try a.allocator.alloc(T, a.shape[0]);
         defer a.allocator.free(rhs_col);
@@ -667,7 +667,7 @@ fn solveTriangularReference(comptime T: type, a: tensor_mod.Tensor(T), b: tensor
     return out;
 }
 
-fn solveTriangularVectorReference(comptime T: type, a: tensor_mod.Tensor(T), rhs: []const T, out: []T, triangle: Triangle, diagonal: Diagonal) LinalgError!void {
+fn solveTriangularVectorReference(comptime T: type, a: array_mod.Array(T), rhs: []const T, out: []T, triangle: Triangle, diagonal: Diagonal) LinalgError!void {
     const n = a.shape[0];
     switch (triangle) {
         .lower => {
@@ -699,10 +699,10 @@ fn solveTriangularVectorReference(comptime T: type, a: tensor_mod.Tensor(T), rhs
     }
 }
 
-pub fn det(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!T {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("det currently requires floating-point tensors");
-    if (T == f64) return detF64(@as(tensor_mod.Tensor(f64), a));
+pub fn det(comptime T: type, a: array_mod.Array(T)) LinalgError!T {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("det currently requires floating-point arrays");
+    if (T == f64) return detF64(@as(array_mod.Array(f64), a));
     const n = a.shape[0];
     var m = try a.allocator.dupe(T, a.data);
     defer a.allocator.free(m);
@@ -733,7 +733,7 @@ pub fn det(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!T {
     return result * sign;
 }
 
-fn detF64(a: tensor_mod.Tensor(f64)) LinalgError!f64 {
+fn detF64(a: array_mod.Array(f64)) LinalgError!f64 {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var factorization = veyra.lu(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
@@ -741,10 +741,10 @@ fn detF64(a: tensor_mod.Tensor(f64)) LinalgError!f64 {
     return factorization.determinant() catch |err| return mapVeyraError(err);
 }
 
-pub fn inverse(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!tensor_mod.Tensor(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
-    if (@typeInfo(T) != .float) @compileError("inverse currently requires floating-point tensors");
-    if (T == f64) return inverseF64(@as(tensor_mod.Tensor(f64), a));
+pub fn inverse(comptime T: type, a: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
+    if (@typeInfo(T) != .float) @compileError("inverse currently requires floating-point arrays");
+    if (T == f64) return inverseF64(@as(array_mod.Array(f64), a));
 
     const n = a.shape[0];
     var aug = try a.allocator.alloc(T, n * n * 2);
@@ -777,7 +777,7 @@ pub fn inverse(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!tensor_mod
             for (0..2 * n) |c| aug[r * (2 * n) + c] -= factor * aug[i * (2 * n) + c];
         }
     }
-    var out = try tensor_mod.Tensor(T).empty(a.allocator, &.{ n, n });
+    var out = try array_mod.Array(T).empty(a.allocator, &.{ n, n });
     for (0..n) |r| {
         for (0..n) |c| {
             out.data[r * n + c] = aug[r * (2 * n) + n + c];
@@ -786,7 +786,7 @@ pub fn inverse(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!tensor_mod
     return out;
 }
 
-fn inverseF64(a: tensor_mod.Tensor(f64)) LinalgError!tensor_mod.Tensor(f64) {
+fn inverseF64(a: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
     var matrix = try toVeyraMatrix(a);
     defer matrix.deinit();
     var inv = veyra.inverse(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraInverseError(err);
@@ -794,15 +794,15 @@ fn inverseF64(a: tensor_mod.Tensor(f64)) LinalgError!tensor_mod.Tensor(f64) {
     return fromVeyraMatrix(a.allocator, &inv);
 }
 
-pub fn solve(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T)) LinalgError!tensor_mod.Tensor(T) {
-    if (T == f64) return solveF64(@as(tensor_mod.Tensor(f64), a), @as(tensor_mod.Tensor(f64), b));
+pub fn solve(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
+    if (T == f64) return solveF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), b));
     var inv = try inverse(T, a);
     defer inv.deinit();
     return matmul(T, inv, b);
 }
 
-fn solveF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64)) LinalgError!tensor_mod.Tensor(f64) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
+fn solveF64(a: array_mod.Array(f64), b: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
     if (b.shape.len != 1 and b.shape.len != 2) return error.InvalidShape;
     if (b.shape[0] != a.shape[0]) return error.ShapeMismatch;
     var matrix = try toVeyraMatrix(a);
@@ -829,7 +829,7 @@ fn solveF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64)) LinalgError!te
 
 test "linalg inverse det solve" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
+    var a = try array_mod.array(f64, gpa, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
     defer a.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 10), try det(f64, a), 1e-12);
     var inv = try inverse(f64, a);
@@ -843,9 +843,9 @@ test "linalg inverse det solve" {
 
 test "linalg f64 matmul uses Veyra-compatible path" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try array_mod.array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var b = try tensor_mod.tensor(f64, gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
+    var b = try array_mod.array(f64, gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
     defer b.deinit();
     var out = try matmul(f64, a, b);
     defer out.deinit();
@@ -856,15 +856,15 @@ test "linalg f64 matmul uses Veyra-compatible path" {
 
 test "linalg matvec and cholesky use Veyra-compatible paths" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try array_mod.array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var x = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    var x = try array_mod.array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
     defer x.deinit();
     var y = try matvec(f64, a, x);
     defer y.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 14, 32 }, y.data);
 
-    var spd = try tensor_mod.tensor(f64, gpa, &.{ 25, 15, -5, 15, 18, 0, -5, 0, 11 }, &.{ 3, 3 });
+    var spd = try array_mod.array(f64, gpa, &.{ 25, 15, -5, 15, 18, 0, -5, 0, 11 }, &.{ 3, 3 });
     defer spd.deinit();
     var l = try cholesky(f64, spd);
     defer l.deinit();
@@ -880,7 +880,7 @@ test "linalg matvec and cholesky use Veyra-compatible paths" {
 
 test "linalg qr reconstructs matrix" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    var a = try array_mod.array(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
     defer a.deinit();
     var factors = try qr(f64, a);
     defer factors.deinit();
@@ -893,7 +893,7 @@ test "linalg qr reconstructs matrix" {
 
 test "linalg svd reconstructs matrix" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    var a = try array_mod.array(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
     defer a.deinit();
     var factors = try svd(f64, a, 1e-12);
     defer factors.deinit();
@@ -901,7 +901,7 @@ test "linalg svd reconstructs matrix" {
     try std.testing.expectEqualSlices(usize, &.{2}, factors.s.shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, factors.vt.shape);
 
-    var sigma = try tensor_mod.Tensor(f64).zeros(gpa, &.{ 2, 2 });
+    var sigma = try array_mod.Array(f64).zeros(gpa, &.{ 2, 2 });
     defer sigma.deinit();
     sigma.data[0] = factors.s.data[0];
     sigma.data[3] = factors.s.data[1];
@@ -914,16 +914,16 @@ test "linalg svd reconstructs matrix" {
 
 test "linalg lstsq solves vector and matrix rhs" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    var a = try array_mod.array(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
     defer a.deinit();
-    var b = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, 2 }, &.{3});
+    var b = try array_mod.array(f64, gpa, &.{ 1, 2, 2 }, &.{3});
     defer b.deinit();
     var x = try lstsq(f64, a, b, 1e-12);
     defer x.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), x.data[0], 1e-10);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), x.data[1], 1e-10);
 
-    var bm = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, 2, 1, 2, 0 }, &.{ 3, 2 });
+    var bm = try array_mod.array(f64, gpa, &.{ 1, 2, 2, 1, 2, 0 }, &.{ 3, 2 });
     defer bm.deinit();
     var xm = try lstsq(f64, a, bm, 1e-12);
     defer xm.deinit();
@@ -936,7 +936,7 @@ test "linalg lstsq solves vector and matrix rhs" {
 
 test "linalg singular values rank condition and pinv" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 3, 0, 0, 2 }, &.{ 2, 2 });
+    var a = try array_mod.array(f64, gpa, &.{ 3, 0, 0, 2 }, &.{ 2, 2 });
     defer a.deinit();
 
     var values = try singularValues(f64, a, 1e-12);
@@ -955,7 +955,7 @@ test "linalg singular values rank condition and pinv" {
     try std.testing.expectApproxEqAbs(@as(f64, 0), p.data[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), p.data[3], 1e-12);
 
-    var rect = try tensor_mod.tensor(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    var rect = try array_mod.array(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
     defer rect.deinit();
     var rect_p = try pinv(f64, rect, 1e-12);
     defer rect_p.deinit();
@@ -969,7 +969,7 @@ test "linalg singular values rank condition and pinv" {
 
 test "linalg matrix norms use Veyra-compatible paths" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, -2, 3, -4, 5, -6 }, &.{ 2, 3 });
+    var a = try array_mod.array(f64, gpa, &.{ 1, -2, 3, -4, 5, -6 }, &.{ 2, 3 });
     defer a.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(91.0)), try matrixNorm(f64, a, .fro, 1e-12), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 9), try matrixNorm(f64, a, .one, 1e-12), 1e-12);
@@ -978,7 +978,7 @@ test "linalg matrix norms use Veyra-compatible paths" {
 
 test "linalg symmetric eigen decomposition" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
+    var a = try array_mod.array(f64, gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
     defer a.deinit();
     var result = try eigh(f64, a, 64, 1e-12);
     defer result.deinit();
@@ -987,7 +987,7 @@ test "linalg symmetric eigen decomposition" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), result.values.data[0], 1e-10);
     try std.testing.expectApproxEqAbs(@as(f64, 3), result.values.data[1], 1e-10);
 
-    var diag = try tensor_mod.Tensor(f64).zeros(gpa, &.{ 2, 2 });
+    var diag = try array_mod.Array(f64).zeros(gpa, &.{ 2, 2 });
     defer diag.deinit();
     diag.data[0] = result.values.data[0];
     diag.data[3] = result.values.data[1];
@@ -1007,7 +1007,7 @@ test "linalg symmetric eigen decomposition" {
 
 test "linalg lu reconstructs and det uses Veyra path" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 0, 2, 1, 2, 1, 1, 1, 1, 0 }, &.{ 3, 3 });
+    var a = try array_mod.array(f64, gpa, &.{ 0, 2, 1, 2, 1, 1, 1, 1, 0 }, &.{ 3, 3 });
     defer a.deinit();
     var factors = try lu(f64, a);
     defer factors.deinit();
@@ -1021,16 +1021,16 @@ test "linalg lu reconstructs and det uses Veyra path" {
 
 test "linalg solve uses LU for vector and matrix rhs" {
     const gpa = std.testing.allocator;
-    var a = try tensor_mod.tensor(f64, gpa, &.{ 3, 1, 1, 2 }, &.{ 2, 2 });
+    var a = try array_mod.array(f64, gpa, &.{ 3, 1, 1, 2 }, &.{ 2, 2 });
     defer a.deinit();
-    var b = try tensor_mod.tensor(f64, gpa, &.{ 9, 8 }, &.{2});
+    var b = try array_mod.array(f64, gpa, &.{ 9, 8 }, &.{2});
     defer b.deinit();
     var x = try solve(f64, a, b);
     defer x.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2), x.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), x.data[1], 1e-12);
 
-    var bm = try tensor_mod.tensor(f64, gpa, &.{ 9, 4, 8, 5 }, &.{ 2, 2 });
+    var bm = try array_mod.array(f64, gpa, &.{ 9, 4, 8, 5 }, &.{ 2, 2 });
     defer bm.deinit();
     var xm = try solve(f64, a, bm);
     defer xm.deinit();
@@ -1042,9 +1042,9 @@ test "linalg solve uses LU for vector and matrix rhs" {
 
 test "linalg solveTriangular handles vector and matrix rhs" {
     const gpa = std.testing.allocator;
-    var lower = try tensor_mod.tensor(f64, gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
+    var lower = try array_mod.array(f64, gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
     defer lower.deinit();
-    var rhs = try tensor_mod.tensor(f64, gpa, &.{ 2, 2, 25 }, &.{3});
+    var rhs = try array_mod.array(f64, gpa, &.{ 2, 2, 25 }, &.{3});
     defer rhs.deinit();
     var x = try solveTriangular(f64, lower, rhs, .lower, .non_unit);
     defer x.deinit();
@@ -1055,7 +1055,7 @@ test "linalg solveTriangular handles vector and matrix rhs" {
     defer check.deinit();
     try std.testing.expect(try check.allclose(rhs, 1e-12, 1e-12));
 
-    var rhs_matrix = try tensor_mod.tensor(f64, gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
+    var rhs_matrix = try array_mod.array(f64, gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
     defer rhs_matrix.deinit();
     var xm = try solveTriangular(f64, lower, rhs_matrix, .lower, .non_unit);
     defer xm.deinit();
@@ -1064,9 +1064,9 @@ test "linalg solveTriangular handles vector and matrix rhs" {
     defer check_m.deinit();
     try std.testing.expect(try check_m.allclose(rhs_matrix, 1e-12, 1e-12));
 
-    var unit_upper = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, -1, 0, 1, 3, 0, 0, 1 }, &.{ 3, 3 });
+    var unit_upper = try array_mod.array(f64, gpa, &.{ 1, 2, -1, 0, 1, 3, 0, 0, 1 }, &.{ 3, 3 });
     defer unit_upper.deinit();
-    var rhs_upper = try tensor_mod.tensor(f64, gpa, &.{ 5, 7, 2 }, &.{3});
+    var rhs_upper = try array_mod.array(f64, gpa, &.{ 5, 7, 2 }, &.{3});
     defer rhs_upper.deinit();
     var xu = try solveTriangular(f64, unit_upper, rhs_upper, .upper, .unit);
     defer xu.deinit();
