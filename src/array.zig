@@ -1429,6 +1429,128 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
+        pub fn materializedApply(self: Self, comptime U: type, comptime method: fn (Array(T)) ArrayError!Array(U)) ArrayError!Array(U) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return method(owned);
+        }
+
+        pub fn softmax(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.softmax(axis_index);
+        }
+
+        pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logSoftmax(axis_index);
+        }
+
+        pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.norm(p, axis_opt, keepdims);
+        }
+
+        pub fn sort(self: Self, axis_opt: ?isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sort(axis_opt);
+        }
+
+        pub fn sortBy(self: Self, axis_opt: ?isize, descending: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sortBy(axis_opt, descending);
+        }
+
+        pub fn sortDescending(self: Self, axis_opt: ?isize) ArrayError!Array(T) {
+            return self.sortBy(axis_opt, true);
+        }
+
+        pub fn argsort(self: Self) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.argsort();
+        }
+
+        pub fn argsortAxis(self: Self, axis_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.argsortAxis(axis_opt, descending);
+        }
+
+        pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) ArrayError!Array(T).TopK {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.topk(k, axis_opt, largest, sorted);
+        }
+
+        pub fn matmul(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.matmul(rhs);
+        }
+
+        pub fn matmulArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.matmul(other);
+        }
+
+        pub fn dot(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.dot(rhs);
+        }
+
+        pub fn outer(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.outer(rhs);
+        }
+
+        pub fn trace(self: Self) ArrayError!T {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.trace();
+        }
+
+        pub fn real(self: Self) ArrayError!Array(complexRealType(T)) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.real();
+        }
+
+        pub fn imag(self: Self) ArrayError!Array(complexRealType(T)) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.imag();
+        }
+
+        pub fn conjugate(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.conjugate();
+        }
+
+        pub fn conj(self: Self) ArrayError!Array(T) {
+            return self.conjugate();
+        }
+
+        pub fn magnitude(self: Self) ArrayError!Array(complexRealType(T)) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.magnitude();
+        }
+
         pub fn reshape(self: Self, dims: []const usize) ArrayError!Self {
             if (!self.isContiguous()) return error.InvalidShape;
             const n = try numelFrom(dims);
@@ -7397,6 +7519,68 @@ test "array non contiguous view helpers" {
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
+}
+
+test "array view object math sort and linalg wrappers" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 3, 1, 2, 6, 4, 5 }, &.{ 2, 3 });
+    defer a.deinit();
+    var view = try a.transposeView();
+    defer view.deinit();
+
+    var sorted = try view.sort(1);
+    defer sorted.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, sorted.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 6, 1, 4, 2, 5 }, sorted.data);
+
+    var args = try view.argsortAxis(0, false);
+    defer args.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, args.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 2, 2, 0, 0 }, args.data);
+
+    var top = try view.topk(1, 0, true, true);
+    defer top.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, top.values.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 6 }, top.values.data);
+
+    var soft = try view.softmax(0);
+    defer soft.deinit();
+    var soft_sums = try soft.sum(0, false);
+    defer soft_sums.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), soft_sums.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), soft_sums.data[1], 1e-12);
+
+    var normed = try view.norm(2, 0, false);
+    defer normed.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 14)), normed.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 77)), normed.data[1], 1e-12);
+
+    var rhs = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer rhs.deinit();
+    var matmul_out = try view.matmulArray(rhs);
+    defer matmul_out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, matmul_out.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 27, 36, 45, 17, 22, 27, 22, 29, 36 }, matmul_out.data);
+
+    const trace_value = try view.trace();
+    try std.testing.expectEqual(@as(f64, 7), trace_value);
+
+    const C = Complex64;
+    var complex_values = try Array(C).fromSlice(gpa, &.{ C.init(1, 2), C.init(3, -4), C.init(-1, 1), C.init(2, 0) }, &.{ 2, 2 });
+    defer complex_values.deinit();
+    var complex_view = try complex_values.transposeView();
+    defer complex_view.deinit();
+    var real_part = try complex_view.real();
+    defer real_part.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ 1, -1, 3, 2 }, real_part.data);
+    var conj_part = try complex_view.conj();
+    defer conj_part.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, -2), conj_part.data[0].im, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 4), conj_part.data[2].im, 1e-6);
+    var magnitudes = try complex_view.magnitude();
+    defer magnitudes.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, @sqrt(5.0)), magnitudes.data[0], 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 5), magnitudes.data[2], 1e-6);
 }
 
 test "array object unfold sliding-window views" {
