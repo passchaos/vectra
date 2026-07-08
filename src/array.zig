@@ -4,6 +4,64 @@ const alea = @import("alea");
 pub const Complex64 = std.math.Complex(f32);
 pub const Complex128 = std.math.Complex(f64);
 
+pub const BFloat16 = struct {
+    bits: u16,
+
+    pub fn fromF32(value: f32) BFloat16 {
+        const raw: u32 = @bitCast(value);
+        const rounding_bias = @as(u32, 0x7fff) + ((raw >> 16) & 1);
+        return .{ .bits = @intCast((raw +% rounding_bias) >> 16) };
+    }
+
+    pub fn fromF64(value: f64) BFloat16 {
+        return BFloat16.fromF32(@floatCast(value));
+    }
+
+    pub fn toF32(self: BFloat16) f32 {
+        return @bitCast(@as(u32, self.bits) << 16);
+    }
+
+    pub fn toF64(self: BFloat16) f64 {
+        return @floatCast(self.toF32());
+    }
+
+    pub fn add(self: BFloat16, other: BFloat16) BFloat16 {
+        return BFloat16.fromF32(self.toF32() + other.toF32());
+    }
+
+    pub fn sub(self: BFloat16, other: BFloat16) BFloat16 {
+        return BFloat16.fromF32(self.toF32() - other.toF32());
+    }
+
+    pub fn mul(self: BFloat16, other: BFloat16) BFloat16 {
+        return BFloat16.fromF32(self.toF32() * other.toF32());
+    }
+
+    pub fn div(self: BFloat16, other: BFloat16) BFloat16 {
+        return BFloat16.fromF32(self.toF32() / other.toF32());
+    }
+
+    pub fn neg(self: BFloat16) BFloat16 {
+        return .{ .bits = self.bits ^ 0x8000 };
+    }
+
+    pub fn abs(self: BFloat16) BFloat16 {
+        return .{ .bits = self.bits & 0x7fff };
+    }
+
+    pub fn eql(self: BFloat16, other: BFloat16) bool {
+        return self.toF32() == other.toF32();
+    }
+
+    pub fn lt(self: BFloat16, other: BFloat16) bool {
+        return self.toF32() < other.toF32();
+    }
+
+    pub fn lte(self: BFloat16, other: BFloat16) bool {
+        return self.toF32() <= other.toF32();
+    }
+};
+
 pub const Backend = enum {
     cpu,
     cuda,
@@ -43,12 +101,14 @@ pub const DType = enum {
     u64,
     usize,
     bool,
+    bf16,
     f16,
     c64,
     c128,
 
     pub fn of(comptime T: type) DType {
         return switch (T) {
+            BFloat16 => .bf16,
             f16 => .f16,
             f32 => .f32,
             f64 => .f64,
@@ -70,6 +130,7 @@ pub const DType = enum {
 
     pub fn name(self: DType) []const u8 {
         return switch (self) {
+            .bf16 => "bf16",
             .f16 => "f16",
             .f32 => "f32",
             .f64 => "f64",
@@ -91,7 +152,7 @@ pub const DType = enum {
     pub fn byteSize(self: DType) usize {
         return switch (self) {
             .bool, .i8, .u8 => 1,
-            .f16, .i16, .u16 => 2,
+            .bf16, .f16, .i16, .u16 => 2,
             .f32, .i32, .u32 => 4,
             .f64, .i64, .u64 => 8,
             .usize => @sizeOf(usize),
@@ -102,7 +163,7 @@ pub const DType = enum {
 
     pub fn isFloat(self: DType) bool {
         return switch (self) {
-            .f16, .f32, .f64 => true,
+            .bf16, .f16, .f32, .f64 => true,
             else => false,
         };
     }
@@ -145,7 +206,7 @@ pub const DType = enum {
 
     fn floatRank(self: DType) usize {
         return switch (self) {
-            .f16 => 1,
+            .bf16, .f16 => 1,
             .f32 => 2,
             .f64 => 3,
             else => 0,
@@ -208,6 +269,7 @@ pub const DType = enum {
 
     pub fn Type(self: DType) type {
         return switch (self) {
+            .bf16 => BFloat16,
             .f16 => f16,
             .f32 => f32,
             .f64 => f64,
@@ -232,6 +294,7 @@ pub const DType = enum {
 
     pub fn fromTag(tag_value: u8) ?DType {
         return switch (tag_value) {
+            @intFromEnum(DType.bf16) => .bf16,
             @intFromEnum(DType.f16) => .f16,
             @intFromEnum(DType.f32) => .f32,
             @intFromEnum(DType.f64) => .f64,
@@ -335,6 +398,7 @@ pub fn stridesFor(allocator: std.mem.Allocator, dims: []const usize) ArrayError!
 }
 
 fn isFloat(comptime T: type) bool {
+    if (comptime T == BFloat16) return true;
     return @typeInfo(T) == .float;
 }
 
@@ -343,6 +407,7 @@ fn isComplex(comptime T: type) bool {
 }
 
 fn isNumeric(comptime T: type) bool {
+    if (comptime T == BFloat16) return true;
     if (comptime isComplex(T)) return true;
     return switch (@typeInfo(T)) {
         .int, .float, .comptime_int, .comptime_float => true,
@@ -376,6 +441,7 @@ fn ensureOrderable(comptime T: type) void {
 }
 
 fn lessValue(comptime T: type, a: T, b: T) bool {
+    if (comptime T == BFloat16) return a.lt(b);
     return switch (@typeInfo(T)) {
         .bool => !a and b,
         .int, .float, .comptime_int, .comptime_float => a < b,
@@ -385,21 +451,34 @@ fn lessValue(comptime T: type, a: T, b: T) bool {
 
 fn castValue(comptime T: type, value: anytype) T {
     const V = @TypeOf(value);
+    if (comptime T == BFloat16) {
+        if (comptime V == BFloat16) return value;
+        if (comptime isComplex(V)) @compileError("cannot cast " ++ @typeName(V) ++ " to BFloat16");
+        return switch (@typeInfo(V)) {
+            .float, .comptime_float => BFloat16.fromF32(@floatCast(value)),
+            .int, .comptime_int => BFloat16.fromF32(@floatFromInt(value)),
+            .bool => BFloat16.fromF32(if (value) 1 else 0),
+            else => @compileError("cannot cast " ++ @typeName(V) ++ " to BFloat16"),
+        };
+    }
     if (comptime isComplex(T)) {
         const Real = @TypeOf(@as(T, undefined).re);
         if (comptime isComplex(V)) return T.init(castValue(Real, value.re), castValue(Real, value.im));
+        if (comptime V == BFloat16) return T.init(castValue(Real, value.toF32()), 0);
         return T.init(castValue(Real, value), 0);
     }
     return switch (@typeInfo(T)) {
         .float => switch (@typeInfo(V)) {
             .float, .comptime_float => @floatCast(value),
             .int, .comptime_int => @floatFromInt(value),
+            .@"struct" => if (comptime V == BFloat16) @floatCast(value.toF32()) else @compileError("cannot cast " ++ @typeName(V) ++ " to " ++ @typeName(T)),
             .bool => if (value) 1 else 0,
             else => @compileError("cannot cast " ++ @typeName(V) ++ " to " ++ @typeName(T)),
         },
         .int => switch (@typeInfo(V)) {
             .int, .comptime_int => @intCast(value),
             .float, .comptime_float => @intFromFloat(value),
+            .@"struct" => if (comptime V == BFloat16) @intFromFloat(value.toF32()) else @compileError("cannot cast " ++ @typeName(V) ++ " to " ++ @typeName(T)),
             .bool => if (value) 1 else 0,
             else => @compileError("cannot cast " ++ @typeName(V) ++ " to " ++ @typeName(T)),
         },
@@ -428,6 +507,7 @@ fn one(comptime T: type) T {
 }
 
 fn addValue(comptime T: type, a: T, b: T) T {
+    if (comptime T == BFloat16) return a.add(b);
     if (comptime isComplex(T)) return a.add(b);
     return switch (@typeInfo(T)) {
         .bool => a or b,
@@ -436,11 +516,13 @@ fn addValue(comptime T: type, a: T, b: T) T {
 }
 
 fn subValue(comptime T: type, a: T, b: T) T {
+    if (comptime T == BFloat16) return a.sub(b);
     if (comptime isComplex(T)) return a.sub(b);
     return a - b;
 }
 
 fn mulValue(comptime T: type, a: T, b: T) T {
+    if (comptime T == BFloat16) return a.mul(b);
     if (comptime isComplex(T)) return a.mul(b);
     return switch (@typeInfo(T)) {
         .bool => a and b,
@@ -449,16 +531,19 @@ fn mulValue(comptime T: type, a: T, b: T) T {
 }
 
 fn divValue(comptime T: type, a: T, b: T) T {
+    if (comptime T == BFloat16) return a.div(b);
     if (comptime isComplex(T)) return a.div(b);
     return a / b;
 }
 
 fn negValue(comptime T: type, a: T) T {
+    if (comptime T == BFloat16) return a.neg();
     if (comptime isComplex(T)) return a.neg();
     return -a;
 }
 
 fn absValue(comptime T: type, value: T) T {
+    if (comptime T == BFloat16) return value.abs();
     if (comptime isComplex(T)) return T.init(value.magnitude(), 0);
     return switch (@typeInfo(T)) {
         .int => if (@typeInfo(T).int.signedness == .signed and value < 0) -value else value,
@@ -9199,6 +9284,7 @@ test "array slice flip roll and constant padding" {
 }
 
 test "array dtype metadata and casts cover common numeric types" {
+    try std.testing.expectEqual(DType.bf16, DType.of(BFloat16));
     try std.testing.expectEqual(DType.f16, DType.of(f16));
     try std.testing.expectEqual(DType.c64, DType.of(Complex64));
     try std.testing.expectEqual(DType.c128, DType.of(Complex128));
@@ -9209,6 +9295,8 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(DType.u64, DType.of(u64));
     try std.testing.expectEqualStrings("u64", DType.u64.name());
     try std.testing.expectEqual(@as(usize, 8), DType.u64.byteSize());
+    try std.testing.expectEqualStrings("bf16", DType.bf16.name());
+    try std.testing.expectEqual(@as(usize, 2), DType.bf16.byteSize());
     try std.testing.expectEqualStrings("f16", DType.f16.name());
     try std.testing.expectEqual(@as(usize, 2), DType.f16.byteSize());
     try std.testing.expectEqualStrings("complex64", DType.c64.name());
@@ -9221,8 +9309,10 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expect(DType.bool.canCast(.f32));
     try std.testing.expect(DType.f32.canCast(.c64));
     try std.testing.expect(!DType.c64.canCast(.f32));
+    try std.testing.expect(canCastDType(.bf16, .f32));
     try std.testing.expect(canCastDType(.f16, .f64));
     try std.testing.expectEqual(DType.f64, DType.promote(.f32, .f64));
+    try std.testing.expectEqual(DType.f32, DType.promote(.bf16, .f32));
     try std.testing.expectEqual(DType.f32, promoteDType(.f16, .f32));
     try std.testing.expectEqual(DType.i32, resultDType(.i16, .u16));
     try std.testing.expectEqual(DType.u64, DType.promote(.u32, .u64));
@@ -9245,7 +9335,14 @@ test "array dtype metadata and casts cover common numeric types" {
     var half_to_float = try halves.astype(f32);
     defer half_to_float.deinit();
     try std.testing.expectEqualSlices(f32, &.{ 1.5, -2.0 }, half_to_float.data);
+    var brain_halves = try Array(BFloat16).fromSlice(gpa, &.{ BFloat16.fromF32(1.5), BFloat16.fromF32(-2.0) }, &.{2});
+    defer brain_halves.deinit();
+    var brain_to_float = try brain_halves.astype(f32);
+    defer brain_to_float.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1.5), brain_to_float.data[0], 1e-3);
+    try std.testing.expectApproxEqAbs(@as(f32, -2.0), brain_to_float.data[1], 1e-3);
     try std.testing.expectEqual(f32, promoteType(f16, f32));
+    try std.testing.expectEqual(f32, promoteType(BFloat16, f32));
     try std.testing.expectEqual(i32, promoteType(i16, u16));
     var small_signed = try Array(i16).fromSlice(gpa, &.{ -1, 2, 3 }, &.{3});
     defer small_signed.deinit();
@@ -9262,10 +9359,48 @@ test "array dtype metadata and casts cover common numeric types" {
     defer promoted_half.deinit();
     try std.testing.expectEqual(DType.f32, @TypeOf(promoted_half).dtype);
     try std.testing.expectEqualSlices(f32, &.{ 2.25, 4.0 }, promoted_half.data);
+    var promoted_brain = try brain_halves.addPromote(f32, brain_to_float);
+    defer promoted_brain.deinit();
+    try std.testing.expectEqual(DType.f32, @TypeOf(promoted_brain).dtype);
+    try std.testing.expectApproxEqAbs(@as(f32, 3.0), promoted_brain.data[0], 1e-3);
+    try std.testing.expectApproxEqAbs(@as(f32, -4.0), promoted_brain.data[1], 1e-3);
 
     var r = try Array(u16).randint(gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
     for (r.data) |v| try std.testing.expect(v >= 10 and v < 20);
+}
+
+test "array bfloat16 arithmetic and reductions" {
+    const gpa = std.testing.allocator;
+    var a = try Array(BFloat16).fromSlice(gpa, &.{
+        BFloat16.fromF32(1.25),
+        BFloat16.fromF32(2.5),
+        BFloat16.fromF32(-3.0),
+    }, &.{3});
+    defer a.deinit();
+
+    var b = try a.addScalar(BFloat16.fromF32(1.0));
+    defer b.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 2.25), b.data[0].toF32(), 1e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, 3.5), b.data[1].toF32(), 1e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, -2.0), b.data[2].toF32(), 1e-2);
+
+    var product_out = try a.mul(a);
+    defer product_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1.5625), product_out.data[0].toF32(), 2e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, 6.25), product_out.data[1].toF32(), 2e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, 9.0), product_out.data[2].toF32(), 2e-2);
+
+    var summed = try a.sum(null, false);
+    defer summed.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 0.75), summed.data[0].toF32(), 1e-2);
+
+    var negated = try a.neg();
+    defer negated.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, -1.25), negated.data[0].toF32(), 1e-2);
+    var abs_out = try a.abs();
+    defer abs_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 3.0), abs_out.data[2].toF32(), 1e-2);
 }
 
 test "array complex dtype and arithmetic" {

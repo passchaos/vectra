@@ -19,6 +19,7 @@ pub const Array = array_mod.Array;
 pub const NDArray = array_mod.NDArray;
 pub const ArrayView = array_mod.ArrayView;
 pub const NDArrayView = array_mod.NDArrayView;
+pub const BFloat16 = array_mod.BFloat16;
 pub const Complex64 = array_mod.Complex64;
 pub const Complex128 = array_mod.Complex128;
 pub const Device = array_mod.Device;
