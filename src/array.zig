@@ -3817,6 +3817,19 @@ pub fn Array(comptime T: type) type {
             return if (normalized < extent) normalized else (2 * extent - 2) - normalized;
         }
 
+        fn wrapPadCoord(out_coord: usize, before: usize, extent: usize) usize {
+            const pos: isize = @as(isize, @intCast(out_coord)) - @as(isize, @intCast(before));
+            return @intCast(@mod(pos, @as(isize, @intCast(extent))));
+        }
+
+        fn symmetricPadCoord(out_coord: usize, before: usize, extent: usize) usize {
+            const period: isize = @intCast(2 * extent);
+            var pos: isize = @as(isize, @intCast(out_coord)) - @as(isize, @intCast(before));
+            pos = @mod(pos, period);
+            const normalized: usize = @intCast(pos);
+            return if (normalized < extent) normalized else (2 * extent - 1) - normalized;
+        }
+
         pub fn padEdge(self: Self, before: []const usize, after: []const usize) ArrayError!Self {
             if (before.len != self.shape.len or after.len != self.shape.len) return error.ShapeMismatch;
             if (self.data.len == 0) return error.EmptyArray;
@@ -3861,6 +3874,52 @@ pub fn Array(comptime T: type) type {
                 unravelIndexInto(flat, out_shape, out_multi);
                 for (out_multi, before, self.shape, 0..) |coord, before_i, dim, axis| {
                     in_multi[axis] = if (dim == 1) 0 else reflectPadCoord(coord, before_i, dim);
+                }
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn padWrap(self: Self, before: []const usize, after: []const usize) ArrayError!Self {
+            if (before.len != self.shape.len or after.len != self.shape.len) return error.ShapeMismatch;
+            if (self.data.len == 0) return error.EmptyArray;
+            var out_shape = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_shape);
+            for (self.shape, before, after, 0..) |dim, before_i, after_i, axis| out_shape[axis] = dim + before_i + after_i;
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                for (out_multi, before, self.shape, 0..) |coord, before_i, dim, axis| {
+                    in_multi[axis] = wrapPadCoord(coord, before_i, dim);
+                }
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) ArrayError!Self {
+            if (before.len != self.shape.len or after.len != self.shape.len) return error.ShapeMismatch;
+            if (self.data.len == 0) return error.EmptyArray;
+            var out_shape = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_shape);
+            for (self.shape, before, after, 0..) |dim, before_i, after_i, axis| out_shape[axis] = dim + before_i + after_i;
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                for (out_multi, before, self.shape, 0..) |coord, before_i, dim, axis| {
+                    in_multi[axis] = symmetricPadCoord(coord, before_i, dim);
                 }
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
@@ -10564,6 +10623,12 @@ test "array slice flip roll and constant padding" {
     var reflect_vec = try v.padReflect(&.{2}, &.{1});
     defer reflect_vec.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 2, 1, 2, 3, 4, 5, 4 }, reflect_vec.data);
+    var wrap_vec = try v.padWrap(&.{2}, &.{1});
+    defer wrap_vec.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 1, 2, 3, 4, 5, 1 }, wrap_vec.data);
+    var symmetric_vec = try v.padSymmetric(&.{2}, &.{1});
+    defer symmetric_vec.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 1, 1, 2, 3, 4, 5, 5 }, symmetric_vec.data);
 
     var m = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer m.deinit();
@@ -10585,6 +10650,22 @@ test "array slice flip roll and constant padding" {
         2, 1, 2,
         4, 3, 4,
     }, reflect_matrix.data);
+    var wrap_matrix = try m.padWrap(&.{ 1, 1 }, &.{ 0, 1 });
+    defer wrap_matrix.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 4 }, wrap_matrix.shape);
+    try std.testing.expectEqualSlices(f64, &.{
+        4, 3, 4, 3,
+        2, 1, 2, 1,
+        4, 3, 4, 3,
+    }, wrap_matrix.data);
+    var symmetric_matrix = try m.padSymmetric(&.{ 1, 1 }, &.{ 0, 0 });
+    defer symmetric_matrix.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, symmetric_matrix.shape);
+    try std.testing.expectEqualSlices(f64, &.{
+        1, 1, 2,
+        1, 1, 2,
+        3, 3, 4,
+    }, symmetric_matrix.data);
 
     try std.testing.expectError(error.InvalidShape, v.padReflect(&.{5}, &.{0}));
     var empty = try Array(f64).empty(gpa, &.{0});
