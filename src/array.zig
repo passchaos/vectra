@@ -2821,16 +2821,46 @@ pub fn ArrayView(comptime T: type) type {
             return owned.median(axis_opt, keepdims);
         }
 
+        pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.medianAxes(axes, keepdims);
+        }
+
+        pub fn median_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.medianAxes(axes, keepdims);
+        }
+
         pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.quantile(q, axis_opt, keepdims);
         }
 
+        pub fn quantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.quantileAxes(q, axes, keepdims);
+        }
+
+        pub fn quantile_axes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.quantileAxes(q, axes, keepdims);
+        }
+
         pub fn percentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.percentile(p, axis_opt, keepdims);
+        }
+
+        pub fn percentileAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.percentileAxes(p, axes, keepdims);
+        }
+
+        pub fn percentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.percentileAxes(p, axes, keepdims);
         }
 
         pub fn average(self: Self, weights: ?Array(T), axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -9820,10 +9850,13 @@ pub fn Array(comptime T: type) type {
             var reduce_mask = try self.allocator.alloc(bool, self.shape.len);
             defer self.allocator.free(reduce_mask);
             @memset(reduce_mask, false);
+            const reduce_shape = try self.allocator.alloc(usize, normalized_axes.len);
+            defer self.allocator.free(reduce_shape);
             var reduce_count: usize = 1;
-            for (normalized_axes) |axis| {
+            for (normalized_axes, 0..) |axis, i| {
                 reduce_mask[axis] = true;
                 if (self.shape[axis] == 0) return error.EmptyArray;
+                reduce_shape[i] = self.shape[axis];
                 reduce_count = std.math.mul(usize, reduce_count, self.shape[axis]) catch return error.InvalidShape;
             }
 
@@ -10439,6 +10472,99 @@ pub fn Array(comptime T: type) type {
         pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.quantile(castValue(T, 0.5), axis_opt, keepdims);
+        }
+
+        pub fn quantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            if (q < zero(T) or q > one(T)) return error.InvalidShape;
+            if (axes.len == 0) return self.clone();
+            const normalized_axes = try normalizeUniqueAxes(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var reduce_mask = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(reduce_mask);
+            @memset(reduce_mask, false);
+            const reduce_shape = try self.allocator.alloc(usize, normalized_axes.len);
+            defer self.allocator.free(reduce_shape);
+            var reduce_count: usize = 1;
+            for (normalized_axes, 0..) |axis, i| {
+                reduce_mask[axis] = true;
+                if (self.shape[axis] == 0) return error.EmptyArray;
+                reduce_shape[i] = self.shape[axis];
+                reduce_count = std.math.mul(usize, reduce_count, self.shape[axis]) catch return error.InvalidShape;
+            }
+
+            const out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - normalized_axes.len);
+            defer self.allocator.free(out_shape);
+            if (keepdims) {
+                @memcpy(out_shape, self.shape);
+                for (normalized_axes) |axis| out_shape[axis] = 1;
+            } else {
+                var write: usize = 0;
+                for (self.shape, 0..) |extent, axis| {
+                    if (reduce_mask[axis]) continue;
+                    out_shape[write] = extent;
+                    write += 1;
+                }
+            }
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            const reduce_multi = try self.allocator.alloc(usize, normalized_axes.len);
+            defer self.allocator.free(reduce_multi);
+            const scratch = try self.allocator.alloc(T, reduce_count);
+            defer self.allocator.free(scratch);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                var read: usize = 0;
+                for (0..self.shape.len) |axis| {
+                    if (reduce_mask[axis]) {
+                        in_multi[axis] = 0;
+                    } else if (keepdims) {
+                        in_multi[axis] = out_multi[axis];
+                    } else {
+                        in_multi[axis] = out_multi[read];
+                        read += 1;
+                    }
+                }
+                for (0..reduce_count) |reduce_flat| {
+                    unravelIndexInto(reduce_flat, reduce_shape, reduce_multi);
+                    for (normalized_axes, 0..) |axis, i| in_multi[axis] = reduce_multi[i] % self.shape[axis];
+                    scratch[reduce_flat] = self.data[ravelIndex(in_multi, self.strides)];
+                }
+                std.sort.insertion(T, scratch, {}, struct {
+                    fn lessThan(_: void, a: T, b: T) bool {
+                        return lessValue(T, a, b);
+                    }
+                }.lessThan);
+                slot.* = quantileFromSorted(scratch, q);
+            }
+            return out;
+        }
+
+        pub fn quantile_axes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.quantileAxes(q, axes, keepdims);
+        }
+
+        pub fn percentileAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.quantileAxes(p / castValue(T, 100), axes, keepdims);
+        }
+
+        pub fn percentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.percentileAxes(p, axes, keepdims);
+        }
+
+        pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.quantileAxes(castValue(T, 0.5), axes, keepdims);
+        }
+
+        pub fn median_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.medianAxes(axes, keepdims);
         }
 
         fn checkedBroadcastWeights(self: Self, weights: Self) ArrayError!Self {
@@ -13439,6 +13565,18 @@ test "array scipy-like statistics and softmax" {
     var mean_axes = try cube.meanAxes(&.{ 0, 2 }, false);
     defer mean_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3.5, 5.5 }, mean_axes.data);
+    var median_axes = try cube.medianAxes(&.{ 0, 2 }, false);
+    defer median_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3.5, 5.5 }, median_axes.data);
+    var quantile_axes = try cube.quantile_axes(0.25, &.{ 0, 2 }, false);
+    defer quantile_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1.75, 3.75 }, quantile_axes.data);
+    var percentile_axes = try cube.percentileAxes(75, &.{ 0, 2 }, true);
+    defer percentile_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, percentile_axes.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 5.25, 7.25 }, percentile_axes.data);
+    try std.testing.expectError(error.InvalidAxis, cube.medianAxes(&.{ 0, 0 }, false));
+
     var var_axes = try cube.varianceAxes(&.{ 0, 2 }, false, 0);
     defer var_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4.25, 4.25 }, var_axes.data);
@@ -14521,6 +14659,9 @@ test "array view object statistics wrappers" {
     var view_nanvar_axes = try view.nanvarAxes(&.{ 0, 1 }, false, 0);
     defer view_nanvar_axes.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 3.44), view_nanvar_axes.data[0], 1e-12);
+    var view_median_axes = try view.medianAxes(&.{ 0, 1 }, false);
+    defer view_median_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{4.5}, view_median_axes.data);
     var amin0 = try view.amin(0, false);
     defer amin0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4 }, amin0.data);
