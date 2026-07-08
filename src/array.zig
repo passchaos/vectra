@@ -1,6 +1,9 @@
 const std = @import("std");
 const alea = @import("alea");
 
+pub const Complex64 = std.math.Complex(f32);
+pub const Complex128 = std.math.Complex(f64);
+
 pub const Backend = enum {
     cpu,
     cuda,
@@ -41,12 +44,16 @@ pub const DType = enum {
     usize,
     bool,
     f16,
+    c64,
+    c128,
 
     pub fn of(comptime T: type) DType {
         return switch (T) {
             f16 => .f16,
             f32 => .f32,
             f64 => .f64,
+            Complex64 => .c64,
+            Complex128 => .c128,
             i8 => .i8,
             i16 => .i16,
             i32 => .i32,
@@ -76,6 +83,8 @@ pub const DType = enum {
             .u64 => "u64",
             .usize => "usize",
             .bool => "bool",
+            .c64 => "complex64",
+            .c128 => "complex128",
         };
     }
 
@@ -86,6 +95,8 @@ pub const DType = enum {
             .f32, .i32, .u32 => 4,
             .f64, .i64, .u64 => 8,
             .usize => @sizeOf(usize),
+            .c64 => 8,
+            .c128 => 16,
         };
     }
 
@@ -114,12 +125,18 @@ pub const DType = enum {
         return self == .bool;
     }
 
+    pub fn isComplex(self: DType) bool {
+        return self == .c64 or self == .c128;
+    }
+
     pub fn bitSize(self: DType) usize {
         return self.byteSize() * 8;
     }
 
     pub fn canCast(self: DType, target: DType) bool {
         if (self == target) return true;
+        if (self.isComplex()) return target.isComplex();
+        if (target.isComplex()) return self.isBool() or self.isInteger() or self.isFloat();
         if (self.isBool() and target.isBool()) return true;
         if (self.isBool()) return target.isInteger() or target.isFloat();
         if (target.isBool()) return self.isInteger() or self.isFloat();
@@ -146,8 +163,20 @@ pub const DType = enum {
         };
     }
 
+    fn complexRank(self: DType) usize {
+        return switch (self) {
+            .c64 => 1,
+            .c128 => 2,
+            else => 0,
+        };
+    }
+
     pub fn promote(a: DType, b: DType) DType {
         if (a == b) return a;
+        if (a.isComplex() or b.isComplex()) {
+            if (a.complexRank() >= 2 or b.complexRank() >= 2 or a == .f64 or b == .f64) return .c128;
+            return .c64;
+        }
         if (a.isBool()) return b;
         if (b.isBool()) return a;
         if (a.isFloat() or b.isFloat()) {
@@ -192,6 +221,8 @@ pub const DType = enum {
             .u64 => u64,
             .usize => usize,
             .bool => bool,
+            .c64 => Complex64,
+            .c128 => Complex128,
         };
     }
 
@@ -214,6 +245,8 @@ pub const DType = enum {
             @intFromEnum(DType.u64) => .u64,
             @intFromEnum(DType.usize) => .usize,
             @intFromEnum(DType.bool) => .bool,
+            @intFromEnum(DType.c64) => .c64,
+            @intFromEnum(DType.c128) => .c128,
             else => null,
         };
     }
@@ -305,7 +338,12 @@ fn isFloat(comptime T: type) bool {
     return @typeInfo(T) == .float;
 }
 
+fn isComplex(comptime T: type) bool {
+    return T == Complex64 or T == Complex128;
+}
+
 fn isNumeric(comptime T: type) bool {
+    if (comptime isComplex(T)) return true;
     return switch (@typeInfo(T)) {
         .int, .float, .comptime_int, .comptime_float => true,
         else => false,
@@ -318,6 +356,16 @@ fn ensureNumeric(comptime T: type) void {
 
 fn ensureFloat(comptime T: type) void {
     if (comptime !isFloat(T)) @compileError("operation requires a floating-point array, got " ++ @typeName(T));
+}
+
+fn ensureComplex(comptime T: type) void {
+    if (comptime !isComplex(T)) @compileError("operation requires a complex array, got " ++ @typeName(T));
+}
+
+fn complexRealType(comptime T: type) type {
+    if (comptime T == Complex64) return f32;
+    if (comptime T == Complex128) return f64;
+    @compileError("operation requires a complex array, got " ++ @typeName(T));
 }
 
 fn ensureOrderable(comptime T: type) void {
@@ -337,6 +385,11 @@ fn lessValue(comptime T: type, a: T, b: T) bool {
 
 fn castValue(comptime T: type, value: anytype) T {
     const V = @TypeOf(value);
+    if (comptime isComplex(T)) {
+        const Real = @TypeOf(@as(T, undefined).re);
+        if (comptime isComplex(V)) return T.init(castValue(Real, value.re), castValue(Real, value.im));
+        return T.init(castValue(Real, value), 0);
+    }
     return switch (@typeInfo(T)) {
         .float => switch (@typeInfo(V)) {
             .float, .comptime_float => @floatCast(value),
@@ -375,20 +428,38 @@ fn one(comptime T: type) T {
 }
 
 fn addValue(comptime T: type, a: T, b: T) T {
+    if (comptime isComplex(T)) return a.add(b);
     return switch (@typeInfo(T)) {
         .bool => a or b,
         else => a + b,
     };
 }
 
+fn subValue(comptime T: type, a: T, b: T) T {
+    if (comptime isComplex(T)) return a.sub(b);
+    return a - b;
+}
+
 fn mulValue(comptime T: type, a: T, b: T) T {
+    if (comptime isComplex(T)) return a.mul(b);
     return switch (@typeInfo(T)) {
         .bool => a and b,
         else => a * b,
     };
 }
 
+fn divValue(comptime T: type, a: T, b: T) T {
+    if (comptime isComplex(T)) return a.div(b);
+    return a / b;
+}
+
+fn negValue(comptime T: type, a: T) T {
+    if (comptime isComplex(T)) return a.neg();
+    return -a;
+}
+
 fn absValue(comptime T: type, value: T) T {
+    if (comptime isComplex(T)) return T.init(value.magnitude(), 0);
     return switch (@typeInfo(T)) {
         .int => if (@typeInfo(T).int.signedness == .signed and value < 0) -value else value,
         .float => @abs(value),
@@ -755,7 +826,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn opSub(a: T, b: T) T {
-            return a - b;
+            return subValue(T, a, b);
         }
 
         fn opMul(a: T, b: T) T {
@@ -763,11 +834,11 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn opDiv(a: T, b: T) T {
-            return a / b;
+            return divValue(T, a, b);
         }
 
         fn opNeg(a: T) T {
-            return -a;
+            return negValue(T, a);
         }
 
         fn opAbs(a: T) T {
@@ -1860,6 +1931,50 @@ pub fn Array(comptime T: type) type {
                 slot.* = castValue(U, v);
             }
             return out;
+        }
+
+        pub fn real(self: Self) ArrayError!Array(complexRealType(T)) {
+            ensureComplex(T);
+            const Real = complexRealType(T);
+            var out = try Array(Real).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (self.data, out.data) |value, *slot| slot.* = value.re;
+            return out;
+        }
+
+        pub fn imag(self: Self) ArrayError!Array(complexRealType(T)) {
+            ensureComplex(T);
+            const Real = complexRealType(T);
+            var out = try Array(Real).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (self.data, out.data) |value, *slot| slot.* = value.im;
+            return out;
+        }
+
+        pub fn conjugate(self: Self) ArrayError!Self {
+            ensureComplex(T);
+            return self.unary(struct {
+                fn f(value: T) T {
+                    return value.conjugate();
+                }
+            }.f);
+        }
+
+        pub fn conj(self: Self) ArrayError!Self {
+            return self.conjugate();
+        }
+
+        pub fn magnitude(self: Self) ArrayError!Array(complexRealType(T)) {
+            ensureComplex(T);
+            const Real = complexRealType(T);
+            var out = try Array(Real).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (self.data, out.data) |value, *slot| slot.* = value.magnitude();
+            return out;
+        }
+
+        pub fn absComplex(self: Self) ArrayError!Array(complexRealType(T)) {
+            return self.magnitude();
         }
 
         pub fn to(self: Self, device: Device) ArrayError!Self {
@@ -3149,15 +3264,16 @@ pub fn Array(comptime T: type) type {
             return addValue(T, a, b);
         }
         fn opSub(a: T, b: T) T {
-            return a - b;
+            return subValue(T, a, b);
         }
         fn opMul(a: T, b: T) T {
             return mulValue(T, a, b);
         }
         fn opDiv(a: T, b: T) T {
-            return a / b;
+            return divValue(T, a, b);
         }
         fn opPow(a: T, b: T) T {
+            if (comptime isComplex(T)) return std.math.complex.pow(a, b);
             return std.math.pow(T, a, b);
         }
         fn opFloorDiv(a: T, b: T) T {
@@ -3182,7 +3298,7 @@ pub fn Array(comptime T: type) type {
             return if (a < zero(T)) zero(T) else if (a > zero(T)) one(T) else b;
         }
         fn opNeg(a: T) T {
-            return -a;
+            return negValue(T, a);
         }
         fn opAbs(a: T) T {
             return absValue(T, a);
@@ -3270,7 +3386,7 @@ pub fn Array(comptime T: type) type {
             return mulValue(T, a, a);
         }
         fn opReciprocal(a: T) T {
-            return one(T) / a;
+            return divValue(T, one(T), a);
         }
         fn opSign(a: T) T {
             return switch (@typeInfo(T)) {
@@ -5887,14 +6003,14 @@ pub fn Array(comptime T: type) type {
             const rows = self.shape[0];
             const cols = self.shape[1];
             const start_row: usize = if (offset < 0) blk: {
-                const magnitude: usize = @intCast(-offset);
-                if (magnitude >= rows) return Self.empty(self.allocator, &.{0});
-                break :blk magnitude;
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= rows) return Self.empty(self.allocator, &.{0});
+                break :blk offset_abs;
             } else 0;
             const start_col: usize = if (offset > 0) blk: {
-                const magnitude: usize = @intCast(offset);
-                if (magnitude >= cols) return Self.empty(self.allocator, &.{0});
-                break :blk magnitude;
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= cols) return Self.empty(self.allocator, &.{0});
+                break :blk offset_abs;
             } else 0;
             const count = @min(rows - start_row, cols - start_col);
             const out = try Self.empty(self.allocator, &.{count});
@@ -5914,13 +6030,13 @@ pub fn Array(comptime T: type) type {
             var flat = try self.flatten();
             defer flat.deinit();
             const n = flat.data.len;
-            const magnitude: usize = if (offset < 0) @intCast(-offset) else @intCast(offset);
-            const matrix_size = n + magnitude;
+            const offset_abs: usize = if (offset < 0) @intCast(-offset) else @intCast(offset);
+            const matrix_size = n + offset_abs;
             const out = try Self.zeros(self.allocator, &.{ matrix_size, matrix_size });
             const cols = matrix_size;
             for (flat.data, 0..) |value, i| {
-                const row = if (offset < 0) i + magnitude else i;
-                const col = if (offset > 0) i + magnitude else i;
+                const row = if (offset < 0) i + offset_abs else i;
+                const col = if (offset > 0) i + offset_abs else i;
                 out.data[row * cols + col] = value;
             }
             return out;
@@ -8278,6 +8394,8 @@ test "array slice flip roll and constant padding" {
 
 test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(DType.f16, DType.of(f16));
+    try std.testing.expectEqual(DType.c64, DType.of(Complex64));
+    try std.testing.expectEqual(DType.c128, DType.of(Complex128));
     try std.testing.expectEqual(DType.i8, DType.of(i8));
     try std.testing.expectEqual(DType.i16, DType.of(i16));
     try std.testing.expectEqual(DType.u16, DType.of(u16));
@@ -8287,16 +8405,23 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(@as(usize, 8), DType.u64.byteSize());
     try std.testing.expectEqualStrings("f16", DType.f16.name());
     try std.testing.expectEqual(@as(usize, 2), DType.f16.byteSize());
+    try std.testing.expectEqualStrings("complex64", DType.c64.name());
+    try std.testing.expectEqual(@as(usize, 8), DType.c64.byteSize());
+    try std.testing.expect(DType.c128.isComplex());
     try std.testing.expect(DType.f32.isFloat());
     try std.testing.expect(DType.i16.isInteger());
     try std.testing.expect(DType.i16.isSigned());
     try std.testing.expect(DType.bool.isBool());
     try std.testing.expect(DType.bool.canCast(.f32));
+    try std.testing.expect(DType.f32.canCast(.c64));
+    try std.testing.expect(!DType.c64.canCast(.f32));
     try std.testing.expect(canCastDType(.f16, .f64));
     try std.testing.expectEqual(DType.f64, DType.promote(.f32, .f64));
     try std.testing.expectEqual(DType.f32, promoteDType(.f16, .f32));
     try std.testing.expectEqual(DType.i32, resultDType(.i16, .u16));
     try std.testing.expectEqual(DType.u64, DType.promote(.u32, .u64));
+    try std.testing.expectEqual(DType.c64, DType.promote(.f32, .c64));
+    try std.testing.expectEqual(DType.c128, DType.promote(.f64, .c64));
 
     const gpa = std.testing.allocator;
     var ints = try Array(i16).fromSlice(gpa, &.{ -1, 0, 2 }, &.{3});
@@ -8335,6 +8460,72 @@ test "array dtype metadata and casts cover common numeric types" {
     var r = try Array(u16).randint(gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
     for (r.data) |v| try std.testing.expect(v >= 10 and v < 20);
+}
+
+test "array complex dtype and arithmetic" {
+    const gpa = std.testing.allocator;
+    const C = Complex64;
+    var a = try Array(C).fromSlice(gpa, &.{
+        C.init(1, 2),
+        C.init(3, -1),
+    }, &.{2});
+    defer a.deinit();
+    var b = try Array(C).fromSlice(gpa, &.{
+        C.init(2, 1),
+        C.init(-1, 4),
+    }, &.{2});
+    defer b.deinit();
+
+    var sum_out = try a.add(b);
+    defer sum_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 3), sum_out.data[0].re, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 3), sum_out.data[0].im, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 2), sum_out.data[1].re, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 3), sum_out.data[1].im, 1e-6);
+
+    var product_out = try a.mul(b);
+    defer product_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 0), product_out.data[0].re, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 5), product_out.data[0].im, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), product_out.data[1].re, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 13), product_out.data[1].im, 1e-6);
+
+    var conjugated = try a.conj();
+    defer conjugated.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, -2), conjugated.data[0].im, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), conjugated.data[1].im, 1e-6);
+
+    var real_part = try a.real();
+    defer real_part.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ 1, 3 }, real_part.data);
+    var imag_part = try a.imag();
+    defer imag_part.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ 2, -1 }, imag_part.data);
+    var mag = try a.magnitude();
+    defer mag.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, @sqrt(5.0)), mag.data[0], 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, @sqrt(10.0)), mag.data[1], 1e-6);
+
+    var as128 = try a.astype(Complex128);
+    defer as128.deinit();
+    try std.testing.expectEqual(DType.c128, @TypeOf(as128).dtype);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), as128.data[0].re, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), as128.data[0].im, 1e-12);
+
+    var real_values = try Array(f32).fromSlice(gpa, &.{ 5, 6 }, &.{2});
+    defer real_values.deinit();
+    var promoted = try real_values.addPromote(Complex64, a);
+    defer promoted.deinit();
+    try std.testing.expectEqual(DType.c64, @TypeOf(promoted).dtype);
+    try std.testing.expectApproxEqAbs(@as(f32, 6), promoted.data[0].re, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 2), promoted.data[0].im, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 9), promoted.data[1].re, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, -1), promoted.data[1].im, 1e-6);
+
+    var scalar_added = try a.addScalar(C.init(1, -1));
+    defer scalar_added.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 2), scalar_added.data[0].re, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), scalar_added.data[0].im, 1e-6);
 }
 
 test "array bytes and archive serialization roundtrip" {
