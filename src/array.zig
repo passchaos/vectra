@@ -2098,6 +2098,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.compress(condition, axis_opt);
         }
 
+        pub fn where(self: Self, mask: Array(bool), other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.where(mask, rhs);
+        }
+
+        pub fn whereArray(self: Self, mask: Array(bool), other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.where(mask, other);
+        }
+
+        pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.whereScalar(mask, other_value);
+        }
+
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -4823,7 +4843,28 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn copyWhere(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
-            return Self.whereMask(mask, src, self);
+            return src.where(mask, self);
+        }
+
+        pub fn where(self: Self, mask: Array(bool), other: Self) ArrayError!Self {
+            return whereMask(mask, self, other);
+        }
+
+        pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Self {
+            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const mi = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                const si = broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
+                slot.* = if (mask.data[mi]) self.data[si] else other_value;
+            }
+            return out;
         }
 
         pub fn putFlat(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
@@ -6182,12 +6223,13 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn whereMask(mask: Array(bool), a: Self, b: Self) ArrayError!Self {
+        fn whereMask(mask: Array(bool), a: Self, b: Self) ArrayError!Self {
             const tmp_shape = try broadcastShape(a.allocator, a.shape, b.shape);
             defer a.allocator.free(tmp_shape);
             const out_shape = try broadcastShape(a.allocator, tmp_shape, mask.shape);
             defer a.allocator.free(out_shape);
-            const out = try Self.empty(a.allocator, out_shape);
+            var out = try Self.empty(a.allocator, out_shape);
+            errdefer out.deinit();
 
             const out_multi = try a.allocator.alloc(usize, out_shape.len);
             defer a.allocator.free(out_multi);
@@ -10491,6 +10533,32 @@ test "array advanced indexing mutation helpers" {
     var copied_where = try a.copyWhere(mask, copy_src);
     defer copied_where.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 42, 0, 42, 0, 42, 6 }, copied_where.data);
+    var where_other = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30 }, &.{ 1, 3 });
+    defer where_other.deinit();
+    var where_out = try a.where(mask, where_other);
+    defer where_out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, where_out.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 20, 3, 10, 5, 30 }, where_out.data);
+    var where_scalar = try a.whereScalar(mask, -1);
+    defer where_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, -1, 3, -1, 5, -1 }, where_scalar.data);
+    var row_view = try a.selectView(0, 0);
+    defer row_view.deinit();
+    var view_where = try row_view.whereArray(mask, copy_src);
+    defer view_where.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_where.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 42, 3, 42, 0, 42 }, view_where.data);
+    var view_where_scalar = try row_view.whereScalar(mask, -2);
+    defer view_where_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, -2, 3, -2, 0, -2 }, view_where_scalar.data);
+    var other_view = try where_other.broadcastView(&.{ 2, 3 });
+    defer other_view.deinit();
+    var view_where_view = try row_view.where(mask, other_view);
+    defer view_where_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 20, 3, 10, 0, 30 }, view_where_view.data);
+    var bad_where_other = try Array(f64).zeros(gpa, &.{2});
+    defer bad_where_other.deinit();
+    try std.testing.expectError(error.ShapeMismatch, a.where(mask, bad_where_other));
 
     var put_idx = try Array(usize).fromSlice(gpa, &.{ 1, 4 }, &.{2});
     defer put_idx.deinit();
