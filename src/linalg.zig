@@ -12,6 +12,16 @@ pub const MatrixNormOrder = enum {
     nuclear,
 };
 
+pub const Triangle = enum {
+    lower,
+    upper,
+};
+
+pub const Diagonal = enum {
+    non_unit,
+    unit,
+};
+
 fn toVeyraMatrix(a: tensor_mod.Tensor(f64)) LinalgError!veyra.Matrix(f64) {
     if (a.shape.len != 2) return error.NonMatrixTensor;
     return veyra.Matrix(f64).fromSlice(a.allocator, a.shape[0], a.shape[1], .row_major, a.data) catch return error.BackendFailure;
@@ -106,6 +116,20 @@ fn mapVeyraError(err: anyerror) LinalgError {
     };
 }
 
+fn toVeyraTriangle(triangle: Triangle) veyra.Triangle {
+    return switch (triangle) {
+        .lower => .lower,
+        .upper => .upper,
+    };
+}
+
+fn toVeyraDiagonal(diagonal: Diagonal) veyra.DiagonalKind {
+    return switch (diagonal) {
+        .non_unit => .non_unit,
+        .unit => .unit,
+    };
+}
+
 pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) LinalgError!tensor_mod.Tensor(T) {
     var out = try tensor_mod.Tensor(T).zeros(allocator, &.{ n, n });
     for (0..n) |i| out.data[i * n + i] = 1;
@@ -149,7 +173,7 @@ pub fn matvec(comptime T: type, a: tensor_mod.Tensor(T), x: tensor_mod.Tensor(T)
     if (a.shape[1] != x.shape[0]) return error.ShapeMismatch;
     if (T == f64) return matvecF64(@as(tensor_mod.Tensor(f64), a), @as(tensor_mod.Tensor(f64), x));
 
-    var out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{a.shape[0]});
+    const out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{a.shape[0]});
     for (0..a.shape[0]) |r| {
         var acc: T = 0;
         for (0..a.shape[1]) |c| acc += a.data[r * a.shape[1] + c] * x.data[c];
@@ -593,6 +617,88 @@ fn luReference(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!LuResult(T
     return .{ .p = p, .l = l, .u = u };
 }
 
+pub fn solveTriangular(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T), triangle: Triangle, diagonal: Diagonal) LinalgError!tensor_mod.Tensor(T) {
+    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
+    if (b.shape.len != 1 and b.shape.len != 2) return error.InvalidShape;
+    if (b.shape[0] != a.shape[0]) return error.ShapeMismatch;
+    if (@typeInfo(T) != .float) @compileError("solveTriangular requires floating-point tensors");
+    if (T == f64) return solveTriangularF64(@as(tensor_mod.Tensor(f64), a), @as(tensor_mod.Tensor(f64), b), triangle, diagonal);
+    return solveTriangularReference(T, a, b, triangle, diagonal);
+}
+
+fn solveTriangularF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64), triangle: Triangle, diagonal: Diagonal) LinalgError!tensor_mod.Tensor(f64) {
+    var triangular = try toVeyraMatrix(a);
+    defer triangular.deinit();
+    const options: veyra.dense.TriangularSolveOptions = .{ .triangle = toVeyraTriangle(triangle), .diagonal = toVeyraDiagonal(diagonal) };
+
+    if (b.shape.len == 1) {
+        var rhs = try toVeyraVector(b);
+        defer rhs.deinit();
+        var dst = veyra.Vector(f64).zeros(a.allocator, a.shape[0]) catch return error.BackendFailure;
+        defer dst.deinit();
+        veyra.dense.solveTriangular(f64, triangular.asView(), rhs.asView(), dst.asMut(), options) catch |err| return mapVeyraError(err);
+        return fromVeyraVector(a.allocator, &dst);
+    }
+
+    var rhs = try toVeyraMatrix(b);
+    defer rhs.deinit();
+    var dst = veyra.Matrix(f64).zeros(a.allocator, a.shape[0], b.shape[1], .row_major) catch return error.BackendFailure;
+    defer dst.deinit();
+    veyra.dense.solveTriangularMatrix(f64, triangular.asView(), rhs.asView(), dst.asMut(), options) catch |err| return mapVeyraError(err);
+    return fromVeyraMatrix(a.allocator, &dst);
+}
+
+fn solveTriangularReference(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T), triangle: Triangle, diagonal: Diagonal) LinalgError!tensor_mod.Tensor(T) {
+    if (b.shape.len == 1) {
+        const out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{a.shape[0]});
+        try solveTriangularVectorReference(T, a, b.data, out.data, triangle, diagonal);
+        return out;
+    }
+    var out = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ a.shape[0], b.shape[1] });
+    for (0..b.shape[1]) |col| {
+        var rhs_col = try a.allocator.alloc(T, a.shape[0]);
+        defer a.allocator.free(rhs_col);
+        const dst_col = try a.allocator.alloc(T, a.shape[0]);
+        defer a.allocator.free(dst_col);
+        for (0..a.shape[0]) |row| rhs_col[row] = b.data[row * b.shape[1] + col];
+        try solveTriangularVectorReference(T, a, rhs_col, dst_col, triangle, diagonal);
+        for (0..a.shape[0]) |row| out.data[row * b.shape[1] + col] = dst_col[row];
+    }
+    return out;
+}
+
+fn solveTriangularVectorReference(comptime T: type, a: tensor_mod.Tensor(T), rhs: []const T, out: []T, triangle: Triangle, diagonal: Diagonal) LinalgError!void {
+    const n = a.shape[0];
+    switch (triangle) {
+        .lower => {
+            for (0..n) |i| {
+                var acc = rhs[i];
+                for (0..i) |j| acc -= a.data[i * n + j] * out[j];
+                if (diagonal == .non_unit) {
+                    const diag = a.data[i * n + i];
+                    if (diag == 0) return error.SingularMatrix;
+                    acc /= diag;
+                }
+                out[i] = acc;
+            }
+        },
+        .upper => {
+            var i = n;
+            while (i > 0) {
+                i -= 1;
+                var acc = rhs[i];
+                for (i + 1..n) |j| acc -= a.data[i * n + j] * out[j];
+                if (diagonal == .non_unit) {
+                    const diag = a.data[i * n + i];
+                    if (diag == 0) return error.SingularMatrix;
+                    acc /= diag;
+                }
+                out[i] = acc;
+            }
+        },
+    }
+}
+
 pub fn det(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!T {
     if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
     if (@typeInfo(T) != .float) @compileError("det currently requires floating-point tensors");
@@ -932,4 +1038,39 @@ test "linalg solve uses LU for vector and matrix rhs" {
     var ax = try matmul(f64, a, xm);
     defer ax.deinit();
     try std.testing.expect(try ax.allclose(bm, 1e-12, 1e-12));
+}
+
+test "linalg solveTriangular handles vector and matrix rhs" {
+    const gpa = std.testing.allocator;
+    var lower = try tensor_mod.tensor(f64, gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
+    defer lower.deinit();
+    var rhs = try tensor_mod.tensor(f64, gpa, &.{ 2, 2, 25 }, &.{3});
+    defer rhs.deinit();
+    var x = try solveTriangular(f64, lower, rhs, .lower, .non_unit);
+    defer x.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), x.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), x.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.8), x.data[2], 1e-12);
+    var check = try matvec(f64, lower, x);
+    defer check.deinit();
+    try std.testing.expect(try check.allclose(rhs, 1e-12, 1e-12));
+
+    var rhs_matrix = try tensor_mod.tensor(f64, gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
+    defer rhs_matrix.deinit();
+    var xm = try solveTriangular(f64, lower, rhs_matrix, .lower, .non_unit);
+    defer xm.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, xm.shape);
+    var check_m = try matmul(f64, lower, xm);
+    defer check_m.deinit();
+    try std.testing.expect(try check_m.allclose(rhs_matrix, 1e-12, 1e-12));
+
+    var unit_upper = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, -1, 0, 1, 3, 0, 0, 1 }, &.{ 3, 3 });
+    defer unit_upper.deinit();
+    var rhs_upper = try tensor_mod.tensor(f64, gpa, &.{ 5, 7, 2 }, &.{3});
+    defer rhs_upper.deinit();
+    var xu = try solveTriangular(f64, unit_upper, rhs_upper, .upper, .unit);
+    defer xu.deinit();
+    var check_u = try matvec(f64, unit_upper, xu);
+    defer check_u.deinit();
+    try std.testing.expect(try check_u.allclose(rhs_upper, 1e-12, 1e-12));
 }

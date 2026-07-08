@@ -56,6 +56,9 @@ pub const MatrixNormOrder = linalg.MatrixNormOrder;
 pub const eigh = linalg.eigh;
 pub const eigvalsh = linalg.eigvalsh;
 pub const lu = linalg.lu;
+pub const solveTriangular = linalg.solveTriangular;
+pub const Triangle = linalg.Triangle;
+pub const Diagonal = linalg.Diagonal;
 pub const dataframe = dataframe_mod.dataframe;
 
 test {
