@@ -2533,6 +2533,24 @@ pub fn ArrayView(comptime T: type) type {
             return owned.gatherSigned(axis_index, indices);
         }
 
+        pub fn takeAlongAxis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.takeAlongAxis(indices, axis_index);
+        }
+
+        pub fn takeAlongAxisSigned(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.takeAlongAxisSigned(indices, axis_index);
+        }
+
+        pub fn putAlongAxis(self: Self, indices: Array(usize), src: Array(T), axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putAlongAxis(indices, src, axis_index);
+        }
+
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2720,6 +2738,136 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn whereIndices(self: Self) ArrayError!Array(usize) {
             return self.nonzero();
+        }
+
+        pub fn putFlat(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putFlat(indices, values);
+        }
+
+        pub fn putFlatMode(self: Self, indices: Array(usize), values: Array(T), mode: IndexMode) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putFlatMode(indices, values, mode);
+        }
+
+        pub fn putFlatScalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putFlatScalar(indices, value);
+        }
+
+        pub fn putFlatScalarMode(self: Self, indices: Array(usize), value: T, mode: IndexMode) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putFlatScalarMode(indices, value, mode);
+        }
+
+        pub fn putFlatSigned(self: Self, indices: Array(isize), values: Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putFlatSigned(indices, values);
+        }
+
+        pub fn putFlatScalarSigned(self: Self, indices: Array(isize), value: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putFlatScalarSigned(indices, value);
+        }
+
+        pub fn indexPut(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
+            return self.putFlat(indices, values);
+        }
+
+        pub fn indexPutScalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
+            return self.putFlatScalar(indices, value);
+        }
+
+        pub fn ravelCoords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.ravelCoords(coords);
+        }
+
+        pub fn unravelFlat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.unravelFlat(indices);
+        }
+
+        pub fn takeCoords(self: Self, coords: Array(usize)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.takeCoords(coords);
+        }
+
+        pub fn putCoords(self: Self, coords: Array(usize), values: Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putCoords(coords, values);
+        }
+
+        pub fn putCoordsScalar(self: Self, coords: Array(usize), value: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putCoordsScalar(coords, value);
+        }
+
+        pub fn ravelMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.ravelMultiIndex(indices);
+        }
+
+        pub fn takeMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.takeMultiIndex(indices);
+        }
+
+        pub fn putMultiIndex(self: Self, indices: []const Array(usize), values: Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putMultiIndex(indices, values);
+        }
+
+        pub fn putMultiIndexScalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.putMultiIndexScalar(indices, value);
+        }
+
+        pub fn scatter(self: Self, axis_index: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.scatter(axis_index, indices, src);
+        }
+
+        pub fn scatterScalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.scatterScalar(axis_index, indices, value);
+        }
+
+        pub fn scatterReduce(self: Self, axis_index: isize, indices: Array(usize), src: Array(T), reduction: ScatterReduce) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.scatterReduce(axis_index, indices, src, reduction);
+        }
+
+        pub fn scatterAdd(self: Self, axis_index: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
+            return self.scatterReduce(axis_index, indices, src, .sum);
+        }
+
+        pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: Array(usize), value: T, reduction: ScatterReduce) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.scatterReduceScalar(axis_index, indices, value, reduction);
+        }
+
+        pub fn scatterAddScalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
+            return self.scatterReduceScalar(axis_index, indices, value, .sum);
         }
 
         pub fn unique(self: Self) ArrayError!Array(T) {
@@ -11451,6 +11599,78 @@ test "array advanced indexing mutation helpers" {
     var bad_where_other = try Array(f64).zeros(gpa, &.{2});
     defer bad_where_other.deinit();
     try std.testing.expectError(error.ShapeMismatch, a.where(mask, bad_where_other));
+
+    var view = try a.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer view.deinit();
+    var view_indices = try Array(usize).fromSlice(gpa, &.{ 1, 0, 0, 1 }, &.{ 2, 2 });
+    defer view_indices.deinit();
+    var view_taken = try view.takeAlongAxis(view_indices, 1);
+    defer view_taken.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 1, 0, 6 }, view_taken.data);
+    var signed_view_indices = try Array(isize).fromSlice(gpa, &.{ -1, 0, 0, -1 }, &.{ 2, 2 });
+    defer signed_view_indices.deinit();
+    var signed_view_taken = try view.takeAlongAxisSigned(signed_view_indices, 1);
+    defer signed_view_taken.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 1, 0, 6 }, signed_view_taken.data);
+    var put_values_view = try Array(f64).fromSlice(gpa, &.{ 7, 8 }, &.{2});
+    defer put_values_view.deinit();
+    var flat_put_indices = try Array(usize).fromSlice(gpa, &.{ 1, 2 }, &.{2});
+    defer flat_put_indices.deinit();
+    var flat_put_view = try view.putFlat(flat_put_indices, put_values_view);
+    defer flat_put_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 7, 8, 6 }, flat_put_view.data);
+    var flat_put_scalar_view = try view.putFlatScalar(flat_put_indices, -3);
+    defer flat_put_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, -3, -3, 6 }, flat_put_scalar_view.data);
+    var signed_flat_indices = try Array(isize).fromSlice(gpa, &.{-1}, &.{1});
+    defer signed_flat_indices.deinit();
+    var signed_flat_put_view = try view.putFlatScalarSigned(signed_flat_indices, 99);
+    defer signed_flat_put_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 0, 99 }, signed_flat_put_view.data);
+    var wrap_indices = try Array(usize).fromSlice(gpa, &.{5}, &.{1});
+    defer wrap_indices.deinit();
+    var wrapped_put_view = try view.putFlatScalarMode(wrap_indices, 42, .wrap);
+    defer wrapped_put_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 42, 0, 6 }, wrapped_put_view.data);
+    var coord_indices = try Array(usize).fromSlice(gpa, &.{ 0, 1, 1, 0 }, &.{ 2, 2 });
+    defer coord_indices.deinit();
+    var raveled_view_coords = try view.ravelCoords(coord_indices);
+    defer raveled_view_coords.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, raveled_view_coords.data);
+    var coord_values_view = try view.takeCoords(coord_indices);
+    defer coord_values_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 0 }, coord_values_view.data);
+    var coord_put_values = try Array(f64).fromSlice(gpa, &.{ 11, 22 }, &.{2});
+    defer coord_put_values.deinit();
+    var coord_put_view = try view.putCoords(coord_indices, coord_put_values);
+    defer coord_put_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 11, 22, 6 }, coord_put_view.data);
+    var coord_scalar_put_view = try view.putCoordsScalar(coord_indices, -4);
+    defer coord_scalar_put_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, -4, -4, 6 }, coord_scalar_put_view.data);
+    var row_idx_view = try Array(usize).fromSlice(gpa, &.{ 0, 1 }, &.{ 2, 1 });
+    defer row_idx_view.deinit();
+    var col_idx_view = try Array(usize).fromSlice(gpa, &.{ 0, 1 }, &.{ 1, 2 });
+    defer col_idx_view.deinit();
+    const view_multi_indices = [_]Array(usize){ row_idx_view, col_idx_view };
+    var multi_values_view = try view.takeMultiIndex(view_multi_indices[0..]);
+    defer multi_values_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 0, 6 }, multi_values_view.data);
+    var multi_put_values = try Array(f64).fromSlice(gpa, &.{ 31, 32, 33, 34 }, &.{ 2, 2 });
+    defer multi_put_values.deinit();
+    var multi_put_view = try view.putMultiIndex(view_multi_indices[0..], multi_put_values);
+    defer multi_put_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 31, 32, 33, 34 }, multi_put_view.data);
+    var scatter_idx_view = try Array(usize).fromSlice(gpa, &.{ 1, 0, 0, 1 }, &.{ 2, 2 });
+    defer scatter_idx_view.deinit();
+    var scatter_src_view = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30, 40 }, &.{ 2, 2 });
+    defer scatter_src_view.deinit();
+    var scattered_view = try view.scatter(1, scatter_idx_view, scatter_src_view);
+    defer scattered_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 20, 10, 30, 40 }, scattered_view.data);
+    var scatter_added_view = try view.scatterAddScalar(1, scatter_idx_view, 2);
+    defer scatter_added_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 5, 2, 8 }, scatter_added_view.data);
 
     var put_idx = try Array(usize).fromSlice(gpa, &.{ 1, 4 }, &.{2});
     defer put_idx.deinit();
