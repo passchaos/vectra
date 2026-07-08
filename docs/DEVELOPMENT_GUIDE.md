@@ -90,7 +90,7 @@ Pandas/Polars 能力排在数组与 SciPy 之后。
 - 数学/NN：`neg`、`abs`、`square`、`reciprocal`、`sign/signbit`、`nextAfter/nextafter`、`ldexp`、`frexp`、`exp/expm1`、`log/log1p/log2/log10`、`sqrt`、`floor`、`ceil`、`round`、`trunc`、`deg2rad/rad2deg`、`sin`、`cos`、`tan`、`asin`、`acos`、`atan`、`atan2`、`hypot`、`copysign`、`heaviside`、`sinh`、`cosh`、`tanh`、`relu`、`sigmoid`、`softmax`、`logsumexp`、`logSoftmax/log_softmax`、`clip/clamp`、`isNan/isnan`、`isInf/isinf`、`isFinite/isfinite`。
 - 归约/统计：方法与顶层包装形式的 `sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`median`、`quantile`、`percentile`、`weightedMean`、`average`、`weightedVariance/weightedVar`、`weightedStddev/weightedStd`、`weightedQuantile`、`weightedMedian`、`weightedCov`、`weightedCorrcoef`、`cov`、`corrcoef`、`nanToNum/nan_to_num`、`nansum`、`nanmean`、`nanvar`、`nanstd`、`nanmin`、`nanmax`、`nanmedian`、`nanquantile`、`nanpercentile`、`nanCov`、`nanCorrcoef`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`cumsumAxis/cumprodAxis`、`diff`、`argmin`、`argmax`、`argminAxis/argmaxAxis`。
 - 排序/选择：`sort`、`sortBy`、`sortDescending`、`argsort`、`argsortAxis`、`argsortDescending`、`sortWithIndices`、`partition`、`argpartition`、`topk(sorted=true/false)`。
-- 离散/计数：`unique`、`uniqueWithCounts`、`bincount`、`bincountWeighted`。
+- 离散/计数/集合：`unique`、`uniqueWithCounts`、`union1d`、`intersect1d`、`setdiff1d`、`setxor1d`、`bincount`、`bincountWeighted`。
 - 组合/矩阵辅助：`cat/concatenate`、`stack`、`diag/diagflat`、`outer`、`diagonal`、`trace`、`triu/tril`；`linalg.matmul/matvec/det/solve/inverse/lu/solveTriangular/cholesky/qr/svd/lstsq/singularValues/matrixRank/cond/pinv/matrixNorm/eigh/eigvalsh`。
 - 基础 linalg/stats/DataFrame 也有初版，但它们不是下一阶段最高优先级。
 

@@ -4603,6 +4603,44 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn union1d(self: Self, other: Self) ArrayError!Self {
+            if (comptime T != bool) ensureNumeric(T);
+            const combined = try self.allocator.alloc(T, self.data.len + other.data.len);
+            defer self.allocator.free(combined);
+            @memcpy(combined[0..self.data.len], self.data);
+            @memcpy(combined[self.data.len..], other.data);
+            var merged = try Self.fromSlice(self.allocator, combined, &.{combined.len});
+            defer merged.deinit();
+            return merged.unique();
+        }
+
+        pub fn intersect1d(self: Self, other: Self) ArrayError!Self {
+            if (comptime T != bool) ensureNumeric(T);
+            var left = try self.unique();
+            defer left.deinit();
+            var mask = try left.isin(other, false);
+            defer mask.deinit();
+            return left.maskedSelect(mask);
+        }
+
+        pub fn setdiff1d(self: Self, other: Self) ArrayError!Self {
+            if (comptime T != bool) ensureNumeric(T);
+            var left = try self.unique();
+            defer left.deinit();
+            var mask = try left.isin(other, true);
+            defer mask.deinit();
+            return left.maskedSelect(mask);
+        }
+
+        pub fn setxor1d(self: Self, other: Self) ArrayError!Self {
+            if (comptime T != bool) ensureNumeric(T);
+            var left_only = try self.setdiff1d(other);
+            defer left_only.deinit();
+            var right_only = try other.setdiff1d(self);
+            defer right_only.deinit();
+            return left_only.union1d(right_only);
+        }
+
         pub fn clipArray(self: Self, min_values: Self, max_values: Self) ArrayError!Self {
             ensureNumeric(T);
             var lower = try self.maximum(min_values);
@@ -5673,6 +5711,22 @@ pub fn digitize(comptime T: type, input: Array(T), bins: Array(T), right: bool) 
 
 pub fn isin(comptime T: type, input: Array(T), test_elements: Array(T), invert: bool) ArrayError!Array(bool) {
     return input.isin(test_elements, invert);
+}
+
+pub fn union1d(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.union1d(b);
+}
+
+pub fn intersect1d(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.intersect1d(b);
+}
+
+pub fn setdiff1d(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.setdiff1d(b);
+}
+
+pub fn setxor1d(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
+    return a.setxor1d(b);
 }
 
 pub fn clipArray(comptime T: type, input: Array(T), min_values: Array(T), max_values: Array(T)) ArrayError!Array(T) {
@@ -7213,6 +7267,20 @@ test "array unique bincount searchsorted and clipArray" {
     var u = try a.unique();
     defer u.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 4 }, u.data);
+    var b = try array(i32, gpa, &.{ 2, 4, 4, 5 }, &.{4});
+    defer b.deinit();
+    var uni = try union1d(i32, a, b);
+    defer uni.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 4, 5 }, uni.data);
+    var inter = try a.intersect1d(b);
+    defer inter.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 2, 4 }, inter.data);
+    var diff_set = try setdiff1d(i32, a, b);
+    defer diff_set.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 1, 3 }, diff_set.data);
+    var xor_set = try setxor1d(i32, a, b);
+    defer xor_set.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 1, 3, 5 }, xor_set.data);
     var uc = try uniqueWithCounts(i32, a);
     defer uc.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 4 }, uc.values.data);
