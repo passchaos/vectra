@@ -2888,6 +2888,38 @@ pub fn Array(comptime T: type) type {
             return self.magnitude();
         }
 
+        fn fftWithSign(self: Self, inverse: bool) ArrayError!Self {
+            ensureComplex(T);
+            if (self.shape.len != 1) return error.NonVectorArray;
+            const n = self.shape[0];
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (n == 0) return out;
+            const Real = complexRealType(T);
+            const n_real: Real = @floatFromInt(n);
+            const direction: Real = if (inverse) 1 else -1;
+            for (0..n) |k| {
+                var acc = zero(T);
+                const k_real: Real = @floatFromInt(k);
+                for (0..n) |j| {
+                    const j_real: Real = @floatFromInt(j);
+                    const angle = direction * castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
+                    const twiddle = T.init(@cos(angle), @sin(angle));
+                    acc = acc.add(self.data[j].mul(twiddle));
+                }
+                out.data[k] = if (inverse) acc.div(T.init(n_real, 0)) else acc;
+            }
+            return out;
+        }
+
+        pub fn fft(self: Self) ArrayError!Self {
+            return self.fftWithSign(false);
+        }
+
+        pub fn ifft(self: Self) ArrayError!Self {
+            return self.fftWithSign(true);
+        }
+
         pub fn to(self: Self, device: Device) ArrayError!Self {
             if (!device.isAvailable()) return error.InvalidDevice;
             var out = try self.clone();
@@ -10145,6 +10177,42 @@ test "array dtype metadata and casts cover common numeric types" {
     var r = try Array(u16).randint(gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
     for (r.data) |v| try std.testing.expect(v >= 10 and v < 20);
+}
+
+test "array complex fft and inverse fft" {
+    const gpa = std.testing.allocator;
+    const C = Complex64;
+    var impulse = try Array(C).fromSlice(gpa, &.{ C.init(1, 0), C.init(0, 0), C.init(0, 0), C.init(0, 0) }, &.{4});
+    defer impulse.deinit();
+
+    var spectrum = try impulse.fft();
+    defer spectrum.deinit();
+    for (spectrum.data) |value| {
+        try std.testing.expectApproxEqAbs(@as(f32, 1), value.re, 1e-5);
+        try std.testing.expectApproxEqAbs(@as(f32, 0), value.im, 1e-5);
+    }
+
+    var recovered = try spectrum.ifft();
+    defer recovered.deinit();
+    for (recovered.data, impulse.data) |actual, expected| {
+        try std.testing.expectApproxEqAbs(expected.re, actual.re, 1e-5);
+        try std.testing.expectApproxEqAbs(expected.im, actual.im, 1e-5);
+    }
+
+    var signal = try Array(C).fromSlice(gpa, &.{ C.init(1, 0), C.init(2, -1), C.init(0, 3), C.init(-2, 0.5) }, &.{4});
+    defer signal.deinit();
+    var signal_spectrum = try signal.fft();
+    defer signal_spectrum.deinit();
+    var signal_roundtrip = try signal_spectrum.ifft();
+    defer signal_roundtrip.deinit();
+    for (signal_roundtrip.data, signal.data) |actual, expected| {
+        try std.testing.expectApproxEqAbs(expected.re, actual.re, 1e-4);
+        try std.testing.expectApproxEqAbs(expected.im, actual.im, 1e-4);
+    }
+
+    var matrix_complex = try Array(C).fromSlice(gpa, &.{ C.init(1, 0), C.init(0, 0), C.init(0, 0), C.init(1, 0) }, &.{ 2, 2 });
+    defer matrix_complex.deinit();
+    try std.testing.expectError(error.NonVectorArray, matrix_complex.fft());
 }
 
 test "array bfloat16 arithmetic and reductions" {
