@@ -1355,9 +1355,26 @@ pub fn ArrayView(comptime T: type) type {
             return self.unary(opNeg);
         }
 
+        pub fn negative(self: Self) ArrayError!Array(T) {
+            return self.neg();
+        }
+
+        pub fn positive(self: Self) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.toArray();
+        }
+
         pub fn abs(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.unary(opAbs);
+        }
+
+        pub fn absolute(self: Self) ArrayError!Array(T) {
+            return self.abs();
+        }
+
+        pub fn fabs(self: Self) ArrayError!Array(T) {
+            return self.abs();
         }
 
         pub fn add(self: Self, other: Self) ArrayError!Array(T) {
@@ -1520,10 +1537,18 @@ pub fn ArrayView(comptime T: type) type {
             return self.ownedBinary(other, Array(T).atan2);
         }
 
+        pub fn arctan2(self: Self, other: Self) ArrayError!Array(T) {
+            return self.atan2(other);
+        }
+
         pub fn atan2Array(self: Self, other: Array(T)) ArrayError!Array(T) {
             var other_view = try other.asView();
             defer other_view.deinit();
             return self.atan2(other_view);
+        }
+
+        pub fn arctan2Array(self: Self, other: Array(T)) ArrayError!Array(T) {
+            return self.atan2Array(other);
         }
 
         pub fn nextAfter(self: Self, other: Self) ArrayError!Array(T) {
@@ -1626,6 +1651,22 @@ pub fn ArrayView(comptime T: type) type {
             return owned.minimumScalar(scalar);
         }
 
+        pub fn clipMin(self: Self, min_value: T) ArrayError!Array(T) {
+            return self.maximumScalar(min_value);
+        }
+
+        pub fn clampMin(self: Self, min_value: T) ArrayError!Array(T) {
+            return self.clipMin(min_value);
+        }
+
+        pub fn clipMax(self: Self, max_value: T) ArrayError!Array(T) {
+            return self.minimumScalar(max_value);
+        }
+
+        pub fn clampMax(self: Self, max_value: T) ArrayError!Array(T) {
+            return self.clipMax(max_value);
+        }
+
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -1636,6 +1677,10 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.atan2Scalar(scalar);
+        }
+
+        pub fn arctan2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.atan2Scalar(scalar);
         }
 
         pub fn nextAfterScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -1964,6 +2009,14 @@ pub fn ArrayView(comptime T: type) type {
             return owned.rad2deg();
         }
 
+        pub fn radians(self: Self) ArrayError!Array(T) {
+            return self.deg2rad();
+        }
+
+        pub fn degrees(self: Self) ArrayError!Array(T) {
+            return self.rad2deg();
+        }
+
         pub fn sinc(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -1994,16 +2047,28 @@ pub fn ArrayView(comptime T: type) type {
             return owned.asin();
         }
 
+        pub fn arcsin(self: Self) ArrayError!Array(T) {
+            return self.asin();
+        }
+
         pub fn acos(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.acos();
         }
 
+        pub fn arccos(self: Self) ArrayError!Array(T) {
+            return self.acos();
+        }
+
         pub fn atan(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.atan();
+        }
+
+        pub fn arctan(self: Self) ArrayError!Array(T) {
+            return self.atan();
         }
 
         pub fn sinh(self: Self) ArrayError!Array(T) {
@@ -2030,16 +2095,28 @@ pub fn ArrayView(comptime T: type) type {
             return owned.asinh();
         }
 
+        pub fn arcsinh(self: Self) ArrayError!Array(T) {
+            return self.asinh();
+        }
+
         pub fn acosh(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.acosh();
         }
 
+        pub fn arccosh(self: Self) ArrayError!Array(T) {
+            return self.acosh();
+        }
+
         pub fn atanh(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.atanh();
+        }
+
+        pub fn arctanh(self: Self) ArrayError!Array(T) {
+            return self.atanh();
         }
 
         pub fn relu(self: Self) ArrayError!Array(T) {
@@ -7046,6 +7123,10 @@ pub fn Array(comptime T: type) type {
             return self.binaryArray(other, opAtan2);
         }
 
+        pub fn arctan2(self: Self, other: Self) ArrayError!Self {
+            return self.atan2(other);
+        }
+
         pub fn nextAfter(self: Self, other: Self) ArrayError!Self {
             ensureFloat(T);
             return self.binaryArray(other, opNextAfter);
@@ -7217,6 +7298,22 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn clipMin(self: Self, min_value: T) ArrayError!Self {
+            return self.maximumScalar(min_value);
+        }
+
+        pub fn clampMin(self: Self, min_value: T) ArrayError!Self {
+            return self.clipMin(min_value);
+        }
+
+        pub fn clipMax(self: Self, max_value: T) ArrayError!Self {
+            return self.minimumScalar(max_value);
+        }
+
+        pub fn clampMax(self: Self, max_value: T) ArrayError!Self {
+            return self.clipMax(max_value);
+        }
+
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Self {
             ensureFloat(T);
             return self.binaryScalar(scalar, opHypot);
@@ -7225,6 +7322,10 @@ pub fn Array(comptime T: type) type {
         pub fn atan2Scalar(self: Self, scalar: T) ArrayError!Self {
             ensureFloat(T);
             return self.binaryScalar(scalar, opAtan2);
+        }
+
+        pub fn arctan2Scalar(self: Self, scalar: T) ArrayError!Self {
+            return self.atan2Scalar(scalar);
         }
 
         pub fn nextAfterScalar(self: Self, scalar: T) ArrayError!Self {
@@ -7274,9 +7375,26 @@ pub fn Array(comptime T: type) type {
             return self.unary(opNeg);
         }
 
+        pub fn negative(self: Self) ArrayError!Self {
+            return self.neg();
+        }
+
+        pub fn positive(self: Self) ArrayError!Self {
+            ensureNumeric(T);
+            return self.clone();
+        }
+
         pub fn abs(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opAbs);
+        }
+
+        pub fn absolute(self: Self) ArrayError!Self {
+            return self.abs();
+        }
+
+        pub fn fabs(self: Self) ArrayError!Self {
+            return self.abs();
         }
 
         pub fn square(self: Self) ArrayError!Self {
@@ -7379,6 +7497,14 @@ pub fn Array(comptime T: type) type {
             return self.unary(opRad2deg);
         }
 
+        pub fn radians(self: Self) ArrayError!Self {
+            return self.deg2rad();
+        }
+
+        pub fn degrees(self: Self) ArrayError!Self {
+            return self.rad2deg();
+        }
+
         pub fn sinc(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opSinc);
@@ -7452,14 +7578,26 @@ pub fn Array(comptime T: type) type {
             return self.unary(opAsin);
         }
 
+        pub fn arcsin(self: Self) ArrayError!Self {
+            return self.asin();
+        }
+
         pub fn acos(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opAcos);
         }
 
+        pub fn arccos(self: Self) ArrayError!Self {
+            return self.acos();
+        }
+
         pub fn atan(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opAtan);
+        }
+
+        pub fn arctan(self: Self) ArrayError!Self {
+            return self.atan();
         }
 
         pub fn sinh(self: Self) ArrayError!Self {
@@ -7487,14 +7625,26 @@ pub fn Array(comptime T: type) type {
             return self.unary(opAsinh);
         }
 
+        pub fn arcsinh(self: Self) ArrayError!Self {
+            return self.asinh();
+        }
+
         pub fn acosh(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opAcosh);
         }
 
+        pub fn arccosh(self: Self) ArrayError!Self {
+            return self.acosh();
+        }
+
         pub fn atanh(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opAtanh);
+        }
+
+        pub fn arctanh(self: Self) ArrayError!Self {
+            return self.atanh();
         }
 
         pub fn relu(self: Self) ArrayError!Self {
@@ -10802,6 +10952,18 @@ test "array binary math wrappers and clamp aliases" {
     var clipped = try a.clamp(2, 3);
     defer clipped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 2, 3, 3 }, clipped.data);
+    var clip_min = try a.clipMin(2.5);
+    defer clip_min.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2.5, 2.5, 3, 4 }, clip_min.data);
+    var clamp_min = try a.clampMin(2.5);
+    defer clamp_min.deinit();
+    try std.testing.expectEqualSlices(f64, clip_min.data, clamp_min.data);
+    var clip_max = try a.clipMax(2.5);
+    defer clip_max.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 2.5, 2.5 }, clip_max.data);
+    var clamp_max = try a.clampMax(2.5);
+    defer clamp_max.deinit();
+    try std.testing.expectEqualSlices(f64, clip_max.data, clamp_max.data);
 
     var maxed = try a.maximumScalar(2.5);
     defer maxed.deinit();
@@ -10830,6 +10992,12 @@ test "array binary math wrappers and clamp aliases" {
     defer angles.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), angles.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi / 4.0, angles.data[1], 1e-12);
+    var arctan2_angles = try y.arctan2(x);
+    defer arctan2_angles.deinit();
+    try std.testing.expectEqualSlices(f64, angles.data, arctan2_angles.data);
+    var arctan2_scalar = try y.arctan2Scalar(1);
+    defer arctan2_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, angles.data, arctan2_scalar.data);
     var next_targets = try Array(f64).fromSlice(gpa, &.{ 2, -1 }, &.{2});
     defer next_targets.deinit();
     var next_values = try y.nextAfter(next_targets);
@@ -10851,6 +11019,18 @@ test "array binary math wrappers and clamp aliases" {
     var copied_scalar = try magnitudes.copysignScalar(-1);
     defer copied_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, -2, -3 }, copied_scalar.data);
+    var negated = try magnitudes.negative();
+    defer negated.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, -2, 3 }, negated.data);
+    var positive_copy = try magnitudes.positive();
+    defer positive_copy.deinit();
+    try std.testing.expectEqualSlices(f64, magnitudes.data, positive_copy.data);
+    var absolute_values = try magnitudes.absolute();
+    defer absolute_values.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3 }, absolute_values.data);
+    var fabs_values = try magnitudes.fabs();
+    defer fabs_values.deinit();
+    try std.testing.expectEqualSlices(f64, absolute_values.data, fabs_values.data);
 
     var heav = try Array(f64).fromSlice(gpa, &.{ -2, 0, 3 }, &.{3});
     defer heav.deinit();
@@ -11682,6 +11862,18 @@ test "array non contiguous view helpers" {
     var stepped_plus = try stepped.addScalar(1);
     defer stepped_plus.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 31, 51, 100 }, stepped_plus.data);
+    var stepped_negative = try stepped.negative();
+    defer stepped_negative.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, -30, -50, -99 }, stepped_negative.data);
+    var stepped_positive = try stepped.positive();
+    defer stepped_positive.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 30, 50, 99 }, stepped_positive.data);
+    var stepped_absolute = try stepped_negative.absolute();
+    defer stepped_absolute.deinit();
+    try std.testing.expectEqualSlices(f64, stepped_positive.data, stepped_absolute.data);
+    var stepped_fabs = try stepped_negative.fabs();
+    defer stepped_fabs.deinit();
+    try std.testing.expectEqualSlices(f64, stepped_positive.data, stepped_fabs.data);
     var ldexp_exponents = try Array(i32).fromSlice(gpa, &.{ 1, 0 }, &.{ 1, 2 });
     defer ldexp_exponents.deinit();
     var stepped_ldexp = try stepped.ldexp(ldexp_exponents);
@@ -11754,6 +11946,9 @@ test "array non contiguous view helpers" {
     defer atan2_view.deinit();
     try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, 1), @as(f64, 2)), atan2_view.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, 30), @as(f64, 3)), atan2_view.data[1], 1e-12);
+    var arctan2_view = try stepped.arctan2(math_rhs_view);
+    defer arctan2_view.deinit();
+    try std.testing.expectEqualSlices(f64, atan2_view.data, arctan2_view.data);
     var log_view_rhs = try Array(f64).fromSlice(gpa, &.{ 0, 1 }, &.{ 1, 2 });
     defer log_view_rhs.deinit();
     var log_view_rhs_view = try log_view_rhs.asView();
@@ -11840,6 +12035,18 @@ test "array non contiguous view helpers" {
     var min_scalar_view = try stepped.minimumScalar(10);
     defer min_scalar_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 10, 10, 10 }, min_scalar_view.data);
+    var clip_min_view = try stepped.clipMin(10);
+    defer clip_min_view.deinit();
+    try std.testing.expectEqualSlices(f64, max_scalar_view.data, clip_min_view.data);
+    var clamp_min_view = try stepped.clampMin(10);
+    defer clamp_min_view.deinit();
+    try std.testing.expectEqualSlices(f64, max_scalar_view.data, clamp_min_view.data);
+    var clip_max_view = try stepped.clipMax(10);
+    defer clip_max_view.deinit();
+    try std.testing.expectEqualSlices(f64, min_scalar_view.data, clip_max_view.data);
+    var clamp_max_view = try stepped.clampMax(10);
+    defer clamp_max_view.deinit();
+    try std.testing.expectEqualSlices(f64, min_scalar_view.data, clamp_max_view.data);
     var hypot_scalar_view = try stepped.hypotScalar(4);
     defer hypot_scalar_view.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 17)), hypot_scalar_view.data[0], 1e-12);
@@ -11847,6 +12054,9 @@ test "array non contiguous view helpers" {
     var atan2_scalar_view = try stepped.atan2Scalar(2);
     defer atan2_scalar_view.deinit();
     try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, 1), @as(f64, 2)), atan2_scalar_view.data[0], 1e-12);
+    var arctan2_scalar_view = try stepped.arctan2Scalar(2);
+    defer arctan2_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, atan2_scalar_view.data, arctan2_scalar_view.data);
     var next_scalar_view = try stepped.nextafterScalar(100);
     defer next_scalar_view.deinit();
     try std.testing.expect(next_scalar_view.data[0] > stepped.data[0]);
@@ -12053,6 +12263,32 @@ test "array view object unary predicate wrappers" {
     defer exp2_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), exp2_out.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4), exp2_out.data[1], 1e-12);
+    var degree_values = try Array(f64).fromSlice(gpa, &.{ 0, 90, 180, 45 }, &.{ 2, 2 });
+    defer degree_values.deinit();
+    var degree_view = try degree_values.transposeView();
+    defer degree_view.deinit();
+    var radians_view = try degree_view.radians();
+    defer radians_view.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), radians_view.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pi, radians_view.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pi / 2.0, radians_view.data[2], 1e-12);
+    var degrees_roundtrip_view = try radians_view.degrees();
+    defer degrees_roundtrip_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 180, 90, 45 }, degrees_roundtrip_view.data);
+    var unit_values = try Array(f64).fromSlice(gpa, &.{ 0, 1, 0.5, -0.5 }, &.{ 2, 2 });
+    defer unit_values.deinit();
+    var unit_view = try unit_values.transposeView();
+    defer unit_view.deinit();
+    var arcsin_view = try unit_view.arcsin();
+    defer arcsin_view.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), arcsin_view.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.asin(@as(f64, 0.5)), arcsin_view.data[1], 1e-12);
+    var arccos_view = try unit_view.arccos();
+    defer arccos_view.deinit();
+    try std.testing.expectApproxEqAbs(std.math.pi / 2.0, arccos_view.data[0], 1e-12);
+    var arctan_view = try unit_view.arctan();
+    defer arctan_view.deinit();
+    try std.testing.expectApproxEqAbs(std.math.atan(@as(f64, -0.5)), arctan_view.data[3], 1e-12);
     var view_sigmoid = try view.sigmoid();
     defer view_sigmoid.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1) / (@as(f64, 1) + @exp(@as(f64, 1))), view_sigmoid.data[0], 1e-12);
@@ -12112,16 +12348,29 @@ test "array view object unary predicate wrappers" {
     defer asinh_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), asinh_out.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.asinh(@as(f64, 1)), asinh_out.data[1], 1e-12);
+    var arcsinh_out = try hyper_view.arcsinh();
+    defer arcsinh_out.deinit();
+    try std.testing.expectEqualSlices(f64, asinh_out.data, arcsinh_out.data);
     var acosh_out = try hyper_view.acosh();
     defer acosh_out.deinit();
     try std.testing.expect(std.math.isNan(acosh_out.data[0]));
     try std.testing.expectApproxEqAbs(@as(f64, 0), acosh_out.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.acosh(@as(f64, 2)), acosh_out.data[3], 1e-12);
+    var arccosh_out = try hyper_view.arccosh();
+    defer arccosh_out.deinit();
+    try std.testing.expect(std.math.isNan(arccosh_out.data[0]));
+    try std.testing.expectApproxEqAbs(acosh_out.data[1], arccosh_out.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(acosh_out.data[3], arccosh_out.data[3], 1e-12);
     var atanh_out = try hyper_view.atanh();
     defer atanh_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), atanh_out.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.atanh(@as(f64, 0.5)), atanh_out.data[2], 1e-12);
     try std.testing.expect(std.math.isNan(atanh_out.data[3]));
+    var arctanh_out = try hyper_view.arctanh();
+    defer arctanh_out.deinit();
+    try std.testing.expectApproxEqAbs(atanh_out.data[0], arctanh_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(atanh_out.data[2], arctanh_out.data[2], 1e-12);
+    try std.testing.expect(std.math.isNan(arctanh_out.data[3]));
     var close = try finite_view.isclose(finite_view, 0, 0);
     defer close.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, close.data);
@@ -12920,11 +13169,17 @@ test "array extended unary math and predicates" {
     try std.testing.expectApproxEqAbs(@as(f64, 0), radians.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi / 2.0, radians.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi, radians.data[2], 1e-12);
+    var radians_alias = try degrees.radians();
+    defer radians_alias.deinit();
+    try std.testing.expectEqualSlices(f64, radians.data, radians_alias.data);
     var roundtrip_degrees = try radians.rad2deg();
     defer roundtrip_degrees.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), roundtrip_degrees.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 90), roundtrip_degrees.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 180), roundtrip_degrees.data[2], 1e-12);
+    var degrees_alias = try radians.degrees();
+    defer degrees_alias.deinit();
+    try std.testing.expectEqualSlices(f64, roundtrip_degrees.data, degrees_alias.data);
 
     var significands = try Array(f64).fromSlice(gpa, &.{ 0.5, 0.75, -0.5 }, &.{3});
     defer significands.deinit();
@@ -12961,14 +13216,23 @@ test "array extended unary math and predicates" {
     defer arcs.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), arcs.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi / 2.0, arcs.data[1], 1e-12);
+    var arcs_alias = try unit.arcsin();
+    defer arcs_alias.deinit();
+    try std.testing.expectEqualSlices(f64, arcs.data, arcs_alias.data);
     var arcc = try unit.acos();
     defer arcc.deinit();
     try std.testing.expectApproxEqAbs(std.math.pi / 2.0, arcc.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0), arcc.data[1], 1e-12);
+    var arcc_alias = try unit.arccos();
+    defer arcc_alias.deinit();
+    try std.testing.expectEqualSlices(f64, arcc.data, arcc_alias.data);
     var arct = try unit.atan();
     defer arct.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), arct.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi / 4.0, arct.data[1], 1e-12);
+    var arct_alias = try unit.arctan();
+    defer arct_alias.deinit();
+    try std.testing.expectEqualSlices(f64, arct.data, arct_alias.data);
 
     var hyp = try Array(f64).fromSlice(gpa, &.{ 0, 1 }, &.{2});
     defer hyp.deinit();
@@ -12984,17 +13248,31 @@ test "array extended unary math and predicates" {
     defer asinh_values.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), asinh_values.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.asinh(@as(f64, 2)), asinh_values.data[3], 1e-12);
+    var arcsinh_values = try inverse_hyp.arcsinh();
+    defer arcsinh_values.deinit();
+    try std.testing.expectEqualSlices(f64, asinh_values.data, arcsinh_values.data);
     var acosh_values = try inverse_hyp.acosh();
     defer acosh_values.deinit();
     try std.testing.expect(std.math.isNan(acosh_values.data[0]));
     try std.testing.expectApproxEqAbs(@as(f64, 0), acosh_values.data[2], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.acosh(@as(f64, 2)), acosh_values.data[3], 1e-12);
+    var arccosh_values = try inverse_hyp.arccosh();
+    defer arccosh_values.deinit();
+    try std.testing.expect(std.math.isNan(arccosh_values.data[0]));
+    try std.testing.expectApproxEqAbs(acosh_values.data[2], arccosh_values.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(acosh_values.data[3], arccosh_values.data[3], 1e-12);
     var atanh_values = try inverse_hyp.atanh();
     defer atanh_values.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), atanh_values.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.atanh(@as(f64, 0.5)), atanh_values.data[1], 1e-12);
     try std.testing.expect(std.math.isPositiveInf(atanh_values.data[2]));
     try std.testing.expect(std.math.isNan(atanh_values.data[3]));
+    var arctanh_values = try inverse_hyp.arctanh();
+    defer arctanh_values.deinit();
+    try std.testing.expectApproxEqAbs(atanh_values.data[0], arctanh_values.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(atanh_values.data[1], arctanh_values.data[1], 1e-12);
+    try std.testing.expect(std.math.isPositiveInf(arctanh_values.data[2]));
+    try std.testing.expect(std.math.isNan(arctanh_values.data[3]));
 
     var special = try Array(f64).fromSlice(gpa, &.{ 1, std.math.inf(f64), std.math.nan(f64) }, &.{3});
     defer special.deinit();
