@@ -1960,10 +1960,34 @@ pub fn ArrayView(comptime T: type) type {
             return owned.relu();
         }
 
+        pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.leakyRelu(negative_slope);
+        }
+
         pub fn sigmoid(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.sigmoid();
+        }
+
+        pub fn softplus(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.softplus();
+        }
+
+        pub fn softsign(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.softsign();
+        }
+
+        pub fn gelu(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.gelu();
         }
 
         pub fn clip(self: Self, min_value: T, max_value: T) ArrayError!Array(T) {
@@ -7033,11 +7057,49 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Self {
+            ensureNumeric(T);
+            const out = try Self.empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| {
+                slot.* = if (value > zero(T)) value else mulValue(T, value, negative_slope);
+            }
+            return out;
+        }
+
         pub fn sigmoid(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(struct {
                 fn f(a: T) T {
                     return one(T) / (one(T) + std.math.exp(-a));
+                }
+            }.f);
+        }
+
+        pub fn softplus(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    return @max(a, zero(T)) + std.math.log1p(std.math.exp(-@abs(a)));
+                }
+            }.f);
+        }
+
+        pub fn softsign(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    return a / (one(T) + @abs(a));
+                }
+            }.f);
+        }
+
+        pub fn gelu(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    const cubic = a * a * a;
+                    const gelu_arg = castValue(T, @sqrt(2.0 / std.math.pi)) * (a + castValue(T, 0.044715) * cubic);
+                    return castValue(T, 0.5) * a * (one(T) + std.math.tanh(gelu_arg));
                 }
             }.f);
         }
@@ -11055,6 +11117,22 @@ test "array non contiguous view helpers" {
     var selected_scaled = try selected.mulScalar(2);
     defer selected_scaled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 100, 12, 198, 160 }, selected_scaled.data);
+    var shifted_view = try stepped.subScalar(10);
+    defer shifted_view.deinit();
+    var shifted_view_view = try shifted_view.asView();
+    defer shifted_view_view.deinit();
+    var view_softplus = try shifted_view_view.softplus();
+    defer view_softplus.deinit();
+    try std.testing.expectApproxEqAbs(std.math.log1p(@exp(@as(f64, -9))), view_softplus.data[0], 1e-12);
+    var view_softsign = try shifted_view_view.softsign();
+    defer view_softsign.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, -9.0 / 10.0), view_softsign.data[0], 1e-12);
+    var view_leaky = try shifted_view_view.leakyRelu(0.2);
+    defer view_leaky.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, -1.8), view_leaky.data[0], 1e-12);
+    var view_gelu = try shifted_view_view.gelu();
+    defer view_gelu.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, -0.0), view_gelu.data[0], 1e-3);
 
     var math_rhs = try Array(f64).fromSlice(gpa, &.{ 2, 3 }, &.{ 1, 2 });
     defer math_rhs.deinit();
@@ -11786,6 +11864,21 @@ test "array take mask stack cat and neural helpers" {
     var relu_out = try shifted.relu();
     defer relu_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 1, 2, 3 }, relu_out.data);
+    var leaky_out = try shifted.leakyRelu(0.1);
+    defer leaky_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -0.2, -0.1, 0, 1, 2, 3 }, leaky_out.data);
+    var softplus_out = try shifted.softplus();
+    defer softplus_out.deinit();
+    try std.testing.expectApproxEqAbs(std.math.log1p(@exp(@as(f64, -2))), softplus_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3) + std.math.log1p(@exp(@as(f64, -3))), softplus_out.data[5], 1e-12);
+    var softsign_out = try shifted.softsign();
+    defer softsign_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0 / 3.0), softsign_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0 / 4.0), softsign_out.data[5], 1e-12);
+    var gelu_out = try shifted.gelu();
+    defer gelu_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, -0.04540230591222494), gelu_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.996362607918227), gelu_out.data[5], 1e-12);
     var cs = try a.cumsum();
     defer cs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 10, 15, 21 }, cs.data);
