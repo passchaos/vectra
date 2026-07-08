@@ -1358,6 +1358,290 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
+        pub fn ne(self: Self, other: Self) ArrayError!Array(bool) {
+            return self.compareView(other, struct {
+                fn f(a: T, b: T) bool {
+                    return a != b;
+                }
+            }.f);
+        }
+
+        pub fn notEqual(self: Self, other: Self) ArrayError!Array(bool) {
+            return self.ne(other);
+        }
+
+        pub fn ge(self: Self, other: Self) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.compareView(other, struct {
+                fn f(a: T, b: T) bool {
+                    return a >= b;
+                }
+            }.f);
+        }
+
+        pub fn greaterEqual(self: Self, other: Self) ArrayError!Array(bool) {
+            return self.ge(other);
+        }
+
+        pub fn le(self: Self, other: Self) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.compareView(other, struct {
+                fn f(a: T, b: T) bool {
+                    return a <= b;
+                }
+            }.f);
+        }
+
+        pub fn lessEqual(self: Self, other: Self) ArrayError!Array(bool) {
+            return self.le(other);
+        }
+
+        pub fn neScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a != b;
+                }
+            }.f);
+        }
+
+        pub fn geScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a >= b;
+                }
+            }.f);
+        }
+
+        pub fn leScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a <= b;
+                }
+            }.f);
+        }
+
+        pub fn square(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.square();
+        }
+
+        pub fn reciprocal(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.reciprocal();
+        }
+
+        pub fn sign(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sign();
+        }
+
+        pub fn signbit(self: Self) ArrayError!Array(bool) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.signbit();
+        }
+
+        pub fn exp(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.exp();
+        }
+
+        pub fn expm1(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.expm1();
+        }
+
+        pub fn log(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.log();
+        }
+
+        pub fn log2(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.log2();
+        }
+
+        pub fn log10(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.log10();
+        }
+
+        pub fn log1p(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.log1p();
+        }
+
+        pub fn sqrt(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sqrt();
+        }
+
+        pub fn floor(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.floor();
+        }
+
+        pub fn ceil(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.ceil();
+        }
+
+        pub fn round(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.round();
+        }
+
+        pub fn trunc(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.trunc();
+        }
+
+        pub fn deg2rad(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.deg2rad();
+        }
+
+        pub fn rad2deg(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.rad2deg();
+        }
+
+        pub fn sin(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sin();
+        }
+
+        pub fn cos(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cos();
+        }
+
+        pub fn tan(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.tan();
+        }
+
+        pub fn asin(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.asin();
+        }
+
+        pub fn acos(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.acos();
+        }
+
+        pub fn atan(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.atan();
+        }
+
+        pub fn sinh(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sinh();
+        }
+
+        pub fn cosh(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cosh();
+        }
+
+        pub fn tanh(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.tanh();
+        }
+
+        pub fn relu(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.relu();
+        }
+
+        pub fn sigmoid(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sigmoid();
+        }
+
+        pub fn clip(self: Self, min_value: T, max_value: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.clip(min_value, max_value);
+        }
+
+        pub fn isNan(self: Self) ArrayError!Array(bool) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isNan();
+        }
+
+        pub fn isnan(self: Self) ArrayError!Array(bool) {
+            return self.isNan();
+        }
+
+        pub fn isInf(self: Self) ArrayError!Array(bool) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isInf();
+        }
+
+        pub fn isinf(self: Self) ArrayError!Array(bool) {
+            return self.isInf();
+        }
+
+        pub fn isFinite(self: Self) ArrayError!Array(bool) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isFinite();
+        }
+
+        pub fn isfinite(self: Self) ArrayError!Array(bool) {
+            return self.isFinite();
+        }
+
+        pub fn isclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.isclose(rhs, rtol, atol);
+        }
+
+        pub fn allclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!bool {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.allclose(rhs, rtol, atol);
+        }
+
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
             var out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - 1);
             if (keepdims) {
@@ -7877,6 +8161,56 @@ test "array view object indexing wrappers" {
     var members = try view.isin(needles, false);
     defer members.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, true, true }, members.data);
+}
+
+test "array view object unary predicate wrappers" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ -1.0, 0.0, 1.0, 2.0, std.math.inf(f64), std.math.nan(f64) }, &.{ 2, 3 });
+    defer a.deinit();
+    var view = try a.transposeView();
+    defer view.deinit();
+
+    var clipped = try view.clip(0, 2);
+    defer clipped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2, 0, 2, 1, 0 }, clipped.data);
+
+    var relu_out = try view.relu();
+    defer relu_out.deinit();
+    try std.testing.expectEqual(@as(f64, 0), relu_out.data[0]);
+    try std.testing.expectEqual(@as(f64, 2), relu_out.data[1]);
+    try std.testing.expect(std.math.isPositiveInf(relu_out.data[3]));
+
+    var finite = try view.isFinite();
+    defer finite.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false, true, false }, finite.data);
+    var nan_mask = try view.isnan();
+    defer nan_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, true }, nan_mask.data);
+
+    var positive = try view.gtScalar(0);
+    defer positive.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, false }, positive.data);
+
+    var square_out = try view.square();
+    defer square_out.deinit();
+    try std.testing.expectEqual(@as(f64, 1), square_out.data[0]);
+    try std.testing.expectEqual(@as(f64, 4), square_out.data[1]);
+    var exp_out = try view.exp();
+    defer exp_out.deinit();
+    try std.testing.expectApproxEqAbs(std.math.exp(@as(f64, -1)), exp_out.data[0], 1e-12);
+
+    var finite_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer finite_values.deinit();
+    var finite_view = try finite_values.transposeView();
+    defer finite_view.deinit();
+    var sqrt_out = try finite_view.sqrt();
+    defer sqrt_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), sqrt_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), sqrt_out.data[3], 1e-12);
+    var close = try finite_view.isclose(finite_view, 0, 0);
+    defer close.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, close.data);
+    try std.testing.expect(try finite_view.allclose(finite_view, 0, 0));
 }
 
 test "array view object math sort and linalg wrappers" {
