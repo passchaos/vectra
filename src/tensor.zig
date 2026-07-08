@@ -2218,6 +2218,24 @@ pub fn Tensor(comptime T: type) type {
             return true;
         }
 
+        pub fn isclose(self: Self, other: Self, rtol: T, atol: T) TensorError!Tensor(bool) {
+            ensureFloat(T);
+            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            const out = try Tensor(bool).empty(self.allocator, out_shape);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const ai = broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
+                const bi = broadcastOffset(out_multi, out_shape.len, other.shape, other.strides);
+                const lhs = self.data[ai];
+                const rhs = other.data[bi];
+                slot.* = @abs(lhs - rhs) <= atol + rtol * @abs(rhs);
+            }
+            return out;
+        }
+
         fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) TensorError!Tensor(bool) {
             const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
@@ -4183,8 +4201,8 @@ pub fn uniform(comptime T: type, allocator: std.mem.Allocator, dims: []const usi
     return Tensor(T).uniform(allocator, dims, low, high, seed);
 }
 
-pub fn normal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean: T, stddev: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).normal(allocator, dims, mean, stddev, seed);
+pub fn normal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).normal(allocator, dims, mean_value, stddev_value, seed);
 }
 
 pub fn randint(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) TensorError!Tensor(T) {
@@ -4216,8 +4234,8 @@ pub fn poisson(allocator: std.mem.Allocator, dims: []const usize, lambda: f64, s
     return out;
 }
 
-pub fn lognormal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean: T, stddev: T, seed: u64) TensorError!Tensor(T) {
-    return Tensor(T).lognormal(allocator, dims, mean, stddev, seed);
+pub fn lognormal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) TensorError!Tensor(T) {
+    return Tensor(T).lognormal(allocator, dims, mean_value, stddev_value, seed);
 }
 
 pub fn studentT(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) TensorError!Tensor(T) {
@@ -4572,6 +4590,10 @@ pub fn allclose(comptime T: type, a: Tensor(T), b: Tensor(T), rtol: T, atol: T) 
     return a.allclose(b, rtol, atol);
 }
 
+pub fn isclose(comptime T: type, a: Tensor(T), b: Tensor(T), rtol: T, atol: T) TensorError!Tensor(bool) {
+    return a.isclose(b, rtol, atol);
+}
+
 pub fn logicalNot(input: Tensor(bool)) TensorError!Tensor(bool) {
     return input.logicalNot();
 }
@@ -4634,6 +4656,70 @@ pub fn logSoftmax(comptime T: type, input: Tensor(T), axis: isize) TensorError!T
 
 pub fn log_softmax(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
     return input.log_softmax(axis);
+}
+
+pub fn sum(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.sum(axis, keepdims);
+}
+
+pub fn prod(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.prod(axis, keepdims);
+}
+
+pub fn min(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.min(axis, keepdims);
+}
+
+pub fn max(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.max(axis, keepdims);
+}
+
+pub fn mean(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.mean(axis, keepdims);
+}
+
+pub fn variance(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+    return input.variance(axis, keepdims, correction);
+}
+
+pub fn stddev(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+    return input.stddev(axis, keepdims, correction);
+}
+
+pub fn norm(comptime T: type, input: Tensor(T), p: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.norm(p, axis, keepdims);
+}
+
+pub fn cumsum(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.cumsum();
+}
+
+pub fn cumprod(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.cumprod();
+}
+
+pub fn argmax(comptime T: type, input: Tensor(T)) TensorError!usize {
+    return input.argmax();
+}
+
+pub fn argmin(comptime T: type, input: Tensor(T)) TensorError!usize {
+    return input.argmin();
+}
+
+pub fn argmaxAxis(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(usize) {
+    return input.argmaxAxis(axis, keepdims);
+}
+
+pub fn argminAxis(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(usize) {
+    return input.argminAxis(axis, keepdims);
+}
+
+pub fn allAxis(input: Tensor(bool), axis: ?isize, keepdims: bool) TensorError!Tensor(bool) {
+    return input.allAxis(axis, keepdims);
+}
+
+pub fn anyAxis(input: Tensor(bool), axis: ?isize, keepdims: bool) TensorError!Tensor(bool) {
+    return input.anyAxis(axis, keepdims);
 }
 
 pub fn median(comptime T: type, input: Tensor(T), axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
@@ -5054,19 +5140,46 @@ test "array comparison and logical wrappers" {
     var xor_scalar_out = try logicalXorScalar(m1, true);
     defer xor_scalar_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, xor_scalar_out.data);
+
+    var close_target = try array(f64, gpa, &.{ 1.0, 2.001, 2.9, 4.0 }, &.{ 2, 2 });
+    defer close_target.deinit();
+    var close_mask = try isclose(f64, a, close_target, 0.0, 0.01);
+    defer close_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, close_mask.data);
+    try std.testing.expect(!try allclose(f64, a, close_target, 0.0, 0.01));
 }
 
 test "tensor reductions and matmul" {
     const gpa = std.testing.allocator;
     var a = try tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var s0 = try a.sum(0, false);
+    var s0 = try sum(f64, a, 0, false);
     defer s0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, s0.data);
-    var s1 = try a.sum(1, true);
+    var s1 = try sum(f64, a, 1, true);
     defer s1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, s1.shape);
     try std.testing.expectEqualSlices(f64, &.{ 6, 15 }, s1.data);
+    var p0 = try prod(f64, a, 0, false);
+    defer p0.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 10, 18 }, p0.data);
+    var mn = try min(f64, a, null, false);
+    defer mn.deinit();
+    try std.testing.expectEqualSlices(f64, &.{1}, mn.data);
+    var mx = try max(f64, a, 1, false);
+    defer mx.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 6 }, mx.data);
+    var cs = try cumsum(f64, a);
+    defer cs.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 10, 15, 21 }, cs.data);
+    var cp = try cumprod(f64, a);
+    defer cp.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 24, 120, 720 }, cp.data);
+    try std.testing.expectEqual(@as(usize, 5), try argmax(f64, a));
+    try std.testing.expectEqual(@as(usize, 0), try argmin(f64, a));
+    var arg1 = try argmaxAxis(f64, a, 1, false);
+    defer arg1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, arg1.data);
     var t = try a.transpose();
     defer t.deinit();
     var mm = try a.matmul(t);
@@ -5079,12 +5192,24 @@ test "tensor scipy-like statistics and softmax" {
     const gpa = std.testing.allocator;
     var a = try tensor(f64, gpa, &.{ 1, 2, 3, 4 }, &.{4});
     defer a.deinit();
-    var mean = try a.mean(null, false);
-    defer mean.deinit();
-    try std.testing.expectApproxEqAbs(@as(f64, 2.5), mean.data[0], 1e-12);
+    var mean_value = try a.mean(null, false);
+    defer mean_value.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), mean_value.data[0], 1e-12);
     var std_t = try a.stddev(null, false, 0);
     defer std_t.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.118033988749895), std_t.data[0], 1e-12);
+    var mean_top = try mean(f64, a, null, false);
+    defer mean_top.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), mean_top.data[0], 1e-12);
+    var var_top = try variance(f64, a, null, false, 0);
+    defer var_top.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), var_top.data[0], 1e-12);
+    var std_top = try stddev(f64, a, null, false, 0);
+    defer std_top.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1.118033988749895), std_top.data[0], 1e-12);
+    var norm_top = try norm(f64, a, 2, null, false);
+    defer norm_top.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 30)), norm_top.data[0], 1e-12);
 
     var logits = try tensor(f64, gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
     defer logits.deinit();
@@ -5094,6 +5219,15 @@ test "tensor scipy-like statistics and softmax" {
     defer row_sums.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[1], 1e-12);
+
+    var mask = try tensor(bool, gpa, &.{ true, true, false, true }, &.{ 2, 2 });
+    defer mask.deinit();
+    var all_rows = try allAxis(mask, 1, false);
+    defer all_rows.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false }, all_rows.data);
+    var any_cols = try anyAxis(mask, 0, false);
+    defer any_cols.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, any_cols.data);
 }
 
 test "tensor pytorch numpy shape indexing and layout helpers" {
@@ -5752,9 +5886,9 @@ test "array scatter add and reduce variants" {
 
     var ones_base = try ones(f64, gpa, &.{ 2, 3 });
     defer ones_base.deinit();
-    var prod = try ones_base.scatterReduce(1, idx, src, .prod);
-    defer prod.deinit();
-    try std.testing.expectEqualSlices(f64, &.{ 1, 6, 1, 5, 1, 24 }, prod.data);
+    var product_out = try ones_base.scatterReduce(1, idx, src, .prod);
+    defer product_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 6, 1, 5, 1, 24 }, product_out.data);
 
     var max_base = try full(f64, gpa, &.{ 2, 3 }, -100);
     defer max_base.deinit();
