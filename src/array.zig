@@ -1540,6 +1540,57 @@ pub fn Array(comptime T: type) type {
             return self.putFlatScalar(flat, value);
         }
 
+        fn multiIndexShape(self: Self, indices: []const Array(usize)) ArrayError![]usize {
+            if (indices.len != self.shape.len) return error.ShapeMismatch;
+            var out_shape = try self.allocator.dupe(usize, indices[0].shape);
+            errdefer self.allocator.free(out_shape);
+            for (indices[1..]) |idx_array| {
+                const next_shape = try broadcastShape(self.allocator, out_shape, idx_array.shape);
+                self.allocator.free(out_shape);
+                out_shape = next_shape;
+            }
+            return out_shape;
+        }
+
+        pub fn ravelMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
+            const out_shape = try self.multiIndexShape(indices);
+            defer self.allocator.free(out_shape);
+            var out = try Array(usize).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                var offset: usize = 0;
+                for (indices, self.shape, self.strides) |idx_array, extent, stride_value| {
+                    const coord = idx_array.data[broadcastOffset(out_multi, out_shape.len, idx_array.shape, idx_array.strides)];
+                    if (coord >= extent) return error.IndexOutOfBounds;
+                    offset += coord * stride_value;
+                }
+                slot.* = offset;
+            }
+            return out;
+        }
+
+        pub fn takeMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Self {
+            var flat = try self.ravelMultiIndex(indices);
+            defer flat.deinit();
+            return self.take(flat, null);
+        }
+
+        pub fn putMultiIndex(self: Self, indices: []const Array(usize), values: Self) ArrayError!Self {
+            var flat = try self.ravelMultiIndex(indices);
+            defer flat.deinit();
+            return self.putFlat(flat, values);
+        }
+
+        pub fn putMultiIndexScalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Self {
+            var flat = try self.ravelMultiIndex(indices);
+            defer flat.deinit();
+            return self.putFlatScalar(flat, value);
+        }
+
         pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Self {
             if (condition.shape.len != 1) return error.ShapeMismatch;
             if (axis_opt == null) {
@@ -5973,6 +6024,22 @@ pub fn putCoordsScalar(comptime T: type, input: Array(T), coords: Array(usize), 
     return input.putCoordsScalar(coords, value);
 }
 
+pub fn ravelMultiIndex(comptime T: type, input: Array(T), indices: []const Array(usize)) ArrayError!Array(usize) {
+    return input.ravelMultiIndex(indices);
+}
+
+pub fn takeMultiIndex(comptime T: type, input: Array(T), indices: []const Array(usize)) ArrayError!Array(T) {
+    return input.takeMultiIndex(indices);
+}
+
+pub fn putMultiIndex(comptime T: type, input: Array(T), indices: []const Array(usize), values: Array(T)) ArrayError!Array(T) {
+    return input.putMultiIndex(indices, values);
+}
+
+pub fn putMultiIndexScalar(comptime T: type, input: Array(T), indices: []const Array(usize), value: T) ArrayError!Array(T) {
+    return input.putMultiIndexScalar(indices, value);
+}
+
 pub fn compress(comptime T: type, input: Array(T), condition: Array(bool), axis: ?isize) ArrayError!Array(T) {
     return input.compress(condition, axis);
 }
@@ -6424,6 +6491,27 @@ test "array advanced indexing mutation helpers" {
     var grid_put = try putCoords(f64, a, grid_coords, grid_replacements);
     defer grid_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 0, 50, 60 }, grid_put.data);
+    var row_indices = try array(usize, gpa, &.{ 0, 1 }, &.{ 2, 1 });
+    defer row_indices.deinit();
+    var col_indices = try array(usize, gpa, &.{ 0, 2 }, &.{ 1, 2 });
+    defer col_indices.deinit();
+    const multi_indices = [_]Array(usize){ row_indices, col_indices };
+    var flat_multi = try ravelMultiIndex(f64, a, multi_indices[0..]);
+    defer flat_multi.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, flat_multi.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 5 }, flat_multi.data);
+    var multi_values = try takeMultiIndex(f64, a, multi_indices[0..]);
+    defer multi_values.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, multi_values.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 0, 6 }, multi_values.data);
+    var multi_replacements = try array(f64, gpa, &.{ 10, 30, 40, 60 }, &.{ 2, 2 });
+    defer multi_replacements.deinit();
+    var multi_put = try putMultiIndex(f64, a, multi_indices[0..], multi_replacements);
+    defer multi_put.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 40, 5, 60 }, multi_put.data);
+    var multi_scalar_put = try putMultiIndexScalar(f64, a, multi_indices[0..], -9);
+    defer multi_scalar_put.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -9, 0, -9, -9, 5, -9 }, multi_scalar_put.data);
     var bad_coords = try array(usize, gpa, &.{ 2, 0 }, &.{ 1, 2 });
     defer bad_coords.deinit();
     try std.testing.expectError(error.IndexOutOfBounds, a.takeCoords(bad_coords));
