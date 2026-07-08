@@ -1004,6 +1004,147 @@ pub fn CscMatrix(comptime T: type) type {
             veyra.cscRowNormsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
+
+        pub fn get(self: Self, row: usize, col: usize) ?T {
+            if (row >= self.rows or col >= self.cols) return null;
+            for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                const current = self.row_indices[pos];
+                if (current == row) return self.values[pos];
+                if (current > row) return null;
+            }
+            return null;
+        }
+
+        pub fn diagonal(self: Self) SparseError!array_mod.Array(T) {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) return self.diagonalF64();
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |i| out.data[i] = self.get(i, i) orelse zero(T);
+            return out;
+        }
+
+        fn diagonalF64(self: Self) SparseError!array_mod.Array(f64) {
+            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
+            defer out.deinit();
+            veyra.cscDiagonal(f64, view, out.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
+        }
+
+        pub fn trace(self: Self) SparseError!T {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CscMatrix(f64), self).asVeyraView();
+                return veyra.cscTrace(f64, view) catch return error.BackendFailure;
+            }
+            var total = zero(T);
+            for (0..self.rows) |i| total += self.get(i, i) orelse zero(T);
+            return total;
+        }
+
+        pub fn missingDiagonalCount(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CscMatrix(f64), self).asVeyraView();
+                return veyra.cscMissingDiagonalCount(f64, view) catch return error.BackendFailure;
+            }
+            var count: usize = 0;
+            for (0..self.rows) |i| {
+                if (self.get(i, i) == null) count += 1;
+            }
+            return count;
+        }
+
+        pub fn zeroDiagonalCount(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CscMatrix(f64), self).asVeyraView();
+                return veyra.cscZeroDiagonalCount(f64, view) catch return error.BackendFailure;
+            }
+            var count: usize = 0;
+            for (0..self.rows) |i| {
+                if (self.get(i, i)) |value| {
+                    if (value == zero(T)) count += 1;
+                }
+            }
+            return count;
+        }
+
+        pub fn bandwidth(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CscMatrix(f64), self).asVeyraView();
+                return veyra.cscBandwidth(f64, view) catch return error.BackendFailure;
+            }
+            var bw: usize = 0;
+            for (0..self.cols) |c| {
+                for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| {
+                    const r = self.row_indices[pos];
+                    const distance = if (r > c) r - c else c - r;
+                    if (distance > bw) bw = distance;
+                }
+            }
+            return bw;
+        }
+
+        pub fn structurallySymmetric(self: Self) SparseError!bool {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CscMatrix(f64), self).asVeyraView();
+                return veyra.cscStructurallySymmetric(f64, view) catch return error.BackendFailure;
+            }
+            for (0..self.cols) |c| {
+                for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| if (self.get(c, self.row_indices[pos]) == null) return false;
+            }
+            return true;
+        }
+
+        pub fn numericallySymmetric(self: Self, tolerance: T) SparseError!bool {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (comptime T == f64) {
+                const view = try @as(CscMatrix(f64), self).asVeyraView();
+                return veyra.cscNumericallySymmetric(f64, view, tolerance) catch return error.BackendFailure;
+            }
+            for (0..self.cols) |c| {
+                for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| {
+                    const r = self.row_indices[pos];
+                    const mirror = self.get(c, r) orelse return false;
+                    if (absValue(T, self.values[pos] - mirror) > tolerance) return false;
+                }
+            }
+            return true;
+        }
+
+        pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
+            if (rhs.shape[0] != self.rows) return error.ShapeMismatch;
+            if (comptime T == f64) return self.solveTriangularF64(@as(array_mod.Array(f64), rhs), triangle, diag_kind);
+            var csr = try self.toCsr();
+            defer csr.deinit();
+            return csr.solveTriangular(rhs, triangle, diag_kind);
+        }
+
+        fn solveTriangularF64(self: Self, rhs: array_mod.Array(f64), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(f64) {
+            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            if (rhs.shape.len == 1) {
+                var rhs_vec = veyra.Vector(f64).fromSlice(self.allocator, rhs.data) catch return error.BackendFailure;
+                defer rhs_vec.deinit();
+                var dst = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
+                defer dst.deinit();
+                veyra.cscSolveTriangular(f64, view, rhs_vec.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
+                return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
+            }
+            var rhs_mat = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
+            defer rhs_mat.deinit();
+            var dst = veyra.Matrix(f64).zeros(self.allocator, self.rows, rhs.shape[1], .row_major) catch return error.BackendFailure;
+            defer dst.deinit();
+            veyra.cscSolveTriangularMatrix(f64, view, rhs_mat.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
+        }
     };
 }
 
@@ -1323,4 +1464,49 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 9.0), try csc.density(), 1e-12);
+}
+
+test "csc sparse diagnostics and triangular solve" {
+    const gpa = std.testing.allocator;
+    var symmetric_dense = try array_mod.array(f64, gpa, &.{
+        4, 1, 0,
+        1, 5, 2,
+        0, 2, 6,
+    }, &.{ 3, 3 });
+    defer symmetric_dense.deinit();
+    var symmetric = try cscFromDense(f64, symmetric_dense);
+    defer symmetric.deinit();
+    var diag = try symmetric.diagonal();
+    defer diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, diag.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.trace(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
+    try std.testing.expect(try symmetric.structurallySymmetric());
+    try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
+
+    var lower_dense = try array_mod.array(f64, gpa, &.{
+        2,  0, 0,
+        -1, 3, 0,
+        4,  2, 5,
+    }, &.{ 3, 3 });
+    defer lower_dense.deinit();
+    var lower = try cscFromDense(f64, lower_dense);
+    defer lower.deinit();
+    var rhs = try array_mod.array(f64, gpa, &.{ 2, 2, 25 }, &.{3});
+    defer rhs.deinit();
+    var x = try lower.solveTriangular(rhs, .lower, .non_unit);
+    defer x.deinit();
+    var check = try lower.matvec(x);
+    defer check.deinit();
+    try std.testing.expect(try check.allclose(rhs, 1e-12, 1e-12));
+
+    var rhs_m = try array_mod.array(f64, gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
+    defer rhs_m.deinit();
+    var xm = try lower.solveTriangular(rhs_m, .lower, .non_unit);
+    defer xm.deinit();
+    var check_m = try lower.matmat(xm);
+    defer check_m.deinit();
+    try std.testing.expect(try check_m.allclose(rhs_m, 1e-12, 1e-12));
 }
