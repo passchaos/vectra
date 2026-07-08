@@ -29,6 +29,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - 形状变换：reshape/view、flatten/ravel、squeeze/unsqueeze、transpose/permute/movedim、broadcast、repeat/tile、sliceAxis、flip、roll、padConstant。
 - 广播逐元素运算：加减乘除、幂、比较、逻辑运算、where、clip/clipArray、maximum/minimum。
 - 归约：sum、prod、min、max、mean、var、std、argmin、argmax、cumsum、cumprod。
+- 排序/选择：任意 axis/dim 的 `sort/argsort`、descending variants、`sortWithIndices`、`partition/argpartition`、`topk`。
 - 线性代数基础：dot、matmul/mm、bmm、outer、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库。
 - 神经网络常用数学函数：relu、sigmoid、tanh、softmax、log_softmax、cross_entropy 相关基础。
 - dtype 转换与类型提升规则：当前支持 `bool`、常用有符号/无符号整数、`usize`、`f32/f64` 和基础 dtype metadata；后续继续补 complex、f16/bf16 与 promotion。
@@ -87,7 +88,8 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 - 索引/搜索：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeAlongAxis/putAlongAxis`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`maskedSelect`、`maskedFill`、`maskedScatter`、`nonzero/countNonzero`、`isin`、`searchsorted`、`bucketize`、`digitize`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、scalar variants、`maximum/minimum`、`whereMask`、比较、`allclose`。
 - 数学/NN：`exp`、`log`、`sqrt`、`sin`、`cos`、`tanh`、`relu`、`sigmoid`、`softmax`、`logSoftmax/log_softmax`、`clip`。
-- 归约：`sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`cumsumAxis/cumprodAxis`、`diff`、`argmin`、`argmax`、`argminAxis/argmaxAxis`、`topk(sorted=true/false)`。
+- 归约：`sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`cumsumAxis/cumprodAxis`、`diff`、`argmin`、`argmax`、`argminAxis/argmaxAxis`。
+- 排序/选择：`sort`、`sortBy`、`sortDescending`、`argsort`、`argsortAxis`、`argsortDescending`、`sortWithIndices`、`partition`、`argpartition`、`topk(sorted=true/false)`。
 - 离散/计数：`unique`、`uniqueWithCounts`、`bincount`、`bincountWeighted`。
 - 组合/矩阵辅助：`cat/concatenate`、`stack`、`diag/diagflat`、`outer`、`diagonal`、`trace`、`triu/tril`；`linalg.matmul/matvec/det/solve/inverse/lu/solveTriangular/cholesky/qr/svd/lstsq/singularValues/matrixRank/cond/pinv/matrixNorm/eigh/eigvalsh`。
 - 基础 linalg/stats/DataFrame 也有初版，但它们不是下一阶段最高优先级。

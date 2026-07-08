@@ -219,6 +219,13 @@ fn ensureFloat(comptime T: type) void {
     if (comptime !isFloat(T)) @compileError("operation requires a floating-point tensor, got " ++ @typeName(T));
 }
 
+fn ensureOrderable(comptime T: type) void {
+    switch (@typeInfo(T)) {
+        .bool, .int, .float, .comptime_int, .comptime_float => {},
+        else => @compileError("ordering requires a bool or numeric tensor, got " ++ @typeName(T)),
+    }
+}
+
 fn lessValue(comptime T: type, a: T, b: T) bool {
     return switch (@typeInfo(T)) {
         .bool => !a and b,
@@ -2528,45 +2535,151 @@ pub fn Tensor(comptime T: type) type {
             return exp_t.div(denom);
         }
 
+        pub const SortResult = struct {
+            values: Self,
+            indices: Tensor(usize),
+
+            pub fn deinit(self: *@This()) void {
+                self.values.deinit();
+                self.indices.deinit();
+                self.* = undefined;
+            }
+        };
+
+        fn sortOrderLess(descending: bool, a: T, b: T) bool {
+            return if (descending) lessValue(T, b, a) else lessValue(T, a, b);
+        }
+
         pub fn sort(self: Self, axis_opt: ?isize) TensorError!Self {
-            ensureNumeric(T);
-            if (axis_opt == null) {
-                const out = try self.flatten();
-                std.sort.insertion(T, out.data, {}, struct {
-                    fn lessThan(_: void, a: T, b: T) bool {
-                        return lessValue(T, a, b);
-                    }
-                }.lessThan);
-                return out;
-            }
-            const axis = try normalizeDim(axis_opt.?, self.shape.len);
-            if (axis != self.shape.len - 1) return error.InvalidAxis;
-            var out = try self.clone();
-            const width = self.shape[axis];
-            if (width == 0) return out;
-            const rows = self.data.len / width;
-            for (0..rows) |r| {
-                std.sort.insertion(T, out.data[r * width ..][0..width], {}, struct {
-                    fn lessThan(_: void, a: T, b: T) bool {
-                        return lessValue(T, a, b);
-                    }
-                }.lessThan);
-            }
-            return out;
+            return self.sortBy(axis_opt, false);
+        }
+
+        pub fn sortDescending(self: Self, axis_opt: ?isize) TensorError!Self {
+            return self.sortBy(axis_opt, true);
+        }
+
+        pub fn sortBy(self: Self, axis_opt: ?isize, descending: bool) TensorError!Self {
+            var result = try self.sortWithIndices(axis_opt, descending);
+            result.indices.deinit();
+            return result.values;
         }
 
         pub fn argsort(self: Self) TensorError!Tensor(usize) {
-            ensureNumeric(T);
-            const idx = try Tensor(usize).empty(self.allocator, &.{self.data.len});
-            for (idx.data, 0..) |*slot, i| slot.* = i;
+            return self.argsortAxis(null, false);
+        }
+
+        pub fn argsortDescending(self: Self) TensorError!Tensor(usize) {
+            return self.argsortAxis(null, true);
+        }
+
+        pub fn argsortAxis(self: Self, axis_opt: ?isize, descending: bool) TensorError!Tensor(usize) {
+            var result = try self.sortWithIndices(axis_opt, descending);
+            result.values.deinit();
+            return result.indices;
+        }
+
+        pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) TensorError!SortResult {
+            ensureOrderable(T);
+            if (axis_opt == null) {
+                var values = try self.flatten();
+                errdefer values.deinit();
+                var indices = try Tensor(usize).empty(self.allocator, &.{self.data.len});
+                errdefer indices.deinit();
+                for (indices.data, 0..) |*slot, i| slot.* = i;
+                const Ctx = struct {
+                    data: []const T,
+                    descending: bool,
+                    fn lessThan(ctx: @This(), a: usize, b: usize) bool {
+                        return sortOrderLess(ctx.descending, ctx.data[a], ctx.data[b]);
+                    }
+                };
+                std.sort.insertion(usize, indices.data, Ctx{ .data = self.data, .descending = descending }, Ctx.lessThan);
+                for (indices.data, values.data) |idx, *slot| slot.* = self.data[idx];
+                return .{ .values = values, .indices = indices };
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            var values = try Self.empty(self.allocator, self.shape);
+            errdefer values.deinit();
+            var indices = try Tensor(usize).empty(self.allocator, self.shape);
+            errdefer indices.deinit();
+            if (values.data.len == 0) return .{ .values = values, .indices = indices };
+
+            const axis_len = self.shape[axis];
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |d, i| slice_shape[i] = d;
+            for (self.shape[axis + 1 ..], axis..) |d, i| slice_shape[i] = d;
+            const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var base_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(base_multi);
+            var out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            const order = try self.allocator.alloc(usize, axis_len);
+            defer self.allocator.free(order);
+
             const Ctx = struct {
-                data: []const T,
+                tensor: Self,
+                axis: usize,
+                base_multi: []const usize,
+                descending: bool,
+
+                fn valueAt(ctx: @This(), axis_i: usize) T {
+                    var offset: usize = 0;
+                    for (ctx.tensor.shape, ctx.tensor.strides, 0..) |_, stride_value, dim_i| {
+                        const coord = if (dim_i == ctx.axis) axis_i else ctx.base_multi[dim_i];
+                        offset += coord * stride_value;
+                    }
+                    return ctx.tensor.data[offset];
+                }
+
                 fn lessThan(ctx: @This(), a: usize, b: usize) bool {
-                    return lessValue(T, ctx.data[a], ctx.data[b]);
+                    return sortOrderLess(ctx.descending, ctx.valueAt(a), ctx.valueAt(b));
                 }
             };
-            std.sort.insertion(usize, idx.data, Ctx{ .data = self.data }, Ctx.lessThan);
-            return idx;
+
+            for (0..product(slice_shape)) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| base_multi[i] = coord;
+                for (slice_multi[axis..], axis + 1..) |coord, i| base_multi[i] = coord;
+                for (order, 0..) |*slot, i| slot.* = i;
+                std.sort.insertion(usize, order, Ctx{ .tensor = self, .axis = axis, .base_multi = base_multi, .descending = descending }, Ctx.lessThan);
+
+                for (0..axis_len) |rank_i| {
+                    @memcpy(out_multi, base_multi);
+                    out_multi[axis] = rank_i;
+                    const source_axis = order[rank_i];
+                    base_multi[axis] = source_axis;
+                    const out_offset = ravelIndex(out_multi, values.strides);
+                    values.data[out_offset] = self.data[ravelIndex(base_multi, self.strides)];
+                    indices.data[out_offset] = source_axis;
+                }
+            }
+            return .{ .values = values, .indices = indices };
+        }
+
+        fn partitionLen(self: Self, axis_opt: ?isize) TensorError!usize {
+            if (axis_opt) |axis_index| return self.shape[try normalizeDim(axis_index, self.shape.len)];
+            return self.data.len;
+        }
+
+        pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) TensorError!Self {
+            ensureOrderable(T);
+            const len_axis = try self.partitionLen(axis_opt);
+            if (kth >= len_axis) return error.InvalidShape;
+            // Full sorting is a valid (stronger) partition: the kth item is in the
+            // same position it would occupy in a sorted array, and all preceding
+            // items compare before all following items. A future kernel can relax
+            // this to O(n) selection while keeping the API stable.
+            return self.sortBy(axis_opt, descending);
+        }
+
+        pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) TensorError!Tensor(usize) {
+            ensureOrderable(T);
+            const len_axis = try self.partitionLen(axis_opt);
+            if (kth >= len_axis) return error.InvalidShape;
+            return self.argsortAxis(axis_opt, descending);
         }
 
         pub const UniqueCounts = struct {
@@ -3084,6 +3197,42 @@ pub fn where(comptime T: type, mask: Tensor(bool), a: Tensor(T), b: Tensor(T)) T
     return Tensor(T).whereMask(mask, a, b);
 }
 
+pub fn sort(comptime T: type, input: Tensor(T), axis: ?isize) TensorError!Tensor(T) {
+    return input.sort(axis);
+}
+
+pub fn sortBy(comptime T: type, input: Tensor(T), axis: ?isize, descending: bool) TensorError!Tensor(T) {
+    return input.sortBy(axis, descending);
+}
+
+pub fn sortDescending(comptime T: type, input: Tensor(T), axis: ?isize) TensorError!Tensor(T) {
+    return input.sortDescending(axis);
+}
+
+pub fn argsort(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+    return input.argsort();
+}
+
+pub fn argsortAxis(comptime T: type, input: Tensor(T), axis: ?isize, descending: bool) TensorError!Tensor(usize) {
+    return input.argsortAxis(axis, descending);
+}
+
+pub fn argsortDescending(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+    return input.argsortDescending();
+}
+
+pub fn sortWithIndices(comptime T: type, input: Tensor(T), axis: ?isize, descending: bool) TensorError!Tensor(T).SortResult {
+    return input.sortWithIndices(axis, descending);
+}
+
+pub fn partition(comptime T: type, input: Tensor(T), kth: usize, axis: ?isize, descending: bool) TensorError!Tensor(T) {
+    return input.partition(kth, axis, descending);
+}
+
+pub fn argpartition(comptime T: type, input: Tensor(T), kth: usize, axis: ?isize, descending: bool) TensorError!Tensor(usize) {
+    return input.argpartition(kth, axis, descending);
+}
+
 pub fn unique(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
     return input.unique();
 }
@@ -3416,6 +3565,54 @@ test "tensor min max arg reductions and topk" {
     defer row_unsorted.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 9, 5, 4, 8 }, row_unsorted.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 0, 1 }, row_unsorted.indices.data);
+}
+
+test "array sort argsort and partition axes" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 8, 1, 5, 3, 7, 2 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var flat_desc = try sortDescending(f64, a, null);
+    defer flat_desc.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, flat_desc.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 8, 7, 5, 3, 2, 1 }, flat_desc.data);
+
+    var row_sorted = try a.sort(1);
+    defer row_sorted.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 8, 2, 3, 7 }, row_sorted.data);
+
+    var col_sorted_desc = try a.sortBy(0, true);
+    defer col_sorted_desc.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 8, 7, 5, 3, 1, 2 }, col_sorted_desc.data);
+
+    var row_order = try argsortAxis(f64, a, 1, false);
+    defer row_order.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 0, 2, 0, 1 }, row_order.data);
+
+    var flat_order_desc = try a.argsortDescending();
+    defer flat_order_desc.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 4, 2, 3, 5, 1 }, flat_order_desc.data);
+
+    var col_sorted = try sortWithIndices(f64, a, 0, false);
+    defer col_sorted.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 1, 2, 8, 7, 5 }, col_sorted.values.data);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 0, 1, 0, 1, 0 }, col_sorted.indices.data);
+
+    var row_partition = try partition(f64, a, 1, 1, false);
+    defer row_partition.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 8, 2, 3, 7 }, row_partition.data);
+    var row_argpartition = try a.argpartition(1, 1, false);
+    defer row_argpartition.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 0, 2, 0, 1 }, row_argpartition.data);
+
+    try std.testing.expectError(error.InvalidAxis, a.sort(2));
+    try std.testing.expectError(error.InvalidShape, a.partition(3, 1, false));
+
+    var flags = try array(bool, gpa, &.{ true, false, false, true }, &.{ 2, 2 });
+    defer flags.deinit();
+    var sorted_flags = try flags.sort(1);
+    defer sorted_flags.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, sorted_flags.data);
 }
 
 test "tensor bool all any axis reductions" {
