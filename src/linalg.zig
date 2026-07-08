@@ -35,6 +35,21 @@ pub fn QrResult(comptime T: type) type {
     };
 }
 
+pub fn SvdResult(comptime T: type) type {
+    return struct {
+        u: tensor_mod.Tensor(T),
+        s: tensor_mod.Tensor(T),
+        vt: tensor_mod.Tensor(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.u.deinit();
+            self.s.deinit();
+            self.vt.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
 fn mapVeyraInverseError(err: anyerror) LinalgError {
     return switch (err) {
         error.Singular => error.SingularMatrix,
@@ -219,6 +234,82 @@ fn qrReference(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!QrResult(T
     return .{ .q = q, .r = r };
 }
 
+pub fn svd(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!SvdResult(T) {
+    if (a.shape.len != 2) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("svd requires floating-point tensors");
+    if (T == f64) return svdF64(@as(tensor_mod.Tensor(f64), a), @as(f64, tolerance));
+    return error.BackendFailure;
+}
+
+fn svdF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!SvdResult(f64) {
+    var matrix = try toVeyraMatrix(a);
+    defer matrix.deinit();
+    var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
+    defer decomposition.deinit();
+    var u = try fromVeyraMatrix(a.allocator, &decomposition.u);
+    errdefer u.deinit();
+    var s_values = try fromVeyraVector(a.allocator, &decomposition.singular_values);
+    errdefer s_values.deinit();
+    var vt = try fromVeyraMatrix(a.allocator, &decomposition.vt);
+    errdefer vt.deinit();
+    return .{ .u = u, .s = s_values, .vt = vt };
+}
+
+pub fn lstsq(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T), tolerance: T) LinalgError!tensor_mod.Tensor(T) {
+    if (a.shape.len != 2) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("lstsq requires floating-point tensors");
+    if (T == f64) return lstsqF64(@as(tensor_mod.Tensor(f64), a), @as(tensor_mod.Tensor(f64), b), @as(f64, tolerance));
+
+    // Basic fallback for vector RHS using QR. Matrix RHS can be added when needed.
+    if (b.shape.len != 1) return error.NonVectorTensor;
+    var factors = try qr(T, a);
+    defer factors.deinit();
+    var qt = try factors.q.transpose();
+    defer qt.deinit();
+    var y_full = try matvec(T, qt, b);
+    defer y_full.deinit();
+    const n = a.shape[1];
+    var x = try tensor_mod.Tensor(T).zeros(a.allocator, &.{n});
+    var i = n;
+    while (i > 0) {
+        i -= 1;
+        var acc = y_full.data[i];
+        for (i + 1..n) |j| acc -= factors.r.data[i * a.shape[1] + j] * x.data[j];
+        const diag = factors.r.data[i * a.shape[1] + i];
+        if (@abs(diag) <= tolerance) return error.SingularMatrix;
+        x.data[i] = acc / diag;
+    }
+    return x;
+}
+
+fn lstsqF64(a: tensor_mod.Tensor(f64), b: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!tensor_mod.Tensor(f64) {
+    var matrix = try toVeyraMatrix(a);
+    defer matrix.deinit();
+    var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
+    defer decomposition.deinit();
+
+    if (b.shape.len == 1) {
+        var rhs = try toVeyraVector(b);
+        defer rhs.deinit();
+        var dst = veyra.Vector(f64).zeros(a.allocator, a.shape[1]) catch return error.BackendFailure;
+        defer dst.deinit();
+        decomposition.solveLeastSquares(rhs.asView(), dst.asMut(), tolerance) catch |err| return mapVeyraError(err);
+        return fromVeyraVector(a.allocator, &dst);
+    }
+
+    if (b.shape.len == 2) {
+        if (b.shape[0] != a.shape[0]) return error.ShapeMismatch;
+        var rhs = try toVeyraMatrix(b);
+        defer rhs.deinit();
+        var dst = veyra.Matrix(f64).zeros(a.allocator, a.shape[1], b.shape[1], .row_major) catch return error.BackendFailure;
+        defer dst.deinit();
+        decomposition.solveLeastSquaresMatrix(rhs.asView(), dst.asMut(), tolerance) catch |err| return mapVeyraError(err);
+        return fromVeyraMatrix(a.allocator, &dst);
+    }
+
+    return error.InvalidShape;
+}
+
 pub fn det(comptime T: type, a: tensor_mod.Tensor(T)) LinalgError!T {
     if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixTensor;
     if (@typeInfo(T) != .float) @compileError("det currently requires floating-point tensors");
@@ -373,4 +464,47 @@ test "linalg qr reconstructs matrix" {
     var reconstructed = try matmul(f64, factors.q, factors.r);
     defer reconstructed.deinit();
     try std.testing.expect(try reconstructed.allclose(a, 1e-10, 1e-10));
+}
+
+test "linalg svd reconstructs matrix" {
+    const gpa = std.testing.allocator;
+    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    defer a.deinit();
+    var factors = try svd(f64, a, 1e-12);
+    defer factors.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, factors.u.shape);
+    try std.testing.expectEqualSlices(usize, &.{2}, factors.s.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, factors.vt.shape);
+
+    var sigma = try tensor_mod.Tensor(f64).zeros(gpa, &.{ 2, 2 });
+    defer sigma.deinit();
+    sigma.data[0] = factors.s.data[0];
+    sigma.data[3] = factors.s.data[1];
+    var us = try matmul(f64, factors.u, sigma);
+    defer us.deinit();
+    var reconstructed = try matmul(f64, us, factors.vt);
+    defer reconstructed.deinit();
+    try std.testing.expect(try reconstructed.allclose(a, 1e-10, 1e-10));
+}
+
+test "linalg lstsq solves vector and matrix rhs" {
+    const gpa = std.testing.allocator;
+    var a = try tensor_mod.tensor(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    defer a.deinit();
+    var b = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, 2 }, &.{3});
+    defer b.deinit();
+    var x = try lstsq(f64, a, b, 1e-12);
+    defer x.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), x.data[0], 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), x.data[1], 1e-10);
+
+    var bm = try tensor_mod.tensor(f64, gpa, &.{ 1, 2, 2, 1, 2, 0 }, &.{ 3, 2 });
+    defer bm.deinit();
+    var xm = try lstsq(f64, a, bm, 1e-12);
+    defer xm.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, xm.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), xm.data[0], 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), xm.data[1], 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), xm.data[2], 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0), xm.data[3], 1e-10);
 }

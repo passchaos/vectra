@@ -45,6 +45,8 @@ pub const matmul = linalg.matmul;
 pub const matvec = linalg.matvec;
 pub const cholesky = linalg.cholesky;
 pub const qr = linalg.qr;
+pub const svd = linalg.svd;
+pub const lstsq = linalg.lstsq;
 pub const dataframe = dataframe_mod.dataframe;
 
 test {
