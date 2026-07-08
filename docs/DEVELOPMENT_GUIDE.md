@@ -138,6 +138,7 @@ Array IO / serialization 当前支持：
 
 - `toBytes/fromBytes`：裸数据字节 roundtrip。
 - `toArchive/fromArchive`：包含 magic/version/dtype/rank/shape/data 的简单二进制归档格式。
+- `saveArchive/saveArchiveToDir` 与 `loadArchive/loadArchiveFromDir`：基于 Zig 0.16 `std.Io.Dir` 的对象式文件归档读写。
 
 命名边界：
 

@@ -8343,6 +8343,18 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn saveArchiveToDir(self: Self, dir: std.Io.Dir, io: std.Io, path: []const u8) !void {
+            const archive = try self.toArchive(self.allocator);
+            defer self.allocator.free(archive);
+            var file = try dir.createFile(io, path, .{});
+            defer file.close(io);
+            try file.writePositionalAll(io, archive, 0);
+        }
+
+        pub fn saveArchive(self: Self, io: std.Io, path: []const u8) !void {
+            return self.saveArchiveToDir(std.Io.Dir.cwd(), io, path);
+        }
+
         pub fn fromArchive(allocator: std.mem.Allocator, archive: []const u8) ArrayError!Self {
             const min_len = Archive.magic.len + 1 + 1 + 2 + 8;
             if (archive.len < min_len) return error.InvalidShape;
@@ -8369,6 +8381,22 @@ pub fn Array(comptime T: type) type {
             const data_len = n * @sizeOf(T);
             if (archive.len != offset + data_len) return error.InvalidShape;
             return Self.fromBytes(allocator, archive[offset..], dims);
+        }
+
+        pub fn loadArchiveFromDir(
+            allocator: std.mem.Allocator,
+            dir: std.Io.Dir,
+            io: std.Io,
+            path: []const u8,
+            limit: std.Io.Limit,
+        ) !Self {
+            const archive = try dir.readFileAlloc(io, path, allocator, limit);
+            defer allocator.free(archive);
+            return Self.fromArchive(allocator, archive);
+        }
+
+        pub fn loadArchive(allocator: std.mem.Allocator, io: std.Io, path: []const u8, limit: std.Io.Limit) !Self {
+            return Self.loadArchiveFromDir(allocator, std.Io.Dir.cwd(), io, path, limit);
         }
 
         pub fn print(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
@@ -11183,6 +11211,15 @@ test "array bytes and archive serialization roundtrip" {
     try std.testing.expectEqualSlices(i16, a.data, restored.data);
     try std.testing.expectEqualSlices(usize, a.shape, restored.shape);
     try std.testing.expectError(error.TypeUnsupported, Array(f32).fromArchive(gpa, archive));
+
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try a.saveArchiveToDir(tmp.dir, std.testing.io, "array.vxarr");
+    var loaded = try Array(i16).loadArchiveFromDir(gpa, tmp.dir, std.testing.io, "array.vxarr", .limited(1024));
+    defer loaded.deinit();
+    try std.testing.expectEqualSlices(i16, a.data, loaded.data);
+    try std.testing.expectEqualSlices(usize, a.shape, loaded.shape);
+    try std.testing.expectError(error.TypeUnsupported, Array(f32).loadArchiveFromDir(gpa, tmp.dir, std.testing.io, "array.vxarr", .limited(1024)));
 }
 
 test "array axis cumulative operations and diff" {
