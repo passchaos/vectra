@@ -3592,6 +3592,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.magnitude();
         }
 
+        pub fn angle(self: Self) ArrayError!Array(complexRealType(T)) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.angle();
+        }
+
+        pub fn phase(self: Self) ArrayError!Array(complexRealType(T)) {
+            return self.angle();
+        }
+
         pub fn fft(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -4676,6 +4686,19 @@ pub fn Array(comptime T: type) type {
             return self.magnitude();
         }
 
+        pub fn angle(self: Self) ArrayError!Array(complexRealType(T)) {
+            ensureComplex(T);
+            const Real = complexRealType(T);
+            var out = try Array(Real).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (self.data, out.data) |value, *slot| slot.* = std.math.atan2(value.im, value.re);
+            return out;
+        }
+
+        pub fn phase(self: Self) ArrayError!Array(complexRealType(T)) {
+            return self.angle();
+        }
+
         fn fftWithSign(self: Self, inverse: bool) ArrayError!Self {
             ensureComplex(T);
             if (self.shape.len != 1) return error.NonVectorArray;
@@ -4691,8 +4714,8 @@ pub fn Array(comptime T: type) type {
                 const k_real: Real = @floatFromInt(k);
                 for (0..n) |j| {
                     const j_real: Real = @floatFromInt(j);
-                    const angle = direction * castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
-                    const twiddle = T.init(@cos(angle), @sin(angle));
+                    const phase_angle = direction * castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
+                    const twiddle = T.init(@cos(phase_angle), @sin(phase_angle));
                     acc = acc.add(self.data[j].mul(twiddle));
                 }
                 out.data[k] = if (inverse) acc.div(T.init(n_real, 0)) else acc;
@@ -4726,8 +4749,8 @@ pub fn Array(comptime T: type) type {
                 for (0..n) |j| {
                     in_multi[axis] = j;
                     const j_real: Real = @floatFromInt(j);
-                    const angle = direction * castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
-                    const twiddle = T.init(@cos(angle), @sin(angle));
+                    const phase_angle = direction * castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
+                    const twiddle = T.init(@cos(phase_angle), @sin(phase_angle));
                     acc = acc.add(self.data[ravelIndex(in_multi, self.strides)].mul(twiddle));
                 }
                 slot.* = if (inverse) acc.div(T.init(n_real, 0)) else acc;
@@ -4759,8 +4782,8 @@ pub fn Array(comptime T: type) type {
                 var acc = C.init(0, 0);
                 for (0..n) |j| {
                     const j_real: Real = @floatFromInt(j);
-                    const angle = -castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
-                    const twiddle = C.init(@cos(angle), @sin(angle));
+                    const phase_angle = -castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
+                    const twiddle = C.init(@cos(phase_angle), @sin(phase_angle));
                     acc = acc.add(C.init(castValue(Real, self.data[j]), 0).mul(twiddle));
                 }
                 out.data[k] = acc;
@@ -4787,8 +4810,8 @@ pub fn Array(comptime T: type) type {
                     else
                         self.data[n - k].conjugate();
                     const k_real: Real = @floatFromInt(k);
-                    const angle = castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
-                    const twiddle = T.init(@cos(angle), @sin(angle));
+                    const phase_angle = castValue(Real, 2.0 * std.math.pi) * k_real * j_real / n_real;
+                    const twiddle = T.init(@cos(phase_angle), @sin(phase_angle));
                     acc = acc.add(spectrum_value.mul(twiddle));
                 }
                 out.data[j] = acc.re / n_real;
@@ -12762,6 +12785,14 @@ test "array view object math sort and linalg wrappers" {
     var abs_complex = try complex_view.absComplex();
     defer abs_complex.deinit();
     try std.testing.expectEqualSlices(f32, magnitudes.data, abs_complex.data);
+    var angles = try complex_view.angle();
+    defer angles.deinit();
+    try std.testing.expectApproxEqAbs(std.math.atan2(@as(f32, 2), @as(f32, 1)), angles.data[0], 1e-6);
+    try std.testing.expectApproxEqAbs(std.math.atan2(@as(f32, 1), @as(f32, -1)), angles.data[1], 1e-6);
+    try std.testing.expectApproxEqAbs(std.math.atan2(@as(f32, -4), @as(f32, 3)), angles.data[2], 1e-6);
+    var phases = try complex_view.phase();
+    defer phases.deinit();
+    try std.testing.expectEqualSlices(f32, angles.data, phases.data);
 }
 
 test "array object unfold sliding-window views" {
@@ -15000,6 +15031,15 @@ test "array complex unary math and predicates" {
     defer sin_values.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, 0), sin_values.data[0].re, 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 0), sin_values.data[0].im, 1e-5);
+
+    var angles = try values.angle();
+    defer angles.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 0), angles.data[0], 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), angles.data[1], 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, std.math.pi / 2.0), angles.data[2], 1e-5);
+    var phases = try values.phase();
+    defer phases.deinit();
+    try std.testing.expectEqualSlices(f32, angles.data, phases.data);
 
     var special = try Array(C).fromSlice(gpa, &.{ C.init(1, 0), C.init(std.math.nan(f32), 0), C.init(0, std.math.inf(f32)) }, &.{3});
     defer special.deinit();
