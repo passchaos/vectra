@@ -1310,6 +1310,14 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryView(other, opDiv);
         }
 
+        fn ownedBinary(self: Self, other: Self, comptime method: fn (Array(T), Array(T)) ArrayError!Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return method(lhs, rhs);
+        }
+
         pub fn addArray(self: Self, other: Array(T)) ArrayError!Array(T) {
             var other_view = try other.asView();
             defer other_view.deinit();
@@ -1332,6 +1340,110 @@ pub fn ArrayView(comptime T: type) type {
             var other_view = try other.asView();
             defer other_view.deinit();
             return self.div(other_view);
+        }
+
+        pub fn pow(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).pow);
+        }
+
+        pub fn powArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.pow(other_view);
+        }
+
+        pub fn floorDiv(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).floorDiv);
+        }
+
+        pub fn floorDivArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.floorDiv(other_view);
+        }
+
+        pub fn mod(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).mod);
+        }
+
+        pub fn modArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.mod(other_view);
+        }
+
+        pub fn remainder(self: Self, other: Self) ArrayError!Array(T) {
+            return self.mod(other);
+        }
+
+        pub fn remainderArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            return self.modArray(other);
+        }
+
+        pub fn maximum(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).maximum);
+        }
+
+        pub fn maximumArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.maximum(other_view);
+        }
+
+        pub fn minimum(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).minimum);
+        }
+
+        pub fn minimumArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.minimum(other_view);
+        }
+
+        pub fn hypot(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).hypot);
+        }
+
+        pub fn hypotArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.hypot(other_view);
+        }
+
+        pub fn atan2(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).atan2);
+        }
+
+        pub fn atan2Array(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.atan2(other_view);
+        }
+
+        pub fn nextAfter(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).nextAfter);
+        }
+
+        pub fn nextafter(self: Self, other: Self) ArrayError!Array(T) {
+            return self.nextAfter(other);
+        }
+
+        pub fn copysign(self: Self, sign_values: Self) ArrayError!Array(T) {
+            return self.ownedBinary(sign_values, Array(T).copysign);
+        }
+
+        pub fn heaviside(self: Self, values_at_zero: Self) ArrayError!Array(T) {
+            return self.ownedBinary(values_at_zero, Array(T).heaviside);
+        }
+
+        pub fn clipArray(self: Self, min_values: Self, max_values: Self) ArrayError!Array(T) {
+            var values = try self.toArray();
+            defer values.deinit();
+            var min_owned = try min_values.toArray();
+            defer min_owned.deinit();
+            var max_owned = try max_values.toArray();
+            defer max_owned.deinit();
+            return values.clipArray(min_owned, max_owned);
         }
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -9806,6 +9918,52 @@ test "array non contiguous view helpers" {
     var selected_scaled = try selected.mulScalar(2);
     defer selected_scaled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 100, 12, 198, 160 }, selected_scaled.data);
+
+    var math_rhs = try Array(f64).fromSlice(gpa, &.{ 2, 3 }, &.{ 1, 2 });
+    defer math_rhs.deinit();
+    var math_rhs_view = try math_rhs.asView();
+    defer math_rhs_view.deinit();
+    var pow_view = try stepped.pow(math_rhs_view);
+    defer pow_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 27000, 2500, 970299 }, pow_view.data);
+    var floor_div_view = try stepped.floorDiv(math_rhs_view);
+    defer floor_div_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 10, 25, 33 }, floor_div_view.data);
+    var mod_view = try stepped.mod(math_rhs_view);
+    defer mod_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0 }, mod_view.data);
+    var max_view = try stepped.maximum(math_rhs_view);
+    defer max_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 30, 50, 99 }, max_view.data);
+    var min_view = try stepped.minimum(math_rhs_view);
+    defer min_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 3 }, min_view.data);
+    var hypot_view = try stepped.hypot(math_rhs_view);
+    defer hypot_view.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 5)), hypot_view.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 909)), hypot_view.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2504)), hypot_view.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 9810)), hypot_view.data[3], 1e-12);
+    var atan2_view = try stepped.atan2(math_rhs_view);
+    defer atan2_view.deinit();
+    try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, 1), @as(f64, 2)), atan2_view.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, 30), @as(f64, 3)), atan2_view.data[1], 1e-12);
+    var clip_lo = try Array(f64).fromSlice(gpa, &.{ 2, 10 }, &.{ 1, 2 });
+    defer clip_lo.deinit();
+    var clip_hi = try Array(f64).fromSlice(gpa, &.{ 4, 50 }, &.{ 1, 2 });
+    defer clip_hi.deinit();
+    var clip_lo_view = try clip_lo.asView();
+    defer clip_lo_view.deinit();
+    var clip_hi_view = try clip_hi.asView();
+    defer clip_hi_view.deinit();
+    var clipped_view = try stepped.clipArray(clip_lo_view, clip_hi_view);
+    defer clipped_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 30, 4, 50 }, clipped_view.data);
+    var bad_rhs = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
+    defer bad_rhs.deinit();
+    var bad_rhs_view = try bad_rhs.asView();
+    defer bad_rhs_view.deinit();
+    try std.testing.expectError(error.ShapeMismatch, stepped.maximum(bad_rhs_view));
 
     var replacement = try Array(f64).fromSlice(gpa, &.{ 7, 8 }, &.{ 1, 2 });
     defer replacement.deinit();
