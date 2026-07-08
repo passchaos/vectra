@@ -523,6 +523,333 @@ fn normalizeSlice(s: Slice, len: usize) ArrayError!struct { start: usize, stop: 
     return .{ .start = u_start, .stop = u_stop, .step = u_step, .count = count };
 }
 
+pub fn ArrayView(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        allocator: std.mem.Allocator,
+        data: []T,
+        shape: []usize,
+        strides: []usize,
+        offset: usize = 0,
+        device: Device = .cpu,
+
+        pub const Scalar = T;
+        pub const dtype = DType.of(T);
+
+        pub fn fromArray(input: Array(T)) ArrayError!Self {
+            const shape = try input.allocator.dupe(usize, input.shape);
+            errdefer input.allocator.free(shape);
+            const strides = try input.allocator.dupe(usize, input.strides);
+            return .{
+                .allocator = input.allocator,
+                .data = input.data,
+                .shape = shape,
+                .strides = strides,
+                .offset = 0,
+                .device = input.device,
+            };
+        }
+
+        pub fn init(
+            allocator: std.mem.Allocator,
+            data: []T,
+            dims: []const usize,
+            stride_values: []const usize,
+            offset: usize,
+            device: Device,
+        ) ArrayError!Self {
+            if (dims.len != stride_values.len) return error.InvalidShape;
+            const shape = try allocator.dupe(usize, dims);
+            errdefer allocator.free(shape);
+            const strides = try allocator.dupe(usize, stride_values);
+            return .{
+                .allocator = allocator,
+                .data = data,
+                .shape = shape,
+                .strides = strides,
+                .offset = offset,
+                .device = device,
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.allocator.free(self.shape);
+            self.allocator.free(self.strides);
+            self.* = undefined;
+        }
+
+        pub fn clone(self: Self) ArrayError!Self {
+            return Self.init(self.allocator, self.data, self.shape, self.strides, self.offset, self.device);
+        }
+
+        pub fn ndim(self: Self) usize {
+            return self.shape.len;
+        }
+
+        pub fn numel(self: Self) usize {
+            return product(self.shape);
+        }
+
+        pub fn size(self: Self, axis_opt: ?isize) ArrayError!usize {
+            if (axis_opt) |axis_index| return self.shape[try normalizeDim(axis_index, self.shape.len)];
+            return self.numel();
+        }
+
+        pub fn isScalar(self: Self) bool {
+            return self.shape.len == 0 or (self.shape.len == 1 and self.shape[0] == 1);
+        }
+
+        pub fn isContiguous(self: Self) bool {
+            var expected: usize = 1;
+            var i = self.shape.len;
+            while (i > 0) {
+                i -= 1;
+                if (self.strides[i] != expected) return false;
+                expected *= self.shape[i];
+            }
+            return true;
+        }
+
+        fn offsetOf(self: Self, indices: []const usize) ArrayError!usize {
+            if (indices.len != self.shape.len) return error.InvalidShape;
+            var offset = self.offset;
+            for (indices, self.shape, self.strides) |idx, extent, stride_value| {
+                if (idx >= extent) return error.IndexOutOfBounds;
+                offset += idx * stride_value;
+            }
+            return offset;
+        }
+
+        pub fn get(self: Self, indices: []const usize) ArrayError!T {
+            return self.data[try self.offsetOf(indices)];
+        }
+
+        pub fn at(self: Self, indices: []const usize) ArrayError!T {
+            return self.get(indices);
+        }
+
+        pub fn set(self: Self, indices: []const usize, value: T) ArrayError!void {
+            self.data[try self.offsetOf(indices)] = value;
+        }
+
+        pub fn put(self: Self, indices: []const usize, value: T) ArrayError!void {
+            return self.set(indices, value);
+        }
+
+        pub fn item(self: Self) ArrayError!T {
+            if (!self.isScalar()) return error.ShapeMismatch;
+            if (self.numel() == 0) return error.EmptyArray;
+            return self.data[self.offset];
+        }
+
+        pub fn toArray(self: Self) ArrayError!Array(T) {
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = self.data[self.offset + ravelIndex(multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn contiguous(self: Self) ArrayError!Array(T) {
+            return self.toArray();
+        }
+
+        pub fn reshape(self: Self, dims: []const usize) ArrayError!Self {
+            if (!self.isContiguous()) return error.InvalidShape;
+            const n = try numelFrom(dims);
+            if (n != self.numel()) return error.ShapeMismatch;
+            const strides = try stridesFor(self.allocator, dims);
+            defer self.allocator.free(strides);
+            return Self.init(self.allocator, self.data, dims, strides, self.offset, self.device);
+        }
+
+        pub fn flatten(self: Self) ArrayError!Self {
+            return self.reshape(&.{self.numel()});
+        }
+
+        pub fn ravel(self: Self) ArrayError!Self {
+            return self.flatten();
+        }
+
+        pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) ArrayError!Self {
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const ns = try normalizeSlice(slice_value, self.shape[axis]);
+            const shape = try self.allocator.dupe(usize, self.shape);
+            errdefer self.allocator.free(shape);
+            const strides = try self.allocator.dupe(usize, self.strides);
+            shape[axis] = ns.count;
+            strides[axis] *= ns.step;
+            return .{
+                .allocator = self.allocator,
+                .data = self.data,
+                .shape = shape,
+                .strides = strides,
+                .offset = self.offset + ns.start * self.strides[axis],
+                .device = self.device,
+            };
+        }
+
+        pub fn slice(self: Self, slices: []const Slice) ArrayError!Self {
+            if (slices.len != self.shape.len) return error.ShapeMismatch;
+            var current = try self.clone();
+            errdefer current.deinit();
+            for (slices, 0..) |slice_value, axis| {
+                const next = try current.sliceAxis(@intCast(axis), slice_value);
+                current.deinit();
+                current = next;
+            }
+            return current;
+        }
+
+        pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) ArrayError!Self {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (start > self.shape[axis] or start + length > self.shape[axis]) return error.IndexOutOfBounds;
+            return self.sliceAxis(axis_index, .{ .start = @intCast(start), .stop = @intCast(start + length), .step = 1 });
+        }
+
+        pub fn select(self: Self, axis_index: isize, index: usize) ArrayError!Self {
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (index >= self.shape[axis]) return error.IndexOutOfBounds;
+            const shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            errdefer self.allocator.free(shape);
+            const strides = try self.allocator.alloc(usize, self.strides.len - 1);
+            for (self.shape[0..axis], 0..) |dim, i| shape[i] = dim;
+            for (self.shape[axis + 1 ..], axis..) |dim, i| shape[i] = dim;
+            for (self.strides[0..axis], 0..) |stride_value, i| strides[i] = stride_value;
+            for (self.strides[axis + 1 ..], axis..) |stride_value, i| strides[i] = stride_value;
+            return .{
+                .allocator = self.allocator,
+                .data = self.data,
+                .shape = shape,
+                .strides = strides,
+                .offset = self.offset + index * self.strides[axis],
+                .device = self.device,
+            };
+        }
+
+        pub fn squeeze(self: Self, axis_opt: ?isize) ArrayError!Self {
+            var shape_list: std.ArrayList(usize) = .empty;
+            defer shape_list.deinit(self.allocator);
+            var stride_list: std.ArrayList(usize) = .empty;
+            defer stride_list.deinit(self.allocator);
+            if (axis_opt) |axis_index| {
+                const axis = try normalizeDim(axis_index, self.shape.len);
+                for (self.shape, self.strides, 0..) |dim, stride_value, i| {
+                    if (i == axis and dim == 1) continue;
+                    try shape_list.append(self.allocator, dim);
+                    try stride_list.append(self.allocator, stride_value);
+                }
+            } else {
+                for (self.shape, self.strides) |dim, stride_value| {
+                    if (dim == 1) continue;
+                    try shape_list.append(self.allocator, dim);
+                    try stride_list.append(self.allocator, stride_value);
+                }
+            }
+            return Self.init(self.allocator, self.data, shape_list.items, stride_list.items, self.offset, self.device);
+        }
+
+        pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
+            const rank = self.shape.len + 1;
+            const axis = if (axis_index < 0) blk: {
+                const signed_rank: isize = @intCast(rank);
+                const normalized = signed_rank + axis_index;
+                if (normalized < 0 or normalized >= signed_rank) return error.InvalidAxis;
+                break :blk @as(usize, @intCast(normalized));
+            } else try canonicalAxis(@intCast(axis_index), rank);
+            const shape = try self.allocator.alloc(usize, rank);
+            errdefer self.allocator.free(shape);
+            const strides = try self.allocator.alloc(usize, rank);
+            for (self.shape[0..axis], 0..) |dim, i| shape[i] = dim;
+            shape[axis] = 1;
+            for (self.shape[axis..], axis + 1..) |dim, i| shape[i] = dim;
+            for (self.strides[0..axis], 0..) |stride_value, i| strides[i] = stride_value;
+            strides[axis] = 0;
+            for (self.strides[axis..], axis + 1..) |stride_value, i| strides[i] = stride_value;
+            return .{
+                .allocator = self.allocator,
+                .data = self.data,
+                .shape = shape,
+                .strides = strides,
+                .offset = self.offset,
+                .device = self.device,
+            };
+        }
+
+        pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
+            const out_shape = try broadcastShape(self.allocator, self.shape, dims);
+            errdefer self.allocator.free(out_shape);
+            if (!std.mem.eql(usize, out_shape, dims)) return error.ShapeMismatch;
+            const out_strides = try self.allocator.alloc(usize, dims.len);
+            const leading = dims.len - self.shape.len;
+            for (out_strides, 0..) |*slot, axis| {
+                if (axis < leading) {
+                    slot.* = 0;
+                } else {
+                    const in_axis = axis - leading;
+                    slot.* = if (self.shape[in_axis] == 1 and dims[axis] != 1) 0 else self.strides[in_axis];
+                }
+            }
+            return .{
+                .allocator = self.allocator,
+                .data = self.data,
+                .shape = out_shape,
+                .strides = out_strides,
+                .offset = self.offset,
+                .device = self.device,
+            };
+        }
+
+        pub fn permute(self: Self, axes: []const usize) ArrayError!Self {
+            if (axes.len != self.shape.len) return error.InvalidPermutation;
+            var seen = try self.allocator.alloc(bool, axes.len);
+            defer self.allocator.free(seen);
+            @memset(seen, false);
+            const shape = try self.allocator.alloc(usize, axes.len);
+            errdefer self.allocator.free(shape);
+            const strides = try self.allocator.alloc(usize, axes.len);
+            errdefer self.allocator.free(strides);
+            for (axes, 0..) |axis, i| {
+                if (axis >= axes.len or seen[axis]) return error.InvalidPermutation;
+                seen[axis] = true;
+                shape[i] = self.shape[axis];
+                strides[i] = self.strides[axis];
+            }
+            return .{
+                .allocator = self.allocator,
+                .data = self.data,
+                .shape = shape,
+                .strides = strides,
+                .offset = self.offset,
+                .device = self.device,
+            };
+        }
+
+        pub fn swapaxes(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
+            const a0 = try normalizeDim(dim0, self.shape.len);
+            const a1 = try normalizeDim(dim1, self.shape.len);
+            var axes = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(axes);
+            for (axes, 0..) |*slot, i| slot.* = i;
+            std.mem.swap(usize, &axes[a0], &axes[a1]);
+            return self.permute(axes);
+        }
+
+        pub fn transpose(self: Self) ArrayError!Self {
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            return self.swapaxes(0, 1);
+        }
+    };
+}
+
 pub fn Array(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -907,6 +1234,52 @@ pub fn Array(comptime T: type) type {
 
         pub fn contiguous(self: Self) ArrayError!Self {
             return self.clone();
+        }
+
+        pub fn asView(self: Self) ArrayError!ArrayView(T) {
+            return ArrayView(T).fromArray(self);
+        }
+
+        pub fn sliceAxisView(self: Self, axis_index: isize, slice_value: Slice) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.sliceAxis(axis_index, slice_value);
+        }
+
+        pub fn sliceView(self: Self, slices: []const Slice) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.slice(slices);
+        }
+
+        pub fn selectView(self: Self, axis_index: isize, index: usize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.select(axis_index, index);
+        }
+
+        pub fn narrowView(self: Self, axis_index: isize, start: usize, length: usize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.narrow(axis_index, start, length);
+        }
+
+        pub fn permuteView(self: Self, axes: []const usize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.permute(axes);
+        }
+
+        pub fn transposeView(self: Self) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.transpose();
+        }
+
+        pub fn broadcastView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.broadcastTo(dims);
         }
 
         pub fn isScalar(self: Self) bool {
@@ -5409,6 +5782,7 @@ pub fn Array(comptime T: type) type {
 }
 
 pub const NDArray = Array;
+pub const NDArrayView = ArrayView;
 
 fn printShape(writer: *std.Io.Writer, shape: []const usize) std.Io.Writer.Error!void {
     try writer.print("(", .{});
@@ -5642,6 +6016,38 @@ pub fn reshape(comptime T: type, input: Array(T), dims: []const usize) ArrayErro
 
 pub fn view(comptime T: type, input: Array(T), dims: []const usize) ArrayError!Array(T) {
     return input.view(dims);
+}
+
+pub fn asView(comptime T: type, input: Array(T)) ArrayError!ArrayView(T) {
+    return input.asView();
+}
+
+pub fn sliceAxisView(comptime T: type, input: Array(T), axis: isize, slice_value: Slice) ArrayError!ArrayView(T) {
+    return input.sliceAxisView(axis, slice_value);
+}
+
+pub fn sliceView(comptime T: type, input: Array(T), slices: []const Slice) ArrayError!ArrayView(T) {
+    return input.sliceView(slices);
+}
+
+pub fn selectView(comptime T: type, input: Array(T), axis: isize, index: usize) ArrayError!ArrayView(T) {
+    return input.selectView(axis, index);
+}
+
+pub fn narrowView(comptime T: type, input: Array(T), axis: isize, start: usize, length: usize) ArrayError!ArrayView(T) {
+    return input.narrowView(axis, start, length);
+}
+
+pub fn permuteView(comptime T: type, input: Array(T), axes: []const usize) ArrayError!ArrayView(T) {
+    return input.permuteView(axes);
+}
+
+pub fn transposeView(comptime T: type, input: Array(T)) ArrayError!ArrayView(T) {
+    return input.transposeView();
+}
+
+pub fn broadcastView(comptime T: type, input: Array(T), dims: []const usize) ArrayError!ArrayView(T) {
+    return input.broadcastView(dims);
 }
 
 pub fn flatten(comptime T: type, input: Array(T)) ArrayError!Array(T) {
@@ -7078,6 +7484,64 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var tiled_top = try tile(f64, selected_top, &.{2});
     defer tiled_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, tiled_top.data);
+}
+
+test "array non contiguous view helpers" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
+    defer a.deinit();
+
+    var base_view = try asView(f64, a);
+    defer base_view.deinit();
+    try std.testing.expect(base_view.isContiguous());
+    try base_view.set(&.{ 1, 2 }, 99);
+    try std.testing.expectEqual(@as(f64, 99), a.data[6]);
+
+    var stepped = try sliceAxisView(f64, a, 1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer stepped.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stepped.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, stepped.strides);
+    try std.testing.expect(!stepped.isContiguous());
+    try std.testing.expectEqual(@as(f64, 99), try stepped.get(&.{ 1, 1 }));
+    try stepped.set(&.{ 0, 1 }, 30);
+    try std.testing.expectEqual(@as(f64, 30), a.data[2]);
+    var stepped_owned = try stepped.toArray();
+    defer stepped_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 30, 5, 99 }, stepped_owned.data);
+    try std.testing.expectError(error.InvalidShape, stepped.reshape(&.{4}));
+
+    var selected = try selectView(f64, a, 0, 1);
+    defer selected.deinit();
+    try std.testing.expectEqualSlices(usize, &.{4}, selected.shape);
+    try selected.set(&.{0}, 50);
+    try std.testing.expectEqual(@as(f64, 50), a.data[4]);
+
+    var broadcasted = try broadcastView(f64, a, &.{ 3, 2, 4 });
+    defer broadcasted.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2, 4 }, broadcasted.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 4, 1 }, broadcasted.strides);
+    try std.testing.expectEqual(@as(f64, 99), try broadcasted.get(&.{ 2, 1, 2 }));
+
+    var selected_broadcast = try selected.broadcastTo(&.{ 2, 4 });
+    defer selected_broadcast.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, selected_broadcast.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, selected_broadcast.strides);
+    try selected_broadcast.set(&.{ 1, 3 }, 80);
+    try std.testing.expectEqual(@as(f64, 80), a.data[7]);
+
+    var transposed = try transposeView(f64, a);
+    defer transposed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, transposed.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 4 }, transposed.strides);
+    try std.testing.expect(!transposed.isContiguous());
+    var transposed_owned = try transposed.toArray();
+    defer transposed_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 50, 2, 6, 30, 99, 4, 80 }, transposed_owned.data);
+
+    var narrowed = try narrowView(f64, a, 1, 1, 2);
+    defer narrowed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, narrowed.shape);
+    try std.testing.expectEqual(@as(f64, 6), try narrowed.get(&.{ 1, 0 }));
 }
 
 test "array take mask stack cat and neural helpers" {
