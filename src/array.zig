@@ -1542,6 +1542,26 @@ pub fn ArrayView(comptime T: type) type {
             return self.ownedBinary(values_at_zero, Array(T).heaviside);
         }
 
+        pub fn logAddExp(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).logAddExp);
+        }
+
+        pub fn logaddexp(self: Self, other: Self) ArrayError!Array(T) {
+            return self.logAddExp(other);
+        }
+
+        pub fn logAddExp2(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).logAddExp2);
+        }
+
+        pub fn logaddexp2(self: Self, other: Self) ArrayError!Array(T) {
+            return self.logAddExp2(other);
+        }
+
+        pub fn xlogy(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).xlogy);
+        }
+
         pub fn clipArray(self: Self, min_values: Self, max_values: Self) ArrayError!Array(T) {
             var values = try self.toArray();
             defer values.deinit();
@@ -1638,6 +1658,32 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.heavisideScalar(value_at_zero);
+        }
+
+        pub fn logAddExpScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logAddExpScalar(scalar);
+        }
+
+        pub fn logaddexpScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.logAddExpScalar(scalar);
+        }
+
+        pub fn logAddExp2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logAddExp2Scalar(scalar);
+        }
+
+        pub fn logaddexp2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.logAddExp2Scalar(scalar);
+        }
+
+        pub fn xlogyScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.xlogyScalar(scalar);
         }
 
         pub fn ldexpScalar(self: Self, exponent: i32) ArrayError!Array(T) {
@@ -6462,6 +6508,17 @@ pub fn Array(comptime T: type) type {
         fn opHeaviside(a: T, b: T) T {
             return if (a < zero(T)) zero(T) else if (a > zero(T)) one(T) else b;
         }
+        fn opLogAddExp(a: T, b: T) T {
+            const max_value = @max(a, b);
+            return max_value + std.math.log1p(std.math.exp(-@abs(a - b)));
+        }
+        fn opLogAddExp2(a: T, b: T) T {
+            const max_value = @max(a, b);
+            return max_value + std.math.log2(one(T) + std.math.pow(T, castValue(T, 2), -@abs(a - b)));
+        }
+        fn opXlogy(a: T, b: T) T {
+            return if (a == zero(T)) zero(T) else a * std.math.log(T, std.math.e, b);
+        }
         fn opNeg(a: T) T {
             return negValue(T, a);
         }
@@ -6697,6 +6754,29 @@ pub fn Array(comptime T: type) type {
             return self.binaryArray(values_at_zero, opHeaviside);
         }
 
+        pub fn logAddExp(self: Self, other: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.binaryArray(other, opLogAddExp);
+        }
+
+        pub fn logaddexp(self: Self, other: Self) ArrayError!Self {
+            return self.logAddExp(other);
+        }
+
+        pub fn logAddExp2(self: Self, other: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.binaryArray(other, opLogAddExp2);
+        }
+
+        pub fn logaddexp2(self: Self, other: Self) ArrayError!Self {
+            return self.logAddExp2(other);
+        }
+
+        pub fn xlogy(self: Self, other: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.binaryArray(other, opXlogy);
+        }
+
         pub fn maximum(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryArray(other, struct {
@@ -6853,6 +6933,29 @@ pub fn Array(comptime T: type) type {
         pub fn heavisideScalar(self: Self, value_at_zero: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(value_at_zero, opHeaviside);
+        }
+
+        pub fn logAddExpScalar(self: Self, scalar: T) ArrayError!Self {
+            ensureFloat(T);
+            return self.binaryScalar(scalar, opLogAddExp);
+        }
+
+        pub fn logaddexpScalar(self: Self, scalar: T) ArrayError!Self {
+            return self.logAddExpScalar(scalar);
+        }
+
+        pub fn logAddExp2Scalar(self: Self, scalar: T) ArrayError!Self {
+            ensureFloat(T);
+            return self.binaryScalar(scalar, opLogAddExp2);
+        }
+
+        pub fn logaddexp2Scalar(self: Self, scalar: T) ArrayError!Self {
+            return self.logAddExp2Scalar(scalar);
+        }
+
+        pub fn xlogyScalar(self: Self, scalar: T) ArrayError!Self {
+            ensureFloat(T);
+            return self.binaryScalar(scalar, opXlogy);
         }
 
         pub fn neg(self: Self) ArrayError!Self {
@@ -10302,6 +10405,33 @@ test "array binary math wrappers and clamp aliases" {
     var heav_scalar = try heav.heavisideScalar(0.25);
     defer heav_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0.25, 1 }, heav_scalar.data);
+    var log_a = try Array(f64).fromSlice(gpa, &.{ 0, 1000 }, &.{2});
+    defer log_a.deinit();
+    var log_b = try Array(f64).fromSlice(gpa, &.{ 0, 999 }, &.{2});
+    defer log_b.deinit();
+    var log_add = try log_a.logAddExp(log_b);
+    defer log_add.deinit();
+    try std.testing.expectApproxEqAbs(std.math.ln2, log_add.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1000) + std.math.log1p(@exp(@as(f64, -1))), log_add.data[1], 1e-12);
+    var log_add_scalar = try log_a.logaddexpScalar(0);
+    defer log_add_scalar.deinit();
+    try std.testing.expectApproxEqAbs(std.math.ln2, log_add_scalar.data[0], 1e-12);
+    var log_add2 = try log_a.logAddExp2(log_b);
+    defer log_add2.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), log_add2.data[0], 1e-12);
+    var log_add2_scalar = try log_a.logaddexp2Scalar(0);
+    defer log_add2_scalar.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), log_add2_scalar.data[0], 1e-12);
+    var xlogy_x = try Array(f64).fromSlice(gpa, &.{ 0, 2 }, &.{2});
+    defer xlogy_x.deinit();
+    var xlogy_y = try Array(f64).fromSlice(gpa, &.{ 0, std.math.e }, &.{2});
+    defer xlogy_y.deinit();
+    var xlogy_out = try xlogy_x.xlogy(xlogy_y);
+    defer xlogy_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2 }, xlogy_out.data);
+    var xlogy_scalar = try xlogy_x.xlogyScalar(std.math.e);
+    defer xlogy_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2 }, xlogy_scalar.data);
 
     var ints = try Array(i32).fromSlice(gpa, &.{ -5, 5, 7 }, &.{3});
     defer ints.deinit();
@@ -11163,6 +11293,26 @@ test "array non contiguous view helpers" {
     defer atan2_view.deinit();
     try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, 1), @as(f64, 2)), atan2_view.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, 30), @as(f64, 3)), atan2_view.data[1], 1e-12);
+    var log_view_rhs = try Array(f64).fromSlice(gpa, &.{ 0, 1 }, &.{ 1, 2 });
+    defer log_view_rhs.deinit();
+    var log_view_rhs_view = try log_view_rhs.asView();
+    defer log_view_rhs_view.deinit();
+    var log_add_view = try stepped.logaddexp(log_view_rhs_view);
+    defer log_add_view.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1) + std.math.log1p(@exp(@as(f64, -1))), log_add_view.data[0], 1e-12);
+    var log_add2_view = try stepped.logaddexp2(log_view_rhs_view);
+    defer log_add2_view.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1) + std.math.log2(@as(f64, 1) + std.math.pow(f64, 2, -1)), log_add2_view.data[0], 1e-12);
+    var xlogy_rhs = try log_view_rhs_view.addScalar(std.math.e);
+    defer xlogy_rhs.deinit();
+    var xlogy_rhs_view = try xlogy_rhs.asView();
+    defer xlogy_rhs_view.deinit();
+    var xlogy_view = try stepped.xlogy(xlogy_rhs_view);
+    defer xlogy_view.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), xlogy_view.data[0], 1e-12);
+    var xlogy_scalar_view = try stepped.xlogyScalar(std.math.e);
+    defer xlogy_scalar_view.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), xlogy_scalar_view.data[0], 1e-12);
     var clip_lo = try Array(f64).fromSlice(gpa, &.{ 2, 10 }, &.{ 1, 2 });
     defer clip_lo.deinit();
     var clip_hi = try Array(f64).fromSlice(gpa, &.{ 4, 50 }, &.{ 1, 2 });
