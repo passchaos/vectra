@@ -76,7 +76,7 @@ Pandas/Polars 能力排在数组与 SciPy 之后。
 - 顶层模块名暂用 `vectra` / `vx` 风格。
 - 当前阶段允许 Zig 显式 allocator 与 `defer deinit()`，但应在示例中保持模式清晰。
 - 错误处理使用 Zig error union，不隐藏内存/shape/device 错误。
-- CUDA/CuPy/PyTorch-like device API 可以先占位，但不能假装 GPU 已可用；未实现时应明确返回错误。
+- CUDA/CuPy/PyTorch-like device API 可以先占位（`Array`/`ArrayView.to/cpu/cuda`），但不能假装 GPU 已可用；未实现时应明确返回错误。
 
 ## 4. 当前已落地的基础
 

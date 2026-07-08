@@ -967,6 +967,21 @@ pub fn ArrayView(comptime T: type) type {
             return self.toArray();
         }
 
+        pub fn to(self: Self, device: Device) ArrayError!Self {
+            if (!device.isAvailable()) return error.InvalidDevice;
+            var out = try self.clone();
+            out.device = device;
+            return out;
+        }
+
+        pub fn cpu(self: Self) ArrayError!Self {
+            return self.to(.cpu);
+        }
+
+        pub fn cuda(self: Self, index: usize) ArrayError!Self {
+            return self.to(Device.cuda(index));
+        }
+
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) ArrayError!Self {
             const view_offset = std.math.add(usize, self.offset, offset) catch return error.InvalidShape;
             try validateStridedBounds(self.data.len, view_offset, dims, stride_values);
@@ -12399,6 +12414,25 @@ test "array dtype metadata and casts cover common numeric types" {
     var r = try Array(u16).randint(gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
     for (r.data) |v| try std.testing.expect(v >= 10 and v < 20);
+
+    var cpu_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer cpu_source.deinit();
+    var cpu_copy = try cpu_source.cpu();
+    defer cpu_copy.deinit();
+    try std.testing.expectEqual(Backend.cpu, cpu_copy.device.backend);
+    try std.testing.expectEqualSlices(f64, cpu_source.data, cpu_copy.data);
+    try std.testing.expect(Device.cpu.isAvailable());
+    try std.testing.expect(!Device.cuda(0).isAvailable());
+    try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
+
+    var cpu_view = try cpu_source.sliceAxisView(1, .{ .start = 0, .stop = 2, .step = 1 });
+    defer cpu_view.deinit();
+    var view_cpu = try cpu_view.cpu();
+    defer view_cpu.deinit();
+    try std.testing.expectEqual(Backend.cpu, view_cpu.device.backend);
+    try std.testing.expectEqualSlices(usize, cpu_view.shape, view_cpu.shape);
+    try std.testing.expectEqualSlices(usize, cpu_view.strides, view_cpu.strides);
+    try std.testing.expectError(error.InvalidDevice, cpu_view.cuda(0));
 }
 
 test "array object two dimensional convolution and correlation" {
