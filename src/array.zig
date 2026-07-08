@@ -6336,19 +6336,29 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn tile(self: Self, repeats: []const usize) ArrayError!Self {
-            if (repeats.len != self.shape.len) return error.ShapeMismatch;
-            var out_shape = try self.allocator.alloc(usize, self.shape.len);
+            const out_rank = @max(self.shape.len, repeats.len);
+            const out_shape = try self.allocator.alloc(usize, out_rank);
             defer self.allocator.free(out_shape);
-            for (self.shape, repeats, 0..) |d, r, i| out_shape[i] = d * r;
+            const shape_leading = out_rank - self.shape.len;
+            const repeats_leading = out_rank - repeats.len;
+            for (out_shape, 0..) |*slot, axis| {
+                const extent = if (axis < shape_leading) 1 else self.shape[axis - shape_leading];
+                const repeat_count = if (axis < repeats_leading) 1 else repeats[axis - repeats_leading];
+                slot.* = std.math.mul(usize, extent, repeat_count) catch return error.InvalidShape;
+            }
             const out = try Self.empty(self.allocator, out_shape);
             if (out.data.len == 0) return out;
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
             defer self.allocator.free(out_multi);
-            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(in_multi);
             for (out.data, 0..) |*slot, flat| {
                 unravelIndexInto(flat, out_shape, out_multi);
-                for (out_multi, self.shape, 0..) |coord, d, i| in_multi[i] = if (d == 0) 0 else coord % d;
+                for (in_multi, 0..) |*coord_slot, axis| {
+                    const out_axis = shape_leading + axis;
+                    const extent = self.shape[axis];
+                    coord_slot.* = if (extent == 0) 0 else out_multi[out_axis] % extent;
+                }
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
@@ -12760,6 +12770,14 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var tiled_top = try selected_top.tile(&.{2});
     defer tiled_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, tiled_top.data);
+    var tiled_short_repeats = try a.tile(&.{2});
+    defer tiled_short_repeats.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 6 }, tiled_short_repeats.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 1, 2, 3, 4, 5, 6, 4, 5, 6 }, tiled_short_repeats.data);
+    var tiled_long_repeats = try selected_top.tile(&.{ 2, 1 });
+    defer tiled_long_repeats.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, tiled_long_repeats.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, tiled_long_repeats.data);
 }
 
 test "array object style repeat interleave" {
@@ -12890,6 +12908,14 @@ test "array view materializing shape wrappers" {
     defer tiled.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, tiled.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 1, 3, 5, 7, 5, 7 }, tiled.data);
+    var tiled_short_repeats = try view.tile(&.{2});
+    defer tiled_short_repeats.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, tiled_short_repeats.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 1, 3, 5, 7, 5, 7 }, tiled_short_repeats.data);
+    var tiled_long_repeats = try view.tile(&.{ 2, 1, 1 });
+    defer tiled_long_repeats.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, tiled_long_repeats.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5, 7, 1, 3, 5, 7 }, tiled_long_repeats.data);
 
     var flipped = try view.flip(1);
     defer flipped.deinit();
@@ -12992,7 +13018,6 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 3 }, chunks.items[0].data);
     try std.testing.expectEqualSlices(f64, &.{ 5, 7 }, chunks.items[1].data);
 
-    try std.testing.expectError(error.ShapeMismatch, view.tile(&.{2}));
     try std.testing.expectError(error.InvalidAxis, view.flip(2));
     try std.testing.expectError(error.InvalidAxis, view.flipAxes(&.{ 0, 0 }));
     try std.testing.expectError(error.ShapeMismatch, view.rollAxes(&.{1}, &.{ 0, 1 }));
