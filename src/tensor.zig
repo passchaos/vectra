@@ -1988,9 +1988,9 @@ pub fn Tensor(comptime T: type) type {
                         for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
                         for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
                     }
-                    const diff = v - mean_t.data[ravelIndex(mean_multi, mean_t.strides)];
+                    const delta = v - mean_t.data[ravelIndex(mean_multi, mean_t.strides)];
                     const oi = ravelIndex(out_multi, out.strides);
-                    out.data[oi] += diff * diff;
+                    out.data[oi] += delta * delta;
                 }
                 const denom = castValue(T, n) - correction;
                 for (out.data) |*v| v.* /= denom;
@@ -2003,8 +2003,8 @@ pub fn Tensor(comptime T: type) type {
             mean_value /= castValue(T, self.data.len);
             var total: T = zero(T);
             for (self.data) |v| {
-                const diff = v - mean_value;
-                total += diff * diff;
+                const delta = v - mean_value;
+                total += delta * delta;
             }
             const denom = castValue(T, self.data.len) - correction;
             const result = total / denom;
@@ -2064,6 +2064,86 @@ pub fn Tensor(comptime T: type) type {
             for (self.data, out.data) |v, *slot| {
                 acc = mulValue(T, acc, v);
                 slot.* = acc;
+            }
+            return out;
+        }
+
+        pub fn cumsumAxis(self: Self, axis_index: isize) TensorError!Self {
+            ensureNumeric(T);
+            return self.cumulativeAxis(axis_index, zero(T), opAdd);
+        }
+
+        pub fn cumprodAxis(self: Self, axis_index: isize) TensorError!Self {
+            ensureNumeric(T);
+            return self.cumulativeAxis(axis_index, one(T), opMul);
+        }
+
+        fn cumulativeAxis(self: Self, axis_index: isize, init_value: T, comptime op: fn (T, T) T) TensorError!Self {
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |d, i| slice_shape[i] = d;
+            for (self.shape[axis + 1 ..], axis..) |d, i| slice_shape[i] = d;
+            const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var full_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(full_multi);
+
+            for (0..product(slice_shape)) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| full_multi[i] = coord;
+                for (slice_multi[axis..], axis + 1..) |coord, i| full_multi[i] = coord;
+                var acc = init_value;
+                for (0..self.shape[axis]) |axis_i| {
+                    full_multi[axis] = axis_i;
+                    const idx = ravelIndex(full_multi, self.strides);
+                    acc = op(acc, self.data[idx]);
+                    out.data[idx] = acc;
+                }
+            }
+            return out;
+        }
+
+        pub fn diff(self: Self, axis_index: isize, n: usize) TensorError!Self {
+            ensureNumeric(T);
+            if (n == 0) return self.clone();
+            var current = try self.diffOnce(axis_index);
+            errdefer current.deinit();
+            var i: usize = 1;
+            while (i < n) : (i += 1) {
+                const next = try current.diffOnce(axis_index);
+                current.deinit();
+                current = next;
+            }
+            return current;
+        }
+
+        fn diffOnce(self: Self, axis_index: isize) TensorError!Self {
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = if (self.shape[axis] == 0) 0 else self.shape[axis] - 1;
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            const lhs_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(lhs_multi);
+            var rhs_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(rhs_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(lhs_multi, out_multi);
+                @memcpy(rhs_multi, out_multi);
+                rhs_multi[axis] = out_multi[axis] + 1;
+                slot.* = self.data[ravelIndex(rhs_multi, self.strides)] - self.data[ravelIndex(lhs_multi, self.strides)];
             }
             return out;
         }
@@ -2842,6 +2922,18 @@ pub fn padConstant(comptime T: type, input: Tensor(T), before: []const usize, af
     return input.padConstant(before, after, value);
 }
 
+pub fn cumsumAxis(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+    return input.cumsumAxis(axis);
+}
+
+pub fn cumprodAxis(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+    return input.cumprodAxis(axis);
+}
+
+pub fn diff(comptime T: type, input: Tensor(T), axis: isize, n: usize) TensorError!Tensor(T) {
+    return input.diff(axis, n);
+}
+
 pub fn toBytes(comptime T: type, input: Tensor(T), allocator: std.mem.Allocator) TensorError![]u8 {
     return input.toBytes(allocator);
 }
@@ -3383,4 +3475,31 @@ test "array bytes and archive serialization roundtrip" {
     try std.testing.expectEqualSlices(i16, a.data, restored.data);
     try std.testing.expectEqualSlices(usize, a.shape, restored.shape);
     try std.testing.expectError(error.TypeUnsupported, fromArchive(f32, gpa, archive));
+}
+
+test "array axis cumulative operations and diff" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var cs0 = try a.cumsumAxis(0);
+    defer cs0.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 5, 7, 9 }, cs0.data);
+    var cs1 = try cumsumAxis(f64, a, 1);
+    defer cs1.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 4, 9, 15 }, cs1.data);
+
+    var cp1 = try a.cumprodAxis(1);
+    defer cp1.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 4, 20, 120 }, cp1.data);
+
+    var d1 = try a.diff(1, 1);
+    defer d1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, d1.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, d1.data);
+
+    var d2 = try diff(f64, a, 1, 2);
+    defer d2.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, d2.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, d2.data);
 }
