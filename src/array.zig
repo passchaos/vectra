@@ -2188,6 +2188,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.nanpercentile(p, axis_opt, keepdims);
         }
 
+        pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanToNum(nan_value, posinf_value, neginf_value);
+        }
+
+        pub fn nan_to_num(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
+            return self.nanToNum(nan_value, posinf_value, neginf_value);
+        }
+
         pub fn cumsum(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2264,6 +2274,48 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.norm(p, axis_opt, keepdims);
+        }
+
+        pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logsumexp(axis_index, keepdims);
+        }
+
+        pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cov(rowvar, correction);
+        }
+
+        pub fn corrcoef(self: Self, rowvar: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.corrcoef(rowvar);
+        }
+
+        pub fn weightedCov(self: Self, weights: Array(T), rowvar: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.weightedCov(weights, rowvar, correction);
+        }
+
+        pub fn weightedCorrcoef(self: Self, weights: Array(T), rowvar: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.weightedCorrcoef(weights, rowvar);
+        }
+
+        pub fn nanCov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanCov(rowvar, correction);
+        }
+
+        pub fn nanCorrcoef(self: Self, rowvar: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanCorrcoef(rowvar);
         }
 
         pub fn sort(self: Self, axis_opt: ?isize) ArrayError!Array(T) {
@@ -10099,6 +10151,46 @@ test "array non contiguous view helpers" {
     var clipped_view = try stepped.clipArray(clip_lo_view, clip_hi_view);
     defer clipped_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 30, 4, 50 }, clipped_view.data);
+    var lse_view = try stepped.logsumexp(1, false);
+    defer lse_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, lse_view.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 30) + std.math.log1p(@exp(@as(f64, 1 - 30))), lse_view.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 99) + std.math.log1p(@exp(@as(f64, 50 - 99))), lse_view.data[1], 1e-12);
+    var stats_view = try stepped.cov(false, 1);
+    defer stats_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stats_view.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 1200.5), stats_view.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2380.5), stats_view.data[3], 1e-12);
+    var corr_view = try stepped.corrcoef(false);
+    defer corr_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, corr_view.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), corr_view.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), corr_view.data[3], 1e-12);
+    var weight_view = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
+    defer weight_view.deinit();
+    var weighted_cov_view = try stepped.weightedCov(weight_view, false, 0);
+    defer weighted_cov_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, weighted_cov_view.shape);
+    var weighted_corr_view = try stepped.weightedCorrcoef(weight_view, false);
+    defer weighted_corr_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, weighted_corr_view.shape);
+    var special_values = try Array(f64).fromSlice(gpa, &.{ 1, std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64) }, &.{ 2, 2 });
+    defer special_values.deinit();
+    var special_view = try special_values.asView();
+    defer special_view.deinit();
+    var cleaned_view = try special_view.nanToNum(0, 9, -9);
+    defer cleaned_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 9, -9 }, cleaned_view.data);
+    var nan_stats = try Array(f64).fromSlice(gpa, &.{ 1, 2, std.math.nan(f64), 4, 5, 6 }, &.{ 2, 3 });
+    defer nan_stats.deinit();
+    var nan_stats_view = try nan_stats.transposeView();
+    defer nan_stats_view.deinit();
+    var nan_cov_view = try nan_stats_view.nanCov(false, 1);
+    defer nan_cov_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, nan_cov_view.shape);
+    var nan_corr_view = try nan_stats_view.nanCorrcoef(false);
+    defer nan_corr_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, nan_corr_view.shape);
     var pow_scalar_view = try stepped.powScalar(2);
     defer pow_scalar_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 900, 2500, 9801 }, pow_scalar_view.data);
