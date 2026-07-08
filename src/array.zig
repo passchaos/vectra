@@ -3162,6 +3162,16 @@ pub fn ArrayView(comptime T: type) type {
             return count;
         }
 
+        pub fn count_nonzero(self: Self) usize {
+            return self.countNonzero();
+        }
+
+        pub fn countNonzeroAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.countNonzeroAxis(axis_opt, keepdims);
+        }
+
         pub fn all(self: Self) bool {
             var owned = self.toArray() catch return false;
             defer owned.deinit();
@@ -6483,6 +6493,47 @@ pub fn Array(comptime T: type) type {
                 if (v != zero(T)) count += 1;
             }
             return count;
+        }
+
+        pub fn count_nonzero(self: Self) usize {
+            return self.countNonzero();
+        }
+
+        pub fn countNonzeroAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
+            if (axis_opt == null) {
+                const count = self.countNonzero();
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Array(usize).fromSlice(self.allocator, &.{count}, out_shape);
+                }
+                return Array(usize).fromSlice(self.allocator, &.{count}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Array(usize).zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (self.data.len == 0) return out;
+
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (self.data, 0..) |value, flat| {
+                if (value == zero(T)) continue;
+                unravelIndexInto(flat, self.shape, in_multi);
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                out.data[ravelIndex(out_multi, out.strides)] += 1;
+            }
+            return out;
         }
 
         pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
@@ -12347,6 +12398,15 @@ test "array non contiguous view helpers" {
     var stepped_not_equal_scalar = try stepped.notEqualScalar(30);
     defer stepped_not_equal_scalar.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, stepped_not_equal_scalar.data);
+    try std.testing.expectEqual(@as(usize, 4), stepped.countNonzero());
+    try std.testing.expectEqual(@as(usize, 4), stepped.count_nonzero());
+    var stepped_count0 = try stepped.countNonzeroAxis(0, false);
+    defer stepped_count0.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stepped_count0.data);
+    var stepped_count1_keep = try stepped.countNonzeroAxis(1, true);
+    defer stepped_count1_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, stepped_count1_keep.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stepped_count1_keep.data);
 
     var selected = try a.selectView(0, 1);
     defer selected.deinit();
@@ -13534,6 +13594,18 @@ test "array advanced indexing mutation helpers" {
     var flat_idx = try a.flatNonzero();
     defer flat_idx.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 5 }, flat_idx.data);
+    try std.testing.expectEqual(@as(usize, 4), a.count_nonzero());
+    var count_flat = try a.countNonzeroAxis(null, false);
+    defer count_flat.deinit();
+    try std.testing.expectEqual(@as(usize, 0), count_flat.shape.len);
+    try std.testing.expectEqualSlices(usize, &.{4}, count_flat.data);
+    var count_cols = try a.countNonzeroAxis(0, false);
+    defer count_cols.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 2 }, count_cols.data);
+    var count_rows_keep = try a.countNonzeroAxis(1, true);
+    defer count_rows_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, count_rows_keep.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, count_rows_keep.data);
 
     var coords = try a.argwhere();
     defer coords.deinit();
