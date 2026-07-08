@@ -2685,6 +2685,14 @@ pub fn ArrayView(comptime T: type) type {
             return self.minAxes(axes, keepdims);
         }
 
+        pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.minAxes(axes, keepdims);
+        }
+
+        pub fn amin_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.minAxes(axes, keepdims);
+        }
+
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.reduceFirst(axis_opt, keepdims, struct {
@@ -2708,12 +2716,30 @@ pub fn ArrayView(comptime T: type) type {
             return self.maxAxes(axes, keepdims);
         }
 
+        pub fn amaxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.maxAxes(axes, keepdims);
+        }
+
+        pub fn amax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.maxAxes(axes, keepdims);
+        }
+
         pub fn ptp(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var max_values = try self.max(axis_opt, keepdims);
             defer max_values.deinit();
             var min_values = try self.min(axis_opt, keepdims);
             defer min_values.deinit();
             return max_values.sub(min_values);
+        }
+
+        pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.ptpAxes(axes, keepdims);
+        }
+
+        pub fn ptp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.ptpAxes(axes, keepdims);
         }
 
         pub fn mean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -9497,6 +9523,14 @@ pub fn Array(comptime T: type) type {
             return self.minAxes(axes, keepdims);
         }
 
+        pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.minAxes(axes, keepdims);
+        }
+
+        pub fn amin_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.minAxes(axes, keepdims);
+        }
+
         pub fn maxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             return self.reduceAxes(axes, keepdims, Self.max);
@@ -9504,6 +9538,26 @@ pub fn Array(comptime T: type) type {
 
         pub fn max_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.maxAxes(axes, keepdims);
+        }
+
+        pub fn amaxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.maxAxes(axes, keepdims);
+        }
+
+        pub fn amax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.maxAxes(axes, keepdims);
+        }
+
+        pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            var max_values = try self.maxAxes(axes, keepdims);
+            defer max_values.deinit();
+            var min_values = try self.minAxes(axes, keepdims);
+            defer min_values.deinit();
+            return max_values.sub(min_values);
+        }
+
+        pub fn ptp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.ptpAxes(axes, keepdims);
         }
 
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
@@ -13149,9 +13203,22 @@ test "array scipy-like statistics and softmax" {
     var min_axes = try cube.minAxes(&.{ 0, 2 }, false);
     defer min_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3 }, min_axes.data);
+    var amin_axes = try cube.amin_axes(&.{ 0, 2 }, false);
+    defer amin_axes.deinit();
+    try std.testing.expectEqualSlices(f64, min_axes.data, amin_axes.data);
     var max_axes = try cube.max_axes(&.{ 0, 2 }, false);
     defer max_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6, 8 }, max_axes.data);
+    var amax_axes = try cube.amaxAxes(&.{ 0, 2 }, false);
+    defer amax_axes.deinit();
+    try std.testing.expectEqualSlices(f64, max_axes.data, amax_axes.data);
+    var range_axes = try cube.ptpAxes(&.{ 0, 2 }, false);
+    defer range_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 5 }, range_axes.data);
+    var range_axes_keep = try cube.ptp_axes(&.{ 0, 2 }, true);
+    defer range_axes_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, range_axes_keep.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 5 }, range_axes_keep.data);
     var mean_axes = try cube.meanAxes(&.{ 0, 2 }, false);
     defer mean_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3.5, 5.5 }, mean_axes.data);
@@ -14228,6 +14295,9 @@ test "array view object statistics wrappers" {
     var amin0 = try view.amin(0, false);
     defer amin0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4 }, amin0.data);
+    var view_ptp_axes = try view.ptpAxes(&.{ 0, 1 }, false);
+    defer view_ptp_axes.deinit();
+    try std.testing.expectEqual(@as(f64, 4), view_ptp_axes.data[0]);
     var amax1 = try view.amax(1, true);
     defer amax1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 1 }, amax1.shape);
