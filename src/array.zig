@@ -523,6 +523,92 @@ fn normalizeSlice(s: Slice, len: usize) ArrayError!struct { start: usize, stop: 
     return .{ .start = u_start, .stop = u_stop, .step = u_step, .count = count };
 }
 
+fn inferredShape(allocator: std.mem.Allocator, dims: []const isize, element_count: usize) ArrayError![]usize {
+    if (dims.len == 0) {
+        if (element_count != 1) return error.ShapeMismatch;
+        return allocator.alloc(usize, 0);
+    }
+    const out = try allocator.alloc(usize, dims.len);
+    errdefer allocator.free(out);
+    var inferred_axis: ?usize = null;
+    var known_product: usize = 1;
+    for (dims, 0..) |dim_value, i| {
+        if (dim_value == -1) {
+            if (inferred_axis != null) return error.InvalidShape;
+            inferred_axis = i;
+            out[i] = 1;
+        } else if (dim_value < 0) {
+            return error.InvalidShape;
+        } else {
+            const dim: usize = @intCast(dim_value);
+            out[i] = dim;
+            known_product = std.math.mul(usize, known_product, dim) catch return error.InvalidShape;
+        }
+    }
+    if (inferred_axis) |axis| {
+        if (known_product == 0 or element_count % known_product != 0) return error.ShapeMismatch;
+        out[axis] = element_count / known_product;
+    } else if (known_product != element_count) {
+        return error.ShapeMismatch;
+    }
+    return out;
+}
+
+fn flattenShape(
+    allocator: std.mem.Allocator,
+    shape: []const usize,
+    start_axis: isize,
+    end_axis: isize,
+) ArrayError![]usize {
+    if (shape.len == 0) return error.InvalidAxis;
+    const start = try normalizeDim(start_axis, shape.len);
+    const end = try normalizeDim(end_axis, shape.len);
+    if (start > end) return error.InvalidAxis;
+    const out_rank = shape.len - (end - start);
+    const out = try allocator.alloc(usize, out_rank);
+    errdefer allocator.free(out);
+    var write: usize = 0;
+    for (shape[0..start]) |dim| {
+        out[write] = dim;
+        write += 1;
+    }
+    out[write] = product(shape[start .. end + 1]);
+    write += 1;
+    for (shape[end + 1 ..]) |dim| {
+        out[write] = dim;
+        write += 1;
+    }
+    return out;
+}
+
+fn unflattenShape(
+    allocator: std.mem.Allocator,
+    shape: []const usize,
+    axis_index: isize,
+    dims: []const usize,
+) ArrayError![]usize {
+    if (shape.len == 0) return error.InvalidAxis;
+    const axis = try normalizeDim(axis_index, shape.len);
+    const expanded = try numelFrom(dims);
+    if (expanded != shape[axis]) return error.ShapeMismatch;
+    const out = try allocator.alloc(usize, shape.len - 1 + dims.len);
+    errdefer allocator.free(out);
+    var write: usize = 0;
+    for (shape[0..axis]) |dim| {
+        out[write] = dim;
+        write += 1;
+    }
+    for (dims) |dim| {
+        out[write] = dim;
+        write += 1;
+    }
+    for (shape[axis + 1 ..]) |dim| {
+        out[write] = dim;
+        write += 1;
+    }
+    return out;
+}
+
 pub fn ArrayView(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -1237,12 +1323,30 @@ pub fn ArrayView(comptime T: type) type {
             return Self.init(self.allocator, self.data, dims, strides, self.offset, self.device);
         }
 
+        pub fn reshapeInfer(self: Self, dims: []const isize) ArrayError!Self {
+            const inferred = try inferredShape(self.allocator, dims, self.numel());
+            defer self.allocator.free(inferred);
+            return self.reshape(inferred);
+        }
+
         pub fn flatten(self: Self) ArrayError!Self {
             return self.reshape(&.{self.numel()});
         }
 
+        pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            const dims = try flattenShape(self.allocator, self.shape, start_axis, end_axis);
+            defer self.allocator.free(dims);
+            return self.reshape(dims);
+        }
+
         pub fn ravel(self: Self) ArrayError!Self {
             return self.flatten();
+        }
+
+        pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
+            const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
+            defer self.allocator.free(out_shape);
+            return self.reshape(out_shape);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) ArrayError!Self {
@@ -2027,8 +2131,20 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn reshapeInfer(self: Self, dims: []const isize) ArrayError!Self {
+            const inferred = try inferredShape(self.allocator, dims, self.data.len);
+            defer self.allocator.free(inferred);
+            return self.reshape(inferred);
+        }
+
         pub fn flatten(self: Self) ArrayError!Self {
             return self.reshape(&.{self.data.len});
+        }
+
+        pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            const dims = try flattenShape(self.allocator, self.shape, start_axis, end_axis);
+            defer self.allocator.free(dims);
+            return self.reshape(dims);
         }
 
         pub fn ravel(self: Self) ArrayError!Self {
@@ -2037,6 +2153,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn view(self: Self, dims: []const usize) ArrayError!Self {
             return self.reshape(dims);
+        }
+
+        pub fn viewInfer(self: Self, dims: []const isize) ArrayError!Self {
+            return self.reshapeInfer(dims);
+        }
+
+        pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
+            const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
+            defer self.allocator.free(out_shape);
+            return self.reshape(out_shape);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) ArrayError!Self {
@@ -7031,6 +7157,48 @@ test "array non contiguous view helpers" {
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
+}
+
+test "array object shape inference helpers" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }, &.{ 2, 2, 3 });
+    defer a.deinit();
+
+    var inferred = try a.reshapeInfer(&.{ 3, -1, 2 });
+    defer inferred.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2, 2 }, inferred.shape);
+    try std.testing.expectEqualSlices(f64, a.data, inferred.data);
+
+    var viewed = try inferred.viewInfer(&.{ -1, 3 });
+    defer viewed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 3 }, viewed.shape);
+
+    var flat_axes = try a.flattenAxes(1, 2);
+    defer flat_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 6 }, flat_axes.shape);
+    try std.testing.expectEqualSlices(f64, a.data, flat_axes.data);
+
+    var unflat = try flat_axes.unflatten(1, &.{ 2, 3 });
+    defer unflat.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 3 }, unflat.shape);
+    try std.testing.expectEqualSlices(f64, a.data, unflat.data);
+
+    var base_view = try a.asView();
+    defer base_view.deinit();
+    var view_flat = try base_view.flattenAxes(0, 1);
+    defer view_flat.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 3 }, view_flat.shape);
+    var view_unflat = try view_flat.unflatten(0, &.{ 2, 2 });
+    defer view_unflat.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 3 }, view_unflat.shape);
+
+    var stepped = try a.sliceAxisView(2, .{ .start = 0, .stop = 3, .step = 2 });
+    defer stepped.deinit();
+    try std.testing.expectError(error.InvalidShape, stepped.reshapeInfer(&.{-1}));
+    try std.testing.expectError(error.InvalidShape, a.reshapeInfer(&.{ -1, -1 }));
+    try std.testing.expectError(error.ShapeMismatch, a.reshapeInfer(&.{ 5, -1 }));
+    try std.testing.expectError(error.ShapeMismatch, flat_axes.unflatten(1, &.{ 4, 4 }));
+    try std.testing.expectError(error.InvalidAxis, a.flattenAxes(2, 1));
 }
 
 test "array object in-place assignment helpers" {
