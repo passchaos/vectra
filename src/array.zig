@@ -1860,6 +1860,72 @@ pub fn ArrayView(comptime T: type) type {
             return self.isFinite();
         }
 
+        pub fn logicalNot(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logicalNot();
+        }
+
+        pub fn logicalAnd(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.logicalAnd(rhs);
+        }
+
+        pub fn logicalAndArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.logicalAnd(other);
+        }
+
+        pub fn logicalAndScalar(self: Self, scalar: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logicalAndScalar(scalar);
+        }
+
+        pub fn logicalOr(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.logicalOr(rhs);
+        }
+
+        pub fn logicalOrArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.logicalOr(other);
+        }
+
+        pub fn logicalOrScalar(self: Self, scalar: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logicalOrScalar(scalar);
+        }
+
+        pub fn logicalXor(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.logicalXor(rhs);
+        }
+
+        pub fn logicalXorArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.logicalXor(other);
+        }
+
+        pub fn logicalXorScalar(self: Self, scalar: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logicalXorScalar(scalar);
+        }
+
         pub fn isclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
             var lhs = try self.toArray();
             defer lhs.deinit();
@@ -11428,6 +11494,39 @@ test "array bool all any axis reductions" {
     defer all_global.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, all_global.shape);
     try std.testing.expectEqualSlices(bool, &.{false}, all_global.data);
+
+    var view = try mask.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer view.deinit();
+    var not_view = try view.logicalNot();
+    defer not_view.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, not_view.data);
+    var rhs = try Array(bool).fromSlice(gpa, &.{ true, false }, &.{ 1, 2 });
+    defer rhs.deinit();
+    var rhs_view = try rhs.asView();
+    defer rhs_view.deinit();
+    var and_view = try view.logicalAnd(rhs_view);
+    defer and_view.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, and_view.data);
+    var or_view = try view.logicalOrArray(rhs);
+    defer or_view.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, or_view.data);
+    var xor_view = try view.logicalXor(rhs_view);
+    defer xor_view.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, xor_view.data);
+    var and_scalar = try view.logicalAndScalar(true);
+    defer and_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, and_scalar.data);
+    var or_scalar = try view.logicalOrScalar(true);
+    defer or_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, or_scalar.data);
+    var xor_scalar = try view.logicalXorScalar(true);
+    defer xor_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, xor_scalar.data);
+    var bad = try Array(bool).fromSlice(gpa, &.{ true, false, true }, &.{3});
+    defer bad.deinit();
+    var bad_view = try bad.asView();
+    defer bad_view.deinit();
+    try std.testing.expectError(error.ShapeMismatch, view.logicalAnd(bad_view));
 }
 
 test "array aliases and alea-backed random distributions" {
