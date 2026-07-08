@@ -1874,6 +1874,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.exp();
         }
 
+        pub fn exp2(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.exp2();
+        }
+
         pub fn expm1(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -1908,6 +1914,18 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.sqrt();
+        }
+
+        pub fn rsqrt(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.rsqrt();
+        }
+
+        pub fn cbrt(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cbrt();
         }
 
         pub fn floor(self: Self) ArrayError!Array(T) {
@@ -2004,6 +2022,24 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.tanh();
+        }
+
+        pub fn asinh(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.asinh();
+        }
+
+        pub fn acosh(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.acosh();
+        }
+
+        pub fn atanh(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.atanh();
         }
 
         pub fn relu(self: Self) ArrayError!Array(T) {
@@ -6575,6 +6611,10 @@ pub fn Array(comptime T: type) type {
             if (comptime isComplex(T)) return std.math.complex.exp(a);
             return std.math.exp(a);
         }
+        fn opExp2(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.exp2(a.toF32()));
+            return std.math.exp2(a);
+        }
         fn opLog(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.log(a);
             return std.math.log(T, std.math.e, a);
@@ -6594,6 +6634,18 @@ pub fn Array(comptime T: type) type {
         fn opSqrt(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.sqrt(a);
             return std.math.sqrt(a);
+        }
+        fn opRsqrt(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(@as(f32, 1) / std.math.sqrt(a.toF32()));
+            return one(T) / std.math.sqrt(a);
+        }
+        fn opCbrt(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.cbrt(a.toF32()));
+            return switch (T) {
+                f16 => @floatCast(std.math.cbrt(@as(f32, @floatCast(a)))),
+                f32, f64 => std.math.cbrt(a),
+                else => @compileError("cbrt requires a real floating-point array"),
+            };
         }
         fn opSin(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.sin(a);
@@ -6626,6 +6678,30 @@ pub fn Array(comptime T: type) type {
         fn opCosh(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.cosh(a);
             return std.math.cosh(a);
+        }
+        fn opAsinh(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.asinh(a.toF32()));
+            return switch (T) {
+                f16 => @floatCast(std.math.asinh(@as(f32, @floatCast(a)))),
+                f32, f64 => std.math.asinh(a),
+                else => @compileError("asinh requires a real floating-point array"),
+            };
+        }
+        fn opAcosh(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.acosh(a.toF32()));
+            return switch (T) {
+                f16 => @floatCast(std.math.acosh(@as(f32, @floatCast(a)))),
+                f32, f64 => std.math.acosh(a),
+                else => @compileError("acosh requires a real floating-point array"),
+            };
+        }
+        fn opAtanh(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.atanh(a.toF32()));
+            return switch (T) {
+                f16 => @floatCast(std.math.atanh(@as(f32, @floatCast(a)))),
+                f32, f64 => std.math.atanh(a),
+                else => @compileError("atanh requires a real floating-point array"),
+            };
         }
         fn opLog1p(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.log(a.add(one(T)));
@@ -7063,6 +7139,11 @@ pub fn Array(comptime T: type) type {
             return self.unary(opExp);
         }
 
+        pub fn exp2(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(opExp2);
+        }
+
         pub fn expm1(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opExpm1);
@@ -7091,6 +7172,16 @@ pub fn Array(comptime T: type) type {
         pub fn sqrt(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opSqrt);
+        }
+
+        pub fn rsqrt(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(opRsqrt);
+        }
+
+        pub fn cbrt(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(opCbrt);
         }
 
         pub fn floor(self: Self) ArrayError!Self {
@@ -7224,6 +7315,21 @@ pub fn Array(comptime T: type) type {
                     return std.math.tanh(a);
                 }
             }.f);
+        }
+
+        pub fn asinh(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(opAsinh);
+        }
+
+        pub fn acosh(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(opAcosh);
+        }
+
+        pub fn atanh(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(opAtanh);
         }
 
         pub fn relu(self: Self) ArrayError!Self {
@@ -11778,6 +11884,10 @@ test "array view object unary predicate wrappers" {
     var exp_out = try view.exp();
     defer exp_out.deinit();
     try std.testing.expectApproxEqAbs(std.math.exp(@as(f64, -1)), exp_out.data[0], 1e-12);
+    var exp2_out = try view.exp2();
+    defer exp2_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), exp2_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4), exp2_out.data[1], 1e-12);
     var view_sigmoid = try view.sigmoid();
     defer view_sigmoid.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1) / (@as(f64, 1) + @exp(@as(f64, 1))), view_sigmoid.data[0], 1e-12);
@@ -11821,6 +11931,32 @@ test "array view object unary predicate wrappers" {
     defer sqrt_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), sqrt_out.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2), sqrt_out.data[3], 1e-12);
+    var rsqrt_out = try finite_view.rsqrt();
+    defer rsqrt_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), rsqrt_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rsqrt_out.data[3], 1e-12);
+    var cbrt_out = try finite_view.cbrt();
+    defer cbrt_out.deinit();
+    try std.testing.expectApproxEqAbs(std.math.cbrt(@as(f64, 3)), cbrt_out.data[1], 1e-12);
+
+    var hyper_values = try Array(f64).fromSlice(gpa, &.{ 0, 0.5, 1, 2 }, &.{ 2, 2 });
+    defer hyper_values.deinit();
+    var hyper_view = try hyper_values.transposeView();
+    defer hyper_view.deinit();
+    var asinh_out = try hyper_view.asinh();
+    defer asinh_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), asinh_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.asinh(@as(f64, 1)), asinh_out.data[1], 1e-12);
+    var acosh_out = try hyper_view.acosh();
+    defer acosh_out.deinit();
+    try std.testing.expect(std.math.isNan(acosh_out.data[0]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), acosh_out.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.acosh(@as(f64, 2)), acosh_out.data[3], 1e-12);
+    var atanh_out = try hyper_view.atanh();
+    defer atanh_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), atanh_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atanh(@as(f64, 0.5)), atanh_out.data[2], 1e-12);
+    try std.testing.expect(std.math.isNan(atanh_out.data[3]));
     var close = try finite_view.isclose(finite_view, 0, 0);
     defer close.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, close.data);
@@ -12576,9 +12712,24 @@ test "array extended unary math and predicates" {
     var recip = try denom.reciprocal();
     defer recip.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0.5, -0.25 }, recip.data);
+    var sqrt_inputs = try Array(f64).fromSlice(gpa, &.{ 1, 4, 9 }, &.{3});
+    defer sqrt_inputs.deinit();
+    var rsqrt_inputs = try sqrt_inputs.rsqrt();
+    defer rsqrt_inputs.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0.5, 1.0 / 3.0 }, rsqrt_inputs.data);
+    var cbrt_inputs = try Array(f64).fromSlice(gpa, &.{ -8, 0, 27 }, &.{3});
+    defer cbrt_inputs.deinit();
+    var cbrt_values = try cbrt_inputs.cbrt();
+    defer cbrt_values.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, -2), cbrt_values.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), cbrt_values.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), cbrt_values.data[2], 1e-12);
 
     var stable = try Array(f64).fromSlice(gpa, &.{ 0, 1 }, &.{2});
     defer stable.deinit();
+    var exp2_values = try stable.exp2();
+    defer exp2_values.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2 }, exp2_values.data);
     var e1 = try stable.expm1();
     defer e1.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), e1.data[0], 1e-12);
@@ -12662,6 +12813,23 @@ test "array extended unary math and predicates" {
     defer ch.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), sh.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), ch.data[0], 1e-12);
+    var inverse_hyp = try Array(f64).fromSlice(gpa, &.{ 0, 0.5, 1, 2 }, &.{4});
+    defer inverse_hyp.deinit();
+    var asinh_values = try inverse_hyp.asinh();
+    defer asinh_values.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), asinh_values.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.asinh(@as(f64, 2)), asinh_values.data[3], 1e-12);
+    var acosh_values = try inverse_hyp.acosh();
+    defer acosh_values.deinit();
+    try std.testing.expect(std.math.isNan(acosh_values.data[0]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), acosh_values.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.acosh(@as(f64, 2)), acosh_values.data[3], 1e-12);
+    var atanh_values = try inverse_hyp.atanh();
+    defer atanh_values.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), atanh_values.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atanh(@as(f64, 0.5)), atanh_values.data[1], 1e-12);
+    try std.testing.expect(std.math.isPositiveInf(atanh_values.data[2]));
+    try std.testing.expect(std.math.isNan(atanh_values.data[3]));
 
     var special = try Array(f64).fromSlice(gpa, &.{ 1, std.math.inf(f64), std.math.nan(f64) }, &.{3});
     defer special.deinit();
