@@ -31,7 +31,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - 归约：sum、prod、min、max、mean、var、std、argmin、argmax、cumsum、cumprod。
 - 排序/选择：任意 axis/dim 的 `sort/argsort`、descending variants、`sortWithIndices`、`partition/argpartition`、`topk`。
 - 线性代数基础：dot、matmul/mm、bmm、outer、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库。
-- 神经网络常用数学函数：relu、sigmoid、tanh、softmax、log_softmax、cross_entropy 相关基础。
+- 数学/神经网络常用函数：neg/abs/square/reciprocal/sign、exp/log/sqrt、log1p/expm1、floor/ceil/round/trunc、三角/反三角/双曲函数、isnan/isinf/isfinite、relu、sigmoid、tanh、softmax、log_softmax、cross_entropy 相关基础。
 - dtype 转换与类型提升规则：当前支持 `bool`、常用有符号/无符号整数、`usize`、`f32/f64` 和基础 dtype metadata；后续继续补 complex、f16/bf16 与 promotion。
 - 设备抽象：先保持 CPU 正确；CUDA/GPU API 形态参考 CuPy/PyTorch，后续再接入真实后端。
 
@@ -87,7 +87,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 - 形状：`reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`、`sliceAxis`、`flip`、`roll`、`padConstant`。
 - 索引/搜索：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeAlongAxis/putAlongAxis`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`maskedSelect`、`maskedFill`、`maskedScatter`、`nonzero/countNonzero`、`isin`、`searchsorted`、`bucketize`、`digitize`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、scalar variants、`maximum/minimum`、`whereMask`、比较、`allclose`。
-- 数学/NN：`exp`、`log`、`sqrt`、`sin`、`cos`、`tanh`、`relu`、`sigmoid`、`softmax`、`logSoftmax/log_softmax`、`clip`。
+- 数学/NN：`neg`、`abs`、`square`、`reciprocal`、`sign/signbit`、`exp/expm1`、`log/log1p`、`sqrt`、`floor`、`ceil`、`round`、`trunc`、`sin`、`cos`、`tan`、`asin`、`acos`、`atan`、`sinh`、`cosh`、`tanh`、`relu`、`sigmoid`、`softmax`、`logsumexp`、`logSoftmax/log_softmax`、`clip`、`isNan/isnan`、`isInf/isinf`、`isFinite/isfinite`。
 - 归约：`sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`cumsumAxis/cumprodAxis`、`diff`、`argmin`、`argmax`、`argminAxis/argmaxAxis`。
 - 排序/选择：`sort`、`sortBy`、`sortDescending`、`argsort`、`argsortAxis`、`argsortDescending`、`sortWithIndices`、`partition`、`argpartition`、`topk(sorted=true/false)`。
 - 离散/计数：`unique`、`uniqueWithCounts`、`bincount`、`bincountWeighted`。

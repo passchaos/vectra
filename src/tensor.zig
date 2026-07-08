@@ -1402,6 +1402,12 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        fn unaryBool(self: Self, comptime op: fn (T) bool) TensorError!Tensor(bool) {
+            const out = try Tensor(bool).empty(self.allocator, self.shape);
+            for (self.data, out.data) |v, *slot| slot.* = op(v);
+            return out;
+        }
+
         fn opAdd(a: T, b: T) T {
             return addValue(T, a, b);
         }
@@ -1437,6 +1443,101 @@ pub fn Tensor(comptime T: type) type {
         }
         fn opCos(a: T) T {
             return std.math.cos(a);
+        }
+        fn opTan(a: T) T {
+            return std.math.tan(a);
+        }
+        fn opAsin(a: T) T {
+            return std.math.asin(a);
+        }
+        fn opAcos(a: T) T {
+            return std.math.acos(a);
+        }
+        fn opAtan(a: T) T {
+            return std.math.atan(a);
+        }
+        fn opSinh(a: T) T {
+            return std.math.sinh(a);
+        }
+        fn opCosh(a: T) T {
+            return std.math.cosh(a);
+        }
+        fn opLog1p(a: T) T {
+            return std.math.log1p(a);
+        }
+        fn opExpm1(a: T) T {
+            return std.math.expm1(a);
+        }
+        fn opFloor(a: T) T {
+            return switch (@typeInfo(T)) {
+                .float => @floor(a),
+                .int, .comptime_int => a,
+                else => @compileError("floor requires a numeric array"),
+            };
+        }
+        fn opCeil(a: T) T {
+            return switch (@typeInfo(T)) {
+                .float => @ceil(a),
+                .int, .comptime_int => a,
+                else => @compileError("ceil requires a numeric array"),
+            };
+        }
+        fn opRound(a: T) T {
+            return switch (@typeInfo(T)) {
+                .float => @round(a),
+                .int, .comptime_int => a,
+                else => @compileError("round requires a numeric array"),
+            };
+        }
+        fn opTrunc(a: T) T {
+            return switch (@typeInfo(T)) {
+                .float => @trunc(a),
+                .int, .comptime_int => a,
+                else => @compileError("trunc requires a numeric array"),
+            };
+        }
+        fn opSquare(a: T) T {
+            return mulValue(T, a, a);
+        }
+        fn opReciprocal(a: T) T {
+            return one(T) / a;
+        }
+        fn opSign(a: T) T {
+            return switch (@typeInfo(T)) {
+                .float => if (std.math.isNan(a)) a else if (a > zero(T)) one(T) else if (a < zero(T)) -one(T) else zero(T),
+                .int => |info| if (a == 0) zero(T) else if (info.signedness == .signed) (if (a < 0) -one(T) else one(T)) else one(T),
+                .comptime_int, .comptime_float => if (a > 0) 1 else if (a < 0) -1 else 0,
+                else => @compileError("sign requires a numeric array"),
+            };
+        }
+        fn opIsNan(a: T) bool {
+            return switch (@typeInfo(T)) {
+                .float => std.math.isNan(a),
+                .int, .comptime_int => false,
+                else => @compileError("isNan requires a numeric array"),
+            };
+        }
+        fn opIsInf(a: T) bool {
+            return switch (@typeInfo(T)) {
+                .float => std.math.isInf(a),
+                .int, .comptime_int => false,
+                else => @compileError("isInf requires a numeric array"),
+            };
+        }
+        fn opIsFinite(a: T) bool {
+            return switch (@typeInfo(T)) {
+                .float => std.math.isFinite(a),
+                .int, .comptime_int => true,
+                else => @compileError("isFinite requires a numeric array"),
+            };
+        }
+        fn opSignbit(a: T) bool {
+            return switch (@typeInfo(T)) {
+                .float => std.math.signbit(a),
+                .int => |info| if (info.signedness == .signed) a < 0 else false,
+                .comptime_int => a < 0,
+                else => @compileError("signbit requires a numeric array"),
+            };
         }
 
         pub fn add(self: Self, other: Self) TensorError!Self {
@@ -1535,9 +1636,34 @@ pub fn Tensor(comptime T: type) type {
             return self.unary(opAbs);
         }
 
+        pub fn square(self: Self) TensorError!Self {
+            ensureNumeric(T);
+            return self.unary(opSquare);
+        }
+
+        pub fn reciprocal(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opReciprocal);
+        }
+
+        pub fn sign(self: Self) TensorError!Self {
+            ensureNumeric(T);
+            return self.unary(opSign);
+        }
+
+        pub fn signbit(self: Self) TensorError!Tensor(bool) {
+            ensureNumeric(T);
+            return self.unaryBool(opSignbit);
+        }
+
         pub fn exp(self: Self) TensorError!Self {
             ensureFloat(T);
             return self.unary(opExp);
+        }
+
+        pub fn expm1(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opExpm1);
         }
 
         pub fn log(self: Self) TensorError!Self {
@@ -1545,9 +1671,34 @@ pub fn Tensor(comptime T: type) type {
             return self.unary(opLog);
         }
 
+        pub fn log1p(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opLog1p);
+        }
+
         pub fn sqrt(self: Self) TensorError!Self {
             ensureFloat(T);
             return self.unary(opSqrt);
+        }
+
+        pub fn floor(self: Self) TensorError!Self {
+            ensureNumeric(T);
+            return self.unary(opFloor);
+        }
+
+        pub fn ceil(self: Self) TensorError!Self {
+            ensureNumeric(T);
+            return self.unary(opCeil);
+        }
+
+        pub fn round(self: Self) TensorError!Self {
+            ensureNumeric(T);
+            return self.unary(opRound);
+        }
+
+        pub fn trunc(self: Self) TensorError!Self {
+            ensureNumeric(T);
+            return self.unary(opTrunc);
         }
 
         pub fn sin(self: Self) TensorError!Self {
@@ -1558,6 +1709,36 @@ pub fn Tensor(comptime T: type) type {
         pub fn cos(self: Self) TensorError!Self {
             ensureFloat(T);
             return self.unary(opCos);
+        }
+
+        pub fn tan(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opTan);
+        }
+
+        pub fn asin(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opAsin);
+        }
+
+        pub fn acos(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opAcos);
+        }
+
+        pub fn atan(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opAtan);
+        }
+
+        pub fn sinh(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opSinh);
+        }
+
+        pub fn cosh(self: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.unary(opCosh);
         }
 
         pub fn tanh(self: Self) TensorError!Self {
@@ -1592,6 +1773,33 @@ pub fn Tensor(comptime T: type) type {
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = @min(@max(v, min_value), max_value);
             return out;
+        }
+
+        pub fn isNan(self: Self) TensorError!Tensor(bool) {
+            ensureNumeric(T);
+            return self.unaryBool(opIsNan);
+        }
+
+        pub fn isnan(self: Self) TensorError!Tensor(bool) {
+            return self.isNan();
+        }
+
+        pub fn isInf(self: Self) TensorError!Tensor(bool) {
+            ensureNumeric(T);
+            return self.unaryBool(opIsInf);
+        }
+
+        pub fn isinf(self: Self) TensorError!Tensor(bool) {
+            return self.isInf();
+        }
+
+        pub fn isFinite(self: Self) TensorError!Tensor(bool) {
+            ensureNumeric(T);
+            return self.unaryBool(opIsFinite);
+        }
+
+        pub fn isfinite(self: Self) TensorError!Tensor(bool) {
+            return self.isFinite();
         }
 
         pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) TensorError!Self {
@@ -3197,6 +3405,150 @@ pub fn where(comptime T: type, mask: Tensor(bool), a: Tensor(T), b: Tensor(T)) T
     return Tensor(T).whereMask(mask, a, b);
 }
 
+pub fn neg(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.neg();
+}
+
+pub fn abs(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.abs();
+}
+
+pub fn square(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.square();
+}
+
+pub fn reciprocal(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.reciprocal();
+}
+
+pub fn sign(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.sign();
+}
+
+pub fn signbit(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+    return input.signbit();
+}
+
+pub fn exp(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.exp();
+}
+
+pub fn expm1(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.expm1();
+}
+
+pub fn log(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.log();
+}
+
+pub fn log1p(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.log1p();
+}
+
+pub fn sqrt(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.sqrt();
+}
+
+pub fn floor(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.floor();
+}
+
+pub fn ceil(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.ceil();
+}
+
+pub fn round(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.round();
+}
+
+pub fn trunc(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.trunc();
+}
+
+pub fn sin(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.sin();
+}
+
+pub fn cos(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.cos();
+}
+
+pub fn tan(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.tan();
+}
+
+pub fn asin(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.asin();
+}
+
+pub fn acos(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.acos();
+}
+
+pub fn atan(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.atan();
+}
+
+pub fn sinh(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.sinh();
+}
+
+pub fn cosh(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.cosh();
+}
+
+pub fn tanh(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.tanh();
+}
+
+pub fn relu(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.relu();
+}
+
+pub fn sigmoid(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.sigmoid();
+}
+
+pub fn clip(comptime T: type, input: Tensor(T), min_value: T, max_value: T) TensorError!Tensor(T) {
+    return input.clip(min_value, max_value);
+}
+
+pub fn isNan(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+    return input.isNan();
+}
+
+pub fn isnan(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+    return input.isnan();
+}
+
+pub fn isInf(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+    return input.isInf();
+}
+
+pub fn isinf(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+    return input.isinf();
+}
+
+pub fn isFinite(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+    return input.isFinite();
+}
+
+pub fn isfinite(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
+    return input.isfinite();
+}
+
+pub fn logsumexp(comptime T: type, input: Tensor(T), axis: isize, keepdims: bool) TensorError!Tensor(T) {
+    return input.logsumexp(axis, keepdims);
+}
+
+pub fn logSoftmax(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+    return input.logSoftmax(axis);
+}
+
+pub fn log_softmax(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+    return input.log_softmax(axis);
+}
+
 pub fn sort(comptime T: type, input: Tensor(T), axis: ?isize) TensorError!Tensor(T) {
     return input.sort(axis);
 }
@@ -3453,13 +3805,118 @@ test "tensor take mask stack cat and neural helpers" {
 
     var shifted = try a.subScalar(3);
     defer shifted.deinit();
-    var relu = try shifted.relu();
-    defer relu.deinit();
-    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 1, 2, 3 }, relu.data);
+    var relu_out = try shifted.relu();
+    defer relu_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 1, 2, 3 }, relu_out.data);
     var cs = try a.cumsum();
     defer cs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 10, 15, 21 }, cs.data);
     try std.testing.expectEqual(@as(usize, 5), try a.argmax());
+}
+
+test "array extended unary math and predicates" {
+    const gpa = std.testing.allocator;
+    var x = try array(f64, gpa, &.{ -1.7, -0.2, 0.0, 0.2, 1.7 }, &.{5});
+    defer x.deinit();
+
+    var floored = try floor(f64, x);
+    defer floored.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, -1, 0, 0, 1 }, floored.data);
+    var ceiled = try x.ceil();
+    defer ceiled.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 0, 0, 1, 2 }, ceiled.data);
+    var rounded = try x.round();
+    defer rounded.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, 0, 0, 0, 2 }, rounded.data);
+    var truncated = try x.trunc();
+    defer truncated.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 0, 0, 0, 1 }, truncated.data);
+
+    var signs = try sign(f64, x);
+    defer signs.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, -1, 0, 1, 1 }, signs.data);
+    var bits = try x.signbit();
+    defer bits.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false }, bits.data);
+
+    var sq = try square(f64, x);
+    defer sq.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.89), sq.data[0], 1e-12);
+    var denom = try array(f64, gpa, &.{ 2, -4 }, &.{2});
+    defer denom.deinit();
+    var recip = try reciprocal(f64, denom);
+    defer recip.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, -0.25 }, recip.data);
+
+    var stable = try array(f64, gpa, &.{ 0, 1 }, &.{2});
+    defer stable.deinit();
+    var e1 = try stable.expm1();
+    defer e1.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), e1.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.e - 1, e1.data[1], 1e-12);
+    var l1 = try log1p(f64, stable);
+    defer l1.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), l1.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.ln2, l1.data[1], 1e-12);
+
+    var angles = try array(f64, gpa, &.{ 0, std.math.pi / 2.0 }, &.{2});
+    defer angles.deinit();
+    var sine = try sin(f64, angles);
+    defer sine.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), sine.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), sine.data[1], 1e-12);
+    var cosine = try angles.cos();
+    defer cosine.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), cosine.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), cosine.data[1], 1e-12);
+    var tangent = try angles.tan();
+    defer tangent.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), tangent.data[0], 1e-12);
+
+    var unit = try array(f64, gpa, &.{ 0, 1 }, &.{2});
+    defer unit.deinit();
+    var arcs = try unit.asin();
+    defer arcs.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), arcs.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pi / 2.0, arcs.data[1], 1e-12);
+    var arcc = try unit.acos();
+    defer arcc.deinit();
+    try std.testing.expectApproxEqAbs(std.math.pi / 2.0, arcc.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), arcc.data[1], 1e-12);
+    var arct = try unit.atan();
+    defer arct.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), arct.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pi / 4.0, arct.data[1], 1e-12);
+
+    var hyp = try array(f64, gpa, &.{ 0, 1 }, &.{2});
+    defer hyp.deinit();
+    var sh = try hyp.sinh();
+    defer sh.deinit();
+    var ch = try cosh(f64, hyp);
+    defer ch.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), sh.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), ch.data[0], 1e-12);
+
+    var special = try array(f64, gpa, &.{ 1, std.math.inf(f64), std.math.nan(f64) }, &.{3});
+    defer special.deinit();
+    var finite_mask = try isFinite(f64, special);
+    defer finite_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, finite_mask.data);
+    var inf_mask = try special.isinf();
+    defer inf_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, inf_mask.data);
+    var nan_mask = try isnan(f64, special);
+    defer nan_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, nan_mask.data);
+
+    var ints = try array(i32, gpa, &.{ -2, 0, 7 }, &.{3});
+    defer ints.deinit();
+    var int_sign = try ints.sign();
+    defer int_sign.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ -1, 0, 1 }, int_sign.data);
+    var int_finite = try ints.isfinite();
+    defer int_finite.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true }, int_finite.data);
 }
 
 test "tensor gather scatter and scalar scatter" {
