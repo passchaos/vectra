@@ -967,6 +967,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.toArray();
         }
 
+        pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.astype(U);
+        }
+
         pub fn to(self: Self, device: Device) ArrayError!Self {
             if (!device.isAvailable()) return error.InvalidDevice;
             var out = try self.clone();
@@ -1413,6 +1419,42 @@ pub fn ArrayView(comptime T: type) type {
             var other_view = try other.asView();
             defer other_view.deinit();
             return self.minimum(other_view);
+        }
+
+        pub fn addPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.addPromote(U, other);
+        }
+
+        pub fn subPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.subPromote(U, other);
+        }
+
+        pub fn mulPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.mulPromote(U, other);
+        }
+
+        pub fn divPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.divPromote(U, other);
+        }
+
+        pub fn maximumPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.maximumPromote(U, other);
+        }
+
+        pub fn minimumPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.minimumPromote(U, other);
         }
 
         pub fn hypot(self: Self, other: Self) ArrayError!Array(T) {
@@ -12466,6 +12508,28 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(DType.f32, @TypeOf(promoted_brain).dtype);
     try std.testing.expectApproxEqAbs(@as(f32, 3.0), promoted_brain.data[0], 1e-3);
     try std.testing.expectApproxEqAbs(@as(f32, -4.0), promoted_brain.data[1], 1e-3);
+
+    var view_source = try Array(i16).fromSlice(gpa, &.{ 1, 9, 2, 8, 3, 7 }, &.{ 2, 3 });
+    defer view_source.deinit();
+    var stepped_view = try view_source.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer stepped_view.deinit();
+    var view_as_f32 = try stepped_view.astype(f32);
+    defer view_as_f32.deinit();
+    try std.testing.expectEqual(DType.f32, @TypeOf(view_as_f32).dtype);
+    try std.testing.expectEqualSlices(f32, &.{ 1, 2, 8, 7 }, view_as_f32.data);
+    var promote_rhs = try Array(u16).fromSlice(gpa, &.{ 10, 20 }, &.{ 1, 2 });
+    defer promote_rhs.deinit();
+    var view_promoted_sum = try stepped_view.addPromote(u16, promote_rhs);
+    defer view_promoted_sum.deinit();
+    try std.testing.expectEqual(DType.i32, @TypeOf(view_promoted_sum).dtype);
+    try std.testing.expectEqualSlices(i32, &.{ 11, 22, 18, 27 }, view_promoted_sum.data);
+    var view_promoted_mul = try stepped_view.mulPromote(f32, view_as_f32);
+    defer view_promoted_mul.deinit();
+    try std.testing.expectEqual(DType.f32, @TypeOf(view_promoted_mul).dtype);
+    try std.testing.expectEqualSlices(f32, &.{ 1, 4, 64, 49 }, view_promoted_mul.data);
+    var view_promoted_max = try stepped_view.maximumPromote(u16, promote_rhs);
+    defer view_promoted_max.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 10, 20, 10, 20 }, view_promoted_max.data);
 
     var r = try Array(u16).randint(gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
