@@ -2747,10 +2747,46 @@ pub fn ArrayView(comptime T: type) type {
             return owned.variance(axis_opt, keepdims, correction);
         }
 
+        pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.varianceAxes(axes, keepdims, correction);
+        }
+
+        pub fn variance_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.varianceAxes(axes, keepdims, correction);
+        }
+
+        pub fn varAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.varianceAxes(axes, keepdims, correction);
+        }
+
+        pub fn var_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.varianceAxes(axes, keepdims, correction);
+        }
+
         pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.stddev(axis_opt, keepdims, correction);
+        }
+
+        pub fn stddevAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.stddevAxes(axes, keepdims, correction);
+        }
+
+        pub fn stddev_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.stddevAxes(axes, keepdims, correction);
+        }
+
+        pub fn stdAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.stddevAxes(axes, keepdims, correction);
+        }
+
+        pub fn std_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.stddevAxes(axes, keepdims, correction);
         }
 
         pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -9662,10 +9698,102 @@ pub fn Array(comptime T: type) type {
             return Self.fromSlice(self.allocator, &.{result}, &.{});
         }
 
+        pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
+            ensureFloat(T);
+            if (axes.len == 0) return self.clone();
+            const normalized_axes = try normalizeUniqueAxes(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var reduce_mask = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(reduce_mask);
+            @memset(reduce_mask, false);
+            var reduce_count: usize = 1;
+            for (normalized_axes) |axis| {
+                reduce_mask[axis] = true;
+                if (self.shape[axis] == 0) return error.EmptyArray;
+                reduce_count = std.math.mul(usize, reduce_count, self.shape[axis]) catch return error.InvalidShape;
+            }
+
+            const out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - normalized_axes.len);
+            defer self.allocator.free(out_shape);
+            if (keepdims) {
+                @memcpy(out_shape, self.shape);
+                for (normalized_axes) |axis| out_shape[axis] = 1;
+            } else {
+                var write: usize = 0;
+                for (self.shape, 0..) |extent, axis| {
+                    if (reduce_mask[axis]) continue;
+                    out_shape[write] = extent;
+                    write += 1;
+                }
+            }
+
+            var means = try self.meanAxes(axes, keepdims);
+            defer means.deinit();
+            var out = try Self.zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (self.data, 0..) |value, flat| {
+                unravelIndexInto(flat, self.shape, in_multi);
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    for (normalized_axes) |axis| out_multi[axis] = 0;
+                } else {
+                    var write: usize = 0;
+                    for (in_multi, 0..) |coord, axis| {
+                        if (reduce_mask[axis]) continue;
+                        out_multi[write] = coord;
+                        write += 1;
+                    }
+                }
+                const out_index = ravelIndex(out_multi, out.strides);
+                const delta = value - means.data[ravelIndex(out_multi, means.strides)];
+                out.data[out_index] += delta * delta;
+            }
+            const denom = castValue(T, reduce_count) - correction;
+            for (out.data) |*value| value.* /= denom;
+            return out;
+        }
+
+        pub fn variance_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
+            return self.varianceAxes(axes, keepdims, correction);
+        }
+
+        pub fn varAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
+            return self.varianceAxes(axes, keepdims, correction);
+        }
+
+        pub fn var_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
+            return self.varianceAxes(axes, keepdims, correction);
+        }
+
         pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             const out = try self.variance(axis_opt, keepdims, correction);
             for (out.data) |*v| v.* = std.math.sqrt(v.*);
             return out;
+        }
+
+        pub fn stddevAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
+            ensureFloat(T);
+            const out = try self.varianceAxes(axes, keepdims, correction);
+            for (out.data) |*value| value.* = std.math.sqrt(value.*);
+            return out;
+        }
+
+        pub fn stddev_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
+            return self.stddevAxes(axes, keepdims, correction);
+        }
+
+        pub fn stdAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
+            return self.stddevAxes(axes, keepdims, correction);
+        }
+
+        pub fn std_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
+            return self.stddevAxes(axes, keepdims, correction);
         }
 
         fn maxFiniteValue() T {
@@ -13027,7 +13155,19 @@ test "array scipy-like statistics and softmax" {
     var mean_axes = try cube.meanAxes(&.{ 0, 2 }, false);
     defer mean_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3.5, 5.5 }, mean_axes.data);
+    var var_axes = try cube.varianceAxes(&.{ 0, 2 }, false, 0);
+    defer var_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4.25, 4.25 }, var_axes.data);
+    var var_axes_keep = try cube.var_axes(&.{ 0, 2 }, true, 0);
+    defer var_axes_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, var_axes_keep.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 4.25, 4.25 }, var_axes_keep.data);
+    var std_axes = try cube.stdAxes(&.{ 0, 2 }, false, 0);
+    defer std_axes.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 4.25)), std_axes.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 4.25)), std_axes.data[1], 1e-12);
     try std.testing.expectError(error.InvalidAxis, cube.sumAxes(&.{ 0, 0 }, false));
+    try std.testing.expectError(error.InvalidAxis, cube.varianceAxes(&.{ 0, 0 }, false, 0));
 
     var bool_cube = try Array(bool).fromSlice(gpa, &.{ true, true, false, true, true, true, true, true }, &.{ 2, 2, 2 });
     defer bool_cube.deinit();
@@ -14082,6 +14222,9 @@ test "array view object statistics wrappers" {
     defer view_mean_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, view_mean_axes.shape);
     try std.testing.expect(std.math.isNan(view_mean_axes.data[0]));
+    var view_var_axes = try view.varianceAxes(&.{ 0, 1 }, false, 0);
+    defer view_var_axes.deinit();
+    try std.testing.expect(std.math.isNan(view_var_axes.data[0]));
     var amin0 = try view.amin(0, false);
     defer amin0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4 }, amin0.data);
