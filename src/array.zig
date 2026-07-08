@@ -3272,6 +3272,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.split(split_size, axis_index);
         }
 
+        pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.splitWithSizes(sizes, axis_index);
+        }
+
+        pub fn split_with_sizes(self: Self, sizes: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
+            return self.splitWithSizes(sizes, axis_index);
+        }
+
+        pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.splitAtIndices(indices, axis_index);
+        }
+
+        pub fn split_at_indices(self: Self, indices: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
+            return self.splitAtIndices(indices, axis_index);
+        }
+
         pub fn chunk(self: Self, chunks: usize, axis_index: isize) ArrayError!Array(T).SplitResult {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -6374,6 +6394,58 @@ pub fn Array(comptime T: type) type {
                 initialized += 1;
             }
             return .{ .allocator = self.allocator, .items = items };
+        }
+
+        pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) ArrayError!SplitResult {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            var total: usize = 0;
+            for (sizes) |part_len| {
+                total = std.math.add(usize, total, part_len) catch return error.InvalidShape;
+            }
+            if (total != axis_len) return error.ShapeMismatch;
+
+            const items = try self.allocator.alloc(Self, sizes.len);
+            errdefer self.allocator.free(items);
+            var initialized: usize = 0;
+            errdefer {
+                for (items[0..initialized]) |*part| part.deinit();
+            }
+            var start: usize = 0;
+            for (sizes, 0..) |part_len, i| {
+                items[i] = try self.narrow(axis_index, start, part_len);
+                initialized += 1;
+                start += part_len;
+            }
+            return .{ .allocator = self.allocator, .items = items };
+        }
+
+        pub fn split_with_sizes(self: Self, sizes: []const usize, axis_index: isize) ArrayError!SplitResult {
+            return self.splitWithSizes(sizes, axis_index);
+        }
+
+        pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) ArrayError!SplitResult {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            const items = try self.allocator.alloc(Self, indices.len + 1);
+            errdefer self.allocator.free(items);
+            var initialized: usize = 0;
+            errdefer {
+                for (items[0..initialized]) |*part| part.deinit();
+            }
+            var start: usize = 0;
+            for (indices, 0..) |stop, i| {
+                if (stop < start or stop > axis_len) return error.InvalidShape;
+                items[i] = try self.narrow(axis_index, start, stop - start);
+                initialized += 1;
+                start = stop;
+            }
+            items[indices.len] = try self.narrow(axis_index, start, axis_len - start);
+            return .{ .allocator = self.allocator, .items = items };
+        }
+
+        pub fn split_at_indices(self: Self, indices: []const usize, axis_index: isize) ArrayError!SplitResult {
+            return self.splitAtIndices(indices, axis_index);
         }
 
         pub fn chunk(self: Self, chunks: usize, axis_index: isize) ArrayError!SplitResult {
@@ -11724,12 +11796,29 @@ test "array creation, reshape and broadcasting" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, parts.items[1].shape);
     try std.testing.expectEqualSlices(f64, &.{ 33, 36 }, parts.items[1].data);
 
+    var sized_parts = try c.splitWithSizes(&.{ 1, 2 }, 1);
+    defer sized_parts.deinit();
+    try std.testing.expectEqual(@as(usize, 2), sized_parts.items.len);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, sized_parts.items[0].shape);
+    try std.testing.expectEqualSlices(f64, &.{ 11, 14 }, sized_parts.items[0].data);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, sized_parts.items[1].shape);
+    try std.testing.expectEqualSlices(f64, &.{ 22, 33, 25, 36 }, sized_parts.items[1].data);
+
+    var indexed_parts = try c.split_at_indices(&.{ 1, 2 }, 1);
+    defer indexed_parts.deinit();
+    try std.testing.expectEqual(@as(usize, 3), indexed_parts.items.len);
+    try std.testing.expectEqualSlices(f64, &.{ 11, 14 }, indexed_parts.items[0].data);
+    try std.testing.expectEqualSlices(f64, &.{ 22, 25 }, indexed_parts.items[1].data);
+    try std.testing.expectEqualSlices(f64, &.{ 33, 36 }, indexed_parts.items[2].data);
+
     var chunks = try c.chunk(2, 0);
     defer chunks.deinit();
     try std.testing.expectEqual(@as(usize, 2), chunks.items.len);
     try std.testing.expectEqualSlices(f64, &.{ 11, 22, 33 }, chunks.items[0].data);
     try std.testing.expectEqualSlices(f64, &.{ 14, 25, 36 }, chunks.items[1].data);
     try std.testing.expectError(error.InvalidShape, c.split(0, 0));
+    try std.testing.expectError(error.ShapeMismatch, c.splitWithSizes(&.{ 1, 1 }, 1));
+    try std.testing.expectError(error.InvalidShape, c.splitAtIndices(&.{ 2, 1 }, 1));
 
     var left = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
     defer left.deinit();
@@ -12680,6 +12769,18 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, parts.items[0].data);
     try std.testing.expectEqualSlices(f64, &.{ 3, 7 }, parts.items[1].data);
 
+    var sized_parts = try view.split_with_sizes(&.{ 1, 1 }, 1);
+    defer sized_parts.deinit();
+    try std.testing.expectEqual(@as(usize, 2), sized_parts.items.len);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, sized_parts.items[0].data);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 7 }, sized_parts.items[1].data);
+
+    var indexed_parts = try view.splitAtIndices(&.{1}, 0);
+    defer indexed_parts.deinit();
+    try std.testing.expectEqual(@as(usize, 2), indexed_parts.items.len);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3 }, indexed_parts.items[0].data);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 7 }, indexed_parts.items[1].data);
+
     var chunks = try view.chunk(2, 0);
     defer chunks.deinit();
     try std.testing.expectEqual(@as(usize, 2), chunks.items.len);
@@ -12694,6 +12795,8 @@ test "array view materializing shape wrappers" {
     try std.testing.expectError(error.InvalidAxis, view.rot90(1, .{ 0, 0 }));
     try std.testing.expectError(error.ShapeMismatch, view.padConstant(&.{1}, &.{1}, 0));
     try std.testing.expectError(error.InvalidShape, view.split(0, 1));
+    try std.testing.expectError(error.ShapeMismatch, view.splitWithSizes(&.{1}, 1));
+    try std.testing.expectError(error.InvalidShape, view.splitAtIndices(&.{3}, 1));
     try std.testing.expectError(error.InvalidShape, view.chunk(0, 1));
 }
 
