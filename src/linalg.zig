@@ -255,6 +255,81 @@ fn svdF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!SvdResult(f64) 
     return .{ .u = u, .s = s_values, .vt = vt };
 }
 
+pub fn singularValues(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!tensor_mod.Tensor(T) {
+    if (a.shape.len != 2) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("singularValues requires floating-point tensors");
+    var factors = try svd(T, a, tolerance);
+    defer factors.deinit();
+    return factors.s.clone();
+}
+
+pub fn matrixRank(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!usize {
+    if (a.shape.len != 2) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("matrixRank requires floating-point tensors");
+    if (T == f64) return matrixRankF64(@as(tensor_mod.Tensor(f64), a), @as(f64, tolerance));
+    var values = try singularValues(T, a, tolerance);
+    defer values.deinit();
+    var rank_value: usize = 0;
+    for (values.data) |sigma| {
+        if (sigma > tolerance) rank_value += 1;
+    }
+    return rank_value;
+}
+
+fn matrixRankF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!usize {
+    var matrix = try toVeyraMatrix(a);
+    defer matrix.deinit();
+    var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
+    defer decomposition.deinit();
+    return decomposition.rank(tolerance);
+}
+
+pub fn cond(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!T {
+    if (a.shape.len != 2) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("cond requires floating-point tensors");
+    if (T == f64) return condF64(@as(tensor_mod.Tensor(f64), a), @as(f64, tolerance));
+    var values = try singularValues(T, a, tolerance);
+    defer values.deinit();
+    if (values.data.len == 0) return error.InvalidShape;
+    var max_sigma = values.data[0];
+    var min_sigma: ?T = null;
+    for (values.data) |sigma| {
+        if (sigma > max_sigma) max_sigma = sigma;
+        if (sigma > tolerance) min_sigma = if (min_sigma) |current| @min(current, sigma) else sigma;
+    }
+    const min_resolved = min_sigma orelse return error.SingularMatrix;
+    return max_sigma / min_resolved;
+}
+
+fn condF64(a: tensor_mod.Tensor(f64), tolerance: f64) LinalgError!f64 {
+    var matrix = try toVeyraMatrix(a);
+    defer matrix.deinit();
+    var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
+    defer decomposition.deinit();
+    return decomposition.conditionNumber(tolerance) catch |err| return mapVeyraError(err);
+}
+
+pub fn pinv(comptime T: type, a: tensor_mod.Tensor(T), tolerance: T) LinalgError!tensor_mod.Tensor(T) {
+    if (a.shape.len != 2) return error.NonMatrixTensor;
+    if (@typeInfo(T) != .float) @compileError("pinv requires floating-point tensors");
+    var factors = try svd(T, a, tolerance);
+    defer factors.deinit();
+
+    const k = factors.s.data.len;
+    var sigma_inv = try tensor_mod.Tensor(T).zeros(a.allocator, &.{ k, k });
+    defer sigma_inv.deinit();
+    for (factors.s.data, 0..) |sigma, i| {
+        if (sigma > tolerance) sigma_inv.data[i * k + i] = 1 / sigma;
+    }
+    var vt_t = try factors.vt.transpose();
+    defer vt_t.deinit();
+    var left = try matmul(T, vt_t, sigma_inv);
+    defer left.deinit();
+    var u_t = try factors.u.transpose();
+    defer u_t.deinit();
+    return matmul(T, left, u_t);
+}
+
 pub fn lstsq(comptime T: type, a: tensor_mod.Tensor(T), b: tensor_mod.Tensor(T), tolerance: T) LinalgError!tensor_mod.Tensor(T) {
     if (a.shape.len != 2) return error.NonMatrixTensor;
     if (@typeInfo(T) != .float) @compileError("lstsq requires floating-point tensors");
@@ -507,4 +582,37 @@ test "linalg lstsq solves vector and matrix rhs" {
     try std.testing.expectApproxEqAbs(@as(f64, 3.0), xm.data[1], 1e-10);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), xm.data[2], 1e-10);
     try std.testing.expectApproxEqAbs(@as(f64, -1.0), xm.data[3], 1e-10);
+}
+
+test "linalg singular values rank condition and pinv" {
+    const gpa = std.testing.allocator;
+    var a = try tensor_mod.tensor(f64, gpa, &.{ 3, 0, 0, 2 }, &.{ 2, 2 });
+    defer a.deinit();
+
+    var values = try singularValues(f64, a, 1e-12);
+    defer values.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, values.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), values.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), values.data[1], 1e-12);
+    try std.testing.expectEqual(@as(usize, 2), try matrixRank(f64, a, 1e-12));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), try cond(f64, a, 1e-12), 1e-12);
+
+    var p = try pinv(f64, a, 1e-12);
+    defer p.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, p.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), p.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), p.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), p.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), p.data[3], 1e-12);
+
+    var rect = try tensor_mod.tensor(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    defer rect.deinit();
+    var rect_p = try pinv(f64, rect, 1e-12);
+    defer rect_p.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, rect_p.shape);
+    var projected = try matmul(f64, rect_p, rect);
+    defer projected.deinit();
+    var ident = try eye(f64, gpa, 2);
+    defer ident.deinit();
+    try std.testing.expect(try projected.allclose(ident, 1e-10, 1e-10));
 }

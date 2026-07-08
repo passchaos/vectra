@@ -17,7 +17,7 @@ while leaning toward PyTorch-style fluent tensor methods for common operations.
 - Array transforms: `broadcastTo`, `repeat`, `tile`, `cat/concatenate`, `stack`, `sort`, `argsort`.
 - Reductions/statistics: `sum`, `prod`, `min`, `max`, `mean`, `variance`, `stddev`, `norm`, `logsumexp`, `cumsum`, `cumprod`, `argmin`, `argmax`, `argminAxis/argmaxAxis`, `topk`, `histogram`.
 - Neural/math functions: `exp`, `log`, `sqrt`, `sin`, `cos`, `tanh`, `relu`, `sigmoid`, `softmax`, `logSoftmax/log_softmax`, `clip`.
-- Linear algebra: `matmul/mm`, `bmm`, `matvec`, `dot`, `outer`, `diagonal`, `trace`, `triu/tril`, `linalg.eye`, `det`, `inverse`, `solve`, `cholesky`, `qr`, `svd`, `lstsq`; f64 `linalg.matmul`/`matvec`/`trace`/`inverse`/`cholesky`/`qr`/`svd`/`lstsq` use the local `../veyra` backend when available.
+- Linear algebra: `matmul/mm`, `bmm`, `matvec`, `dot`, `outer`, `diagonal`, `trace`, `triu/tril`, `linalg.eye`, `det`, `inverse`, `solve`, `cholesky`, `qr`, `svd`, `lstsq`, `singularValues`, `matrixRank`, `cond`, `pinv`; f64 `linalg.matmul`/`matvec`/`trace`/`inverse`/`cholesky`/`qr`/`svd`/`lstsq`/`singularValues`/`matrixRank`/`cond`/`pinv` use the local `../veyra` backend when available.
 - SciPy-like stats helpers: `stats.zscore`, `normalize`, `pearsonr`.
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
 - CSV read/write with simple type inference.
@@ -60,7 +60,7 @@ pub fn demo(allocator: std.mem.Allocator) !void {
 
 ## Veyra backend
 
-Vectra uses the sibling [`../veyra`](../veyra) Zig package as a local path dependency for foundational math and linear algebra. Current f64 `linalg` paths delegate matrix multiplication, matrix-vector products, trace, inverse, Cholesky, QR, SVD, and least-squares to Veyra-compatible dense matrix APIs while Tensor methods keep dependency-free generic fallbacks. Future SciPy-like and high-performance BLAS/LAPACK-style work should prefer Veyra where it already provides tested kernels or decompositions.
+Vectra uses the sibling [`../veyra`](../veyra) Zig package as a local path dependency for foundational math and linear algebra. Current f64 `linalg` paths delegate matrix multiplication, matrix-vector products, trace, inverse, Cholesky, QR, SVD, least-squares, rank/condition helpers, and pseudo-inverse to Veyra-compatible dense matrix APIs while Tensor methods keep dependency-free generic fallbacks. Future SciPy-like and high-performance BLAS/LAPACK-style work should prefer Veyra where it already provides tested kernels or decompositions.
 
 ## Development priorities
 

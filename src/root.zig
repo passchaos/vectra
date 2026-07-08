@@ -47,6 +47,10 @@ pub const cholesky = linalg.cholesky;
 pub const qr = linalg.qr;
 pub const svd = linalg.svd;
 pub const lstsq = linalg.lstsq;
+pub const singularValues = linalg.singularValues;
+pub const matrixRank = linalg.matrixRank;
+pub const cond = linalg.cond;
+pub const pinv = linalg.pinv;
 pub const dataframe = dataframe_mod.dataframe;
 
 test {
