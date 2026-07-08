@@ -1929,6 +1929,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.ownedUnary(Array(T), Array(T).log1p);
         }
 
+        pub fn lgamma(self: Self) ArrayError!Array(T) {
+            return self.ownedUnary(Array(T), Array(T).lgamma);
+        }
+
+        pub fn gammaln(self: Self) ArrayError!Array(T) {
+            return self.lgamma();
+        }
+
+        pub fn logGamma(self: Self) ArrayError!Array(T) {
+            return self.lgamma();
+        }
+
+        pub fn loggamma(self: Self) ArrayError!Array(T) {
+            return self.lgamma();
+        }
+
         pub fn sqrt(self: Self) ArrayError!Array(T) {
             return self.ownedUnary(Array(T), Array(T).sqrt);
         }
@@ -2127,6 +2143,14 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn isfinite(self: Self) ArrayError!Array(bool) {
             return self.isFinite();
+        }
+
+        pub fn isNormal(self: Self) ArrayError!Array(bool) {
+            return self.ownedUnary(Array(bool), Array(T).isNormal);
+        }
+
+        pub fn isnormal(self: Self) ArrayError!Array(bool) {
+            return self.isNormal();
         }
 
         pub fn logicalNot(self: Self) ArrayError!Array(T) {
@@ -6835,6 +6859,14 @@ pub fn Array(comptime T: type) type {
                 else => @compileError("atanh requires a real floating-point array"),
             };
         }
+        fn opLgamma(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.lgamma(f32, a.toF32()));
+            return switch (T) {
+                f16 => @floatCast(std.math.lgamma(f32, @as(f32, @floatCast(a)))),
+                f32, f64 => std.math.lgamma(T, a),
+                else => @compileError("lgamma requires a real floating-point array"),
+            };
+        }
         fn opLog1p(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.log(a.add(one(T)));
             return std.math.log1p(a);
@@ -6953,6 +6985,13 @@ pub fn Array(comptime T: type) type {
                 .float => std.math.isFinite(a),
                 .int, .comptime_int => true,
                 else => @compileError("isFinite requires a numeric array"),
+            };
+        }
+        fn opIsNormal(a: T) bool {
+            if (comptime T == BFloat16) return std.math.isNormal(a.toF32());
+            return switch (@typeInfo(T)) {
+                .float => std.math.isNormal(a),
+                else => @compileError("isNormal requires a floating-point array"),
             };
         }
         fn opSignbit(a: T) bool {
@@ -7342,6 +7381,23 @@ pub fn Array(comptime T: type) type {
             return self.unary(opLog1p);
         }
 
+        pub fn lgamma(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(opLgamma);
+        }
+
+        pub fn gammaln(self: Self) ArrayError!Self {
+            return self.lgamma();
+        }
+
+        pub fn logGamma(self: Self) ArrayError!Self {
+            return self.lgamma();
+        }
+
+        pub fn loggamma(self: Self) ArrayError!Self {
+            return self.lgamma();
+        }
+
         pub fn sqrt(self: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.unary(opSqrt);
@@ -7652,6 +7708,15 @@ pub fn Array(comptime T: type) type {
 
         pub fn isfinite(self: Self) ArrayError!Array(bool) {
             return self.isFinite();
+        }
+
+        pub fn isNormal(self: Self) ArrayError!Array(bool) {
+            ensureFloat(T);
+            return self.unaryBool(opIsNormal);
+        }
+
+        pub fn isnormal(self: Self) ArrayError!Array(bool) {
+            return self.isNormal();
         }
 
         pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Self {
@@ -12134,6 +12199,12 @@ test "array view object unary predicate wrappers" {
     var finite = try view.isFinite();
     defer finite.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false, true, false }, finite.data);
+    var normal = try view.isNormal();
+    defer normal.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true, false }, normal.data);
+    var normal_alias = try view.isnormal();
+    defer normal_alias.deinit();
+    try std.testing.expectEqualSlices(bool, normal.data, normal_alias.data);
     var nan_mask = try view.isnan();
     defer nan_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, true }, nan_mask.data);
@@ -12153,6 +12224,22 @@ test "array view object unary predicate wrappers" {
     defer exp2_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), exp2_out.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4), exp2_out.data[1], 1e-12);
+    var lgamma_values = try view.lgamma();
+    defer lgamma_values.deinit();
+    try std.testing.expect(std.math.isPositiveInf(lgamma_values.data[0]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), lgamma_values.data[1], 1e-12);
+    try std.testing.expect(std.math.isPositiveInf(lgamma_values.data[2]));
+    try std.testing.expect(std.math.isPositiveInf(lgamma_values.data[3]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), lgamma_values.data[4], 1e-12);
+    try std.testing.expect(std.math.isNan(lgamma_values.data[5]));
+    var gammaln_values = try view.gammaln();
+    defer gammaln_values.deinit();
+    try std.testing.expect(std.math.isPositiveInf(gammaln_values.data[0]));
+    try std.testing.expectApproxEqAbs(lgamma_values.data[1], gammaln_values.data[1], 1e-12);
+    var log_gamma_values = try view.logGamma();
+    defer log_gamma_values.deinit();
+    try std.testing.expect(std.math.isPositiveInf(log_gamma_values.data[0]));
+    try std.testing.expectApproxEqAbs(lgamma_values.data[4], log_gamma_values.data[4], 1e-12);
     var degree_values = try Array(f64).fromSlice(gpa, &.{ 0, 90, 180, 45 }, &.{ 2, 2 });
     defer degree_values.deinit();
     var degree_view = try degree_values.transposeView();
@@ -13042,6 +13129,15 @@ test "array extended unary math and predicates" {
     defer l1.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), l1.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.ln2, l1.data[1], 1e-12);
+    var lg = try stable.lgamma();
+    defer lg.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ std.math.inf(f64), 0 }, lg.data);
+    var gln = try stable.gammaln();
+    defer gln.deinit();
+    try std.testing.expectEqualSlices(f64, lg.data, gln.data);
+    var log_gamma = try stable.logGamma();
+    defer log_gamma.deinit();
+    try std.testing.expectEqualSlices(f64, lg.data, log_gamma.data);
     var powers = try Array(f64).fromSlice(gpa, &.{ 1, 10, 100 }, &.{3});
     defer powers.deinit();
     var log2_out = try powers.log2();
@@ -13169,6 +13265,12 @@ test "array extended unary math and predicates" {
     var finite_mask = try special.isFinite();
     defer finite_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, false }, finite_mask.data);
+    var normal_mask = try special.isNormal();
+    defer normal_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, normal_mask.data);
+    var normal_alias = try special.isnormal();
+    defer normal_alias.deinit();
+    try std.testing.expectEqualSlices(bool, normal_mask.data, normal_alias.data);
     var inf_mask = try special.isinf();
     defer inf_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false }, inf_mask.data);
