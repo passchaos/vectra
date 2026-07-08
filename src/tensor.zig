@@ -3115,6 +3115,95 @@ pub fn Tensor(comptime T: type) type {
             return self.mean(axis_opt, keepdims);
         }
 
+        pub fn weightedVariance(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+            ensureFloat(T);
+            var full_weights = try self.checkedBroadcastWeights(weights);
+            defer full_weights.deinit();
+
+            if (axis_opt == null) {
+                var total = zero(T);
+                var weight_sum = zero(T);
+                for (self.data, full_weights.data) |value, weight| {
+                    if (weight < zero(T)) return error.InvalidShape;
+                    total += value * weight;
+                    weight_sum += weight;
+                }
+                if (!(weight_sum > zero(T))) return error.InvalidShape;
+                const mean_value = total / weight_sum;
+                var sq_total = zero(T);
+                for (self.data, full_weights.data) |value, weight| {
+                    const delta = value - mean_value;
+                    sq_total += weight * delta * delta;
+                }
+                const denom = weight_sum - correction;
+                if (!(denom > zero(T))) return error.InvalidShape;
+                const result = sq_total / denom;
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{result}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{result}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            var means = try self.weightedMean(weights, axis_opt, true);
+            defer means.deinit();
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Self.zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            var weight_sums = try Self.zeros(self.allocator, out_shape);
+            defer weight_sums.deinit();
+            if (out.data.len == 0) return out;
+
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var mean_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(mean_multi);
+
+            for (self.data, full_weights.data, 0..) |value, weight, flat| {
+                if (weight < zero(T)) return error.InvalidShape;
+                unravelIndexInto(flat, self.shape, in_multi);
+                @memcpy(mean_multi, in_multi);
+                mean_multi[axis] = 0;
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                const out_index = ravelIndex(out_multi, out.strides);
+                const delta = value - means.data[ravelIndex(mean_multi, means.strides)];
+                out.data[out_index] += weight * delta * delta;
+                weight_sums.data[out_index] += weight;
+            }
+
+            for (out.data, weight_sums.data) |*value, weight_sum| {
+                const denom = weight_sum - correction;
+                if (!(denom > zero(T))) return error.InvalidShape;
+                value.* /= denom;
+            }
+            return out;
+        }
+
+        pub fn weightedVar(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+            return self.weightedVariance(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStddev(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+            const out = try self.weightedVariance(weights, axis_opt, keepdims, correction);
+            for (out.data) |*value| value.* = std.math.sqrt(value.*);
+            return out;
+        }
+
+        pub fn weightedStd(self: Self, weights: Self, axis_opt: ?isize, keepdims: bool, correction: T) TensorError!Self {
+            return self.weightedStddev(weights, axis_opt, keepdims, correction);
+        }
+
         fn weightedQuantileFromScratch(self: Self, values: []T, weights: []T, count: usize, q: T) TensorError!T {
             if (count == 0) return error.EmptyTensor;
             const order = try self.allocator.alloc(usize, count);
@@ -4958,6 +5047,22 @@ pub fn average(comptime T: type, input: Tensor(T), weights: ?Tensor(T), axis: ?i
     return input.average(weights, axis, keepdims);
 }
 
+pub fn weightedVariance(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+    return input.weightedVariance(weights, axis, keepdims, correction);
+}
+
+pub fn weightedVar(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+    return input.weightedVar(weights, axis, keepdims, correction);
+}
+
+pub fn weightedStddev(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+    return input.weightedStddev(weights, axis, keepdims, correction);
+}
+
+pub fn weightedStd(comptime T: type, input: Tensor(T), weights: Tensor(T), axis: ?isize, keepdims: bool, correction: T) TensorError!Tensor(T) {
+    return input.weightedStd(weights, axis, keepdims, correction);
+}
+
 pub fn weightedQuantile(comptime T: type, input: Tensor(T), weights: Tensor(T), q: T, axis: ?isize, keepdims: bool) TensorError!Tensor(T) {
     return input.weightedQuantile(weights, q, axis, keepdims);
 }
@@ -5947,6 +6052,20 @@ test "array median quantile covariance and corrcoef" {
     var unweighted_average = try average(f64, a, null, null, false);
     defer unweighted_average.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 4.5), unweighted_average.data[0], 1e-12);
+    var weighted_var_flat = try weightedVariance(f64, a, weights, null, false, 0);
+    defer weighted_var_flat.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 9.07638888888889), weighted_var_flat.data[0], 1e-12);
+    var weighted_std_flat = try weightedStddev(f64, a, weights, null, false, 0);
+    defer weighted_std_flat.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 3.01270458042087), weighted_std_flat.data[0], 1e-12);
+    var weighted_var_rows = try a.weightedVar(weights, 1, false, 0);
+    defer weighted_var_rows.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), weighted_var_rows.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 62.0 / 9.0), weighted_var_rows.data[1], 1e-12);
+    var weighted_std_rows = try weightedStd(f64, a, weights, 1, false, 0);
+    defer weighted_std_rows.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 14.0 / 9.0)), weighted_std_rows.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 62.0 / 9.0)), weighted_std_rows.data[1], 1e-12);
 
     var value_vec = try array(f64, gpa, &.{ 1, 10, 100 }, &.{3});
     defer value_vec.deinit();
