@@ -878,6 +878,19 @@ pub fn ArrayView(comptime T: type) type {
             return self.numel();
         }
 
+        pub fn len(self: Self) ArrayError!usize {
+            if (self.shape.len == 0) return error.InvalidShape;
+            return self.shape[0];
+        }
+
+        pub fn stride(self: Self, axis_index: isize) ArrayError!usize {
+            return self.strides[try normalizeDim(axis_index, self.shape.len)];
+        }
+
+        pub fn sameShape(self: Self, other: Self) bool {
+            return std.mem.eql(usize, self.shape, other.shape);
+        }
+
         pub fn isScalar(self: Self) bool {
             return self.shape.len == 0 or (self.shape.len == 1 and self.shape[0] == 1);
         }
@@ -1133,6 +1146,10 @@ pub fn ArrayView(comptime T: type) type {
             }
         }
 
+        pub fn copyFrom(self: Self, source: Self) ArrayError!void {
+            return self.copyFromView(source);
+        }
+
         pub fn copyFromArray(self: Self, source: Array(T)) ArrayError!void {
             var source_view = try source.asView();
             defer source_view.deinit();
@@ -1159,6 +1176,10 @@ pub fn ArrayView(comptime T: type) type {
             }
         }
 
+        pub fn maskedFillAssign(self: Self, mask: Array(bool), value: T) ArrayError!void {
+            return self.maskedFill(mask, value);
+        }
+
         pub fn maskedCopyFromView(self: Self, mask: Array(bool), values: Self) ArrayError!void {
             const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
@@ -1183,6 +1204,10 @@ pub fn ArrayView(comptime T: type) type {
             }
         }
 
+        pub fn maskedCopyFrom(self: Self, mask: Array(bool), values: Self) ArrayError!void {
+            return self.maskedCopyFromView(mask, values);
+        }
+
         pub fn maskedCopyFromArray(self: Self, mask: Array(bool), values: Array(T)) ArrayError!void {
             var values_view = try values.asView();
             defer values_view.deinit();
@@ -1205,10 +1230,18 @@ pub fn ArrayView(comptime T: type) type {
             }
         }
 
+        pub fn copyWhereAssign(self: Self, mask: Array(bool), source: Self) ArrayError!void {
+            return self.copyWhereFromView(mask, source);
+        }
+
         pub fn copyWhereFromArray(self: Self, mask: Array(bool), source: Array(T)) ArrayError!void {
             var source_view = try source.asView();
             defer source_view.deinit();
             return self.copyWhereFromView(mask, source_view);
+        }
+
+        pub fn copyWhereAssignView(self: Self, mask: Array(bool), source: Self) ArrayError!void {
+            return self.copyWhereFromView(mask, source);
         }
 
         fn assignView(self: Self, source: Self, comptime op: fn (T, T) T) ArrayError!void {
@@ -1246,9 +1279,17 @@ pub fn ArrayView(comptime T: type) type {
             return self.assignView(source, opAdd);
         }
 
+        pub fn addAssignView(self: Self, source: Self) ArrayError!void {
+            return self.addAssign(source);
+        }
+
         pub fn subAssign(self: Self, source: Self) ArrayError!void {
             ensureNumeric(T);
             return self.assignView(source, opSub);
+        }
+
+        pub fn subAssignView(self: Self, source: Self) ArrayError!void {
+            return self.subAssign(source);
         }
 
         pub fn mulAssign(self: Self, source: Self) ArrayError!void {
@@ -1256,9 +1297,17 @@ pub fn ArrayView(comptime T: type) type {
             return self.assignView(source, opMul);
         }
 
+        pub fn mulAssignView(self: Self, source: Self) ArrayError!void {
+            return self.mulAssign(source);
+        }
+
         pub fn divAssign(self: Self, source: Self) ArrayError!void {
             ensureNumeric(T);
             return self.assignView(source, opDiv);
+        }
+
+        pub fn divAssignView(self: Self, source: Self) ArrayError!void {
+            return self.divAssign(source);
         }
 
         pub fn addAssignArray(self: Self, source: Array(T)) ArrayError!void {
@@ -1687,6 +1736,18 @@ pub fn ArrayView(comptime T: type) type {
             return self.le(other);
         }
 
+        pub fn equal(self: Self, other: Self) ArrayError!Array(bool) {
+            return self.eq(other);
+        }
+
+        pub fn greater(self: Self, other: Self) ArrayError!Array(bool) {
+            return self.gt(other);
+        }
+
+        pub fn less(self: Self, other: Self) ArrayError!Array(bool) {
+            return self.lt(other);
+        }
+
         pub fn neScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.compareScalar(scalar, struct {
                 fn f(a: T, b: T) bool {
@@ -1885,6 +1946,10 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.clip(min_value, max_value);
+        }
+
+        pub fn clamp(self: Self, min_value: T, max_value: T) ArrayError!Array(T) {
+            return self.clip(min_value, max_value);
         }
 
         pub fn isNan(self: Self) ArrayError!Array(bool) {
@@ -2425,6 +2490,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.logsumexp(axis_index, keepdims);
         }
 
+        pub fn log_softmax(self: Self, axis_index: isize) ArrayError!Array(T) {
+            return self.logSoftmax(axis_index);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2487,6 +2556,30 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.argsortAxis(axis_opt, descending);
+        }
+
+        pub fn argsortDescending(self: Self) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.argsortDescending();
+        }
+
+        pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) ArrayError!Array(T).SortResult {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sortWithIndices(axis_opt, descending);
+        }
+
+        pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.partition(kth, axis_opt, descending);
+        }
+
+        pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.argpartition(kth, axis_opt, descending);
         }
 
         pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) ArrayError!Array(T).TopK {
@@ -2555,6 +2648,38 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.maskedSelect(mask);
+        }
+
+        pub fn maskedScatter(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.maskedScatter(mask, src);
+        }
+
+        pub fn maskedPut(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.maskedPut(mask, values);
+        }
+
+        pub fn putMask(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
+            return self.maskedPut(mask, values);
+        }
+
+        pub fn maskedPutScalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.maskedPutScalar(mask, value);
+        }
+
+        pub fn putMaskScalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
+            return self.maskedPutScalar(mask, value);
+        }
+
+        pub fn copyWhere(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.copyWhere(mask, src);
         }
 
         pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Array(T) {
@@ -2994,6 +3119,10 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.matmul(other);
         }
 
+        pub fn mm(self: Self, other: Self) ArrayError!Array(T) {
+            return self.matmul(other);
+        }
+
         pub fn bmm(self: Self, other: Self) ArrayError!Array(T) {
             var lhs = try self.toArray();
             defer lhs.deinit();
@@ -3178,6 +3307,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.magnitude();
         }
 
+        pub fn absComplex(self: Self) ArrayError!Array(complexRealType(T)) {
+            return self.magnitude();
+        }
+
         pub fn fft(self: Self) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3236,6 +3369,18 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.ifft2();
+        }
+
+        pub fn ldexp(self: Self, exponents: Array(i32)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.ldexp(exponents);
+        }
+
+        pub fn frexp(self: Self) ArrayError!Array(T).FrexpResult {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.frexp();
         }
 
         pub fn convolve1d(self: Self, kernel: Self, mode: ConvMode) ArrayError!Array(T) {
@@ -3307,6 +3452,14 @@ pub fn ArrayView(comptime T: type) type {
             const inferred = try inferredShape(self.allocator, dims, self.numel());
             defer self.allocator.free(inferred);
             return self.reshape(inferred);
+        }
+
+        pub fn view(self: Self, dims: []const usize) ArrayError!Self {
+            return self.reshape(dims);
+        }
+
+        pub fn viewInfer(self: Self, dims: []const isize) ArrayError!Self {
+            return self.reshapeInfer(dims);
         }
 
         pub fn flatten(self: Self) ArrayError!Self {
@@ -3513,6 +3666,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.expand(other.shape);
         }
 
+        pub fn expandAsView(self: Self, other: Self) ArrayError!Self {
+            return self.expand(other.shape);
+        }
+
         pub fn permute(self: Self, axes: []const usize) ArrayError!Self {
             if (axes.len != self.shape.len) return error.InvalidPermutation;
             var seen = try self.allocator.alloc(bool, axes.len);
@@ -3576,6 +3733,10 @@ pub fn ArrayView(comptime T: type) type {
         pub fn transpose(self: Self) ArrayError!Self {
             if (self.shape.len != 2) return error.NonMatrixArray;
             return self.swapaxes(0, 1);
+        }
+
+        pub fn T_(self: Self) ArrayError!Self {
+            return self.transpose();
         }
     };
 }
@@ -10122,6 +10283,11 @@ test "array object generalized matmul semantics" {
     defer vm.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, vm.shape);
     try std.testing.expectEqualSlices(f64, &.{ 22, 28 }, vm.data);
+    var vm_rhs_view = try vm_rhs.asView();
+    defer vm_rhs_view.deinit();
+    var vm_alias = try vm_rhs_view.T_();
+    defer vm_alias.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, vm_alias.shape);
 
     var batch_a = try Array(f64).fromSlice(gpa, &.{
         1, 2, 3, 4,
@@ -10169,6 +10335,13 @@ test "array contraction and vector algebra helpers" {
     var y_top = try a.matvec(x);
     defer y_top.deinit();
     try std.testing.expectEqualSlices(f64, y.data, y_top.data);
+    var a_view = try a.asView();
+    defer a_view.deinit();
+    var a_t_view = try a_view.T_();
+    defer a_t_view.deinit();
+    var mm_alias = try a_view.mm(a_t_view);
+    defer mm_alias.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, mm_alias.shape);
 
     var lhs = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer lhs.deinit();
@@ -10622,6 +10795,34 @@ test "array non contiguous view helpers" {
     defer stepped_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 30, 5, 99 }, stepped_owned.data);
     try std.testing.expectError(error.InvalidShape, stepped.reshape(&.{4}));
+    try std.testing.expectEqual(@as(usize, 2), try stepped.len());
+    try std.testing.expectEqual(@as(usize, 2), try stepped.stride(1));
+    try std.testing.expect(stepped.sameShape(stepped));
+    try std.testing.expectError(error.InvalidShape, stepped.view(&.{4}));
+    try std.testing.expectError(error.InvalidShape, stepped.viewInfer(&.{-1}));
+    var base_view_alias = try base_view.view(&.{8});
+    defer base_view_alias.deinit();
+    try std.testing.expectEqualSlices(usize, &.{8}, base_view_alias.shape);
+    var base_view_infer = try base_view.viewInfer(&.{-1});
+    defer base_view_infer.deinit();
+    try std.testing.expectEqualSlices(usize, &.{8}, base_view_infer.shape);
+    var stepped_t_alias = try stepped.T_();
+    defer stepped_t_alias.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stepped_t_alias.shape);
+    var stepped_clamped = try stepped.clamp(2, 50);
+    defer stepped_clamped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 30, 5, 50 }, stepped_clamped.data);
+    var stepped_eq = try stepped.equal(stepped);
+    defer stepped_eq.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, stepped_eq.data);
+    var stepped_clamped_view = try stepped_clamped.asView();
+    defer stepped_clamped_view.deinit();
+    var stepped_gt = try stepped.greater(stepped_clamped_view);
+    defer stepped_gt.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, stepped_gt.data);
+    var stepped_lt = try stepped.less(stepped_clamped_view);
+    defer stepped_lt.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, stepped_lt.data);
 
     var selected = try a.selectView(0, 1);
     defer selected.deinit();
@@ -10705,6 +10906,15 @@ test "array non contiguous view helpers" {
     var stepped_plus = try stepped.addScalar(1);
     defer stepped_plus.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 31, 51, 100 }, stepped_plus.data);
+    var ldexp_exponents = try Array(i32).fromSlice(gpa, &.{ 1, 0 }, &.{ 1, 2 });
+    defer ldexp_exponents.deinit();
+    var stepped_ldexp = try stepped.ldexp(ldexp_exponents);
+    defer stepped_ldexp.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 30, 100, 99 }, stepped_ldexp.data);
+    var stepped_frexp = try stepped.frexp();
+    defer stepped_frexp.deinit();
+    try std.testing.expectEqualSlices(usize, stepped.shape, stepped_frexp.significand.shape);
+    try std.testing.expectEqualSlices(usize, stepped.shape, stepped_frexp.exponent.shape);
 
     var stepped_sum = try stepped.sum(1, false);
     defer stepped_sum.deinit();
@@ -11102,6 +11312,9 @@ test "array view object math sort and linalg wrappers" {
     defer magnitudes.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, @sqrt(5.0)), magnitudes.data[0], 1e-6);
     try std.testing.expectApproxEqAbs(@as(f32, 5), magnitudes.data[2], 1e-6);
+    var abs_complex = try complex_view.absComplex();
+    defer abs_complex.deinit();
+    try std.testing.expectEqualSlices(f32, magnitudes.data, abs_complex.data);
 }
 
 test "array object unfold sliding-window views" {
