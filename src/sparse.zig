@@ -4,10 +4,20 @@ const array_mod = @import("tensor.zig");
 
 pub const SparseError = array_mod.TensorError || error{BackendFailure} || std.mem.Allocator.Error;
 
+pub const Triangle = enum { lower, upper };
+pub const Diagonal = enum { non_unit, unit };
+
 fn zero(comptime T: type) T {
     return switch (@typeInfo(T)) {
         .bool => false,
         else => @as(T, 0),
+    };
+}
+
+fn oneValue(comptime T: type) T {
+    return switch (@typeInfo(T)) {
+        .bool => true,
+        else => @as(T, 1),
     };
 }
 
@@ -35,6 +45,20 @@ fn ensureNumeric(comptime T: type) void {
 
 fn ensureFloat(comptime T: type) void {
     if (@typeInfo(T) != .float) @compileError("sparse norm requires floating-point values");
+}
+
+fn toVeyraTriangle(triangle: Triangle) veyra.Triangle {
+    return switch (triangle) {
+        .lower => .lower,
+        .upper => .upper,
+    };
+}
+
+fn toVeyraDiagonal(diagonal: Diagonal) veyra.DiagonalKind {
+    return switch (diagonal) {
+        .non_unit => .non_unit,
+        .unit => .unit,
+    };
 }
 
 pub fn CsrMatrix(comptime T: type) type {
@@ -190,6 +214,53 @@ pub fn CsrMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.csrMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
+        }
+
+        pub fn transposeMatvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            if (x.shape.len != 1) return error.NonVectorTensor;
+            if (x.shape[0] != self.rows) return error.ShapeMismatch;
+            if (comptime T == f64) return self.transposeMatvecF64(@as(array_mod.Array(f64), x));
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| out.data[self.col_indices[pos]] += self.values[pos] * x.data[r];
+            }
+            return out;
+        }
+
+        fn transposeMatvecF64(self: Self, x: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            var rhs = veyra.Vector(f64).fromSlice(self.allocator, x.data) catch return error.BackendFailure;
+            defer rhs.deinit();
+            var dst = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
+            defer dst.deinit();
+            veyra.csrTransposeMatvec(f64, view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.cols});
+        }
+
+        pub fn transposeMatmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            if (rhs.shape.len != 2) return error.NonMatrixTensor;
+            if (rhs.shape[0] != self.rows) return error.ShapeMismatch;
+            if (comptime T == f64) return self.transposeMatmatF64(@as(array_mod.Array(f64), rhs));
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.cols, rhs.shape[1] });
+            errdefer out.deinit();
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    const col = self.col_indices[pos];
+                    for (0..rhs.shape[1]) |c| out.data[col * rhs.shape[1] + c] += self.values[pos] * rhs.data[r * rhs.shape[1] + c];
+                }
+            }
+            return out;
+        }
+
+        fn transposeMatmatF64(self: Self, rhs: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            var rhs_matrix = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
+            defer rhs_matrix.deinit();
+            var dst = veyra.Matrix(f64).zeros(self.allocator, self.cols, rhs.shape[1], .row_major) catch return error.BackendFailure;
+            defer dst.deinit();
+            veyra.csrTransposeMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.cols, rhs.shape[1] });
         }
 
         pub fn transpose(self: Self) SparseError!Self {
@@ -533,6 +604,86 @@ pub fn CsrMatrix(comptime T: type) type {
         fn hasEntry(self: Self, row: usize, col: usize) bool {
             return self.get(row, col) != null;
         }
+
+        pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
+            if (self.rows != self.cols) return error.NonMatrixTensor;
+            if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
+            if (rhs.shape[0] != self.rows) return error.ShapeMismatch;
+            if (comptime T == f64) return self.solveTriangularF64(@as(array_mod.Array(f64), rhs), triangle, diag_kind);
+            return self.solveTriangularReference(rhs, triangle, diag_kind);
+        }
+
+        fn solveTriangularF64(self: Self, rhs: array_mod.Array(f64), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(f64) {
+            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            if (rhs.shape.len == 1) {
+                var rhs_vec = veyra.Vector(f64).fromSlice(self.allocator, rhs.data) catch return error.BackendFailure;
+                defer rhs_vec.deinit();
+                var dst = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
+                defer dst.deinit();
+                veyra.csrSolveTriangular(f64, view, rhs_vec.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
+                return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
+            }
+            var rhs_mat = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
+            defer rhs_mat.deinit();
+            var dst = veyra.Matrix(f64).zeros(self.allocator, self.rows, rhs.shape[1], .row_major) catch return error.BackendFailure;
+            defer dst.deinit();
+            veyra.csrSolveTriangularMatrix(f64, view, rhs_mat.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
+            return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
+        }
+
+        fn solveTriangularReference(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
+            if (rhs.shape.len == 1) {
+                var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+                errdefer out.deinit();
+                try self.solveTriangularVector(rhs.data, out.data, triangle, diag_kind);
+                return out;
+            }
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, rhs.shape[1] });
+            errdefer out.deinit();
+            for (0..rhs.shape[1]) |c| {
+                var rhs_col = try self.allocator.alloc(T, self.rows);
+                defer self.allocator.free(rhs_col);
+                const out_col = try self.allocator.alloc(T, self.rows);
+                defer self.allocator.free(out_col);
+                for (0..self.rows) |r| rhs_col[r] = rhs.data[r * rhs.shape[1] + c];
+                try self.solveTriangularVector(rhs_col, out_col, triangle, diag_kind);
+                for (0..self.rows) |r| out.data[r * rhs.shape[1] + c] = out_col[r];
+            }
+            return out;
+        }
+
+        fn solveTriangularVector(self: Self, rhs: []const T, out: []T, triangle: Triangle, diag_kind: Diagonal) SparseError!void {
+            switch (triangle) {
+                .lower => {
+                    for (0..self.rows) |r| {
+                        var acc = rhs[r];
+                        var diag: ?T = if (diag_kind == .unit) oneValue(T) else null;
+                        for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                            const c = self.col_indices[pos];
+                            if (c < r) acc -= self.values[pos] * out[c] else if (c == r) diag = self.values[pos];
+                        }
+                        const d = diag orelse return error.BackendFailure;
+                        if (d == zero(T)) return error.BackendFailure;
+                        out[r] = acc / d;
+                    }
+                },
+                .upper => {
+                    var r = self.rows;
+                    while (r > 0) {
+                        r -= 1;
+                        var acc = rhs[r];
+                        var diag: ?T = if (diag_kind == .unit) oneValue(T) else null;
+                        for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                            const c = self.col_indices[pos];
+                            if (c > r) acc -= self.values[pos] * out[c] else if (c == r) diag = self.values[pos];
+                        }
+                        const d = diag orelse return error.BackendFailure;
+                        if (d == zero(T)) return error.BackendFailure;
+                        out[r] = acc / d;
+                    }
+                },
+            }
+        }
     };
 }
 
@@ -692,4 +843,55 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectEqual(@as(usize, 1), try nonsym.bandwidth());
     try std.testing.expect(!(try nonsym.structurallySymmetric()));
     try std.testing.expect(!(try nonsym.numericallySymmetric(1e-12)));
+}
+
+test "csr sparse transpose products and triangular solves" {
+    const gpa = std.testing.allocator;
+    var dense = try array_mod.array(f64, gpa, &.{
+        1, 0, 2,
+        0, 3, 0,
+    }, &.{ 2, 3 });
+    defer dense.deinit();
+    var csr = try csrFromDense(f64, dense);
+    defer csr.deinit();
+
+    var x = try array_mod.array(f64, gpa, &.{ 4, 5 }, &.{2});
+    defer x.deinit();
+    var tx = try csr.transposeMatvec(x);
+    defer tx.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 15, 8 }, tx.data);
+
+    var rhs = try array_mod.array(f64, gpa, &.{
+        1, 2,
+        3, 4,
+    }, &.{ 2, 2 });
+    defer rhs.deinit();
+    var tm = try csr.transposeMatmat(rhs);
+    defer tm.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, tm.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 9, 12, 2, 4 }, tm.data);
+
+    var lower_dense = try array_mod.array(f64, gpa, &.{
+        2,  0, 0,
+        -1, 3, 0,
+        4,  2, 5,
+    }, &.{ 3, 3 });
+    defer lower_dense.deinit();
+    var lower = try csrFromDense(f64, lower_dense);
+    defer lower.deinit();
+    var lower_rhs = try array_mod.array(f64, gpa, &.{ 2, 2, 25 }, &.{3});
+    defer lower_rhs.deinit();
+    var solved = try lower.solveTriangular(lower_rhs, .lower, .non_unit);
+    defer solved.deinit();
+    var check = try lower.matvec(solved);
+    defer check.deinit();
+    try std.testing.expect(try check.allclose(lower_rhs, 1e-12, 1e-12));
+
+    var lower_rhs_m = try array_mod.array(f64, gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
+    defer lower_rhs_m.deinit();
+    var solved_m = try lower.solveTriangular(lower_rhs_m, .lower, .non_unit);
+    defer solved_m.deinit();
+    var check_m = try lower.matmat(solved_m);
+    defer check_m.deinit();
+    try std.testing.expect(try check_m.allclose(lower_rhs_m, 1e-12, 1e-12));
 }
