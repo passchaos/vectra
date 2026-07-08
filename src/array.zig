@@ -660,6 +660,412 @@ pub fn ArrayView(comptime T: type) type {
             return self.toArray();
         }
 
+        fn broadcastOffsetOf(self: Self, out_multi: []const usize, out_rank: usize) usize {
+            return self.offset + broadcastOffset(out_multi, out_rank, self.shape, self.strides);
+        }
+
+        fn opAdd(a: T, b: T) T {
+            return addValue(T, a, b);
+        }
+
+        fn opSub(a: T, b: T) T {
+            return a - b;
+        }
+
+        fn opMul(a: T, b: T) T {
+            return mulValue(T, a, b);
+        }
+
+        fn opDiv(a: T, b: T) T {
+            return a / b;
+        }
+
+        fn opNeg(a: T) T {
+            return -a;
+        }
+
+        fn opAbs(a: T) T {
+            return absValue(T, a);
+        }
+
+        fn unary(self: Self, comptime op: fn (T) T) ArrayError!Array(T) {
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = op(self.data[self.offset + ravelIndex(multi, self.strides)]);
+            }
+            return out;
+        }
+
+        fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = op(self.data[self.offset + ravelIndex(multi, self.strides)], scalar);
+            }
+            return out;
+        }
+
+        fn binaryView(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                slot.* = op(self.data[self.broadcastOffsetOf(out_multi, out_shape.len)], other.data[other.broadcastOffsetOf(out_multi, out_shape.len)]);
+            }
+            return out;
+        }
+
+        fn compareView(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
+            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(bool).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                slot.* = op(self.data[self.broadcastOffsetOf(out_multi, out_shape.len)], other.data[other.broadcastOffsetOf(out_multi, out_shape.len)]);
+            }
+            return out;
+        }
+
+        fn compareScalar(self: Self, scalar: T, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
+            var out = try Array(bool).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = op(self.data[self.offset + ravelIndex(multi, self.strides)], scalar);
+            }
+            return out;
+        }
+
+        pub fn fill(self: Self, value: T) ArrayError!void {
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                self.data[self.offset + ravelIndex(multi, self.strides)] = value;
+            }
+        }
+
+        pub fn copyFromView(self: Self, source: Self) ArrayError!void {
+            const out_shape = try broadcastShape(self.allocator, self.shape, source.shape);
+            defer self.allocator.free(out_shape);
+            if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                self.data[self.offset + ravelIndex(multi, self.strides)] = source.data[source.broadcastOffsetOf(multi, self.shape.len)];
+            }
+        }
+
+        pub fn copyFromArray(self: Self, source: Array(T)) ArrayError!void {
+            var source_view = try source.asView();
+            defer source_view.deinit();
+            return self.copyFromView(source_view);
+        }
+
+        pub fn neg(self: Self) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.unary(opNeg);
+        }
+
+        pub fn abs(self: Self) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.unary(opAbs);
+        }
+
+        pub fn add(self: Self, other: Self) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryView(other, opAdd);
+        }
+
+        pub fn sub(self: Self, other: Self) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryView(other, opSub);
+        }
+
+        pub fn mul(self: Self, other: Self) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryView(other, opMul);
+        }
+
+        pub fn div(self: Self, other: Self) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryView(other, opDiv);
+        }
+
+        pub fn addArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.add(other_view);
+        }
+
+        pub fn subArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.sub(other_view);
+        }
+
+        pub fn mulArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.mul(other_view);
+        }
+
+        pub fn divArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.div(other_view);
+        }
+
+        pub fn addScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, opAdd);
+        }
+
+        pub fn subScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, opSub);
+        }
+
+        pub fn mulScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, opMul);
+        }
+
+        pub fn divScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, opDiv);
+        }
+
+        pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
+            return self.compareView(other, struct {
+                fn f(a: T, b: T) bool {
+                    return a == b;
+                }
+            }.f);
+        }
+
+        pub fn gt(self: Self, other: Self) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.compareView(other, struct {
+                fn f(a: T, b: T) bool {
+                    return a > b;
+                }
+            }.f);
+        }
+
+        pub fn lt(self: Self, other: Self) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.compareView(other, struct {
+                fn f(a: T, b: T) bool {
+                    return a < b;
+                }
+            }.f);
+        }
+
+        pub fn eqScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a == b;
+                }
+            }.f);
+        }
+
+        pub fn gtScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a > b;
+                }
+            }.f);
+        }
+
+        pub fn ltScalar(self: Self, scalar: T) ArrayError!Array(bool) {
+            ensureNumeric(T);
+            return self.compareScalar(scalar, struct {
+                fn f(a: T, b: T) bool {
+                    return a < b;
+                }
+            }.f);
+        }
+
+        fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
+            var out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - 1);
+            if (keepdims) {
+                @memcpy(out_shape, self.shape);
+                out_shape[axis] = 1;
+            } else {
+                for (self.shape[0..axis], 0..) |dim, i| out_shape[i] = dim;
+                for (self.shape[axis + 1 ..], axis..) |dim, i| out_shape[i] = dim;
+            }
+            return out_shape;
+        }
+
+        fn mapReducedToInput(axis: usize, keepdims: bool, out_multi: []const usize, in_multi: []usize) void {
+            if (keepdims) {
+                @memcpy(in_multi, out_multi);
+            } else {
+                for (out_multi[0..axis], 0..) |coord, i| in_multi[i] = coord;
+                for (out_multi[axis..], axis + 1..) |coord, i| in_multi[i] = coord;
+            }
+        }
+
+        fn keepDimsAllOnes(allocator: std.mem.Allocator, rank: usize) ArrayError![]usize {
+            const dims = try allocator.alloc(usize, rank);
+            @memset(dims, 1);
+            return dims;
+        }
+
+        fn reduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            if (axis_opt == null) {
+                var total = init_value;
+                const multi = try self.allocator.alloc(usize, self.shape.len);
+                defer self.allocator.free(multi);
+                for (0..self.numel()) |flat| {
+                    unravelIndexInto(flat, self.shape, multi);
+                    total = op(total, self.data[self.offset + ravelIndex(multi, self.strides)]);
+                }
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Array(T).fromSlice(self.allocator, &.{total}, out_shape);
+                }
+                return Array(T).fromSlice(self.allocator, &.{total}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).full(self.allocator, out_shape, init_value);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, in_multi);
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                const out_index = ravelIndex(out_multi, out.strides);
+                out.data[out_index] = op(out.data[out_index], self.data[self.offset + ravelIndex(in_multi, self.strides)]);
+            }
+            return out;
+        }
+
+        fn reduceFirst(self: Self, axis_opt: ?isize, keepdims: bool, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            if (self.numel() == 0) return error.EmptyArray;
+            if (axis_opt == null) {
+                const multi = try self.allocator.alloc(usize, self.shape.len);
+                defer self.allocator.free(multi);
+                unravelIndexInto(0, self.shape, multi);
+                var total = self.data[self.offset + ravelIndex(multi, self.strides)];
+                for (1..self.numel()) |flat| {
+                    unravelIndexInto(flat, self.shape, multi);
+                    total = op(total, self.data[self.offset + ravelIndex(multi, self.strides)]);
+                }
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Array(T).fromSlice(self.allocator, &.{total}, out_shape);
+                }
+                return Array(T).fromSlice(self.allocator, &.{total}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyArray;
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                mapReducedToInput(axis, keepdims, out_multi, in_multi);
+                in_multi[axis] = 0;
+                var acc = self.data[self.offset + ravelIndex(in_multi, self.strides)];
+                for (1..self.shape[axis]) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    acc = op(acc, self.data[self.offset + ravelIndex(in_multi, self.strides)]);
+                }
+                slot.* = acc;
+            }
+            return out;
+        }
+
+        pub fn sum(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.reduce(axis_opt, keepdims, zero(T), opAdd);
+        }
+
+        pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.reduce(axis_opt, keepdims, one(T), opMul);
+        }
+
+        pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.reduceFirst(axis_opt, keepdims, struct {
+                fn f(a: T, b: T) T {
+                    return if (b < a) b else a;
+                }
+            }.f);
+        }
+
+        pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.reduceFirst(axis_opt, keepdims, struct {
+                fn f(a: T, b: T) T {
+                    return if (b > a) b else a;
+                }
+            }.f);
+        }
+
+        pub fn mean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
+            ensureFloat(T);
+            const divisor: T = if (axis_opt) |axis_index| blk: {
+                const axis = try normalizeDim(axis_index, self.shape.len);
+                if (self.shape[axis] == 0) return error.EmptyArray;
+                break :blk castValue(T, self.shape[axis]);
+            } else blk: {
+                if (self.numel() == 0) return error.EmptyArray;
+                break :blk castValue(T, self.numel());
+            };
+            const out = try self.sum(axis_opt, keepdims);
+            for (out.data) |*value| value.* /= divisor;
+            return out;
+        }
+
         pub fn reshape(self: Self, dims: []const usize) ArrayError!Self {
             if (!self.isContiguous()) return error.InvalidShape;
             const n = try numelFrom(dims);
@@ -1108,6 +1514,16 @@ pub fn Array(comptime T: type) type {
             const rng = alea.Rng.init(&engine);
             const out = try Self.empty(allocator, dims);
             for (out.data) |*slot| slot.* = alea.distributions.betaChecked(rng, T, alpha, beta_param) catch return error.InvalidShape;
+            return out;
+        }
+
+        pub fn poisson(allocator: std.mem.Allocator, dims: []const usize, lambda: f64, seed: u64) ArrayError!Self {
+            if (comptime T != u64) @compileError("poisson requires Array(u64)");
+            if (!(lambda >= 0)) return error.InvalidShape;
+            var engine = alea.ScalarPrng.init(seed);
+            const rng = alea.Rng.init(&engine);
+            const out = try Self.empty(allocator, dims);
+            for (out.data) |*slot| slot.* = alea.distributions.poissonChecked(rng, lambda) catch return error.InvalidShape;
             return out;
         }
 
@@ -5805,1252 +6221,11 @@ fn printFlatData(comptime T: type, writer: *std.Io.Writer, data: []const T) std.
     try writer.print("]", .{});
 }
 
-pub fn array(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) ArrayError!Array(T) {
-    return Array(T).fromSlice(allocator, values, dims);
-}
-
-pub fn ndarray(comptime T: type, allocator: std.mem.Allocator, values: []const T, dims: []const usize) ArrayError!NDArray(T) {
-    return NDArray(T).fromSlice(allocator, values, dims);
-}
-
-pub fn zeros(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) ArrayError!Array(T) {
-    return Array(T).zeros(allocator, dims);
-}
-
-pub fn ones(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) ArrayError!Array(T) {
-    return Array(T).ones(allocator, dims);
-}
-
-pub fn full(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, value: T) ArrayError!Array(T) {
-    return Array(T).full(allocator, dims, value);
-}
-
-pub fn empty(comptime T: type, allocator: std.mem.Allocator, dims: []const usize) ArrayError!Array(T) {
-    return Array(T).empty(allocator, dims);
-}
-
-pub fn arrayScalar(comptime T: type, allocator: std.mem.Allocator, value: T) ArrayError!Array(T) {
-    return Array(T).fromScalar(allocator, value);
-}
-
-pub fn emptyLike(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.emptyLike();
-}
-
-pub fn zerosLike(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.zerosLike();
-}
-
-pub fn onesLike(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.onesLike();
-}
-
-pub fn fullLike(comptime T: type, input: Array(T), value: T) ArrayError!Array(T) {
-    return input.fullLike(value);
-}
-
-pub fn arange(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, step: T) ArrayError!Array(T) {
-    return Array(T).arange(allocator, start, stop, step);
-}
-
-pub fn linspace(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, count: usize) ArrayError!Array(T) {
-    return Array(T).linspace(allocator, start, stop, count);
-}
-
-pub fn logspace(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, count: usize, base: T) ArrayError!Array(T) {
-    return Array(T).logspace(allocator, start, stop, count, base);
-}
-
-pub fn geomspace(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, count: usize) ArrayError!Array(T) {
-    return Array(T).geomspace(allocator, start, stop, count);
-}
-
-pub fn meshgrid(comptime T: type, x_values: Array(T), y_values: Array(T), indexing: MeshGridIndexing) ArrayError!Array(T).MeshGrid2 {
-    return Array(T).meshgrid(x_values, y_values, indexing);
-}
-
-pub fn rand(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, seed: u64) ArrayError!Array(T) {
-    return Array(T).rand(allocator, dims, seed);
-}
-
-pub fn randn(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, seed: u64) ArrayError!Array(T) {
-    return Array(T).randn(allocator, dims, seed);
-}
-
-pub fn uniform(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).uniform(allocator, dims, low, high, seed);
-}
-
-pub fn normal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).normal(allocator, dims, mean_value, stddev_value, seed);
-}
-
-pub fn randint(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).randint(allocator, dims, low, high, seed);
-}
-
-pub fn bernoulli(allocator: std.mem.Allocator, dims: []const usize, p: f64, seed: u64) ArrayError!Array(bool) {
-    return Array(bool).bernoulli(allocator, dims, p, seed);
-}
-
-pub fn exponential(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, rate: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).exponential(allocator, dims, rate, seed);
-}
-
-pub fn gamma(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, shape_param: T, scale: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).gamma(allocator, dims, shape_param, scale, seed);
-}
-
-pub fn beta(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, alpha: T, beta_param: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).beta(allocator, dims, alpha, beta_param, seed);
-}
-
-pub fn poisson(allocator: std.mem.Allocator, dims: []const usize, lambda: f64, seed: u64) ArrayError!Array(u64) {
-    if (!(lambda >= 0)) return error.InvalidShape;
-    var engine = alea.ScalarPrng.init(seed);
-    const rng = alea.Rng.init(&engine);
-    const out = try Array(u64).empty(allocator, dims);
-    for (out.data) |*slot| slot.* = alea.distributions.poissonChecked(rng, lambda) catch return error.InvalidShape;
-    return out;
-}
-
-pub fn lognormal(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).lognormal(allocator, dims, mean_value, stddev_value, seed);
-}
-
-pub fn studentT(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, dof: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).studentT(allocator, dims, dof, seed);
-}
-
-pub fn cauchy(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, median_value: T, scale: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).cauchy(allocator, dims, median_value, scale, seed);
-}
-
-pub fn laplace(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, location: T, scale: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).laplace(allocator, dims, location, scale, seed);
-}
-
-pub fn weibull(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, scale: T, shape_param: T, seed: u64) ArrayError!Array(T) {
-    return Array(T).weibull(allocator, dims, scale, shape_param, seed);
-}
-
-pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) ArrayError!Array(T) {
-    return Array(T).eye(allocator, n);
-}
-
-pub fn cat(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T), dim: isize) ArrayError!Array(T) {
-    return Array(T).cat(allocator, arrays, dim);
-}
-
-pub fn stack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T), dim: isize) ArrayError!Array(T) {
-    return Array(T).stack(allocator, arrays, dim);
-}
-
-pub fn hstack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T)) ArrayError!Array(T) {
-    return Array(T).hstack(allocator, arrays);
-}
-
-pub fn vstack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T)) ArrayError!Array(T) {
-    return Array(T).vstack(allocator, arrays);
-}
-
-pub fn dstack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T)) ArrayError!Array(T) {
-    return Array(T).dstack(allocator, arrays);
-}
-
-pub fn columnStack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T)) ArrayError!Array(T) {
-    return Array(T).columnStack(allocator, arrays);
-}
-
-pub fn outer(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.outer(b);
-}
-
-pub fn matmul(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.matmul(b);
-}
-
-pub fn mm(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.mm(b);
-}
-
-pub fn bmm(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.bmm(b);
-}
-
-pub fn matvec(comptime T: type, a: Array(T), vector: Array(T)) ArrayError!Array(T) {
-    return a.matvec(vector);
-}
-
-pub fn dot(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.dot(b);
-}
-
-pub fn inner(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.inner(b);
-}
-
-pub fn vecdot(comptime T: type, a: Array(T), b: Array(T), axis: isize) ArrayError!Array(T) {
-    return a.vecdot(b, axis);
-}
-
-pub fn vdot(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.vdot(b);
-}
-
-pub fn cross(comptime T: type, a: Array(T), b: Array(T), axis: isize) ArrayError!Array(T) {
-    return a.cross(b, axis);
-}
-
-pub fn contractAxes(comptime T: type, a: Array(T), b: Array(T), axes_a: []const usize, axes_b: []const usize) ArrayError!Array(T) {
-    return a.contractAxes(b, axes_a, axes_b);
-}
-
-pub fn where(comptime T: type, mask: Array(bool), a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return Array(T).whereMask(mask, a, b);
-}
-
-pub fn reshape(comptime T: type, input: Array(T), dims: []const usize) ArrayError!Array(T) {
-    return input.reshape(dims);
-}
-
-pub fn view(comptime T: type, input: Array(T), dims: []const usize) ArrayError!Array(T) {
-    return input.view(dims);
-}
-
-pub fn asView(comptime T: type, input: Array(T)) ArrayError!ArrayView(T) {
-    return input.asView();
-}
-
-pub fn sliceAxisView(comptime T: type, input: Array(T), axis: isize, slice_value: Slice) ArrayError!ArrayView(T) {
-    return input.sliceAxisView(axis, slice_value);
-}
-
-pub fn sliceView(comptime T: type, input: Array(T), slices: []const Slice) ArrayError!ArrayView(T) {
-    return input.sliceView(slices);
-}
-
-pub fn selectView(comptime T: type, input: Array(T), axis: isize, index: usize) ArrayError!ArrayView(T) {
-    return input.selectView(axis, index);
-}
-
-pub fn narrowView(comptime T: type, input: Array(T), axis: isize, start: usize, length: usize) ArrayError!ArrayView(T) {
-    return input.narrowView(axis, start, length);
-}
-
-pub fn permuteView(comptime T: type, input: Array(T), axes: []const usize) ArrayError!ArrayView(T) {
-    return input.permuteView(axes);
-}
-
-pub fn transposeView(comptime T: type, input: Array(T)) ArrayError!ArrayView(T) {
-    return input.transposeView();
-}
-
-pub fn broadcastView(comptime T: type, input: Array(T), dims: []const usize) ArrayError!ArrayView(T) {
-    return input.broadcastView(dims);
-}
-
-pub fn flatten(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.flatten();
-}
-
-pub fn ravel(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.ravel();
-}
-
-pub fn squeeze(comptime T: type, input: Array(T), axis: ?isize) ArrayError!Array(T) {
-    return input.squeeze(axis);
-}
-
-pub fn unsqueeze(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
-    return input.unsqueeze(axis);
-}
-
-pub fn broadcastTo(comptime T: type, input: Array(T), dims: []const usize) ArrayError!Array(T) {
-    return input.broadcastTo(dims);
-}
-
-pub fn repeat(comptime T: type, input: Array(T), repeats: usize, axis: isize) ArrayError!Array(T) {
-    return input.repeat(repeats, axis);
-}
-
-pub fn tile(comptime T: type, input: Array(T), repeats: []const usize) ArrayError!Array(T) {
-    return input.tile(repeats);
-}
-
-pub fn transpose(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.transpose();
-}
-
-pub fn swapaxes(comptime T: type, input: Array(T), dim0: isize, dim1: isize) ArrayError!Array(T) {
-    return input.swapaxes(dim0, dim1);
-}
-
-pub fn permute(comptime T: type, input: Array(T), axes: []const usize) ArrayError!Array(T) {
-    return input.permute(axes);
-}
-
-pub fn movedim(comptime T: type, input: Array(T), source: isize, destination: isize) ArrayError!Array(T) {
-    return input.movedim(source, destination);
-}
-
-pub fn select(comptime T: type, input: Array(T), axis: isize, index: usize) ArrayError!Array(T) {
-    return input.select(axis, index);
-}
-
-pub fn narrow(comptime T: type, input: Array(T), axis: isize, start: usize, length: usize) ArrayError!Array(T) {
-    return input.narrow(axis, start, length);
-}
-
-pub fn split(comptime T: type, input: Array(T), split_size: usize, axis: isize) ArrayError!Array(T).SplitResult {
-    return input.split(split_size, axis);
-}
-
-pub fn chunk(comptime T: type, input: Array(T), chunks: usize, axis: isize) ArrayError!Array(T).SplitResult {
-    return input.chunk(chunks, axis);
-}
-
-pub fn add(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.add(b);
-}
-
-pub fn sub(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.sub(b);
-}
-
-pub fn mul(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.mul(b);
-}
-
-pub fn div(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.div(b);
-}
-
-pub fn pow(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.pow(b);
-}
-
-pub fn floorDiv(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.floorDiv(b);
-}
-
-pub fn mod(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.mod(b);
-}
-
-pub fn remainder(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.remainder(b);
-}
-
-pub fn maximum(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.maximum(b);
-}
-
-pub fn minimum(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.minimum(b);
-}
-
-pub fn addPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
-    return a.addPromote(B, b);
-}
-
-pub fn subPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
-    return a.subPromote(B, b);
-}
-
-pub fn mulPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
-    return a.mulPromote(B, b);
-}
-
-pub fn divPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
-    return a.divPromote(B, b);
-}
-
-pub fn maximumPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
-    return a.maximumPromote(B, b);
-}
-
-pub fn minimumPromote(comptime A: type, comptime B: type, a: Array(A), b: Array(B)) ArrayError!Array(promoteType(A, B)) {
-    return a.minimumPromote(B, b);
-}
-
-pub fn hypot(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.hypot(b);
-}
-
-pub fn atan2(comptime T: type, y: Array(T), x: Array(T)) ArrayError!Array(T) {
-    return y.atan2(x);
-}
-
-pub fn nextAfter(comptime T: type, input: Array(T), target: Array(T)) ArrayError!Array(T) {
-    return input.nextAfter(target);
-}
-
-pub fn nextafter(comptime T: type, input: Array(T), target: Array(T)) ArrayError!Array(T) {
-    return input.nextafter(target);
-}
-
-pub fn copysign(comptime T: type, magnitude: Array(T), sign_values: Array(T)) ArrayError!Array(T) {
-    return magnitude.copysign(sign_values);
-}
-
-pub fn heaviside(comptime T: type, input: Array(T), values_at_zero: Array(T)) ArrayError!Array(T) {
-    return input.heaviside(values_at_zero);
-}
-
-pub fn addScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.addScalar(scalar);
-}
-
-pub fn subScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.subScalar(scalar);
-}
-
-pub fn mulScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.mulScalar(scalar);
-}
-
-pub fn divScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.divScalar(scalar);
-}
-
-pub fn powScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.powScalar(scalar);
-}
-
-pub fn floorDivScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.floorDivScalar(scalar);
-}
-
-pub fn modScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.modScalar(scalar);
-}
-
-pub fn remainderScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.remainderScalar(scalar);
-}
-
-pub fn maximumScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.maximumScalar(scalar);
-}
-
-pub fn minimumScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.minimumScalar(scalar);
-}
-
-pub fn hypotScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.hypotScalar(scalar);
-}
-
-pub fn atan2Scalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.atan2Scalar(scalar);
-}
-
-pub fn nextAfterScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.nextAfterScalar(scalar);
-}
-
-pub fn nextafterScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.nextafterScalar(scalar);
-}
-
-pub fn copysignScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(T) {
-    return input.copysignScalar(scalar);
-}
-
-pub fn heavisideScalar(comptime T: type, input: Array(T), value_at_zero: T) ArrayError!Array(T) {
-    return input.heavisideScalar(value_at_zero);
-}
-
-pub fn neg(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.neg();
-}
-
-pub fn abs(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.abs();
-}
-
-pub fn square(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.square();
-}
-
-pub fn reciprocal(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.reciprocal();
-}
-
-pub fn sign(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.sign();
-}
-
-pub fn signbit(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
-    return input.signbit();
-}
-
-pub fn exp(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.exp();
-}
-
-pub fn expm1(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.expm1();
-}
-
-pub fn log(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.log();
-}
-
-pub fn log2(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.log2();
-}
-
-pub fn log10(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.log10();
-}
-
-pub fn log1p(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.log1p();
-}
-
-pub fn sqrt(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.sqrt();
-}
-
-pub fn floor(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.floor();
-}
-
-pub fn ceil(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.ceil();
-}
-
-pub fn round(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.round();
-}
-
-pub fn trunc(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.trunc();
-}
-
-pub fn deg2rad(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.deg2rad();
-}
-
-pub fn rad2deg(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.rad2deg();
-}
-
-pub fn ldexp(comptime T: type, input: Array(T), exponents: Array(i32)) ArrayError!Array(T) {
-    return input.ldexp(exponents);
-}
-
-pub fn ldexpScalar(comptime T: type, input: Array(T), exponent: i32) ArrayError!Array(T) {
-    return input.ldexpScalar(exponent);
-}
-
-pub fn frexp(comptime T: type, input: Array(T)) ArrayError!Array(T).FrexpResult {
-    return input.frexp();
-}
-
-pub fn sin(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.sin();
-}
-
-pub fn cos(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.cos();
-}
-
-pub fn tan(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.tan();
-}
-
-pub fn asin(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.asin();
-}
-
-pub fn acos(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.acos();
-}
-
-pub fn atan(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.atan();
-}
-
-pub fn sinh(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.sinh();
-}
-
-pub fn cosh(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.cosh();
-}
-
-pub fn tanh(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.tanh();
-}
-
-pub fn relu(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.relu();
-}
-
-pub fn sigmoid(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.sigmoid();
-}
-
-pub fn clip(comptime T: type, input: Array(T), min_value: T, max_value: T) ArrayError!Array(T) {
-    return input.clip(min_value, max_value);
-}
-
-pub fn clamp(comptime T: type, input: Array(T), min_value: T, max_value: T) ArrayError!Array(T) {
-    return input.clamp(min_value, max_value);
-}
-
-pub fn eq(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.eq(b);
-}
-
-pub fn equal(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.equal(b);
-}
-
-pub fn ne(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.ne(b);
-}
-
-pub fn notEqual(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.notEqual(b);
-}
-
-pub fn gt(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.gt(b);
-}
-
-pub fn greater(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.greater(b);
-}
-
-pub fn ge(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.ge(b);
-}
-
-pub fn greaterEqual(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.greaterEqual(b);
-}
-
-pub fn lt(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.lt(b);
-}
-
-pub fn less(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.less(b);
-}
-
-pub fn le(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.le(b);
-}
-
-pub fn lessEqual(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(bool) {
-    return a.lessEqual(b);
-}
-
-pub fn eqScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
-    return input.eqScalar(scalar);
-}
-
-pub fn neScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
-    return input.neScalar(scalar);
-}
-
-pub fn gtScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
-    return input.gtScalar(scalar);
-}
-
-pub fn geScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
-    return input.geScalar(scalar);
-}
-
-pub fn ltScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
-    return input.ltScalar(scalar);
-}
-
-pub fn leScalar(comptime T: type, input: Array(T), scalar: T) ArrayError!Array(bool) {
-    return input.leScalar(scalar);
-}
-
-pub fn allclose(comptime T: type, a: Array(T), b: Array(T), rtol: T, atol: T) ArrayError!bool {
-    return a.allclose(b, rtol, atol);
-}
-
-pub fn isclose(comptime T: type, a: Array(T), b: Array(T), rtol: T, atol: T) ArrayError!Array(bool) {
-    return a.isclose(b, rtol, atol);
-}
-
-pub fn logicalNot(input: Array(bool)) ArrayError!Array(bool) {
-    return input.logicalNot();
-}
-
-pub fn logicalAnd(a: Array(bool), b: Array(bool)) ArrayError!Array(bool) {
-    return a.logicalAnd(b);
-}
-
-pub fn logicalOr(a: Array(bool), b: Array(bool)) ArrayError!Array(bool) {
-    return a.logicalOr(b);
-}
-
-pub fn logicalXor(a: Array(bool), b: Array(bool)) ArrayError!Array(bool) {
-    return a.logicalXor(b);
-}
-
-pub fn logicalAndScalar(input: Array(bool), scalar: bool) ArrayError!Array(bool) {
-    return input.logicalAndScalar(scalar);
-}
-
-pub fn logicalOrScalar(input: Array(bool), scalar: bool) ArrayError!Array(bool) {
-    return input.logicalOrScalar(scalar);
-}
-
-pub fn logicalXorScalar(input: Array(bool), scalar: bool) ArrayError!Array(bool) {
-    return input.logicalXorScalar(scalar);
-}
-
-pub fn isNan(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
-    return input.isNan();
-}
-
-pub fn isnan(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
-    return input.isnan();
-}
-
-pub fn isInf(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
-    return input.isInf();
-}
-
-pub fn isinf(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
-    return input.isinf();
-}
-
-pub fn isFinite(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
-    return input.isFinite();
-}
-
-pub fn isfinite(comptime T: type, input: Array(T)) ArrayError!Array(bool) {
-    return input.isfinite();
-}
-
-pub fn logsumexp(comptime T: type, input: Array(T), axis: isize, keepdims: bool) ArrayError!Array(T) {
-    return input.logsumexp(axis, keepdims);
-}
-
-pub fn logSoftmax(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
-    return input.logSoftmax(axis);
-}
-
-pub fn log_softmax(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
-    return input.log_softmax(axis);
-}
-
-pub fn sum(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.sum(axis, keepdims);
-}
-
-pub fn prod(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.prod(axis, keepdims);
-}
-
-pub fn min(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.min(axis, keepdims);
-}
-
-pub fn max(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.max(axis, keepdims);
-}
-
-pub fn mean(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.mean(axis, keepdims);
-}
-
-pub fn variance(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-    return input.variance(axis, keepdims, correction);
-}
-
-pub fn stddev(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-    return input.stddev(axis, keepdims, correction);
-}
-
-pub fn norm(comptime T: type, input: Array(T), p: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.norm(p, axis, keepdims);
-}
-
-pub fn cumsum(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.cumsum();
-}
-
-pub fn cumprod(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.cumprod();
-}
-
-pub fn argmax(comptime T: type, input: Array(T)) ArrayError!usize {
-    return input.argmax();
-}
-
-pub fn argmin(comptime T: type, input: Array(T)) ArrayError!usize {
-    return input.argmin();
-}
-
-pub fn argmaxAxis(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(usize) {
-    return input.argmaxAxis(axis, keepdims);
-}
-
-pub fn argminAxis(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(usize) {
-    return input.argminAxis(axis, keepdims);
-}
-
-pub fn allAxis(input: Array(bool), axis: ?isize, keepdims: bool) ArrayError!Array(bool) {
-    return input.allAxis(axis, keepdims);
-}
-
-pub fn anyAxis(input: Array(bool), axis: ?isize, keepdims: bool) ArrayError!Array(bool) {
-    return input.anyAxis(axis, keepdims);
-}
-
-pub fn median(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.median(axis, keepdims);
-}
-
-pub fn quantile(comptime T: type, input: Array(T), q: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.quantile(q, axis, keepdims);
-}
-
-pub fn percentile(comptime T: type, input: Array(T), p: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.percentile(p, axis, keepdims);
-}
-
-pub fn weightedMean(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.weightedMean(weights, axis, keepdims);
-}
-
-pub fn average(comptime T: type, input: Array(T), weights: ?Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.average(weights, axis, keepdims);
-}
-
-pub fn weightedVariance(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-    return input.weightedVariance(weights, axis, keepdims, correction);
-}
-
-pub fn weightedVar(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-    return input.weightedVar(weights, axis, keepdims, correction);
-}
-
-pub fn weightedStddev(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-    return input.weightedStddev(weights, axis, keepdims, correction);
-}
-
-pub fn weightedStd(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-    return input.weightedStd(weights, axis, keepdims, correction);
-}
-
-pub fn weightedQuantile(comptime T: type, input: Array(T), weights: Array(T), q: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.weightedQuantile(weights, q, axis, keepdims);
-}
-
-pub fn weightedMedian(comptime T: type, input: Array(T), weights: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.weightedMedian(weights, axis, keepdims);
-}
-
-pub fn cov(comptime T: type, input: Array(T), rowvar: bool, correction: T) ArrayError!Array(T) {
-    return input.cov(rowvar, correction);
-}
-
-pub fn corrcoef(comptime T: type, input: Array(T), rowvar: bool) ArrayError!Array(T) {
-    return input.corrcoef(rowvar);
-}
-
-pub fn weightedCov(comptime T: type, input: Array(T), weights: Array(T), rowvar: bool, correction: T) ArrayError!Array(T) {
-    return input.weightedCov(weights, rowvar, correction);
-}
-
-pub fn weightedCorrcoef(comptime T: type, input: Array(T), weights: Array(T), rowvar: bool) ArrayError!Array(T) {
-    return input.weightedCorrcoef(weights, rowvar);
-}
-
-pub fn nanCov(comptime T: type, input: Array(T), rowvar: bool, correction: T) ArrayError!Array(T) {
-    return input.nanCov(rowvar, correction);
-}
-
-pub fn nanCorrcoef(comptime T: type, input: Array(T), rowvar: bool) ArrayError!Array(T) {
-    return input.nanCorrcoef(rowvar);
-}
-
-pub fn nanToNum(comptime T: type, input: Array(T), nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
-    return input.nanToNum(nan_value, posinf_value, neginf_value);
-}
-
-pub fn nan_to_num(comptime T: type, input: Array(T), nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
-    return input.nan_to_num(nan_value, posinf_value, neginf_value);
-}
-
-pub fn nansum(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.nansum(axis, keepdims);
-}
-
-pub fn nanmean(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.nanmean(axis, keepdims);
-}
-
-pub fn nanvar(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-    return input.nanvar(axis, keepdims, correction);
-}
-
-pub fn nanstd(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-    return input.nanstd(axis, keepdims, correction);
-}
-
-pub fn nanmin(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.nanmin(axis, keepdims);
-}
-
-pub fn nanmax(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.nanmax(axis, keepdims);
-}
-
-pub fn nanmedian(comptime T: type, input: Array(T), axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.nanmedian(axis, keepdims);
-}
-
-pub fn nanquantile(comptime T: type, input: Array(T), q: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.nanquantile(q, axis, keepdims);
-}
-
-pub fn nanpercentile(comptime T: type, input: Array(T), p: T, axis: ?isize, keepdims: bool) ArrayError!Array(T) {
-    return input.nanpercentile(p, axis, keepdims);
-}
-
-pub fn sort(comptime T: type, input: Array(T), axis: ?isize) ArrayError!Array(T) {
-    return input.sort(axis);
-}
-
-pub fn sortBy(comptime T: type, input: Array(T), axis: ?isize, descending: bool) ArrayError!Array(T) {
-    return input.sortBy(axis, descending);
-}
-
-pub fn sortDescending(comptime T: type, input: Array(T), axis: ?isize) ArrayError!Array(T) {
-    return input.sortDescending(axis);
-}
-
-pub fn argsort(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
-    return input.argsort();
-}
-
-pub fn argsortAxis(comptime T: type, input: Array(T), axis: ?isize, descending: bool) ArrayError!Array(usize) {
-    return input.argsortAxis(axis, descending);
-}
-
-pub fn argsortDescending(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
-    return input.argsortDescending();
-}
-
-pub fn sortWithIndices(comptime T: type, input: Array(T), axis: ?isize, descending: bool) ArrayError!Array(T).SortResult {
-    return input.sortWithIndices(axis, descending);
-}
-
-pub fn partition(comptime T: type, input: Array(T), kth: usize, axis: ?isize, descending: bool) ArrayError!Array(T) {
-    return input.partition(kth, axis, descending);
-}
-
-pub fn argpartition(comptime T: type, input: Array(T), kth: usize, axis: ?isize, descending: bool) ArrayError!Array(usize) {
-    return input.argpartition(kth, axis, descending);
-}
-
-pub fn unique(comptime T: type, input: Array(T)) ArrayError!Array(T) {
-    return input.unique();
-}
-
-pub fn uniqueWithCounts(comptime T: type, input: Array(T)) ArrayError!Array(T).UniqueCounts {
-    return input.uniqueWithCounts();
-}
-
-pub fn bincount(comptime T: type, input: Array(T), minlength: usize) ArrayError!Array(usize) {
-    return input.bincount(minlength);
-}
-
-pub fn bincountWeighted(comptime T: type, comptime W: type, input: Array(T), weights: Array(W), minlength: usize) ArrayError!Array(W) {
-    return input.bincountWeighted(W, weights, minlength);
-}
-
-pub fn searchsorted(comptime T: type, sorted: Array(T), values: Array(T), side: SearchSide) ArrayError!Array(usize) {
-    return sorted.searchsorted(values, side);
-}
-
-pub fn bucketize(comptime T: type, input: Array(T), boundaries: Array(T), side: SearchSide) ArrayError!Array(usize) {
-    return input.bucketize(boundaries, side);
-}
-
-pub fn digitize(comptime T: type, input: Array(T), bins: Array(T), right: bool) ArrayError!Array(usize) {
-    return input.digitize(bins, right);
-}
-
-pub fn isin(comptime T: type, input: Array(T), test_elements: Array(T), invert: bool) ArrayError!Array(bool) {
-    return input.isin(test_elements, invert);
-}
-
-pub fn union1d(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.union1d(b);
-}
-
-pub fn intersect1d(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.intersect1d(b);
-}
-
-pub fn setdiff1d(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.setdiff1d(b);
-}
-
-pub fn setxor1d(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
-    return a.setxor1d(b);
-}
-
-pub fn clipArray(comptime T: type, input: Array(T), min_values: Array(T), max_values: Array(T)) ArrayError!Array(T) {
-    return input.clipArray(min_values, max_values);
-}
-
-pub fn diag(comptime T: type, input: Array(T), offset: isize) ArrayError!Array(T) {
-    return input.diag(offset);
-}
-
-pub fn diagflat(comptime T: type, input: Array(T), offset: isize) ArrayError!Array(T) {
-    return input.diagflat(offset);
-}
-
-pub fn diagonal(comptime T: type, input: Array(T), offset: isize) ArrayError!Array(T) {
-    return input.diagonal(offset);
-}
-
-pub fn trace(comptime T: type, input: Array(T)) ArrayError!T {
-    return input.trace();
-}
-
-pub fn triu(comptime T: type, input: Array(T), diagonal_offset: isize) ArrayError!Array(T) {
-    return input.triu(diagonal_offset);
-}
-
-pub fn tril(comptime T: type, input: Array(T), diagonal_offset: isize) ArrayError!Array(T) {
-    return input.tril(diagonal_offset);
-}
-
-pub fn sliceAxis(comptime T: type, input: Array(T), axis: isize, slice_value: Slice) ArrayError!Array(T) {
-    return input.sliceAxis(axis, slice_value);
-}
-
-pub fn slice(comptime T: type, input: Array(T), slices: []const Slice) ArrayError!Array(T) {
-    return input.slice(slices);
-}
-
-pub fn slice1d(comptime T: type, input: Array(T), slice_value: Slice) ArrayError!Array(T) {
-    return input.slice1d(slice_value);
-}
-
-pub fn flip(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
-    return input.flip(axis);
-}
-
-pub fn roll(comptime T: type, input: Array(T), shift: isize, axis: isize) ArrayError!Array(T) {
-    return input.roll(shift, axis);
-}
-
-pub fn padConstant(comptime T: type, input: Array(T), before: []const usize, after: []const usize, value: T) ArrayError!Array(T) {
-    return input.padConstant(before, after, value);
-}
-
-pub fn cumsumAxis(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
-    return input.cumsumAxis(axis);
-}
-
-pub fn cumprodAxis(comptime T: type, input: Array(T), axis: isize) ArrayError!Array(T) {
-    return input.cumprodAxis(axis);
-}
-
-pub fn diff(comptime T: type, input: Array(T), axis: isize, n: usize) ArrayError!Array(T) {
-    return input.diff(axis, n);
-}
-
-pub fn toBytes(comptime T: type, input: Array(T), allocator: std.mem.Allocator) ArrayError![]u8 {
-    return input.toBytes(allocator);
-}
-
-pub fn fromBytes(comptime T: type, allocator: std.mem.Allocator, bytes: []const u8, dims: []const usize) ArrayError!Array(T) {
-    return Array(T).fromBytes(allocator, bytes, dims);
-}
-
-pub fn toArchive(comptime T: type, input: Array(T), allocator: std.mem.Allocator) ArrayError![]u8 {
-    return input.toArchive(allocator);
-}
-
-pub fn fromArchive(comptime T: type, allocator: std.mem.Allocator, archive: []const u8) ArrayError!Array(T) {
-    return Array(T).fromArchive(allocator, archive);
-}
-
-pub fn take(comptime T: type, input: Array(T), indices: Array(usize), axis: ?isize) ArrayError!Array(T) {
-    return input.take(indices, axis);
-}
-
-pub fn takeMode(comptime T: type, input: Array(T), indices: Array(usize), axis: ?isize, mode: IndexMode) ArrayError!Array(T) {
-    return input.takeMode(indices, axis, mode);
-}
-
-pub fn indexSelect(comptime T: type, input: Array(T), axis: isize, indices: Array(usize)) ArrayError!Array(T) {
-    return input.indexSelect(axis, indices);
-}
-
-pub fn takeAlongAxis(comptime T: type, input: Array(T), indices: Array(usize), axis: isize) ArrayError!Array(T) {
-    return input.takeAlongAxis(indices, axis);
-}
-
-pub fn putAlongAxis(comptime T: type, input: Array(T), indices: Array(usize), src: Array(T), axis: isize) ArrayError!Array(T) {
-    return input.putAlongAxis(indices, src, axis);
-}
-
-pub fn gather(comptime T: type, input: Array(T), axis: isize, indices: Array(usize)) ArrayError!Array(T) {
-    return input.gather(axis, indices);
-}
-
-pub fn scatter(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
-    return input.scatter(axis, indices, src);
-}
-
-pub fn scatterScalar(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
-    return input.scatterScalar(axis, indices, value);
-}
-
-pub fn scatterReduce(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), src: Array(T), reduction: ScatterReduce) ArrayError!Array(T) {
-    return input.scatterReduce(axis, indices, src, reduction);
-}
-
-pub fn scatterAdd(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
-    return input.scatterAdd(axis, indices, src);
-}
-
-pub fn scatterReduceScalar(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), value: T, reduction: ScatterReduce) ArrayError!Array(T) {
-    return input.scatterReduceScalar(axis, indices, value, reduction);
-}
-
-pub fn scatterAddScalar(comptime T: type, input: Array(T), axis: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
-    return input.scatterAddScalar(axis, indices, value);
-}
-
-pub fn maskedFill(comptime T: type, input: Array(T), mask: Array(bool), value: T) ArrayError!Array(T) {
-    return input.maskedFill(mask, value);
-}
-
-pub fn maskedScatter(comptime T: type, input: Array(T), mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
-    return input.maskedScatter(mask, src);
-}
-
-pub fn maskedPut(comptime T: type, input: Array(T), mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
-    return input.maskedPut(mask, values);
-}
-
-pub fn putMask(comptime T: type, input: Array(T), mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
-    return input.putMask(mask, values);
-}
-
-pub fn maskedPutScalar(comptime T: type, input: Array(T), mask: Array(bool), value: T) ArrayError!Array(T) {
-    return input.maskedPutScalar(mask, value);
-}
-
-pub fn putMaskScalar(comptime T: type, input: Array(T), mask: Array(bool), value: T) ArrayError!Array(T) {
-    return input.putMaskScalar(mask, value);
-}
-
-pub fn copyWhere(comptime T: type, input: Array(T), mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
-    return input.copyWhere(mask, src);
-}
-
-pub fn putFlat(comptime T: type, input: Array(T), indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
-    return input.putFlat(indices, values);
-}
-
-pub fn putFlatMode(comptime T: type, input: Array(T), indices: Array(usize), values: Array(T), mode: IndexMode) ArrayError!Array(T) {
-    return input.putFlatMode(indices, values, mode);
-}
-
-pub fn putFlatScalar(comptime T: type, input: Array(T), indices: Array(usize), value: T) ArrayError!Array(T) {
-    return input.putFlatScalar(indices, value);
-}
-
-pub fn putFlatScalarMode(comptime T: type, input: Array(T), indices: Array(usize), value: T, mode: IndexMode) ArrayError!Array(T) {
-    return input.putFlatScalarMode(indices, value, mode);
-}
-
-pub fn indexPut(comptime T: type, input: Array(T), indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
-    return input.indexPut(indices, values);
-}
-
-pub fn indexPutScalar(comptime T: type, input: Array(T), indices: Array(usize), value: T) ArrayError!Array(T) {
-    return input.indexPutScalar(indices, value);
-}
-
-pub fn countNonzero(comptime T: type, input: Array(T)) usize {
-    return input.countNonzero();
-}
-
-pub fn flatNonzero(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
-    return input.flatNonzero();
-}
-
-pub fn nonzero(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
-    return input.nonzero();
-}
-
-pub fn argwhere(comptime T: type, input: Array(T)) ArrayError!Array(usize) {
-    return input.argwhere();
-}
-
-pub fn whereIndices(input: Array(bool)) ArrayError!Array(usize) {
-    return input.whereIndices();
-}
-
-pub fn ravelCoords(comptime T: type, input: Array(T), coords: Array(usize)) ArrayError!Array(usize) {
-    return input.ravelCoords(coords);
-}
-
-pub fn unravelFlat(comptime T: type, input: Array(T), indices: Array(usize)) ArrayError!Array(usize) {
-    return input.unravelFlat(indices);
-}
-
-pub fn takeCoords(comptime T: type, input: Array(T), coords: Array(usize)) ArrayError!Array(T) {
-    return input.takeCoords(coords);
-}
-
-pub fn putCoords(comptime T: type, input: Array(T), coords: Array(usize), values: Array(T)) ArrayError!Array(T) {
-    return input.putCoords(coords, values);
-}
-
-pub fn putCoordsScalar(comptime T: type, input: Array(T), coords: Array(usize), value: T) ArrayError!Array(T) {
-    return input.putCoordsScalar(coords, value);
-}
-
-pub fn ravelMultiIndex(comptime T: type, input: Array(T), indices: []const Array(usize)) ArrayError!Array(usize) {
-    return input.ravelMultiIndex(indices);
-}
-
-pub fn takeMultiIndex(comptime T: type, input: Array(T), indices: []const Array(usize)) ArrayError!Array(T) {
-    return input.takeMultiIndex(indices);
-}
-
-pub fn putMultiIndex(comptime T: type, input: Array(T), indices: []const Array(usize), values: Array(T)) ArrayError!Array(T) {
-    return input.putMultiIndex(indices, values);
-}
-
-pub fn putMultiIndexScalar(comptime T: type, input: Array(T), indices: []const Array(usize), value: T) ArrayError!Array(T) {
-    return input.putMultiIndexScalar(indices, value);
-}
-
-pub fn compress(comptime T: type, input: Array(T), condition: Array(bool), axis: ?isize) ArrayError!Array(T) {
-    return input.compress(condition, axis);
-}
-
 test "array creation, reshape and broadcasting" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var b = try array(f64, gpa, &.{ 10, 20, 30 }, &.{3});
+    var b = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30 }, &.{3});
     defer b.deinit();
     var c = try a.add(b);
     defer c.deinit();
@@ -7060,7 +6235,7 @@ test "array creation, reshape and broadcasting" {
     defer flat.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, flat.shape);
 
-    var parts = try split(f64, c, 2, 1);
+    var parts = try c.split(2, 1);
     defer parts.deinit();
     try std.testing.expectEqual(@as(usize, 2), parts.items.len);
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, parts.items[0].shape);
@@ -7075,24 +6250,24 @@ test "array creation, reshape and broadcasting" {
     try std.testing.expectEqualSlices(f64, &.{ 14, 25, 36 }, chunks.items[1].data);
     try std.testing.expectError(error.InvalidShape, c.split(0, 0));
 
-    var left = try array(f64, gpa, &.{ 1, 2 }, &.{2});
+    var left = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
     defer left.deinit();
-    var right = try array(f64, gpa, &.{ 3, 4 }, &.{2});
+    var right = try Array(f64).fromSlice(gpa, &.{ 3, 4 }, &.{2});
     defer right.deinit();
     const vectors = [_]Array(f64){ left, right };
-    var h = try hstack(f64, gpa, vectors[0..]);
+    var h = try Array(f64).hstack(gpa, vectors[0..]);
     defer h.deinit();
     try std.testing.expectEqualSlices(usize, &.{4}, h.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, h.data);
-    var v = try vstack(f64, gpa, vectors[0..]);
+    var v = try Array(f64).vstack(gpa, vectors[0..]);
     defer v.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, v.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, v.data);
-    var col = try columnStack(f64, gpa, vectors[0..]);
+    var col = try Array(f64).columnStack(gpa, vectors[0..]);
     defer col.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, col.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, col.data);
-    var d = try dstack(f64, gpa, vectors[0..]);
+    var d = try Array(f64).dstack(gpa, vectors[0..]);
     defer d.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2 }, d.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, d.data);
@@ -7100,49 +6275,49 @@ test "array creation, reshape and broadcasting" {
 
 test "array binary math wrappers and clamp aliases" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer a.deinit();
-    var b = try array(f64, gpa, &.{ 10, 20 }, &.{2});
+    var b = try Array(f64).fromSlice(gpa, &.{ 10, 20 }, &.{2});
     defer b.deinit();
 
-    var added = try add(f64, a, b);
+    var added = try a.add(b);
     defer added.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 11, 22, 13, 24 }, added.data);
-    var subbed = try sub(f64, a, b);
+    var subbed = try a.sub(b);
     defer subbed.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -9, -18, -7, -16 }, subbed.data);
-    var multiplied = try mul(f64, a, b);
+    var multiplied = try a.mul(b);
     defer multiplied.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 40, 30, 80 }, multiplied.data);
-    var divided = try div(f64, multiplied, b);
+    var divided = try multiplied.div(b);
     defer divided.deinit();
     try std.testing.expectEqualSlices(f64, a.data, divided.data);
 
-    var exponent = try array(f64, gpa, &.{2}, &.{1});
+    var exponent = try Array(f64).fromSlice(gpa, &.{2}, &.{1});
     defer exponent.deinit();
-    var powed = try pow(f64, a, exponent);
+    var powed = try a.pow(exponent);
     defer powed.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4, 9, 16 }, powed.data);
 
-    var clamped = try clamp(f64, a, 1.5, 3.5);
+    var clamped = try a.clamp(1.5, 3.5);
     defer clamped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 2, 3, 3.5 }, clamped.data);
     var clipped = try a.clamp(2, 3);
     defer clipped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 2, 3, 3 }, clipped.data);
 
-    var maxed = try maximumScalar(f64, a, 2.5);
+    var maxed = try a.maximumScalar(2.5);
     defer maxed.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2.5, 2.5, 3, 4 }, maxed.data);
-    var mined = try minimumScalar(f64, a, 2.5);
+    var mined = try a.minimumScalar(2.5);
     defer mined.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 2.5, 2.5 }, mined.data);
 
-    var hyp_a = try array(f64, gpa, &.{ 3, 5 }, &.{2});
+    var hyp_a = try Array(f64).fromSlice(gpa, &.{ 3, 5 }, &.{2});
     defer hyp_a.deinit();
-    var hyp_b = try array(f64, gpa, &.{ 4, 12 }, &.{2});
+    var hyp_b = try Array(f64).fromSlice(gpa, &.{ 4, 12 }, &.{2});
     defer hyp_b.deinit();
-    var hyp = try hypot(f64, hyp_a, hyp_b);
+    var hyp = try hyp_a.hypot(hyp_b);
     defer hyp.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 13 }, hyp.data);
     var hyp_scalar = try hyp_a.hypotScalar(4);
@@ -7150,17 +6325,17 @@ test "array binary math wrappers and clamp aliases" {
     try std.testing.expectApproxEqAbs(@as(f64, 5), hyp_scalar.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 41)), hyp_scalar.data[1], 1e-12);
 
-    var y = try array(f64, gpa, &.{ 0, 1 }, &.{2});
+    var y = try Array(f64).fromSlice(gpa, &.{ 0, 1 }, &.{2});
     defer y.deinit();
-    var x = try array(f64, gpa, &.{ 1, 1 }, &.{2});
+    var x = try Array(f64).fromSlice(gpa, &.{ 1, 1 }, &.{2});
     defer x.deinit();
-    var angles = try atan2(f64, y, x);
+    var angles = try y.atan2(x);
     defer angles.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), angles.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi / 4.0, angles.data[1], 1e-12);
-    var next_targets = try array(f64, gpa, &.{ 2, -1 }, &.{2});
+    var next_targets = try Array(f64).fromSlice(gpa, &.{ 2, -1 }, &.{2});
     defer next_targets.deinit();
-    var next_values = try nextAfter(f64, y, next_targets);
+    var next_values = try y.nextAfter(next_targets);
     defer next_values.deinit();
     try std.testing.expect(next_values.data[0] > 0);
     try std.testing.expect(next_values.data[1] < 1);
@@ -7169,138 +6344,138 @@ test "array binary math wrappers and clamp aliases" {
     try std.testing.expect(next_scalar.data[0] > 0);
     try std.testing.expect(next_scalar.data[1] > 1);
 
-    var magnitudes = try array(f64, gpa, &.{ -1, 2, -3 }, &.{3});
+    var magnitudes = try Array(f64).fromSlice(gpa, &.{ -1, 2, -3 }, &.{3});
     defer magnitudes.deinit();
-    var signs_for_copy = try array(f64, gpa, &.{ 4, -5, -6 }, &.{3});
+    var signs_for_copy = try Array(f64).fromSlice(gpa, &.{ 4, -5, -6 }, &.{3});
     defer signs_for_copy.deinit();
-    var copied = try copysign(f64, magnitudes, signs_for_copy);
+    var copied = try magnitudes.copysign(signs_for_copy);
     defer copied.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, -2, -3 }, copied.data);
     var copied_scalar = try magnitudes.copysignScalar(-1);
     defer copied_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, -2, -3 }, copied_scalar.data);
 
-    var heav = try array(f64, gpa, &.{ -2, 0, 3 }, &.{3});
+    var heav = try Array(f64).fromSlice(gpa, &.{ -2, 0, 3 }, &.{3});
     defer heav.deinit();
-    var hzero = try array(f64, gpa, &.{0.5}, &.{1});
+    var hzero = try Array(f64).fromSlice(gpa, &.{0.5}, &.{1});
     defer hzero.deinit();
-    var heav_out = try heaviside(f64, heav, hzero);
+    var heav_out = try heav.heaviside(hzero);
     defer heav_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0.5, 1 }, heav_out.data);
     var heav_scalar = try heav.heavisideScalar(0.25);
     defer heav_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0.25, 1 }, heav_scalar.data);
 
-    var ints = try array(i32, gpa, &.{ -5, 5, 7 }, &.{3});
+    var ints = try Array(i32).fromSlice(gpa, &.{ -5, 5, 7 }, &.{3});
     defer ints.deinit();
-    var divisors = try array(i32, gpa, &.{ 2, 2, 3 }, &.{3});
+    var divisors = try Array(i32).fromSlice(gpa, &.{ 2, 2, 3 }, &.{3});
     defer divisors.deinit();
-    var floor_div = try floorDiv(i32, ints, divisors);
+    var floor_div = try ints.floorDiv(divisors);
     defer floor_div.deinit();
     try std.testing.expectEqualSlices(i32, &.{ -3, 2, 2 }, floor_div.data);
-    var modulo = try mod(i32, ints, divisors);
+    var modulo = try ints.mod(divisors);
     defer modulo.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 1, 1, 1 }, modulo.data);
-    var rem_scalar = try remainderScalar(i32, ints, 4);
+    var rem_scalar = try ints.remainderScalar(4);
     defer rem_scalar.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 3, 1, 3 }, rem_scalar.data);
 }
 
 test "array comparison and logical wrappers" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer a.deinit();
-    var b = try array(f64, gpa, &.{ 1, 0 }, &.{2});
+    var b = try Array(f64).fromSlice(gpa, &.{ 1, 0 }, &.{2});
     defer b.deinit();
 
-    var eq_out = try equal(f64, a, b);
+    var eq_out = try a.equal(b);
     defer eq_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, eq_out.data);
-    var ne_out = try notEqual(f64, a, b);
+    var ne_out = try a.notEqual(b);
     defer ne_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, ne_out.data);
-    var gt_out = try greater(f64, a, b);
+    var gt_out = try a.greater(b);
     defer gt_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, gt_out.data);
-    var ge_out = try ge(f64, a, b);
+    var ge_out = try a.ge(b);
     defer ge_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, ge_out.data);
-    var lt_out = try less(f64, a, b);
+    var lt_out = try a.less(b);
     defer lt_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lt_out.data);
-    var le_out = try le(f64, a, b);
+    var le_out = try a.le(b);
     defer le_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, le_out.data);
 
-    var eq_scalar_out = try eqScalar(f64, a, 2);
+    var eq_scalar_out = try a.eqScalar(2);
     defer eq_scalar_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, eq_scalar_out.data);
     var ge_scalar_out = try a.geScalar(3);
     defer ge_scalar_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, ge_scalar_out.data);
-    var lt_scalar_out = try ltScalar(f64, a, 3);
+    var lt_scalar_out = try a.ltScalar(3);
     defer lt_scalar_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, false }, lt_scalar_out.data);
 
-    try std.testing.expect(try allclose(f64, a, a, 1e-12, 1e-12));
+    try std.testing.expect(try a.allclose(a, 1e-12, 1e-12));
 
-    var m1 = try array(bool, gpa, &.{ true, false, true, false }, &.{ 2, 2 });
+    var m1 = try Array(bool).fromSlice(gpa, &.{ true, false, true, false }, &.{ 2, 2 });
     defer m1.deinit();
-    var m2 = try array(bool, gpa, &.{ true, true }, &.{2});
+    var m2 = try Array(bool).fromSlice(gpa, &.{ true, true }, &.{2});
     defer m2.deinit();
-    var not_out = try logicalNot(m1);
+    var not_out = try m1.logicalNot();
     defer not_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, not_out.data);
-    var and_out = try logicalAnd(m1, m2);
+    var and_out = try m1.logicalAnd(m2);
     defer and_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, and_out.data);
-    var or_out = try logicalOr(m1, m2);
+    var or_out = try m1.logicalOr(m2);
     defer or_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, or_out.data);
-    var xor_out = try logicalXor(m1, m2);
+    var xor_out = try m1.logicalXor(m2);
     defer xor_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, xor_out.data);
-    var xor_scalar_out = try logicalXorScalar(m1, true);
+    var xor_scalar_out = try m1.logicalXorScalar(true);
     defer xor_scalar_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, xor_scalar_out.data);
 
-    var close_target = try array(f64, gpa, &.{ 1.0, 2.001, 2.9, 4.0 }, &.{ 2, 2 });
+    var close_target = try Array(f64).fromSlice(gpa, &.{ 1.0, 2.001, 2.9, 4.0 }, &.{ 2, 2 });
     defer close_target.deinit();
-    var close_mask = try isclose(f64, a, close_target, 0.0, 0.01);
+    var close_mask = try a.isclose(close_target, 0.0, 0.01);
     defer close_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, close_mask.data);
-    try std.testing.expect(!try allclose(f64, a, close_target, 0.0, 0.01));
+    try std.testing.expect(!try a.allclose(close_target, 0.0, 0.01));
 }
 
 test "array reductions and matmul" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var s0 = try sum(f64, a, 0, false);
+    var s0 = try a.sum(0, false);
     defer s0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, s0.data);
-    var s1 = try sum(f64, a, 1, true);
+    var s1 = try a.sum(1, true);
     defer s1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, s1.shape);
     try std.testing.expectEqualSlices(f64, &.{ 6, 15 }, s1.data);
-    var p0 = try prod(f64, a, 0, false);
+    var p0 = try a.prod(0, false);
     defer p0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 10, 18 }, p0.data);
-    var mn = try min(f64, a, null, false);
+    var mn = try a.min(null, false);
     defer mn.deinit();
     try std.testing.expectEqualSlices(f64, &.{1}, mn.data);
-    var mx = try max(f64, a, 1, false);
+    var mx = try a.max(1, false);
     defer mx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 6 }, mx.data);
-    var cs = try cumsum(f64, a);
+    var cs = try a.cumsum();
     defer cs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 10, 15, 21 }, cs.data);
-    var cp = try cumprod(f64, a);
+    var cp = try a.cumprod();
     defer cp.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 24, 120, 720 }, cp.data);
-    try std.testing.expectEqual(@as(usize, 5), try argmax(f64, a));
-    try std.testing.expectEqual(@as(usize, 0), try argmin(f64, a));
-    var arg1 = try argmaxAxis(f64, a, 1, false);
+    try std.testing.expectEqual(@as(usize, 5), try a.argmax());
+    try std.testing.expectEqual(@as(usize, 0), try a.argmin());
+    var arg1 = try a.argmaxAxis(1, false);
     defer arg1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, arg1.data);
     var t = try a.transpose();
@@ -7313,81 +6488,81 @@ test "array reductions and matmul" {
 
 test "array contraction and vector algebra helpers" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var x = try array(f64, gpa, &.{ 10, 20, 30 }, &.{3});
+    var x = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30 }, &.{3});
     defer x.deinit();
 
     var y = try a.matvec(x);
     defer y.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, y.shape);
     try std.testing.expectEqualSlices(f64, &.{ 140, 320 }, y.data);
-    var y_top = try matvec(f64, a, x);
+    var y_top = try a.matvec(x);
     defer y_top.deinit();
     try std.testing.expectEqualSlices(f64, y.data, y_top.data);
 
-    var lhs = try array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    var lhs = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer lhs.deinit();
-    var rhs = try array(f64, gpa, &.{ 4, 5, 6 }, &.{3});
+    var rhs = try Array(f64).fromSlice(gpa, &.{ 4, 5, 6 }, &.{3});
     defer rhs.deinit();
-    var dot_out = try dot(f64, lhs, rhs);
+    var dot_out = try lhs.dot(rhs);
     defer dot_out.deinit();
     try std.testing.expectEqual(@as(usize, 0), dot_out.shape.len);
     try std.testing.expectEqual(@as(f64, 32), dot_out.data[0]);
 
-    var left_inner = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var left_inner = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer left_inner.deinit();
-    var right_inner = try array(f64, gpa, &.{ 10, 20, 30, 40, 50, 60 }, &.{ 2, 3 });
+    var right_inner = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30, 40, 50, 60 }, &.{ 2, 3 });
     defer right_inner.deinit();
-    var inner_out = try inner(f64, left_inner, right_inner);
+    var inner_out = try left_inner.inner(right_inner);
     defer inner_out.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, inner_out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 140, 320, 320, 770 }, inner_out.data);
 
-    var vecdot_out = try vecdot(f64, left_inner, right_inner, 1);
+    var vecdot_out = try left_inner.vecdot(right_inner, 1);
     defer vecdot_out.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, vecdot_out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 140, 770 }, vecdot_out.data);
 
-    var flat_vdot = try vdot(f64, left_inner, right_inner);
+    var flat_vdot = try left_inner.vdot(right_inner);
     defer flat_vdot.deinit();
     try std.testing.expectEqual(@as(f64, 910), flat_vdot.data[0]);
 
-    var cross_a = try array(f64, gpa, &.{ 1, 0, 0, 0, 1, 0 }, &.{ 2, 3 });
+    var cross_a = try Array(f64).fromSlice(gpa, &.{ 1, 0, 0, 0, 1, 0 }, &.{ 2, 3 });
     defer cross_a.deinit();
-    var cross_b = try array(f64, gpa, &.{ 0, 1, 0 }, &.{ 1, 3 });
+    var cross_b = try Array(f64).fromSlice(gpa, &.{ 0, 1, 0 }, &.{ 1, 3 });
     defer cross_b.deinit();
-    var cross_out = try cross(f64, cross_a, cross_b, -1);
+    var cross_out = try cross_a.cross(cross_b, -1);
     defer cross_out.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, cross_out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 1, 0, 0, 0 }, cross_out.data);
 
-    var td_a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var td_a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer td_a.deinit();
-    var td_b = try array(f64, gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
+    var td_b = try Array(f64).fromSlice(gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
     defer td_b.deinit();
-    var td = try contractAxes(f64, td_a, td_b, &.{1}, &.{0});
+    var td = try td_a.contractAxes(td_b, &.{1}, &.{0});
     defer td.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, td.shape);
     try std.testing.expectEqualSlices(f64, &.{ 58, 64, 139, 154 }, td.data);
 
-    var batch_a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 2, 2 });
+    var batch_a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 2, 2 });
     defer batch_a.deinit();
-    var batch_b = try array(f64, gpa, &.{ 1, 0, 0, 1, 2, 0, 0, 2 }, &.{ 2, 2, 2 });
+    var batch_b = try Array(f64).fromSlice(gpa, &.{ 1, 0, 0, 1, 2, 0, 0, 2 }, &.{ 2, 2, 2 });
     defer batch_b.deinit();
-    var batch_out = try bmm(f64, batch_a, batch_b);
+    var batch_out = try batch_a.bmm(batch_b);
     defer batch_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 10, 12, 14, 16 }, batch_out.data);
 
-    try std.testing.expectError(error.ShapeMismatch, contractAxes(f64, td_a, td_b, &.{0}, &.{0}));
-    var bad_cross = try array(f64, gpa, &.{ 1, 2 }, &.{2});
+    try std.testing.expectError(error.ShapeMismatch, td_a.contractAxes(td_b, &.{0}, &.{0}));
+    var bad_cross = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
     defer bad_cross.deinit();
-    try std.testing.expectError(error.ShapeMismatch, cross(f64, bad_cross, bad_cross, 0));
+    try std.testing.expectError(error.ShapeMismatch, bad_cross.cross(bad_cross, 0));
 }
 
 test "array scipy-like statistics and softmax" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{4});
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{4});
     defer a.deinit();
     var mean_value = try a.mean(null, false);
     defer mean_value.deinit();
@@ -7395,20 +6570,20 @@ test "array scipy-like statistics and softmax" {
     var std_t = try a.stddev(null, false, 0);
     defer std_t.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.118033988749895), std_t.data[0], 1e-12);
-    var mean_top = try mean(f64, a, null, false);
+    var mean_top = try a.mean(null, false);
     defer mean_top.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2.5), mean_top.data[0], 1e-12);
-    var var_top = try variance(f64, a, null, false, 0);
+    var var_top = try a.variance(null, false, 0);
     defer var_top.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.25), var_top.data[0], 1e-12);
-    var std_top = try stddev(f64, a, null, false, 0);
+    var std_top = try a.stddev(null, false, 0);
     defer std_top.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.118033988749895), std_top.data[0], 1e-12);
-    var norm_top = try norm(f64, a, 2, null, false);
+    var norm_top = try a.norm(2, null, false);
     defer norm_top.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 30)), norm_top.data[0], 1e-12);
 
-    var logits = try array(f64, gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
+    var logits = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
     defer logits.deinit();
     var probs = try logits.softmax(1);
     defer probs.deinit();
@@ -7417,87 +6592,87 @@ test "array scipy-like statistics and softmax" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[1], 1e-12);
 
-    var mask = try array(bool, gpa, &.{ true, true, false, true }, &.{ 2, 2 });
+    var mask = try Array(bool).fromSlice(gpa, &.{ true, true, false, true }, &.{ 2, 2 });
     defer mask.deinit();
-    var all_rows = try allAxis(mask, 1, false);
+    var all_rows = try mask.allAxis(1, false);
     defer all_rows.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false }, all_rows.data);
-    var any_cols = try anyAxis(mask, 0, false);
+    var any_cols = try mask.anyAxis(0, false);
     defer any_cols.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true }, any_cols.data);
 }
 
 test "array pytorch numpy shape indexing and layout helpers" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
     try std.testing.expectEqual(@as(usize, 2), a.ndim());
     try std.testing.expectEqual(@as(usize, 3), try a.size(1));
     try std.testing.expectEqual(@as(f64, 5), try a.at(&.{ 1, 1 }));
 
-    var u = try unsqueeze(f64, a, 0);
+    var u = try a.unsqueeze(0);
     defer u.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, u.shape);
-    var s2 = try squeeze(f64, u, null);
+    var s2 = try u.squeeze(null);
     defer s2.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, s2.shape);
 
-    var p = try permute(f64, a, &.{ 1, 0 });
+    var p = try a.permute(&.{ 1, 0 });
     defer p.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, p.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, p.data);
 
-    var n = try narrow(f64, a, 1, 1, 2);
+    var n = try a.narrow(1, 1, 2);
     defer n.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, n.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5, 6 }, n.data);
-    var reshaped = try reshape(f64, a, &.{ 3, 2 });
+    var reshaped = try a.reshape(&.{ 3, 2 });
     defer reshaped.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, reshaped.shape);
-    var viewed = try view(f64, reshaped, &.{ 2, 3 });
+    var viewed = try reshaped.view(&.{ 2, 3 });
     defer viewed.deinit();
     try std.testing.expectEqualSlices(f64, a.data, viewed.data);
-    var flat_top = try flatten(f64, a);
+    var flat_top = try a.flatten();
     defer flat_top.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, flat_top.shape);
-    var ravel_top = try ravel(f64, a);
+    var ravel_top = try a.ravel();
     defer ravel_top.deinit();
     try std.testing.expectEqualSlices(f64, flat_top.data, ravel_top.data);
-    var transposed_top = try transpose(f64, a);
+    var transposed_top = try a.transpose();
     defer transposed_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, transposed_top.data);
-    var swapped_top = try swapaxes(f64, a, 0, 1);
+    var swapped_top = try a.swapaxes(0, 1);
     defer swapped_top.deinit();
     try std.testing.expectEqualSlices(f64, transposed_top.data, swapped_top.data);
-    var moved_top = try movedim(f64, u, 0, 2);
+    var moved_top = try u.movedim(0, 2);
     defer moved_top.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, moved_top.shape);
-    var selected_top = try select(f64, a, 0, 1);
+    var selected_top = try a.select(0, 1);
     defer selected_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, selected_top.data);
-    var broadcast_top = try broadcastTo(f64, selected_top, &.{ 2, 3 });
+    var broadcast_top = try selected_top.broadcastTo(&.{ 2, 3 });
     defer broadcast_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, broadcast_top.data);
-    var repeated_top = try repeat(f64, selected_top, 2, 0);
+    var repeated_top = try selected_top.repeat(2, 0);
     defer repeated_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 4, 5, 5, 6, 6 }, repeated_top.data);
-    var tiled_top = try tile(f64, selected_top, &.{2});
+    var tiled_top = try selected_top.tile(&.{2});
     defer tiled_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, tiled_top.data);
 }
 
 test "array non contiguous view helpers" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
     defer a.deinit();
 
-    var base_view = try asView(f64, a);
+    var base_view = try a.asView();
     defer base_view.deinit();
     try std.testing.expect(base_view.isContiguous());
     try base_view.set(&.{ 1, 2 }, 99);
     try std.testing.expectEqual(@as(f64, 99), a.data[6]);
 
-    var stepped = try sliceAxisView(f64, a, 1, .{ .start = 0, .stop = 4, .step = 2 });
+    var stepped = try a.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
     defer stepped.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stepped.shape);
     try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, stepped.strides);
@@ -7510,13 +6685,13 @@ test "array non contiguous view helpers" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 30, 5, 99 }, stepped_owned.data);
     try std.testing.expectError(error.InvalidShape, stepped.reshape(&.{4}));
 
-    var selected = try selectView(f64, a, 0, 1);
+    var selected = try a.selectView(0, 1);
     defer selected.deinit();
     try std.testing.expectEqualSlices(usize, &.{4}, selected.shape);
     try selected.set(&.{0}, 50);
     try std.testing.expectEqual(@as(f64, 50), a.data[4]);
 
-    var broadcasted = try broadcastView(f64, a, &.{ 3, 2, 4 });
+    var broadcasted = try a.broadcastView(&.{ 3, 2, 4 });
     defer broadcasted.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2, 4 }, broadcasted.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 4, 1 }, broadcasted.strides);
@@ -7529,7 +6704,7 @@ test "array non contiguous view helpers" {
     try selected_broadcast.set(&.{ 1, 3 }, 80);
     try std.testing.expectEqual(@as(f64, 80), a.data[7]);
 
-    var transposed = try transposeView(f64, a);
+    var transposed = try a.transposeView();
     defer transposed.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, transposed.shape);
     try std.testing.expectEqualSlices(usize, &.{ 1, 4 }, transposed.strides);
@@ -7538,39 +6713,71 @@ test "array non contiguous view helpers" {
     defer transposed_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 50, 2, 6, 30, 99, 4, 80 }, transposed_owned.data);
 
-    var narrowed = try narrowView(f64, a, 1, 1, 2);
+    var narrowed = try a.narrowView(1, 1, 2);
     defer narrowed.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, narrowed.shape);
     try std.testing.expectEqual(@as(f64, 6), try narrowed.get(&.{ 1, 0 }));
+
+    var stepped_plus = try stepped.addScalar(1);
+    defer stepped_plus.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 31, 51, 100 }, stepped_plus.data);
+
+    var stepped_sum = try stepped.sum(1, false);
+    defer stepped_sum.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 31, 149 }, stepped_sum.data);
+
+    var stepped_mean = try stepped.mean(null, false);
+    defer stepped_mean.deinit();
+    try std.testing.expectEqual(@as(usize, 0), stepped_mean.shape.len);
+    try std.testing.expectApproxEqAbs(@as(f64, 45), stepped_mean.data[0], 1e-12);
+
+    var stepped_mask = try stepped.gtScalar(40);
+    defer stepped_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, stepped_mask.data);
+
+    var selected_scaled = try selected.mulScalar(2);
+    defer selected_scaled.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 100, 12, 198, 160 }, selected_scaled.data);
+
+    var replacement = try Array(f64).fromSlice(gpa, &.{ 7, 8 }, &.{ 1, 2 });
+    defer replacement.deinit();
+    try stepped.copyFromArray(replacement);
+    try std.testing.expectEqual(@as(f64, 7), a.data[0]);
+    try std.testing.expectEqual(@as(f64, 8), a.data[2]);
+    try std.testing.expectEqual(@as(f64, 7), a.data[4]);
+    try std.testing.expectEqual(@as(f64, 8), a.data[6]);
+
+    try narrowed.fill(-1);
+    try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
 }
 
 test "array take mask stack cat and neural helpers" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var idx = try array(usize, gpa, &.{ 2, 0 }, &.{2});
+    var idx = try Array(usize).fromSlice(gpa, &.{ 2, 0 }, &.{2});
     defer idx.deinit();
     var picked = try a.indexSelect(1, idx);
     defer picked.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, picked.shape);
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 6, 4 }, picked.data);
-    var picked_top = try indexSelect(f64, a, 1, idx);
+    var picked_top = try a.indexSelect(1, idx);
     defer picked_top.deinit();
     try std.testing.expectEqualSlices(f64, picked.data, picked_top.data);
 
-    var wrap_idx = try array(usize, gpa, &.{ 0, 7 }, &.{2});
+    var wrap_idx = try Array(usize).fromSlice(gpa, &.{ 0, 7 }, &.{2});
     defer wrap_idx.deinit();
-    var take_wrapped = try takeMode(f64, a, wrap_idx, null, .wrap);
+    var take_wrapped = try a.takeMode(wrap_idx, null, .wrap);
     defer take_wrapped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2 }, take_wrapped.data);
-    var clip_idx = try array(usize, gpa, &.{ 0, 99 }, &.{2});
+    var clip_idx = try Array(usize).fromSlice(gpa, &.{ 0, 99 }, &.{2});
     defer clip_idx.deinit();
     var take_clipped = try a.takeMode(clip_idx, 1, .clip);
     defer take_clipped.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, take_clipped.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4, 6 }, take_clipped.data);
 
-    var mask = try array(bool, gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
+    var mask = try Array(bool).fromSlice(gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
     defer mask.deinit();
     var masked = try a.maskedSelect(mask);
     defer masked.deinit();
@@ -7597,127 +6804,127 @@ test "array take mask stack cat and neural helpers" {
 
 test "array advanced indexing mutation helpers" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 0, 3, 0, 5, 6 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 0, 3, 0, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
 
     var flat_idx = try a.flatNonzero();
     defer flat_idx.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 5 }, flat_idx.data);
 
-    var coords = try argwhere(f64, a);
+    var coords = try a.argwhere();
     defer coords.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, coords.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 2, 1, 1, 1, 2 }, coords.data);
-    var flat_from_coords = try ravelCoords(f64, a, coords);
+    var flat_from_coords = try a.ravelCoords(coords);
     defer flat_from_coords.deinit();
     try std.testing.expectEqualSlices(usize, flat_idx.data, flat_from_coords.data);
-    var coords_roundtrip = try unravelFlat(f64, a, flat_from_coords);
+    var coords_roundtrip = try a.unravelFlat(flat_from_coords);
     defer coords_roundtrip.deinit();
     try std.testing.expectEqualSlices(usize, coords.data, coords_roundtrip.data);
-    var coord_values = try takeCoords(f64, a, coords);
+    var coord_values = try a.takeCoords(coords);
     defer coord_values.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5, 6 }, coord_values.data);
-    var coord_replacements = try array(f64, gpa, &.{ 10, 30, 50, 60 }, &.{4});
+    var coord_replacements = try Array(f64).fromSlice(gpa, &.{ 10, 30, 50, 60 }, &.{4});
     defer coord_replacements.deinit();
-    var coord_put = try putCoords(f64, a, coords, coord_replacements);
+    var coord_put = try a.putCoords(coords, coord_replacements);
     defer coord_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 0, 50, 60 }, coord_put.data);
     var coord_scalar_put = try a.putCoordsScalar(coords, -5);
     defer coord_scalar_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -5, 0, -5, 0, -5, -5 }, coord_scalar_put.data);
-    var grid_coords = try array(usize, gpa, &.{
+    var grid_coords = try Array(usize).fromSlice(gpa, &.{
         0, 0, 0, 2,
         1, 1, 1, 2,
     }, &.{ 2, 2, 2 });
     defer grid_coords.deinit();
-    var grid_flat = try ravelCoords(f64, a, grid_coords);
+    var grid_flat = try a.ravelCoords(grid_coords);
     defer grid_flat.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, grid_flat.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 5 }, grid_flat.data);
-    var grid_values = try takeCoords(f64, a, grid_coords);
+    var grid_values = try a.takeCoords(grid_coords);
     defer grid_values.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, grid_values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5, 6 }, grid_values.data);
-    var grid_coords_roundtrip = try unravelFlat(f64, a, grid_flat);
+    var grid_coords_roundtrip = try a.unravelFlat(grid_flat);
     defer grid_coords_roundtrip.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, grid_coords_roundtrip.shape);
     try std.testing.expectEqualSlices(usize, grid_coords.data, grid_coords_roundtrip.data);
-    var grid_replacements = try array(f64, gpa, &.{ 10, 30, 50, 60 }, &.{ 2, 2 });
+    var grid_replacements = try Array(f64).fromSlice(gpa, &.{ 10, 30, 50, 60 }, &.{ 2, 2 });
     defer grid_replacements.deinit();
-    var grid_put = try putCoords(f64, a, grid_coords, grid_replacements);
+    var grid_put = try a.putCoords(grid_coords, grid_replacements);
     defer grid_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 0, 50, 60 }, grid_put.data);
-    var row_indices = try array(usize, gpa, &.{ 0, 1 }, &.{ 2, 1 });
+    var row_indices = try Array(usize).fromSlice(gpa, &.{ 0, 1 }, &.{ 2, 1 });
     defer row_indices.deinit();
-    var col_indices = try array(usize, gpa, &.{ 0, 2 }, &.{ 1, 2 });
+    var col_indices = try Array(usize).fromSlice(gpa, &.{ 0, 2 }, &.{ 1, 2 });
     defer col_indices.deinit();
     const multi_indices = [_]Array(usize){ row_indices, col_indices };
-    var flat_multi = try ravelMultiIndex(f64, a, multi_indices[0..]);
+    var flat_multi = try a.ravelMultiIndex(multi_indices[0..]);
     defer flat_multi.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, flat_multi.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 5 }, flat_multi.data);
-    var multi_values = try takeMultiIndex(f64, a, multi_indices[0..]);
+    var multi_values = try a.takeMultiIndex(multi_indices[0..]);
     defer multi_values.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, multi_values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 0, 6 }, multi_values.data);
-    var multi_replacements = try array(f64, gpa, &.{ 10, 30, 40, 60 }, &.{ 2, 2 });
+    var multi_replacements = try Array(f64).fromSlice(gpa, &.{ 10, 30, 40, 60 }, &.{ 2, 2 });
     defer multi_replacements.deinit();
-    var multi_put = try putMultiIndex(f64, a, multi_indices[0..], multi_replacements);
+    var multi_put = try a.putMultiIndex(multi_indices[0..], multi_replacements);
     defer multi_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 40, 5, 60 }, multi_put.data);
-    var multi_scalar_put = try putMultiIndexScalar(f64, a, multi_indices[0..], -9);
+    var multi_scalar_put = try a.putMultiIndexScalar(multi_indices[0..], -9);
     defer multi_scalar_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -9, 0, -9, -9, 5, -9 }, multi_scalar_put.data);
-    var bad_coords = try array(usize, gpa, &.{ 2, 0 }, &.{ 1, 2 });
+    var bad_coords = try Array(usize).fromSlice(gpa, &.{ 2, 0 }, &.{ 1, 2 });
     defer bad_coords.deinit();
     try std.testing.expectError(error.IndexOutOfBounds, a.takeCoords(bad_coords));
 
-    var cond = try array(bool, gpa, &.{ true, false, true }, &.{3});
+    var cond = try Array(bool).fromSlice(gpa, &.{ true, false, true }, &.{3});
     defer cond.deinit();
-    var compressed_cols = try compress(f64, a, cond, 1);
+    var compressed_cols = try a.compress(cond, 1);
     defer compressed_cols.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, compressed_cols.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 0, 6 }, compressed_cols.data);
 
-    var flat_cond = try array(bool, gpa, &.{ true, false, false, true, true, false }, &.{6});
+    var flat_cond = try Array(bool).fromSlice(gpa, &.{ true, false, false, true, true, false }, &.{6});
     defer flat_cond.deinit();
     var compressed_flat = try a.compress(flat_cond, null);
     defer compressed_flat.deinit();
     try std.testing.expectEqualSlices(usize, &.{3}, compressed_flat.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 5 }, compressed_flat.data);
 
-    var mask = try array(bool, gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
+    var mask = try Array(bool).fromSlice(gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
     defer mask.deinit();
-    var mask_values = try array(f64, gpa, &.{ 10, 20, 30 }, &.{3});
+    var mask_values = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30 }, &.{3});
     defer mask_values.deinit();
-    var mask_put = try maskedPut(f64, a, mask, mask_values);
+    var mask_put = try a.maskedPut(mask, mask_values);
     defer mask_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 20, 0, 30, 6 }, mask_put.data);
-    var mask_alias = try putMask(f64, a, mask, mask_values);
+    var mask_alias = try a.putMask(mask, mask_values);
     defer mask_alias.deinit();
     try std.testing.expectEqualSlices(f64, mask_put.data, mask_alias.data);
 
     var mask_scalar = try a.maskedPutScalar(mask, -1);
     defer mask_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 0, -1, 0, -1, 6 }, mask_scalar.data);
-    var mask_scalar_alias = try putMaskScalar(f64, a, mask, -2);
+    var mask_scalar_alias = try a.putMaskScalar(mask, -2);
     defer mask_scalar_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -2, 0, -2, 0, -2, 6 }, mask_scalar_alias.data);
-    var mask_coords = try whereIndices(mask);
+    var mask_coords = try mask.whereIndices();
     defer mask_coords.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, mask_coords.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 2, 1, 1 }, mask_coords.data);
-    var copy_src = try full(f64, gpa, &.{ 2, 3 }, 42);
+    var copy_src = try Array(f64).full(gpa, &.{ 2, 3 }, 42);
     defer copy_src.deinit();
-    var copied_where = try copyWhere(f64, a, mask, copy_src);
+    var copied_where = try a.copyWhere(mask, copy_src);
     defer copied_where.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 42, 0, 42, 0, 42, 6 }, copied_where.data);
 
-    var put_idx = try array(usize, gpa, &.{ 1, 4 }, &.{2});
+    var put_idx = try Array(usize).fromSlice(gpa, &.{ 1, 4 }, &.{2});
     defer put_idx.deinit();
-    var put_values = try array(f64, gpa, &.{ 11, 44 }, &.{2});
+    var put_values = try Array(f64).fromSlice(gpa, &.{ 11, 44 }, &.{2});
     defer put_values.deinit();
-    var put_flat = try putFlat(f64, a, put_idx, put_values);
+    var put_flat = try a.putFlat(put_idx, put_values);
     defer put_flat.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 11, 3, 0, 44, 6 }, put_flat.data);
 
@@ -7725,39 +6932,39 @@ test "array advanced indexing mutation helpers" {
     defer put_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 7, 3, 0, 7, 6 }, put_scalar.data);
 
-    var index_put = try indexPut(f64, a, put_idx, put_values);
+    var index_put = try a.indexPut(put_idx, put_values);
     defer index_put.deinit();
     try std.testing.expectEqualSlices(f64, put_flat.data, index_put.data);
 
-    var index_put_scalar = try indexPutScalar(f64, a, put_idx, 9);
+    var index_put_scalar = try a.indexPutScalar(put_idx, 9);
     defer index_put_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 9, 3, 0, 9, 6 }, index_put_scalar.data);
 
-    var mode_idx = try array(usize, gpa, &.{ 1, 9 }, &.{2});
+    var mode_idx = try Array(usize).fromSlice(gpa, &.{ 1, 9 }, &.{2});
     defer mode_idx.deinit();
-    var mode_values = try array(f64, gpa, &.{ 11, 99 }, &.{2});
+    var mode_values = try Array(f64).fromSlice(gpa, &.{ 11, 99 }, &.{2});
     defer mode_values.deinit();
-    var put_wrapped = try putFlatMode(f64, a, mode_idx, mode_values, .wrap);
+    var put_wrapped = try a.putFlatMode(mode_idx, mode_values, .wrap);
     defer put_wrapped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 11, 3, 99, 5, 6 }, put_wrapped.data);
     var put_clipped = try a.putFlatScalarMode(mode_idx, -7, .clip);
     defer put_clipped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, -7, 3, 0, 5, -7 }, put_clipped.data);
 
-    var bad_values = try array(f64, gpa, &.{ 1, 2 }, &.{2});
+    var bad_values = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
     defer bad_values.deinit();
     try std.testing.expectError(error.ShapeMismatch, a.maskedPut(mask, bad_values));
-    var bad_indices = try array(usize, gpa, &.{6}, &.{1});
+    var bad_indices = try Array(usize).fromSlice(gpa, &.{6}, &.{1});
     defer bad_indices.deinit();
     try std.testing.expectError(error.IndexOutOfBounds, a.putFlatScalar(bad_indices, 1));
 }
 
 test "array extended unary math and predicates" {
     const gpa = std.testing.allocator;
-    var x = try array(f64, gpa, &.{ -1.7, -0.2, 0.0, 0.2, 1.7 }, &.{5});
+    var x = try Array(f64).fromSlice(gpa, &.{ -1.7, -0.2, 0.0, 0.2, 1.7 }, &.{5});
     defer x.deinit();
 
-    var floored = try floor(f64, x);
+    var floored = try x.floor();
     defer floored.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -2, -1, 0, 0, 1 }, floored.data);
     var ceiled = try x.ceil();
@@ -7770,35 +6977,35 @@ test "array extended unary math and predicates" {
     defer truncated.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 0, 0, 0, 1 }, truncated.data);
 
-    var signs = try sign(f64, x);
+    var signs = try x.sign();
     defer signs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, -1, 0, 1, 1 }, signs.data);
     var bits = try x.signbit();
     defer bits.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false }, bits.data);
 
-    var sq = try square(f64, x);
+    var sq = try x.square();
     defer sq.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2.89), sq.data[0], 1e-12);
-    var denom = try array(f64, gpa, &.{ 2, -4 }, &.{2});
+    var denom = try Array(f64).fromSlice(gpa, &.{ 2, -4 }, &.{2});
     defer denom.deinit();
-    var recip = try reciprocal(f64, denom);
+    var recip = try denom.reciprocal();
     defer recip.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0.5, -0.25 }, recip.data);
 
-    var stable = try array(f64, gpa, &.{ 0, 1 }, &.{2});
+    var stable = try Array(f64).fromSlice(gpa, &.{ 0, 1 }, &.{2});
     defer stable.deinit();
     var e1 = try stable.expm1();
     defer e1.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), e1.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.e - 1, e1.data[1], 1e-12);
-    var l1 = try log1p(f64, stable);
+    var l1 = try stable.log1p();
     defer l1.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), l1.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.ln2, l1.data[1], 1e-12);
-    var powers = try array(f64, gpa, &.{ 1, 10, 100 }, &.{3});
+    var powers = try Array(f64).fromSlice(gpa, &.{ 1, 10, 100 }, &.{3});
     defer powers.deinit();
-    var log2_out = try log2(f64, powers);
+    var log2_out = try powers.log2();
     defer log2_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), log2_out.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log2(@as(f64, 10)), log2_out.data[1], 1e-12);
@@ -7806,37 +7013,37 @@ test "array extended unary math and predicates" {
     defer log10_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 1, 2 }, log10_out.data);
 
-    var degrees = try array(f64, gpa, &.{ 0, 90, 180 }, &.{3});
+    var degrees = try Array(f64).fromSlice(gpa, &.{ 0, 90, 180 }, &.{3});
     defer degrees.deinit();
-    var radians = try deg2rad(f64, degrees);
+    var radians = try degrees.deg2rad();
     defer radians.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), radians.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi / 2.0, radians.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi, radians.data[2], 1e-12);
-    var roundtrip_degrees = try rad2deg(f64, radians);
+    var roundtrip_degrees = try radians.rad2deg();
     defer roundtrip_degrees.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), roundtrip_degrees.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 90), roundtrip_degrees.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 180), roundtrip_degrees.data[2], 1e-12);
 
-    var significands = try array(f64, gpa, &.{ 0.5, 0.75, -0.5 }, &.{3});
+    var significands = try Array(f64).fromSlice(gpa, &.{ 0.5, 0.75, -0.5 }, &.{3});
     defer significands.deinit();
-    var exponents = try array(i32, gpa, &.{ 1, 2, 3 }, &.{3});
+    var exponents = try Array(i32).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer exponents.deinit();
-    var ld = try ldexp(f64, significands, exponents);
+    var ld = try significands.ldexp(exponents);
     defer ld.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, -4 }, ld.data);
     var ld_scalar = try significands.ldexpScalar(2);
     defer ld_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, -2 }, ld_scalar.data);
-    var frexp_result = try frexp(f64, ld);
+    var frexp_result = try ld.frexp();
     defer frexp_result.deinit();
     try std.testing.expectEqualSlices(f64, significands.data, frexp_result.significand.data);
     try std.testing.expectEqualSlices(i32, exponents.data, frexp_result.exponent.data);
 
-    var angles = try array(f64, gpa, &.{ 0, std.math.pi / 2.0 }, &.{2});
+    var angles = try Array(f64).fromSlice(gpa, &.{ 0, std.math.pi / 2.0 }, &.{2});
     defer angles.deinit();
-    var sine = try sin(f64, angles);
+    var sine = try angles.sin();
     defer sine.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), sine.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), sine.data[1], 1e-12);
@@ -7848,7 +7055,7 @@ test "array extended unary math and predicates" {
     defer tangent.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), tangent.data[0], 1e-12);
 
-    var unit = try array(f64, gpa, &.{ 0, 1 }, &.{2});
+    var unit = try Array(f64).fromSlice(gpa, &.{ 0, 1 }, &.{2});
     defer unit.deinit();
     var arcs = try unit.asin();
     defer arcs.deinit();
@@ -7863,28 +7070,28 @@ test "array extended unary math and predicates" {
     try std.testing.expectApproxEqAbs(@as(f64, 0), arct.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.pi / 4.0, arct.data[1], 1e-12);
 
-    var hyp = try array(f64, gpa, &.{ 0, 1 }, &.{2});
+    var hyp = try Array(f64).fromSlice(gpa, &.{ 0, 1 }, &.{2});
     defer hyp.deinit();
     var sh = try hyp.sinh();
     defer sh.deinit();
-    var ch = try cosh(f64, hyp);
+    var ch = try hyp.cosh();
     defer ch.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0), sh.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), ch.data[0], 1e-12);
 
-    var special = try array(f64, gpa, &.{ 1, std.math.inf(f64), std.math.nan(f64) }, &.{3});
+    var special = try Array(f64).fromSlice(gpa, &.{ 1, std.math.inf(f64), std.math.nan(f64) }, &.{3});
     defer special.deinit();
-    var finite_mask = try isFinite(f64, special);
+    var finite_mask = try special.isFinite();
     defer finite_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, false }, finite_mask.data);
     var inf_mask = try special.isinf();
     defer inf_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false }, inf_mask.data);
-    var nan_mask = try isnan(f64, special);
+    var nan_mask = try special.isnan();
     defer nan_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, true }, nan_mask.data);
 
-    var ints = try array(i32, gpa, &.{ -2, 0, 7 }, &.{3});
+    var ints = try Array(i32).fromSlice(gpa, &.{ -2, 0, 7 }, &.{3});
     defer ints.deinit();
     var int_sign = try ints.sign();
     defer int_sign.deinit();
@@ -7896,41 +7103,41 @@ test "array extended unary math and predicates" {
 
 test "array gather scatter and scalar scatter" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 10, 11, 12, 20, 21, 22 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 10, 11, 12, 20, 21, 22 }, &.{ 2, 3 });
     defer a.deinit();
-    var idx = try array(usize, gpa, &.{ 2, 1, 0, 0, 2, 1 }, &.{ 2, 3 });
+    var idx = try Array(usize).fromSlice(gpa, &.{ 2, 1, 0, 0, 2, 1 }, &.{ 2, 3 });
     defer idx.deinit();
 
     var gathered = try a.gather(1, idx);
     defer gathered.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 12, 11, 10, 20, 22, 21 }, gathered.data);
-    var gathered_top = try gather(f64, a, 1, idx);
+    var gathered_top = try a.gather(1, idx);
     defer gathered_top.deinit();
     try std.testing.expectEqualSlices(f64, gathered.data, gathered_top.data);
 
-    var base = try zeros(f64, gpa, &.{ 2, 3 });
+    var base = try Array(f64).zeros(gpa, &.{ 2, 3 });
     defer base.deinit();
     var scattered = try base.scatter(1, idx, gathered);
     defer scattered.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 11, 12, 20, 21, 22 }, scattered.data);
-    var scattered_top = try scatter(f64, base, 1, idx, gathered);
+    var scattered_top = try base.scatter(1, idx, gathered);
     defer scattered_top.deinit();
     try std.testing.expectEqualSlices(f64, scattered.data, scattered_top.data);
-    var scatter_add = try scatterAdd(f64, base, 1, idx, gathered);
+    var scatter_add = try base.scatterAdd(1, idx, gathered);
     defer scatter_add.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 11, 12, 20, 21, 22 }, scatter_add.data);
 
-    var filled = try scatterScalar(f64, base, 1, idx, 7);
+    var filled = try base.scatterScalar(1, idx, 7);
     defer filled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7, 7, 7 }, filled.data);
-    var scalar_added = try scatterAddScalar(f64, base, 1, idx, 2);
+    var scalar_added = try base.scatterAddScalar(1, idx, 2);
     defer scalar_added.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 2, 2, 2, 2, 2 }, scalar_added.data);
 }
 
 test "array logsoftmax norm and matrix helpers" {
     const gpa = std.testing.allocator;
-    var logits = try array(f64, gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
+    var logits = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
     defer logits.deinit();
     var log_probs = try logits.logSoftmax(1);
     defer log_probs.deinit();
@@ -7941,20 +7148,20 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[1], 1e-12);
 
-    var v = try array(f64, gpa, &.{ 3, 4 }, &.{2});
+    var v = try Array(f64).fromSlice(gpa, &.{ 3, 4 }, &.{2});
     defer v.deinit();
     var n = try v.norm(2, null, false);
     defer n.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 5), n.data[0], 1e-12);
 
-    var w = try array(f64, gpa, &.{ 2, 5, 7 }, &.{3});
+    var w = try Array(f64).fromSlice(gpa, &.{ 2, 5, 7 }, &.{3});
     defer w.deinit();
     var out = try v.outer(w);
     defer out.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 6, 15, 21, 8, 20, 28 }, out.data);
 
-    var m = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, &.{ 3, 3 });
+    var m = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, &.{ 3, 3 });
     defer m.deinit();
     try std.testing.expectEqual(@as(f64, 15), try m.trace());
     var d = try m.diagonal(0);
@@ -7970,7 +7177,7 @@ test "array logsoftmax norm and matrix helpers" {
 
 test "array min max arg reductions and topk" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 9, 1, 5, 4, 8, 2 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 9, 1, 5, 4, 8, 2 }, &.{ 2, 3 });
     defer a.deinit();
 
     var min0 = try a.min(0, false);
@@ -8014,10 +7221,10 @@ test "array min max arg reductions and topk" {
 test "array median quantile covariance and corrcoef" {
     const gpa = std.testing.allocator;
     const nan = std.math.nan(f64);
-    var a = try array(f64, gpa, &.{ 1, 4, 2, 8, 3, 9 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 4, 2, 8, 3, 9 }, &.{ 2, 3 });
     defer a.deinit();
 
-    var med_flat = try median(f64, a, null, false);
+    var med_flat = try a.median(null, false);
     defer med_flat.deinit();
     try std.testing.expectEqual(@as(usize, 0), med_flat.shape.len);
     try std.testing.expectApproxEqAbs(@as(f64, 3.5), med_flat.data[0], 1e-12);
@@ -8027,65 +7234,65 @@ test "array median quantile covariance and corrcoef" {
     try std.testing.expectEqualSlices(usize, &.{2}, med_rows.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 8 }, med_rows.data);
 
-    var q_cols = try quantile(f64, a, 0.25, 0, true);
+    var q_cols = try a.quantile(0.25, 0, true);
     defer q_cols.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, q_cols.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2.75, 3.25, 3.75 }, q_cols.data);
 
-    var p_flat = try percentile(f64, a, 75, null, false);
+    var p_flat = try a.percentile(75, null, false);
     defer p_flat.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 7), p_flat.data[0], 1e-12);
     try std.testing.expectError(error.InvalidShape, a.quantile(1.5, null, false));
 
-    var weights = try array(f64, gpa, &.{ 1, 1, 1, 3, 3, 3 }, &.{ 2, 3 });
+    var weights = try Array(f64).fromSlice(gpa, &.{ 1, 1, 1, 3, 3, 3 }, &.{ 2, 3 });
     defer weights.deinit();
-    var weighted_mean_flat = try weightedMean(f64, a, weights, null, false);
+    var weighted_mean_flat = try a.weightedMean(weights, null, false);
     defer weighted_mean_flat.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 67.0 / 12.0), weighted_mean_flat.data[0], 1e-12);
-    var average_rows = try average(f64, a, weights, 1, false);
+    var average_rows = try a.average(weights, 1, false);
     defer average_rows.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 3.0), average_rows.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 20.0 / 3.0), average_rows.data[1], 1e-12);
-    var unweighted_average = try average(f64, a, null, null, false);
+    var unweighted_average = try a.average(null, null, false);
     defer unweighted_average.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 4.5), unweighted_average.data[0], 1e-12);
-    var weighted_var_flat = try weightedVariance(f64, a, weights, null, false, 0);
+    var weighted_var_flat = try a.weightedVariance(weights, null, false, 0);
     defer weighted_var_flat.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 9.07638888888889), weighted_var_flat.data[0], 1e-12);
-    var weighted_std_flat = try weightedStddev(f64, a, weights, null, false, 0);
+    var weighted_std_flat = try a.weightedStddev(weights, null, false, 0);
     defer weighted_std_flat.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 3.01270458042087), weighted_std_flat.data[0], 1e-12);
     var weighted_var_rows = try a.weightedVar(weights, 1, false, 0);
     defer weighted_var_rows.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), weighted_var_rows.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 62.0 / 9.0), weighted_var_rows.data[1], 1e-12);
-    var weighted_std_rows = try weightedStd(f64, a, weights, 1, false, 0);
+    var weighted_std_rows = try a.weightedStd(weights, 1, false, 0);
     defer weighted_std_rows.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 14.0 / 9.0)), weighted_std_rows.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 62.0 / 9.0)), weighted_std_rows.data[1], 1e-12);
 
-    var value_vec = try array(f64, gpa, &.{ 1, 10, 100 }, &.{3});
+    var value_vec = try Array(f64).fromSlice(gpa, &.{ 1, 10, 100 }, &.{3});
     defer value_vec.deinit();
-    var weight_vec = try array(f64, gpa, &.{ 1, 8, 1 }, &.{3});
+    var weight_vec = try Array(f64).fromSlice(gpa, &.{ 1, 8, 1 }, &.{3});
     defer weight_vec.deinit();
-    var weighted_med = try weightedMedian(f64, value_vec, weight_vec, null, false);
+    var weighted_med = try value_vec.weightedMedian(weight_vec, null, false);
     defer weighted_med.deinit();
     try std.testing.expectEqualSlices(f64, &.{10}, weighted_med.data);
     var weighted_q = try value_vec.weightedQuantile(weight_vec, 0.95, null, false);
     defer weighted_q.deinit();
     try std.testing.expectEqualSlices(f64, &.{100}, weighted_q.data);
-    var negative_weights = try array(f64, gpa, &.{ -1, 1, 1 }, &.{3});
+    var negative_weights = try Array(f64).fromSlice(gpa, &.{ -1, 1, 1 }, &.{3});
     defer negative_weights.deinit();
     try std.testing.expectError(error.InvalidShape, value_vec.weightedMean(negative_weights, null, false));
 
-    var obs_by_var = try array(f64, gpa, &.{
+    var obs_by_var = try Array(f64).fromSlice(gpa, &.{
         1, 2,
         2, 4,
         3, 6,
     }, &.{ 3, 2 });
     defer obs_by_var.deinit();
 
-    var covariance = try cov(f64, obs_by_var, false, 1);
+    var covariance = try obs_by_var.cov(false, 1);
     defer covariance.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, covariance.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 2, 4 }, covariance.data);
@@ -8093,9 +7300,9 @@ test "array median quantile covariance and corrcoef" {
     var corr = try obs_by_var.corrcoef(false);
     defer corr.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, corr.data);
-    var obs_weights = try array(f64, gpa, &.{ 1, 2, 1 }, &.{3});
+    var obs_weights = try Array(f64).fromSlice(gpa, &.{ 1, 2, 1 }, &.{3});
     defer obs_weights.deinit();
-    var weighted_covariance = try weightedCov(f64, obs_by_var, obs_weights, false, 1);
+    var weighted_covariance = try obs_by_var.weightedCov(obs_weights, false, 1);
     defer weighted_covariance.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), weighted_covariance.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 3.0), weighted_covariance.data[1], 1e-12);
@@ -8105,20 +7312,20 @@ test "array median quantile covariance and corrcoef" {
     defer weighted_corr.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, weighted_corr.data);
 
-    var nan_obs = try array(f64, gpa, &.{
+    var nan_obs = try Array(f64).fromSlice(gpa, &.{
         1,   2,
         nan, nan,
         3,   6,
     }, &.{ 3, 2 });
     defer nan_obs.deinit();
-    var nan_covariance = try nanCov(f64, nan_obs, false, 1);
+    var nan_covariance = try nan_obs.nanCov(false, 1);
     defer nan_covariance.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 4, 4, 8 }, nan_covariance.data);
     var nan_corr = try nan_obs.nanCorrcoef(false);
     defer nan_corr.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, nan_corr.data);
 
-    var rowvar_data = try array(f64, gpa, &.{
+    var rowvar_data = try Array(f64).fromSlice(gpa, &.{
         1, 2, 3,
         2, 4, 6,
     }, &.{ 2, 3 });
@@ -8127,13 +7334,13 @@ test "array median quantile covariance and corrcoef" {
     defer row_cov.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 2, 4 }, row_cov.data);
 
-    var v = try array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    var v = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer v.deinit();
     var var_scalar = try v.cov(true, 1);
     defer var_scalar.deinit();
     try std.testing.expectEqual(@as(usize, 0), var_scalar.shape.len);
     try std.testing.expectApproxEqAbs(@as(f64, 1), var_scalar.data[0], 1e-12);
-    var corr_scalar = try corrcoef(f64, v, true);
+    var corr_scalar = try v.corrcoef(true);
     defer corr_scalar.deinit();
     try std.testing.expectEqual(@as(usize, 0), corr_scalar.shape.len);
     try std.testing.expectApproxEqAbs(@as(f64, 1), corr_scalar.data[0], 1e-12);
@@ -8143,39 +7350,39 @@ test "array nan cleanup and nan-aware statistics" {
     const gpa = std.testing.allocator;
     const nan = std.math.nan(f64);
     const inf = std.math.inf(f64);
-    var a = try array(f64, gpa, &.{
+    var a = try Array(f64).fromSlice(gpa, &.{
         1,   nan, 3,
         nan, nan, 6,
         7,   8,   inf,
     }, &.{ 3, 3 });
     defer a.deinit();
 
-    var cleaned = try nanToNum(f64, a, 0, 99, -99);
+    var cleaned = try a.nanToNum(0, 99, -99);
     defer cleaned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 3, 0, 0, 6, 7, 8, 99 }, cleaned.data);
 
     var row_sum = try a.nansum(1, false);
     defer row_sum.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 6, inf }, row_sum.data);
-    var col_sum_keep = try nansum(f64, a, 0, true);
+    var col_sum_keep = try a.nansum(0, true);
     defer col_sum_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, col_sum_keep.shape);
     try std.testing.expectEqualSlices(f64, &.{ 8, 8, inf }, col_sum_keep.data);
 
-    var row_mean = try nanmean(f64, a, 1, false);
+    var row_mean = try a.nanmean(1, false);
     defer row_mean.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 6, inf }, row_mean.data);
     var col_mean = try a.nanmean(0, false);
     defer col_mean.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 8, inf }, col_mean.data);
 
-    var clean_stats = try array(f64, gpa, &.{
+    var clean_stats = try Array(f64).fromSlice(gpa, &.{
         1, nan, 3,
         2, nan, 6,
         3, 8,   9,
     }, &.{ 3, 3 });
     defer clean_stats.deinit();
-    var variance_cols = try nanvar(f64, clean_stats, 0, false, 0);
+    var variance_cols = try clean_stats.nanvar(0, false, 0);
     defer variance_cols.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), variance_cols.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0), variance_cols.data[1], 1e-12);
@@ -8189,22 +7396,22 @@ test "array nan cleanup and nan-aware statistics" {
     var mins = try clean_stats.nanmin(0, false);
     defer mins.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 8, 3 }, mins.data);
-    var maxs = try nanmax(f64, clean_stats, 1, false);
+    var maxs = try clean_stats.nanmax(1, false);
     defer maxs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 6, 9 }, maxs.data);
 
-    var med = try nanmedian(f64, clean_stats, 0, false);
+    var med = try clean_stats.nanmedian(0, false);
     defer med.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 8, 6 }, med.data);
     var q = try clean_stats.nanquantile(0.25, 0, true);
     defer q.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, q.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 8, 4.5 }, q.data);
-    var pct = try nanpercentile(f64, clean_stats, 75, 1, false);
+    var pct = try clean_stats.nanpercentile(75, 1, false);
     defer pct.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2.5, 5, 8.5 }, pct.data);
 
-    var all_nan = try array(f64, gpa, &.{ nan, nan }, &.{2});
+    var all_nan = try Array(f64).fromSlice(gpa, &.{ nan, nan }, &.{2});
     defer all_nan.deinit();
     var all_nan_mean = try all_nan.nanmean(null, false);
     defer all_nan_mean.deinit();
@@ -8219,10 +7426,10 @@ test "array nan cleanup and nan-aware statistics" {
 
 test "array sort argsort and partition axes" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 8, 1, 5, 3, 7, 2 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 8, 1, 5, 3, 7, 2 }, &.{ 2, 3 });
     defer a.deinit();
 
-    var flat_desc = try sortDescending(f64, a, null);
+    var flat_desc = try a.sortDescending(null);
     defer flat_desc.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, flat_desc.shape);
     try std.testing.expectEqualSlices(f64, &.{ 8, 7, 5, 3, 2, 1 }, flat_desc.data);
@@ -8235,7 +7442,7 @@ test "array sort argsort and partition axes" {
     defer col_sorted_desc.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 8, 7, 5, 3, 1, 2 }, col_sorted_desc.data);
 
-    var row_order = try argsortAxis(f64, a, 1, false);
+    var row_order = try a.argsortAxis(1, false);
     defer row_order.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 0, 2, 0, 1 }, row_order.data);
 
@@ -8243,12 +7450,12 @@ test "array sort argsort and partition axes" {
     defer flat_order_desc.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 4, 2, 3, 5, 1 }, flat_order_desc.data);
 
-    var col_sorted = try sortWithIndices(f64, a, 0, false);
+    var col_sorted = try a.sortWithIndices(0, false);
     defer col_sorted.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 2, 8, 7, 5 }, col_sorted.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 1, 0, 1, 0, 1, 0 }, col_sorted.indices.data);
 
-    var row_partition = try partition(f64, a, 1, 1, false);
+    var row_partition = try a.partition(1, 1, false);
     defer row_partition.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 8, 2, 3, 7 }, row_partition.data);
     var row_argpartition = try a.argpartition(1, 1, false);
@@ -8258,7 +7465,7 @@ test "array sort argsort and partition axes" {
     try std.testing.expectError(error.InvalidAxis, a.sort(2));
     try std.testing.expectError(error.InvalidShape, a.partition(3, 1, false));
 
-    var flags = try array(bool, gpa, &.{ true, false, false, true }, &.{ 2, 2 });
+    var flags = try Array(bool).fromSlice(gpa, &.{ true, false, false, true }, &.{ 2, 2 });
     defer flags.deinit();
     var sorted_flags = try flags.sort(1);
     defer sorted_flags.deinit();
@@ -8267,7 +7474,7 @@ test "array sort argsort and partition axes" {
 
 test "array bool all any axis reductions" {
     const gpa = std.testing.allocator;
-    var mask = try array(bool, gpa, &.{ true, true, false, true, false, false }, &.{ 2, 3 });
+    var mask = try Array(bool).fromSlice(gpa, &.{ true, true, false, true, false, false }, &.{ 2, 3 });
     defer mask.deinit();
     try std.testing.expect(!mask.all());
     try std.testing.expect(mask.any());
@@ -8290,24 +7497,24 @@ test "array bool all any axis reductions" {
 
 test "array aliases and alea-backed random distributions" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer a.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, a.shape);
 
-    var logs = try logspace(f64, gpa, 0, 2, 3, 10);
+    var logs = try Array(f64).logspace(gpa, 0, 2, 3, 10);
     defer logs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 10, 100 }, logs.data);
-    var geoms = try geomspace(f64, gpa, 1, 100, 3);
+    var geoms = try Array(f64).geomspace(gpa, 1, 100, 3);
     defer geoms.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), geoms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 10), geoms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 100), geoms.data[2], 1e-12);
 
-    var xs = try array(f64, gpa, &.{ 1, 2 }, &.{2});
+    var xs = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
     defer xs.deinit();
-    var ys = try array(f64, gpa, &.{ 10, 20, 30 }, &.{3});
+    var ys = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30 }, &.{3});
     defer ys.deinit();
-    var grid_xy = try meshgrid(f64, xs, ys, .xy);
+    var grid_xy = try Array(f64).meshgrid(xs, ys, .xy);
     defer grid_xy.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, grid_xy.x.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 1, 2, 1, 2 }, grid_xy.x.data);
@@ -8318,88 +7525,88 @@ test "array aliases and alea-backed random distributions" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 2, 2, 2 }, grid_ij.x.data);
     try std.testing.expectEqualSlices(f64, &.{ 10, 20, 30, 10, 20, 30 }, grid_ij.y.data);
 
-    var u = try uniform(f64, gpa, &.{16}, -2.0, 3.0, 123);
+    var u = try Array(f64).uniform(gpa, &.{16}, -2.0, 3.0, 123);
     defer u.deinit();
     for (u.data) |v| try std.testing.expect(v >= -2.0 and v < 3.0);
 
-    var n = try normal(f64, gpa, &.{8}, 10.0, 0.0, 123);
+    var n = try Array(f64).normal(gpa, &.{8}, 10.0, 0.0, 123);
     defer n.deinit();
     for (n.data) |v| try std.testing.expectEqual(@as(f64, 10.0), v);
 
-    var r = try randint(i64, gpa, &.{32}, 2, 7, 456);
+    var r = try Array(i64).randint(gpa, &.{32}, 2, 7, 456);
     defer r.deinit();
     for (r.data) |v| try std.testing.expect(v >= 2 and v < 7);
 
-    var b0 = try bernoulli(gpa, &.{4}, 0.0, 789);
+    var b0 = try Array(bool).bernoulli(gpa, &.{4}, 0.0, 789);
     defer b0.deinit();
     try std.testing.expect(!b0.any());
-    var b1 = try bernoulli(gpa, &.{4}, 1.0, 789);
+    var b1 = try Array(bool).bernoulli(gpa, &.{4}, 1.0, 789);
     defer b1.deinit();
     try std.testing.expect(b1.all());
 }
 
 test "alea-backed advanced random distributions" {
     const gpa = std.testing.allocator;
-    var e = try exponential(f64, gpa, &.{16}, 2.0, 111);
+    var e = try Array(f64).exponential(gpa, &.{16}, 2.0, 111);
     defer e.deinit();
     for (e.data) |v| try std.testing.expect(v >= 0);
 
-    var g0 = try gamma(f64, gpa, &.{4}, 2.0, 0.0, 222);
+    var g0 = try Array(f64).gamma(gpa, &.{4}, 2.0, 0.0, 222);
     defer g0.deinit();
     for (g0.data) |v| try std.testing.expectEqual(@as(f64, 0), v);
 
-    var be = try beta(f64, gpa, &.{16}, 2.0, 5.0, 333);
+    var be = try Array(f64).beta(gpa, &.{16}, 2.0, 5.0, 333);
     defer be.deinit();
     for (be.data) |v| try std.testing.expect(v >= 0 and v <= 1);
 
-    var p0 = try poisson(gpa, &.{8}, 0.0, 444);
+    var p0 = try Array(u64).poisson(gpa, &.{8}, 0.0, 444);
     defer p0.deinit();
     try std.testing.expectEqualSlices(u64, &.{ 0, 0, 0, 0, 0, 0, 0, 0 }, p0.data);
 }
 
 test "alea-backed additional continuous distributions" {
     const gpa = std.testing.allocator;
-    var ln = try lognormal(f64, gpa, &.{8}, 0.0, 0.0, 555);
+    var ln = try Array(f64).lognormal(gpa, &.{8}, 0.0, 0.0, 555);
     defer ln.deinit();
     for (ln.data) |v| try std.testing.expectApproxEqAbs(@as(f64, 1), v, 1e-12);
 
-    var st = try studentT(f64, gpa, &.{8}, 8.0, 666);
+    var st = try Array(f64).studentT(gpa, &.{8}, 8.0, 666);
     defer st.deinit();
     for (st.data) |v| try std.testing.expect(std.math.isFinite(v));
 
-    var ca = try cauchy(f64, gpa, &.{8}, 0.0, 1.0, 777);
+    var ca = try Array(f64).cauchy(gpa, &.{8}, 0.0, 1.0, 777);
     defer ca.deinit();
     for (ca.data) |v| try std.testing.expect(std.math.isFinite(v));
 
-    var la = try laplace(f64, gpa, &.{8}, 0.0, 2.0, 888);
+    var la = try Array(f64).laplace(gpa, &.{8}, 0.0, 2.0, 888);
     defer la.deinit();
     for (la.data) |v| try std.testing.expect(std.math.isFinite(v));
 
-    var wb = try weibull(f64, gpa, &.{8}, 2.0, 1.5, 999);
+    var wb = try Array(f64).weibull(gpa, &.{8}, 2.0, 1.5, 999);
     defer wb.deinit();
     for (wb.data) |v| try std.testing.expect(v >= 0);
 }
 
 test "array scatter add and reduce variants" {
     const gpa = std.testing.allocator;
-    var base = try zeros(f64, gpa, &.{ 2, 3 });
+    var base = try Array(f64).zeros(gpa, &.{ 2, 3 });
     defer base.deinit();
-    var idx = try array(usize, gpa, &.{ 0, 1, 1, 2, 0, 2 }, &.{ 2, 3 });
+    var idx = try Array(usize).fromSlice(gpa, &.{ 0, 1, 1, 2, 0, 2 }, &.{ 2, 3 });
     defer idx.deinit();
-    var src = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var src = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer src.deinit();
 
     var added = try base.scatterAdd(1, idx, src);
     defer added.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 0, 5, 0, 10 }, added.data);
 
-    var ones_base = try ones(f64, gpa, &.{ 2, 3 });
+    var ones_base = try Array(f64).ones(gpa, &.{ 2, 3 });
     defer ones_base.deinit();
     var product_out = try ones_base.scatterReduce(1, idx, src, .prod);
     defer product_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 6, 1, 5, 1, 24 }, product_out.data);
 
-    var max_base = try full(f64, gpa, &.{ 2, 3 }, -100);
+    var max_base = try Array(f64).full(gpa, &.{ 2, 3 }, -100);
     defer max_base.deinit();
     var maxed = try max_base.scatterReduce(1, idx, src, .max);
     defer maxed.deinit();
@@ -8412,7 +7619,7 @@ test "array scatter add and reduce variants" {
 
 test "array creation like scalar diag and diagflat" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
 
     var z = try a.zerosLike();
@@ -8420,20 +7627,20 @@ test "array creation like scalar diag and diagflat" {
     try std.testing.expectEqualSlices(usize, a.shape, z.shape);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0, 0, 0 }, z.data);
 
-    var o = try onesLike(f64, a);
+    var o = try a.onesLike();
     defer o.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, o.data);
 
-    var f = try fullLike(f64, a, 7);
+    var f = try a.fullLike(7);
     defer f.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7, 7, 7 }, f.data);
 
-    var s = try arrayScalar(f64, gpa, 42);
+    var s = try Array(f64).fromScalar(gpa, 42);
     defer s.deinit();
     try std.testing.expectEqual(@as(usize, 0), s.shape.len);
     try std.testing.expectEqual(@as(f64, 42), try s.item());
 
-    var v = try array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    var v = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer v.deinit();
     var d0 = try v.diag(0);
     defer d0.deinit();
@@ -8452,28 +7659,28 @@ test "array creation like scalar diag and diagflat" {
 
 test "array advanced indexing and mask mutation helpers" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 10, 11, 12, 20, 21, 22 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 10, 11, 12, 20, 21, 22 }, &.{ 2, 3 });
     defer a.deinit();
-    var idx = try array(usize, gpa, &.{ 2, 0, 1, 1, 2, 0 }, &.{ 2, 3 });
+    var idx = try Array(usize).fromSlice(gpa, &.{ 2, 0, 1, 1, 2, 0 }, &.{ 2, 3 });
     defer idx.deinit();
 
     var taken = try a.takeAlongAxis(idx, 1);
     defer taken.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 12, 10, 11, 21, 22, 20 }, taken.data);
 
-    var base = try zeros(f64, gpa, &.{ 2, 3 });
+    var base = try Array(f64).zeros(gpa, &.{ 2, 3 });
     defer base.deinit();
     var put = try base.putAlongAxis(idx, taken, 1);
     defer put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 11, 12, 20, 21, 22 }, put.data);
 
-    var mask = try array(bool, gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
+    var mask = try Array(bool).fromSlice(gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
     defer mask.deinit();
     var filled = try a.maskedFill(mask, -1);
     defer filled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 11, -1, 20, -1, 22 }, filled.data);
 
-    var src = try array(f64, gpa, &.{ 100, 200, 300 }, &.{3});
+    var src = try Array(f64).fromSlice(gpa, &.{ 100, 200, 300 }, &.{3});
     defer src.deinit();
     var scattered = try a.maskedScatter(mask, src);
     defer scattered.deinit();
@@ -8488,26 +7695,26 @@ test "array advanced indexing and mask mutation helpers" {
 
 test "array slice flip roll and constant padding" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
 
     var sliced = try a.sliceAxis(1, .{ .start = 0, .stop = 3, .step = 2 });
     defer sliced.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, sliced.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4, 6 }, sliced.data);
-    var sliced_top = try sliceAxis(f64, a, 1, .{ .start = 0, .stop = 3, .step = 2 });
+    var sliced_top = try a.sliceAxis(1, .{ .start = 0, .stop = 3, .step = 2 });
     defer sliced_top.deinit();
     try std.testing.expectEqualSlices(f64, sliced.data, sliced_top.data);
-    var multi_sliced = try slice(f64, a, &.{
+    var multi_sliced = try a.slice(&.{
         .{ .start = 0, .stop = 2, .step = 1 },
         .{ .start = 1, .stop = 3, .step = 1 },
     });
     defer multi_sliced.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, multi_sliced.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5, 6 }, multi_sliced.data);
-    var v = try array(f64, gpa, &.{ 1, 2, 3, 4, 5 }, &.{5});
+    var v = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5 }, &.{5});
     defer v.deinit();
-    var sliced_1d = try slice1d(f64, v, .{ .start = 1, .stop = 5, .step = 2 });
+    var sliced_1d = try v.slice1d(.{ .start = 1, .stop = 5, .step = 2 });
     defer sliced_1d.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 4 }, sliced_1d.data);
 
@@ -8556,75 +7763,75 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(DType.u64, DType.promote(.u32, .u64));
 
     const gpa = std.testing.allocator;
-    var ints = try array(i16, gpa, &.{ -1, 0, 2 }, &.{3});
+    var ints = try Array(i16).fromSlice(gpa, &.{ -1, 0, 2 }, &.{3});
     defer ints.deinit();
     var floats = try ints.astype(f32);
     defer floats.deinit();
     try std.testing.expectEqualSlices(f32, &.{ -1, 0, 2 }, floats.data);
-    var unsigned = try array(u32, gpa, &.{ 1, 2, 3 }, &.{3});
+    var unsigned = try Array(u32).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer unsigned.deinit();
     var widened = try unsigned.astype(u64);
     defer widened.deinit();
     try std.testing.expectEqualSlices(u64, &.{ 1, 2, 3 }, widened.data);
-    var halves = try array(f16, gpa, &.{ @as(f16, 1.5), @as(f16, -2.0) }, &.{2});
+    var halves = try Array(f16).fromSlice(gpa, &.{ @as(f16, 1.5), @as(f16, -2.0) }, &.{2});
     defer halves.deinit();
     var half_to_float = try halves.astype(f32);
     defer half_to_float.deinit();
     try std.testing.expectEqualSlices(f32, &.{ 1.5, -2.0 }, half_to_float.data);
     try std.testing.expectEqual(f32, promoteType(f16, f32));
     try std.testing.expectEqual(i32, promoteType(i16, u16));
-    var small_signed = try array(i16, gpa, &.{ -1, 2, 3 }, &.{3});
+    var small_signed = try Array(i16).fromSlice(gpa, &.{ -1, 2, 3 }, &.{3});
     defer small_signed.deinit();
-    var small_unsigned = try array(u16, gpa, &.{ 5, 6, 7 }, &.{3});
+    var small_unsigned = try Array(u16).fromSlice(gpa, &.{ 5, 6, 7 }, &.{3});
     defer small_unsigned.deinit();
-    var promoted_sum = try addPromote(i16, u16, small_signed, small_unsigned);
+    var promoted_sum = try small_signed.addPromote(u16, small_unsigned);
     defer promoted_sum.deinit();
     try std.testing.expectEqual(DType.i32, @TypeOf(promoted_sum).dtype);
     try std.testing.expectEqualSlices(i32, &.{ 4, 8, 10 }, promoted_sum.data);
     var promoted_max = try small_signed.maximumPromote(u16, small_unsigned);
     defer promoted_max.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 5, 6, 7 }, promoted_max.data);
-    var promoted_half = try mulPromote(f16, f32, halves, half_to_float);
+    var promoted_half = try halves.mulPromote(f32, half_to_float);
     defer promoted_half.deinit();
     try std.testing.expectEqual(DType.f32, @TypeOf(promoted_half).dtype);
     try std.testing.expectEqualSlices(f32, &.{ 2.25, 4.0 }, promoted_half.data);
 
-    var r = try randint(u16, gpa, &.{16}, 10, 20, 42);
+    var r = try Array(u16).randint(gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
     for (r.data) |v| try std.testing.expect(v >= 10 and v < 20);
 }
 
 test "array bytes and archive serialization roundtrip" {
     const gpa = std.testing.allocator;
-    var a = try array(i16, gpa, &.{ -1, 2, 300, -400 }, &.{ 2, 2 });
+    var a = try Array(i16).fromSlice(gpa, &.{ -1, 2, 300, -400 }, &.{ 2, 2 });
     defer a.deinit();
 
     const bytes = try a.toBytes(gpa);
     defer gpa.free(bytes);
     try std.testing.expectEqual(@as(usize, 8), bytes.len);
-    var from_raw = try fromBytes(i16, gpa, bytes, &.{ 2, 2 });
+    var from_raw = try Array(i16).fromBytes(gpa, bytes, &.{ 2, 2 });
     defer from_raw.deinit();
     try std.testing.expectEqualSlices(i16, a.data, from_raw.data);
     try std.testing.expectEqualSlices(usize, a.shape, from_raw.shape);
 
     const archive = try a.toArchive(gpa);
     defer gpa.free(archive);
-    var restored = try fromArchive(i16, gpa, archive);
+    var restored = try Array(i16).fromArchive(gpa, archive);
     defer restored.deinit();
     try std.testing.expectEqualSlices(i16, a.data, restored.data);
     try std.testing.expectEqualSlices(usize, a.shape, restored.shape);
-    try std.testing.expectError(error.TypeUnsupported, fromArchive(f32, gpa, archive));
+    try std.testing.expectError(error.TypeUnsupported, Array(f32).fromArchive(gpa, archive));
 }
 
 test "array axis cumulative operations and diff" {
     const gpa = std.testing.allocator;
-    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
 
     var cs0 = try a.cumsumAxis(0);
     defer cs0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 5, 7, 9 }, cs0.data);
-    var cs1 = try cumsumAxis(f64, a, 1);
+    var cs1 = try a.cumsumAxis(1);
     defer cs1.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 4, 9, 15 }, cs1.data);
 
@@ -8637,7 +7844,7 @@ test "array axis cumulative operations and diff" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, d1.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, d1.data);
 
-    var d2 = try diff(f64, a, 1, 2);
+    var d2 = try a.diff(1, 2);
     defer d2.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, d2.shape);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, d2.data);
@@ -8645,79 +7852,79 @@ test "array axis cumulative operations and diff" {
 
 test "array unique bincount searchsorted and clipArray" {
     const gpa = std.testing.allocator;
-    var a = try array(i32, gpa, &.{ 3, 1, 2, 3, 2, 1, 4 }, &.{7});
+    var a = try Array(i32).fromSlice(gpa, &.{ 3, 1, 2, 3, 2, 1, 4 }, &.{7});
     defer a.deinit();
     var u = try a.unique();
     defer u.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 4 }, u.data);
-    var b = try array(i32, gpa, &.{ 2, 4, 4, 5 }, &.{4});
+    var b = try Array(i32).fromSlice(gpa, &.{ 2, 4, 4, 5 }, &.{4});
     defer b.deinit();
-    var uni = try union1d(i32, a, b);
+    var uni = try a.union1d(b);
     defer uni.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 4, 5 }, uni.data);
     var inter = try a.intersect1d(b);
     defer inter.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 2, 4 }, inter.data);
-    var diff_set = try setdiff1d(i32, a, b);
+    var diff_set = try a.setdiff1d(b);
     defer diff_set.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 1, 3 }, diff_set.data);
-    var xor_set = try setxor1d(i32, a, b);
+    var xor_set = try a.setxor1d(b);
     defer xor_set.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 1, 3, 5 }, xor_set.data);
-    var uc = try uniqueWithCounts(i32, a);
+    var uc = try a.uniqueWithCounts();
     defer uc.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 4 }, uc.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2, 1 }, uc.counts.data);
 
-    var counts = try bincount(i32, a, 6);
+    var counts = try a.bincount(6);
     defer counts.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 2, 2, 1, 0 }, counts.data);
-    var weights = try array(f64, gpa, &.{ 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0 }, &.{7});
+    var weights = try Array(f64).fromSlice(gpa, &.{ 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0 }, &.{7});
     defer weights.deinit();
-    var weighted_counts = try bincountWeighted(i32, f64, a, weights, 6);
+    var weighted_counts = try a.bincountWeighted(f64, weights, 6);
     defer weighted_counts.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 4, 4, 2.5, 4, 0 }, weighted_counts.data);
 
-    var sorted = try array(f64, gpa, &.{ 1, 2, 2, 4 }, &.{4});
+    var sorted = try Array(f64).fromSlice(gpa, &.{ 1, 2, 2, 4 }, &.{4});
     defer sorted.deinit();
-    var probes = try array(f64, gpa, &.{ 0, 2, 3, 5 }, &.{4});
+    var probes = try Array(f64).fromSlice(gpa, &.{ 0, 2, 3, 5 }, &.{4});
     defer probes.deinit();
     var left = try sorted.searchsorted(probes, .left);
     defer left.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3, 4 }, left.data);
-    var right = try searchsorted(f64, sorted, probes, .right);
+    var right = try sorted.searchsorted(probes, .right);
     defer right.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 3, 3, 4 }, right.data);
-    var buckets = try bucketize(f64, probes, sorted, .right);
+    var buckets = try probes.bucketize(sorted, .right);
     defer buckets.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 3, 3, 4 }, buckets.data);
-    var digits_left_open = try digitize(f64, probes, sorted, false);
+    var digits_left_open = try probes.digitize(sorted, false);
     defer digits_left_open.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 3, 3, 4 }, digits_left_open.data);
     var digits_right_open = try probes.digitize(sorted, true);
     defer digits_right_open.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3, 4 }, digits_right_open.data);
 
-    var needles = try array(i32, gpa, &.{ 2, 4 }, &.{2});
+    var needles = try Array(i32).fromSlice(gpa, &.{ 2, 4 }, &.{2});
     defer needles.deinit();
     var members = try a.isin(needles, false);
     defer members.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false, true }, members.data);
-    var non_members = try isin(i32, a, needles, true);
+    var non_members = try a.isin(needles, true);
     defer non_members.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, false, true, false }, non_members.data);
 
-    var flags = try array(bool, gpa, &.{ true, false, true }, &.{3});
+    var flags = try Array(bool).fromSlice(gpa, &.{ true, false, true }, &.{3});
     defer flags.deinit();
     var unique_flags = try flags.unique();
     defer unique_flags.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true }, unique_flags.data);
 
-    var x = try array(f64, gpa, &.{ -1, 0, 5, 10 }, &.{ 2, 2 });
+    var x = try Array(f64).fromSlice(gpa, &.{ -1, 0, 5, 10 }, &.{ 2, 2 });
     defer x.deinit();
-    var lo = try array(f64, gpa, &.{ 0, 2 }, &.{2});
+    var lo = try Array(f64).fromSlice(gpa, &.{ 0, 2 }, &.{2});
     defer lo.deinit();
-    var hi = try array(f64, gpa, &.{4}, &.{1});
+    var hi = try Array(f64).fromSlice(gpa, &.{4}, &.{1});
     defer hi.deinit();
     var clipped = try x.clipArray(lo, hi);
     defer clipped.deinit();

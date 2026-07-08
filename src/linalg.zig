@@ -829,7 +829,7 @@ fn solveF64(a: array_mod.Array(f64), b: array_mod.Array(f64)) LinalgError!array_
 
 test "linalg inverse det solve" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
     defer a.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 10), try det(f64, a), 1e-12);
     var inv = try inverse(f64, a);
@@ -843,9 +843,9 @@ test "linalg inverse det solve" {
 
 test "linalg f64 matmul uses Veyra-compatible path" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var b = try array_mod.array(f64, gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
+    var b = try array_mod.Array(f64).fromSlice(gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
     defer b.deinit();
     var out = try matmul(f64, a, b);
     defer out.deinit();
@@ -856,15 +856,15 @@ test "linalg f64 matmul uses Veyra-compatible path" {
 
 test "linalg matvec and cholesky use Veyra-compatible paths" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var x = try array_mod.array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer x.deinit();
     var y = try matvec(f64, a, x);
     defer y.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 14, 32 }, y.data);
 
-    var spd = try array_mod.array(f64, gpa, &.{ 25, 15, -5, 15, 18, 0, -5, 0, 11 }, &.{ 3, 3 });
+    var spd = try array_mod.Array(f64).fromSlice(gpa, &.{ 25, 15, -5, 15, 18, 0, -5, 0, 11 }, &.{ 3, 3 });
     defer spd.deinit();
     var l = try cholesky(f64, spd);
     defer l.deinit();
@@ -880,7 +880,7 @@ test "linalg matvec and cholesky use Veyra-compatible paths" {
 
 test "linalg qr reconstructs matrix" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
     defer a.deinit();
     var factors = try qr(f64, a);
     defer factors.deinit();
@@ -893,7 +893,7 @@ test "linalg qr reconstructs matrix" {
 
 test "linalg svd reconstructs matrix" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
     defer a.deinit();
     var factors = try svd(f64, a, 1e-12);
     defer factors.deinit();
@@ -914,16 +914,16 @@ test "linalg svd reconstructs matrix" {
 
 test "linalg lstsq solves vector and matrix rhs" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
     defer a.deinit();
-    var b = try array_mod.array(f64, gpa, &.{ 1, 2, 2 }, &.{3});
+    var b = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 2 }, &.{3});
     defer b.deinit();
     var x = try lstsq(f64, a, b, 1e-12);
     defer x.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), x.data[0], 1e-10);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), x.data[1], 1e-10);
 
-    var bm = try array_mod.array(f64, gpa, &.{ 1, 2, 2, 1, 2, 0 }, &.{ 3, 2 });
+    var bm = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 2, 1, 2, 0 }, &.{ 3, 2 });
     defer bm.deinit();
     var xm = try lstsq(f64, a, bm, 1e-12);
     defer xm.deinit();
@@ -936,7 +936,7 @@ test "linalg lstsq solves vector and matrix rhs" {
 
 test "linalg singular values rank condition and pinv" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 3, 0, 0, 2 }, &.{ 2, 2 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 3, 0, 0, 2 }, &.{ 2, 2 });
     defer a.deinit();
 
     var values = try singularValues(f64, a, 1e-12);
@@ -955,7 +955,7 @@ test "linalg singular values rank condition and pinv" {
     try std.testing.expectApproxEqAbs(@as(f64, 0), p.data[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), p.data[3], 1e-12);
 
-    var rect = try array_mod.array(f64, gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    var rect = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
     defer rect.deinit();
     var rect_p = try pinv(f64, rect, 1e-12);
     defer rect_p.deinit();
@@ -969,7 +969,7 @@ test "linalg singular values rank condition and pinv" {
 
 test "linalg matrix norms use Veyra-compatible paths" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 1, -2, 3, -4, 5, -6 }, &.{ 2, 3 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, -2, 3, -4, 5, -6 }, &.{ 2, 3 });
     defer a.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(91.0)), try matrixNorm(f64, a, .fro, 1e-12), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 9), try matrixNorm(f64, a, .one, 1e-12), 1e-12);
@@ -978,7 +978,7 @@ test "linalg matrix norms use Veyra-compatible paths" {
 
 test "linalg symmetric eigen decomposition" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
     defer a.deinit();
     var result = try eigh(f64, a, 64, 1e-12);
     defer result.deinit();
@@ -1007,7 +1007,7 @@ test "linalg symmetric eigen decomposition" {
 
 test "linalg lu reconstructs and det uses Veyra path" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 0, 2, 1, 2, 1, 1, 1, 1, 0 }, &.{ 3, 3 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 0, 2, 1, 2, 1, 1, 1, 1, 0 }, &.{ 3, 3 });
     defer a.deinit();
     var factors = try lu(f64, a);
     defer factors.deinit();
@@ -1021,16 +1021,16 @@ test "linalg lu reconstructs and det uses Veyra path" {
 
 test "linalg solve uses LU for vector and matrix rhs" {
     const gpa = std.testing.allocator;
-    var a = try array_mod.array(f64, gpa, &.{ 3, 1, 1, 2 }, &.{ 2, 2 });
+    var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 3, 1, 1, 2 }, &.{ 2, 2 });
     defer a.deinit();
-    var b = try array_mod.array(f64, gpa, &.{ 9, 8 }, &.{2});
+    var b = try array_mod.Array(f64).fromSlice(gpa, &.{ 9, 8 }, &.{2});
     defer b.deinit();
     var x = try solve(f64, a, b);
     defer x.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2), x.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), x.data[1], 1e-12);
 
-    var bm = try array_mod.array(f64, gpa, &.{ 9, 4, 8, 5 }, &.{ 2, 2 });
+    var bm = try array_mod.Array(f64).fromSlice(gpa, &.{ 9, 4, 8, 5 }, &.{ 2, 2 });
     defer bm.deinit();
     var xm = try solve(f64, a, bm);
     defer xm.deinit();
@@ -1042,9 +1042,9 @@ test "linalg solve uses LU for vector and matrix rhs" {
 
 test "linalg solveTriangular handles vector and matrix rhs" {
     const gpa = std.testing.allocator;
-    var lower = try array_mod.array(f64, gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
+    var lower = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
     defer lower.deinit();
-    var rhs = try array_mod.array(f64, gpa, &.{ 2, 2, 25 }, &.{3});
+    var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 2, 25 }, &.{3});
     defer rhs.deinit();
     var x = try solveTriangular(f64, lower, rhs, .lower, .non_unit);
     defer x.deinit();
@@ -1055,7 +1055,7 @@ test "linalg solveTriangular handles vector and matrix rhs" {
     defer check.deinit();
     try std.testing.expect(try check.allclose(rhs, 1e-12, 1e-12));
 
-    var rhs_matrix = try array_mod.array(f64, gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
+    var rhs_matrix = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
     defer rhs_matrix.deinit();
     var xm = try solveTriangular(f64, lower, rhs_matrix, .lower, .non_unit);
     defer xm.deinit();
@@ -1064,9 +1064,9 @@ test "linalg solveTriangular handles vector and matrix rhs" {
     defer check_m.deinit();
     try std.testing.expect(try check_m.allclose(rhs_matrix, 1e-12, 1e-12));
 
-    var unit_upper = try array_mod.array(f64, gpa, &.{ 1, 2, -1, 0, 1, 3, 0, 0, 1 }, &.{ 3, 3 });
+    var unit_upper = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, -1, 0, 1, 3, 0, 0, 1 }, &.{ 3, 3 });
     defer unit_upper.deinit();
-    var rhs_upper = try array_mod.array(f64, gpa, &.{ 5, 7, 2 }, &.{3});
+    var rhs_upper = try array_mod.Array(f64).fromSlice(gpa, &.{ 5, 7, 2 }, &.{3});
     defer rhs_upper.deinit();
     var xu = try solveTriangular(f64, unit_upper, rhs_upper, .upper, .unit);
     defer xu.deinit();

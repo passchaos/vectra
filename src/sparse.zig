@@ -1182,7 +1182,7 @@ pub fn csrFromCompressed(
 
 test "csr sparse bridge dense roundtrip and matvec" {
     const gpa = std.testing.allocator;
-    var dense = try array_mod.array(f64, gpa, &.{
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         10, 0, 2, 0,
         0,  3, 0, 4,
         5,  0, 0, 6,
@@ -1200,7 +1200,7 @@ test "csr sparse bridge dense roundtrip and matvec" {
     defer dense2.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, dense2.data);
 
-    var x = try array_mod.array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{4});
+    var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{4});
     defer x.deinit();
     var y = try csr.matvec(x);
     defer y.deinit();
@@ -1209,7 +1209,7 @@ test "csr sparse bridge dense roundtrip and matvec" {
 
 test "csr sparse matmat transpose and statistics" {
     const gpa = std.testing.allocator;
-    var dense = try array_mod.array(f64, gpa, &.{
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 0, 2,
         0, 3, 0,
     }, &.{ 2, 3 });
@@ -1217,7 +1217,7 @@ test "csr sparse matmat transpose and statistics" {
     var csr = try csrFromDense(f64, dense);
     defer csr.deinit();
 
-    var rhs = try array_mod.array(f64, gpa, &.{
+    var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2,
         3, 4,
         5, 6,
@@ -1244,7 +1244,7 @@ test "csr sparse matmat transpose and statistics" {
 
 test "csr sparse row and column statistics" {
     const gpa = std.testing.allocator;
-    var dense = try array_mod.array(f64, gpa, &.{
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 0, -2,
         0, 3, 0,
         4, 0, 5,
@@ -1288,7 +1288,7 @@ test "csr sparse row and column statistics" {
 
 test "csr sparse diagonal trace bandwidth and symmetry" {
     const gpa = std.testing.allocator;
-    var symmetric_dense = try array_mod.array(f64, gpa, &.{
+    var symmetric_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         4, 1, 0,
         1, 5, 2,
         0, 2, 6,
@@ -1307,7 +1307,7 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
 
-    var nonsym_dense = try array_mod.array(f64, gpa, &.{
+    var nonsym_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2, 0,
         0, 0, 3,
         0, 0, 4,
@@ -1324,7 +1324,7 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
 
 test "csr sparse transpose products and triangular solves" {
     const gpa = std.testing.allocator;
-    var dense = try array_mod.array(f64, gpa, &.{
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 0, 2,
         0, 3, 0,
     }, &.{ 2, 3 });
@@ -1332,13 +1332,13 @@ test "csr sparse transpose products and triangular solves" {
     var csr = try csrFromDense(f64, dense);
     defer csr.deinit();
 
-    var x = try array_mod.array(f64, gpa, &.{ 4, 5 }, &.{2});
+    var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 4, 5 }, &.{2});
     defer x.deinit();
     var tx = try csr.transposeMatvec(x);
     defer tx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 15, 8 }, tx.data);
 
-    var rhs = try array_mod.array(f64, gpa, &.{
+    var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2,
         3, 4,
     }, &.{ 2, 2 });
@@ -1348,7 +1348,7 @@ test "csr sparse transpose products and triangular solves" {
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, tm.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 9, 12, 2, 4 }, tm.data);
 
-    var lower_dense = try array_mod.array(f64, gpa, &.{
+    var lower_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         2,  0, 0,
         -1, 3, 0,
         4,  2, 5,
@@ -1356,7 +1356,7 @@ test "csr sparse transpose products and triangular solves" {
     defer lower_dense.deinit();
     var lower = try csrFromDense(f64, lower_dense);
     defer lower.deinit();
-    var lower_rhs = try array_mod.array(f64, gpa, &.{ 2, 2, 25 }, &.{3});
+    var lower_rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 2, 25 }, &.{3});
     defer lower_rhs.deinit();
     var solved = try lower.solveTriangular(lower_rhs, .lower, .non_unit);
     defer solved.deinit();
@@ -1364,7 +1364,7 @@ test "csr sparse transpose products and triangular solves" {
     defer check.deinit();
     try std.testing.expect(try check.allclose(lower_rhs, 1e-12, 1e-12));
 
-    var lower_rhs_m = try array_mod.array(f64, gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
+    var lower_rhs_m = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
     defer lower_rhs_m.deinit();
     var solved_m = try lower.solveTriangular(lower_rhs_m, .lower, .non_unit);
     defer solved_m.deinit();
@@ -1375,7 +1375,7 @@ test "csr sparse transpose products and triangular solves" {
 
 test "csc sparse bridge dense roundtrip matvec matmat and csr transpose" {
     const gpa = std.testing.allocator;
-    var dense = try array_mod.array(f64, gpa, &.{
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         10, 0, 2, 0,
         0,  3, 0, 4,
         5,  0, 0, 6,
@@ -1392,13 +1392,13 @@ test "csc sparse bridge dense roundtrip matvec matmat and csr transpose" {
     defer dense2.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, dense2.data);
 
-    var x = try array_mod.array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{4});
+    var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{4});
     defer x.deinit();
     var y = try csc.matvec(x);
     defer y.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 16, 22, 29 }, y.data);
 
-    var rhs = try array_mod.array(f64, gpa, &.{
+    var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2,
         2, 4,
         3, 6,
@@ -1420,7 +1420,7 @@ test "csc sparse bridge dense roundtrip matvec matmat and csr transpose" {
 
 test "csc sparse transpose products and row column stats" {
     const gpa = std.testing.allocator;
-    var dense = try array_mod.array(f64, gpa, &.{
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 0, -2,
         0, 3, 0,
         4, 0, 5,
@@ -1429,13 +1429,13 @@ test "csc sparse transpose products and row column stats" {
     var csc = try cscFromDense(f64, dense);
     defer csc.deinit();
 
-    var x = try array_mod.array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer x.deinit();
     var tx = try csc.transposeMatvec(x);
     defer tx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 13, 6, 13 }, tx.data);
 
-    var rhs = try array_mod.array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 3, 2 });
+    var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 3, 2 });
     defer rhs.deinit();
     var tm = try csc.transposeMatmat(rhs);
     defer tm.deinit();
@@ -1468,7 +1468,7 @@ test "csc sparse transpose products and row column stats" {
 
 test "csc sparse diagnostics and triangular solve" {
     const gpa = std.testing.allocator;
-    var symmetric_dense = try array_mod.array(f64, gpa, &.{
+    var symmetric_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         4, 1, 0,
         1, 5, 2,
         0, 2, 6,
@@ -1486,7 +1486,7 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
 
-    var lower_dense = try array_mod.array(f64, gpa, &.{
+    var lower_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         2,  0, 0,
         -1, 3, 0,
         4,  2, 5,
@@ -1494,7 +1494,7 @@ test "csc sparse diagnostics and triangular solve" {
     defer lower_dense.deinit();
     var lower = try cscFromDense(f64, lower_dense);
     defer lower.deinit();
-    var rhs = try array_mod.array(f64, gpa, &.{ 2, 2, 25 }, &.{3});
+    var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 2, 25 }, &.{3});
     defer rhs.deinit();
     var x = try lower.solveTriangular(rhs, .lower, .non_unit);
     defer x.deinit();
@@ -1502,7 +1502,7 @@ test "csc sparse diagnostics and triangular solve" {
     defer check.deinit();
     try std.testing.expect(try check.allclose(rhs, 1e-12, 1e-12));
 
-    var rhs_m = try array_mod.array(f64, gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
+    var rhs_m = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 4, 2, 4, 25, 50 }, &.{ 3, 2 });
     defer rhs_m.deinit();
     var xm = try lower.solveTriangular(rhs_m, .lower, .non_unit);
     defer xm.deinit();

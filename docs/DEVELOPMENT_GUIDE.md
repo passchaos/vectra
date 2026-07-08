@@ -11,7 +11,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - SciPy
 - Pandas / Polars
 
-接口应尽量让熟悉 Python 数值计算生态的用户容易迁移；但在同一件事情 NumPy 与 PyTorch 都有常见接口时，优先考虑更符合 PyTorch 使用习惯的链式/方法式 API，同时保留 NumPy 风格的顶层函数包装。
+接口应尽量让熟悉 Python 数值计算生态的用户容易迁移；但在同一件事情 NumPy 与 PyTorch 都有常见接口时，优先考虑更符合 PyTorch 使用习惯的类型/对象式 API，不再保留重复的 NumPy 风格过程式数组包装。
 
 ## 2. 功能开发优先级
 
@@ -24,7 +24,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 优先完善：
 
 - 数组数据结构：shape、stride、dtype、device、内存布局、contiguous/non-contiguous view；当前已有 `ArrayView` / `NDArrayView` 非 owning 视图基础，后续继续把更多 kernel 做成 view-aware。
-- 创建函数：`array`、`zeros`、`ones`、`empty`、`full`、`eye`、`arange`、`linspace`、`logspace`、`geomspace`、`meshgrid`、随机初始化等。
+- 创建函数：通过 `Array(T)` / `NDArray(T)` 的类型方法创建，例如 `fromSlice`、`zeros`、`ones`、`empty`、`full`、`eye`、`arange`、`linspace`、`logspace`、`geomspace`、`meshgrid`、随机初始化等。
 - 索引与切片：整数索引、range/slice、bool mask、坐标索引、take/gather/scatter、IndexMode raise/wrap/clip、masked/index put、compress、advanced indexing、membership/search helpers。
 - 形状变换：reshape/view、flatten/ravel、squeeze/unsqueeze、transpose/permute/swapaxes/movedim、broadcast、repeat/tile、slice/sliceAxis/slice1d、split/chunk、hstack/vstack/dstack/columnStack、flip、roll、padConstant。
 - 广播逐元素运算：加减乘除、幂、floorDiv/mod/remainder、hypot/atan2、copysign/heaviside、比较及 scalar 比较、逻辑运算及 scalar 逻辑、where、clip/clamp/clipArray、maximum/minimum。
@@ -37,8 +37,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 
 API 取向：
 
-- 数组对象方法优先，例如 `x.reshape(...)`、`x.softmax(axis)`、`x.matmul(y)`。
-- 同时提供顶层函数包装，例如 `vx.zeros(...)`、`vx.stack(...)`、`vx.cat(...)`。
+- 数组 API 以类型/对象方法为主，例如 `Array(f64).zeros(...)`、`x.reshape(...)`、`x.softmax(axis)`、`x.matmul(y)`；不要新增重复的过程式数组包装。
 - `axis` 与 `dim` 语义都要考虑；Zig 中如名称冲突可在实现中用 `axis_index` / `axis_opt`，文档可解释为 NumPy 的 axis / PyTorch 的 dim。
 - 先保证 CPU 版本正确、可测试、API 稳定，再做 SIMD、BLAS、GPU 等性能后端。
 
@@ -83,12 +82,12 @@ Pandas/Polars 能力排在数组与 SciPy 之后。
 
 初始化阶段已优先实现一批 Array/NDArray 能力：
 
-- 创建：`array/ndarray`、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`logspace`、`geomspace`、`meshgrid(MeshGridIndexing.xy/ij)`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
-- 形状：方法与顶层包装形式的 `reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`、`broadcastTo`、`repeat`、`tile`、`slice/sliceAxis/slice1d`、`split/chunk`、`hstack/vstack/dstack/columnStack`、`flip`、`roll`、`padConstant`；非复制视图基础包括 `ArrayView/NDArrayView`、`asView`、`sliceAxisView/sliceView`、`selectView/narrowView`、`permuteView/transposeView`、`broadcastView`、共享存储 mutation 与 `toArray/contiguous` materialization。
+- 创建：`Array(T)` / `NDArray(T)` 类型方法，包括 `fromSlice`、`fromScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`logspace`、`geomspace`、`meshgrid(MeshGridIndexing.xy/ij)`、`rand`、`randn`、`randint`，以及对象方法 `emptyLike/zerosLike/onesLike/fullLike`。
+- 形状：对象/类型方法 `reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`、`broadcastTo`、`repeat`、`tile`、`slice/sliceAxis/slice1d`、`split/chunk`、`hstack/vstack/dstack/columnStack`、`flip`、`roll`、`padConstant`；非复制视图基础包括 `ArrayView/NDArrayView`、`asView`、`sliceAxisView/sliceView`、`selectView/narrowView`、`permuteView/transposeView`、`broadcastView`、共享存储 mutation 与 `toArray/contiguous` materialization。
 - 索引/搜索：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeMode(IndexMode.raise/wrap/clip)`、`takeAlongAxis/putAlongAxis`、支持前缀形状坐标数组的坐标索引 `ravelCoords/unravelFlat/takeCoords/putCoords/putCoordsScalar`、支持广播坐标数组的 `ravelMultiIndex/takeMultiIndex/putMultiIndex/putMultiIndexScalar`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`scatterReduceScalar/scatterAddScalar`、`maskedSelect`、`maskedFill`、`maskedScatter`、`maskedPut/maskedPutScalar`、`putMask/putMaskScalar`、`copyWhere`、`whereIndices`、`putFlat/putFlatMode/putFlatScalar/putFlatScalarMode`、`indexPut/indexPutScalar`、`compress`、`flatNonzero`、`nonzero/argwhere/countNonzero`、`isin`、`searchsorted`、`bucketize`、`digitize`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、promoted mixed-dtype variants（`addPromote`、`subPromote`、`mulPromote`、`divPromote`、`maximumPromote`、`minimumPromote`）、`floorDiv`、`mod/remainder`、scalar variants、`maximum/minimum`、`hypot`、`atan2`、`copysign`、`heaviside`、`whereMask`、`eq/equal`、`ne/notEqual`、`gt/greater`、`ge/greaterEqual`、`lt/less`、`le/lessEqual`、scalar 比较、`logicalNot/logicalAnd/logicalOr/logicalXor`、scalar 逻辑、`isclose`、`allclose`。
 - 数学/NN：`neg`、`abs`、`square`、`reciprocal`、`sign/signbit`、`nextAfter/nextafter`、`ldexp`、`frexp`、`exp/expm1`、`log/log1p/log2/log10`、`sqrt`、`floor`、`ceil`、`round`、`trunc`、`deg2rad/rad2deg`、`sin`、`cos`、`tan`、`asin`、`acos`、`atan`、`atan2`、`hypot`、`copysign`、`heaviside`、`sinh`、`cosh`、`tanh`、`relu`、`sigmoid`、`softmax`、`logsumexp`、`logSoftmax/log_softmax`、`clip/clamp`、`isNan/isnan`、`isInf/isinf`、`isFinite/isfinite`。
-- 归约/统计：方法与顶层包装形式的 `sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`median`、`quantile`、`percentile`、`weightedMean`、`average`、`weightedVariance/weightedVar`、`weightedStddev/weightedStd`、`weightedQuantile`、`weightedMedian`、`weightedCov`、`weightedCorrcoef`、`cov`、`corrcoef`、`nanToNum/nan_to_num`、`nansum`、`nanmean`、`nanvar`、`nanstd`、`nanmin`、`nanmax`、`nanmedian`、`nanquantile`、`nanpercentile`、`nanCov`、`nanCorrcoef`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`cumsumAxis/cumprodAxis`、`diff`、`argmin`、`argmax`、`argminAxis/argmaxAxis`。
+- 归约/统计：对象方法 `sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`median`、`quantile`、`percentile`、`weightedMean`、`average`、`weightedVariance/weightedVar`、`weightedStddev/weightedStd`、`weightedQuantile`、`weightedMedian`、`weightedCov`、`weightedCorrcoef`、`cov`、`corrcoef`、`nanToNum/nan_to_num`、`nansum`、`nanmean`、`nanvar`、`nanstd`、`nanmin`、`nanmax`、`nanmedian`、`nanquantile`、`nanpercentile`、`nanCov`、`nanCorrcoef`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`cumsumAxis/cumprodAxis`、`diff`、`argmin`、`argmax`、`argminAxis/argmaxAxis`。
 - 排序/选择：`sort`、`sortBy`、`sortDescending`、`argsort`、`argsortAxis`、`argsortDescending`、`sortWithIndices`、`partition`、`argpartition`、`topk(sorted=true/false)`。
 - 离散/计数/集合：`unique`、`uniqueWithCounts`、`union1d`、`intersect1d`、`setdiff1d`、`setxor1d`、`bincount`、`bincountWeighted`。
 - 组合/矩阵辅助：`cat/concatenate`、`stack`、`diag/diagflat`、`diagonal`、`trace`、`triu/tril`、`dot`、`inner/vecdot/vdot`、`outer`、`cross`、`contractAxes`、`matmul/mm/matvec/bmm`；`linalg.matmul/matvec/det/solve/inverse/lu/solveTriangular/cholesky/qr/svd/lstsq/singularValues/matrixRank/cond/pinv/matrixNorm/eigh/eigvalsh`。

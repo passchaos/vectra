@@ -11,15 +11,15 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 ## What is included now
 
 - `Array(T)` / `NDArray(T)` with shape/strides, typed storage (`bool`, `i8/i16/i32/i64`, `u8/u16/u32/u64/usize`, `f16/f32/f64`), dtype metadata (`canCastDType`, `promoteDType`, `resultDType`, `promoteType`), `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`; `ArrayView(T)` / `NDArrayView(T)` provides non-owning strided views with shared storage, offsets, non-contiguous slicing, permutation, broadcasting, mutation, and `toArray/contiguous` materialization.
-- Creation helpers: `array`, `ndarray`, `arrayScalar`, `zeros`, `ones`, `full`, `empty`, `emptyLike`, `zerosLike`, `onesLike`, `fullLike`, `eye`, `arange`, `linspace`, `logspace`, `geomspace`, `meshgrid` with `MeshGridIndexing.xy/ij`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`, `exponential`, `gamma`, `beta`, `poisson`, `lognormal`, `studentT`, `cauchy`, `laplace`, `weibull`; random generation uses the local `../alea` backend.
+- Object-style construction on `Array(T)` / `NDArray(T)`: `fromSlice`, `fromScalar`, `zeros`, `ones`, `full`, `empty`, `emptyLike`, `zerosLike`, `onesLike`, `fullLike`, `eye`, `arange`, `linspace`, `logspace`, `geomspace`, `meshgrid` with `MeshGridIndexing.xy/ij`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`, `exponential`, `gamma`, `beta`, `poisson`, `lognormal`, `studentT`, `cauchy`, `laplace`, `weibull`; random generation uses the local `../alea` backend.
 - NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `takeMode` with `IndexMode.raise/wrap/clip`, `takeAlongAxis/putAlongAxis`, coordinate indexing with prefix-shaped coordinate arrays (`ravelCoords`, `unravelFlat`, `takeCoords`, `putCoords/putCoordsScalar`) and broadcasted coordinate arrays (`ravelMultiIndex`, `takeMultiIndex`, `putMultiIndex/putMultiIndexScalar`), `gather`, `scatter/scatterScalar`, `scatterAdd`, `scatterReduce`, `scatterReduceScalar`, `scatterAddScalar`, `maskedSelect`, `maskedFill`, `maskedScatter`, `maskedPut/maskedPutScalar`, `putMask/putMaskScalar`, `copyWhere`, `whereIndices`, `putFlat/putFlatMode/putFlatScalar/putFlatScalarMode`, `indexPut/indexPutScalar`, `compress`, `flatNonzero`, `nonzero/argwhere/countNonzero`, `isin`, `slice1d`.
 - Broadcasting elementwise arithmetic/comparisons: `add/sub/mul/div/pow`, promoted mixed-dtype variants (`addPromote`, `subPromote`, `mulPromote`, `divPromote`, `maximumPromote`, `minimumPromote`), `floorDiv`, `mod/remainder`, scalar variants, `maximum/minimum`, `hypot`, `atan2`, `copysign`, `heaviside`, comparisons (`eq/equal`, `ne/notEqual`, `gt/greater`, `ge/greaterEqual`, `lt/less`, `le/lessEqual`, scalar variants), boolean logic (`logicalNot`, `logicalAnd`, `logicalOr`, `logicalXor`, scalar variants), `whereMask`, `isclose`, `allclose`.
-- Array transforms: methods and top-level wrappers for `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `transpose`, `permute`, `swapaxes`, `movedim`, `broadcastTo`, `repeat`, `tile`, `slice/sliceAxis/slice1d`, `split`, `chunk`, `flip`, `roll`, `padConstant`, `cat/concatenate`, `stack`, `hstack`, `vstack`, `dstack`, `columnStack`; non-copying view helpers include `asView`, `sliceAxisView`, `sliceView`, `selectView`, `narrowView`, `permuteView`, `transposeView`, and `broadcastView`.
+- Array transforms are object/type methods: `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `transpose`, `permute`, `swapaxes`, `movedim`, `broadcastTo`, `repeat`, `tile`, `slice/sliceAxis/slice1d`, `split`, `chunk`, `flip`, `roll`, `padConstant`, and type-level `cat/concatenate`, `stack`, `hstack`, `vstack`, `dstack`, `columnStack`; non-copying view helpers include `asView`, `sliceAxisView`, `sliceView`, `selectView`, `narrowView`, `permuteView`, `transposeView`, and `broadcastView`.
 - Sorting/selection helpers: `sort`, `sortBy`, `sortDescending`, `argsort`, `argsortAxis`, `argsortDescending`, `sortWithIndices`, `partition`, `argpartition`, and `topk(sorted=true/false)`.
 - Discrete/search/set helpers: `unique`, `uniqueWithCounts`, `union1d`, `intersect1d`, `setdiff1d`, `setxor1d`, `bincount`, `bincountWeighted`, `searchsorted` with `SearchSide.left/right`, PyTorch-like `bucketize`, NumPy-like `digitize`, and broadcasted `clipArray`.
-- Reductions/statistics: methods and top-level wrappers for `sum`, `prod`, `min`, `max`, `allAxis`, `anyAxis`, `mean`, `variance`, `stddev`, `median`, `quantile`, `percentile`, weighted stats (`weightedMean`, `average`, `weightedVariance/weightedVar`, `weightedStddev/weightedStd`, `weightedQuantile`, `weightedMedian`, `weightedCov`, `weightedCorrcoef`), `cov`, `corrcoef`, nan-aware stats (`nanToNum/nan_to_num`, `nansum`, `nanmean`, `nanvar`, `nanstd`, `nanmin`, `nanmax`, `nanmedian`, `nanquantile`, `nanpercentile`, `nanCov`, `nanCorrcoef`), `norm`, `logsumexp`, `cumsum`, `cumprod`, `cumsumAxis`, `cumprodAxis`, `diff`, `argmin`, `argmax`, `argminAxis/argmaxAxis`, `histogram`.
+- Reductions/statistics as methods: `sum`, `prod`, `min`, `max`, `allAxis`, `anyAxis`, `mean`, `variance`, `stddev`, `median`, `quantile`, `percentile`, weighted stats (`weightedMean`, `average`, `weightedVariance/weightedVar`, `weightedStddev/weightedStd`, `weightedQuantile`, `weightedMedian`, `weightedCov`, `weightedCorrcoef`), `cov`, `corrcoef`, nan-aware stats (`nanToNum/nan_to_num`, `nansum`, `nanmean`, `nanvar`, `nanstd`, `nanmin`, `nanmax`, `nanmedian`, `nanquantile`, `nanpercentile`, `nanCov`, `nanCorrcoef`), `norm`, `logsumexp`, `cumsum`, `cumprod`, `cumsumAxis`, `cumprodAxis`, `diff`, `argmin`, `argmax`, `argminAxis/argmaxAxis`, `histogram`.
 - Neural/math functions: `neg`, `abs`, `square`, `reciprocal`, `sign/signbit`, `nextAfter/nextafter`, `ldexp`, `frexp`, `exp/expm1`, `log/log1p/log2/log10`, `sqrt`, `floor`, `ceil`, `round`, `trunc`, `deg2rad/rad2deg`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `hypot`, `copysign`, `heaviside`, `sinh`, `cosh`, `tanh`, `relu`, `sigmoid`, `softmax`, `logsumexp`, `logSoftmax/log_softmax`, `clip/clamp`, `isNan/isnan`, `isInf/isinf`, `isFinite/isfinite`.
-- Linear algebra and contractions: `diag/diagflat`, `diagonal`, `trace`, `triu/tril`, `matmul/mm`, `bmm`, `matvec`, `dot`, `inner`, `vecdot`, `vdot`, `outer`, `cross`, `contractAxes`, `linalg.eye`, `det`, `inverse`, `solve`, `lu`, `solveTriangular`, `cholesky`, `qr`, `svd`, `lstsq`, `singularValues`, `matrixRank`, `cond`, `pinv`, `matrixNorm`, `eigh`, `eigvalsh`; f64 `linalg.matmul`/`matvec`/`trace`/`det`/`solve`/`inverse`/`lu`/`solveTriangular`/`cholesky`/`qr`/`svd`/`lstsq`/`singularValues`/`matrixRank`/`cond`/`pinv`/`matrixNorm`/`eigh`/`eigvalsh` use the local `../veyra` backend when available, while Array methods and `arrayMatmul`/`arrayMatvec` keep generic in-core wrappers.
+- Linear algebra and contractions: `diag/diagflat`, `diagonal`, `trace`, `triu/tril`, `matmul/mm`, `bmm`, `matvec`, `dot`, `inner`, `vecdot`, `vdot`, `outer`, `cross`, `contractAxes`, `linalg.eye`, `det`, `inverse`, `solve`, `lu`, `solveTriangular`, `cholesky`, `qr`, `svd`, `lstsq`, `singularValues`, `matrixRank`, `cond`, `pinv`, `matrixNorm`, `eigh`, `eigvalsh`; f64 `linalg.matmul`/`matvec`/`trace`/`det`/`solve`/`inverse`/`lu`/`solveTriangular`/`cholesky`/`qr`/`svd`/`lstsq`/`singularValues`/`matrixRank`/`cond`/`pinv`/`matrixNorm`/`eigh`/`eigvalsh` use the local `../veyra` backend when available, while Array object methods keep generic in-core fallbacks.
 - SciPy-like stats helpers: `stats.zscore`, `normalize`, `pearsonr`.
 - Sparse CSR/CSC bridge: `CsrMatrix`, `CscMatrix`, `csrFromDense`, `csrFromCompressed`, `cscFromDense`, `cscFromCompressed`, CSR-to-dense, transpose, transpose products, row/column stats, diagonal/trace diagnostics, bandwidth, symmetry checks, triangular solve, and Veyra-backed f64 CSR kernels.
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
@@ -34,10 +34,10 @@ const std = @import("std");
 const vx = @import("vectra");
 
 pub fn demo(allocator: std.mem.Allocator) !void {
-    var a = try vx.array(f64, allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try vx.Array(f64).fromSlice(allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
 
-    var bias = try vx.ones(f64, allocator, &.{3});
+    var bias = try vx.Array(f64).ones(allocator, &.{3});
     defer bias.deinit();
 
     var y = try a.add(bias);      // NumPy/PyTorch-like broadcasting
@@ -46,14 +46,14 @@ pub fn demo(allocator: std.mem.Allocator) !void {
     var probs = try y.softmax(1); // PyTorch-like method API
     defer probs.deinit();
 
-    var picked_idx = try vx.array(usize, allocator, &.{ 2, 0 }, &.{2});
+    var picked_idx = try vx.Array(usize).fromSlice(allocator, &.{ 2, 0 }, &.{2});
     defer picked_idx.deinit();
     var picked = try y.indexSelect(1, picked_idx); // torch.index_select / np.take style
     defer picked.deinit();
 
-    var labels = try vx.array(i32, allocator, &.{ 2, 1, 2, 3 }, &.{4});
+    var labels = try vx.Array(i32).fromSlice(allocator, &.{ 2, 1, 2, 3 }, &.{4});
     defer labels.deinit();
-    var counts = try vx.bincount(i32, labels, 5);
+    var counts = try labels.bincount(5);
     defer counts.deinit();
 
     var df = try vx.DataFrame.init(allocator, &.{

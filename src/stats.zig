@@ -55,7 +55,7 @@ pub fn pearsonr(comptime T: type, x: array_mod.Array(T), y: array_mod.Array(T)) 
 
 test "stats zscore pearson" {
     const gpa = std.testing.allocator;
-    var x = try array_mod.array(f64, gpa, &.{ 1, 2, 3 }, &.{3});
+    var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer x.deinit();
     var z = try zscore(f64, x, null);
     defer z.deinit();

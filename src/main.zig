@@ -10,9 +10,9 @@ pub fn main(init: std.process.Init) !void {
     var stdout_file_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
     const out = &stdout_file_writer.interface;
 
-    var a = try vx.array(f64, allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    var a = try vx.Array(f64).fromSlice(allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
-    var b = try vx.ones(f64, allocator, &.{3});
+    var b = try vx.Array(f64).ones(allocator, &.{3});
     defer b.deinit();
     var c = try a.add(b);
     defer c.deinit();
