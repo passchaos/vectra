@@ -935,6 +935,14 @@ pub fn Tensor(comptime T: type) type {
             return self.take(indices, axis_index);
         }
 
+        pub fn takeAlongAxis(self: Self, indices: Tensor(usize), axis_index: isize) TensorError!Self {
+            return self.gather(axis_index, indices);
+        }
+
+        pub fn putAlongAxis(self: Self, indices: Tensor(usize), src: Self, axis_index: isize) TensorError!Self {
+            return self.scatter(axis_index, indices, src);
+        }
+
         pub fn maskedSelect(self: Self, mask: Tensor(bool)) TensorError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
@@ -956,6 +964,66 @@ pub fn Tensor(comptime T: type) type {
                     out.data[write] = self.data[si];
                     write += 1;
                 }
+            }
+            return out;
+        }
+
+        pub fn maskedFill(self: Self, mask: Tensor(bool), value: T) TensorError!Self {
+            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            var out = try self.broadcastTo(out_shape);
+            errdefer out.deinit();
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const mi = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                if (mask.data[mi]) slot.* = value;
+            }
+            return out;
+        }
+
+        pub fn maskedScatter(self: Self, mask: Tensor(bool), src: Self) TensorError!Self {
+            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            var out = try self.broadcastTo(out_shape);
+            errdefer out.deinit();
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var write: usize = 0;
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const mi = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                if (mask.data[mi]) {
+                    if (write >= src.data.len) return error.ShapeMismatch;
+                    slot.* = src.data[write];
+                    write += 1;
+                }
+            }
+            if (write != src.data.len) return error.ShapeMismatch;
+            return out;
+        }
+
+        pub fn countNonzero(self: Self) usize {
+            var count: usize = 0;
+            for (self.data) |v| {
+                if (v != zero(T)) count += 1;
+            }
+            return count;
+        }
+
+        pub fn nonzero(self: Self) TensorError!Tensor(usize) {
+            const count = self.countNonzero();
+            const out = try Tensor(usize).empty(self.allocator, &.{ count, self.shape.len });
+            if (count == 0 or self.shape.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            var write: usize = 0;
+            for (self.data, 0..) |v, flat| {
+                if (v == zero(T)) continue;
+                unravelIndexInto(flat, self.shape, multi);
+                @memcpy(out.data[write * self.shape.len ..][0..self.shape.len], multi);
+                write += 1;
             }
             return out;
         }
@@ -2526,6 +2594,30 @@ pub fn diagflat(comptime T: type, input: Tensor(T), offset: isize) TensorError!T
     return input.diagflat(offset);
 }
 
+pub fn takeAlongAxis(comptime T: type, input: Tensor(T), indices: Tensor(usize), axis: isize) TensorError!Tensor(T) {
+    return input.takeAlongAxis(indices, axis);
+}
+
+pub fn putAlongAxis(comptime T: type, input: Tensor(T), indices: Tensor(usize), src: Tensor(T), axis: isize) TensorError!Tensor(T) {
+    return input.putAlongAxis(indices, src, axis);
+}
+
+pub fn maskedFill(comptime T: type, input: Tensor(T), mask: Tensor(bool), value: T) TensorError!Tensor(T) {
+    return input.maskedFill(mask, value);
+}
+
+pub fn maskedScatter(comptime T: type, input: Tensor(T), mask: Tensor(bool), src: Tensor(T)) TensorError!Tensor(T) {
+    return input.maskedScatter(mask, src);
+}
+
+pub fn countNonzero(comptime T: type, input: Tensor(T)) usize {
+    return input.countNonzero();
+}
+
+pub fn nonzero(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
+    return input.nonzero();
+}
+
 test "tensor creation, reshape and broadcasting" {
     const gpa = std.testing.allocator;
     var a = try tensor(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
@@ -2907,4 +2999,40 @@ test "array creation like scalar diag and diagflat" {
     var extracted = try a.diag(0);
     defer extracted.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, extracted.data);
+}
+
+test "array advanced indexing and mask mutation helpers" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 10, 11, 12, 20, 21, 22 }, &.{ 2, 3 });
+    defer a.deinit();
+    var idx = try array(usize, gpa, &.{ 2, 0, 1, 1, 2, 0 }, &.{ 2, 3 });
+    defer idx.deinit();
+
+    var taken = try a.takeAlongAxis(idx, 1);
+    defer taken.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 12, 10, 11, 21, 22, 20 }, taken.data);
+
+    var base = try zeros(f64, gpa, &.{ 2, 3 });
+    defer base.deinit();
+    var put = try base.putAlongAxis(idx, taken, 1);
+    defer put.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 11, 12, 20, 21, 22 }, put.data);
+
+    var mask = try array(bool, gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
+    defer mask.deinit();
+    var filled = try a.maskedFill(mask, -1);
+    defer filled.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 11, -1, 20, -1, 22 }, filled.data);
+
+    var src = try array(f64, gpa, &.{ 100, 200, 300 }, &.{3});
+    defer src.deinit();
+    var scattered = try a.maskedScatter(mask, src);
+    defer scattered.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 100, 11, 200, 20, 300, 22 }, scattered.data);
+
+    var nz = try filled.nonzero();
+    defer nz.deinit();
+    try std.testing.expectEqual(@as(usize, 6), filled.countNonzero());
+    try std.testing.expectEqualSlices(usize, &.{ 6, 2 }, nz.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 1, 0, 2, 1, 0, 1, 1, 1, 2 }, nz.data);
 }

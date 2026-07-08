@@ -84,7 +84,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 
 - 创建：`array/ndarray`（`tensor` 兼容别名）、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
 - 形状：`reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`。
-- 索引：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`maskedSelect`、`slice1d`。
+- 索引：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeAlongAxis/putAlongAxis`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`maskedSelect`、`maskedFill`、`maskedScatter`、`nonzero/countNonzero`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、scalar variants、`maximum/minimum`、`whereMask`、比较、`allclose`。
 - 数学/NN：`exp`、`log`、`sqrt`、`sin`、`cos`、`tanh`、`relu`、`sigmoid`、`softmax`、`logSoftmax/log_softmax`、`clip`。
 - 归约：`sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`argmin`、`argmax`、`argminAxis/argmaxAxis`、`topk(sorted=true/false)`。
