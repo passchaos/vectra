@@ -2731,6 +2731,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.cumminAxis(axis_index);
         }
 
+        pub fn logcumsumexp(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logcumsumexp();
+        }
+
+        pub fn logcumsumexpAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logcumsumexpAxis(axis_index);
+        }
+
         pub fn diff(self: Self, axis_index: isize, n: usize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -7026,10 +7038,22 @@ pub fn Array(comptime T: type) type {
             return if (a < zero(T)) zero(T) else if (a > zero(T)) one(T) else b;
         }
         fn opLogAddExp(a: T, b: T) T {
+            if (comptime T == BFloat16) {
+                const lhs = a.toF32();
+                const rhs = b.toF32();
+                const max_value = @max(lhs, rhs);
+                return BFloat16.fromF32(max_value + std.math.log1p(std.math.exp(-@abs(lhs - rhs))));
+            }
             const max_value = @max(a, b);
             return max_value + std.math.log1p(std.math.exp(-@abs(a - b)));
         }
         fn opLogAddExp2(a: T, b: T) T {
+            if (comptime T == BFloat16) {
+                const lhs = a.toF32();
+                const rhs = b.toF32();
+                const max_value = @max(lhs, rhs);
+                return BFloat16.fromF32(max_value + std.math.log2(@as(f32, 1) + std.math.pow(f32, 2, -@abs(lhs - rhs))));
+            }
             const max_value = @max(a, b);
             return max_value + std.math.log2(one(T) + std.math.pow(T, castValue(T, 2), -@abs(a - b)));
         }
@@ -9767,6 +9791,16 @@ pub fn Array(comptime T: type) type {
             return self.cumulativeAxisFromFirst(axis_index, opCummin);
         }
 
+        pub fn logcumsumexp(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.cumulativeFlat(opLogAddExp);
+        }
+
+        pub fn logcumsumexpAxis(self: Self, axis_index: isize) ArrayError!Self {
+            ensureFloat(T);
+            return self.cumulativeAxisFromFirst(axis_index, opLogAddExp);
+        }
+
         fn cumulativeAxis(self: Self, axis_index: isize, init_value: T, comptime op: fn (T, T) T) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
@@ -11812,6 +11846,14 @@ test "array reductions and matmul" {
     var cmin = try a.cummin();
     defer cmin.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, cmin.data);
+    var log_cumsum_exp = try a.logcumsumexp();
+    defer log_cumsum_exp.deinit();
+    var running_lse = a.data[0];
+    try std.testing.expectApproxEqAbs(running_lse, log_cumsum_exp.data[0], 1e-12);
+    for (a.data[1..], log_cumsum_exp.data[1..]) |value, actual| {
+        running_lse = @max(running_lse, value) + std.math.log1p(std.math.exp(-@abs(running_lse - value)));
+        try std.testing.expectApproxEqAbs(running_lse, actual, 1e-12);
+    }
     try std.testing.expectEqual(@as(usize, 5), try a.argmax());
     try std.testing.expectEqual(@as(usize, 0), try a.argmin());
     var arg1 = try a.argmaxAxis(1, false);
@@ -12916,6 +12958,14 @@ test "array view object statistics wrappers" {
     try std.testing.expectEqual(@as(f64, 4), cummin_view.data[3]);
     try std.testing.expectEqual(@as(f64, 1), cummin_view.data[4]);
     try std.testing.expectEqual(@as(f64, 4), cummin_view.data[5]);
+    var log_cumsum_exp_view = try view.logcumsumexpAxis(0);
+    defer log_cumsum_exp_view.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), log_cumsum_exp_view.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4), log_cumsum_exp_view.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2) + std.math.log1p(std.math.exp(@as(f64, -1))), log_cumsum_exp_view.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5) + std.math.log1p(std.math.exp(@as(f64, -1))), log_cumsum_exp_view.data[3], 1e-12);
+    try std.testing.expect(std.math.isNan(log_cumsum_exp_view.data[4]));
+    try std.testing.expectApproxEqAbs(@as(f64, 6) + std.math.log1p(std.math.exp(@as(f64, -1)) + std.math.exp(@as(f64, -2))), log_cumsum_exp_view.data[5], 1e-12);
     var d = try view.diff(0, 1);
     defer d.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, d.shape);
@@ -15855,6 +15905,11 @@ test "array axis cumulative operations and diff" {
     var cmn1 = try a.cumminAxis(1);
     defer cmn1.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 4, 4, 4 }, cmn1.data);
+    var lcse1 = try a.logcumsumexpAxis(1);
+    defer lcse1.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), lcse1.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2) + std.math.log1p(std.math.exp(@as(f64, -1))), lcse1.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3) + std.math.log1p(std.math.exp(@as(f64, -1)) + std.math.exp(@as(f64, -2))), lcse1.data[2], 1e-12);
 
     var d1 = try a.diff(1, 1);
     defer d1.deinit();
