@@ -219,6 +219,14 @@ fn ensureFloat(comptime T: type) void {
     if (comptime !isFloat(T)) @compileError("operation requires a floating-point tensor, got " ++ @typeName(T));
 }
 
+fn lessValue(comptime T: type, a: T, b: T) bool {
+    return switch (@typeInfo(T)) {
+        .bool => !a and b,
+        .int, .float, .comptime_int, .comptime_float => a < b,
+        else => @compileError("ordering requires a bool or numeric tensor, got " ++ @typeName(T)),
+    };
+}
+
 fn castValue(comptime T: type, value: anytype) T {
     const V = @TypeOf(value);
     return switch (@typeInfo(T)) {
@@ -367,6 +375,11 @@ pub const ScatterReduce = enum {
     prod,
     min,
     max,
+};
+
+pub const SearchSide = enum {
+    left,
+    right,
 };
 
 fn normalizeSlice(s: Slice, len: usize) TensorError!struct { start: usize, stop: usize, step: usize, count: usize } {
@@ -2521,7 +2534,7 @@ pub fn Tensor(comptime T: type) type {
                 const out = try self.flatten();
                 std.sort.insertion(T, out.data, {}, struct {
                     fn lessThan(_: void, a: T, b: T) bool {
-                        return a < b;
+                        return lessValue(T, a, b);
                     }
                 }.lessThan);
                 return out;
@@ -2535,7 +2548,7 @@ pub fn Tensor(comptime T: type) type {
             for (0..rows) |r| {
                 std.sort.insertion(T, out.data[r * width ..][0..width], {}, struct {
                     fn lessThan(_: void, a: T, b: T) bool {
-                        return a < b;
+                        return lessValue(T, a, b);
                     }
                 }.lessThan);
             }
@@ -2549,11 +2562,184 @@ pub fn Tensor(comptime T: type) type {
             const Ctx = struct {
                 data: []const T,
                 fn lessThan(ctx: @This(), a: usize, b: usize) bool {
-                    return ctx.data[a] < ctx.data[b];
+                    return lessValue(T, ctx.data[a], ctx.data[b]);
                 }
             };
             std.sort.insertion(usize, idx.data, Ctx{ .data = self.data }, Ctx.lessThan);
             return idx;
+        }
+
+        pub const UniqueCounts = struct {
+            values: Self,
+            counts: Tensor(usize),
+
+            pub fn deinit(self: *@This()) void {
+                self.values.deinit();
+                self.counts.deinit();
+                self.* = undefined;
+            }
+        };
+
+        pub fn unique(self: Self) TensorError!Self {
+            if (comptime T != bool) ensureNumeric(T);
+            if (self.data.len == 0) return Self.empty(self.allocator, &.{0});
+            var flat = try self.flatten();
+            defer flat.deinit();
+            std.sort.insertion(T, flat.data, {}, struct {
+                fn lessThan(_: void, a: T, b: T) bool {
+                    return lessValue(T, a, b);
+                }
+            }.lessThan);
+            var count: usize = 1;
+            for (flat.data[1..]) |value| if (value != flat.data[count - 1]) {
+                flat.data[count] = value;
+                count += 1;
+            };
+            return Self.fromSlice(self.allocator, flat.data[0..count], &.{count});
+        }
+
+        pub fn uniqueWithCounts(self: Self) TensorError!UniqueCounts {
+            if (comptime T != bool) ensureNumeric(T);
+            if (self.data.len == 0) {
+                var values = try Self.empty(self.allocator, &.{0});
+                errdefer values.deinit();
+                var counts = try Tensor(usize).empty(self.allocator, &.{0});
+                errdefer counts.deinit();
+                return .{ .values = values, .counts = counts };
+            }
+
+            var flat = try self.flatten();
+            defer flat.deinit();
+            std.sort.insertion(T, flat.data, {}, struct {
+                fn lessThan(_: void, a: T, b: T) bool {
+                    return lessValue(T, a, b);
+                }
+            }.lessThan);
+
+            var distinct: usize = 1;
+            var previous = flat.data[0];
+            for (flat.data[1..]) |value| {
+                if (value != previous) {
+                    distinct += 1;
+                    previous = value;
+                }
+            }
+
+            var values = try Self.empty(self.allocator, &.{distinct});
+            errdefer values.deinit();
+            var counts = try Tensor(usize).empty(self.allocator, &.{distinct});
+            errdefer counts.deinit();
+
+            var write: usize = 0;
+            var current = flat.data[0];
+            var current_count: usize = 1;
+            for (flat.data[1..]) |value| {
+                if (value == current) {
+                    current_count += 1;
+                } else {
+                    values.data[write] = current;
+                    counts.data[write] = current_count;
+                    write += 1;
+                    current = value;
+                    current_count = 1;
+                }
+            }
+            values.data[write] = current;
+            counts.data[write] = current_count;
+
+            return .{ .values = values, .counts = counts };
+        }
+
+        fn valueAsIndex(value: T) TensorError!usize {
+            switch (@typeInfo(T)) {
+                .int => |info| {
+                    if (info.signedness == .signed and value < 0) return error.InvalidShape;
+                    return @intCast(value);
+                },
+                .comptime_int => return @intCast(value),
+                else => @compileError("bincount requires an integer array"),
+            }
+        }
+
+        pub fn bincount(self: Self, minlength: usize) TensorError!Tensor(usize) {
+            if (comptime @typeInfo(T) != .int) @compileError("bincount requires an integer array");
+            var size_out = minlength;
+            for (self.data) |value| {
+                const idx = try valueAsIndex(value);
+                if (idx + 1 > size_out) size_out = idx + 1;
+            }
+            var out = try Tensor(usize).zeros(self.allocator, &.{size_out});
+            errdefer out.deinit();
+            for (self.data) |value| out.data[try valueAsIndex(value)] += 1;
+            return out;
+        }
+
+        pub fn bincountWeighted(self: Self, comptime W: type, weights: Tensor(W), minlength: usize) TensorError!Tensor(W) {
+            if (comptime @typeInfo(T) != .int) @compileError("bincountWeighted requires an integer input array");
+            if (comptime !isNumeric(W)) @compileError("bincountWeighted requires numeric weights");
+            if (weights.data.len != self.data.len) return error.ShapeMismatch;
+            var size_out = minlength;
+            for (self.data) |value| {
+                const idx = try valueAsIndex(value);
+                if (idx + 1 > size_out) size_out = idx + 1;
+            }
+            var out = try Tensor(W).zeros(self.allocator, &.{size_out});
+            errdefer out.deinit();
+            for (self.data, weights.data) |value, weight| out.data[try valueAsIndex(value)] += weight;
+            return out;
+        }
+
+        pub fn searchsorted(self: Self, values: Self, side: SearchSide) TensorError!Tensor(usize) {
+            ensureNumeric(T);
+            if (self.shape.len != 1) return error.NonVectorTensor;
+            var out = try Tensor(usize).empty(self.allocator, values.shape);
+            errdefer out.deinit();
+            for (values.data, out.data) |needle_value, *slot| {
+                var lo: usize = 0;
+                var hi: usize = self.data.len;
+                while (lo < hi) {
+                    const mid = lo + (hi - lo) / 2;
+                    const go_right = switch (side) {
+                        .left => self.data[mid] < needle_value,
+                        .right => self.data[mid] <= needle_value,
+                    };
+                    if (go_right) lo = mid + 1 else hi = mid;
+                }
+                slot.* = lo;
+            }
+            return out;
+        }
+
+        pub fn bucketize(self: Self, boundaries: Self, side: SearchSide) TensorError!Tensor(usize) {
+            return boundaries.searchsorted(self, side);
+        }
+
+        pub fn digitize(self: Self, bins: Self, right: bool) TensorError!Tensor(usize) {
+            return bins.searchsorted(self, if (right) .left else .right);
+        }
+
+        pub fn isin(self: Self, test_elements: Self, invert: bool) TensorError!Tensor(bool) {
+            if (comptime T != bool) ensureNumeric(T);
+            var out = try Tensor(bool).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (self.data, out.data) |value, *slot| {
+                var found = false;
+                for (test_elements.data) |candidate| {
+                    if (value == candidate) {
+                        found = true;
+                        break;
+                    }
+                }
+                slot.* = if (invert) !found else found;
+            }
+            return out;
+        }
+
+        pub fn clipArray(self: Self, min_values: Self, max_values: Self) TensorError!Self {
+            ensureNumeric(T);
+            var lower = try self.maximum(min_values);
+            defer lower.deinit();
+            return lower.minimum(max_values);
         }
 
         pub fn concatenate(allocator: std.mem.Allocator, tensors: []const Self, axis_index: isize) TensorError!Self {
@@ -2896,6 +3082,42 @@ pub fn outer(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T)
 
 pub fn where(comptime T: type, mask: Tensor(bool), a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
     return Tensor(T).whereMask(mask, a, b);
+}
+
+pub fn unique(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
+    return input.unique();
+}
+
+pub fn uniqueWithCounts(comptime T: type, input: Tensor(T)) TensorError!Tensor(T).UniqueCounts {
+    return input.uniqueWithCounts();
+}
+
+pub fn bincount(comptime T: type, input: Tensor(T), minlength: usize) TensorError!Tensor(usize) {
+    return input.bincount(minlength);
+}
+
+pub fn bincountWeighted(comptime T: type, comptime W: type, input: Tensor(T), weights: Tensor(W), minlength: usize) TensorError!Tensor(W) {
+    return input.bincountWeighted(W, weights, minlength);
+}
+
+pub fn searchsorted(comptime T: type, sorted: Tensor(T), values: Tensor(T), side: SearchSide) TensorError!Tensor(usize) {
+    return sorted.searchsorted(values, side);
+}
+
+pub fn bucketize(comptime T: type, input: Tensor(T), boundaries: Tensor(T), side: SearchSide) TensorError!Tensor(usize) {
+    return input.bucketize(boundaries, side);
+}
+
+pub fn digitize(comptime T: type, input: Tensor(T), bins: Tensor(T), right: bool) TensorError!Tensor(usize) {
+    return input.digitize(bins, right);
+}
+
+pub fn isin(comptime T: type, input: Tensor(T), test_elements: Tensor(T), invert: bool) TensorError!Tensor(bool) {
+    return input.isin(test_elements, invert);
+}
+
+pub fn clipArray(comptime T: type, input: Tensor(T), min_values: Tensor(T), max_values: Tensor(T)) TensorError!Tensor(T) {
+    return input.clipArray(min_values, max_values);
 }
 
 pub fn diag(comptime T: type, input: Tensor(T), offset: isize) TensorError!Tensor(T) {
@@ -3502,4 +3724,71 @@ test "array axis cumulative operations and diff" {
     defer d2.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, d2.shape);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, d2.data);
+}
+
+test "array unique bincount searchsorted and clipArray" {
+    const gpa = std.testing.allocator;
+    var a = try array(i32, gpa, &.{ 3, 1, 2, 3, 2, 1, 4 }, &.{7});
+    defer a.deinit();
+    var u = try a.unique();
+    defer u.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 4 }, u.data);
+    var uc = try uniqueWithCounts(i32, a);
+    defer uc.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 4 }, uc.values.data);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2, 1 }, uc.counts.data);
+
+    var counts = try bincount(i32, a, 6);
+    defer counts.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 2, 2, 1, 0 }, counts.data);
+    var weights = try array(f64, gpa, &.{ 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0 }, &.{7});
+    defer weights.deinit();
+    var weighted_counts = try bincountWeighted(i32, f64, a, weights, 6);
+    defer weighted_counts.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 4, 4, 2.5, 4, 0 }, weighted_counts.data);
+
+    var sorted = try array(f64, gpa, &.{ 1, 2, 2, 4 }, &.{4});
+    defer sorted.deinit();
+    var probes = try array(f64, gpa, &.{ 0, 2, 3, 5 }, &.{4});
+    defer probes.deinit();
+    var left = try sorted.searchsorted(probes, .left);
+    defer left.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3, 4 }, left.data);
+    var right = try searchsorted(f64, sorted, probes, .right);
+    defer right.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 3, 3, 4 }, right.data);
+    var buckets = try bucketize(f64, probes, sorted, .right);
+    defer buckets.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 3, 3, 4 }, buckets.data);
+    var digits_left_open = try digitize(f64, probes, sorted, false);
+    defer digits_left_open.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 3, 3, 4 }, digits_left_open.data);
+    var digits_right_open = try probes.digitize(sorted, true);
+    defer digits_right_open.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3, 4 }, digits_right_open.data);
+
+    var needles = try array(i32, gpa, &.{ 2, 4 }, &.{2});
+    defer needles.deinit();
+    var members = try a.isin(needles, false);
+    defer members.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false, true }, members.data);
+    var non_members = try isin(i32, a, needles, true);
+    defer non_members.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, false, true, false }, non_members.data);
+
+    var flags = try array(bool, gpa, &.{ true, false, true }, &.{3});
+    defer flags.deinit();
+    var unique_flags = try flags.unique();
+    defer unique_flags.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true }, unique_flags.data);
+
+    var x = try array(f64, gpa, &.{ -1, 0, 5, 10 }, &.{ 2, 2 });
+    defer x.deinit();
+    var lo = try array(f64, gpa, &.{ 0, 2 }, &.{2});
+    defer lo.deinit();
+    var hi = try array(f64, gpa, &.{4}, &.{1});
+    defer hi.deinit();
+    var clipped = try x.clipArray(lo, hi);
+    defer clipped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2, 4, 4 }, clipped.data);
 }

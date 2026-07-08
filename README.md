@@ -12,9 +12,10 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 
 - `Array(T)` / `NDArray(T)` with shape/strides, typed storage (`bool`, `i8/i16/i32/i64`, `u8/u16/u32/u64/usize`, `f32/f64`), `reshape/view`, `flatten/ravel`, `squeeze/unsqueeze`, `permute/swapaxes/movedim`, `transpose`.
 - Creation helpers: `array`, `ndarray`, `arrayScalar`, `zeros`, `ones`, `full`, `empty`, `emptyLike`, `zerosLike`, `onesLike`, `fullLike`, `eye`, `arange`, `linspace`, `rand`, `randn`, `uniform`, `normal`, `randint`, `bernoulli`, `exponential`, `gamma`, `beta`, `poisson`, `lognormal`, `studentT`, `cauchy`, `laplace`, `weibull`; random generation uses the local `../alea` backend.
-- NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `takeAlongAxis/putAlongAxis`, `gather`, `scatter/scatterScalar`, `scatterAdd`, `scatterReduce`, `maskedSelect`, `maskedFill`, `maskedScatter`, `nonzero/countNonzero`, `slice1d`.
+- NumPy/PyTorch-like indexing helpers: `get/at`, `set/put`, `select`, `narrow`, `take/indexSelect`, `takeAlongAxis/putAlongAxis`, `gather`, `scatter/scatterScalar`, `scatterAdd`, `scatterReduce`, `maskedSelect`, `maskedFill`, `maskedScatter`, `nonzero/countNonzero`, `isin`, `slice1d`.
 - Broadcasting elementwise arithmetic/comparisons: `add/sub/mul/div/pow`, scalar variants, `maximum/minimum`, `whereMask`, `allclose`.
 - Array transforms: `broadcastTo`, `repeat`, `tile`, `sliceAxis`, `flip`, `roll`, `padConstant`, `cat/concatenate`, `stack`, `sort`, `argsort`.
+- Discrete/search helpers: `unique`, `uniqueWithCounts`, `bincount`, `bincountWeighted`, `searchsorted` with `SearchSide.left/right`, PyTorch-like `bucketize`, NumPy-like `digitize`, and broadcasted `clipArray`.
 - Reductions/statistics: `sum`, `prod`, `min`, `max`, `allAxis`, `anyAxis`, `mean`, `variance`, `stddev`, `norm`, `logsumexp`, `cumsum`, `cumprod`, `cumsumAxis`, `cumprodAxis`, `diff`, `argmin`, `argmax`, `argminAxis/argmaxAxis`, `topk(sorted=true/false)`, `histogram`.
 - Neural/math functions: `exp`, `log`, `sqrt`, `sin`, `cos`, `tanh`, `relu`, `sigmoid`, `softmax`, `logSoftmax/log_softmax`, `clip`.
 - Linear algebra: `diag/diagflat`, `matmul/mm`, `bmm`, `matvec`, `dot`, `outer`, `diagonal`, `trace`, `triu/tril`, `linalg.eye`, `det`, `inverse`, `solve`, `lu`, `solveTriangular`, `cholesky`, `qr`, `svd`, `lstsq`, `singularValues`, `matrixRank`, `cond`, `pinv`, `matrixNorm`, `eigh`, `eigvalsh`; f64 `linalg.matmul`/`matvec`/`trace`/`det`/`solve`/`inverse`/`lu`/`solveTriangular`/`cholesky`/`qr`/`svd`/`lstsq`/`singularValues`/`matrixRank`/`cond`/`pinv`/`matrixNorm`/`eigh`/`eigvalsh` use the local `../veyra` backend when available.
@@ -48,6 +49,11 @@ pub fn demo(allocator: std.mem.Allocator) !void {
     defer picked_idx.deinit();
     var picked = try y.indexSelect(1, picked_idx); // torch.index_select / np.take style
     defer picked.deinit();
+
+    var labels = try vx.array(i32, allocator, &.{ 2, 1, 2, 3 }, &.{4});
+    defer labels.deinit();
+    var counts = try vx.bincount(i32, labels, 5);
+    defer counts.deinit();
 
     var df = try vx.DataFrame.init(allocator, &.{
         .{ .name = "city", .data = .{ .string = &.{ "hz", "bj", "hz" } } },
