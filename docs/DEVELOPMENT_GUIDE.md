@@ -27,7 +27,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - 创建函数：`tensor`、`zeros`、`ones`、`empty`、`full`、`eye`、`arange`、`linspace`、随机初始化等。
 - 索引与切片：整数索引、range/slice、bool mask、take/gather/scatter、masked/index put、compress、advanced indexing、membership/search helpers。
 - 形状变换：reshape/view、flatten/ravel、squeeze/unsqueeze、transpose/permute/movedim、broadcast、repeat/tile、sliceAxis、flip、roll、padConstant。
-- 广播逐元素运算：加减乘除、幂、比较、逻辑运算、where、clip/clipArray、maximum/minimum。
+- 广播逐元素运算：加减乘除、幂、floorDiv/mod/remainder、hypot/atan2、比较、逻辑运算、where、clip/clamp/clipArray、maximum/minimum。
 - 归约与统计：sum、prod、min、max、mean、var、std、median、quantile/percentile、cov/corrcoef、nan_to_num 与 nan-aware 统计、argmin、argmax、cumsum、cumprod。
 - 排序/选择：任意 axis/dim 的 `sort/argsort`、descending variants、`sortWithIndices`、`partition/argpartition`、`topk`。
 - 线性代数基础：dot、matmul/mm、bmm、outer、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库。
@@ -86,8 +86,8 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 - 创建：`array/ndarray`（`tensor` 兼容别名）、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
 - 形状：`reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`、`sliceAxis`、`flip`、`roll`、`padConstant`。
 - 索引/搜索：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeAlongAxis/putAlongAxis`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`maskedSelect`、`maskedFill`、`maskedScatter`、`maskedPut/maskedPutScalar`、`putFlat/putFlatScalar`、`indexPut/indexPutScalar`、`compress`、`flatNonzero`、`nonzero/argwhere/countNonzero`、`isin`、`searchsorted`、`bucketize`、`digitize`、`slice1d`。
-- 广播与逐元素：`add/sub/mul/div/pow`、scalar variants、`maximum/minimum`、`whereMask`、比较、`allclose`。
-- 数学/NN：`neg`、`abs`、`square`、`reciprocal`、`sign/signbit`、`exp/expm1`、`log/log1p`、`sqrt`、`floor`、`ceil`、`round`、`trunc`、`sin`、`cos`、`tan`、`asin`、`acos`、`atan`、`sinh`、`cosh`、`tanh`、`relu`、`sigmoid`、`softmax`、`logsumexp`、`logSoftmax/log_softmax`、`clip`、`isNan/isnan`、`isInf/isinf`、`isFinite/isfinite`。
+- 广播与逐元素：`add/sub/mul/div/pow`、`floorDiv`、`mod/remainder`、scalar variants、`maximum/minimum`、`hypot`、`atan2`、`whereMask`、比较、`allclose`。
+- 数学/NN：`neg`、`abs`、`square`、`reciprocal`、`sign/signbit`、`exp/expm1`、`log/log1p`、`sqrt`、`floor`、`ceil`、`round`、`trunc`、`sin`、`cos`、`tan`、`asin`、`acos`、`atan`、`atan2`、`hypot`、`sinh`、`cosh`、`tanh`、`relu`、`sigmoid`、`softmax`、`logsumexp`、`logSoftmax/log_softmax`、`clip/clamp`、`isNan/isnan`、`isInf/isinf`、`isFinite/isfinite`。
 - 归约/统计：`sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`median`、`quantile`、`percentile`、`cov`、`corrcoef`、`nanToNum/nan_to_num`、`nansum`、`nanmean`、`nanvar`、`nanstd`、`nanmin`、`nanmax`、`nanmedian`、`nanquantile`、`nanpercentile`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`cumsumAxis/cumprodAxis`、`diff`、`argmin`、`argmax`、`argminAxis/argmaxAxis`。
 - 排序/选择：`sort`、`sortBy`、`sortDescending`、`argsort`、`argsortAxis`、`argsortDescending`、`sortWithIndices`、`partition`、`argpartition`、`topk(sorted=true/false)`。
 - 离散/计数：`unique`、`uniqueWithCounts`、`bincount`、`bincountWeighted`。

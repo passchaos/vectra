@@ -1541,6 +1541,18 @@ pub fn Tensor(comptime T: type) type {
         fn opPow(a: T, b: T) T {
             return std.math.pow(T, a, b);
         }
+        fn opFloorDiv(a: T, b: T) T {
+            return @divFloor(a, b);
+        }
+        fn opMod(a: T, b: T) T {
+            return @mod(a, b);
+        }
+        fn opHypot(a: T, b: T) T {
+            return std.math.hypot(a, b);
+        }
+        fn opAtan2(a: T, b: T) T {
+            return std.math.atan2(a, b);
+        }
         fn opNeg(a: T) T {
             return -a;
         }
@@ -1683,6 +1695,30 @@ pub fn Tensor(comptime T: type) type {
             return self.binaryTensor(other, opPow);
         }
 
+        pub fn floorDiv(self: Self, other: Self) TensorError!Self {
+            ensureNumeric(T);
+            return self.binaryTensor(other, opFloorDiv);
+        }
+
+        pub fn mod(self: Self, other: Self) TensorError!Self {
+            ensureNumeric(T);
+            return self.binaryTensor(other, opMod);
+        }
+
+        pub fn remainder(self: Self, other: Self) TensorError!Self {
+            return self.mod(other);
+        }
+
+        pub fn hypot(self: Self, other: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.binaryTensor(other, opHypot);
+        }
+
+        pub fn atan2(self: Self, other: Self) TensorError!Self {
+            ensureFloat(T);
+            return self.binaryTensor(other, opAtan2);
+        }
+
         pub fn maximum(self: Self, other: Self) TensorError!Self {
             ensureNumeric(T);
             return self.binaryTensor(other, struct {
@@ -1728,20 +1764,44 @@ pub fn Tensor(comptime T: type) type {
 
         pub fn floorDivScalar(self: Self, scalar: T) TensorError!Self {
             ensureNumeric(T);
-            return self.binaryScalar(scalar, struct {
-                fn f(a: T, b: T) T {
-                    return @divFloor(a, b);
-                }
-            }.f);
+            return self.binaryScalar(scalar, opFloorDiv);
         }
 
         pub fn modScalar(self: Self, scalar: T) TensorError!Self {
             ensureNumeric(T);
+            return self.binaryScalar(scalar, opMod);
+        }
+
+        pub fn remainderScalar(self: Self, scalar: T) TensorError!Self {
+            return self.modScalar(scalar);
+        }
+
+        pub fn maximumScalar(self: Self, scalar: T) TensorError!Self {
+            ensureNumeric(T);
             return self.binaryScalar(scalar, struct {
                 fn f(a: T, b: T) T {
-                    return @mod(a, b);
+                    return if (a >= b) a else b;
                 }
             }.f);
+        }
+
+        pub fn minimumScalar(self: Self, scalar: T) TensorError!Self {
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, struct {
+                fn f(a: T, b: T) T {
+                    return if (a <= b) a else b;
+                }
+            }.f);
+        }
+
+        pub fn hypotScalar(self: Self, scalar: T) TensorError!Self {
+            ensureFloat(T);
+            return self.binaryScalar(scalar, opHypot);
+        }
+
+        pub fn atan2Scalar(self: Self, scalar: T) TensorError!Self {
+            ensureFloat(T);
+            return self.binaryScalar(scalar, opAtan2);
         }
 
         pub fn neg(self: Self) TensorError!Self {
@@ -1891,6 +1951,10 @@ pub fn Tensor(comptime T: type) type {
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = @min(@max(v, min_value), max_value);
             return out;
+        }
+
+        pub fn clamp(self: Self, min_value: T, max_value: T) TensorError!Self {
+            return self.clip(min_value, max_value);
         }
 
         pub fn isNan(self: Self) TensorError!Tensor(bool) {
@@ -4016,6 +4080,102 @@ pub fn where(comptime T: type, mask: Tensor(bool), a: Tensor(T), b: Tensor(T)) T
     return Tensor(T).whereMask(mask, a, b);
 }
 
+pub fn add(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.add(b);
+}
+
+pub fn sub(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.sub(b);
+}
+
+pub fn mul(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.mul(b);
+}
+
+pub fn div(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.div(b);
+}
+
+pub fn pow(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.pow(b);
+}
+
+pub fn floorDiv(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.floorDiv(b);
+}
+
+pub fn mod(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.mod(b);
+}
+
+pub fn remainder(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.remainder(b);
+}
+
+pub fn maximum(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.maximum(b);
+}
+
+pub fn minimum(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.minimum(b);
+}
+
+pub fn hypot(comptime T: type, a: Tensor(T), b: Tensor(T)) TensorError!Tensor(T) {
+    return a.hypot(b);
+}
+
+pub fn atan2(comptime T: type, y: Tensor(T), x: Tensor(T)) TensorError!Tensor(T) {
+    return y.atan2(x);
+}
+
+pub fn addScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.addScalar(scalar);
+}
+
+pub fn subScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.subScalar(scalar);
+}
+
+pub fn mulScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.mulScalar(scalar);
+}
+
+pub fn divScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.divScalar(scalar);
+}
+
+pub fn powScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.powScalar(scalar);
+}
+
+pub fn floorDivScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.floorDivScalar(scalar);
+}
+
+pub fn modScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.modScalar(scalar);
+}
+
+pub fn remainderScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.remainderScalar(scalar);
+}
+
+pub fn maximumScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.maximumScalar(scalar);
+}
+
+pub fn minimumScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.minimumScalar(scalar);
+}
+
+pub fn hypotScalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.hypotScalar(scalar);
+}
+
+pub fn atan2Scalar(comptime T: type, input: Tensor(T), scalar: T) TensorError!Tensor(T) {
+    return input.atan2Scalar(scalar);
+}
+
 pub fn neg(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
     return input.neg();
 }
@@ -4122,6 +4282,10 @@ pub fn sigmoid(comptime T: type, input: Tensor(T)) TensorError!Tensor(T) {
 
 pub fn clip(comptime T: type, input: Tensor(T), min_value: T, max_value: T) TensorError!Tensor(T) {
     return input.clip(min_value, max_value);
+}
+
+pub fn clamp(comptime T: type, input: Tensor(T), min_value: T, max_value: T) TensorError!Tensor(T) {
+    return input.clamp(min_value, max_value);
 }
 
 pub fn isNan(comptime T: type, input: Tensor(T)) TensorError!Tensor(bool) {
@@ -4421,6 +4585,82 @@ test "tensor creation, reshape and broadcasting" {
     var flat = try c.flatten();
     defer flat.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, flat.shape);
+}
+
+test "array binary math wrappers and clamp aliases" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer a.deinit();
+    var b = try array(f64, gpa, &.{ 10, 20 }, &.{2});
+    defer b.deinit();
+
+    var added = try add(f64, a, b);
+    defer added.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 11, 22, 13, 24 }, added.data);
+    var subbed = try sub(f64, a, b);
+    defer subbed.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -9, -18, -7, -16 }, subbed.data);
+    var multiplied = try mul(f64, a, b);
+    defer multiplied.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 40, 30, 80 }, multiplied.data);
+    var divided = try div(f64, multiplied, b);
+    defer divided.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, divided.data);
+
+    var exponent = try array(f64, gpa, &.{2}, &.{1});
+    defer exponent.deinit();
+    var powed = try pow(f64, a, exponent);
+    defer powed.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 9, 16 }, powed.data);
+
+    var clamped = try clamp(f64, a, 1.5, 3.5);
+    defer clamped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 2, 3, 3.5 }, clamped.data);
+    var clipped = try a.clamp(2, 3);
+    defer clipped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 2, 3, 3 }, clipped.data);
+
+    var maxed = try maximumScalar(f64, a, 2.5);
+    defer maxed.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2.5, 2.5, 3, 4 }, maxed.data);
+    var mined = try minimumScalar(f64, a, 2.5);
+    defer mined.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 2.5, 2.5 }, mined.data);
+
+    var hyp_a = try array(f64, gpa, &.{ 3, 5 }, &.{2});
+    defer hyp_a.deinit();
+    var hyp_b = try array(f64, gpa, &.{ 4, 12 }, &.{2});
+    defer hyp_b.deinit();
+    var hyp = try hypot(f64, hyp_a, hyp_b);
+    defer hyp.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 13 }, hyp.data);
+    var hyp_scalar = try hyp_a.hypotScalar(4);
+    defer hyp_scalar.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 5), hyp_scalar.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 41)), hyp_scalar.data[1], 1e-12);
+
+    var y = try array(f64, gpa, &.{ 0, 1 }, &.{2});
+    defer y.deinit();
+    var x = try array(f64, gpa, &.{ 1, 1 }, &.{2});
+    defer x.deinit();
+    var angles = try atan2(f64, y, x);
+    defer angles.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), angles.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pi / 4.0, angles.data[1], 1e-12);
+
+    var ints = try array(i32, gpa, &.{ -5, 5, 7 }, &.{3});
+    defer ints.deinit();
+    var divisors = try array(i32, gpa, &.{ 2, 2, 3 }, &.{3});
+    defer divisors.deinit();
+    var floor_div = try floorDiv(i32, ints, divisors);
+    defer floor_div.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ -3, 2, 2 }, floor_div.data);
+    var modulo = try mod(i32, ints, divisors);
+    defer modulo.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 1 }, modulo.data);
+    var rem_scalar = try remainderScalar(i32, ints, 4);
+    defer rem_scalar.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 3, 1, 3 }, rem_scalar.data);
 }
 
 test "tensor reductions and matmul" {
