@@ -1429,6 +1429,26 @@ pub fn ArrayView(comptime T: type) type {
             return method(owned, arg1, arg2, arg3);
         }
 
+        fn ownedTernary(self: Self, second: Self, third: Self, comptime method: anytype) ArrayError!Array(T) {
+            var first_owned = try self.toArray();
+            defer first_owned.deinit();
+            var second_owned = try second.toArray();
+            defer second_owned.deinit();
+            var third_owned = try third.toArray();
+            defer third_owned.deinit();
+            return method(first_owned, second_owned, third_owned);
+        }
+
+        fn ownedTernaryScalar(self: Self, second: Self, third: Self, scalar: T, comptime method: anytype) ArrayError!Array(T) {
+            var first_owned = try self.toArray();
+            defer first_owned.deinit();
+            var second_owned = try second.toArray();
+            defer second_owned.deinit();
+            var third_owned = try third.toArray();
+            defer third_owned.deinit();
+            return method(first_owned, second_owned, third_owned, scalar);
+        }
+
         pub fn addArray(self: Self, other: Array(T)) ArrayError!Array(T) {
             var other_view = try other.asView();
             defer other_view.deinit();
@@ -1609,6 +1629,52 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn xlogy(self: Self, other: Self) ArrayError!Array(T) {
             return self.ownedBinary(other, Array(T).xlogy);
+        }
+
+        pub fn lerp(self: Self, end: Self, weight: Self) ArrayError!Array(T) {
+            return self.ownedTernary(end, weight, Array(T).lerp);
+        }
+
+        pub fn lerpArray(self: Self, end: Array(T), weight: Array(T)) ArrayError!Array(T) {
+            var first_owned = try self.toArray();
+            defer first_owned.deinit();
+            return first_owned.lerp(end, weight);
+        }
+
+        pub fn lerpScalar(self: Self, end: Self, weight: T) ArrayError!Array(T) {
+            var first_owned = try self.toArray();
+            defer first_owned.deinit();
+            var end_owned = try end.toArray();
+            defer end_owned.deinit();
+            return first_owned.lerpScalar(end_owned, weight);
+        }
+
+        pub fn addcmul(self: Self, input1: Self, input2: Self, value: T) ArrayError!Array(T) {
+            return self.ownedTernaryScalar(input1, input2, value, Array(T).addcmul);
+        }
+
+        pub fn addCMul(self: Self, input1: Self, input2: Self, value: T) ArrayError!Array(T) {
+            return self.addcmul(input1, input2, value);
+        }
+
+        pub fn addcmulArray(self: Self, input1: Array(T), input2: Array(T), value: T) ArrayError!Array(T) {
+            var first_owned = try self.toArray();
+            defer first_owned.deinit();
+            return first_owned.addcmul(input1, input2, value);
+        }
+
+        pub fn addcdiv(self: Self, input1: Self, input2: Self, value: T) ArrayError!Array(T) {
+            return self.ownedTernaryScalar(input1, input2, value, Array(T).addcdiv);
+        }
+
+        pub fn addCDiv(self: Self, input1: Self, input2: Self, value: T) ArrayError!Array(T) {
+            return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn addcdivArray(self: Self, input1: Array(T), input2: Array(T), value: T) ArrayError!Array(T) {
+            var first_owned = try self.toArray();
+            defer first_owned.deinit();
+            return first_owned.addcdiv(input1, input2, value);
         }
 
         pub fn clipArray(self: Self, min_values: Self, max_values: Self) ArrayError!Array(T) {
@@ -6697,6 +6763,57 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn ternaryArray(self: Self, second: Self, third: Self, comptime op: fn (T, T, T) T) ArrayError!Self {
+            const tmp_shape = try broadcastShape(self.allocator, self.shape, second.shape);
+            defer self.allocator.free(tmp_shape);
+            const out_shape = try broadcastShape(self.allocator, tmp_shape, third.shape);
+            defer self.allocator.free(out_shape);
+            const out = try Self.empty(self.allocator, out_shape);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const ai = broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
+                const bi = broadcastOffset(out_multi, out_shape.len, second.shape, second.strides);
+                const ci = broadcastOffset(out_multi, out_shape.len, third.shape, third.strides);
+                slot.* = op(self.data[ai], second.data[bi], third.data[ci]);
+            }
+            return out;
+        }
+
+        fn ternaryArrayScalar(self: Self, second: Self, third: Self, scalar: T, comptime op: fn (T, T, T, T) T) ArrayError!Self {
+            const tmp_shape = try broadcastShape(self.allocator, self.shape, second.shape);
+            defer self.allocator.free(tmp_shape);
+            const out_shape = try broadcastShape(self.allocator, tmp_shape, third.shape);
+            defer self.allocator.free(out_shape);
+            const out = try Self.empty(self.allocator, out_shape);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const ai = broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
+                const bi = broadcastOffset(out_multi, out_shape.len, second.shape, second.strides);
+                const ci = broadcastOffset(out_multi, out_shape.len, third.shape, third.strides);
+                slot.* = op(self.data[ai], second.data[bi], third.data[ci], scalar);
+            }
+            return out;
+        }
+
+        fn binaryArrayScalar(self: Self, other: Self, scalar: T, comptime op: fn (T, T, T) T) ArrayError!Self {
+            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            const out = try Self.empty(self.allocator, out_shape);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const ai = broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
+                const bi = broadcastOffset(out_multi, out_shape.len, other.shape, other.strides);
+                slot.* = op(self.data[ai], other.data[bi], scalar);
+            }
+            return out;
+        }
+
         fn unary(self: Self, comptime op: fn (T) T) ArrayError!Self {
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = op(v);
@@ -6756,6 +6873,18 @@ pub fn Array(comptime T: type) type {
         }
         fn opXlogy(a: T, b: T) T {
             return if (a == zero(T)) zero(T) else a * std.math.log(T, std.math.e, b);
+        }
+        fn opLerp(a: T, b: T, weight: T) T {
+            return addValue(T, a, mulValue(T, subValue(T, b, a), weight));
+        }
+        fn opLerpScalar(a: T, b: T, weight: T) T {
+            return opLerp(a, b, weight);
+        }
+        fn opAddcmul(a: T, b: T, c: T, value: T) T {
+            return addValue(T, a, mulValue(T, value, mulValue(T, b, c)));
+        }
+        fn opAddcdiv(a: T, b: T, c: T, value: T) T {
+            return addValue(T, a, mulValue(T, value, divValue(T, b, c)));
         }
         fn opNeg(a: T) T {
             return negValue(T, a);
@@ -7096,6 +7225,34 @@ pub fn Array(comptime T: type) type {
         pub fn xlogy(self: Self, other: Self) ArrayError!Self {
             ensureFloat(T);
             return self.binaryArray(other, opXlogy);
+        }
+
+        pub fn lerp(self: Self, end: Self, weight: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.ternaryArray(end, weight, opLerp);
+        }
+
+        pub fn lerpScalar(self: Self, end: Self, weight: T) ArrayError!Self {
+            ensureFloat(T);
+            return self.binaryArrayScalar(end, weight, opLerpScalar);
+        }
+
+        pub fn addcmul(self: Self, input1: Self, input2: Self, value: T) ArrayError!Self {
+            ensureNumeric(T);
+            return self.ternaryArrayScalar(input1, input2, value, opAddcmul);
+        }
+
+        pub fn addCMul(self: Self, input1: Self, input2: Self, value: T) ArrayError!Self {
+            return self.addcmul(input1, input2, value);
+        }
+
+        pub fn addcdiv(self: Self, input1: Self, input2: Self, value: T) ArrayError!Self {
+            ensureNumeric(T);
+            return self.ternaryArrayScalar(input1, input2, value, opAddcdiv);
+        }
+
+        pub fn addCDiv(self: Self, input1: Self, input2: Self, value: T) ArrayError!Self {
+            return self.addcdiv(input1, input2, value);
         }
 
         pub fn maximum(self: Self, other: Self) ArrayError!Self {
@@ -11025,6 +11182,38 @@ test "array binary math wrappers and clamp aliases" {
     defer xlogy_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 2 }, xlogy_scalar.data);
 
+    var fused_end = try Array(f64).fromSlice(gpa, &.{ 11, 22 }, &.{2});
+    defer fused_end.deinit();
+    var fused_weight = try Array(f64).fromSlice(gpa, &.{ 0, 0.5 }, &.{2});
+    defer fused_weight.deinit();
+    var lerped = try a.lerp(fused_end, fused_weight);
+    defer lerped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 12, 3, 13 }, lerped.data);
+    var lerped_scalar = try a.lerpScalar(fused_end, 0.25);
+    defer lerped_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3.5, 7, 5, 8.5 }, lerped_scalar.data);
+    var fused_input1 = try Array(f64).fromSlice(gpa, &.{ 10, 20 }, &.{2});
+    defer fused_input1.deinit();
+    var fused_input2 = try Array(f64).fromSlice(gpa, &.{2}, &.{1});
+    defer fused_input2.deinit();
+    var addcmul_out = try a.addcmul(fused_input1, fused_input2, 0.5);
+    defer addcmul_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 11, 22, 13, 24 }, addcmul_out.data);
+    var addcmul_alias = try a.addCMul(fused_input1, fused_input2, 0.5);
+    defer addcmul_alias.deinit();
+    try std.testing.expectEqualSlices(f64, addcmul_out.data, addcmul_alias.data);
+    var addcdiv_denom = try Array(f64).fromSlice(gpa, &.{ 2, 4 }, &.{2});
+    defer addcdiv_denom.deinit();
+    var addcdiv_out = try a.addcdiv(fused_input1, addcdiv_denom, 2);
+    defer addcdiv_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 11, 12, 13, 14 }, addcdiv_out.data);
+    var addcdiv_alias = try a.addCDiv(fused_input1, addcdiv_denom, 2);
+    defer addcdiv_alias.deinit();
+    try std.testing.expectEqualSlices(f64, addcdiv_out.data, addcdiv_alias.data);
+    var bad_fused_input = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
+    defer bad_fused_input.deinit();
+    try std.testing.expectError(error.ShapeMismatch, a.lerp(fused_end, bad_fused_input));
+
     var ints = try Array(i32).fromSlice(gpa, &.{ -5, 5, 7 }, &.{3});
     defer ints.deinit();
     var divisors = try Array(i32).fromSlice(gpa, &.{ 2, 2, 3 }, &.{3});
@@ -11924,6 +12113,44 @@ test "array non contiguous view helpers" {
     var xlogy_scalar_view = try stepped.xlogyScalar(std.math.e);
     defer xlogy_scalar_view.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), xlogy_scalar_view.data[0], 1e-12);
+    var lerp_end = try Array(f64).fromSlice(gpa, &.{ 11, 130 }, &.{ 1, 2 });
+    defer lerp_end.deinit();
+    var lerp_weight = try Array(f64).fromSlice(gpa, &.{ 0, 0.5 }, &.{ 1, 2 });
+    defer lerp_weight.deinit();
+    var lerp_end_view = try lerp_end.asView();
+    defer lerp_end_view.deinit();
+    var lerp_weight_view = try lerp_weight.asView();
+    defer lerp_weight_view.deinit();
+    var lerp_view = try stepped.lerp(lerp_end_view, lerp_weight_view);
+    defer lerp_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 80, 50, 114.5 }, lerp_view.data);
+    var lerp_scalar_view = try stepped.lerpScalar(lerp_end_view, 0.25);
+    defer lerp_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3.5, 55, 40.25, 106.75 }, lerp_scalar_view.data);
+    var fused_input1 = try Array(f64).fromSlice(gpa, &.{ 10, 20 }, &.{ 1, 2 });
+    defer fused_input1.deinit();
+    var fused_input2 = try Array(f64).fromSlice(gpa, &.{2}, &.{1});
+    defer fused_input2.deinit();
+    var fused_input1_view = try fused_input1.asView();
+    defer fused_input1_view.deinit();
+    var fused_input2_view = try fused_input2.asView();
+    defer fused_input2_view.deinit();
+    var addcmul_view = try stepped.addcmul(fused_input1_view, fused_input2_view, 0.5);
+    defer addcmul_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 11, 50, 60, 119 }, addcmul_view.data);
+    var addcmul_alias_view = try stepped.addCMul(fused_input1_view, fused_input2_view, 0.5);
+    defer addcmul_alias_view.deinit();
+    try std.testing.expectEqualSlices(f64, addcmul_view.data, addcmul_alias_view.data);
+    var fused_denom = try Array(f64).fromSlice(gpa, &.{ 2, 4 }, &.{ 1, 2 });
+    defer fused_denom.deinit();
+    var fused_denom_view = try fused_denom.asView();
+    defer fused_denom_view.deinit();
+    var addcdiv_view = try stepped.addcdiv(fused_input1_view, fused_denom_view, 2);
+    defer addcdiv_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 11, 40, 60, 109 }, addcdiv_view.data);
+    var addcdiv_alias_view = try stepped.addCDiv(fused_input1_view, fused_denom_view, 2);
+    defer addcdiv_alias_view.deinit();
+    try std.testing.expectEqualSlices(f64, addcdiv_view.data, addcdiv_alias_view.data);
     var clip_lo = try Array(f64).fromSlice(gpa, &.{ 2, 10 }, &.{ 1, 2 });
     defer clip_lo.deinit();
     var clip_hi = try Array(f64).fromSlice(gpa, &.{ 4, 50 }, &.{ 1, 2 });
