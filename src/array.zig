@@ -3968,12 +3968,36 @@ pub fn ArrayView(comptime T: type) type {
             return self.reshape(inferred);
         }
 
+        pub fn reshapeAs(self: Self, other: Self) ArrayError!Self {
+            return self.reshape(other.shape);
+        }
+
+        pub fn reshapeAsArray(self: Self, other: Array(T)) ArrayError!Self {
+            return self.reshape(other.shape);
+        }
+
+        pub fn reshape_as(self: Self, other: Self) ArrayError!Self {
+            return self.reshapeAs(other);
+        }
+
         pub fn view(self: Self, dims: []const usize) ArrayError!Self {
             return self.reshape(dims);
         }
 
         pub fn viewInfer(self: Self, dims: []const isize) ArrayError!Self {
             return self.reshapeInfer(dims);
+        }
+
+        pub fn viewAs(self: Self, other: Self) ArrayError!Self {
+            return self.view(other.shape);
+        }
+
+        pub fn viewAsArray(self: Self, other: Array(T)) ArrayError!Self {
+            return self.view(other.shape);
+        }
+
+        pub fn view_as(self: Self, other: Self) ArrayError!Self {
+            return self.viewAs(other);
         }
 
         pub fn flatten(self: Self) ArrayError!Self {
@@ -3984,6 +4008,22 @@ pub fn ArrayView(comptime T: type) type {
             const dims = try flattenShape(self.allocator, self.shape, start_axis, end_axis);
             defer self.allocator.free(dims);
             return self.reshape(dims);
+        }
+
+        pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            return self.flattenAxes(start_axis, end_axis);
+        }
+
+        pub fn flatten_range(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            return self.flattenAxes(start_axis, end_axis);
+        }
+
+        pub fn flattenFrom(self: Self, start_axis: isize) ArrayError!Self {
+            return self.flattenAxes(start_axis, -1);
+        }
+
+        pub fn flatten_from(self: Self, start_axis: isize) ArrayError!Self {
+            return self.flattenFrom(start_axis);
         }
 
         pub fn ravel(self: Self) ArrayError!Self {
@@ -4117,6 +4157,14 @@ pub fn ArrayView(comptime T: type) type {
             return Self.init(self.allocator, self.data, shape_list.items, stride_list.items, self.offset, self.device);
         }
 
+        pub fn squeezeDim(self: Self, axis_index: isize) ArrayError!Self {
+            return self.squeeze(axis_index);
+        }
+
+        pub fn squeeze_dim(self: Self, axis_index: isize) ArrayError!Self {
+            return self.squeezeDim(axis_index);
+        }
+
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
             const rank_count = self.shape.len + 1;
             const axis = if (axis_index < 0) blk: {
@@ -4142,6 +4190,14 @@ pub fn ArrayView(comptime T: type) type {
                 .offset = self.offset,
                 .device = self.device,
             };
+        }
+
+        pub fn unsqueezeDim(self: Self, axis_index: isize) ArrayError!Self {
+            return self.unsqueeze(axis_index);
+        }
+
+        pub fn unsqueeze_dim(self: Self, axis_index: isize) ArrayError!Self {
+            return self.unsqueezeDim(axis_index);
         }
 
         pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
@@ -4184,6 +4240,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.expand(other.shape);
         }
 
+        pub fn expand_as(self: Self, other: Self) ArrayError!Self {
+            return self.expandAs(other);
+        }
+
         pub fn permute(self: Self, axes: []const usize) ArrayError!Self {
             if (axes.len != self.shape.len) return error.InvalidPermutation;
             var seen = try self.allocator.alloc(bool, axes.len);
@@ -4219,6 +4279,14 @@ pub fn ArrayView(comptime T: type) type {
             return self.permute(axes);
         }
 
+        pub fn swapDims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
+            return self.swapaxes(dim0, dim1);
+        }
+
+        pub fn swap_dims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
+            return self.swapDims(dim0, dim1);
+        }
+
         pub fn movedim(self: Self, source: isize, destination: isize) ArrayError!Self {
             const src = try normalizeDim(source, self.shape.len);
             const dst = try normalizeDim(destination, self.shape.len);
@@ -4242,6 +4310,10 @@ pub fn ArrayView(comptime T: type) type {
                 }
             }
             return self.permute(axes);
+        }
+
+        pub fn moveaxis(self: Self, source: isize, destination: isize) ArrayError!Self {
+            return self.movedim(source, destination);
         }
 
         pub fn transpose(self: Self) ArrayError!Self {
@@ -5584,6 +5656,10 @@ pub fn Array(comptime T: type) type {
             return self.expandView(other.shape);
         }
 
+        pub fn expand_as(self: Self, other: Self) ArrayError!ArrayView(T) {
+            return self.expandAs(other);
+        }
+
         pub fn isScalar(self: Self) bool {
             return self.shape.len == 0 or (self.shape.len == 1 and self.shape[0] == 1);
         }
@@ -5662,6 +5738,18 @@ pub fn Array(comptime T: type) type {
             return self.reshape(inferred);
         }
 
+        pub fn reshapeAs(self: Self, other: Self) ArrayError!Self {
+            return self.reshape(other.shape);
+        }
+
+        pub fn reshapeAsView(self: Self, other: ArrayView(T)) ArrayError!Self {
+            return self.reshape(other.shape);
+        }
+
+        pub fn reshape_as(self: Self, other: Self) ArrayError!Self {
+            return self.reshapeAs(other);
+        }
+
         pub fn flatten(self: Self) ArrayError!Self {
             return self.reshape(&.{self.data.len});
         }
@@ -5670,6 +5758,22 @@ pub fn Array(comptime T: type) type {
             const dims = try flattenShape(self.allocator, self.shape, start_axis, end_axis);
             defer self.allocator.free(dims);
             return self.reshape(dims);
+        }
+
+        pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            return self.flattenAxes(start_axis, end_axis);
+        }
+
+        pub fn flatten_range(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            return self.flattenAxes(start_axis, end_axis);
+        }
+
+        pub fn flattenFrom(self: Self, start_axis: isize) ArrayError!Self {
+            return self.flattenAxes(start_axis, -1);
+        }
+
+        pub fn flatten_from(self: Self, start_axis: isize) ArrayError!Self {
+            return self.flattenFrom(start_axis);
         }
 
         pub fn ravel(self: Self) ArrayError!Self {
@@ -5706,6 +5810,18 @@ pub fn Array(comptime T: type) type {
             return self.reshapeInfer(dims);
         }
 
+        pub fn viewAs(self: Self, other: Self) ArrayError!Self {
+            return self.view(other.shape);
+        }
+
+        pub fn viewAsView(self: Self, other: ArrayView(T)) ArrayError!Self {
+            return self.view(other.shape);
+        }
+
+        pub fn view_as(self: Self, other: Self) ArrayError!Self {
+            return self.viewAs(other);
+        }
+
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
             const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
             defer self.allocator.free(out_shape);
@@ -5732,6 +5848,14 @@ pub fn Array(comptime T: type) type {
             return self.reshape(dims_list.items);
         }
 
+        pub fn squeezeDim(self: Self, axis_index: isize) ArrayError!Self {
+            return self.squeeze(axis_index);
+        }
+
+        pub fn squeeze_dim(self: Self, axis_index: isize) ArrayError!Self {
+            return self.squeezeDim(axis_index);
+        }
+
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
             const rank_count = self.shape.len + 1;
             const axis = if (axis_index < 0) blk: {
@@ -5746,6 +5870,14 @@ pub fn Array(comptime T: type) type {
             dims[axis] = 1;
             for (self.shape[axis..], axis + 1..) |d, i| dims[i] = d;
             return self.reshape(dims);
+        }
+
+        pub fn unsqueezeDim(self: Self, axis_index: isize) ArrayError!Self {
+            return self.unsqueeze(axis_index);
+        }
+
+        pub fn unsqueeze_dim(self: Self, axis_index: isize) ArrayError!Self {
+            return self.unsqueezeDim(axis_index);
         }
 
         pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
@@ -6249,6 +6381,14 @@ pub fn Array(comptime T: type) type {
             return self.permute(perm);
         }
 
+        pub fn swapDims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
+            return self.swapaxes(dim0, dim1);
+        }
+
+        pub fn swap_dims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
+            return self.swapDims(dim0, dim1);
+        }
+
         pub fn permute(self: Self, axes: []const usize) ArrayError!Self {
             if (axes.len != self.shape.len) return error.InvalidPermutation;
             var seen = try self.allocator.alloc(bool, axes.len);
@@ -6298,6 +6438,10 @@ pub fn Array(comptime T: type) type {
                 }
             }
             return self.permute(axes);
+        }
+
+        pub fn moveaxis(self: Self, source: isize, destination: isize) ArrayError!Self {
+            return self.movedim(source, destination);
         }
 
         pub fn slice1d(self: Self, slice_value: Slice) ArrayError!Self {
@@ -12489,9 +12633,15 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var u = try a.unsqueeze(0);
     defer u.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, u.shape);
+    var u_alias = try a.unsqueeze_dim(-1);
+    defer u_alias.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, u_alias.shape);
     var s2 = try u.squeeze(null);
     defer s2.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, s2.shape);
+    var squeezed_alias = try u_alias.squeezeDim(-1);
+    defer squeezed_alias.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, squeezed_alias.shape);
 
     var p = try a.permute(&.{ 1, 0 });
     defer p.deinit();
@@ -12517,12 +12667,28 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var reshaped = try a.reshape(&.{ 3, 2 });
     defer reshaped.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, reshaped.shape);
+    var reshape_template = try Array(f64).empty(gpa, &.{ 1, 6 });
+    defer reshape_template.deinit();
+    var reshaped_as = try a.reshape_as(reshape_template);
+    defer reshaped_as.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 6 }, reshaped_as.shape);
     var viewed = try reshaped.view(&.{ 2, 3 });
     defer viewed.deinit();
     try std.testing.expectEqualSlices(f64, a.data, viewed.data);
+    var view_as = try reshaped_as.viewAs(a);
+    defer view_as.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, view_as.shape);
     var flat_top = try a.flatten();
     defer flat_top.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, flat_top.shape);
+    var cube = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 2, 2 });
+    defer cube.deinit();
+    var flat_from = try cube.flattenFrom(1);
+    defer flat_from.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, flat_from.shape);
+    var flat_range = try cube.flatten_range(0, 1);
+    defer flat_range.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, flat_range.shape);
     var ravel_top = try a.ravel();
     defer ravel_top.deinit();
     try std.testing.expectEqualSlices(f64, flat_top.data, ravel_top.data);
@@ -12552,9 +12718,15 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var swapped_top = try a.swapaxes(0, 1);
     defer swapped_top.deinit();
     try std.testing.expectEqualSlices(f64, transposed_top.data, swapped_top.data);
+    var swapped_dims_top = try a.swap_dims(0, 1);
+    defer swapped_dims_top.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_top.data, swapped_dims_top.data);
     var moved_top = try u.movedim(0, 2);
     defer moved_top.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, moved_top.shape);
+    var moveaxis_top = try u.moveaxis(0, -1);
+    defer moveaxis_top.deinit();
+    try std.testing.expectEqualSlices(usize, moved_top.shape, moveaxis_top.shape);
     var selected_top = try a.select(0, 1);
     defer selected_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, selected_top.data);
@@ -12578,6 +12750,9 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var expanded_as_top = try selected_top.expandAs(broadcast_top);
     defer expanded_as_top.deinit();
     try std.testing.expectEqualSlices(usize, broadcast_top.shape, expanded_as_top.shape);
+    var expanded_as_alias = try selected_top.expand_as(broadcast_top);
+    defer expanded_as_alias.deinit();
+    try std.testing.expectEqualSlices(usize, broadcast_top.shape, expanded_as_alias.shape);
     try std.testing.expectError(error.ShapeMismatch, selected_top.expand(&.{ 2, 2 }));
     var repeated_top = try selected_top.repeat(2, 0);
     defer repeated_top.deinit();
@@ -12677,6 +12852,28 @@ test "array view materializing shape wrappers" {
     var view_new_ones = try view.new_ones(&.{3});
     defer view_new_ones.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1 }, view_new_ones.data);
+    var contiguous_view = try a.asView();
+    defer contiguous_view.deinit();
+    var view_shape_template = try Array(f64).empty(gpa, &.{ 4, 2 });
+    defer view_shape_template.deinit();
+    var view_reshaped = try contiguous_view.reshapeAsArray(view_shape_template);
+    defer view_reshaped.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, view_reshaped.shape);
+    var view_back = try view_reshaped.view_as(contiguous_view);
+    defer view_back.deinit();
+    try std.testing.expectEqualSlices(usize, contiguous_view.shape, view_back.shape);
+    var view_flat_from = try contiguous_view.flattenFrom(1);
+    defer view_flat_from.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, view_flat_from.shape);
+    var view_flat_range = try contiguous_view.flatten_range(0, 1);
+    defer view_flat_range.deinit();
+    try std.testing.expectEqualSlices(usize, &.{8}, view_flat_range.shape);
+    var view_unsqueezed = try view.unsqueezeDim(0);
+    defer view_unsqueezed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2 }, view_unsqueezed.shape);
+    var view_squeezed = try view_unsqueezed.squeeze_dim(0);
+    defer view_squeezed.deinit();
+    try std.testing.expectEqualSlices(usize, view.shape, view_squeezed.shape);
     var unbound_view = try view.unbind(1);
     defer unbound_view.deinit();
     try std.testing.expectEqual(@as(usize, 2), unbound_view.items.len);
@@ -12714,6 +12911,14 @@ test "array view materializing shape wrappers" {
     defer rotated.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, rotated.shape);
     try std.testing.expectEqualSlices(f64, &.{ 3, 7, 1, 5 }, rotated.data);
+    var swapped_view = try view.swapDims(0, 1);
+    defer swapped_view.deinit();
+    var swapped_view_owned = try swapped_view.toArray();
+    defer swapped_view_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 3, 7 }, swapped_view_owned.data);
+    var moved_view = try view.moveaxis(0, 1);
+    defer moved_view.deinit();
+    try std.testing.expectEqualSlices(usize, swapped_view.shape, moved_view.shape);
 
     var padded = try view.padConstant(&.{ 1, 1 }, &.{ 0, 1 }, 0);
     defer padded.deinit();
