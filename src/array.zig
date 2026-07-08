@@ -2683,6 +2683,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.cumprod();
         }
 
+        pub fn cummax(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cummax();
+        }
+
+        pub fn cummin(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cummin();
+        }
+
         pub fn cumsumAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2693,6 +2705,18 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.cumprodAxis(axis_index);
+        }
+
+        pub fn cummaxAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cummaxAxis(axis_index);
+        }
+
+        pub fn cumminAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cumminAxis(axis_index);
         }
 
         pub fn diff(self: Self, axis_index: isize, n: usize) ArrayError!Array(T) {
@@ -6963,6 +6987,14 @@ pub fn Array(comptime T: type) type {
                 else => @compileError("fmin requires an orderable numeric array"),
             };
         }
+        fn opCummax(a: T, b: T) T {
+            if (comptime isComplex(T)) @compileError("cummax requires an orderable numeric array");
+            return if (lessValue(T, a, b)) b else a;
+        }
+        fn opCummin(a: T, b: T) T {
+            if (comptime isComplex(T)) @compileError("cummin requires an orderable numeric array");
+            return if (lessValue(T, b, a)) b else a;
+        }
         fn opNeg(a: T) T {
             return negValue(T, a);
         }
@@ -9548,6 +9580,29 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn cumulativeFlat(self: Self, comptime op: fn (T, T) T) ArrayError!Self {
+            ensureNumeric(T);
+            const out = try Self.empty(self.allocator, self.shape);
+            if (self.data.len == 0) return out;
+            var acc = self.data[0];
+            out.data[0] = acc;
+            for (self.data[1..], out.data[1..]) |value, *slot| {
+                acc = op(acc, value);
+                slot.* = acc;
+            }
+            return out;
+        }
+
+        pub fn cummax(self: Self) ArrayError!Self {
+            ensureNumeric(T);
+            return self.cumulativeFlat(opCummax);
+        }
+
+        pub fn cummin(self: Self) ArrayError!Self {
+            ensureNumeric(T);
+            return self.cumulativeFlat(opCummin);
+        }
+
         pub fn cumsumAxis(self: Self, axis_index: isize) ArrayError!Self {
             ensureNumeric(T);
             return self.cumulativeAxis(axis_index, zero(T), opAdd);
@@ -9556,6 +9611,16 @@ pub fn Array(comptime T: type) type {
         pub fn cumprodAxis(self: Self, axis_index: isize) ArrayError!Self {
             ensureNumeric(T);
             return self.cumulativeAxis(axis_index, one(T), opMul);
+        }
+
+        pub fn cummaxAxis(self: Self, axis_index: isize) ArrayError!Self {
+            ensureNumeric(T);
+            return self.cumulativeAxisFromFirst(axis_index, opCummax);
+        }
+
+        pub fn cumminAxis(self: Self, axis_index: isize) ArrayError!Self {
+            ensureNumeric(T);
+            return self.cumulativeAxisFromFirst(axis_index, opCummin);
         }
 
         fn cumulativeAxis(self: Self, axis_index: isize, init_value: T, comptime op: fn (T, T) T) ArrayError!Self {
@@ -9584,6 +9649,40 @@ pub fn Array(comptime T: type) type {
                     const idx = ravelIndex(full_multi, self.strides);
                     acc = op(acc, self.data[idx]);
                     out.data[idx] = acc;
+                }
+            }
+            return out;
+        }
+
+        fn cumulativeAxisFromFirst(self: Self, axis_index: isize, comptime op: fn (T, T) T) ArrayError!Self {
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |d, i| slice_shape[i] = d;
+            for (self.shape[axis + 1 ..], axis..) |d, i| slice_shape[i] = d;
+            const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var full_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(full_multi);
+
+            for (0..product(slice_shape)) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| full_multi[i] = coord;
+                for (slice_multi[axis..], axis + 1..) |coord, i| full_multi[i] = coord;
+                if (self.shape[axis] == 0) continue;
+                full_multi[axis] = 0;
+                var acc = self.data[ravelIndex(full_multi, self.strides)];
+                out.data[ravelIndex(full_multi, out.strides)] = acc;
+                for (1..self.shape[axis]) |axis_i| {
+                    full_multi[axis] = axis_i;
+                    const idx = ravelIndex(full_multi, self.strides);
+                    acc = op(acc, self.data[idx]);
+                    out.data[ravelIndex(full_multi, out.strides)] = acc;
                 }
             }
             return out;
@@ -11458,6 +11557,12 @@ test "array reductions and matmul" {
     var cp = try a.cumprod();
     defer cp.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 24, 120, 720 }, cp.data);
+    var cmax = try a.cummax();
+    defer cmax.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 5, 6 }, cmax.data);
+    var cmin = try a.cummin();
+    defer cmin.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, cmin.data);
     try std.testing.expectEqual(@as(usize, 5), try a.argmax());
     try std.testing.expectEqual(@as(usize, 0), try a.argmin());
     var arg1 = try a.argmaxAxis(1, false);
@@ -12529,6 +12634,22 @@ test "array view object statistics wrappers" {
     try std.testing.expectEqual(@as(f64, 9), cums.data[3]);
     try std.testing.expect(std.math.isNan(cums.data[4]));
     try std.testing.expectEqual(@as(f64, 15), cums.data[5]);
+    var cummax_view = try view.cummaxAxis(0);
+    defer cummax_view.deinit();
+    try std.testing.expectEqual(@as(f64, 1), cummax_view.data[0]);
+    try std.testing.expectEqual(@as(f64, 4), cummax_view.data[1]);
+    try std.testing.expectEqual(@as(f64, 2), cummax_view.data[2]);
+    try std.testing.expectEqual(@as(f64, 5), cummax_view.data[3]);
+    try std.testing.expectEqual(@as(f64, 2), cummax_view.data[4]);
+    try std.testing.expectEqual(@as(f64, 6), cummax_view.data[5]);
+    var cummin_view = try view.cumminAxis(0);
+    defer cummin_view.deinit();
+    try std.testing.expectEqual(@as(f64, 1), cummin_view.data[0]);
+    try std.testing.expectEqual(@as(f64, 4), cummin_view.data[1]);
+    try std.testing.expectEqual(@as(f64, 1), cummin_view.data[2]);
+    try std.testing.expectEqual(@as(f64, 4), cummin_view.data[3]);
+    try std.testing.expectEqual(@as(f64, 1), cummin_view.data[4]);
+    try std.testing.expectEqual(@as(f64, 4), cummin_view.data[5]);
     var d = try view.diff(0, 1);
     defer d.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, d.shape);
@@ -15369,6 +15490,12 @@ test "array axis cumulative operations and diff" {
     var cp1 = try a.cumprodAxis(1);
     defer cp1.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 4, 20, 120 }, cp1.data);
+    var cmx1 = try a.cummaxAxis(1);
+    defer cmx1.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 5, 6 }, cmx1.data);
+    var cmn1 = try a.cumminAxis(1);
+    defer cmn1.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 4, 4, 4 }, cmn1.data);
 
     var d1 = try a.diff(1, 1);
     defer d1.deinit();
