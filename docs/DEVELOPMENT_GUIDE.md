@@ -26,7 +26,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - 张量数据结构：shape、stride、dtype、device、内存布局、contiguous/non-contiguous view。
 - 创建函数：`tensor`、`zeros`、`ones`、`empty`、`full`、`eye`、`arange`、`linspace`、随机初始化等。
 - 索引与切片：整数索引、range/slice、bool mask、take/gather/scatter、advanced indexing。
-- 形状变换：reshape/view、flatten/ravel、squeeze/unsqueeze、transpose/permute/movedim、broadcast、repeat/tile。
+- 形状变换：reshape/view、flatten/ravel、squeeze/unsqueeze、transpose/permute/movedim、broadcast、repeat/tile、sliceAxis、flip、roll、padConstant。
 - 广播逐元素运算：加减乘除、幂、比较、逻辑运算、where、clip、maximum/minimum。
 - 归约：sum、prod、min、max、mean、var、std、argmin、argmax、cumsum、cumprod。
 - 线性代数基础：dot、matmul/mm、bmm、outer、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库。
@@ -83,7 +83,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 初始化阶段已优先实现一批 Array/NDArray 能力：
 
 - 创建：`array/ndarray`（`tensor` 兼容别名）、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
-- 形状：`reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`。
+- 形状：`reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`、`sliceAxis`、`flip`、`roll`、`padConstant`。
 - 索引：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeAlongAxis/putAlongAxis`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`maskedSelect`、`maskedFill`、`maskedScatter`、`nonzero/countNonzero`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、scalar variants、`maximum/minimum`、`whereMask`、比较、`allclose`。
 - 数学/NN：`exp`、`log`、`sqrt`、`sin`、`cos`、`tanh`、`relu`、`sigmoid`、`softmax`、`logSoftmax/log_softmax`、`clip`。

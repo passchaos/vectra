@@ -750,6 +750,87 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        pub fn sliceAxis(self: Self, axis_index: isize, slice: Slice) TensorError!Self {
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const ns = try normalizeSlice(slice, self.shape[axis]);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = ns.count;
+            const out = try Self.empty(self.allocator, out_shape);
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = ns.start + out_multi[axis] * ns.step;
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn flip(self: Self, axis_index: isize) TensorError!Self {
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const out = try Self.empty(self.allocator, self.shape);
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = self.shape[axis] - 1 - out_multi[axis];
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn roll(self: Self, shift: isize, axis_index: isize) TensorError!Self {
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const len_axis = self.shape[axis];
+            if (len_axis == 0) return self.clone();
+            const signed_len: isize = @intCast(len_axis);
+            const normalized_shift: usize = @intCast(@mod(shift, signed_len));
+            const out = try Self.empty(self.allocator, self.shape);
+            const out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = (out_multi[axis] + len_axis - normalized_shift) % len_axis;
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) TensorError!Self {
+            if (before.len != self.shape.len or after.len != self.shape.len) return error.ShapeMismatch;
+            var out_shape = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_shape);
+            for (self.shape, before, after, 0..) |d, b, a, i| out_shape[i] = d + b + a;
+            var out = try Self.full(self.allocator, out_shape, value);
+            errdefer out.deinit();
+            if (self.data.len == 0) return out;
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            for (self.data, 0..) |v, flat| {
+                unravelIndexInto(flat, self.shape, in_multi);
+                for (in_multi, before, 0..) |coord, b, i| out_multi[i] = coord + b;
+                out.data[ravelIndex(out_multi, out.strides)] = v;
+            }
+            return out;
+        }
+
         pub fn tile(self: Self, repeats: []const usize) TensorError!Self {
             if (repeats.len != self.shape.len) return error.ShapeMismatch;
             var out_shape = try self.allocator.alloc(usize, self.shape.len);
@@ -2594,6 +2675,22 @@ pub fn diagflat(comptime T: type, input: Tensor(T), offset: isize) TensorError!T
     return input.diagflat(offset);
 }
 
+pub fn sliceAxis(comptime T: type, input: Tensor(T), axis: isize, slice: Slice) TensorError!Tensor(T) {
+    return input.sliceAxis(axis, slice);
+}
+
+pub fn flip(comptime T: type, input: Tensor(T), axis: isize) TensorError!Tensor(T) {
+    return input.flip(axis);
+}
+
+pub fn roll(comptime T: type, input: Tensor(T), shift: isize, axis: isize) TensorError!Tensor(T) {
+    return input.roll(shift, axis);
+}
+
+pub fn padConstant(comptime T: type, input: Tensor(T), before: []const usize, after: []const usize, value: T) TensorError!Tensor(T) {
+    return input.padConstant(before, after, value);
+}
+
 pub fn takeAlongAxis(comptime T: type, input: Tensor(T), indices: Tensor(usize), axis: isize) TensorError!Tensor(T) {
     return input.takeAlongAxis(indices, axis);
 }
@@ -3035,4 +3132,36 @@ test "array advanced indexing and mask mutation helpers" {
     try std.testing.expectEqual(@as(usize, 6), filled.countNonzero());
     try std.testing.expectEqualSlices(usize, &.{ 6, 2 }, nz.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 1, 0, 2, 1, 0, 1, 1, 1, 2 }, nz.data);
+}
+
+test "array slice flip roll and constant padding" {
+    const gpa = std.testing.allocator;
+    var a = try array(f64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var sliced = try a.sliceAxis(1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer sliced.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, sliced.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4, 6 }, sliced.data);
+
+    var flipped = try a.flip(1);
+    defer flipped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 2, 1, 6, 5, 4 }, flipped.data);
+
+    var rolled = try a.roll(1, 1);
+    defer rolled.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 1, 2, 6, 4, 5 }, rolled.data);
+
+    var rolled_neg = try a.roll(-1, 0);
+    defer rolled_neg.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 1, 2, 3 }, rolled_neg.data);
+
+    var padded = try a.padConstant(&.{ 1, 1 }, &.{ 0, 2 }, 0);
+    defer padded.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 6 }, padded.shape);
+    try std.testing.expectEqualSlices(f64, &.{
+        0, 0, 0, 0, 0, 0,
+        0, 1, 2, 3, 0, 0,
+        0, 4, 5, 6, 0, 0,
+    }, padded.data);
 }
