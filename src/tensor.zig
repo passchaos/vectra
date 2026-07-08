@@ -1827,13 +1827,12 @@ pub fn Tensor(comptime T: type) type {
 
         pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) TensorError!TopK {
             ensureNumeric(T);
-            _ = sorted; // Results are always sorted for deterministic behavior.
             if (self.data.len == 0 and k > 0) return error.EmptyTensor;
-            if (axis_opt == null) return self.topkFlat(k, largest);
-            return self.topkAxis(k, try normalizeDim(axis_opt.?, self.shape.len), largest);
+            if (axis_opt == null) return self.topkFlat(k, largest, sorted);
+            return self.topkAxis(k, try normalizeDim(axis_opt.?, self.shape.len), largest, sorted);
         }
 
-        fn topkFlat(self: Self, k: usize, largest: bool) TensorError!TopK {
+        fn topkFlat(self: Self, k: usize, largest: bool, sorted: bool) TensorError!TopK {
             if (k > self.data.len) return error.InvalidShape;
             const order = try self.allocator.alloc(usize, self.data.len);
             defer self.allocator.free(order);
@@ -1846,6 +1845,11 @@ pub fn Tensor(comptime T: type) type {
                 }
             };
             std.sort.insertion(usize, order, Ctx{ .data = self.data, .largest = largest }, Ctx.lessThan);
+            if (!sorted) std.sort.insertion(usize, order[0..k], {}, struct {
+                fn lessThan(_: void, a: usize, b: usize) bool {
+                    return a < b;
+                }
+            }.lessThan);
 
             var values = try Self.empty(self.allocator, &.{k});
             errdefer values.deinit();
@@ -1859,7 +1863,7 @@ pub fn Tensor(comptime T: type) type {
             return .{ .values = values, .indices = indices };
         }
 
-        fn topkAxis(self: Self, k: usize, axis: usize, largest: bool) TensorError!TopK {
+        fn topkAxis(self: Self, k: usize, axis: usize, largest: bool, sorted: bool) TensorError!TopK {
             const axis_len = self.shape[axis];
             if (k > axis_len) return error.InvalidShape;
             var out_shape = try self.allocator.dupe(usize, self.shape);
@@ -1911,6 +1915,11 @@ pub fn Tensor(comptime T: type) type {
                 for (slice_multi[axis..], axis + 1..) |coord, i| base_multi[i] = coord;
                 for (order, 0..) |*slot, i| slot.* = i;
                 std.sort.insertion(usize, order, Ctx{ .tensor = self, .axis = axis, .base_multi = base_multi, .largest = largest }, Ctx.lessThan);
+                if (!sorted) std.sort.insertion(usize, order[0..k], {}, struct {
+                    fn lessThan(_: void, a: usize, b: usize) bool {
+                        return a < b;
+                    }
+                }.lessThan);
 
                 for (0..k) |rank_i| {
                     @memcpy(out_multi, base_multi);
@@ -2536,6 +2545,16 @@ test "tensor min max arg reductions and topk" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, row_top.values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 2, 4 }, row_top.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2, 0 }, row_top.indices.data);
+
+    var flat_unsorted = try a.topk(3, null, true, false);
+    defer flat_unsorted.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 9, 5, 8 }, flat_unsorted.values.data);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4 }, flat_unsorted.indices.data);
+
+    var row_unsorted = try a.topk(2, 1, true, false);
+    defer row_unsorted.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 9, 5, 4, 8 }, row_unsorted.values.data);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 0, 1 }, row_unsorted.indices.data);
 }
 
 test "tensor bool all any axis reductions" {
