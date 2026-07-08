@@ -4993,6 +4993,97 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn transformedStack(allocator: std.mem.Allocator, arrays: []const Self, comptime shapeFn: fn (Self, []usize) ArrayError!void, axis_index: isize) ArrayError!Self {
+            if (arrays.len == 0) return error.EmptyArray;
+            var transformed = try allocator.alloc(Self, arrays.len);
+            defer allocator.free(transformed);
+            var initialized: usize = 0;
+            errdefer {
+                for (transformed[0..initialized]) |*part| part.deinit();
+            }
+            for (arrays, 0..) |input, i| {
+                var dims_buf: [4]usize = undefined;
+                try shapeFn(input, dims_buf[0..]);
+                transformed[i] = try input.reshape(dims_buf[0 .. input.shape.len + 1]);
+                initialized += 1;
+            }
+            var out = try Self.cat(allocator, transformed, axis_index);
+            errdefer out.deinit();
+            for (transformed[0..initialized]) |*part| part.deinit();
+            initialized = 0;
+            return out;
+        }
+
+        pub fn hstack(allocator: std.mem.Allocator, arrays: []const Self) ArrayError!Self {
+            if (arrays.len == 0) return error.EmptyArray;
+            const axis: isize = if (arrays[0].shape.len == 1) 0 else 1;
+            return Self.cat(allocator, arrays, axis);
+        }
+
+        pub fn vstack(allocator: std.mem.Allocator, arrays: []const Self) ArrayError!Self {
+            if (arrays.len == 0) return error.EmptyArray;
+            if (arrays[0].shape.len != 1) return Self.cat(allocator, arrays, 0);
+            return transformedStack(allocator, arrays, struct {
+                fn f(input: Self, out: []usize) ArrayError!void {
+                    if (input.shape.len != 1) return error.ShapeMismatch;
+                    out[0] = 1;
+                    out[1] = input.shape[0];
+                }
+            }.f, 0);
+        }
+
+        pub fn columnStack(allocator: std.mem.Allocator, arrays: []const Self) ArrayError!Self {
+            if (arrays.len == 0) return error.EmptyArray;
+            var transformed = try allocator.alloc(Self, arrays.len);
+            defer allocator.free(transformed);
+            var initialized: usize = 0;
+            errdefer {
+                for (transformed[0..initialized]) |*part| part.deinit();
+            }
+            for (arrays, 0..) |input, i| {
+                if (input.shape.len == 1) {
+                    transformed[i] = try input.reshape(&.{ input.shape[0], 1 });
+                } else if (input.shape.len == 2) {
+                    transformed[i] = try input.clone();
+                } else {
+                    return error.ShapeMismatch;
+                }
+                initialized += 1;
+            }
+            var out = try Self.cat(allocator, transformed, 1);
+            errdefer out.deinit();
+            for (transformed[0..initialized]) |*part| part.deinit();
+            initialized = 0;
+            return out;
+        }
+
+        pub fn dstack(allocator: std.mem.Allocator, arrays: []const Self) ArrayError!Self {
+            if (arrays.len == 0) return error.EmptyArray;
+            var transformed = try allocator.alloc(Self, arrays.len);
+            defer allocator.free(transformed);
+            var initialized: usize = 0;
+            errdefer {
+                for (transformed[0..initialized]) |*part| part.deinit();
+            }
+            for (arrays, 0..) |input, i| {
+                if (input.shape.len == 1) {
+                    transformed[i] = try input.reshape(&.{ 1, input.shape[0], 1 });
+                } else if (input.shape.len == 2) {
+                    transformed[i] = try input.reshape(&.{ input.shape[0], input.shape[1], 1 });
+                } else if (input.shape.len == 3) {
+                    transformed[i] = try input.clone();
+                } else {
+                    return error.ShapeMismatch;
+                }
+                initialized += 1;
+            }
+            var out = try Self.cat(allocator, transformed, 2);
+            errdefer out.deinit();
+            for (transformed[0..initialized]) |*part| part.deinit();
+            initialized = 0;
+            return out;
+        }
+
         pub fn histogram(self: Self, bins: usize, range: ?struct { min: T, max: T }) ArrayError!struct { counts: Array(usize), edges: Self } {
             ensureFloat(T);
             if (bins == 0) return error.InvalidShape;
@@ -5258,6 +5349,22 @@ pub fn cat(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array
 
 pub fn stack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T), dim: isize) ArrayError!Array(T) {
     return Array(T).stack(allocator, arrays, dim);
+}
+
+pub fn hstack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T)) ArrayError!Array(T) {
+    return Array(T).hstack(allocator, arrays);
+}
+
+pub fn vstack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T)) ArrayError!Array(T) {
+    return Array(T).vstack(allocator, arrays);
+}
+
+pub fn dstack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T)) ArrayError!Array(T) {
+    return Array(T).dstack(allocator, arrays);
+}
+
+pub fn columnStack(comptime T: type, allocator: std.mem.Allocator, arrays: []const Array(T)) ArrayError!Array(T) {
+    return Array(T).columnStack(allocator, arrays);
 }
 
 pub fn outer(comptime T: type, a: Array(T), b: Array(T)) ArrayError!Array(T) {
@@ -6284,6 +6391,28 @@ test "array creation, reshape and broadcasting" {
     try std.testing.expectEqualSlices(f64, &.{ 11, 22, 33 }, chunks.items[0].data);
     try std.testing.expectEqualSlices(f64, &.{ 14, 25, 36 }, chunks.items[1].data);
     try std.testing.expectError(error.InvalidShape, c.split(0, 0));
+
+    var left = try array(f64, gpa, &.{ 1, 2 }, &.{2});
+    defer left.deinit();
+    var right = try array(f64, gpa, &.{ 3, 4 }, &.{2});
+    defer right.deinit();
+    const vectors = [_]Array(f64){ left, right };
+    var h = try hstack(f64, gpa, vectors[0..]);
+    defer h.deinit();
+    try std.testing.expectEqualSlices(usize, &.{4}, h.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, h.data);
+    var v = try vstack(f64, gpa, vectors[0..]);
+    defer v.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, v.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, v.data);
+    var col = try columnStack(f64, gpa, vectors[0..]);
+    defer col.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, col.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, col.data);
+    var d = try dstack(f64, gpa, vectors[0..]);
+    defer d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2 }, d.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, d.data);
 }
 
 test "array binary math wrappers and clamp aliases" {
