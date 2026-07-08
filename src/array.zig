@@ -2582,7 +2582,8 @@ pub fn Array(comptime T: type) type {
             var out_shape = try self.allocator.dupe(usize, self.shape);
             defer self.allocator.free(out_shape);
             out_shape[axis] *= repeats;
-            const out = try Self.empty(self.allocator, out_shape);
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
             if (out.data.len == 0) return out;
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
             defer self.allocator.free(out_multi);
@@ -2920,6 +2921,34 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn takeSigned(self: Self, indices: Array(isize), axis_opt: ?isize) ArrayError!Self {
+            if (axis_opt == null) {
+                var out = try Self.empty(self.allocator, indices.shape);
+                errdefer out.deinit();
+                for (indices.data, out.data) |idx, *slot| {
+                    slot.* = self.data[try normalizeIndex(idx, self.data.len)];
+                }
+                return out;
+            }
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = indices.data.len;
+            const out = try Self.empty(self.allocator, out_shape);
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = try normalizeIndex(indices.data[out_multi[axis]], self.shape[axis]);
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
         fn applyIndexMode(idx: usize, extent: usize, mode: IndexMode) ArrayError!usize {
             if (extent == 0) return error.IndexOutOfBounds;
             return switch (mode) {
@@ -2960,8 +2989,16 @@ pub fn Array(comptime T: type) type {
             return self.take(indices, axis_index);
         }
 
+        pub fn indexSelectSigned(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Self {
+            return self.takeSigned(indices, axis_index);
+        }
+
         pub fn takeAlongAxis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Self {
             return self.gather(axis_index, indices);
+        }
+
+        pub fn takeAlongAxisSigned(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Self {
+            return self.gatherSigned(axis_index, indices);
         }
 
         pub fn putAlongAxis(self: Self, indices: Array(usize), src: Self, axis_index: isize) ArrayError!Self {
@@ -3082,6 +3119,16 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn putFlatSigned(self: Self, indices: Array(isize), values: Self) ArrayError!Self {
+            if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
+            var out = try self.clone();
+            errdefer out.deinit();
+            for (indices.data, 0..) |idx, i| {
+                out.data[try normalizeIndex(idx, out.data.len)] = values.data[if (values.data.len == 1) 0 else i];
+            }
+            return out;
+        }
+
         pub fn putFlatMode(self: Self, indices: Array(usize), values: Self, mode: IndexMode) ArrayError!Self {
             if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
             var out = try self.clone();
@@ -3098,6 +3145,15 @@ pub fn Array(comptime T: type) type {
             for (indices.data) |idx| {
                 if (idx >= out.data.len) return error.IndexOutOfBounds;
                 out.data[idx] = value;
+            }
+            return out;
+        }
+
+        pub fn putFlatScalarSigned(self: Self, indices: Array(isize), value: T) ArrayError!Self {
+            var out = try self.clone();
+            errdefer out.deinit();
+            for (indices.data) |idx| {
+                out.data[try normalizeIndex(idx, out.data.len)] = value;
             }
             return out;
         }
@@ -3337,6 +3393,28 @@ pub fn Array(comptime T: type) type {
                 if (selected >= self.shape[axis]) return error.IndexOutOfBounds;
                 @memcpy(in_multi, out_multi);
                 in_multi[axis] = selected;
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn gatherSigned(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Self {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
+            for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
+                if (i != axis and index_dim > self_dim) return error.ShapeMismatch;
+            }
+            var out = try Self.empty(self.allocator, indices.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, indices.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, indices.shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = try normalizeIndex(indices.data[flat], self.shape[axis]);
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
@@ -7808,6 +7886,49 @@ test "array object masked in-place assignment helpers" {
     var bad_values = try Array(f64).ones(gpa, &.{2});
     defer bad_values.deinit();
     try std.testing.expectError(error.ShapeMismatch, full.maskedCopyFrom(mask, bad_values));
+}
+
+test "array signed negative indexing helpers" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 10, 11, 12, 20, 21, 22 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var flat_idx = try Array(isize).fromSlice(gpa, &.{ -1, 0, -3 }, &.{3});
+    defer flat_idx.deinit();
+    var flat_taken = try a.takeSigned(flat_idx, null);
+    defer flat_taken.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 22, 10, 20 }, flat_taken.data);
+
+    var col_idx = try Array(isize).fromSlice(gpa, &.{ -1, 0 }, &.{2});
+    defer col_idx.deinit();
+    var selected = try a.indexSelectSigned(1, col_idx);
+    defer selected.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, selected.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 12, 10, 22, 20 }, selected.data);
+
+    var gather_idx = try Array(isize).fromSlice(gpa, &.{ -1, 0, -2, 0, -1, 1 }, &.{ 2, 3 });
+    defer gather_idx.deinit();
+    var gathered = try a.gatherSigned(1, gather_idx);
+    defer gathered.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 12, 10, 11, 20, 22, 21 }, gathered.data);
+    var gathered_alias = try a.takeAlongAxisSigned(gather_idx, 1);
+    defer gathered_alias.deinit();
+    try std.testing.expectEqualSlices(f64, gathered.data, gathered_alias.data);
+
+    var values = try Array(f64).fromSlice(gpa, &.{ 100, 200 }, &.{2});
+    defer values.deinit();
+    var put_idx = try Array(isize).fromSlice(gpa, &.{ -1, -6 }, &.{2});
+    defer put_idx.deinit();
+    var put = try a.putFlatSigned(put_idx, values);
+    defer put.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 200, 11, 12, 20, 21, 100 }, put.data);
+    var scalar_put = try a.putFlatScalarSigned(put_idx, -5);
+    defer scalar_put.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -5, 11, 12, 20, 21, -5 }, scalar_put.data);
+
+    var bad = try Array(isize).fromSlice(gpa, &.{-7}, &.{1});
+    defer bad.deinit();
+    try std.testing.expectError(error.IndexOutOfBounds, a.takeSigned(bad, null));
 }
 
 test "array take mask stack cat and neural helpers" {
