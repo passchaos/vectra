@@ -2560,6 +2560,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.trapezoid(x_values, dx, axis_index);
         }
 
+        pub fn gradient(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.gradient(x_values, dx, axis_index);
+        }
+
         pub fn argmax(self: Self) ArrayError!usize {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -8956,6 +8962,50 @@ pub fn Array(comptime T: type) type {
             return self.trapezoid(x_values, dx, axis_index);
         }
 
+        pub fn gradient(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
+            ensureFloat(T);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            if (x_values) |x| {
+                if (x.shape.len != 1 or x.data.len != axis_len) return error.ShapeMismatch;
+            }
+
+            var out = try Self.zeros(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0 or axis_len < 2) return out;
+
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |dim, i| slice_shape[i] = dim;
+            for (self.shape[axis + 1 ..], axis..) |dim, i| slice_shape[i] = dim;
+
+            const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (0..product(slice_shape)) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| in_multi[i] = coord;
+                for (slice_multi[axis..], axis + 1..) |coord, i| in_multi[i] = coord;
+
+                for (0..axis_len) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    const out_index = ravelIndex(in_multi, out.strides);
+                    const lhs_axis = if (axis_i == 0) 0 else axis_i - 1;
+                    const rhs_axis = if (axis_i + 1 >= axis_len) axis_len - 1 else axis_i + 1;
+                    in_multi[axis] = lhs_axis;
+                    const left = self.data[ravelIndex(in_multi, self.strides)];
+                    in_multi[axis] = rhs_axis;
+                    const right = self.data[ravelIndex(in_multi, self.strides)];
+                    const width = if (x_values) |x| x.data[rhs_axis] - x.data[lhs_axis] else dx * castValue(T, rhs_axis - lhs_axis);
+                    out.data[out_index] = (right - left) / width;
+                }
+            }
+            return out;
+        }
+
         pub fn argmax(self: Self) ArrayError!usize {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyArray;
@@ -14104,6 +14154,29 @@ test "array axis cumulative operations and diff" {
     defer view_trap_x.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6.5, 15.5 }, view_trap_x.data);
     try std.testing.expectError(error.ShapeMismatch, a.trapezoid(short, 1, 1));
+
+    var grad_rows = try a.gradient(null, 1, 1);
+    defer grad_rows.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, grad_rows.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, grad_rows.data);
+    var grad_cols = try a.gradient(null, 2, 0);
+    defer grad_cols.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 1.5, 1.5, 1.5, 1.5, 1.5 }, grad_cols.data);
+    var y_quad = try Array(f64).fromSlice(gpa, &.{ 0, 1, 9 }, &.{3});
+    defer y_quad.deinit();
+    var x_quad = try Array(f64).fromSlice(gpa, &.{ 0, 1, 3 }, &.{3});
+    defer x_quad.deinit();
+    var grad_quad = try y_quad.gradient(x_quad, 1, 0);
+    defer grad_quad.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4 }, grad_quad.data);
+    var view_grad = try view.gradient(null, 1, 0);
+    defer view_grad.deinit();
+    try std.testing.expectEqualSlices(usize, view.shape, view_grad.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, view_grad.data);
+    var view_grad_x = try view.gradient(x_values, 1, 0);
+    defer view_grad_x.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 2.0 / 3.0, 2.0 / 3.0, 0.5, 0.5 }, view_grad_x.data);
+    try std.testing.expectError(error.ShapeMismatch, a.gradient(short, 1, 1));
 }
 
 test "array unique bincount searchsorted and clipArray" {
