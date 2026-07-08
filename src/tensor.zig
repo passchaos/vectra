@@ -110,6 +110,33 @@ pub const DType = enum {
     pub fn isBool(self: DType) bool {
         return self == .bool;
     }
+
+    pub fn tag(self: DType) u8 {
+        return @intFromEnum(self);
+    }
+
+    pub fn fromTag(tag_value: u8) ?DType {
+        return switch (tag_value) {
+            @intFromEnum(DType.f32) => .f32,
+            @intFromEnum(DType.f64) => .f64,
+            @intFromEnum(DType.i8) => .i8,
+            @intFromEnum(DType.i16) => .i16,
+            @intFromEnum(DType.i32) => .i32,
+            @intFromEnum(DType.i64) => .i64,
+            @intFromEnum(DType.u8) => .u8,
+            @intFromEnum(DType.u16) => .u16,
+            @intFromEnum(DType.u32) => .u32,
+            @intFromEnum(DType.u64) => .u64,
+            @intFromEnum(DType.usize) => .usize,
+            @intFromEnum(DType.bool) => .bool,
+            else => null,
+        };
+    }
+};
+
+pub const Archive = struct {
+    pub const magic = [_]u8{ 'V', 'X', 'A', 'R', 'R', '0', '1', 0 };
+    pub const version: u8 = 1;
 };
 
 pub const TensorError = error{
@@ -2547,6 +2574,68 @@ pub fn Tensor(comptime T: type) type {
             return .{ .counts = counts, .edges = edges };
         }
 
+        pub fn toBytes(self: Self, allocator: std.mem.Allocator) TensorError![]u8 {
+            return allocator.dupe(u8, std.mem.sliceAsBytes(self.data));
+        }
+
+        pub fn fromBytes(allocator: std.mem.Allocator, bytes: []const u8, dims: []const usize) TensorError!Self {
+            const n = try numelFrom(dims);
+            if (bytes.len != n * @sizeOf(T)) return error.InvalidShape;
+            const out = try Self.empty(allocator, dims);
+            @memcpy(std.mem.sliceAsBytes(out.data), bytes);
+            return out;
+        }
+
+        pub fn toArchive(self: Self, allocator: std.mem.Allocator) TensorError![]u8 {
+            const header_len = Archive.magic.len + 1 + 1 + 2 + 8 + self.shape.len * 8;
+            const data_bytes = std.mem.sliceAsBytes(self.data);
+            const out = try allocator.alloc(u8, header_len + data_bytes.len);
+            @memcpy(out[0..Archive.magic.len], Archive.magic[0..]);
+            var offset: usize = Archive.magic.len;
+            out[offset] = Archive.version;
+            offset += 1;
+            out[offset] = DType.of(T).tag();
+            offset += 1;
+            std.mem.writeInt(u16, out[offset..][0..2], @intCast(self.shape.len), .little);
+            offset += 2;
+            std.mem.writeInt(u64, out[offset..][0..8], @intCast(self.data.len), .little);
+            offset += 8;
+            for (self.shape) |dim| {
+                std.mem.writeInt(u64, out[offset..][0..8], @intCast(dim), .little);
+                offset += 8;
+            }
+            @memcpy(out[offset..][0..data_bytes.len], data_bytes);
+            return out;
+        }
+
+        pub fn fromArchive(allocator: std.mem.Allocator, archive: []const u8) TensorError!Self {
+            const min_len = Archive.magic.len + 1 + 1 + 2 + 8;
+            if (archive.len < min_len) return error.InvalidShape;
+            if (!std.mem.eql(u8, archive[0..Archive.magic.len], Archive.magic[0..])) return error.InvalidShape;
+            var offset: usize = Archive.magic.len;
+            if (archive[offset] != Archive.version) return error.InvalidShape;
+            offset += 1;
+            const archived_dtype = DType.fromTag(archive[offset]) orelse return error.InvalidShape;
+            if (archived_dtype != DType.of(T)) return error.TypeUnsupported;
+            offset += 1;
+            const rank = std.mem.readInt(u16, archive[offset..][0..2], .little);
+            offset += 2;
+            const element_count: usize = @intCast(std.mem.readInt(u64, archive[offset..][0..8], .little));
+            offset += 8;
+            if (archive.len < min_len + @as(usize, rank) * 8) return error.InvalidShape;
+            const dims = try allocator.alloc(usize, rank);
+            defer allocator.free(dims);
+            for (dims) |*dim| {
+                dim.* = @intCast(std.mem.readInt(u64, archive[offset..][0..8], .little));
+                offset += 8;
+            }
+            const n = try numelFrom(dims);
+            if (n != element_count) return error.InvalidShape;
+            const data_len = n * @sizeOf(T);
+            if (archive.len != offset + data_len) return error.InvalidShape;
+            return Self.fromBytes(allocator, archive[offset..], dims);
+        }
+
         pub fn print(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
             try writer.print("Array({s}, shape=", .{@typeName(T)});
             try printShape(writer, self.shape);
@@ -2751,6 +2840,22 @@ pub fn roll(comptime T: type, input: Tensor(T), shift: isize, axis: isize) Tenso
 
 pub fn padConstant(comptime T: type, input: Tensor(T), before: []const usize, after: []const usize, value: T) TensorError!Tensor(T) {
     return input.padConstant(before, after, value);
+}
+
+pub fn toBytes(comptime T: type, input: Tensor(T), allocator: std.mem.Allocator) TensorError![]u8 {
+    return input.toBytes(allocator);
+}
+
+pub fn fromBytes(comptime T: type, allocator: std.mem.Allocator, bytes: []const u8, dims: []const usize) TensorError!Tensor(T) {
+    return Tensor(T).fromBytes(allocator, bytes, dims);
+}
+
+pub fn toArchive(comptime T: type, input: Tensor(T), allocator: std.mem.Allocator) TensorError![]u8 {
+    return input.toArchive(allocator);
+}
+
+pub fn fromArchive(comptime T: type, allocator: std.mem.Allocator, archive: []const u8) TensorError!Tensor(T) {
+    return Tensor(T).fromArchive(allocator, archive);
 }
 
 pub fn takeAlongAxis(comptime T: type, input: Tensor(T), indices: Tensor(usize), axis: isize) TensorError!Tensor(T) {
@@ -3256,4 +3361,26 @@ test "array dtype metadata and casts cover common numeric types" {
     var r = try randint(u16, gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
     for (r.data) |v| try std.testing.expect(v >= 10 and v < 20);
+}
+
+test "array bytes and archive serialization roundtrip" {
+    const gpa = std.testing.allocator;
+    var a = try array(i16, gpa, &.{ -1, 2, 300, -400 }, &.{ 2, 2 });
+    defer a.deinit();
+
+    const bytes = try a.toBytes(gpa);
+    defer gpa.free(bytes);
+    try std.testing.expectEqual(@as(usize, 8), bytes.len);
+    var from_raw = try fromBytes(i16, gpa, bytes, &.{ 2, 2 });
+    defer from_raw.deinit();
+    try std.testing.expectEqualSlices(i16, a.data, from_raw.data);
+    try std.testing.expectEqualSlices(usize, a.shape, from_raw.shape);
+
+    const archive = try a.toArchive(gpa);
+    defer gpa.free(archive);
+    var restored = try fromArchive(i16, gpa, archive);
+    defer restored.deinit();
+    try std.testing.expectEqualSlices(i16, a.data, restored.data);
+    try std.testing.expectEqualSlices(usize, a.shape, restored.shape);
+    try std.testing.expectError(error.TypeUnsupported, fromArchive(f32, gpa, archive));
 }

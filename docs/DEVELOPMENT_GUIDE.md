@@ -128,6 +128,11 @@ zig build test
 - `alea.distributions` 覆盖 uniform、Bernoulli、normal/log-normal、exponential、Poisson、gamma、beta、Student-t、Dirichlet、multinomial、weighted sampling、unit geometry 等大量分布。
 - Vectra 当前 `rand/randn/uniform/normal/randint/bernoulli/exponential/gamma/beta/poisson/lognormal/studentT/cauchy/laplace/weibull` 已接入 Alea seeded scalar streams。
 
+Array IO / serialization 当前支持：
+
+- `toBytes/fromBytes`：裸数据字节 roundtrip。
+- `toArchive/fromArchive`：包含 magic/version/dtype/rank/shape/data 的简单二进制归档格式。
+
 命名边界：
 
 - 本库不应在用户主 API 中强调 `Tensor`，因为本库不负责自动微分、训练或推理。
