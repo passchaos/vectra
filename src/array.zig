@@ -1466,6 +1466,80 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryScalar(scalar, opDiv);
         }
 
+        pub fn powScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.powScalar(scalar);
+        }
+
+        pub fn floorDivScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.floorDivScalar(scalar);
+        }
+
+        pub fn modScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.modScalar(scalar);
+        }
+
+        pub fn remainderScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.modScalar(scalar);
+        }
+
+        pub fn maximumScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.maximumScalar(scalar);
+        }
+
+        pub fn minimumScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.minimumScalar(scalar);
+        }
+
+        pub fn hypotScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.hypotScalar(scalar);
+        }
+
+        pub fn atan2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.atan2Scalar(scalar);
+        }
+
+        pub fn nextAfterScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nextAfterScalar(scalar);
+        }
+
+        pub fn nextafterScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.nextAfterScalar(scalar);
+        }
+
+        pub fn copysignScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.copysignScalar(scalar);
+        }
+
+        pub fn heavisideScalar(self: Self, value_at_zero: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.heavisideScalar(value_at_zero);
+        }
+
+        pub fn ldexpScalar(self: Self, exponent: i32) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.ldexpScalar(exponent);
+        }
+
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
             return self.compareView(other, struct {
                 fn f(a: T, b: T) bool {
@@ -9959,6 +10033,44 @@ test "array non contiguous view helpers" {
     var clipped_view = try stepped.clipArray(clip_lo_view, clip_hi_view);
     defer clipped_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 30, 4, 50 }, clipped_view.data);
+    var pow_scalar_view = try stepped.powScalar(2);
+    defer pow_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 900, 2500, 9801 }, pow_scalar_view.data);
+    var floor_div_scalar_view = try stepped.floorDivScalar(4);
+    defer floor_div_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 7, 12, 24 }, floor_div_scalar_view.data);
+    var mod_scalar_view = try stepped.modScalar(7);
+    defer mod_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 1, 1 }, mod_scalar_view.data);
+    var max_scalar_view = try stepped.maximumScalar(10);
+    defer max_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 30, 50, 99 }, max_scalar_view.data);
+    var min_scalar_view = try stepped.minimumScalar(10);
+    defer min_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 10, 10, 10 }, min_scalar_view.data);
+    var hypot_scalar_view = try stepped.hypotScalar(4);
+    defer hypot_scalar_view.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 17)), hypot_scalar_view.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 916)), hypot_scalar_view.data[1], 1e-12);
+    var atan2_scalar_view = try stepped.atan2Scalar(2);
+    defer atan2_scalar_view.deinit();
+    try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, 1), @as(f64, 2)), atan2_scalar_view.data[0], 1e-12);
+    var next_scalar_view = try stepped.nextafterScalar(100);
+    defer next_scalar_view.deinit();
+    try std.testing.expect(next_scalar_view.data[0] > stepped.data[0]);
+    var copysign_scalar_view = try stepped.copysignScalar(-1);
+    defer copysign_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, -30, -50, -99 }, copysign_scalar_view.data);
+    var heaviside_source = try Array(f64).fromSlice(gpa, &.{ -1, 0, 2, 0 }, &.{ 2, 2 });
+    defer heaviside_source.deinit();
+    var heaviside_view = try heaviside_source.asView();
+    defer heaviside_view.deinit();
+    var heaviside_scalar_view = try heaviside_view.heavisideScalar(0.25);
+    defer heaviside_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0.25, 1, 0.25 }, heaviside_scalar_view.data);
+    var ldexp_scalar_view = try stepped.ldexpScalar(1);
+    defer ldexp_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 60, 100, 198 }, ldexp_scalar_view.data);
     var bad_rhs = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer bad_rhs.deinit();
     var bad_rhs_view = try bad_rhs.asView();
