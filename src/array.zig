@@ -880,20 +880,45 @@ pub fn ArrayView(comptime T: type) type {
             return offset;
         }
 
+        fn offsetOfSigned(self: Self, indices: []const isize) ArrayError!usize {
+            if (indices.len != self.shape.len) return error.InvalidShape;
+            var offset = self.offset;
+            for (indices, self.shape, self.strides) |idx, extent, stride_value| {
+                offset += (try normalizeIndex(idx, extent)) * stride_value;
+            }
+            return offset;
+        }
+
         pub fn get(self: Self, indices: []const usize) ArrayError!T {
             return self.data[try self.offsetOf(indices)];
+        }
+
+        pub fn getSigned(self: Self, indices: []const isize) ArrayError!T {
+            return self.data[try self.offsetOfSigned(indices)];
         }
 
         pub fn at(self: Self, indices: []const usize) ArrayError!T {
             return self.get(indices);
         }
 
+        pub fn atSigned(self: Self, indices: []const isize) ArrayError!T {
+            return self.getSigned(indices);
+        }
+
         pub fn set(self: Self, indices: []const usize, value: T) ArrayError!void {
             self.data[try self.offsetOf(indices)] = value;
         }
 
+        pub fn setSigned(self: Self, indices: []const isize, value: T) ArrayError!void {
+            self.data[try self.offsetOfSigned(indices)] = value;
+        }
+
         pub fn put(self: Self, indices: []const usize, value: T) ArrayError!void {
             return self.set(indices, value);
+        }
+
+        pub fn putSigned(self: Self, indices: []const isize, value: T) ArrayError!void {
+            return self.setSigned(indices, value);
         }
 
         pub fn item(self: Self) ArrayError!T {
@@ -2268,6 +2293,11 @@ pub fn ArrayView(comptime T: type) type {
             };
         }
 
+        pub fn selectSigned(self: Self, axis_index: isize, index: isize) ArrayError!Self {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            return self.select(axis_index, try normalizeIndex(index, self.shape[axis]));
+        }
+
         pub fn squeeze(self: Self, axis_opt: ?isize) ArrayError!Self {
             var shape_list: std.ArrayList(usize) = .empty;
             defer shape_list.deinit(self.allocator);
@@ -3105,20 +3135,45 @@ pub fn Array(comptime T: type) type {
             return offset;
         }
 
+        fn offsetOfSigned(self: Self, indices: []const isize) ArrayError!usize {
+            if (indices.len != self.shape.len) return error.InvalidShape;
+            var offset: usize = 0;
+            for (indices, self.shape, self.strides) |idx, extent, stride_value| {
+                offset += (try normalizeIndex(idx, extent)) * stride_value;
+            }
+            return offset;
+        }
+
         pub fn get(self: Self, indices: []const usize) ArrayError!T {
             return self.data[try self.offsetOf(indices)];
+        }
+
+        pub fn getSigned(self: Self, indices: []const isize) ArrayError!T {
+            return self.data[try self.offsetOfSigned(indices)];
         }
 
         pub fn set(self: *Self, indices: []const usize, value: T) ArrayError!void {
             self.data[try self.offsetOf(indices)] = value;
         }
 
+        pub fn setSigned(self: *Self, indices: []const isize, value: T) ArrayError!void {
+            self.data[try self.offsetOfSigned(indices)] = value;
+        }
+
         pub fn at(self: Self, indices: []const usize) ArrayError!T {
             return self.get(indices);
         }
 
+        pub fn atSigned(self: Self, indices: []const isize) ArrayError!T {
+            return self.getSigned(indices);
+        }
+
         pub fn put(self: *Self, indices: []const usize, value: T) ArrayError!void {
             return self.set(indices, value);
+        }
+
+        pub fn putSigned(self: *Self, indices: []const isize, value: T) ArrayError!void {
+            return self.setSigned(indices, value);
         }
 
         pub fn item(self: Self) ArrayError!T {
@@ -3471,6 +3526,11 @@ pub fn Array(comptime T: type) type {
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
+        }
+
+        pub fn selectSigned(self: Self, axis_index: isize, index: isize) ArrayError!Self {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            return self.select(axis_index, try normalizeIndex(index, self.shape[axis]));
         }
 
         pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) ArrayError!Self {
@@ -8852,6 +8912,37 @@ test "array object masked in-place assignment helpers" {
     var bad_values = try Array(f64).ones(gpa, &.{2});
     defer bad_values.deinit();
     try std.testing.expectError(error.ShapeMismatch, full.maskedCopyFrom(mask, bad_values));
+}
+
+test "array scalar signed indexing helpers" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    try std.testing.expectEqual(@as(f64, 6), try a.getSigned(&.{ -1, -1 }));
+    try std.testing.expectEqual(@as(f64, 4), try a.atSigned(&.{ -1, 0 }));
+    try a.setSigned(&.{ -1, -2 }, 50);
+    try std.testing.expectEqual(@as(f64, 50), a.data[4]);
+    try a.putSigned(&.{ 0, -1 }, 30);
+    try std.testing.expectEqual(@as(f64, 30), a.data[2]);
+
+    var last_row = try a.selectSigned(0, -1);
+    defer last_row.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 50, 6 }, last_row.data);
+
+    var view = try a.transposeView();
+    defer view.deinit();
+    try std.testing.expectEqual(@as(f64, 6), try view.getSigned(&.{ -1, -1 }));
+    try view.setSigned(&.{ -1, 0 }, 60);
+    try std.testing.expectEqual(@as(f64, 60), a.data[2]);
+    var selected = try view.selectSigned(0, -1);
+    defer selected.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, selected.shape);
+    var selected_owned = try selected.toArray();
+    defer selected_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 60, 6 }, selected_owned.data);
+
+    try std.testing.expectError(error.IndexOutOfBounds, a.getSigned(&.{ -3, 0 }));
 }
 
 test "array signed negative indexing helpers" {
