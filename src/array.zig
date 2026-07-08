@@ -3441,6 +3441,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.countNonzeroAxis(axis_opt, keepdims);
         }
 
+        pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.countNonzeroAxes(axes, keepdims);
+        }
+
+        pub fn count_nonzero_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(usize) {
+            return self.countNonzeroAxes(axes, keepdims);
+        }
+
         pub fn all(self: Self) bool {
             var owned = self.toArray() catch return false;
             defer owned.deinit();
@@ -7189,6 +7199,29 @@ pub fn Array(comptime T: type) type {
                 out.data[ravelIndex(out_multi, out.strides)] += 1;
             }
             return out;
+        }
+
+        pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(usize) {
+            if (axes.len == 0) {
+                var values = try Array(usize).empty(self.allocator, self.shape);
+                errdefer values.deinit();
+                for (self.data, values.data) |value, *slot| slot.* = if (value == zero(T)) 0 else 1;
+                return values;
+            }
+            const normalized_axes = try normalizeAxesDescending(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var current = try self.countNonzeroAxis(@intCast(normalized_axes[0]), keepdims);
+            errdefer current.deinit();
+            for (normalized_axes[1..]) |axis| {
+                const next = try current.sum(@intCast(axis), keepdims);
+                current.deinit();
+                current = next;
+            }
+            return current;
+        }
+
+        pub fn count_nonzero_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(usize) {
+            return self.countNonzeroAxes(axes, keepdims);
         }
 
         pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
@@ -13436,6 +13469,9 @@ test "array non contiguous view helpers" {
     defer stepped_count1_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, stepped_count1_keep.shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stepped_count1_keep.data);
+    var stepped_count_axes = try stepped.countNonzeroAxes(&.{ 0, 1 }, false);
+    defer stepped_count_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{4}, stepped_count_axes.data);
 
     var selected = try a.selectView(0, 1);
     defer selected.deinit();
@@ -14670,6 +14706,15 @@ test "array advanced indexing mutation helpers" {
     defer count_rows_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, count_rows_keep.shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, count_rows_keep.data);
+    var count_axes = try a.countNonzeroAxes(&.{ 0, 1 }, false);
+    defer count_axes.deinit();
+    try std.testing.expectEqual(@as(usize, 0), count_axes.shape.len);
+    try std.testing.expectEqualSlices(usize, &.{4}, count_axes.data);
+    var count_axes_keep = try a.count_nonzero_axes(&.{ 0, 1 }, true);
+    defer count_axes_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, count_axes_keep.shape);
+    try std.testing.expectEqualSlices(usize, &.{4}, count_axes_keep.data);
+    try std.testing.expectError(error.InvalidAxis, a.countNonzeroAxes(&.{ 0, 0 }, false));
 
     var coords = try a.argwhere();
     defer coords.deinit();
