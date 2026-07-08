@@ -29,7 +29,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - 形状变换：reshape/view、flatten/ravel、squeeze/unsqueeze、transpose/permute/movedim、broadcast、repeat/tile。
 - 广播逐元素运算：加减乘除、幂、比较、逻辑运算、where、clip、maximum/minimum。
 - 归约：sum、prod、min、max、mean、var、std、argmin、argmax、cumsum、cumprod。
-- 线性代数基础：dot、matmul/mm、bmm、outer、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐。
+- 线性代数基础：dot、matmul/mm、bmm、outer、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库。
 - 神经网络常用数学函数：relu、sigmoid、tanh、softmax、log_softmax、cross_entropy 相关基础。
 - dtype 转换与类型提升规则：尽量接近 NumPy/PyTorch 直觉。
 - 设备抽象：先保持 CPU 正确；CUDA/GPU API 形态参考 CuPy/PyTorch，后续再接入真实后端。
@@ -87,7 +87,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 - 索引：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`gather`、`scatter/scatterScalar`、`maskedSelect`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、scalar variants、`maximum/minimum`、`whereMask`、比较、`allclose`。
 - 数学/NN：`exp`、`log`、`sqrt`、`sin`、`cos`、`tanh`、`relu`、`sigmoid`、`softmax`、`logSoftmax/log_softmax`、`clip`。
-- 归约：`sum`、`prod`、`min`、`max`、`mean`、`variance`、`stddev`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`argmin`、`argmax`。
+- 归约：`sum`、`prod`、`min`、`max`、`mean`、`variance`、`stddev`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`argmin`、`argmax`、`argminAxis/argmaxAxis`、`topk`。
 - 组合/矩阵辅助：`cat/concatenate`、`stack`、`outer`、`diagonal`、`trace`、`triu/tril`。
 - 基础 linalg/stats/DataFrame 也有初版，但它们不是下一阶段最高优先级。
 
@@ -103,3 +103,19 @@ zig build test
 ```
 
 - 如果目录是 git 仓库，完成变更后应只提交本次相关文件；如果不是 git 仓库则不提交。
+
+## 6. Veyra 后端使用策略
+
+用户明确要求：数学计算（尤其线性代数）可以使用相邻目录 `../veyra` 库，并应扫描其可复用能力。当前扫描结论：
+
+- `veyra.dense`：提供 `Matrix/Vector`、`matmul`、`matvec`、`trace`、row/column sums/norms/statistics、triangular solve、GEMM/GEMV 及多种优化内核。
+- `veyra.decomp`：提供 LU、Cholesky、LDLT、QR、SVD、Hessenberg/eigen 相关分解与 solve/inverse/condition number。
+- `veyra.sparse`：提供 CSR/CSC/BSR 稀疏矩阵、转换、稀疏 matvec/matmat、稀疏三角求解和统计。
+- `veyra.iterative`：提供 CG/PCG 等迭代求解能力。
+
+后续策略：
+
+- Tensor API 保持用户友好的 NumPy/CuPy/PyTorch 风格。
+- 底层 f64 dense linalg 优先委托 Veyra；非 f64 或 Veyra 暂无覆盖时保留 Vectra 泛型回退。
+- SciPy-like `linalg/sparse/optimize` 扩展应优先检查 Veyra 是否已有对应算法，避免重复实现。
+- 引入 Veyra 时必须保留 Vectra 层 shape/device/dtype 错误语义，并添加端到端测试。

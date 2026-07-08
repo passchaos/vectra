@@ -1324,7 +1324,7 @@ pub fn Tensor(comptime T: type) type {
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyTensor;
-            return self.reduce(axis_opt, keepdims, self.data[0], struct {
+            return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (b < a) b else a;
                 }
@@ -1334,11 +1334,72 @@ pub fn Tensor(comptime T: type) type {
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Self {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyTensor;
-            return self.reduce(axis_opt, keepdims, self.data[0], struct {
+            return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (b > a) b else a;
                 }
             }.f);
+        }
+
+        fn reducedShape(self: Self, axis: usize, keepdims: bool) TensorError![]usize {
+            var out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - 1);
+            if (keepdims) {
+                @memcpy(out_shape, self.shape);
+                out_shape[axis] = 1;
+            } else {
+                for (self.shape[0..axis], 0..) |d, i| out_shape[i] = d;
+                for (self.shape[axis + 1 ..], axis..) |d, i| out_shape[i] = d;
+            }
+            return out_shape;
+        }
+
+        fn mapReducedToInput(self: Self, axis: usize, keepdims: bool, out_multi: []const usize, in_multi: []usize) void {
+            _ = self;
+            if (keepdims) {
+                @memcpy(in_multi, out_multi);
+            } else {
+                for (out_multi[0..axis], 0..) |coord, i| in_multi[i] = coord;
+                for (out_multi[axis..], axis + 1..) |coord, i| in_multi[i] = coord;
+            }
+        }
+
+        fn reduceFirst(self: Self, axis_opt: ?isize, keepdims: bool, comptime op: fn (T, T) T) TensorError!Self {
+            if (self.data.len == 0) return error.EmptyTensor;
+            if (axis_opt == null) {
+                var total = self.data[0];
+                for (self.data[1..]) |v| total = op(total, v);
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Self.fromSlice(self.allocator, &.{total}, out_shape);
+                }
+                return Self.fromSlice(self.allocator, &.{total}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyTensor;
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                self.mapReducedToInput(axis, keepdims, out_multi, in_multi);
+                in_multi[axis] = 0;
+                var acc = self.data[ravelIndex(in_multi, self.strides)];
+                for (1..self.shape[axis]) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    acc = op(acc, self.data[ravelIndex(in_multi, self.strides)]);
+                }
+                slot.* = acc;
+            }
+            return out;
         }
 
         fn reduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: T, comptime op: fn (T, T) T) TensorError!Self {
@@ -1533,6 +1594,181 @@ pub fn Tensor(comptime T: type) type {
                 if (v < self.data[best]) best = i;
             }
             return best;
+        }
+
+        pub fn argmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Tensor(usize) {
+            ensureNumeric(T);
+            return self.argReduce(axis_opt, keepdims, struct {
+                fn better(a: T, b: T) bool {
+                    return a > b;
+                }
+            }.better);
+        }
+
+        pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) TensorError!Tensor(usize) {
+            ensureNumeric(T);
+            return self.argReduce(axis_opt, keepdims, struct {
+                fn better(a: T, b: T) bool {
+                    return a < b;
+                }
+            }.better);
+        }
+
+        fn argReduce(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) TensorError!Tensor(usize) {
+            if (self.data.len == 0) return error.EmptyTensor;
+            if (axis_opt == null) {
+                var best: usize = 0;
+                for (self.data[1..], 1..) |v, i| {
+                    if (better(v, self.data[best])) best = i;
+                }
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Tensor(usize).fromSlice(self.allocator, &.{best}, out_shape);
+                }
+                return Tensor(usize).fromSlice(self.allocator, &.{best}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyTensor;
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Tensor(usize).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                self.mapReducedToInput(axis, keepdims, out_multi, in_multi);
+                var best_axis: usize = 0;
+                in_multi[axis] = 0;
+                var best_value = self.data[ravelIndex(in_multi, self.strides)];
+                for (1..self.shape[axis]) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    const value = self.data[ravelIndex(in_multi, self.strides)];
+                    if (better(value, best_value)) {
+                        best_value = value;
+                        best_axis = axis_i;
+                    }
+                }
+                slot.* = best_axis;
+            }
+            return out;
+        }
+
+        pub const TopK = struct {
+            values: Self,
+            indices: Tensor(usize),
+
+            pub fn deinit(self: *@This()) void {
+                self.values.deinit();
+                self.indices.deinit();
+                self.* = undefined;
+            }
+        };
+
+        pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) TensorError!TopK {
+            ensureNumeric(T);
+            _ = sorted; // Results are always sorted for deterministic behavior.
+            if (self.data.len == 0 and k > 0) return error.EmptyTensor;
+            if (axis_opt == null) return self.topkFlat(k, largest);
+            return self.topkAxis(k, try normalizeDim(axis_opt.?, self.shape.len), largest);
+        }
+
+        fn topkFlat(self: Self, k: usize, largest: bool) TensorError!TopK {
+            if (k > self.data.len) return error.InvalidShape;
+            const order = try self.allocator.alloc(usize, self.data.len);
+            defer self.allocator.free(order);
+            for (order, 0..) |*slot, i| slot.* = i;
+            const Ctx = struct {
+                data: []const T,
+                largest: bool,
+                fn lessThan(ctx: @This(), a: usize, b: usize) bool {
+                    return if (ctx.largest) ctx.data[a] > ctx.data[b] else ctx.data[a] < ctx.data[b];
+                }
+            };
+            std.sort.insertion(usize, order, Ctx{ .data = self.data, .largest = largest }, Ctx.lessThan);
+
+            var values = try Self.empty(self.allocator, &.{k});
+            errdefer values.deinit();
+            var indices = try Tensor(usize).empty(self.allocator, &.{k});
+            errdefer indices.deinit();
+            for (0..k) |i| {
+                const idx = order[i];
+                values.data[i] = self.data[idx];
+                indices.data[i] = idx;
+            }
+            return .{ .values = values, .indices = indices };
+        }
+
+        fn topkAxis(self: Self, k: usize, axis: usize, largest: bool) TensorError!TopK {
+            const axis_len = self.shape[axis];
+            if (k > axis_len) return error.InvalidShape;
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = k;
+            var values = try Self.empty(self.allocator, out_shape);
+            errdefer values.deinit();
+            var indices = try Tensor(usize).empty(self.allocator, out_shape);
+            errdefer indices.deinit();
+
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |d, i| slice_shape[i] = d;
+            for (self.shape[axis + 1 ..], axis..) |d, i| slice_shape[i] = d;
+            var slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var base_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(base_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            const order = try self.allocator.alloc(usize, axis_len);
+            defer self.allocator.free(order);
+
+            const Ctx = struct {
+                tensor: Self,
+                axis: usize,
+                base_multi: []const usize,
+                largest: bool,
+
+                fn valueAt(ctx: @This(), axis_i: usize) T {
+                    var offset: usize = 0;
+                    for (ctx.tensor.shape, ctx.tensor.strides, 0..) |_, stride_value, dim_i| {
+                        const coord = if (dim_i == ctx.axis) axis_i else ctx.base_multi[dim_i];
+                        offset += coord * stride_value;
+                    }
+                    return ctx.tensor.data[offset];
+                }
+
+                fn lessThan(ctx: @This(), a: usize, b: usize) bool {
+                    const av = ctx.valueAt(a);
+                    const bv = ctx.valueAt(b);
+                    return if (ctx.largest) av > bv else av < bv;
+                }
+            };
+
+            for (0..product(slice_shape)) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| base_multi[i] = coord;
+                for (slice_multi[axis..], axis + 1..) |coord, i| base_multi[i] = coord;
+                for (order, 0..) |*slot, i| slot.* = i;
+                std.sort.insertion(usize, order, Ctx{ .tensor = self, .axis = axis, .base_multi = base_multi, .largest = largest }, Ctx.lessThan);
+
+                for (0..k) |rank_i| {
+                    @memcpy(out_multi, base_multi);
+                    out_multi[axis] = rank_i;
+                    const out_offset = ravelIndex(out_multi, values.strides);
+                    const source_axis = order[rank_i];
+                    base_multi[axis] = source_axis;
+                    values.data[out_offset] = self.data[ravelIndex(base_multi, self.strides)];
+                    indices.data[out_offset] = source_axis;
+                }
+            }
+            return .{ .values = values, .indices = indices };
         }
 
         pub fn matmul(self: Self, other: Self) TensorError!Self {
@@ -2090,4 +2326,37 @@ test "tensor logsoftmax norm and matrix helpers" {
     var lower = try m.tril(0);
     defer lower.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 4, 5, 0, 7, 8, 9 }, lower.data);
+}
+
+test "tensor min max arg reductions and topk" {
+    const gpa = std.testing.allocator;
+    var a = try tensor(f64, gpa, &.{ 9, 1, 5, 4, 8, 2 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var min0 = try a.min(0, false);
+    defer min0.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 1, 2 }, min0.data);
+    var max1 = try a.max(1, true);
+    defer max1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, max1.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 9, 8 }, max1.data);
+
+    var arg0 = try a.argmaxAxis(0, false);
+    defer arg0.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 0 }, arg0.data);
+    var arg1 = try a.argminAxis(1, true);
+    defer arg1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, arg1.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, arg1.data);
+
+    var flat_top = try a.topk(3, null, true, true);
+    defer flat_top.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 9, 8, 5 }, flat_top.values.data);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 4, 2 }, flat_top.indices.data);
+
+    var row_top = try a.topk(2, 1, false, true);
+    defer row_top.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, row_top.values.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 2, 4 }, row_top.values.data);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2, 0 }, row_top.indices.data);
 }
