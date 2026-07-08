@@ -23,6 +23,7 @@ pub const Slice = array_mod.Slice;
 pub const ScatterReduce = array_mod.ScatterReduce;
 pub const SearchSide = array_mod.SearchSide;
 pub const IndexMode = array_mod.IndexMode;
+pub const MeshGridIndexing = array_mod.MeshGridIndexing;
 pub const ArrayError = array_mod.ArrayError;
 
 pub const Series = series_mod.Series;
@@ -50,6 +51,9 @@ pub const onesLike = array_mod.onesLike;
 pub const fullLike = array_mod.fullLike;
 pub const arange = array_mod.arange;
 pub const linspace = array_mod.linspace;
+pub const logspace = array_mod.logspace;
+pub const geomspace = array_mod.geomspace;
+pub const meshgrid = array_mod.meshgrid;
 pub const rand = array_mod.rand;
 pub const randn = array_mod.randn;
 pub const randint = array_mod.randint;

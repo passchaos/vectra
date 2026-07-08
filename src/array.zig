@@ -395,6 +395,11 @@ pub const IndexMode = enum {
     clip,
 };
 
+pub const MeshGridIndexing = enum {
+    xy,
+    ij,
+};
+
 fn normalizeSlice(s: Slice, len: usize) ArrayError!struct { start: usize, stop: usize, step: usize, count: usize } {
     if (s.step <= 0) return error.InvalidShape;
     const length: isize = @intCast(len);
@@ -510,6 +515,68 @@ pub fn Array(comptime T: type) type {
                 slot.* = start + step * castValue(T, i);
             }
             return out;
+        }
+
+        pub fn logspace(allocator: std.mem.Allocator, start: T, stop: T, count: usize, base: T) ArrayError!Self {
+            ensureFloat(T);
+            if (!(base > zero(T))) return error.InvalidShape;
+            var exponents = try Self.linspace(allocator, start, stop, count);
+            defer exponents.deinit();
+            const out = try Self.empty(allocator, &.{count});
+            for (exponents.data, out.data) |exponent, *slot| slot.* = std.math.pow(T, base, exponent);
+            return out;
+        }
+
+        pub fn geomspace(allocator: std.mem.Allocator, start: T, stop: T, count: usize) ArrayError!Self {
+            ensureFloat(T);
+            if (!(start > zero(T)) or !(stop > zero(T))) return error.InvalidShape;
+            if (count == 0) return Self.empty(allocator, &.{0});
+            var exponents = try Self.linspace(allocator, std.math.log(T, std.math.e, start), std.math.log(T, std.math.e, stop), count);
+            defer exponents.deinit();
+            const out = try Self.empty(allocator, &.{count});
+            for (exponents.data, out.data) |exponent, *slot| slot.* = std.math.exp(exponent);
+            return out;
+        }
+
+        pub const MeshGrid2 = struct {
+            x: Self,
+            y: Self,
+
+            pub fn deinit(self: *@This()) void {
+                self.x.deinit();
+                self.y.deinit();
+                self.* = undefined;
+            }
+        };
+
+        pub fn meshgrid(x_values: Self, y_values: Self, indexing: MeshGridIndexing) ArrayError!MeshGrid2 {
+            if (x_values.shape.len != 1 or y_values.shape.len != 1) return error.NonVectorArray;
+            const x_len = x_values.shape[0];
+            const y_len = y_values.shape[0];
+            const dims = switch (indexing) {
+                .ij => [_]usize{ x_len, y_len },
+                .xy => [_]usize{ y_len, x_len },
+            };
+            var x_grid = try Self.empty(x_values.allocator, dims[0..]);
+            errdefer x_grid.deinit();
+            var y_grid = try Self.empty(x_values.allocator, dims[0..]);
+            errdefer y_grid.deinit();
+            for (0..dims[0]) |r| {
+                for (0..dims[1]) |c| {
+                    const out_index = r * dims[1] + c;
+                    switch (indexing) {
+                        .ij => {
+                            x_grid.data[out_index] = x_values.data[r];
+                            y_grid.data[out_index] = y_values.data[c];
+                        },
+                        .xy => {
+                            x_grid.data[out_index] = x_values.data[c];
+                            y_grid.data[out_index] = y_values.data[r];
+                        },
+                    }
+                }
+            }
+            return .{ .x = x_grid, .y = y_grid };
         }
 
         pub fn rand(allocator: std.mem.Allocator, dims: []const usize, seed: u64) ArrayError!Self {
@@ -4795,6 +4862,18 @@ pub fn linspace(comptime T: type, allocator: std.mem.Allocator, start: T, stop: 
     return Array(T).linspace(allocator, start, stop, count);
 }
 
+pub fn logspace(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, count: usize, base: T) ArrayError!Array(T) {
+    return Array(T).logspace(allocator, start, stop, count, base);
+}
+
+pub fn geomspace(comptime T: type, allocator: std.mem.Allocator, start: T, stop: T, count: usize) ArrayError!Array(T) {
+    return Array(T).geomspace(allocator, start, stop, count);
+}
+
+pub fn meshgrid(comptime T: type, x_values: Array(T), y_values: Array(T), indexing: MeshGridIndexing) ArrayError!Array(T).MeshGrid2 {
+    return Array(T).meshgrid(x_values, y_values, indexing);
+}
+
 pub fn rand(comptime T: type, allocator: std.mem.Allocator, dims: []const usize, seed: u64) ArrayError!Array(T) {
     return Array(T).rand(allocator, dims, seed);
 }
@@ -6808,6 +6887,30 @@ test "array aliases and alea-backed random distributions" {
     var a = try array(f64, gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer a.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, a.shape);
+
+    var logs = try logspace(f64, gpa, 0, 2, 3, 10);
+    defer logs.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 10, 100 }, logs.data);
+    var geoms = try geomspace(f64, gpa, 1, 100, 3);
+    defer geoms.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), geoms.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10), geoms.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 100), geoms.data[2], 1e-12);
+
+    var xs = try array(f64, gpa, &.{ 1, 2 }, &.{2});
+    defer xs.deinit();
+    var ys = try array(f64, gpa, &.{ 10, 20, 30 }, &.{3});
+    defer ys.deinit();
+    var grid_xy = try meshgrid(f64, xs, ys, .xy);
+    defer grid_xy.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, grid_xy.x.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 1, 2, 1, 2 }, grid_xy.x.data);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 10, 20, 20, 30, 30 }, grid_xy.y.data);
+    var grid_ij = try Array(f64).meshgrid(xs, ys, .ij);
+    defer grid_ij.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, grid_ij.x.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 2, 2, 2 }, grid_ij.x.data);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 20, 30, 10, 20, 30 }, grid_ij.y.data);
 
     var u = try uniform(f64, gpa, &.{16}, -2.0, 3.0, 123);
     defer u.deinit();

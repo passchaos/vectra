@@ -24,7 +24,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 优先完善：
 
 - 数组数据结构：shape、stride、dtype、device、内存布局、contiguous/non-contiguous view。
-- 创建函数：`array`、`zeros`、`ones`、`empty`、`full`、`eye`、`arange`、`linspace`、随机初始化等。
+- 创建函数：`array`、`zeros`、`ones`、`empty`、`full`、`eye`、`arange`、`linspace`、`logspace`、`geomspace`、`meshgrid`、随机初始化等。
 - 索引与切片：整数索引、range/slice、bool mask、坐标索引、take/gather/scatter、IndexMode raise/wrap/clip、masked/index put、compress、advanced indexing、membership/search helpers。
 - 形状变换：reshape/view、flatten/ravel、squeeze/unsqueeze、transpose/permute/swapaxes/movedim、broadcast、repeat/tile、slice/sliceAxis/slice1d、flip、roll、padConstant。
 - 广播逐元素运算：加减乘除、幂、floorDiv/mod/remainder、hypot/atan2、copysign/heaviside、比较及 scalar 比较、逻辑运算及 scalar 逻辑、where、clip/clamp/clipArray、maximum/minimum。
@@ -83,7 +83,7 @@ Pandas/Polars 能力排在数组与 SciPy 之后。
 
 初始化阶段已优先实现一批 Array/NDArray 能力：
 
-- 创建：`array/ndarray`、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
+- 创建：`array/ndarray`、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`logspace`、`geomspace`、`meshgrid(MeshGridIndexing.xy/ij)`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
 - 形状：方法与顶层包装形式的 `reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`、`broadcastTo`、`repeat`、`tile`、`slice/sliceAxis/slice1d`、`flip`、`roll`、`padConstant`。
 - 索引/搜索：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeMode(IndexMode.raise/wrap/clip)`、`takeAlongAxis/putAlongAxis`、坐标索引 `ravelCoords/unravelFlat/takeCoords/putCoords/putCoordsScalar`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`scatterReduceScalar/scatterAddScalar`、`maskedSelect`、`maskedFill`、`maskedScatter`、`maskedPut/maskedPutScalar`、`putFlat/putFlatMode/putFlatScalar/putFlatScalarMode`、`indexPut/indexPutScalar`、`compress`、`flatNonzero`、`nonzero/argwhere/countNonzero`、`isin`、`searchsorted`、`bucketize`、`digitize`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、`floorDiv`、`mod/remainder`、scalar variants、`maximum/minimum`、`hypot`、`atan2`、`copysign`、`heaviside`、`whereMask`、`eq/equal`、`ne/notEqual`、`gt/greater`、`ge/greaterEqual`、`lt/less`、`le/lessEqual`、scalar 比较、`logicalNot/logicalAnd/logicalOr/logicalXor`、scalar 逻辑、`isclose`、`allclose`。
