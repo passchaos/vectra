@@ -1372,6 +1372,59 @@ pub fn Tensor(comptime T: type) type {
             return self.nonzero();
         }
 
+        pub fn ravelCoords(self: Self, coords: Tensor(usize)) TensorError!Tensor(usize) {
+            if (coords.shape.len != 2 or coords.shape[1] != self.shape.len) return error.ShapeMismatch;
+            var out = try Tensor(usize).empty(self.allocator, &.{coords.shape[0]});
+            errdefer out.deinit();
+            for (out.data, 0..) |*slot, row| {
+                var offset: usize = 0;
+                for (0..self.shape.len) |axis| {
+                    const coord = coords.data[row * self.shape.len + axis];
+                    if (coord >= self.shape[axis]) return error.IndexOutOfBounds;
+                    offset += coord * self.strides[axis];
+                }
+                slot.* = offset;
+            }
+            return out;
+        }
+
+        pub fn unravelFlat(self: Self, indices: Tensor(usize)) TensorError!Tensor(usize) {
+            var out = try Tensor(usize).empty(self.allocator, &.{ indices.data.len, self.shape.len });
+            errdefer out.deinit();
+            if (self.shape.len == 0) {
+                for (indices.data) |idx| {
+                    if (idx != 0) return error.IndexOutOfBounds;
+                }
+                return out;
+            }
+            const coords = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(coords);
+            for (indices.data, 0..) |idx, row| {
+                if (idx >= self.data.len) return error.IndexOutOfBounds;
+                unravelIndexInto(idx, self.shape, coords);
+                @memcpy(out.data[row * self.shape.len ..][0..self.shape.len], coords);
+            }
+            return out;
+        }
+
+        pub fn takeCoords(self: Self, coords: Tensor(usize)) TensorError!Self {
+            var flat = try self.ravelCoords(coords);
+            defer flat.deinit();
+            return self.take(flat, null);
+        }
+
+        pub fn putCoords(self: Self, coords: Tensor(usize), values: Self) TensorError!Self {
+            var flat = try self.ravelCoords(coords);
+            defer flat.deinit();
+            return self.putFlat(flat, values);
+        }
+
+        pub fn putCoordsScalar(self: Self, coords: Tensor(usize), value: T) TensorError!Self {
+            var flat = try self.ravelCoords(coords);
+            defer flat.deinit();
+            return self.putFlatScalar(flat, value);
+        }
+
         pub fn compress(self: Self, condition: Tensor(bool), axis_opt: ?isize) TensorError!Self {
             if (condition.shape.len != 1) return error.ShapeMismatch;
             if (axis_opt == null) {
@@ -5716,6 +5769,26 @@ pub fn argwhere(comptime T: type, input: Tensor(T)) TensorError!Tensor(usize) {
     return input.argwhere();
 }
 
+pub fn ravelCoords(comptime T: type, input: Tensor(T), coords: Tensor(usize)) TensorError!Tensor(usize) {
+    return input.ravelCoords(coords);
+}
+
+pub fn unravelFlat(comptime T: type, input: Tensor(T), indices: Tensor(usize)) TensorError!Tensor(usize) {
+    return input.unravelFlat(indices);
+}
+
+pub fn takeCoords(comptime T: type, input: Tensor(T), coords: Tensor(usize)) TensorError!Tensor(T) {
+    return input.takeCoords(coords);
+}
+
+pub fn putCoords(comptime T: type, input: Tensor(T), coords: Tensor(usize), values: Tensor(T)) TensorError!Tensor(T) {
+    return input.putCoords(coords, values);
+}
+
+pub fn putCoordsScalar(comptime T: type, input: Tensor(T), coords: Tensor(usize), value: T) TensorError!Tensor(T) {
+    return input.putCoordsScalar(coords, value);
+}
+
 pub fn compress(comptime T: type, input: Tensor(T), condition: Tensor(bool), axis: ?isize) TensorError!Tensor(T) {
     return input.compress(condition, axis);
 }
@@ -6113,6 +6186,26 @@ test "array advanced indexing mutation helpers" {
     defer coords.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, coords.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 2, 1, 1, 1, 2 }, coords.data);
+    var flat_from_coords = try ravelCoords(f64, a, coords);
+    defer flat_from_coords.deinit();
+    try std.testing.expectEqualSlices(usize, flat_idx.data, flat_from_coords.data);
+    var coords_roundtrip = try unravelFlat(f64, a, flat_from_coords);
+    defer coords_roundtrip.deinit();
+    try std.testing.expectEqualSlices(usize, coords.data, coords_roundtrip.data);
+    var coord_values = try takeCoords(f64, a, coords);
+    defer coord_values.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5, 6 }, coord_values.data);
+    var coord_replacements = try array(f64, gpa, &.{ 10, 30, 50, 60 }, &.{4});
+    defer coord_replacements.deinit();
+    var coord_put = try putCoords(f64, a, coords, coord_replacements);
+    defer coord_put.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 0, 50, 60 }, coord_put.data);
+    var coord_scalar_put = try a.putCoordsScalar(coords, -5);
+    defer coord_scalar_put.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -5, 0, -5, 0, -5, -5 }, coord_scalar_put.data);
+    var bad_coords = try array(usize, gpa, &.{ 2, 0 }, &.{ 1, 2 });
+    defer bad_coords.deinit();
+    try std.testing.expectError(error.IndexOutOfBounds, a.takeCoords(bad_coords));
 
     var cond = try array(bool, gpa, &.{ true, false, true }, &.{3});
     defer cond.deinit();
