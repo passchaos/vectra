@@ -1531,6 +1531,26 @@ pub fn ArrayView(comptime T: type) type {
             return self.minimum(other_view);
         }
 
+        pub fn fmax(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).fmax);
+        }
+
+        pub fn fmaxArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.fmax(other_view);
+        }
+
+        pub fn fmin(self: Self, other: Self) ArrayError!Array(T) {
+            return self.ownedBinary(other, Array(T).fmin);
+        }
+
+        pub fn fminArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.fmin(other_view);
+        }
+
         pub fn addPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
             var lhs = try self.toArray();
             defer lhs.deinit();
@@ -1745,6 +1765,14 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn clampMax(self: Self, max_value: T) ArrayError!Array(T) {
             return self.clipMax(max_value);
+        }
+
+        pub fn fmaxScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.ownedWith(scalar, Array(T), Array(T).fmaxScalar);
+        }
+
+        pub fn fminScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.ownedWith(scalar, Array(T), Array(T).fminScalar);
         }
 
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -6886,6 +6914,32 @@ pub fn Array(comptime T: type) type {
         fn opAddcdiv(a: T, b: T, c: T, value: T) T {
             return addValue(T, a, mulValue(T, value, divValue(T, b, c)));
         }
+        fn opFmax(a: T, b: T) T {
+            if (comptime T == BFloat16) {
+                if (std.math.isNan(a.toF32())) return b;
+                if (std.math.isNan(b.toF32())) return a;
+                return if (a.lt(b)) b else a;
+            }
+            if (comptime isComplex(T)) @compileError("fmax requires an orderable numeric array");
+            return switch (@typeInfo(T)) {
+                .float => if (std.math.isNan(a)) b else if (std.math.isNan(b)) a else @max(a, b),
+                .int, .comptime_int => @max(a, b),
+                else => @compileError("fmax requires an orderable numeric array"),
+            };
+        }
+        fn opFmin(a: T, b: T) T {
+            if (comptime T == BFloat16) {
+                if (std.math.isNan(a.toF32())) return b;
+                if (std.math.isNan(b.toF32())) return a;
+                return if (a.lt(b)) a else b;
+            }
+            if (comptime isComplex(T)) @compileError("fmin requires an orderable numeric array");
+            return switch (@typeInfo(T)) {
+                .float => if (std.math.isNan(a)) b else if (std.math.isNan(b)) a else @min(a, b),
+                .int, .comptime_int => @min(a, b),
+                else => @compileError("fmin requires an orderable numeric array"),
+            };
+        }
         fn opNeg(a: T) T {
             return negValue(T, a);
         }
@@ -7273,6 +7327,16 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn fmax(self: Self, other: Self) ArrayError!Self {
+            ensureNumeric(T);
+            return self.binaryArray(other, opFmax);
+        }
+
+        pub fn fmin(self: Self, other: Self) ArrayError!Self {
+            ensureNumeric(T);
+            return self.binaryArray(other, opFmin);
+        }
+
         pub fn addPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
             const P = promoteType(T, U);
             var lhs = try self.astype(P);
@@ -7398,6 +7462,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn clampMax(self: Self, max_value: T) ArrayError!Self {
             return self.clipMax(max_value);
+        }
+
+        pub fn fmaxScalar(self: Self, scalar: T) ArrayError!Self {
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, opFmax);
+        }
+
+        pub fn fminScalar(self: Self, scalar: T) ArrayError!Self {
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, opFmin);
         }
 
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Self {
@@ -11083,6 +11157,30 @@ test "array binary math wrappers and clamp aliases" {
     var mined = try a.minimumScalar(2.5);
     defer mined.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 2.5, 2.5 }, mined.data);
+    var nan_left = try Array(f64).fromSlice(gpa, &.{ std.math.nan(f64), 2, std.math.nan(f64), 4 }, &.{ 2, 2 });
+    defer nan_left.deinit();
+    var nan_right = try Array(f64).fromSlice(gpa, &.{ 1, std.math.nan(f64), std.math.nan(f64), 5 }, &.{ 2, 2 });
+    defer nan_right.deinit();
+    var fmaxed = try nan_left.fmax(nan_right);
+    defer fmaxed.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), fmaxed.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), fmaxed.data[1], 1e-12);
+    try std.testing.expect(std.math.isNan(fmaxed.data[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 5), fmaxed.data[3], 1e-12);
+    var fmined = try nan_left.fmin(nan_right);
+    defer fmined.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), fmined.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), fmined.data[1], 1e-12);
+    try std.testing.expect(std.math.isNan(fmined.data[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 4), fmined.data[3], 1e-12);
+    var fmax_scalar = try nan_left.fmaxScalar(3);
+    defer fmax_scalar.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 3), fmax_scalar.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), fmax_scalar.data[1], 1e-12);
+    var fmin_scalar = try nan_left.fminScalar(3);
+    defer fmin_scalar.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 3), fmin_scalar.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), fmin_scalar.data[1], 1e-12);
 
     var hyp_a = try Array(f64).fromSlice(gpa, &.{ 3, 5 }, &.{2});
     defer hyp_a.deinit();
@@ -12080,6 +12178,22 @@ test "array non contiguous view helpers" {
     var min_view = try stepped.minimum(math_rhs_view);
     defer min_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 3 }, min_view.data);
+    var nan_pair = try Array(f64).fromSlice(gpa, &.{ std.math.nan(f64), 40 }, &.{ 1, 2 });
+    defer nan_pair.deinit();
+    var nan_pair_view = try nan_pair.asView();
+    defer nan_pair_view.deinit();
+    var fmax_view = try stepped.fmax(nan_pair_view);
+    defer fmax_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 40, 50, 99 }, fmax_view.data);
+    var fmin_view = try stepped.fmin(nan_pair_view);
+    defer fmin_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 30, 50, 40 }, fmin_view.data);
+    var fmax_scalar_view = try nan_pair_view.fmaxScalar(10);
+    defer fmax_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 40 }, fmax_scalar_view.data);
+    var fmin_scalar_view = try nan_pair_view.fminScalar(10);
+    defer fmin_scalar_view.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 10 }, fmin_scalar_view.data);
     var hypot_view = try stepped.hypot(math_rhs_view);
     defer hypot_view.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 5)), hypot_view.data[0], 1e-12);
