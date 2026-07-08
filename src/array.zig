@@ -105,6 +105,7 @@ pub const DType = enum {
     f16,
     c64,
     c128,
+    isize,
 
     pub fn of(comptime T: type) DType {
         return switch (T) {
@@ -123,6 +124,7 @@ pub const DType = enum {
             u32 => .u32,
             u64 => .u64,
             usize => .usize,
+            isize => .isize,
             bool => .bool,
             else => @compileError("unsupported Vectra dtype: " ++ @typeName(T)),
         };
@@ -146,6 +148,7 @@ pub const DType = enum {
             .bool => "bool",
             .c64 => "complex64",
             .c128 => "complex128",
+            .isize => "isize",
         };
     }
 
@@ -158,6 +161,7 @@ pub const DType = enum {
             .usize => @sizeOf(usize),
             .c64 => 8,
             .c128 => 16,
+            .isize => @sizeOf(isize),
         };
     }
 
@@ -170,14 +174,14 @@ pub const DType = enum {
 
     pub fn isInteger(self: DType) bool {
         return switch (self) {
-            .i8, .i16, .i32, .i64, .u8, .u16, .u32, .u64, .usize => true,
+            .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize => true,
             else => false,
         };
     }
 
     pub fn isSigned(self: DType) bool {
         return switch (self) {
-            .i8, .i16, .i32, .i64 => true,
+            .i8, .i16, .i32, .i64, .isize => true,
             else => false,
         };
     }
@@ -219,7 +223,7 @@ pub const DType = enum {
             .i8, .u8 => 1,
             .i16, .u16 => 2,
             .i32, .u32 => 3,
-            .i64, .u64, .usize => 4,
+            .i64, .u64, .usize, .isize => 4,
             else => 0,
         };
     }
@@ -285,6 +289,7 @@ pub const DType = enum {
             .bool => bool,
             .c64 => Complex64,
             .c128 => Complex128,
+            .isize => isize,
         };
     }
 
@@ -310,6 +315,7 @@ pub const DType = enum {
             @intFromEnum(DType.bool) => .bool,
             @intFromEnum(DType.c64) => .c64,
             @intFromEnum(DType.c128) => .c128,
+            @intFromEnum(DType.isize) => .isize,
             else => null,
         };
     }
@@ -10365,11 +10371,14 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(DType.c128, DType.of(Complex128));
     try std.testing.expectEqual(DType.i8, DType.of(i8));
     try std.testing.expectEqual(DType.i16, DType.of(i16));
+    try std.testing.expectEqual(DType.isize, DType.of(isize));
     try std.testing.expectEqual(DType.u16, DType.of(u16));
     try std.testing.expectEqual(DType.u32, DType.of(u32));
     try std.testing.expectEqual(DType.u64, DType.of(u64));
     try std.testing.expectEqualStrings("u64", DType.u64.name());
     try std.testing.expectEqual(@as(usize, 8), DType.u64.byteSize());
+    try std.testing.expectEqualStrings("isize", DType.isize.name());
+    try std.testing.expectEqual(@sizeOf(isize), DType.isize.byteSize());
     try std.testing.expectEqualStrings("bf16", DType.bf16.name());
     try std.testing.expectEqual(@as(usize, 2), DType.bf16.byteSize());
     try std.testing.expectEqualStrings("f16", DType.f16.name());
@@ -10380,6 +10389,7 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expect(DType.f32.isFloat());
     try std.testing.expect(DType.i16.isInteger());
     try std.testing.expect(DType.i16.isSigned());
+    try std.testing.expect(DType.isize.isSigned());
     try std.testing.expect(DType.bool.isBool());
     try std.testing.expect(DType.bool.canCast(.f32));
     try std.testing.expect(DType.f32.canCast(.c64));
@@ -10391,6 +10401,7 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(DType.f32, promoteDType(.f16, .f32));
     try std.testing.expectEqual(DType.i32, resultDType(.i16, .u16));
     try std.testing.expectEqual(DType.u64, DType.promote(.u32, .u64));
+    try std.testing.expectEqual(DType.i64, DType.promote(.isize, .i32));
     try std.testing.expectEqual(DType.c64, DType.promote(.f32, .c64));
     try std.testing.expectEqual(DType.c128, DType.promote(.f64, .c64));
 
