@@ -7015,6 +7015,7 @@ pub fn Array(comptime T: type) type {
         }
         fn opExp(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.exp(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.exp(a.toF32()));
             return std.math.exp(a);
         }
         fn opExp2(a: T) T {
@@ -7023,22 +7024,26 @@ pub fn Array(comptime T: type) type {
         }
         fn opLog(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.log(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.log(f32, std.math.e, a.toF32()));
             return std.math.log(T, std.math.e, a);
         }
         fn opLog2(a: T) T {
             if (comptime isComplex(T)) {
                 return std.math.complex.log(a).div(T.init(std.math.ln2, 0));
             }
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.log2(a.toF32()));
             return std.math.log2(a);
         }
         fn opLog10(a: T) T {
             if (comptime isComplex(T)) {
                 return std.math.complex.log(a).div(T.init(std.math.ln10, 0));
             }
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.log10(a.toF32()));
             return std.math.log10(a);
         }
         fn opSqrt(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.sqrt(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.sqrt(a.toF32()));
             return std.math.sqrt(a);
         }
         fn opRsqrt(a: T) T {
@@ -7055,34 +7060,42 @@ pub fn Array(comptime T: type) type {
         }
         fn opSin(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.sin(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.sin(a.toF32()));
             return std.math.sin(a);
         }
         fn opCos(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.cos(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.cos(a.toF32()));
             return std.math.cos(a);
         }
         fn opTan(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.tan(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.tan(a.toF32()));
             return std.math.tan(a);
         }
         fn opAsin(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.asin(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.asin(a.toF32()));
             return std.math.asin(a);
         }
         fn opAcos(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.acos(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.acos(a.toF32()));
             return std.math.acos(a);
         }
         fn opAtan(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.atan(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.atan(a.toF32()));
             return std.math.atan(a);
         }
         fn opSinh(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.sinh(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.sinh(a.toF32()));
             return std.math.sinh(a);
         }
         fn opCosh(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.cosh(a);
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.cosh(a.toF32()));
             return std.math.cosh(a);
         }
         fn opAsinh(a: T) T {
@@ -7119,10 +7132,12 @@ pub fn Array(comptime T: type) type {
         }
         fn opLog1p(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.log(a.add(one(T)));
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.log1p(a.toF32()));
             return std.math.log1p(a);
         }
         fn opExpm1(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.exp(a).sub(one(T));
+            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.expm1(a.toF32()));
             return std.math.expm1(a);
         }
         fn opSinc(a: T) T {
@@ -7150,12 +7165,15 @@ pub fn Array(comptime T: type) type {
             return one(T) / (one(T) + std.math.exp(-a));
         }
         fn opDeg2rad(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(a.toF32() * @as(f32, @floatCast(std.math.pi / 180.0)));
             return a * castValue(T, std.math.pi / 180.0);
         }
         fn opRad2deg(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(a.toF32() * @as(f32, @floatCast(180.0 / std.math.pi)));
             return a * castValue(T, 180.0 / std.math.pi);
         }
         fn opFloor(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(@floor(a.toF32()));
             return switch (@typeInfo(T)) {
                 .float => @floor(a),
                 .int, .comptime_int => a,
@@ -7163,6 +7181,7 @@ pub fn Array(comptime T: type) type {
             };
         }
         fn opCeil(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(@ceil(a.toF32()));
             return switch (@typeInfo(T)) {
                 .float => @ceil(a),
                 .int, .comptime_int => a,
@@ -7170,6 +7189,7 @@ pub fn Array(comptime T: type) type {
             };
         }
         fn opRound(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(@round(a.toF32()));
             return switch (@typeInfo(T)) {
                 .float => @round(a),
                 .int, .comptime_int => a,
@@ -7177,6 +7197,7 @@ pub fn Array(comptime T: type) type {
             };
         }
         fn opTrunc(a: T) T {
+            if (comptime T == BFloat16) return BFloat16.fromF32(@trunc(a.toF32()));
             return switch (@typeInfo(T)) {
                 .float => @trunc(a),
                 .int, .comptime_int => a,
@@ -7190,6 +7211,10 @@ pub fn Array(comptime T: type) type {
             return divValue(T, one(T), a);
         }
         fn opSign(a: T) T {
+            if (comptime T == BFloat16) {
+                const value = a.toF32();
+                return if (std.math.isNan(value)) a else if (value > 0) one(T) else if (value < 0) negValue(T, one(T)) else zero(T);
+            }
             return switch (@typeInfo(T)) {
                 .float => if (std.math.isNan(a)) a else if (a > zero(T)) one(T) else if (a < zero(T)) -one(T) else zero(T),
                 .int => |info| if (a == 0) zero(T) else if (info.signedness == .signed) (if (a < 0) -one(T) else one(T)) else one(T),
@@ -7199,6 +7224,7 @@ pub fn Array(comptime T: type) type {
         }
         fn opIsNan(a: T) bool {
             if (comptime isComplex(T)) return std.math.isNan(a.re) or std.math.isNan(a.im);
+            if (comptime T == BFloat16) return std.math.isNan(a.toF32());
             return switch (@typeInfo(T)) {
                 .float => std.math.isNan(a),
                 .int, .comptime_int => false,
@@ -7207,6 +7233,7 @@ pub fn Array(comptime T: type) type {
         }
         fn opIsInf(a: T) bool {
             if (comptime isComplex(T)) return std.math.isInf(a.re) or std.math.isInf(a.im);
+            if (comptime T == BFloat16) return std.math.isInf(a.toF32());
             return switch (@typeInfo(T)) {
                 .float => std.math.isInf(a),
                 .int, .comptime_int => false,
@@ -7215,6 +7242,7 @@ pub fn Array(comptime T: type) type {
         }
         fn opIsPosInf(a: T) bool {
             if (comptime isComplex(T)) return std.math.isPositiveInf(a.re) or std.math.isPositiveInf(a.im);
+            if (comptime T == BFloat16) return std.math.isPositiveInf(a.toF32());
             return switch (@typeInfo(T)) {
                 .float => std.math.isPositiveInf(a),
                 .int, .comptime_int => false,
@@ -7223,6 +7251,7 @@ pub fn Array(comptime T: type) type {
         }
         fn opIsNegInf(a: T) bool {
             if (comptime isComplex(T)) return std.math.isNegativeInf(a.re) or std.math.isNegativeInf(a.im);
+            if (comptime T == BFloat16) return std.math.isNegativeInf(a.toF32());
             return switch (@typeInfo(T)) {
                 .float => std.math.isNegativeInf(a),
                 .int, .comptime_int => false,
@@ -7231,6 +7260,7 @@ pub fn Array(comptime T: type) type {
         }
         fn opIsFinite(a: T) bool {
             if (comptime isComplex(T)) return std.math.isFinite(a.re) and std.math.isFinite(a.im);
+            if (comptime T == BFloat16) return std.math.isFinite(a.toF32());
             return switch (@typeInfo(T)) {
                 .float => std.math.isFinite(a),
                 .int, .comptime_int => true,
@@ -7245,6 +7275,7 @@ pub fn Array(comptime T: type) type {
             };
         }
         fn opSignbit(a: T) bool {
+            if (comptime T == BFloat16) return std.math.signbit(a.toF32());
             return switch (@typeInfo(T)) {
                 .float => std.math.signbit(a),
                 .int => |info| if (info.signedness == .signed) a < 0 else false,
@@ -15432,6 +15463,51 @@ test "array bfloat16 arithmetic and reductions" {
     var abs_out = try a.abs();
     defer abs_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, 3.0), abs_out.data[2].toF32(), 1e-2);
+
+    var unary_source = try Array(BFloat16).fromSlice(gpa, &.{
+        BFloat16.fromF32(0.0),
+        BFloat16.fromF32(1.0),
+        BFloat16.fromF32(4.0),
+    }, &.{3});
+    defer unary_source.deinit();
+    var exp_out = try unary_source.exp();
+    defer exp_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1.0), exp_out.data[0].toF32(), 2e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, @floatCast(std.math.e)), exp_out.data[1].toF32(), 2e-2);
+    var log_out = try unary_source.addScalar(BFloat16.fromF32(1.0));
+    defer log_out.deinit();
+    var logged = try log_out.log();
+    defer logged.deinit();
+    try std.testing.expectApproxEqAbs(std.math.log(f32, std.math.e, @as(f32, 2.0)), logged.data[1].toF32(), 2e-2);
+    var sqrt_out = try unary_source.sqrt();
+    defer sqrt_out.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 2.0), sqrt_out.data[2].toF32(), 2e-2);
+    var sin_out = try unary_source.sin();
+    defer sin_out.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sin(@as(f32, 1.0)), sin_out.data[1].toF32(), 2e-2);
+    var rounded_source = try Array(BFloat16).fromSlice(gpa, &.{ BFloat16.fromF32(-1.7), BFloat16.fromF32(0.2), BFloat16.fromF32(1.7) }, &.{3});
+    defer rounded_source.deinit();
+    var floored = try rounded_source.floor();
+    defer floored.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, -2), floored.data[0].toF32(), 2e-2);
+    var signs = try rounded_source.sign();
+    defer signs.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, -1), signs.data[0].toF32(), 2e-2);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), signs.data[2].toF32(), 2e-2);
+    var sign_bits = try rounded_source.signbit();
+    defer sign_bits.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, sign_bits.data);
+    var special = try Array(BFloat16).fromSlice(gpa, &.{ BFloat16.fromF32(1), BFloat16.fromF32(std.math.inf(f32)), BFloat16.fromF32(std.math.nan(f32)) }, &.{3});
+    defer special.deinit();
+    var finite = try special.isFinite();
+    defer finite.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, finite.data);
+    var inf_mask = try special.isInf();
+    defer inf_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, inf_mask.data);
+    var nan_mask = try special.isNan();
+    defer nan_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, nan_mask.data);
 }
 
 test "array complex dtype and arithmetic" {
