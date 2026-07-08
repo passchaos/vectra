@@ -3803,6 +3803,70 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn edgePadCoord(out_coord: usize, before: usize, extent: usize) usize {
+            if (out_coord < before) return 0;
+            const shifted = out_coord - before;
+            return if (shifted >= extent) extent - 1 else shifted;
+        }
+
+        fn reflectPadCoord(out_coord: usize, before: usize, extent: usize) usize {
+            const period: isize = @intCast(2 * extent - 2);
+            var pos: isize = @as(isize, @intCast(out_coord)) - @as(isize, @intCast(before));
+            pos = @mod(pos, period);
+            const normalized: usize = @intCast(pos);
+            return if (normalized < extent) normalized else (2 * extent - 2) - normalized;
+        }
+
+        pub fn padEdge(self: Self, before: []const usize, after: []const usize) ArrayError!Self {
+            if (before.len != self.shape.len or after.len != self.shape.len) return error.ShapeMismatch;
+            if (self.data.len == 0) return error.EmptyArray;
+            var out_shape = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_shape);
+            for (self.shape, before, after, 0..) |dim, before_i, after_i, axis| out_shape[axis] = dim + before_i + after_i;
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                for (out_multi, before, self.shape, 0..) |coord, before_i, dim, axis| {
+                    in_multi[axis] = edgePadCoord(coord, before_i, dim);
+                }
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn padReflect(self: Self, before: []const usize, after: []const usize) ArrayError!Self {
+            if (before.len != self.shape.len or after.len != self.shape.len) return error.ShapeMismatch;
+            if (self.data.len == 0) return error.EmptyArray;
+            var out_shape = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_shape);
+            for (self.shape, before, after, 0..) |dim, before_i, after_i, axis| {
+                if (dim < 2 and (before_i != 0 or after_i != 0)) return error.InvalidShape;
+                if (dim >= 2 and (before_i >= dim or after_i >= dim)) return error.InvalidShape;
+                out_shape[axis] = dim + before_i + after_i;
+            }
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                for (out_multi, before, self.shape, 0..) |coord, before_i, dim, axis| {
+                    in_multi[axis] = if (dim == 1) 0 else reflectPadCoord(coord, before_i, dim);
+                }
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
         pub fn tile(self: Self, repeats: []const usize) ArrayError!Self {
             if (repeats.len != self.shape.len) return error.ShapeMismatch;
             var out_shape = try self.allocator.alloc(usize, self.shape.len);
@@ -10492,6 +10556,40 @@ test "array slice flip roll and constant padding" {
         0, 1, 2, 3, 0, 0,
         0, 4, 5, 6, 0, 0,
     }, padded.data);
+
+    var edge_vec = try v.padEdge(&.{2}, &.{1});
+    defer edge_vec.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 2, 3, 4, 5, 5 }, edge_vec.data);
+
+    var reflect_vec = try v.padReflect(&.{2}, &.{1});
+    defer reflect_vec.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 2, 1, 2, 3, 4, 5, 4 }, reflect_vec.data);
+
+    var m = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer m.deinit();
+    var edge_matrix = try m.padEdge(&.{ 1, 1 }, &.{ 1, 0 });
+    defer edge_matrix.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 3 }, edge_matrix.shape);
+    try std.testing.expectEqualSlices(f64, &.{
+        1, 1, 2,
+        1, 1, 2,
+        3, 3, 4,
+        3, 3, 4,
+    }, edge_matrix.data);
+
+    var reflect_matrix = try m.padReflect(&.{ 1, 1 }, &.{ 0, 0 });
+    defer reflect_matrix.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, reflect_matrix.shape);
+    try std.testing.expectEqualSlices(f64, &.{
+        4, 3, 4,
+        2, 1, 2,
+        4, 3, 4,
+    }, reflect_matrix.data);
+
+    try std.testing.expectError(error.InvalidShape, v.padReflect(&.{5}, &.{0}));
+    var empty = try Array(f64).empty(gpa, &.{0});
+    defer empty.deinit();
+    try std.testing.expectError(error.EmptyArray, empty.padEdge(&.{1}, &.{1}));
 }
 
 test "array dtype metadata and casts cover common numeric types" {
