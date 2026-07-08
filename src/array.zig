@@ -2561,6 +2561,80 @@ pub fn ArrayView(comptime T: type) type {
             return owned.unique();
         }
 
+        pub fn uniqueWithCounts(self: Self) ArrayError!Array(T).UniqueCounts {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.uniqueWithCounts();
+        }
+
+        pub fn union1d(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.union1d(rhs);
+        }
+
+        pub fn union1dArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.union1d(other);
+        }
+
+        pub fn intersect1d(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.intersect1d(rhs);
+        }
+
+        pub fn intersect1dArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.intersect1d(other);
+        }
+
+        pub fn setdiff1d(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.setdiff1d(rhs);
+        }
+
+        pub fn setdiff1dArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.setdiff1d(other);
+        }
+
+        pub fn setxor1d(self: Self, other: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.setxor1d(rhs);
+        }
+
+        pub fn setxor1dArray(self: Self, other: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.setxor1d(other);
+        }
+
+        pub fn bincount(self: Self, minlength: usize) ArrayError!Array(usize) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.bincount(minlength);
+        }
+
+        pub fn bincountWeighted(self: Self, comptime W: type, weights: Array(W), minlength: usize) ArrayError!Array(W) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.bincountWeighted(W, weights, minlength);
+        }
+
         pub fn searchsorted(self: Self, values: Array(T), side: SearchSide) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2583,6 +2657,12 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.isin(test_elements, invert);
+        }
+
+        pub fn histogram(self: Self, bins: usize, range: ?Array(T).HistogramRange) ArrayError!Array(T).HistogramResult {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.histogram(bins, range);
         }
 
         pub fn matmul(self: Self, other: Self) ArrayError!Array(T) {
@@ -9125,11 +9205,15 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn histogram(self: Self, bins: usize, range: ?struct { min: T, max: T }) ArrayError!struct { counts: Array(usize), edges: Self } {
+        pub const HistogramRange = struct { min: T, max: T };
+
+        pub const HistogramResult = struct { counts: Array(usize), edges: Self };
+
+        pub fn histogram(self: Self, bins: usize, range: ?HistogramRange) ArrayError!HistogramResult {
             ensureFloat(T);
             if (bins == 0) return error.InvalidShape;
             if (self.data.len == 0) return error.EmptyArray;
-            var min_v = range orelse .{ .min = self.data[0], .max = self.data[0] };
+            var min_v: HistogramRange = range orelse .{ .min = self.data[0], .max = self.data[0] };
             if (range == null) {
                 for (self.data[1..]) |v| {
                     if (v < min_v.min) min_v.min = v;
@@ -12686,6 +12770,43 @@ test "array unique bincount searchsorted and clipArray" {
     defer unique_flags.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true }, unique_flags.data);
 
+    var matrix_i = try Array(i32).fromSlice(gpa, &.{ 3, 1, 2, 3, 2, 1, 4, 2 }, &.{ 2, 4 });
+    defer matrix_i.deinit();
+    var view_i = try matrix_i.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer view_i.deinit();
+    var view_unique_counts = try view_i.uniqueWithCounts();
+    defer view_unique_counts.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 2, 3, 4 }, view_unique_counts.values.data);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 1 }, view_unique_counts.counts.data);
+    var other_i = try Array(i32).fromSlice(gpa, &.{ 2, 5 }, &.{2});
+    defer other_i.deinit();
+    var other_i_view = try other_i.asView();
+    defer other_i_view.deinit();
+    var union_view = try view_i.union1d(other_i_view);
+    defer union_view.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 2, 3, 4, 5 }, union_view.data);
+    var inter_view = try view_i.intersect1dArray(other_i);
+    defer inter_view.deinit();
+    try std.testing.expectEqualSlices(i32, &.{2}, inter_view.data);
+    var diff_view = try view_i.setdiff1d(other_i_view);
+    defer diff_view.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 3, 4 }, diff_view.data);
+    var xor_view = try view_i.setxor1dArray(other_i);
+    defer xor_view.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 3, 4, 5 }, xor_view.data);
+    var small_codes = try Array(u32).fromSlice(gpa, &.{ 0, 1, 2, 1, 2, 1 }, &.{ 2, 3 });
+    defer small_codes.deinit();
+    var codes_view = try small_codes.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer codes_view.deinit();
+    var code_counts = try codes_view.bincount(4);
+    defer code_counts.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1, 0 }, code_counts.data);
+    var code_weights = try Array(f64).fromSlice(gpa, &.{ 0.5, 1.5, 2.5, 3.5 }, &.{4});
+    defer code_weights.deinit();
+    var weighted_code_counts = try codes_view.bincountWeighted(f64, code_weights, 4);
+    defer weighted_code_counts.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 6.0, 1.5, 0 }, weighted_code_counts.data);
+
     var x = try Array(f64).fromSlice(gpa, &.{ -1, 0, 5, 10 }, &.{ 2, 2 });
     defer x.deinit();
     var lo = try Array(f64).fromSlice(gpa, &.{ 0, 2 }, &.{2});
@@ -12695,4 +12816,14 @@ test "array unique bincount searchsorted and clipArray" {
     var clipped = try x.clipArray(lo, hi);
     defer clipped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 2, 4, 4 }, clipped.data);
+
+    var hist_source = try Array(f64).fromSlice(gpa, &.{ 0, 1, 2, 3, 4, 5 }, &.{ 2, 3 });
+    defer hist_source.deinit();
+    var hist_view = try hist_source.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer hist_view.deinit();
+    var hist = try hist_view.histogram(3, .{ .min = 0, .max = 6 });
+    defer hist.counts.deinit();
+    defer hist.edges.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, hist.counts.data);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2, 4, 6 }, hist.edges.data);
 }
