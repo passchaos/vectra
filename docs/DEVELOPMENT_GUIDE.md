@@ -25,7 +25,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 
 - 张量数据结构：shape、stride、dtype、device、内存布局、contiguous/non-contiguous view。
 - 创建函数：`tensor`、`zeros`、`ones`、`empty`、`full`、`eye`、`arange`、`linspace`、随机初始化等。
-- 索引与切片：整数索引、range/slice、bool mask、take/gather/scatter、masked/index put、compress、advanced indexing、membership/search helpers。
+- 索引与切片：整数索引、range/slice、bool mask、take/gather/scatter、IndexMode raise/wrap/clip、masked/index put、compress、advanced indexing、membership/search helpers。
 - 形状变换：reshape/view、flatten/ravel、squeeze/unsqueeze、transpose/permute/movedim、broadcast、repeat/tile、sliceAxis、flip、roll、padConstant。
 - 广播逐元素运算：加减乘除、幂、floorDiv/mod/remainder、hypot/atan2、copysign/heaviside、比较及 scalar 比较、逻辑运算及 scalar 逻辑、where、clip/clamp/clipArray、maximum/minimum。
 - 归约与统计：sum、prod、min、max、mean、var、std、median、quantile/percentile、cov/corrcoef、nan_to_num 与 nan-aware 统计、argmin、argmax、cumsum、cumprod。
@@ -85,7 +85,7 @@ Pandas/Polars 能力排在数组/张量与 SciPy 之后。
 
 - 创建：`array/ndarray`（`tensor` 兼容别名）、`arrayScalar`、`zeros`、`ones`、`full`、`empty`、`eye`、`arange`、`linspace`、`rand`、`randn`、`randint`、`emptyLike/zerosLike/onesLike/fullLike`。
 - 形状：`reshape/view`、`flatten/ravel`、`squeeze/unsqueeze`、`transpose`、`permute`、`swapaxes`、`movedim`、`sliceAxis`、`flip`、`roll`、`padConstant`。
-- 索引/搜索：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeAlongAxis/putAlongAxis`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`maskedSelect`、`maskedFill`、`maskedScatter`、`maskedPut/maskedPutScalar`、`putFlat/putFlatScalar`、`indexPut/indexPutScalar`、`compress`、`flatNonzero`、`nonzero/argwhere/countNonzero`、`isin`、`searchsorted`、`bucketize`、`digitize`、`slice1d`。
+- 索引/搜索：`get/at`、`set/put`、`select`、`narrow`、`take/indexSelect`、`takeMode(IndexMode.raise/wrap/clip)`、`takeAlongAxis/putAlongAxis`、`gather`、`scatter/scatterScalar`、`scatterAdd/scatterReduce`、`scatterReduceScalar/scatterAddScalar`、`maskedSelect`、`maskedFill`、`maskedScatter`、`maskedPut/maskedPutScalar`、`putFlat/putFlatMode/putFlatScalar/putFlatScalarMode`、`indexPut/indexPutScalar`、`compress`、`flatNonzero`、`nonzero/argwhere/countNonzero`、`isin`、`searchsorted`、`bucketize`、`digitize`、`slice1d`。
 - 广播与逐元素：`add/sub/mul/div/pow`、`floorDiv`、`mod/remainder`、scalar variants、`maximum/minimum`、`hypot`、`atan2`、`copysign`、`heaviside`、`whereMask`、`eq/equal`、`ne/notEqual`、`gt/greater`、`ge/greaterEqual`、`lt/less`、`le/lessEqual`、scalar 比较、`logicalNot/logicalAnd/logicalOr/logicalXor`、scalar 逻辑、`isclose`、`allclose`。
 - 数学/NN：`neg`、`abs`、`square`、`reciprocal`、`sign/signbit`、`exp/expm1`、`log/log1p/log2/log10`、`sqrt`、`floor`、`ceil`、`round`、`trunc`、`deg2rad/rad2deg`、`sin`、`cos`、`tan`、`asin`、`acos`、`atan`、`atan2`、`hypot`、`copysign`、`heaviside`、`sinh`、`cosh`、`tanh`、`relu`、`sigmoid`、`softmax`、`logsumexp`、`logSoftmax/log_softmax`、`clip/clamp`、`isNan/isnan`、`isInf/isinf`、`isFinite/isfinite`。
 - 归约/统计：方法与顶层包装形式的 `sum`、`prod`、`min`、`max`、`allAxis/anyAxis`、`mean`、`variance`、`stddev`、`median`、`quantile`、`percentile`、`cov`、`corrcoef`、`nanToNum/nan_to_num`、`nansum`、`nanmean`、`nanvar`、`nanstd`、`nanmin`、`nanmax`、`nanmedian`、`nanquantile`、`nanpercentile`、`norm`、`logsumexp`、`cumsum`、`cumprod`、`cumsumAxis/cumprodAxis`、`diff`、`argmin`、`argmax`、`argminAxis/argmaxAxis`。

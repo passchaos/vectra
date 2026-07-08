@@ -389,6 +389,12 @@ pub const SearchSide = enum {
     right,
 };
 
+pub const IndexMode = enum {
+    raise,
+    wrap,
+    clip,
+};
+
 fn normalizeSlice(s: Slice, len: usize) TensorError!struct { start: usize, stop: usize, step: usize, count: usize } {
     if (s.step <= 0) return error.InvalidShape;
     const length: isize = @intCast(len);
@@ -1121,6 +1127,42 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        fn applyIndexMode(idx: usize, extent: usize, mode: IndexMode) TensorError!usize {
+            if (extent == 0) return error.IndexOutOfBounds;
+            return switch (mode) {
+                .raise => if (idx >= extent) error.IndexOutOfBounds else idx,
+                .wrap => idx % extent,
+                .clip => @min(idx, extent - 1),
+            };
+        }
+
+        pub fn takeMode(self: Self, indices: Tensor(usize), axis_opt: ?isize, mode: IndexMode) TensorError!Self {
+            if (axis_opt == null) {
+                const out = try Self.empty(self.allocator, indices.shape);
+                for (indices.data, out.data) |idx, *slot| {
+                    slot.* = self.data[try applyIndexMode(idx, self.data.len, mode)];
+                }
+                return out;
+            }
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = indices.data.len;
+            const out = try Self.empty(self.allocator, out_shape);
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = try applyIndexMode(indices.data[out_multi[axis]], self.shape[axis], mode);
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
         pub fn indexSelect(self: Self, axis_index: isize, indices: Tensor(usize)) TensorError!Self {
             return self.take(indices, axis_index);
         }
@@ -1235,12 +1277,31 @@ pub fn Tensor(comptime T: type) type {
             return out;
         }
 
+        pub fn putFlatMode(self: Self, indices: Tensor(usize), values: Self, mode: IndexMode) TensorError!Self {
+            if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
+            var out = try self.clone();
+            errdefer out.deinit();
+            for (indices.data, 0..) |idx, i| {
+                out.data[try applyIndexMode(idx, out.data.len, mode)] = values.data[if (values.data.len == 1) 0 else i];
+            }
+            return out;
+        }
+
         pub fn putFlatScalar(self: Self, indices: Tensor(usize), value: T) TensorError!Self {
             var out = try self.clone();
             errdefer out.deinit();
             for (indices.data) |idx| {
                 if (idx >= out.data.len) return error.IndexOutOfBounds;
                 out.data[idx] = value;
+            }
+            return out;
+        }
+
+        pub fn putFlatScalarMode(self: Self, indices: Tensor(usize), value: T, mode: IndexMode) TensorError!Self {
+            var out = try self.clone();
+            errdefer out.deinit();
+            for (indices.data) |idx| {
+                out.data[try applyIndexMode(idx, out.data.len, mode)] = value;
             }
             return out;
         }
@@ -4910,12 +4971,52 @@ pub fn fromArchive(comptime T: type, allocator: std.mem.Allocator, archive: []co
     return Tensor(T).fromArchive(allocator, archive);
 }
 
+pub fn take(comptime T: type, input: Tensor(T), indices: Tensor(usize), axis: ?isize) TensorError!Tensor(T) {
+    return input.take(indices, axis);
+}
+
+pub fn takeMode(comptime T: type, input: Tensor(T), indices: Tensor(usize), axis: ?isize, mode: IndexMode) TensorError!Tensor(T) {
+    return input.takeMode(indices, axis, mode);
+}
+
+pub fn indexSelect(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize)) TensorError!Tensor(T) {
+    return input.indexSelect(axis, indices);
+}
+
 pub fn takeAlongAxis(comptime T: type, input: Tensor(T), indices: Tensor(usize), axis: isize) TensorError!Tensor(T) {
     return input.takeAlongAxis(indices, axis);
 }
 
 pub fn putAlongAxis(comptime T: type, input: Tensor(T), indices: Tensor(usize), src: Tensor(T), axis: isize) TensorError!Tensor(T) {
     return input.putAlongAxis(indices, src, axis);
+}
+
+pub fn gather(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize)) TensorError!Tensor(T) {
+    return input.gather(axis, indices);
+}
+
+pub fn scatter(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), src: Tensor(T)) TensorError!Tensor(T) {
+    return input.scatter(axis, indices, src);
+}
+
+pub fn scatterScalar(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), value: T) TensorError!Tensor(T) {
+    return input.scatterScalar(axis, indices, value);
+}
+
+pub fn scatterReduce(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), src: Tensor(T), reduction: ScatterReduce) TensorError!Tensor(T) {
+    return input.scatterReduce(axis, indices, src, reduction);
+}
+
+pub fn scatterAdd(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), src: Tensor(T)) TensorError!Tensor(T) {
+    return input.scatterAdd(axis, indices, src);
+}
+
+pub fn scatterReduceScalar(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), value: T, reduction: ScatterReduce) TensorError!Tensor(T) {
+    return input.scatterReduceScalar(axis, indices, value, reduction);
+}
+
+pub fn scatterAddScalar(comptime T: type, input: Tensor(T), axis: isize, indices: Tensor(usize), value: T) TensorError!Tensor(T) {
+    return input.scatterAddScalar(axis, indices, value);
 }
 
 pub fn maskedFill(comptime T: type, input: Tensor(T), mask: Tensor(bool), value: T) TensorError!Tensor(T) {
@@ -4938,8 +5039,16 @@ pub fn putFlat(comptime T: type, input: Tensor(T), indices: Tensor(usize), value
     return input.putFlat(indices, values);
 }
 
+pub fn putFlatMode(comptime T: type, input: Tensor(T), indices: Tensor(usize), values: Tensor(T), mode: IndexMode) TensorError!Tensor(T) {
+    return input.putFlatMode(indices, values, mode);
+}
+
 pub fn putFlatScalar(comptime T: type, input: Tensor(T), indices: Tensor(usize), value: T) TensorError!Tensor(T) {
     return input.putFlatScalar(indices, value);
+}
+
+pub fn putFlatScalarMode(comptime T: type, input: Tensor(T), indices: Tensor(usize), value: T, mode: IndexMode) TensorError!Tensor(T) {
+    return input.putFlatScalarMode(indices, value, mode);
 }
 
 pub fn indexPut(comptime T: type, input: Tensor(T), indices: Tensor(usize), values: Tensor(T)) TensorError!Tensor(T) {
@@ -5266,6 +5375,21 @@ test "tensor take mask stack cat and neural helpers" {
     defer picked.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, picked.shape);
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 6, 4 }, picked.data);
+    var picked_top = try indexSelect(f64, a, 1, idx);
+    defer picked_top.deinit();
+    try std.testing.expectEqualSlices(f64, picked.data, picked_top.data);
+
+    var wrap_idx = try tensor(usize, gpa, &.{ 0, 7 }, &.{2});
+    defer wrap_idx.deinit();
+    var take_wrapped = try takeMode(f64, a, wrap_idx, null, .wrap);
+    defer take_wrapped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2 }, take_wrapped.data);
+    var clip_idx = try tensor(usize, gpa, &.{ 0, 99 }, &.{2});
+    defer clip_idx.deinit();
+    var take_clipped = try a.takeMode(clip_idx, 1, .clip);
+    defer take_clipped.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, take_clipped.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4, 6 }, take_clipped.data);
 
     var mask = try tensor(bool, gpa, &.{ true, false, true, false, true, false }, &.{ 2, 3 });
     defer mask.deinit();
@@ -5351,6 +5475,17 @@ test "array advanced indexing mutation helpers" {
     var index_put_scalar = try indexPutScalar(f64, a, put_idx, 9);
     defer index_put_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 9, 3, 0, 9, 6 }, index_put_scalar.data);
+
+    var mode_idx = try array(usize, gpa, &.{ 1, 9 }, &.{2});
+    defer mode_idx.deinit();
+    var mode_values = try array(f64, gpa, &.{ 11, 99 }, &.{2});
+    defer mode_values.deinit();
+    var put_wrapped = try putFlatMode(f64, a, mode_idx, mode_values, .wrap);
+    defer put_wrapped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 11, 3, 99, 5, 6 }, put_wrapped.data);
+    var put_clipped = try a.putFlatScalarMode(mode_idx, -7, .clip);
+    defer put_clipped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, -7, 3, 0, 5, -7 }, put_clipped.data);
 
     var bad_values = try array(f64, gpa, &.{ 1, 2 }, &.{2});
     defer bad_values.deinit();
@@ -5497,16 +5632,28 @@ test "tensor gather scatter and scalar scatter" {
     var gathered = try a.gather(1, idx);
     defer gathered.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 12, 11, 10, 20, 22, 21 }, gathered.data);
+    var gathered_top = try gather(f64, a, 1, idx);
+    defer gathered_top.deinit();
+    try std.testing.expectEqualSlices(f64, gathered.data, gathered_top.data);
 
     var base = try zeros(f64, gpa, &.{ 2, 3 });
     defer base.deinit();
     var scattered = try base.scatter(1, idx, gathered);
     defer scattered.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 11, 12, 20, 21, 22 }, scattered.data);
+    var scattered_top = try scatter(f64, base, 1, idx, gathered);
+    defer scattered_top.deinit();
+    try std.testing.expectEqualSlices(f64, scattered.data, scattered_top.data);
+    var scatter_add = try scatterAdd(f64, base, 1, idx, gathered);
+    defer scatter_add.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 11, 12, 20, 21, 22 }, scatter_add.data);
 
-    var filled = try base.scatterScalar(1, idx, 7);
+    var filled = try scatterScalar(f64, base, 1, idx, 7);
     defer filled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7, 7, 7 }, filled.data);
+    var scalar_added = try scatterAddScalar(f64, base, 1, idx, 2);
+    defer scalar_added.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 2, 2, 2, 2, 2 }, scalar_added.data);
 }
 
 test "tensor logsoftmax norm and matrix helpers" {
