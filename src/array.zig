@@ -2556,6 +2556,18 @@ pub fn ArrayView(comptime T: type) type {
             };
         }
 
+        pub fn expand(self: Self, dims: []const usize) ArrayError!Self {
+            return self.broadcastTo(dims);
+        }
+
+        pub fn expandAs(self: Self, other: Self) ArrayError!Self {
+            return self.expand(other.shape);
+        }
+
+        pub fn expandAsArray(self: Self, other: Array(T)) ArrayError!Self {
+            return self.expand(other.shape);
+        }
+
         pub fn permute(self: Self, axes: []const usize) ArrayError!Self {
             if (axes.len != self.shape.len) return error.InvalidPermutation;
             var seen = try self.allocator.alloc(bool, axes.len);
@@ -2588,6 +2600,31 @@ pub fn ArrayView(comptime T: type) type {
             defer self.allocator.free(axes);
             for (axes, 0..) |*slot, i| slot.* = i;
             std.mem.swap(usize, &axes[a0], &axes[a1]);
+            return self.permute(axes);
+        }
+
+        pub fn movedim(self: Self, source: isize, destination: isize) ArrayError!Self {
+            const src = try normalizeDim(source, self.shape.len);
+            const dst = try normalizeDim(destination, self.shape.len);
+            const axes = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(axes);
+            var remaining = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(remaining);
+            var remaining_len: usize = 0;
+            for (0..self.shape.len) |i| {
+                if (i == src) continue;
+                remaining[remaining_len] = i;
+                remaining_len += 1;
+            }
+            var read: usize = 0;
+            for (axes, 0..) |*slot, out_i| {
+                if (out_i == dst) {
+                    slot.* = src;
+                } else {
+                    slot.* = remaining[read];
+                    read += 1;
+                }
+            }
             return self.permute(axes);
         }
 
@@ -3622,6 +3659,18 @@ pub fn Array(comptime T: type) type {
             return base.permute(axes);
         }
 
+        pub fn swapaxesView(self: Self, dim0: isize, dim1: isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.swapaxes(dim0, dim1);
+        }
+
+        pub fn movedimView(self: Self, source: isize, destination: isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.movedim(source, destination);
+        }
+
         pub fn transposeView(self: Self) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
@@ -3632,6 +3681,22 @@ pub fn Array(comptime T: type) type {
             var base = try self.asView();
             defer base.deinit();
             return base.broadcastTo(dims);
+        }
+
+        pub fn expand(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.expandView(dims);
+        }
+
+        pub fn expandView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.broadcastView(dims);
+        }
+
+        pub fn expandAs(self: Self, other: Self) ArrayError!ArrayView(T) {
+            return self.expandView(other.shape);
+        }
+
+        pub fn expandAsView(self: Self, other: ArrayView(T)) ArrayError!ArrayView(T) {
+            return self.expandView(other.shape);
         }
 
         pub fn isScalar(self: Self) bool {
@@ -9234,6 +9299,18 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var broadcast_top = try selected_top.broadcastTo(&.{ 2, 3 });
     defer broadcast_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, broadcast_top.data);
+    var expanded_top = try selected_top.expand(&.{ 2, 3 });
+    defer expanded_top.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, expanded_top.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, expanded_top.strides);
+    try std.testing.expectEqual(@as(f64, 6), try expanded_top.get(&.{ 1, 2 }));
+    var expanded_top_owned = try expanded_top.toArray();
+    defer expanded_top_owned.deinit();
+    try std.testing.expectEqualSlices(f64, broadcast_top.data, expanded_top_owned.data);
+    var expanded_as_top = try selected_top.expandAs(broadcast_top);
+    defer expanded_as_top.deinit();
+    try std.testing.expectEqualSlices(usize, broadcast_top.shape, expanded_as_top.shape);
+    try std.testing.expectError(error.ShapeMismatch, selected_top.expand(&.{ 2, 2 }));
     var repeated_top = try selected_top.repeat(2, 0);
     defer repeated_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 4, 5, 5, 6, 6 }, repeated_top.data);
@@ -9456,6 +9533,17 @@ test "array non contiguous view helpers" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, selected_broadcast.strides);
     try selected_broadcast.set(&.{ 1, 3 }, 80);
     try std.testing.expectEqual(@as(f64, 80), a.data[7]);
+    var selected_expanded = try selected.expand(&.{ 2, 4 });
+    defer selected_expanded.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, selected_expanded.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, selected_expanded.strides);
+    try std.testing.expectEqual(@as(f64, 99), try selected_expanded.get(&.{ 1, 2 }));
+    var selected_expanded_as_array = try selected.expandAsArray(a);
+    defer selected_expanded_as_array.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, selected_expanded_as_array.shape);
+    var selected_expanded_as_view = try selected.expandAs(selected_broadcast);
+    defer selected_expanded_as_view.deinit();
+    try std.testing.expectEqualSlices(usize, selected_broadcast.shape, selected_expanded_as_view.shape);
 
     var transposed = try a.transposeView();
     defer transposed.deinit();
@@ -9465,6 +9553,14 @@ test "array non contiguous view helpers" {
     var transposed_owned = try transposed.toArray();
     defer transposed_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 50, 2, 6, 30, 99, 4, 80 }, transposed_owned.data);
+    var swapped = try a.swapaxesView(0, 1);
+    defer swapped.deinit();
+    try std.testing.expectEqualSlices(usize, transposed.shape, swapped.shape);
+    try std.testing.expectEqualSlices(usize, transposed.strides, swapped.strides);
+    var moved_view = try a.movedimView(0, 1);
+    defer moved_view.deinit();
+    try std.testing.expectEqualSlices(usize, transposed.shape, moved_view.shape);
+    try std.testing.expectEqualSlices(usize, transposed.strides, moved_view.strides);
 
     var narrowed = try a.narrowView(1, 1, 2);
     defer narrowed.deinit();
