@@ -663,6 +663,12 @@ pub const MeshGridIndexing = enum {
     ij,
 };
 
+pub const ConvMode = enum {
+    full,
+    same,
+    valid,
+};
+
 fn normalizeSlice(s: Slice, len: usize) ArrayError!struct { start: usize, stop: usize, step: usize, count: usize } {
     if (s.step <= 0) return error.InvalidShape;
     const length: isize = @intCast(len);
@@ -2918,6 +2924,73 @@ pub fn Array(comptime T: type) type {
 
         pub fn ifft(self: Self) ArrayError!Self {
             return self.fftWithSign(true);
+        }
+
+        fn trimConvolutionResult(full_result_in: Self, left_len: usize, right_len: usize, mode: ConvMode) ArrayError!Self {
+            var full_result = full_result_in;
+            switch (mode) {
+                .full => return full_result,
+                .same, .valid => {
+                    const out_len: usize = switch (mode) {
+                        .same => left_len,
+                        .valid => if (left_len >= right_len) left_len - right_len + 1 else right_len - left_len + 1,
+                        .full => unreachable,
+                    };
+                    const start: usize = switch (mode) {
+                        .same => (full_result.data.len - out_len) / 2,
+                        .valid => @min(left_len, right_len) - 1,
+                        .full => unreachable,
+                    };
+                    var out = try Self.empty(full_result.allocator, &.{out_len});
+                    errdefer out.deinit();
+                    @memcpy(out.data, full_result.data[start..][0..out_len]);
+                    full_result.deinit();
+                    return out;
+                },
+            }
+        }
+
+        pub fn convolve1d(self: Self, kernel: Self, mode: ConvMode) ArrayError!Self {
+            ensureNumeric(T);
+            if (self.shape.len != 1 or kernel.shape.len != 1) return error.NonVectorArray;
+            if (self.data.len == 0 or kernel.data.len == 0) return error.EmptyArray;
+            const out_len = self.data.len + kernel.data.len - 1;
+            var full_result = try Self.full(self.allocator, &.{out_len}, zero(T));
+            errdefer full_result.deinit();
+            for (0..out_len) |out_i| {
+                var acc = zero(T);
+                for (0..self.data.len) |signal_i| {
+                    if (out_i < signal_i) continue;
+                    const kernel_i = out_i - signal_i;
+                    if (kernel_i >= kernel.data.len) continue;
+                    acc = addValue(T, acc, mulValue(T, self.data[signal_i], kernel.data[kernel_i]));
+                }
+                full_result.data[out_i] = acc;
+            }
+            return trimConvolutionResult(full_result, self.data.len, kernel.data.len, mode);
+        }
+
+        pub fn correlate1d(self: Self, kernel: Self, mode: ConvMode) ArrayError!Self {
+            ensureNumeric(T);
+            if (self.shape.len != 1 or kernel.shape.len != 1) return error.NonVectorArray;
+            if (self.data.len == 0 or kernel.data.len == 0) return error.EmptyArray;
+            const out_len = self.data.len + kernel.data.len - 1;
+            var full_result = try Self.full(self.allocator, &.{out_len}, zero(T));
+            errdefer full_result.deinit();
+            const lag_offset = kernel.data.len - 1;
+            for (0..out_len) |out_i| {
+                const lag: isize = @as(isize, @intCast(out_i)) - @as(isize, @intCast(lag_offset));
+                var acc = zero(T);
+                for (0..kernel.data.len) |kernel_i| {
+                    const signal_i_signed = @as(isize, @intCast(kernel_i)) + lag;
+                    if (signal_i_signed < 0) continue;
+                    const signal_i: usize = @intCast(signal_i_signed);
+                    if (signal_i >= self.data.len) continue;
+                    acc = addValue(T, acc, mulValue(T, self.data[signal_i], kernel.data[kernel_i]));
+                }
+                full_result.data[out_i] = acc;
+            }
+            return trimConvolutionResult(full_result, self.data.len, kernel.data.len, mode);
         }
 
         pub fn to(self: Self, device: Device) ArrayError!Self {
@@ -10177,6 +10250,47 @@ test "array dtype metadata and casts cover common numeric types" {
     var r = try Array(u16).randint(gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
     for (r.data) |v| try std.testing.expect(v >= 10 and v < 20);
+}
+
+test "array object one dimensional convolution and correlation" {
+    const gpa = std.testing.allocator;
+    var signal_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
+    defer signal_values.deinit();
+    var kernel = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
+    defer kernel.deinit();
+
+    var conv_full = try signal_values.convolve1d(kernel, .full);
+    defer conv_full.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 7, 6 }, conv_full.data);
+
+    var conv_same = try signal_values.convolve1d(kernel, .same);
+    defer conv_same.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 7 }, conv_same.data);
+
+    var conv_valid = try signal_values.convolve1d(kernel, .valid);
+    defer conv_valid.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 7 }, conv_valid.data);
+
+    var corr_full = try signal_values.correlate1d(kernel, .full);
+    defer corr_full.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 5, 8, 3 }, corr_full.data);
+
+    var corr_same = try signal_values.correlate1d(kernel, .same);
+    defer corr_same.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 5, 8 }, corr_same.data);
+
+    var long_kernel = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{4});
+    defer long_kernel.deinit();
+    var valid_reversed = try kernel.convolve1d(long_kernel, .valid);
+    defer valid_reversed.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 7, 10 }, valid_reversed.data);
+
+    var matrix_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer matrix_values.deinit();
+    try std.testing.expectError(error.NonVectorArray, matrix_values.convolve1d(kernel, .full));
+    var empty_values = try Array(f64).empty(gpa, &.{0});
+    defer empty_values.deinit();
+    try std.testing.expectError(error.EmptyArray, empty_values.convolve1d(kernel, .full));
 }
 
 test "array complex fft and inverse fft" {

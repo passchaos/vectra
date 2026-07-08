@@ -33,6 +33,7 @@ pub const ScatterReduce = array_mod.ScatterReduce;
 pub const SearchSide = array_mod.SearchSide;
 pub const IndexMode = array_mod.IndexMode;
 pub const MeshGridIndexing = array_mod.MeshGridIndexing;
+pub const ConvMode = array_mod.ConvMode;
 pub const ArrayError = array_mod.ArrayError;
 
 pub const Series = series_mod.Series;
