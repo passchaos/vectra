@@ -2146,6 +2146,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.rollAxes(shifts, axes);
         }
 
+        pub fn rot90(self: Self, k: isize, axes: [2]isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.rot90(k, axes);
+        }
+
         pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -4029,6 +4035,53 @@ pub fn Array(comptime T: type) type {
                 for (normalized_axes, normalized_shifts) |axis, normalized_shift| {
                     const len_axis = self.shape[axis];
                     in_multi[axis] = if (len_axis == 0) 0 else (out_multi[axis] + len_axis - normalized_shift) % len_axis;
+                }
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn rot90(self: Self, k: isize, axes_pair: [2]isize) ArrayError!Self {
+            if (self.shape.len < 2) return error.InvalidAxis;
+            const axis0 = try normalizeDim(axes_pair[0], self.shape.len);
+            const axis1 = try normalizeDim(axes_pair[1], self.shape.len);
+            if (axis0 == axis1) return error.InvalidAxis;
+            const turns: usize = @intCast(@mod(k, 4));
+            if (turns == 0) return self.clone();
+
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            if (turns == 1 or turns == 3) {
+                out_shape[axis0] = self.shape[axis1];
+                out_shape[axis1] = self.shape[axis0];
+            }
+
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                switch (turns) {
+                    1 => {
+                        in_multi[axis0] = out_multi[axis1];
+                        in_multi[axis1] = self.shape[axis1] - 1 - out_multi[axis0];
+                    },
+                    2 => {
+                        in_multi[axis0] = self.shape[axis0] - 1 - out_multi[axis0];
+                        in_multi[axis1] = self.shape[axis1] - 1 - out_multi[axis1];
+                    },
+                    3 => {
+                        in_multi[axis0] = self.shape[axis0] - 1 - out_multi[axis1];
+                        in_multi[axis1] = out_multi[axis0];
+                    },
+                    else => unreachable,
                 }
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
@@ -9285,6 +9338,11 @@ test "array view materializing shape wrappers" {
     defer rolled_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 7, 5, 3, 1 }, rolled_axes.data);
 
+    var rotated = try view.rot90(1, .{ 0, 1 });
+    defer rotated.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, rotated.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 7, 1, 5 }, rotated.data);
+
     var padded = try view.padConstant(&.{ 1, 1 }, &.{ 0, 1 }, 0);
     defer padded.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 4 }, padded.shape);
@@ -9350,6 +9408,7 @@ test "array view materializing shape wrappers" {
     try std.testing.expectError(error.InvalidAxis, view.flipAxes(&.{ 0, 0 }));
     try std.testing.expectError(error.ShapeMismatch, view.rollAxes(&.{1}, &.{ 0, 1 }));
     try std.testing.expectError(error.InvalidAxis, view.rollAxes(&.{ 1, 1 }, &.{ 0, 0 }));
+    try std.testing.expectError(error.InvalidAxis, view.rot90(1, .{ 0, 0 }));
     try std.testing.expectError(error.ShapeMismatch, view.padConstant(&.{1}, &.{1}, 0));
     try std.testing.expectError(error.InvalidShape, view.split(0, 1));
     try std.testing.expectError(error.InvalidShape, view.chunk(0, 1));
@@ -11065,6 +11124,29 @@ test "array slice flip roll and constant padding" {
     defer rolled_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 6, 4, 2, 3, 1 }, rolled_axes.data);
 
+    var rotated = try a.rot90(1, .{ 0, 1 });
+    defer rotated.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, rotated.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 6, 2, 5, 1, 4 }, rotated.data);
+
+    var rotated_twice = try a.rot90(2, .{ 0, 1 });
+    defer rotated_twice.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, rotated_twice.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 6, 5, 4, 3, 2, 1 }, rotated_twice.data);
+
+    var rotated_clockwise = try a.rot90(-1, .{ 0, 1 });
+    defer rotated_clockwise.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, rotated_clockwise.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 1, 5, 2, 6, 3 }, rotated_clockwise.data);
+
+    var rotated_reversed_axes = try a.rot90(1, .{ 1, 0 });
+    defer rotated_reversed_axes.deinit();
+    try std.testing.expectEqualSlices(f64, rotated_clockwise.data, rotated_reversed_axes.data);
+
+    var rotated_clone = try a.rot90(4, .{ 0, 1 });
+    defer rotated_clone.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, rotated_clone.data);
+
     var roll_clone = try a.rollAxes(&.{}, &.{});
     defer roll_clone.deinit();
     try std.testing.expectEqualSlices(f64, a.data, roll_clone.data);
@@ -11072,6 +11154,8 @@ test "array slice flip roll and constant padding" {
     try std.testing.expectError(error.InvalidAxis, a.flipAxes(&.{ 0, 0 }));
     try std.testing.expectError(error.ShapeMismatch, a.rollAxes(&.{1}, &.{ 0, 1 }));
     try std.testing.expectError(error.InvalidAxis, a.rollAxes(&.{ 1, 1 }, &.{ 0, 0 }));
+    try std.testing.expectError(error.InvalidAxis, a.rot90(1, .{ 0, 0 }));
+    try std.testing.expectError(error.InvalidAxis, v.rot90(1, .{ 0, 1 }));
 
     var padded = try a.padConstant(&.{ 1, 1 }, &.{ 0, 2 }, 0);
     defer padded.deinit();
