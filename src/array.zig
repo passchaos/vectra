@@ -1081,6 +1081,51 @@ fn validateStridedBounds(data_len: usize, offset: usize, dims: []const usize, st
     if (max_offset >= data_len) return error.IndexOutOfBounds;
 }
 
+fn computeStorageSpan(dims: []const usize, stride_values: []const usize) ArrayError!usize {
+    if (dims.len != stride_values.len) return error.InvalidShape;
+    if (dims.len == 0) return 1;
+    var empty = false;
+    var max_delta: usize = 0;
+    for (dims, stride_values) |extent, stride_value| {
+        if (extent == 0) {
+            empty = true;
+            continue;
+        }
+        const delta = std.math.mul(usize, extent - 1, stride_value) catch return error.InvalidShape;
+        max_delta = std.math.add(usize, max_delta, delta) catch return error.InvalidShape;
+    }
+    if (empty) return 0;
+    return std.math.add(usize, max_delta, 1) catch return error.InvalidShape;
+}
+
+pub const StorageRange = struct {
+    begin: usize,
+    end: usize,
+
+    pub fn len(self: StorageRange) usize {
+        return self.end - self.begin;
+    }
+
+    pub fn isEmpty(self: StorageRange) bool {
+        return self.begin == self.end;
+    }
+
+    pub fn is_empty(self: StorageRange) bool {
+        return self.isEmpty();
+    }
+};
+
+fn computeStorageRange(offset: usize, dims: []const usize, stride_values: []const usize) ArrayError!StorageRange {
+    const span = try computeStorageSpan(dims, stride_values);
+    const end = std.math.add(usize, offset, span) catch return error.InvalidShape;
+    return .{ .begin = offset, .end = end };
+}
+
+fn rangesOverlap(lhs_begin: usize, lhs_end: usize, rhs_begin: usize, rhs_end: usize) bool {
+    if (lhs_begin >= lhs_end or rhs_begin >= rhs_end) return false;
+    return lhs_begin < rhs_end and rhs_begin < lhs_end;
+}
+
 pub fn ArrayView(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -1410,6 +1455,99 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn storage_data_ptr(self: Self) [*]T {
             return self.storageDataPtr();
+        }
+
+        pub fn storageSize(self: Self) usize {
+            return self.data.len;
+        }
+
+        pub fn storage_size(self: Self) usize {
+            return self.storageSize();
+        }
+
+        pub fn storageNbytes(self: Self) usize {
+            return self.data.len * @sizeOf(T);
+        }
+
+        pub fn storage_nbytes(self: Self) usize {
+            return self.storageNbytes();
+        }
+
+        pub fn storageSpan(self: Self) ArrayError!usize {
+            return computeStorageSpan(self.shape, self.strides);
+        }
+
+        pub fn storage_span(self: Self) ArrayError!usize {
+            return self.storageSpan();
+        }
+
+        pub fn storageRange(self: Self) ArrayError!StorageRange {
+            return computeStorageRange(self.offset, self.shape, self.strides);
+        }
+
+        pub fn storage_range(self: Self) ArrayError!StorageRange {
+            return self.storageRange();
+        }
+
+        pub fn storageEndOffset(self: Self) ArrayError!usize {
+            return (try self.storageRange()).end;
+        }
+
+        pub fn storage_end_offset(self: Self) ArrayError!usize {
+            return self.storageEndOffset();
+        }
+
+        pub fn sharesStorage(self: Self, other: Self) bool {
+            return self.data.ptr == other.data.ptr and self.data.len == other.data.len;
+        }
+
+        pub fn shares_storage(self: Self, other: Self) bool {
+            return self.sharesStorage(other);
+        }
+
+        pub fn sameStorage(self: Self, other: Self) bool {
+            return self.sharesStorage(other);
+        }
+
+        pub fn same_storage(self: Self, other: Self) bool {
+            return self.sameStorage(other);
+        }
+
+        pub fn sharesStorageArray(self: Self, other: Array(T)) bool {
+            return self.data.ptr == other.data.ptr and self.data.len == other.data.len;
+        }
+
+        pub fn shares_storage_array(self: Self, other: Array(T)) bool {
+            return self.sharesStorageArray(other);
+        }
+
+        pub fn sameStorageArray(self: Self, other: Array(T)) bool {
+            return self.sharesStorageArray(other);
+        }
+
+        pub fn same_storage_array(self: Self, other: Array(T)) bool {
+            return self.sameStorageArray(other);
+        }
+
+        pub fn mayOverlap(self: Self, other: Self) ArrayError!bool {
+            if (!self.sharesStorage(other)) return false;
+            const lhs_range = try self.storageRange();
+            const rhs_range = try other.storageRange();
+            return rangesOverlap(lhs_range.begin, lhs_range.end, rhs_range.begin, rhs_range.end);
+        }
+
+        pub fn may_overlap(self: Self, other: Self) ArrayError!bool {
+            return self.mayOverlap(other);
+        }
+
+        pub fn mayOverlapArray(self: Self, other: Array(T)) ArrayError!bool {
+            if (!self.sharesStorageArray(other)) return false;
+            const lhs_range = try self.storageRange();
+            return rangesOverlap(lhs_range.begin, lhs_range.end, 0, other.data.len);
+        }
+
+        pub fn may_overlap_array(self: Self, other: Array(T)) ArrayError!bool {
+            return self.mayOverlapArray(other);
         }
 
         pub fn sameShape(self: Self, other: Self) bool {
@@ -8935,6 +9073,97 @@ pub fn Array(comptime T: type) type {
 
         pub fn storage_data_ptr(self: Self) [*]T {
             return self.storageDataPtr();
+        }
+
+        pub fn storageSize(self: Self) usize {
+            return self.data.len;
+        }
+
+        pub fn storage_size(self: Self) usize {
+            return self.storageSize();
+        }
+
+        pub fn storageNbytes(self: Self) usize {
+            return self.data.len * @sizeOf(T);
+        }
+
+        pub fn storage_nbytes(self: Self) usize {
+            return self.storageNbytes();
+        }
+
+        pub fn storageSpan(self: Self) ArrayError!usize {
+            return computeStorageSpan(self.shape, self.strides);
+        }
+
+        pub fn storage_span(self: Self) ArrayError!usize {
+            return self.storageSpan();
+        }
+
+        pub fn storageRange(self: Self) ArrayError!StorageRange {
+            return computeStorageRange(0, self.shape, self.strides);
+        }
+
+        pub fn storage_range(self: Self) ArrayError!StorageRange {
+            return self.storageRange();
+        }
+
+        pub fn storageEndOffset(self: Self) ArrayError!usize {
+            return (try self.storageRange()).end;
+        }
+
+        pub fn storage_end_offset(self: Self) ArrayError!usize {
+            return self.storageEndOffset();
+        }
+
+        pub fn sharesStorage(self: Self, other: Self) bool {
+            return self.data.ptr == other.data.ptr and self.data.len == other.data.len;
+        }
+
+        pub fn shares_storage(self: Self, other: Self) bool {
+            return self.sharesStorage(other);
+        }
+
+        pub fn sameStorage(self: Self, other: Self) bool {
+            return self.sharesStorage(other);
+        }
+
+        pub fn same_storage(self: Self, other: Self) bool {
+            return self.sameStorage(other);
+        }
+
+        pub fn sharesStorageView(self: Self, other: ArrayView(T)) bool {
+            return other.sharesStorageArray(self);
+        }
+
+        pub fn shares_storage_view(self: Self, other: ArrayView(T)) bool {
+            return self.sharesStorageView(other);
+        }
+
+        pub fn sameStorageView(self: Self, other: ArrayView(T)) bool {
+            return self.sharesStorageView(other);
+        }
+
+        pub fn same_storage_view(self: Self, other: ArrayView(T)) bool {
+            return self.sameStorageView(other);
+        }
+
+        pub fn mayOverlap(self: Self, other: Self) ArrayError!bool {
+            if (!self.sharesStorage(other)) return false;
+            const lhs_range = try self.storageRange();
+            const rhs_range = try other.storageRange();
+            return rangesOverlap(lhs_range.begin, lhs_range.end, rhs_range.begin, rhs_range.end);
+        }
+
+        pub fn may_overlap(self: Self, other: Self) ArrayError!bool {
+            return self.mayOverlap(other);
+        }
+
+        pub fn mayOverlapView(self: Self, other: ArrayView(T)) ArrayError!bool {
+            return other.mayOverlapArray(self);
+        }
+
+        pub fn may_overlap_view(self: Self, other: ArrayView(T)) ArrayError!bool {
+            return self.mayOverlapView(other);
         }
 
         pub fn sameShape(self: Self, other: Self) bool {
@@ -21114,6 +21343,22 @@ test "array object asStrided view helpers" {
     defer windows.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 3 }, windows.shape);
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, windows.strides);
+    try std.testing.expectEqual(@as(usize, 6), windows.storageSpan());
+    try std.testing.expectEqual(@as(usize, 6), windows.storage_span());
+    const windows_range = try windows.storageRange();
+    try std.testing.expectEqual(@as(usize, 0), windows_range.begin);
+    try std.testing.expectEqual(@as(usize, 6), windows_range.end);
+    try std.testing.expectEqual(@as(usize, 6), windows_range.len());
+    try std.testing.expect(!windows_range.isEmpty());
+    try std.testing.expect(!windows_range.is_empty());
+    const windows_range_alias = try windows.storage_range();
+    try std.testing.expectEqual(windows_range.end, windows_range_alias.end);
+    try std.testing.expectEqual(@as(usize, 6), try windows.storageEndOffset());
+    try std.testing.expectEqual(@as(usize, 6), try windows.storage_end_offset());
+    try std.testing.expectEqual(@as(usize, 6), windows.storageSize());
+    try std.testing.expectEqual(@as(usize, 6), windows.storage_size());
+    try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), windows.storageNbytes());
+    try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), windows.storage_nbytes());
     var owned = try windows.toArray();
     defer owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{
@@ -21134,6 +21379,28 @@ test "array object asStrided view helpers" {
     try std.testing.expectEqual(@intFromPtr(base.data.ptr) + @sizeOf(f64), @intFromPtr(shifted.dataPtr()));
     try std.testing.expectEqual(@intFromPtr(base.data.ptr), @intFromPtr(shifted.storageDataPtr()));
     try std.testing.expectEqual(@intFromPtr(shifted.dataPtr()), @intFromPtr(shifted.data_ptr()));
+    try std.testing.expectEqual(@as(usize, 4), try shifted.storageSpan());
+    const shifted_range = try shifted.storageRange();
+    try std.testing.expectEqual(@as(usize, 1), shifted_range.begin);
+    try std.testing.expectEqual(@as(usize, 5), shifted_range.end);
+    try std.testing.expect(shifted.sharesStorage(windows));
+    try std.testing.expect(shifted.shares_storage(windows));
+    try std.testing.expect(shifted.sameStorage(windows));
+    try std.testing.expect(shifted.same_storage(windows));
+    try std.testing.expect(shifted.sharesStorageArray(base));
+    try std.testing.expect(shifted.shares_storage_array(base));
+    try std.testing.expect(shifted.sameStorageArray(base));
+    try std.testing.expect(shifted.same_storage_array(base));
+    try std.testing.expect(base.sharesStorageView(shifted));
+    try std.testing.expect(base.shares_storage_view(shifted));
+    try std.testing.expect(base.sameStorageView(shifted));
+    try std.testing.expect(base.same_storage_view(shifted));
+    try std.testing.expect(try shifted.mayOverlap(windows));
+    try std.testing.expect(try shifted.may_overlap(windows));
+    try std.testing.expect(try shifted.mayOverlapArray(base));
+    try std.testing.expect(try shifted.may_overlap_array(base));
+    try std.testing.expect(try base.mayOverlapView(shifted));
+    try std.testing.expect(try base.may_overlap_view(shifted));
     var shifted_owned = try shifted.toArray();
     defer shifted_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 20, 3, 4, 5 }, shifted_owned.data);
@@ -21143,6 +21410,26 @@ test "array object asStrided view helpers" {
     var every_other = try base_view.asStrided(&.{3}, &.{2}, 0);
     defer every_other.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, every_other.strides);
+    try std.testing.expectEqual(@as(usize, 5), try every_other.storageSpan());
+    var tail = try base_view.asStrided(&.{1}, &.{1}, 5);
+    defer tail.deinit();
+    try std.testing.expect(every_other.sharesStorage(tail));
+    try std.testing.expect(!try every_other.mayOverlap(tail));
+    try std.testing.expect(!try tail.may_overlap(every_other));
+    var empty_view = try base_view.asStrided(&.{0}, &.{1}, 6);
+    defer empty_view.deinit();
+    const empty_range = try empty_view.storageRange();
+    try std.testing.expect(empty_range.isEmpty());
+    try std.testing.expect(empty_range.is_empty());
+    try std.testing.expectEqual(@as(usize, 6), empty_range.begin);
+    try std.testing.expectEqual(@as(usize, 6), empty_range.end);
+    try std.testing.expectEqual(@as(usize, 0), try empty_view.storageSpan());
+    try std.testing.expect(!try empty_view.mayOverlap(base_view));
+    var clone = try base.clone();
+    defer clone.deinit();
+    try std.testing.expect(!base.sharesStorage(clone));
+    try std.testing.expect(!base.shares_storage(clone));
+    try std.testing.expect(!try base.mayOverlap(clone));
     var every_other_owned = try every_other.toArray();
     defer every_other_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5 }, every_other_owned.data);
