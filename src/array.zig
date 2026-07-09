@@ -3675,11 +3675,12 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalAnd(self: Self, other: Self) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            var rhs = try other.toArray();
-            defer rhs.deinit();
-            return lhs.logicalAnd(rhs);
+            if (comptime T != bool) @compileError("logicalAnd requires Array(bool)");
+            return self.binaryView(other, struct {
+                fn f(lhs: bool, rhs: bool) bool {
+                    return lhs and rhs;
+                }
+            }.f);
         }
 
         pub fn logicalAndArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -3693,11 +3694,12 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalOr(self: Self, other: Self) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            var rhs = try other.toArray();
-            defer rhs.deinit();
-            return lhs.logicalOr(rhs);
+            if (comptime T != bool) @compileError("logicalOr requires Array(bool)");
+            return self.binaryView(other, struct {
+                fn f(lhs: bool, rhs: bool) bool {
+                    return lhs or rhs;
+                }
+            }.f);
         }
 
         pub fn logicalOrArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -3711,11 +3713,12 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalXor(self: Self, other: Self) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            var rhs = try other.toArray();
-            defer rhs.deinit();
-            return lhs.logicalXor(rhs);
+            if (comptime T != bool) @compileError("logicalXor requires Array(bool)");
+            return self.binaryView(other, struct {
+                fn f(lhs: bool, rhs: bool) bool {
+                    return lhs != rhs;
+                }
+            }.f);
         }
 
         pub fn logicalXorArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -22261,6 +22264,27 @@ test "array non contiguous view helpers" {
     var copysign_scalar_view = try stepped.copysignScalar(-1);
     defer copysign_scalar_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, -30, -50, -99 }, copysign_scalar_view.data);
+    var bool_source = try Array(bool).fromSlice(gpa, &.{
+        true,  false, true,  false,
+        false, true,  false, true,
+    }, &.{ 2, 4 });
+    defer bool_source.deinit();
+    var bool_lhs = try bool_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer bool_lhs.deinit();
+    var bool_rhs_source = try Array(bool).fromSlice(gpa, &.{ true, false }, &.{ 1, 2 });
+    defer bool_rhs_source.deinit();
+    var bool_rhs = try bool_rhs_source.asView();
+    defer bool_rhs.deinit();
+    var logical_and_view = try bool_lhs.logicalAnd(bool_rhs);
+    defer logical_and_view.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, logical_and_view.data);
+    var logical_or_view = try bool_lhs.logicalOr(bool_rhs);
+    defer logical_or_view.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, logical_or_view.data);
+    var logical_xor_view = try bool_lhs.logicalXor(bool_rhs);
+    defer logical_xor_view.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, logical_xor_view.data);
+
     var heaviside_source = try Array(f64).fromSlice(gpa, &.{ -1, 0, 2, 0 }, &.{ 2, 2 });
     defer heaviside_source.deinit();
     var heaviside_view = try heaviside_source.asView();
