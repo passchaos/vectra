@@ -2275,6 +2275,31 @@ pub fn ArrayView(comptime T: type) type {
             return absValue(T, a);
         }
 
+        fn opIdentity(a: T) T {
+            return a;
+        }
+
+        fn opSquare(a: T) T {
+            return mulValue(T, a, a);
+        }
+
+        fn opReciprocal(a: T) T {
+            return divValue(T, one(T), a);
+        }
+
+        fn opSign(a: T) T {
+            if (comptime T == BFloat16) {
+                const value = a.toF32();
+                return if (std.math.isNan(value)) a else if (value > 0) one(T) else if (value < 0) negValue(T, one(T)) else zero(T);
+            }
+            return switch (@typeInfo(T)) {
+                .float => if (std.math.isNan(a)) a else if (a > zero(T)) one(T) else if (a < zero(T)) -one(T) else zero(T),
+                .int => |info| if (a == 0) zero(T) else if (info.signedness == .signed) (if (a < 0) -one(T) else one(T)) else one(T),
+                .comptime_int, .comptime_float => if (a > 0) 1 else if (a < 0) -1 else 0,
+                else => @compileError("sign requires a numeric array"),
+            };
+        }
+
         fn opLogicalNot(a: T) T {
             if (comptime T != bool) @compileError("logicalNot requires Array(bool)");
             return !a;
@@ -2826,7 +2851,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn positive(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
-            return self.toArray();
+            return self.unary(opIdentity);
         }
 
         pub fn abs(self: Self) ArrayError!Array(T) {
@@ -3477,15 +3502,18 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn square(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).square);
+            ensureNumeric(T);
+            return self.unary(opSquare);
         }
 
         pub fn reciprocal(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).reciprocal);
+            ensureNumeric(T);
+            return self.unary(opReciprocal);
         }
 
         pub fn sign(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).sign);
+            ensureNumeric(T);
+            return self.unary(opSign);
         }
 
         pub fn signbit(self: Self) ArrayError!Array(bool) {
@@ -22101,6 +22129,20 @@ test "array non contiguous view helpers" {
     var stepped_fabs = try stepped_negative.fabs();
     defer stepped_fabs.deinit();
     try std.testing.expectEqualSlices(f64, stepped_positive.data, stepped_fabs.data);
+    var stepped_square = try stepped.square();
+    defer stepped_square.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 900, 2500, 9801 }, stepped_square.data);
+    var stepped_recip = try stepped.reciprocal();
+    defer stepped_recip.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), stepped_recip.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 30.0), stepped_recip.data[1], 1e-12);
+    var sign_source = try Array(f64).fromSlice(gpa, &.{ -1, 9, 0, 8, 3, 7, -4, 6 }, &.{ 2, 4 });
+    defer sign_source.deinit();
+    var sign_view = try sign_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer sign_view.deinit();
+    var sign_out = try sign_view.sign();
+    defer sign_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 0, 1, -1 }, sign_out.data);
     var ldexp_exponents = try Array(i32).fromSlice(gpa, &.{ 1, 0 }, &.{ 1, 2 });
     defer ldexp_exponents.deinit();
     var stepped_ldexp = try stepped.ldexp(ldexp_exponents);
