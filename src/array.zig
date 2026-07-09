@@ -13989,6 +13989,27 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn binaryArrayPromote(
+            self: Self,
+            comptime U: type,
+            other: Array(U),
+            comptime P: type,
+            comptime op: fn (P, P) P,
+        ) ArrayError!Array(P) {
+            if (std.mem.eql(usize, self.shape, other.shape)) {
+                const out = try Array(P).empty(self.allocator, self.shape);
+                for (self.data, other.data, out.data) |lhs, rhs, *slot| {
+                    slot.* = op(castValue(P, lhs), castValue(P, rhs));
+                }
+                return out;
+            }
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.binaryArray(rhs, op);
+        }
+
         fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Self {
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = op(v, scalar);
@@ -14594,56 +14615,40 @@ pub fn Array(comptime T: type) type {
 
         pub fn addPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
             const P = promoteType(T, U);
-            var lhs = try self.astype(P);
-            defer lhs.deinit();
-            var rhs = try other.astype(P);
-            defer rhs.deinit();
-            return lhs.add(rhs);
+            return self.binaryArrayPromote(U, other, P, Array(P).opAdd);
         }
 
         pub fn subPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
             const P = promoteType(T, U);
-            var lhs = try self.astype(P);
-            defer lhs.deinit();
-            var rhs = try other.astype(P);
-            defer rhs.deinit();
-            return lhs.sub(rhs);
+            return self.binaryArrayPromote(U, other, P, Array(P).opSub);
         }
 
         pub fn mulPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
             const P = promoteType(T, U);
-            var lhs = try self.astype(P);
-            defer lhs.deinit();
-            var rhs = try other.astype(P);
-            defer rhs.deinit();
-            return lhs.mul(rhs);
+            return self.binaryArrayPromote(U, other, P, Array(P).opMul);
         }
 
         pub fn divPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
             const P = promoteType(T, U);
-            var lhs = try self.astype(P);
-            defer lhs.deinit();
-            var rhs = try other.astype(P);
-            defer rhs.deinit();
-            return lhs.div(rhs);
+            return self.binaryArrayPromote(U, other, P, Array(P).opDiv);
         }
 
         pub fn maximumPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
             const P = promoteType(T, U);
-            var lhs = try self.astype(P);
-            defer lhs.deinit();
-            var rhs = try other.astype(P);
-            defer rhs.deinit();
-            return lhs.maximum(rhs);
+            return self.binaryArrayPromote(U, other, P, struct {
+                fn f(a: P, b: P) P {
+                    return if (lessValue(P, a, b)) b else a;
+                }
+            }.f);
         }
 
         pub fn minimumPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
             const P = promoteType(T, U);
-            var lhs = try self.astype(P);
-            defer lhs.deinit();
-            var rhs = try other.astype(P);
-            defer rhs.deinit();
-            return lhs.minimum(rhs);
+            return self.binaryArrayPromote(U, other, P, struct {
+                fn f(a: P, b: P) P {
+                    return if (lessValue(P, b, a)) b else a;
+                }
+            }.f);
         }
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Self {
@@ -27462,13 +27467,22 @@ test "array dtype metadata and casts cover common numeric types" {
     defer promoted_sum.deinit();
     try std.testing.expectEqual(DType.i32, @TypeOf(promoted_sum).dtype);
     try std.testing.expectEqualSlices(i32, &.{ 4, 8, 10 }, promoted_sum.data);
+    var promoted_sub = try small_signed.subPromote(u16, small_unsigned);
+    defer promoted_sub.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ -6, -4, -4 }, promoted_sub.data);
     var promoted_max = try small_signed.maximumPromote(u16, small_unsigned);
     defer promoted_max.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 5, 6, 7 }, promoted_max.data);
+    var promoted_min = try small_signed.minimumPromote(u16, small_unsigned);
+    defer promoted_min.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ -1, 2, 3 }, promoted_min.data);
     var promoted_half = try halves.mulPromote(f32, half_to_float);
     defer promoted_half.deinit();
     try std.testing.expectEqual(DType.f32, @TypeOf(promoted_half).dtype);
     try std.testing.expectEqualSlices(f32, &.{ 2.25, 4.0 }, promoted_half.data);
+    var promoted_half_div = try halves.divPromote(f32, half_to_float);
+    defer promoted_half_div.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ 1, 1 }, promoted_half_div.data);
     var promoted_brain = try brain_halves.addPromote(f32, brain_to_float);
     defer promoted_brain.deinit();
     try std.testing.expectEqual(DType.f32, @TypeOf(promoted_brain).dtype);
