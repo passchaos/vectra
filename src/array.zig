@@ -3769,6 +3769,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.roll(shift, axis_index);
         }
 
+        pub fn rollFlat(self: Self, shift: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.rollFlat(shift);
+        }
+
+        pub fn roll_flat(self: Self, shift: isize) ArrayError!Array(T) {
+            return self.rollFlat(shift);
+        }
+
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -6951,6 +6961,23 @@ pub fn Array(comptime T: type) type {
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
+        }
+
+        pub fn rollFlat(self: Self, shift: isize) ArrayError!Self {
+            if (self.data.len == 0) return self.clone();
+            const len_flat = self.data.len;
+            const normalized_shift: usize = @intCast(@mod(shift, @as(isize, @intCast(len_flat))));
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (out.data, 0..) |*slot, out_index| {
+                const in_index = (out_index + len_flat - normalized_shift) % len_flat;
+                slot.* = self.data[in_index];
+            }
+            return out;
+        }
+
+        pub fn roll_flat(self: Self, shift: isize) ArrayError!Self {
+            return self.rollFlat(shift);
         }
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) ArrayError!Self {
@@ -14647,6 +14674,10 @@ test "array object style repeat interleave" {
     defer zero_axis.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 0 }, zero_axis.shape);
     try std.testing.expectEqual(@as(usize, 0), zero_axis.data.len);
+    var rolled_flat_top = try a.rollFlat(2);
+    defer rolled_flat_top.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, rolled_flat_top.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 6, 1, 2, 3, 4 }, rolled_flat_top.data);
 
     var view = try a.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
     defer view.deinit();
@@ -14786,6 +14817,12 @@ test "array view materializing shape wrappers" {
     var rolled = try view.roll(1, 0);
     defer rolled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 1, 3 }, rolled.data);
+    var rolled_flat = try view.rollFlat(1);
+    defer rolled_flat.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 1, 3, 5 }, rolled_flat.data);
+    var rolled_flat_neg = try view.roll_flat(-1);
+    defer rolled_flat_neg.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 5, 7, 1 }, rolled_flat_neg.data);
 
     var rolled_axes = try view.rollAxes(&.{ 1, 1 }, &.{ 0, 1 });
     defer rolled_axes.deinit();
