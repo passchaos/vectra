@@ -3369,14 +3369,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.trapezoid(x_values, dx, axis_index);
         }
 
+        pub fn trapezoid_with(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
+            return self.trapezoid(x_values, dx, axis_index);
+        }
+
         pub fn trapz(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
             return self.trapezoid(x_values, dx, axis_index);
+        }
+
+        pub fn trapz_with(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
+            return self.trapz(x_values, dx, axis_index);
         }
 
         pub fn gradient(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.gradient(x_values, dx, axis_index);
+        }
+
+        pub fn gradient_with(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
+            return self.gradient(x_values, dx, axis_index);
         }
 
         pub fn argmax(self: Self) ArrayError!usize {
@@ -12333,8 +12345,16 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn trapezoid_with(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
+            return self.trapezoid(x_values, dx, axis_index);
+        }
+
         pub fn trapz(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
             return self.trapezoid(x_values, dx, axis_index);
+        }
+
+        pub fn trapz_with(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
+            return self.trapz(x_values, dx, axis_index);
         }
 
         pub fn gradient(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
@@ -12379,6 +12399,10 @@ pub fn Array(comptime T: type) type {
                 }
             }
             return out;
+        }
+
+        pub fn gradient_with(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
+            return self.gradient(x_values, dx, axis_index);
         }
 
         pub fn argmax(self: Self) ArrayError!usize {
@@ -18976,10 +19000,16 @@ test "array axis cumulative operations and diff" {
     var trap_rows_x = try a.trapezoid(x_values, 1, 1);
     defer trap_rows_x.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6.5, 15.5 }, trap_rows_x.data);
+    var trap_rows_x_alias = try a.trapezoid_with(x_values, 1, 1);
+    defer trap_rows_x_alias.deinit();
+    try std.testing.expectEqualSlices(f64, trap_rows_x.data, trap_rows_x_alias.data);
     var trap_cols = try a.trapz(null, 2, 0);
     defer trap_cols.deinit();
     try std.testing.expectEqualSlices(usize, &.{3}, trap_cols.shape);
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, trap_cols.data);
+    var trap_cols_alias = try a.trapz_with(null, 2, 0);
+    defer trap_cols_alias.deinit();
+    try std.testing.expectEqualSlices(f64, trap_cols.data, trap_cols_alias.data);
     var short = try Array(f64).fromSlice(gpa, &.{5}, &.{1});
     defer short.deinit();
     var short_trap = try short.trapezoid(null, 1, 0);
@@ -18996,6 +19026,9 @@ test "array axis cumulative operations and diff" {
     var view_trap_x = try view.trapz(x_values, 1, 0);
     defer view_trap_x.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6.5, 15.5 }, view_trap_x.data);
+    var view_trap_x_alias = try view.trapz_with(x_values, 1, 0);
+    defer view_trap_x_alias.deinit();
+    try std.testing.expectEqualSlices(f64, view_trap_x.data, view_trap_x_alias.data);
     try std.testing.expectError(error.ShapeMismatch, a.trapezoid(short, 1, 1));
 
     var grad_rows = try a.gradient(null, 1, 1);
@@ -19012,6 +19045,9 @@ test "array axis cumulative operations and diff" {
     var grad_quad = try y_quad.gradient(x_quad, 1, 0);
     defer grad_quad.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4 }, grad_quad.data);
+    var grad_quad_alias = try y_quad.gradient_with(x_quad, 1, 0);
+    defer grad_quad_alias.deinit();
+    try std.testing.expectEqualSlices(f64, grad_quad.data, grad_quad_alias.data);
     var view_grad = try view.gradient(null, 1, 0);
     defer view_grad.deinit();
     try std.testing.expectEqualSlices(usize, view.shape, view_grad.shape);
@@ -19019,6 +19055,9 @@ test "array axis cumulative operations and diff" {
     var view_grad_x = try view.gradient(x_values, 1, 0);
     defer view_grad_x.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 2.0 / 3.0, 2.0 / 3.0, 0.5, 0.5 }, view_grad_x.data);
+    var view_grad_x_alias = try view.gradient_with(x_values, 1, 0);
+    defer view_grad_x_alias.deinit();
+    try std.testing.expectEqualSlices(f64, view_grad_x.data, view_grad_x_alias.data);
     try std.testing.expectError(error.ShapeMismatch, a.gradient(short, 1, 1));
 }
 
