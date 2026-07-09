@@ -162,6 +162,21 @@ fn benchStridedAddScalar(io: std.Io, a: ArrayF64, iters: usize) !f64 {
     return elapsed / @as(f64, @floatFromInt(iters));
 }
 
+fn benchStridedAddScalarOut(io: std.Io, a: ArrayF64, out: ArrayF64, iters: usize) !f64 {
+    var view = try a.slice1d(.{ .start = 0, .stop = null, .step = 2 });
+    defer view.deinit();
+    var sink: f64 = 0;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        try view.addScalarOut(1.25, out);
+        sink += out.data[0];
+        std.mem.doNotOptimizeAway(out.data.ptr);
+    }
+    std.mem.doNotOptimizeAway(sink);
+    const elapsed: f64 = @floatFromInt(nowNs(io) - start);
+    return elapsed / @as(f64, @floatFromInt(iters));
+}
+
 fn benchStridedAddArray(io: std.Io, a: ArrayF64, b: ArrayF64, iters: usize) !f64 {
     var lhs = try a.slice1d(.{ .start = 0, .stop = null, .step = 2 });
     defer lhs.deinit();
@@ -268,6 +283,11 @@ pub fn main() !void {
     warm_mean.deinit();
     var warm_promote = try ai.addPromote(f64, b);
     warm_promote.deinit();
+    var warm_strided_out = try ArrayF64.empty(allocator, &.{n / 2});
+    defer warm_strided_out.deinit();
+    var warm_strided_view = try a.slice1d(.{ .start = 0, .stop = null, .step = 2 });
+    defer warm_strided_view.deinit();
+    try warm_strided_view.addScalarOut(1.25, warm_strided_out);
     var warm_dot = try a.dot(b);
     warm_dot.deinit();
 
@@ -299,6 +319,7 @@ pub fn main() !void {
     std.debug.print("mean_all_f64,{d},{d:.3}\n", .{ n, try benchMeanAll(io, a, 120) });
     std.debug.print("promoted_add_i32_f64,{d},{d:.3}\n", .{ n, try benchPromotedAdd(io, ai, b, 120) });
     std.debug.print("strided_add_scalar_f64,{d},{d:.3}\n", .{ n / 2, try benchStridedAddScalar(io, a, 120) });
+    std.debug.print("strided_add_scalar_out_f64,{d},{d:.3}\n", .{ n / 2, try benchStridedAddScalarOut(io, a, warm_strided_out, 240) });
     std.debug.print("strided_add_array_f64,{d},{d:.3}\n", .{ n / 2, try benchStridedAddArray(io, a, b, 120) });
     std.debug.print("dot_f64,{d},{d:.3}\n", .{ n, try benchDot(io, a, b, 240) });
     std.debug.print("matvec_f64,{d}x{d},{d:.3}\n", .{ m, m, try benchMatvec(io, ma, mv, 240) });

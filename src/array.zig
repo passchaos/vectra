@@ -2613,15 +2613,14 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
-        fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
-            var out = try Array(T).empty(self.allocator, self.shape);
-            errdefer out.deinit();
-            if (out.data.len == 0) return out;
+        fn binaryScalarOut(self: Self, scalar: T, out: Array(T), comptime op: fn (T, T) T) ArrayError!void {
+            if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
+            if (out.data.len == 0) return;
             if (self.isContiguous()) {
                 const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
                 for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value, scalar);
-                return out;
+                return;
             }
             if (self.isOneDimensionalStrided()) {
                 const end_offset = try self.oneDimensionalEndOffset();
@@ -2631,7 +2630,7 @@ pub fn ArrayView(comptime T: type) type {
                     slot.* = op(self.data[source_offset], scalar);
                     source_offset += self.strides[0];
                 }
-                return out;
+                return;
             }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
@@ -2639,7 +2638,26 @@ pub fn ArrayView(comptime T: type) type {
                 unravelIndexInto(flat, self.shape, multi);
                 slot.* = op(self.data[self.offset + ravelIndex(multi, self.strides)], scalar);
             }
+        }
+
+        fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            try self.binaryScalarOut(scalar, out, op);
             return out;
+        }
+
+        fn binaryViewOut(self: Self, other: Self, out: Array(T), comptime op: fn (T, T) T) ArrayError!void {
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            if (!std.mem.eql(usize, out.shape, out_shape)) return error.ShapeMismatch;
+            if (out.data.len == 0) return;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                slot.* = op(self.data[self.broadcastOffsetOf(out_multi, out_shape.len)], other.data[other.broadcastOffsetOf(out_multi, out_shape.len)]);
+            }
         }
 
         fn binaryView(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Array(T) {
@@ -2647,13 +2665,7 @@ pub fn ArrayView(comptime T: type) type {
             defer self.allocator.free(out_shape);
             var out = try Array(T).empty(self.allocator, out_shape);
             errdefer out.deinit();
-            if (out.data.len == 0) return out;
-            const out_multi = try self.allocator.alloc(usize, out_shape.len);
-            defer self.allocator.free(out_multi);
-            for (out.data, 0..) |*slot, flat| {
-                unravelIndexInto(flat, out_shape, out_multi);
-                slot.* = op(self.data[self.broadcastOffsetOf(out_multi, out_shape.len)], other.data[other.broadcastOffsetOf(out_multi, out_shape.len)]);
-            }
+            try self.binaryViewOut(other, out, op);
             return out;
         }
 
@@ -3497,6 +3509,78 @@ pub fn ArrayView(comptime T: type) type {
         pub fn divScalar(self: Self, scalar: T) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opDiv);
+        }
+
+        pub fn addOut(self: Self, other: Self, out: Array(T)) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryViewOut(other, out, opAdd);
+        }
+
+        pub fn add_out(self: Self, other: Self, out: Array(T)) ArrayError!void {
+            return self.addOut(other, out);
+        }
+
+        pub fn subOut(self: Self, other: Self, out: Array(T)) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryViewOut(other, out, opSub);
+        }
+
+        pub fn sub_out(self: Self, other: Self, out: Array(T)) ArrayError!void {
+            return self.subOut(other, out);
+        }
+
+        pub fn mulOut(self: Self, other: Self, out: Array(T)) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryViewOut(other, out, opMul);
+        }
+
+        pub fn mul_out(self: Self, other: Self, out: Array(T)) ArrayError!void {
+            return self.mulOut(other, out);
+        }
+
+        pub fn divOut(self: Self, other: Self, out: Array(T)) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryViewOut(other, out, opDiv);
+        }
+
+        pub fn div_out(self: Self, other: Self, out: Array(T)) ArrayError!void {
+            return self.divOut(other, out);
+        }
+
+        pub fn addScalarOut(self: Self, scalar: T, out: Array(T)) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryScalarOut(scalar, out, opAdd);
+        }
+
+        pub fn add_scalar_out(self: Self, scalar: T, out: Array(T)) ArrayError!void {
+            return self.addScalarOut(scalar, out);
+        }
+
+        pub fn subScalarOut(self: Self, scalar: T, out: Array(T)) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryScalarOut(scalar, out, opSub);
+        }
+
+        pub fn sub_scalar_out(self: Self, scalar: T, out: Array(T)) ArrayError!void {
+            return self.subScalarOut(scalar, out);
+        }
+
+        pub fn mulScalarOut(self: Self, scalar: T, out: Array(T)) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryScalarOut(scalar, out, opMul);
+        }
+
+        pub fn mul_scalar_out(self: Self, scalar: T, out: Array(T)) ArrayError!void {
+            return self.mulScalarOut(scalar, out);
+        }
+
+        pub fn divScalarOut(self: Self, scalar: T, out: Array(T)) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryScalarOut(scalar, out, opDiv);
+        }
+
+        pub fn div_scalar_out(self: Self, scalar: T, out: Array(T)) ArrayError!void {
+            return self.divScalarOut(scalar, out);
         }
 
         pub fn powScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -23819,6 +23903,20 @@ test "array non contiguous view helpers" {
     var selected_scaled = try selected.mulScalar(2);
     defer selected_scaled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 100, 12, 198, 160 }, selected_scaled.data);
+    var view_out_rhs = try Array(f64).fromSlice(gpa, &.{ 2, 3 }, &.{ 1, 2 });
+    defer view_out_rhs.deinit();
+    var view_out_rhs_view = try view_out_rhs.asView();
+    defer view_out_rhs_view.deinit();
+    var view_out = try Array(f64).empty(gpa, stepped.shape);
+    defer view_out.deinit();
+    try stepped.addOut(view_out_rhs_view, view_out);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 33, 52, 102 }, view_out.data);
+    try stepped.mulScalarOut(2, view_out);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 60, 100, 198 }, view_out.data);
+    var view_bad_out = try Array(f64).empty(gpa, &.{4});
+    defer view_bad_out.deinit();
+    try std.testing.expectError(error.ShapeMismatch, stepped.addOut(view_out_rhs_view, view_bad_out));
+    try std.testing.expectError(error.ShapeMismatch, stepped.addScalarOut(1, view_bad_out));
     var shifted_view = try stepped.subScalar(10);
     defer shifted_view.deinit();
     var shifted_view_view = try shifted_view.asView();
