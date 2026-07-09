@@ -6518,6 +6518,30 @@ pub fn ArrayView(comptime T: type) type {
             };
         }
 
+        pub fn atLeast1dView(self: Self) ArrayError!Self {
+            return self.atLeast1d();
+        }
+
+        pub fn at_least_1d_view(self: Self) ArrayError!Self {
+            return self.atLeast1dView();
+        }
+
+        pub fn atLeast2dView(self: Self) ArrayError!Self {
+            return self.atLeast2d();
+        }
+
+        pub fn at_least_2d_view(self: Self) ArrayError!Self {
+            return self.atLeast2dView();
+        }
+
+        pub fn atLeast3dView(self: Self) ArrayError!Self {
+            return self.atLeast3d();
+        }
+
+        pub fn at_least_3d_view(self: Self) ArrayError!Self {
+            return self.atLeast3dView();
+        }
+
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
             const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
             defer self.allocator.free(out_shape);
@@ -6639,6 +6663,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.squeezeDim(axis_index);
         }
 
+        pub fn squeezeView(self: Self, axis_opt: ?isize) ArrayError!Self {
+            return self.squeeze(axis_opt);
+        }
+
+        pub fn squeeze_view(self: Self, axis_opt: ?isize) ArrayError!Self {
+            return self.squeezeView(axis_opt);
+        }
+
+        pub fn squeezeDimView(self: Self, axis_index: isize) ArrayError!Self {
+            return self.squeezeDim(axis_index);
+        }
+
+        pub fn squeeze_dim_view(self: Self, axis_index: isize) ArrayError!Self {
+            return self.squeezeDimView(axis_index);
+        }
+
         pub fn squeezeAxes(self: Self, axes: []const isize) ArrayError!Self {
             if (axes.len == 0) return self.clone();
             const normalized_axes = try normalizeUniqueAxes(self.allocator, axes, self.shape.len);
@@ -6664,6 +6704,14 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn squeeze_axes(self: Self, axes: []const isize) ArrayError!Self {
             return self.squeezeAxes(axes);
+        }
+
+        pub fn squeezeAxesView(self: Self, axes: []const isize) ArrayError!Self {
+            return self.squeezeAxes(axes);
+        }
+
+        pub fn squeeze_axes_view(self: Self, axes: []const isize) ArrayError!Self {
+            return self.squeezeAxesView(axes);
         }
 
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
@@ -6699,6 +6747,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn unsqueeze_dim(self: Self, axis_index: isize) ArrayError!Self {
             return self.unsqueezeDim(axis_index);
+        }
+
+        pub fn unsqueezeView(self: Self, axis_index: isize) ArrayError!Self {
+            return self.unsqueeze(axis_index);
+        }
+
+        pub fn unsqueeze_view(self: Self, axis_index: isize) ArrayError!Self {
+            return self.unsqueezeView(axis_index);
+        }
+
+        pub fn unsqueezeDimView(self: Self, axis_index: isize) ArrayError!Self {
+            return self.unsqueezeDim(axis_index);
+        }
+
+        pub fn unsqueeze_dim_view(self: Self, axis_index: isize) ArrayError!Self {
+            return self.unsqueezeDimView(axis_index);
         }
 
         pub fn unsqueezeAxes(self: Self, axes: []const isize) ArrayError!Self {
@@ -6737,12 +6801,28 @@ pub fn ArrayView(comptime T: type) type {
             return self.unsqueezeAxes(axes);
         }
 
+        pub fn unsqueezeAxesView(self: Self, axes: []const isize) ArrayError!Self {
+            return self.unsqueezeAxes(axes);
+        }
+
+        pub fn unsqueeze_axes_view(self: Self, axes: []const isize) ArrayError!Self {
+            return self.unsqueezeAxesView(axes);
+        }
+
         pub fn expandDims(self: Self, axes: []const isize) ArrayError!Self {
             return self.unsqueezeAxes(axes);
         }
 
         pub fn expand_dims(self: Self, axes: []const isize) ArrayError!Self {
             return self.expandDims(axes);
+        }
+
+        pub fn expandDimsView(self: Self, axes: []const isize) ArrayError!Self {
+            return self.expandDims(axes);
+        }
+
+        pub fn expand_dims_view(self: Self, axes: []const isize) ArrayError!Self {
+            return self.expandDimsView(axes);
         }
 
         pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
@@ -9878,6 +9958,36 @@ pub fn Array(comptime T: type) type {
             };
         }
 
+        pub fn atLeast1dView(self: Self) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.atLeast1d();
+        }
+
+        pub fn at_least_1d_view(self: Self) ArrayError!ArrayView(T) {
+            return self.atLeast1dView();
+        }
+
+        pub fn atLeast2dView(self: Self) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.atLeast2d();
+        }
+
+        pub fn at_least_2d_view(self: Self) ArrayError!ArrayView(T) {
+            return self.atLeast2dView();
+        }
+
+        pub fn atLeast3dView(self: Self) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.atLeast3d();
+        }
+
+        pub fn at_least_3d_view(self: Self) ArrayError!ArrayView(T) {
+            return self.atLeast3dView();
+        }
+
         pub fn view(self: Self, dims: []const usize) ArrayError!Self {
             return self.reshape(dims);
         }
@@ -9942,6 +10052,24 @@ pub fn Array(comptime T: type) type {
             return self.squeezeDim(axis_index);
         }
 
+        pub fn squeezeView(self: Self, axis_opt: ?isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.squeeze(axis_opt);
+        }
+
+        pub fn squeeze_view(self: Self, axis_opt: ?isize) ArrayError!ArrayView(T) {
+            return self.squeezeView(axis_opt);
+        }
+
+        pub fn squeezeDimView(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
+            return self.squeezeView(axis_index);
+        }
+
+        pub fn squeeze_dim_view(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
+            return self.squeezeDimView(axis_index);
+        }
+
         pub fn squeezeAxes(self: Self, axes: []const isize) ArrayError!Self {
             if (axes.len == 0) return self.clone();
             const normalized_axes = try normalizeUniqueAxes(self.allocator, axes, self.shape.len);
@@ -9966,6 +10094,16 @@ pub fn Array(comptime T: type) type {
             return self.squeezeAxes(axes);
         }
 
+        pub fn squeezeAxesView(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.squeezeAxes(axes);
+        }
+
+        pub fn squeeze_axes_view(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
+            return self.squeezeAxesView(axes);
+        }
+
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
             const rank_count = self.shape.len + 1;
             const axis = if (axis_index < 0) blk: {
@@ -9988,6 +10126,24 @@ pub fn Array(comptime T: type) type {
 
         pub fn unsqueeze_dim(self: Self, axis_index: isize) ArrayError!Self {
             return self.unsqueezeDim(axis_index);
+        }
+
+        pub fn unsqueezeView(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.unsqueeze(axis_index);
+        }
+
+        pub fn unsqueeze_view(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
+            return self.unsqueezeView(axis_index);
+        }
+
+        pub fn unsqueezeDimView(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
+            return self.unsqueezeView(axis_index);
+        }
+
+        pub fn unsqueeze_dim_view(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
+            return self.unsqueezeDimView(axis_index);
         }
 
         pub fn unsqueezeAxes(self: Self, axes: []const isize) ArrayError!Self {
@@ -10015,12 +10171,30 @@ pub fn Array(comptime T: type) type {
             return self.unsqueezeAxes(axes);
         }
 
+        pub fn unsqueezeAxesView(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.unsqueezeAxes(axes);
+        }
+
+        pub fn unsqueeze_axes_view(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
+            return self.unsqueezeAxesView(axes);
+        }
+
         pub fn expandDims(self: Self, axes: []const isize) ArrayError!Self {
             return self.unsqueezeAxes(axes);
         }
 
         pub fn expand_dims(self: Self, axes: []const isize) ArrayError!Self {
             return self.expandDims(axes);
+        }
+
+        pub fn expandDimsView(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
+            return self.unsqueezeAxesView(axes);
+        }
+
+        pub fn expand_dims_view(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
+            return self.expandDimsView(axes);
         }
 
         pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
@@ -19446,6 +19620,135 @@ test "array and view scalar and flat export helpers" {
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.item_value());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalarValue());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalar_value());
+}
+
+test "array and view zero-copy squeeze unsqueeze aliases" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 1, 2, 1, 3 });
+    defer a.deinit();
+
+    var squeezed = try a.squeezeView(null);
+    defer squeezed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, squeezed.shape);
+    try std.testing.expect(a.sharesStorageView(squeezed));
+    try squeezed.set(&.{ 1, 2 }, 60);
+    try std.testing.expectEqual(@as(f64, 60), a.data[5]);
+    try squeezed.set(&.{ 1, 2 }, 6);
+    var squeezed_snake = try a.squeeze_view(null);
+    defer squeezed_snake.deinit();
+    try std.testing.expectEqualSlices(usize, squeezed.shape, squeezed_snake.shape);
+    var squeeze_dim = try a.squeezeDimView(2);
+    defer squeeze_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, squeeze_dim.shape);
+    var squeeze_dim_snake = try a.squeeze_dim_view(0);
+    defer squeeze_dim_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, squeeze_dim_snake.shape);
+    var squeeze_axes = try a.squeezeAxesView(&.{ 0, 2 });
+    defer squeeze_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, squeeze_axes.shape);
+    var squeeze_axes_snake = try a.squeeze_axes_view(&.{ 0, 2 });
+    defer squeeze_axes_snake.deinit();
+    try std.testing.expectEqualSlices(usize, squeeze_axes.shape, squeeze_axes_snake.shape);
+    try std.testing.expectError(error.ShapeMismatch, a.squeezeAxesView(&.{1}));
+
+    var unsqueezed = try squeezed.unsqueezeView(0);
+    defer unsqueezed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, unsqueezed.shape);
+    var unsqueezed_snake = try squeezed.unsqueeze_view(-1);
+    defer unsqueezed_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, unsqueezed_snake.shape);
+    var unsqueeze_dim = try squeezed.unsqueezeDimView(1);
+    defer unsqueeze_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, unsqueeze_dim.shape);
+    var unsqueeze_dim_snake = try squeezed.unsqueeze_dim_view(1);
+    defer unsqueeze_dim_snake.deinit();
+    try std.testing.expectEqualSlices(usize, unsqueeze_dim.shape, unsqueeze_dim_snake.shape);
+    var unsqueeze_axes = try squeezed.unsqueezeAxesView(&.{ 0, -1 });
+    defer unsqueeze_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3, 1 }, unsqueeze_axes.shape);
+    var unsqueeze_axes_snake = try squeezed.unsqueeze_axes_view(&.{ 0, -1 });
+    defer unsqueeze_axes_snake.deinit();
+    try std.testing.expectEqualSlices(usize, unsqueeze_axes.shape, unsqueeze_axes_snake.shape);
+    var expand_dims_view = try squeezed.expandDimsView(&.{1});
+    defer expand_dims_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, expand_dims_view.shape);
+    var expand_dims_view_snake = try squeezed.expand_dims_view(&.{1});
+    defer expand_dims_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, expand_dims_view.shape, expand_dims_view_snake.shape);
+    try std.testing.expectError(error.InvalidAxis, squeezed.unsqueezeView(4));
+
+    var scalar = try Array(f64).fromScalar(gpa, 9);
+    defer scalar.deinit();
+    var scalar_1d = try scalar.atLeast1dView();
+    defer scalar_1d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{1}, scalar_1d.shape);
+    var scalar_2d = try scalar.at_least_2d_view();
+    defer scalar_2d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, scalar_2d.shape);
+    var scalar_3d = try scalar.atLeast3dView();
+    defer scalar_3d.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, scalar_3d.shape);
+
+    var view_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 1, 2, 1, 3 });
+    defer view_source.deinit();
+    var base_view = try view_source.asView();
+    defer base_view.deinit();
+    var view_squeezed = try base_view.squeezeView(null);
+    defer view_squeezed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_squeezed.shape);
+    try std.testing.expect(view_squeezed.sharesStorage(base_view));
+    try view_squeezed.set(&.{ 1, 1 }, 50);
+    try std.testing.expectEqual(@as(f64, 50), view_source.data[4]);
+    try view_squeezed.set(&.{ 1, 1 }, 5);
+    var view_squeezed_snake = try base_view.squeeze_view(null);
+    defer view_squeezed_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_squeezed.shape, view_squeezed_snake.shape);
+    var view_squeeze_dim = try base_view.squeezeDimView(2);
+    defer view_squeeze_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, view_squeeze_dim.shape);
+    var view_squeeze_dim_snake = try base_view.squeeze_dim_view(0);
+    defer view_squeeze_dim_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, view_squeeze_dim_snake.shape);
+    var view_squeeze_axes = try base_view.squeezeAxesView(&.{ 0, 2 });
+    defer view_squeeze_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_squeeze_axes.shape);
+    var view_squeeze_axes_snake = try base_view.squeeze_axes_view(&.{ 0, 2 });
+    defer view_squeeze_axes_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_squeeze_axes.shape, view_squeeze_axes_snake.shape);
+    var view_unsqueeze = try view_squeezed.unsqueezeView(1);
+    defer view_unsqueeze.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, view_unsqueeze.shape);
+    var view_unsqueeze_snake = try view_squeezed.unsqueeze_view(-1);
+    defer view_unsqueeze_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, view_unsqueeze_snake.shape);
+    var view_unsqueeze_dim = try view_squeezed.unsqueezeDimView(0);
+    defer view_unsqueeze_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, view_unsqueeze_dim.shape);
+    var view_unsqueeze_dim_snake = try view_squeezed.unsqueeze_dim_view(0);
+    defer view_unsqueeze_dim_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_unsqueeze_dim.shape, view_unsqueeze_dim_snake.shape);
+    var view_unsqueeze_axes = try view_squeezed.unsqueezeAxesView(&.{ 0, -1 });
+    defer view_unsqueeze_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3, 1 }, view_unsqueeze_axes.shape);
+    var view_unsqueeze_axes_snake = try view_squeezed.unsqueeze_axes_view(&.{ 0, -1 });
+    defer view_unsqueeze_axes_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_unsqueeze_axes.shape, view_unsqueeze_axes_snake.shape);
+    var view_expand_dims = try view_squeezed.expandDimsView(&.{1});
+    defer view_expand_dims.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, view_expand_dims.shape);
+    var view_expand_dims_snake = try view_squeezed.expand_dims_view(&.{1});
+    defer view_expand_dims_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_expand_dims.shape, view_expand_dims_snake.shape);
+    var view_atleast1 = try view_squeezed.atLeast1dView();
+    defer view_atleast1.deinit();
+    try std.testing.expectEqualSlices(usize, view_squeezed.shape, view_atleast1.shape);
+    var view_atleast2 = try view_squeezed.at_least_2d_view();
+    defer view_atleast2.deinit();
+    try std.testing.expectEqualSlices(usize, view_squeezed.shape, view_atleast2.shape);
+    var view_atleast3 = try view_squeezed.atLeast3dView();
+    defer view_atleast3.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, view_atleast3.shape);
+    try std.testing.expectError(error.ShapeMismatch, base_view.squeezeAxesView(&.{1}));
 }
 
 test "array and view zero-copy broadcast aliases" {
