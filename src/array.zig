@@ -13966,6 +13966,13 @@ pub fn Array(comptime T: type) type {
         }
 
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
+            if (std.mem.eql(usize, self.shape, other.shape)) {
+                const out = try Self.empty(self.allocator, self.shape);
+                for (self.data, other.data, out.data) |lhs, rhs, *slot| {
+                    slot.* = op(lhs, rhs);
+                }
+                return out;
+            }
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out = try Self.empty(self.allocator, out_shape);
@@ -20364,6 +20371,14 @@ test "array binary math wrappers and clamp aliases" {
     var added = try a.add(b);
     defer added.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 11, 22, 13, 24 }, added.data);
+    var same_shape_rhs = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30, 40 }, &.{ 2, 2 });
+    defer same_shape_rhs.deinit();
+    var same_shape_added = try a.add(same_shape_rhs);
+    defer same_shape_added.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 11, 22, 33, 44 }, same_shape_added.data);
+    var same_shape_multiplied = try a.mul(same_shape_rhs);
+    defer same_shape_multiplied.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 40, 90, 160 }, same_shape_multiplied.data);
     var subbed = try a.sub(b);
     defer subbed.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -9, -18, -7, -16 }, subbed.data);
