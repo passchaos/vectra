@@ -290,6 +290,7 @@ pub const SmokeReport = struct {
     dtype_widened_seed_count: usize = 0,
     dtype_support_fingerprint: u64 = 0,
     f16_native_execution_fingerprint: u64 = 0,
+    bf16_native_execution_fingerprint: u64 = 0,
     f16_widened_execution_fingerprint: u64 = 0,
     bf16_widened_execution_fingerprint: u64 = 0,
     output_fingerprint: u64 = 0,
@@ -342,6 +343,7 @@ pub const SmokeReport = struct {
         hashU64(&hasher, report.dtype_widened_seed_count);
         hashU64(&hasher, report.dtype_support_fingerprint);
         hashU64(&hasher, report.f16_native_execution_fingerprint);
+        hashU64(&hasher, report.bf16_native_execution_fingerprint);
         hashU64(&hasher, report.f16_widened_execution_fingerprint);
         hashU64(&hasher, report.bf16_widened_execution_fingerprint);
         hashU64(&hasher, report.output_fingerprint);
@@ -385,7 +387,7 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_dtype_support count={d} bridge={d} native_seed={d} widened_seed={d} fingerprint={x} f16_native_execution={x} f16_widened_execution={x} bf16_widened_execution={x}\n",
+            "vectra_axiom_cuda_dtype_support count={d} bridge={d} native_seed={d} widened_seed={d} fingerprint={x} f16_native_execution={x} bf16_native_execution={x} f16_widened_execution={x} bf16_widened_execution={x}\n",
             .{
                 report.dtype_support_count,
                 report.dtype_bridge_count,
@@ -393,6 +395,7 @@ pub const SmokeReport = struct {
                 report.dtype_widened_seed_count,
                 report.dtype_support_fingerprint,
                 report.f16_native_execution_fingerprint,
+                report.bf16_native_execution_fingerprint,
                 report.f16_widened_execution_fingerprint,
                 report.bf16_widened_execution_fingerprint,
             },
@@ -460,6 +463,7 @@ pub const SmokeReport = struct {
                 "  \"dtype_widened_seed_count\": {d},\n" ++
                 "  \"dtype_support_fingerprint\": {d},\n" ++
                 "  \"f16_native_execution_fingerprint\": {d},\n" ++
+                "  \"bf16_native_execution_fingerprint\": {d},\n" ++
                 "  \"f16_widened_execution_fingerprint\": {d},\n" ++
                 "  \"bf16_widened_execution_fingerprint\": {d},\n" ++
                 "  \"output_fingerprint\": {d},\n" ++
@@ -489,6 +493,7 @@ pub const SmokeReport = struct {
                 report.dtype_widened_seed_count,
                 report.dtype_support_fingerprint,
                 report.f16_native_execution_fingerprint,
+                report.bf16_native_execution_fingerprint,
                 report.f16_widened_execution_fingerprint,
                 report.bf16_widened_execution_fingerprint,
                 report.output_fingerprint,
@@ -885,6 +890,8 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.output_fingerprint ^= hashBF16Slice(out.data);
     }
     if (bf16_add_out != null and bf16_matmul_out != null) {
+        report.bf16_native_execution_fingerprint =
+            nativeBF16BinaryExecutionFingerprint(allocator, .add, bf16_lhs, bf16_rhs) catch 0;
         report.bf16_widened_execution_fingerprint =
             (widenedBF16BinaryProvenanceFingerprint(allocator, "add", .add, bf16_lhs, bf16_rhs) catch return failedReport()) ^
             (widenedBF16MatmulProvenanceFingerprint(allocator, "matmul", bf16_lhs, bf16_rhs) catch return failedReport());
@@ -988,6 +995,7 @@ fn axiomBinaryOp(op: BinaryOp) axiom.accelerator.TensorBinaryElementwiseOp {
 fn tryBinaryBF16(op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedSameShapeContiguousBF16(lhs, rhs)) return null;
+    if (try tryBinaryBF16Native(op, lhs, rhs)) |native| return native;
     var lhs32 = try bf16ArrayToF32(lhs);
     defer lhs32.deinit();
     var rhs32 = try bf16ArrayToF32(rhs);
@@ -995,6 +1003,38 @@ fn tryBinaryBF16(op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Ar
     var out32 = try tryBinaryF32(op, lhs32, rhs32) orelse return null;
     defer out32.deinit();
     return try f32ArrayToBF16(out32);
+}
+
+fn tryBinaryBF16Native(op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedSameShapeContiguousBF16(lhs, rhs)) return null;
+    var out = try array_mod.Array(BFloat16).empty(lhs.allocator, lhs.shape);
+    errdefer out.deinit();
+    const lhs_bits = try lhs.allocator.alloc(u16, lhs.data.len);
+    defer lhs.allocator.free(lhs_bits);
+    const rhs_bits = try lhs.allocator.alloc(u16, rhs.data.len);
+    defer lhs.allocator.free(rhs_bits);
+    const out_bits = try lhs.allocator.alloc(u16, out.data.len);
+    defer lhs.allocator.free(out_bits);
+    for (lhs.data, lhs_bits) |value, *slot| slot.* = value.bits;
+    for (rhs.data, rhs_bits) |value, *slot| slot.* = value.bits;
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const result = runtime.runTensorElementwiseBinaryBF16Native(lhs_bits, rhs_bits, out_bits, .{
+        .op = axiomBinaryOp(op),
+        .len = lhs.data.len,
+        .kernel_symbol = switch (op) {
+            .add => "vectra_axiom_bf16_native_add",
+            .sub => "vectra_axiom_bf16_native_sub",
+            .mul => "vectra_axiom_bf16_native_mul",
+            .div => "vectra_axiom_bf16_native_div",
+        },
+    }) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => return null,
+    };
+    if (!result.ok()) return null;
+    for (out_bits, out.data) |bits, *slot| slot.* = .{ .bits = bits };
+    return out;
 }
 
 fn tryBinaryF16(op: BinaryOp, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
@@ -1233,6 +1273,26 @@ fn widenedBF16BinaryProvenanceFingerprint(allocator: std.mem.Allocator, operatio
     const result = runtime.runTensorElementwiseBinaryBF16Widened(lhs_bits, rhs_bits, out_bits, .{
         .op = axiomBinaryOp(op),
         .len = lhs.data.len,
+    }) catch |err| return mapTensorAdapterError(err);
+    if (!result.ok()) return error.BackendFailure;
+    return result.fingerprint();
+}
+
+fn nativeBF16BinaryExecutionFingerprint(allocator: std.mem.Allocator, op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!u64 {
+    if (!supportedSameShapeContiguousBF16(lhs, rhs)) return error.ShapeMismatch;
+    const lhs_bits = try allocator.alloc(u16, lhs.data.len);
+    defer allocator.free(lhs_bits);
+    const rhs_bits = try allocator.alloc(u16, rhs.data.len);
+    defer allocator.free(rhs_bits);
+    const out_bits = try allocator.alloc(u16, lhs.data.len);
+    defer allocator.free(out_bits);
+    for (lhs.data, lhs_bits) |value, *slot| slot.* = value.bits;
+    for (rhs.data, rhs_bits) |value, *slot| slot.* = value.bits;
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const result = runtime.runTensorElementwiseBinaryBF16Native(lhs_bits, rhs_bits, out_bits, .{
+        .op = axiomBinaryOp(op),
+        .len = lhs.data.len,
+        .kernel_symbol = "vectra_axiom_bf16_native_probe",
     }) catch |err| return mapTensorAdapterError(err);
     if (!result.ok()) return error.BackendFailure;
     return result.fingerprint();

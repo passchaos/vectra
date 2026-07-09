@@ -29,11 +29,11 @@ zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
 
 The CUDA smoke gate runs f32 add/sub/mul/div, f32 SAXPY, scalar-broadcast f32
 add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, 2D f32
-matmul, native f16 same-shape elementwise seeds, and widened f16/BFloat16
-matmul/provenance seeds.  f32 elementwise/SAXPY paths use Axiom's builder-style
-CUDA tensor runtime; f16 same-shape elementwise dispatch now tries Axiom's native
-f16 runtime seed before falling back to widened f32 compute; f16/BFloat16
-elementwise provenance calls Axiom's widened elementwise runtime APIs directly;
+matmul, native f16/BFloat16 same-shape elementwise seeds, and widened
+f16/BFloat16 matmul/provenance seeds.  f32 elementwise/SAXPY paths use Axiom's
+builder-style CUDA tensor runtime; f16/BFloat16 same-shape elementwise dispatch
+now tries Axiom's native typed runtime seed before falling back to widened f32
+compute; f16/BFloat16 elementwise provenance calls Axiom's widened elementwise runtime APIs directly;
 matmul now builds Axiom CUDA Tile IR and hands it to Axiom's
 Tile-IR-to-CUTILE GEMM runtime bridge.  It also reports
 Vectra-to-Axiom buffer planning evidence:
@@ -49,6 +49,8 @@ Vectra-to-Axiom buffer planning evidence:
   native/widened dtype bridges
 - `f16_native_execution_fingerprint` evidence when the native f16 elementwise
   runtime seed is available
+- `bf16_native_execution_fingerprint` evidence when the native BFloat16
+  elementwise runtime seed is available
 
 
 ## Automatic dispatch and policy
@@ -61,8 +63,8 @@ methods try Axiom CPU lowering to Veyra before the existing direct CPU path.
 The current automatic dispatch covers contiguous same-shape `add/sub/mul/div`,
 scalar `addScalar/subScalar/mulScalar/divScalar`, scalar-array broadcast
 `add/sub/mul/div`, and contiguous 2D `matmul`.  CUDA native seed routes cover
-f32 and same-shape f16 elementwise operations; f16 matmul and BFloat16
-elementwise/matmul currently use a widen-to-f32 CUDA seed before narrowing back.
+f32 and same-shape f16/BFloat16 elementwise operations; f16/BFloat16 matmul
+currently uses a widen-to-f32 CUDA seed before narrowing back.
 For elementwise provenance, Vectra consumes Axiom's
 `runTensorElementwiseBinaryF16Widened` and
 `runTensorElementwiseBinaryBF16Widened` runtime reports instead of rebuilding
@@ -130,8 +132,9 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 - The bridge does not change `Device.cuda(index).isAvailable()` yet.
 - An explicit `DeviceArrayF32` handle can acquire/release Axiom pool-backed device buffers; ordinary `.cuda()` persistent storage is still intentionally unavailable.
 - Only scalar-array broadcast dispatch is covered; no general broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
-- The CUDA elementwise bridge is native for contiguous same-shape `Array(f32)`
-  and `Array(f16)` inputs when Axiom's typed f16 CUBIN path is available.
+- The CUDA elementwise bridge is native for contiguous same-shape `Array(f32)`,
+  `Array(f16)`, and `Array(BFloat16)` inputs when Axiom's typed CUBIN paths are
+  available.
 - The CUDA matmul bridge is native for contiguous 2D `Array(f32)` inputs and
   routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path. f16 and
   BFloat16 elementwise provenance uses Axiom widened runtime reports, including
