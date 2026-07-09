@@ -35,6 +35,153 @@ pub const BinaryOp = enum {
     div,
 };
 
+pub const CudaDTypeBridgeStatus = enum(u8) {
+    native_cuda_seed,
+    widened_f32_seed,
+    cpu_veyra_seed,
+    planned,
+    not_exposed,
+
+    pub fn label(status: CudaDTypeBridgeStatus) []const u8 {
+        return @tagName(status);
+    }
+
+    pub fn hasCudaBridge(status: CudaDTypeBridgeStatus) bool {
+        return status == .native_cuda_seed or status == .widened_f32_seed;
+    }
+};
+
+pub const CudaDTypeSupportRecord = struct {
+    cuda_name: []const u8,
+    cuda_value: i32,
+    meaning: []const u8,
+    vectra_dtype: ?array_mod.DType = null,
+    status: CudaDTypeBridgeStatus = .planned,
+    same_shape_elementwise: bool = false,
+    scalar_broadcast: bool = false,
+    matmul: bool = false,
+    smoke_covered: bool = false,
+
+    pub fn valid(record: CudaDTypeSupportRecord) bool {
+        return record.cuda_name.len != 0 and record.meaning.len != 0;
+    }
+
+    pub fn vectraName(record: CudaDTypeSupportRecord) []const u8 {
+        return if (record.vectra_dtype) |dtype| dtype.name() else "not_exposed";
+    }
+
+    pub fn fingerprint(record: CudaDTypeSupportRecord) u64 {
+        var hasher = std.hash.Wyhash.init(0x0abc_7aaa_d79e_0001);
+        hashBytes(&hasher, record.cuda_name);
+        hashI32(&hasher, record.cuda_value);
+        hashBytes(&hasher, record.meaning);
+        hashBytes(&hasher, record.vectraName());
+        hashBytes(&hasher, record.status.label());
+        hashBool(&hasher, record.same_shape_elementwise);
+        hashBool(&hasher, record.scalar_broadcast);
+        hashBool(&hasher, record.matmul);
+        hashBool(&hasher, record.smoke_covered);
+        return hasher.final();
+    }
+};
+
+/// CUDA dtype evidence mirrored from `/usr/local/cuda/include/library_types.h`.
+///
+/// This registry is intentionally explicit data so downstream libraries can
+/// audit which CUDA dtypes Vectra exposes today, which route through Axiom CUDA,
+/// and which are only planned.
+pub const cuda_dtype_support = [_]CudaDTypeSupportRecord{
+    .{ .cuda_name = "CUDA_R_16F", .cuda_value = 2, .meaning = "real half", .vectra_dtype = .f16, .status = .widened_f32_seed, .same_shape_elementwise = true, .matmul = true, .smoke_covered = true },
+    .{ .cuda_name = "CUDA_C_16F", .cuda_value = 6, .meaning = "complex half pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_16BF", .cuda_value = 14, .meaning = "real bfloat16", .vectra_dtype = .bf16, .status = .widened_f32_seed, .same_shape_elementwise = true, .matmul = true, .smoke_covered = true },
+    .{ .cuda_name = "CUDA_C_16BF", .cuda_value = 15, .meaning = "complex bfloat16 pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_32F", .cuda_value = 0, .meaning = "real float", .vectra_dtype = .f32, .status = .native_cuda_seed, .same_shape_elementwise = true, .scalar_broadcast = true, .matmul = true, .smoke_covered = true },
+    .{ .cuda_name = "CUDA_C_32F", .cuda_value = 4, .meaning = "complex float pair", .vectra_dtype = .c64, .status = .planned },
+    .{ .cuda_name = "CUDA_R_64F", .cuda_value = 1, .meaning = "real double", .vectra_dtype = .f64, .status = .cpu_veyra_seed, .same_shape_elementwise = true, .scalar_broadcast = true, .matmul = true },
+    .{ .cuda_name = "CUDA_C_64F", .cuda_value = 5, .meaning = "complex double pair", .vectra_dtype = .c128, .status = .planned },
+    .{ .cuda_name = "CUDA_R_4I", .cuda_value = 16, .meaning = "signed 4-bit integer", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_C_4I", .cuda_value = 17, .meaning = "signed 4-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_4U", .cuda_value = 18, .meaning = "unsigned 4-bit integer", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_C_4U", .cuda_value = 19, .meaning = "unsigned 4-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_8I", .cuda_value = 3, .meaning = "signed 8-bit integer", .vectra_dtype = .i8, .status = .planned },
+    .{ .cuda_name = "CUDA_C_8I", .cuda_value = 7, .meaning = "signed 8-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_8U", .cuda_value = 8, .meaning = "unsigned 8-bit integer", .vectra_dtype = .u8, .status = .planned },
+    .{ .cuda_name = "CUDA_C_8U", .cuda_value = 9, .meaning = "unsigned 8-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_16I", .cuda_value = 20, .meaning = "signed 16-bit integer", .vectra_dtype = .i16, .status = .planned },
+    .{ .cuda_name = "CUDA_C_16I", .cuda_value = 21, .meaning = "signed 16-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_16U", .cuda_value = 22, .meaning = "unsigned 16-bit integer", .vectra_dtype = .u16, .status = .planned },
+    .{ .cuda_name = "CUDA_C_16U", .cuda_value = 23, .meaning = "unsigned 16-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_32I", .cuda_value = 10, .meaning = "signed 32-bit integer", .vectra_dtype = .i32, .status = .planned },
+    .{ .cuda_name = "CUDA_C_32I", .cuda_value = 11, .meaning = "signed 32-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_32U", .cuda_value = 12, .meaning = "unsigned 32-bit integer", .vectra_dtype = .u32, .status = .planned },
+    .{ .cuda_name = "CUDA_C_32U", .cuda_value = 13, .meaning = "unsigned 32-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_64I", .cuda_value = 24, .meaning = "signed 64-bit integer", .vectra_dtype = .i64, .status = .planned },
+    .{ .cuda_name = "CUDA_C_64I", .cuda_value = 25, .meaning = "signed 64-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_64U", .cuda_value = 26, .meaning = "unsigned 64-bit integer", .vectra_dtype = .u64, .status = .planned },
+    .{ .cuda_name = "CUDA_C_64U", .cuda_value = 27, .meaning = "unsigned 64-bit integer pair", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_8F_E4M3", .cuda_value = 28, .meaning = "fp8 e4m3", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_8F_E5M2", .cuda_value = 29, .meaning = "fp8 e5m2", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_8F_UE8M0", .cuda_value = 30, .meaning = "fp8 e8m0 exponent-only", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_6F_E2M3", .cuda_value = 31, .meaning = "fp6 e2m3", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_6F_E3M2", .cuda_value = 32, .meaning = "fp6 e3m2", .status = .not_exposed },
+    .{ .cuda_name = "CUDA_R_4F_E2M1", .cuda_value = 33, .meaning = "fp4 e2m1", .status = .not_exposed },
+};
+
+pub fn cudaDTypeSupportRecords() []const CudaDTypeSupportRecord {
+    return &cuda_dtype_support;
+}
+
+pub fn findCudaDTypeSupport(cuda_name: []const u8) ?CudaDTypeSupportRecord {
+    for (cuda_dtype_support) |record| {
+        if (std.mem.eql(u8, record.cuda_name, cuda_name)) return record;
+    }
+    return null;
+}
+
+pub fn findVectraDTypeSupport(dtype: array_mod.DType) ?CudaDTypeSupportRecord {
+    for (cuda_dtype_support) |record| {
+        if (record.vectra_dtype != null and record.vectra_dtype.? == dtype) return record;
+    }
+    return null;
+}
+
+pub fn cudaDTypeNativeSeedCount() usize {
+    var count: usize = 0;
+    for (cuda_dtype_support) |record| {
+        if (record.status == .native_cuda_seed) count += 1;
+    }
+    return count;
+}
+
+pub fn cudaDTypeWidenedSeedCount() usize {
+    var count: usize = 0;
+    for (cuda_dtype_support) |record| {
+        if (record.status == .widened_f32_seed) count += 1;
+    }
+    return count;
+}
+
+pub fn cudaDTypeBridgeCount() usize {
+    var count: usize = 0;
+    for (cuda_dtype_support) |record| {
+        if (record.status.hasCudaBridge()) count += 1;
+    }
+    return count;
+}
+
+pub fn cudaDTypeSupportFingerprint() u64 {
+    var hasher = std.hash.Wyhash.init(0x0abc_7aaa_d79e_511c);
+    hashU64(&hasher, cuda_dtype_support.len);
+    for (cuda_dtype_support) |record| {
+        std.debug.assert(record.valid());
+        hashU64(&hasher, record.fingerprint());
+    }
+    hashU64(&hasher, cudaDTypeNativeSeedCount());
+    hashU64(&hasher, cudaDTypeWidenedSeedCount());
+    hashU64(&hasher, cudaDTypeBridgeCount());
+    return hasher.final();
+}
+
 pub const BufferPlanEvidence = struct {
     ok: bool = false,
     logical_elements: usize = 0,
@@ -137,6 +284,11 @@ pub const SmokeReport = struct {
     device_array_ok: bool = false,
     max_abs_error: f32 = 0.0,
     lhs_plan: BufferPlanEvidence = .{},
+    dtype_support_count: usize = 0,
+    dtype_bridge_count: usize = 0,
+    dtype_native_seed_count: usize = 0,
+    dtype_widened_seed_count: usize = 0,
+    dtype_support_fingerprint: u64 = 0,
     output_fingerprint: u64 = 0,
     issue_count: u8 = 0,
 
@@ -181,6 +333,11 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.lhs_plan.copy_ok);
         hashBool(&hasher, report.lhs_plan.copy_requires_strided);
         hashU64(&hasher, report.lhs_plan.copy_fingerprint);
+        hashU64(&hasher, report.dtype_support_count);
+        hashU64(&hasher, report.dtype_bridge_count);
+        hashU64(&hasher, report.dtype_native_seed_count);
+        hashU64(&hasher, report.dtype_widened_seed_count);
+        hashU64(&hasher, report.dtype_support_fingerprint);
         hashU64(&hasher, report.output_fingerprint);
         hashU64(&hasher, report.issue_count);
         return hasher.final();
@@ -219,6 +376,16 @@ pub const SmokeReport = struct {
                 report.lhs_plan.copy_requires_strided,
                 report.output_fingerprint,
                 report.fingerprint(),
+            },
+        );
+        try writer.print(
+            "vectra_axiom_cuda_dtype_support count={d} bridge={d} native_seed={d} widened_seed={d} fingerprint={x}\n",
+            .{
+                report.dtype_support_count,
+                report.dtype_bridge_count,
+                report.dtype_native_seed_count,
+                report.dtype_widened_seed_count,
+                report.dtype_support_fingerprint,
             },
         );
     }
@@ -278,6 +445,11 @@ pub const SmokeReport = struct {
                 "  \"lhs_copy_plan_ok\": {},\n" ++
                 "  \"lhs_copy_plan_requires_strided\": {},\n" ++
                 "  \"lhs_copy_plan_fingerprint\": {d},\n" ++
+                "  \"dtype_support_count\": {d},\n" ++
+                "  \"dtype_bridge_count\": {d},\n" ++
+                "  \"dtype_native_seed_count\": {d},\n" ++
+                "  \"dtype_widened_seed_count\": {d},\n" ++
+                "  \"dtype_support_fingerprint\": {d},\n" ++
                 "  \"output_fingerprint\": {d},\n" ++
                 "  \"fingerprint\": {d}\n" ++
                 "}}\n",
@@ -299,6 +471,11 @@ pub const SmokeReport = struct {
                 report.lhs_plan.copy_ok,
                 report.lhs_plan.copy_requires_strided,
                 report.lhs_plan.copy_fingerprint,
+                report.dtype_support_count,
+                report.dtype_bridge_count,
+                report.dtype_native_seed_count,
+                report.dtype_widened_seed_count,
+                report.dtype_support_fingerprint,
                 report.output_fingerprint,
                 report.fingerprint(),
             },
@@ -329,6 +506,18 @@ pub fn planArrayF32(input: array_mod.Array(f32), name: []const u8) BufferPlanEvi
         .copy_ok = copy_plan.ok(),
         .copy_requires_strided = copy_plan.requires_strided_copy,
         .copy_fingerprint = copy_plan.fingerprint(),
+    };
+}
+
+fn baseSmokeReport() SmokeReport {
+    return .{
+        .enabled = build_options.enable_axiom_cuda,
+        .status = if (build_options.enable_axiom_cuda) .skipped else .disabled,
+        .dtype_support_count = cuda_dtype_support.len,
+        .dtype_bridge_count = cudaDTypeBridgeCount(),
+        .dtype_native_seed_count = cudaDTypeNativeSeedCount(),
+        .dtype_widened_seed_count = cudaDTypeWidenedSeedCount(),
+        .dtype_support_fingerprint = cudaDTypeSupportFingerprint(),
     };
 }
 
@@ -517,18 +706,17 @@ pub fn tryMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_
 }
 
 pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
-    if (!build_options.enable_axiom_cuda) return .{};
+    if (!build_options.enable_axiom_cuda) return baseSmokeReport();
 
     var lhs = array_mod.Array(f32).fromSlice(allocator, &.{ 1, 2, 3, 4 }, &.{4}) catch return failedReport();
     defer lhs.deinit();
     var rhs = array_mod.Array(f32).fromSlice(allocator, &.{ 10, 20, 30, 40 }, &.{4}) catch return failedReport();
     defer rhs.deinit();
 
-    var report: SmokeReport = .{
-        .enabled = true,
-        .status = .skipped,
-        .lhs_plan = planArrayF32(lhs, "lhs"),
-    };
+    var report = baseSmokeReport();
+    report.enabled = true;
+    report.status = .skipped;
+    report.lhs_plan = planArrayF32(lhs, "lhs");
 
     var device_array = toDeviceF32(allocator, lhs) catch return failedReport();
     if (device_array) |*dev| {
@@ -895,11 +1083,10 @@ fn viewBackingSlice(view: array_mod.ArrayView(f32)) ?[]const f32 {
 }
 
 fn failedReport() SmokeReport {
-    return .{
-        .enabled = build_options.enable_axiom_cuda,
-        .status = if (build_options.enable_axiom_cuda) .failed else .disabled,
-        .issue_count = 1,
-    };
+    var report = baseSmokeReport();
+    report.status = if (build_options.enable_axiom_cuda) .failed else .disabled;
+    report.issue_count = 1;
+    return report;
 }
 
 fn f16ArrayToF32(input: array_mod.Array(f16)) array_mod.ArrayError!array_mod.Array(f32) {
@@ -978,6 +1165,12 @@ fn hashU64(hasher: *std.hash.Wyhash, value: anytype) void {
     hasher.update(&bytes);
 }
 
+fn hashI32(hasher: *std.hash.Wyhash, value: i32) void {
+    var bytes: [4]u8 = undefined;
+    std.mem.writeInt(u32, &bytes, @bitCast(value), .little);
+    hasher.update(&bytes);
+}
+
 fn hashF32(hasher: *std.hash.Wyhash, value: f32) void {
     var bytes: [4]u8 = undefined;
     std.mem.writeInt(u32, &bytes, @bitCast(value), .little);
@@ -1019,6 +1212,19 @@ fn hashBF16Slice(values: []const BFloat16) u64 {
 
 test "Axiom CUDA bridge is disabled by default but reports deterministically" {
     const report = runSmoke(std.testing.allocator);
+    try std.testing.expectEqual(cuda_dtype_support.len, report.dtype_support_count);
+    try std.testing.expectEqual(@as(usize, 3), report.dtype_bridge_count);
+    try std.testing.expectEqual(@as(usize, 1), report.dtype_native_seed_count);
+    try std.testing.expectEqual(@as(usize, 2), report.dtype_widened_seed_count);
+    try std.testing.expect(report.dtype_support_fingerprint != 0);
+    const f16_record = findCudaDTypeSupport("CUDA_R_16F").?;
+    try std.testing.expectEqual(CudaDTypeBridgeStatus.widened_f32_seed, f16_record.status);
+    try std.testing.expectEqual(array_mod.DType.f16, f16_record.vectra_dtype.?);
+    const bf16_record = findVectraDTypeSupport(.bf16).?;
+    try std.testing.expectEqualStrings("CUDA_R_16BF", bf16_record.cuda_name);
+    const f32_record = findVectraDTypeSupport(.f32).?;
+    try std.testing.expectEqual(CudaDTypeBridgeStatus.native_cuda_seed, f32_record.status);
+    try std.testing.expect(findCudaDTypeSupport("CUDA_R_8F_E4M3") != null);
     if (build_options.enable_axiom_cuda) {
         try std.testing.expect(report.status == .ran or report.status == .skipped or report.status == .failed);
     } else {

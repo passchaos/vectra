@@ -32,6 +32,25 @@ Local CUDA evidence: `/usr/local/cuda/include/library_types.h` declares
 | `CUDA_R_6F_E2M3` / `CUDA_R_6F_E3M2` | fp6 formats | Not exposed | Planned. |
 | `CUDA_R_4F_E2M1` | fp4 format | Not exposed | Planned. |
 
+The same data is available to code through `vx.axiom_cuda`:
+
+- `cudaDTypeSupportRecords()`
+- `findCudaDTypeSupport(cuda_name)`
+- `findVectraDTypeSupport(dtype)`
+- `cudaDTypeNativeSeedCount()`
+- `cudaDTypeWidenedSeedCount()`
+- `cudaDTypeBridgeCount()`
+- `cudaDTypeSupportFingerprint()`
+
+Current registry summary:
+
+| Counter | Expected value | Meaning |
+| --- | ---: | --- |
+| `cudaDTypeSupportRecords().len` | 34 | CUDA dtype names mirrored from `cudaDataType_t` in the local CUDA headers |
+| `cudaDTypeNativeSeedCount()` | 1 | `CUDA_R_32F` / `Array(f32)` native Axiom CUDA seed |
+| `cudaDTypeWidenedSeedCount()` | 2 | `CUDA_R_16F` / `Array(f16)` and `CUDA_R_16BF` / `Array(BFloat16)` widened-to-f32 CUDA seeds |
+| `cudaDTypeBridgeCount()` | 3 | All current Axiom CUDA-bridged Vectra dtypes |
+
 ## Current bridge behavior
 
 - `Array(f32)` is the native CUDA seed path.
@@ -52,4 +71,7 @@ zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 ```
 
 The CUDA smoke JSON includes `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`, and
-`bf16_matmul_ok` fields when the optional bridge is enabled.
+`bf16_matmul_ok` fields when the optional bridge is enabled. It also includes
+`dtype_support_count`, `dtype_bridge_count`, `dtype_native_seed_count`,
+`dtype_widened_seed_count`, and `dtype_support_fingerprint` so CI can detect
+unexpected dtype-registry drift.
