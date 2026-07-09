@@ -2899,6 +2899,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.variance(axis_opt, keepdims, correction);
         }
 
+        pub fn var_(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
+            return self.variance(axis_opt, keepdims, correction);
+        }
+
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -10445,6 +10449,10 @@ pub fn Array(comptime T: type) type {
             return Self.fromSlice(self.allocator, &.{result}, &.{});
         }
 
+        pub fn var_(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
+            return self.variance(axis_opt, keepdims, correction);
+        }
+
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
             if (axes.len == 0) return self.clone();
@@ -14255,6 +14263,9 @@ test "array scipy-like statistics and softmax" {
     var var_top = try a.variance(null, false, 0);
     defer var_top.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.25), var_top.data[0], 1e-12);
+    var var_alias = try a.var_(null, false, 0);
+    defer var_alias.deinit();
+    try std.testing.expectApproxEqAbs(var_top.data[0], var_alias.data[0], 1e-12);
     var std_top = try a.stddev(null, false, 0);
     defer std_top.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.118033988749895), std_top.data[0], 1e-12);
@@ -15421,6 +15432,9 @@ test "array view object statistics wrappers" {
     var view_var_axes = try view.varianceAxes(&.{ 0, 1 }, false, 0);
     defer view_var_axes.deinit();
     try std.testing.expect(std.math.isNan(view_var_axes.data[0]));
+    var view_var_alias = try view.var_(null, false, 0);
+    defer view_var_alias.deinit();
+    try std.testing.expect(std.math.isNan(view_var_alias.data[0]));
     var view_nansum_axes = try view.nansumAxes(&.{ 0, 1 }, false);
     defer view_nansum_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{18}, view_nansum_axes.data);
