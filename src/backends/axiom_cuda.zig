@@ -702,6 +702,7 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
 pub fn tryMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return null;
+    if (try tryMatmulBF16AxiomWidened(lhs, rhs)) |out| return out;
 
     var lhs32 = try bf16ArrayToF32(lhs);
     defer lhs32.deinit();
@@ -715,6 +716,7 @@ pub fn tryMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat
 pub fn tryMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedMatmul2dContiguousF16(lhs, rhs)) return null;
+    if (try tryMatmulF16AxiomWidened(lhs, rhs)) |out| return out;
 
     var lhs32 = try f16ArrayToF32(lhs);
     defer lhs32.deinit();
@@ -723,6 +725,67 @@ pub fn tryMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_
     var out32 = try tryMatmulF32(lhs32, rhs32) orelse return null;
     defer out32.deinit();
     return try f32ArrayToF16(out32);
+}
+
+fn tryMatmulF16AxiomWidened(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!supportedMatmul2dContiguousF16(lhs, rhs)) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    var out = try array_mod.Array(f16).empty(lhs.allocator, &.{ m, n });
+    errdefer out.deinit();
+    const c = try lhs.allocator.alloc(f16, m * n);
+    defer lhs.allocator.free(c);
+    @memset(c, @as(f16, 0.0));
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const result = runtime.runTensorGemmF16Widened(lhs.data, rhs.data, c, out.data, .{
+        .m = m,
+        .n = n,
+        .k = k,
+        .tile_x = @intCast(@min(n, @as(usize, 16))),
+        .tile_y = @intCast(@min(m, @as(usize, 16))),
+        .kernel_symbol = "vectra_axiom_widened_f16_gemm",
+    }) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => return null,
+    };
+    if (!result.ok()) return null;
+    return out;
+}
+
+fn tryMatmulBF16AxiomWidened(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    var out = try array_mod.Array(BFloat16).empty(lhs.allocator, &.{ m, n });
+    errdefer out.deinit();
+    const lhs_bits = try lhs.allocator.alloc(u16, lhs.data.len);
+    defer lhs.allocator.free(lhs_bits);
+    const rhs_bits = try lhs.allocator.alloc(u16, rhs.data.len);
+    defer lhs.allocator.free(rhs_bits);
+    const c_bits = try lhs.allocator.alloc(u16, m * n);
+    defer lhs.allocator.free(c_bits);
+    const out_bits = try lhs.allocator.alloc(u16, m * n);
+    defer lhs.allocator.free(out_bits);
+    for (lhs.data, lhs_bits) |value, *slot| slot.* = value.bits;
+    for (rhs.data, rhs_bits) |value, *slot| slot.* = value.bits;
+    @memset(c_bits, @as(u16, 0));
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const result = runtime.runTensorGemmBF16Widened(lhs_bits, rhs_bits, c_bits, out_bits, .{
+        .m = m,
+        .n = n,
+        .k = k,
+        .tile_x = @intCast(@min(n, @as(usize, 16))),
+        .tile_y = @intCast(@min(m, @as(usize, 16))),
+        .kernel_symbol = "vectra_axiom_widened_bf16_gemm",
+    }) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => return null,
+    };
+    if (!result.ok()) return null;
+    for (out_bits, out.data) |bits, *slot| slot.* = .{ .bits = bits };
+    return out;
 }
 
 pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
@@ -1242,20 +1305,27 @@ fn nativeF16BinaryExecutionFingerprint(allocator: std.mem.Allocator, op: BinaryO
 }
 
 fn widenedF16MatmulProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!u64 {
-    const plan = axiom.accelerator.TensorWidenedExecutionPlan.from(.f16, operation);
-    var lhs32 = try f16ArrayToF32(lhs);
-    defer lhs32.deinit();
-    var rhs32 = try f16ArrayToF32(rhs);
-    defer rhs32.deinit();
-    var compute = try tryMatmulF32(lhs32, rhs32) orelse return error.BackendFailure;
-    defer compute.deinit();
-    const narrow_out = try allocator.alloc(f16, compute.data.len);
-    defer allocator.free(narrow_out);
-    const input_report = axiom.accelerator.tensor_adapter.widenF16ToF32(lhs.data, lhs32.data) catch |err| return mapTensorAdapterError(err);
-    const output_report = axiom.accelerator.tensor_adapter.narrowF32ToF16(compute.data, narrow_out) catch |err| return mapTensorAdapterError(err);
-    const report = axiom.accelerator.TensorWidenedExecutionReport.fromReports(plan, input_report, hashF32Slice(compute.data), output_report);
-    if (!report.ok()) return error.BackendFailure;
-    return report.fingerprint();
+    _ = operation;
+    if (!supportedMatmul2dContiguousF16(lhs, rhs)) return error.ShapeMismatch;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    const c = try allocator.alloc(f16, m * n);
+    defer allocator.free(c);
+    const out = try allocator.alloc(f16, m * n);
+    defer allocator.free(out);
+    @memset(c, @as(f16, 0.0));
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const result = runtime.runTensorGemmF16Widened(lhs.data, rhs.data, c, out, .{
+        .m = m,
+        .n = n,
+        .k = k,
+        .tile_x = @intCast(@min(n, @as(usize, 16))),
+        .tile_y = @intCast(@min(m, @as(usize, 16))),
+        .kernel_symbol = "vectra_axiom_widened_f16_gemm_probe",
+    }) catch |err| return mapTensorAdapterError(err);
+    if (!result.ok()) return error.BackendFailure;
+    return result.fingerprint();
 }
 
 fn widenedBF16BinaryProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!u64 {
@@ -1299,23 +1369,33 @@ fn nativeBF16BinaryExecutionFingerprint(allocator: std.mem.Allocator, op: Binary
 }
 
 fn widenedBF16MatmulProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!u64 {
-    const plan = axiom.accelerator.TensorWidenedExecutionPlan.from(.bf16, operation);
-    var lhs32 = try bf16ArrayToF32(lhs);
-    defer lhs32.deinit();
-    var rhs32 = try bf16ArrayToF32(rhs);
-    defer rhs32.deinit();
-    var compute = try tryMatmulF32(lhs32, rhs32) orelse return error.BackendFailure;
-    defer compute.deinit();
+    _ = operation;
+    if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return error.ShapeMismatch;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
     const lhs_bits = try allocator.alloc(u16, lhs.data.len);
     defer allocator.free(lhs_bits);
+    const rhs_bits = try allocator.alloc(u16, rhs.data.len);
+    defer allocator.free(rhs_bits);
+    const c_bits = try allocator.alloc(u16, m * n);
+    defer allocator.free(c_bits);
+    const out_bits = try allocator.alloc(u16, m * n);
+    defer allocator.free(out_bits);
     for (lhs.data, lhs_bits) |value, *slot| slot.* = value.bits;
-    const narrow_bits = try allocator.alloc(u16, compute.data.len);
-    defer allocator.free(narrow_bits);
-    const input_report = axiom.accelerator.tensor_adapter.widenBF16ToF32(lhs_bits, lhs32.data) catch |err| return mapTensorAdapterError(err);
-    const output_report = axiom.accelerator.tensor_adapter.narrowF32ToBF16(compute.data, narrow_bits) catch |err| return mapTensorAdapterError(err);
-    const report = axiom.accelerator.TensorWidenedExecutionReport.fromReports(plan, input_report, hashF32Slice(compute.data), output_report);
-    if (!report.ok()) return error.BackendFailure;
-    return report.fingerprint();
+    for (rhs.data, rhs_bits) |value, *slot| slot.* = value.bits;
+    @memset(c_bits, @as(u16, 0));
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const result = runtime.runTensorGemmBF16Widened(lhs_bits, rhs_bits, c_bits, out_bits, .{
+        .m = m,
+        .n = n,
+        .k = k,
+        .tile_x = @intCast(@min(n, @as(usize, 16))),
+        .tile_y = @intCast(@min(m, @as(usize, 16))),
+        .kernel_symbol = "vectra_axiom_widened_bf16_gemm_probe",
+    }) catch |err| return mapTensorAdapterError(err);
+    if (!result.ok()) return error.BackendFailure;
+    return result.fingerprint();
 }
 
 fn mapTensorAdapterError(err: anyerror) array_mod.ArrayError {

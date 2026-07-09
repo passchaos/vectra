@@ -29,8 +29,8 @@ zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
 
 The CUDA smoke gate runs f32 add/sub/mul/div, f32 SAXPY, scalar-broadcast f32
 add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, 2D f32
-matmul, native f16/BFloat16 same-shape elementwise seeds, and widened
-f16/BFloat16 matmul/provenance seeds.  f32 elementwise/SAXPY paths use Axiom's
+matmul, native f16/BFloat16 same-shape elementwise seeds, and Axiom-owned
+widened f16/BFloat16 GEMM/provenance seeds.  f32 elementwise/SAXPY paths use Axiom's
 builder-style CUDA tensor runtime; f16/BFloat16 same-shape elementwise dispatch
 now tries Axiom's native typed runtime seed before falling back to widened f32
 compute; f16/BFloat16 elementwise provenance calls Axiom's widened elementwise runtime APIs directly;
@@ -64,7 +64,7 @@ The current automatic dispatch covers contiguous same-shape `add/sub/mul/div`,
 scalar `addScalar/subScalar/mulScalar/divScalar`, scalar-array broadcast
 `add/sub/mul/div`, and contiguous 2D `matmul`.  CUDA native seed routes cover
 f32 and same-shape f16/BFloat16 elementwise operations; f16/BFloat16 matmul
-currently uses a widen-to-f32 CUDA seed before narrowing back.
+currently uses Axiom's widened GEMM runtime bridge before narrowing back.
 For elementwise provenance, Vectra consumes Axiom's
 `runTensorElementwiseBinaryF16Widened` and
 `runTensorElementwiseBinaryBF16Widened` runtime reports instead of rebuilding
@@ -139,7 +139,7 @@ should fall back to Vectra's CPU/Veyra paths in that case.
   routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path. f16 and
   BFloat16 elementwise provenance uses Axiom widened runtime reports, including
   f32 CUDA compute evidence when that runtime route is available; f16 and
-  BFloat16 matmul widen through f32 today. f64 matmul routes through Axiom
+  BFloat16 matmul use Axiom-owned widened GEMM runtime reports today. f64 matmul routes through Axiom
   CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
 - The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.
 - f64 CUDA tensor runtime support is not exposed yet.
