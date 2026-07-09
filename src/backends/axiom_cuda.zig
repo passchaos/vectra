@@ -28,6 +28,7 @@ pub const BinaryOp = enum {
     add,
     sub,
     mul,
+    div,
 };
 
 pub const BufferPlanEvidence = struct {
@@ -49,6 +50,7 @@ pub const SmokeReport = struct {
     add_ok: bool = false,
     sub_ok: bool = false,
     mul_ok: bool = false,
+    div_ok: bool = false,
     saxpy_ok: bool = false,
     matmul_ok: bool = false,
     scalar_add_ok: bool = false,
@@ -65,7 +67,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
             .failed => false,
         };
     }
@@ -77,6 +79,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.add_ok);
         hashBool(&hasher, report.sub_ok);
         hashBool(&hasher, report.mul_ok);
+        hashBool(&hasher, report.div_ok);
         hashBool(&hasher, report.saxpy_ok);
         hashBool(&hasher, report.matmul_ok);
         hashBool(&hasher, report.scalar_add_ok);
@@ -102,7 +105,7 @@ pub const SmokeReport = struct {
 
     pub fn writeText(report: SmokeReport, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} saxpy={} matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
             .{
                 report.enabled,
                 report.status.label(),
@@ -111,6 +114,7 @@ pub const SmokeReport = struct {
                 report.add_ok,
                 report.sub_ok,
                 report.mul_ok,
+                report.div_ok,
                 report.saxpy_ok,
                 report.matmul_ok,
                 report.scalar_add_ok,
@@ -141,6 +145,7 @@ pub const SmokeReport = struct {
                 "  \"add_ok\": {},\n" ++
                 "  \"sub_ok\": {},\n" ++
                 "  \"mul_ok\": {},\n" ++
+                "  \"div_ok\": {},\n" ++
                 "  \"saxpy_ok\": {},\n" ++
                 "  \"matmul_ok\": {},\n" ++
                 "  \"scalar_add_ok\": {},\n" ++
@@ -170,6 +175,7 @@ pub const SmokeReport = struct {
                 report.add_ok,
                 report.sub_ok,
                 report.mul_ok,
+                report.div_ok,
                 report.saxpy_ok,
                 report.matmul_ok,
                 report.scalar_add_ok,
@@ -233,6 +239,10 @@ pub fn tryMulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod
     return tryBinaryF32(.mul, lhs, rhs);
 }
 
+pub fn tryDivF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryBinaryF32(.div, lhs, rhs);
+}
+
 pub fn trySaxpyF32(alpha: f32, x: array_mod.Array(f32), y: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedSameShapeContiguous(x, y)) return null;
@@ -275,6 +285,15 @@ pub fn tryMulScalarF32(input: array_mod.Array(f32), scalar: f32) array_mod.Array
     return tryBinaryF32(.mul, scalar_array, input);
 }
 
+pub fn tryDivScalarF32(input: array_mod.Array(f32), scalar: f32) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedNonEmptyContiguous(input)) return null;
+
+    var scalar_array = try array_mod.Array(f32).full(input.allocator, input.shape, scalar);
+    defer scalar_array.deinit();
+    return tryBinaryF32(.div, input, scalar_array);
+}
+
 pub fn trySaxpyScalarF32(alpha: f32, scalar_x: f32, y: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedNonEmptyContiguous(y)) return null;
@@ -290,6 +309,10 @@ pub fn tryAddViewF32(lhs: array_mod.ArrayView(f32), rhs: array_mod.ArrayView(f32
 
 pub fn tryMulViewF32(lhs: array_mod.ArrayView(f32), rhs: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryBinaryViewF32(.mul, lhs, rhs);
+}
+
+pub fn tryDivViewF32(lhs: array_mod.ArrayView(f32), rhs: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryBinaryViewF32(.div, lhs, rhs);
 }
 
 pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -386,6 +409,14 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
+    var div_out = tryDivF32(rhs, lhs) catch return failedReport();
+    if (div_out) |*out| {
+        defer out.deinit();
+        report.div_ok = sliceClose(out.data, &.{ 10, 10, 10, 10 }, 0.0);
+        report.max_abs_error = @max(report.max_abs_error, maxAbsError(out.data, &.{ 10, 10, 10, 10 }));
+        report.output_fingerprint ^= hashF32Slice(out.data);
+    }
+
     var saxpy_out = trySaxpyF32(2.0, lhs, rhs) catch return failedReport();
     if (saxpy_out) |*out| {
         defer out.deinit();
@@ -413,11 +444,11 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
-    if (report.add_ok and report.sub_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
+    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
-    } else if (add_out == null and sub_out == null and mul_out == null and saxpy_out == null and matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null) {
+    } else if (add_out == null and sub_out == null and mul_out == null and div_out == null and saxpy_out == null and matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null) {
         report.status = .skipped;
         report.issue_count = 0;
     } else {
@@ -427,6 +458,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!report.add_ok)) +
             @as(u8, @intFromBool(!report.sub_ok)) +
             @as(u8, @intFromBool(!report.mul_ok)) +
+            @as(u8, @intFromBool(!report.div_ok)) +
             @as(u8, @intFromBool(!report.saxpy_ok)) +
             @as(u8, @intFromBool(!report.matmul_ok)) +
             @as(u8, @intFromBool(!report.scalar_add_ok)) +
@@ -450,6 +482,7 @@ fn tryBinaryViewF32(op: BinaryOp, lhs: array_mod.ArrayView(f32), rhs: array_mod.
         .add => .add,
         .sub => .sub,
         .mul => .mul,
+        .div => .div,
     };
     const result = runtime.runTensorElementwiseBinary(lhs_slice, rhs_slice, out.data, .{
         .op = axiom_op,
@@ -461,6 +494,7 @@ fn tryBinaryViewF32(op: BinaryOp, lhs: array_mod.ArrayView(f32), rhs: array_mod.
             .add => "vectra_axiom_strided_add",
             .sub => "vectra_axiom_strided_sub",
             .mul => "vectra_axiom_strided_mul",
+            .div => "vectra_axiom_strided_div",
         },
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
@@ -482,6 +516,7 @@ fn tryBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f3
         .add => .add,
         .sub => .sub,
         .mul => .mul,
+        .div => .div,
     };
     const result = runtime.runTensorElementwiseBinary(lhs.data, rhs.data, out.data, .{
         .op = axiom_op,
@@ -490,6 +525,7 @@ fn tryBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f3
             .add => "vectra_axiom_add",
             .sub => "vectra_axiom_sub",
             .mul => "vectra_axiom_mul",
+            .div => "vectra_axiom_div",
         },
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,

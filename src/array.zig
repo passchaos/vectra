@@ -14497,6 +14497,8 @@ pub fn Array(comptime T: type) type {
                         try axiom_cuda_backend.trySubF32(self, other)
                     else if (comptime op == opMul)
                         try axiom_cuda_backend.tryMulF32(self, other)
+                    else if (comptime op == opDiv)
+                        try axiom_cuda_backend.tryDivF32(self, other)
                     else
                         null;
                     if (accelerated) |out| return out;
@@ -15278,6 +15280,12 @@ pub fn Array(comptime T: type) type {
 
         pub fn divScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32) {
+                if (build_options.enable_axiom_cuda_dispatch) {
+                    const accelerated = try axiom_cuda_backend.tryDivScalarF32(self, scalar);
+                    if (accelerated) |out| return out;
+                }
+            }
             return self.binaryScalar(scalar, opDiv);
         }
 
