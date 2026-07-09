@@ -3587,6 +3587,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.sumAxes(axes, keepdims);
         }
 
+        pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.sum(dim_opt, keepdim);
+        }
+
+        pub fn sum_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.sumDim(dim_opt, keepdim);
+        }
+
+        pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.sumAxes(dims, keepdim);
+        }
+
+        pub fn sum_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.sumDims(dims, keepdim);
+        }
+
         pub fn sumToSize(self: Self, dims: []const usize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3610,6 +3626,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn prod_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.prodAxes(axes, keepdims);
+        }
+
+        pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.prod(dim_opt, keepdim);
+        }
+
+        pub fn prod_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.prodDim(dim_opt, keepdim);
+        }
+
+        pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.prodAxes(dims, keepdim);
+        }
+
+        pub fn prod_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.prodDims(dims, keepdim);
         }
 
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -3643,6 +3675,38 @@ pub fn ArrayView(comptime T: type) type {
             return self.minAxes(axes, keepdims);
         }
 
+        pub fn minDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.min(dim_opt, keepdim);
+        }
+
+        pub fn min_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.minDim(dim_opt, keepdim);
+        }
+
+        pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.amin(dim_opt, keepdim);
+        }
+
+        pub fn amin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.aminDim(dim_opt, keepdim);
+        }
+
+        pub fn minDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.minAxes(dims, keepdim);
+        }
+
+        pub fn min_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.minDims(dims, keepdim);
+        }
+
+        pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.aminAxes(dims, keepdim);
+        }
+
+        pub fn amin_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.aminDims(dims, keepdim);
+        }
+
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.reduceFirst(axis_opt, keepdims, struct {
@@ -3674,6 +3738,38 @@ pub fn ArrayView(comptime T: type) type {
             return self.maxAxes(axes, keepdims);
         }
 
+        pub fn maxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.max(dim_opt, keepdim);
+        }
+
+        pub fn max_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.maxDim(dim_opt, keepdim);
+        }
+
+        pub fn amaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.amax(dim_opt, keepdim);
+        }
+
+        pub fn amax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.amaxDim(dim_opt, keepdim);
+        }
+
+        pub fn maxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.maxAxes(dims, keepdim);
+        }
+
+        pub fn max_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.maxDims(dims, keepdim);
+        }
+
+        pub fn amaxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.amaxAxes(dims, keepdim);
+        }
+
+        pub fn amax_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.amaxDims(dims, keepdim);
+        }
+
         pub fn ptp(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var max_values = try self.max(axis_opt, keepdims);
             defer max_values.deinit();
@@ -3690,6 +3786,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn ptp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.ptpAxes(axes, keepdims);
+        }
+
+        pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.ptp(dim_opt, keepdim);
+        }
+
+        pub fn ptp_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.ptpDim(dim_opt, keepdim);
+        }
+
+        pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.ptpAxes(dims, keepdim);
+        }
+
+        pub fn ptp_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.ptpDims(dims, keepdim);
         }
 
         pub fn mean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -3715,6 +3827,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn mean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.meanAxes(axes, keepdims);
+        }
+
+        pub fn meanDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.mean(dim_opt, keepdim);
+        }
+
+        pub fn mean_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.meanDim(dim_opt, keepdim);
+        }
+
+        pub fn meanDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.meanAxes(dims, keepdim);
+        }
+
+        pub fn mean_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.meanDims(dims, keepdim);
         }
 
         pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -3745,6 +3873,38 @@ pub fn ArrayView(comptime T: type) type {
             return self.varianceAxes(axes, keepdims, correction);
         }
 
+        pub fn varianceDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.variance(dim_opt, keepdim, correction);
+        }
+
+        pub fn variance_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.varianceDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn varDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.var_(dim_opt, keepdim, correction);
+        }
+
+        pub fn var_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.varDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn varianceDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.varianceAxes(dims, keepdim, correction);
+        }
+
+        pub fn variance_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.varianceDims(dims, keepdim, correction);
+        }
+
+        pub fn varDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.varAxes(dims, keepdim, correction);
+        }
+
+        pub fn var_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.varDims(dims, keepdim, correction);
+        }
+
         pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3769,6 +3929,38 @@ pub fn ArrayView(comptime T: type) type {
             return self.stddevAxes(axes, keepdims, correction);
         }
 
+        pub fn stddevDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.stddev(dim_opt, keepdim, correction);
+        }
+
+        pub fn stddev_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.stddevDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn stdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.stddev(dim_opt, keepdim, correction);
+        }
+
+        pub fn std_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.stdDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn stddevDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.stddevAxes(dims, keepdim, correction);
+        }
+
+        pub fn stddev_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.stddevDims(dims, keepdim, correction);
+        }
+
+        pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.stdAxes(dims, keepdim, correction);
+        }
+
+        pub fn std_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.stdDims(dims, keepdim, correction);
+        }
+
         pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3783,6 +3975,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn median_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.medianAxes(axes, keepdims);
+        }
+
+        pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.median(dim_opt, keepdim);
+        }
+
+        pub fn median_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.medianDim(dim_opt, keepdim);
+        }
+
+        pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.medianAxes(dims, keepdim);
+        }
+
+        pub fn median_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.medianDims(dims, keepdim);
         }
 
         pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -3801,6 +4009,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.quantileAxes(q, axes, keepdims);
         }
 
+        pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.quantile(q, dim_opt, keepdim);
+        }
+
+        pub fn quantile_dim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.quantileDim(q, dim_opt, keepdim);
+        }
+
+        pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.quantileAxes(q, dims, keepdim);
+        }
+
+        pub fn quantile_dims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.quantileDims(q, dims, keepdim);
+        }
+
         pub fn percentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3815,6 +4039,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn percentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.percentileAxes(p, axes, keepdims);
+        }
+
+        pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.percentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn percentile_dim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.percentileDim(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn percentile_dims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.percentileDims(percentile_value, dims, keepdim);
         }
 
         pub fn average(self: Self, weights: ?Array(T), axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -3925,6 +4165,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.nansumAxes(axes, keepdims);
         }
 
+        pub fn nansumDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nansum(dim_opt, keepdim);
+        }
+
+        pub fn nansum_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nansumDim(dim_opt, keepdim);
+        }
+
+        pub fn nansumDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nansumAxes(dims, keepdim);
+        }
+
+        pub fn nansum_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nansumDims(dims, keepdim);
+        }
+
         pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3939,6 +4195,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn nanmean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.nanmeanAxes(axes, keepdims);
+        }
+
+        pub fn nanmeanDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmean(dim_opt, keepdim);
+        }
+
+        pub fn nanmean_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmeanDim(dim_opt, keepdim);
+        }
+
+        pub fn nanmeanDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmeanAxes(dims, keepdim);
+        }
+
+        pub fn nanmean_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmeanDims(dims, keepdim);
         }
 
         pub fn nanvar(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -3957,6 +4229,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.nanvarAxes(axes, keepdims, correction);
         }
 
+        pub fn nanvarDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.nanvar(dim_opt, keepdim, correction);
+        }
+
+        pub fn nanvar_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.nanvarDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn nanvarDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.nanvarAxes(dims, keepdim, correction);
+        }
+
+        pub fn nanvar_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.nanvarDims(dims, keepdim, correction);
+        }
+
         pub fn nanstd(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3971,6 +4259,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn nanstd_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             return self.nanstdAxes(axes, keepdims, correction);
+        }
+
+        pub fn nanstdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.nanstd(dim_opt, keepdim, correction);
+        }
+
+        pub fn nanstd_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.nanstdDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn nanstdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.nanstdAxes(dims, keepdim, correction);
+        }
+
+        pub fn nanstd_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
+            return self.nanstdDims(dims, keepdim, correction);
         }
 
         pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -3989,6 +4293,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.nanminAxes(axes, keepdims);
         }
 
+        pub fn nanminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmin(dim_opt, keepdim);
+        }
+
+        pub fn nanmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanminDim(dim_opt, keepdim);
+        }
+
+        pub fn nanminDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanminAxes(dims, keepdim);
+        }
+
+        pub fn nanmin_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanminDims(dims, keepdim);
+        }
+
         pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -4003,6 +4323,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn nanmax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.nanmaxAxes(axes, keepdims);
+        }
+
+        pub fn nanmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmax(dim_opt, keepdim);
+        }
+
+        pub fn nanmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmaxDim(dim_opt, keepdim);
+        }
+
+        pub fn nanmaxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmaxAxes(dims, keepdim);
+        }
+
+        pub fn nanmax_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmaxDims(dims, keepdim);
         }
 
         pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -4021,6 +4357,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.nanmedianAxes(axes, keepdims);
         }
 
+        pub fn nanmedianDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmedian(dim_opt, keepdim);
+        }
+
+        pub fn nanmedian_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmedianDim(dim_opt, keepdim);
+        }
+
+        pub fn nanmedianDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmedianAxes(dims, keepdim);
+        }
+
+        pub fn nanmedian_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanmedianDims(dims, keepdim);
+        }
+
         pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -4037,6 +4389,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.nanquantileAxes(q, axes, keepdims);
         }
 
+        pub fn nanquantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanquantile(q, dim_opt, keepdim);
+        }
+
+        pub fn nanquantile_dim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanquantileDim(q, dim_opt, keepdim);
+        }
+
+        pub fn nanquantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanquantileAxes(q, dims, keepdim);
+        }
+
+        pub fn nanquantile_dims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanquantileDims(q, dims, keepdim);
+        }
+
         pub fn nanpercentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -4051,6 +4419,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn nanpercentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.nanpercentileAxes(p, axes, keepdims);
+        }
+
+        pub fn nanpercentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanpercentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn nanpercentile_dim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanpercentileDim(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn nanpercentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanpercentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn nanpercentile_dims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.nanpercentileDims(percentile_value, dims, keepdim);
         }
 
         pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
@@ -4103,10 +4487,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.cumsumAxis(axis_index);
         }
 
+        pub fn cumsumDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.cumsumAxis(dim_index);
+        }
+
+        pub fn cumsum_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.cumsumDim(dim_index);
+        }
+
         pub fn cumprodAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.cumprodAxis(axis_index);
+        }
+
+        pub fn cumprodDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.cumprodAxis(dim_index);
+        }
+
+        pub fn cumprod_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.cumprodDim(dim_index);
         }
 
         pub fn cummaxAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
@@ -4115,10 +4515,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.cummaxAxis(axis_index);
         }
 
+        pub fn cummaxDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.cummaxAxis(dim_index);
+        }
+
+        pub fn cummax_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.cummaxDim(dim_index);
+        }
+
         pub fn cumminAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.cumminAxis(axis_index);
+        }
+
+        pub fn cumminDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.cumminAxis(dim_index);
+        }
+
+        pub fn cummin_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.cumminDim(dim_index);
         }
 
         pub fn logcumsumexp(self: Self) ArrayError!Array(T) {
@@ -4131,6 +4547,14 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.logcumsumexpAxis(axis_index);
+        }
+
+        pub fn logcumsumexpDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.logcumsumexpAxis(dim_index);
+        }
+
+        pub fn logcumsumexp_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.logcumsumexpDim(dim_index);
         }
 
         pub fn diff(self: Self, axis_index: isize, n: usize) ArrayError!Array(T) {
@@ -4201,10 +4625,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.argmaxAxis(axis_opt, keepdims);
         }
 
+        pub fn argmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.argmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn argmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.argmaxDim(dim_opt, keepdim);
+        }
+
         pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.argminAxis(axis_opt, keepdims);
+        }
+
+        pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.argminAxis(dim_opt, keepdim);
+        }
+
+        pub fn argmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.argminDim(dim_opt, keepdim);
         }
 
         pub fn nanargmax(self: Self) ArrayError!usize {
@@ -4225,10 +4665,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.nanargmaxAxis(axis_opt, keepdims);
         }
 
+        pub fn nanargmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.nanargmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.nanargmaxDim(dim_opt, keepdim);
+        }
+
         pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.nanargminAxis(axis_opt, keepdims);
+        }
+
+        pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.nanargminAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.nanargminDim(dim_opt, keepdim);
         }
 
         pub fn materializedApply(self: Self, comptime U: type, comptime method: fn (Array(T)) ArrayError!Array(U)) ArrayError!Array(U) {
@@ -4241,6 +4697,14 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.softmax(axis_index);
+        }
+
+        pub fn softmaxDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.softmax(dim_index);
+        }
+
+        pub fn softmax_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.softmaxDim(dim_index);
         }
 
         pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Array(T) {
@@ -4265,6 +4729,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.normAxes(p, axes, keepdims);
         }
 
+        pub fn normDim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.norm(p, dim_opt, keepdim);
+        }
+
+        pub fn norm_dim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.normDim(p, dim_opt, keepdim);
+        }
+
+        pub fn normDims(self: Self, p: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.normAxes(p, dims, keepdim);
+        }
+
+        pub fn norm_dims(self: Self, p: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.normDims(p, dims, keepdim);
+        }
+
         pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -4281,8 +4761,32 @@ pub fn ArrayView(comptime T: type) type {
             return self.logsumexpAxes(axes, keepdims);
         }
 
+        pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) ArrayError!Array(T) {
+            return self.logsumexp(dim_index, keepdim);
+        }
+
+        pub fn logsumexp_dim(self: Self, dim_index: isize, keepdim: bool) ArrayError!Array(T) {
+            return self.logsumexpDim(dim_index, keepdim);
+        }
+
+        pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn logsumexp_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.logsumexpDims(dims, keepdim);
+        }
+
         pub fn log_softmax(self: Self, axis_index: isize) ArrayError!Array(T) {
             return self.logSoftmax(axis_index);
+        }
+
+        pub fn logSoftmaxDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.logSoftmax(dim_index);
+        }
+
+        pub fn log_softmax_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.logSoftmaxDim(dim_index);
         }
 
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
@@ -4337,6 +4841,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.sortBy(axis_opt, true);
         }
 
+        pub fn sortDim(self: Self, dim_opt: ?isize) ArrayError!Array(T) {
+            return self.sort(dim_opt);
+        }
+
+        pub fn sort_dim(self: Self, dim_opt: ?isize) ArrayError!Array(T) {
+            return self.sortDim(dim_opt);
+        }
+
+        pub fn sortByDim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(T) {
+            return self.sortBy(dim_opt, descending);
+        }
+
+        pub fn sort_by_dim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(T) {
+            return self.sortByDim(dim_opt, descending);
+        }
+
         pub fn argsort(self: Self) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -4347,6 +4867,14 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.argsortAxis(axis_opt, descending);
+        }
+
+        pub fn argsortDim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            return self.argsortAxis(dim_opt, descending);
+        }
+
+        pub fn argsort_dim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            return self.argsortDim(dim_opt, descending);
         }
 
         pub fn argsortDescending(self: Self) ArrayError!Array(usize) {
@@ -4367,16 +4895,40 @@ pub fn ArrayView(comptime T: type) type {
             return owned.partition(kth, axis_opt, descending);
         }
 
+        pub fn partitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(T) {
+            return self.partition(kth, dim_opt, descending);
+        }
+
+        pub fn partition_dim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(T) {
+            return self.partitionDim(kth, dim_opt, descending);
+        }
+
         pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.argpartition(kth, axis_opt, descending);
         }
 
+        pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            return self.argpartition(kth, dim_opt, descending);
+        }
+
+        pub fn argpartition_dim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            return self.argpartitionDim(kth, dim_opt, descending);
+        }
+
         pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) ArrayError!Array(T).TopK {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.topk(k, axis_opt, largest, sorted);
+        }
+
+        pub fn topkDim(self: Self, k: usize, dim_opt: ?isize, largest: bool, sorted: bool) ArrayError!Array(T).TopK {
+            return self.topk(k, dim_opt, largest, sorted);
+        }
+
+        pub fn topk_dim(self: Self, k: usize, dim_opt: ?isize, largest: bool, sorted: bool) ArrayError!Array(T).TopK {
+            return self.topkDim(k, dim_opt, largest, sorted);
         }
 
         pub fn kthValue(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T).KthValue {
@@ -4387,6 +4939,14 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn kth_value(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T).KthValue {
             return self.kthValue(k, axis_opt, keepdims);
+        }
+
+        pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T).KthValue {
+            return self.kthValue(k, dim_opt, keepdim);
+        }
+
+        pub fn kth_value_dim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T).KthValue {
+            return self.kthValueDim(k, dim_opt, keepdim);
         }
 
         pub fn take(self: Self, indices: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
@@ -4776,6 +5336,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.countNonzeroAxes(axes, keepdims);
         }
 
+        pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.countNonzeroAxis(dim_opt, keepdim);
+        }
+
+        pub fn count_nonzero_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.countNonzeroDim(dim_opt, keepdim);
+        }
+
+        pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.countNonzeroAxes(dims, keepdim);
+        }
+
+        pub fn count_nonzero_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.countNonzeroDims(dims, keepdim);
+        }
+
         pub fn all(self: Self) bool {
             var owned = self.toArray() catch return false;
             defer owned.deinit();
@@ -4804,6 +5380,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.allAxes(axes, keepdims);
         }
 
+        pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.allAxis(dim_opt, keepdim);
+        }
+
+        pub fn all_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.allDim(dim_opt, keepdim);
+        }
+
+        pub fn allDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.allAxes(dims, keepdim);
+        }
+
+        pub fn all_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.allDims(dims, keepdim);
+        }
+
         pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -4818,6 +5410,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn any_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.anyAxes(axes, keepdims);
+        }
+
+        pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.anyAxis(dim_opt, keepdim);
+        }
+
+        pub fn any_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
+            return self.anyDim(dim_opt, keepdim);
+        }
+
+        pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.anyAxes(dims, keepdim);
+        }
+
+        pub fn any_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
+            return self.anyDims(dims, keepdim);
         }
 
         pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
@@ -10357,6 +10965,22 @@ pub fn Array(comptime T: type) type {
             return self.countNonzeroAxes(axes, keepdims);
         }
 
+        pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.countNonzeroAxis(dim_opt, keepdim);
+        }
+
+        pub fn count_nonzero_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.countNonzeroDim(dim_opt, keepdim);
+        }
+
+        pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.countNonzeroAxes(dims, keepdim);
+        }
+
+        pub fn count_nonzero_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.countNonzeroDims(dims, keepdim);
+        }
+
         pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
             const count = self.countNonzero();
             const out = try Array(usize).empty(self.allocator, &.{count});
@@ -12113,6 +12737,22 @@ pub fn Array(comptime T: type) type {
             return self.logsumexpAxes(axes, keepdims);
         }
 
+        pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) ArrayError!Self {
+            return self.logsumexp(dim_index, keepdim);
+        }
+
+        pub fn logsumexp_dim(self: Self, dim_index: isize, keepdim: bool) ArrayError!Self {
+            return self.logsumexpDim(dim_index, keepdim);
+        }
+
+        pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn logsumexp_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.logsumexpDims(dims, keepdim);
+        }
+
         pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Self {
             ensureFloat(T);
             var lse = try self.logsumexp(axis_index, true);
@@ -12122,6 +12762,14 @@ pub fn Array(comptime T: type) type {
 
         pub fn log_softmax(self: Self, axis_index: isize) ArrayError!Self {
             return self.logSoftmax(axis_index);
+        }
+
+        pub fn logSoftmaxDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.logSoftmax(dim_index);
+        }
+
+        pub fn log_softmax_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.logSoftmaxDim(dim_index);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -12474,6 +13122,22 @@ pub fn Array(comptime T: type) type {
             return self.allAxes(axes, keepdims);
         }
 
+        pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.allAxis(dim_opt, keepdim);
+        }
+
+        pub fn all_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.allDim(dim_opt, keepdim);
+        }
+
+        pub fn allDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.allAxes(dims, keepdim);
+        }
+
+        pub fn all_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.allDims(dims, keepdim);
+        }
+
         pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             if (comptime T != bool) @compileError("anyAxes requires Array(bool)");
             return self.reduceAxes(axes, keepdims, Self.anyAxis);
@@ -12481,6 +13145,22 @@ pub fn Array(comptime T: type) type {
 
         pub fn any_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.anyAxes(axes, keepdims);
+        }
+
+        pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.anyAxis(dim_opt, keepdim);
+        }
+
+        pub fn any_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.anyDim(dim_opt, keepdim);
+        }
+
+        pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.anyAxes(dims, keepdim);
+        }
+
+        pub fn any_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.anyDims(dims, keepdim);
         }
 
         fn boolReduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: bool, comptime op: fn (bool, bool) bool) ArrayError!Self {
@@ -12651,6 +13331,22 @@ pub fn Array(comptime T: type) type {
             return self.sumAxes(axes, keepdims);
         }
 
+        pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.sum(dim_opt, keepdim);
+        }
+
+        pub fn sum_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.sumDim(dim_opt, keepdim);
+        }
+
+        pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.sumAxes(dims, keepdim);
+        }
+
+        pub fn sum_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.sumDims(dims, keepdim);
+        }
+
         pub fn sumToSize(self: Self, dims: []const usize) ArrayError!Self {
             ensureNumeric(T);
             if (dims.len > self.shape.len) return error.ShapeMismatch;
@@ -12697,6 +13393,22 @@ pub fn Array(comptime T: type) type {
             return self.prodAxes(axes, keepdims);
         }
 
+        pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.prod(dim_opt, keepdim);
+        }
+
+        pub fn prod_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.prodDim(dim_opt, keepdim);
+        }
+
+        pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.prodAxes(dims, keepdim);
+        }
+
+        pub fn prod_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.prodDims(dims, keepdim);
+        }
+
         pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             return self.reduceAxes(axes, keepdims, Self.min);
@@ -12712,6 +13424,38 @@ pub fn Array(comptime T: type) type {
 
         pub fn amin_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.minAxes(axes, keepdims);
+        }
+
+        pub fn minDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.min(dim_opt, keepdim);
+        }
+
+        pub fn min_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.minDim(dim_opt, keepdim);
+        }
+
+        pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.amin(dim_opt, keepdim);
+        }
+
+        pub fn amin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.aminDim(dim_opt, keepdim);
+        }
+
+        pub fn minDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.minAxes(dims, keepdim);
+        }
+
+        pub fn min_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.minDims(dims, keepdim);
+        }
+
+        pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.aminAxes(dims, keepdim);
+        }
+
+        pub fn amin_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.aminDims(dims, keepdim);
         }
 
         pub fn maxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
@@ -12731,6 +13475,38 @@ pub fn Array(comptime T: type) type {
             return self.maxAxes(axes, keepdims);
         }
 
+        pub fn maxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.max(dim_opt, keepdim);
+        }
+
+        pub fn max_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.maxDim(dim_opt, keepdim);
+        }
+
+        pub fn amaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.amax(dim_opt, keepdim);
+        }
+
+        pub fn amax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.amaxDim(dim_opt, keepdim);
+        }
+
+        pub fn maxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.maxAxes(dims, keepdim);
+        }
+
+        pub fn max_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.maxDims(dims, keepdim);
+        }
+
+        pub fn amaxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.amaxAxes(dims, keepdim);
+        }
+
+        pub fn amax_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.amaxDims(dims, keepdim);
+        }
+
         pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             var max_values = try self.maxAxes(axes, keepdims);
             defer max_values.deinit();
@@ -12741,6 +13517,22 @@ pub fn Array(comptime T: type) type {
 
         pub fn ptp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.ptpAxes(axes, keepdims);
+        }
+
+        pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.ptp(dim_opt, keepdim);
+        }
+
+        pub fn ptp_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.ptpDim(dim_opt, keepdim);
+        }
+
+        pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.ptpAxes(dims, keepdim);
+        }
+
+        pub fn ptp_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.ptpDims(dims, keepdim);
         }
 
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
@@ -12870,6 +13662,22 @@ pub fn Array(comptime T: type) type {
 
         pub fn mean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.meanAxes(axes, keepdims);
+        }
+
+        pub fn meanDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.mean(dim_opt, keepdim);
+        }
+
+        pub fn mean_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.meanDim(dim_opt, keepdim);
+        }
+
+        pub fn meanDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.meanAxes(dims, keepdim);
+        }
+
+        pub fn mean_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.meanDims(dims, keepdim);
         }
 
         pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
@@ -13015,6 +13823,38 @@ pub fn Array(comptime T: type) type {
             return self.varianceAxes(axes, keepdims, correction);
         }
 
+        pub fn varianceDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.variance(dim_opt, keepdim, correction);
+        }
+
+        pub fn variance_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.varianceDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn varDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.var_(dim_opt, keepdim, correction);
+        }
+
+        pub fn var_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.varDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn varianceDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.varianceAxes(dims, keepdim, correction);
+        }
+
+        pub fn variance_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.varianceDims(dims, keepdim, correction);
+        }
+
+        pub fn varDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.varAxes(dims, keepdim, correction);
+        }
+
+        pub fn var_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.varDims(dims, keepdim, correction);
+        }
+
         pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             const out = try self.variance(axis_opt, keepdims, correction);
             for (out.data) |*v| v.* = std.math.sqrt(v.*);
@@ -13038,6 +13878,38 @@ pub fn Array(comptime T: type) type {
 
         pub fn std_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
             return self.stddevAxes(axes, keepdims, correction);
+        }
+
+        pub fn stddevDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.stddev(dim_opt, keepdim, correction);
+        }
+
+        pub fn stddev_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.stddevDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn stdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.stddev(dim_opt, keepdim, correction);
+        }
+
+        pub fn std_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.stdDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn stddevDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.stddevAxes(dims, keepdim, correction);
+        }
+
+        pub fn stddev_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.stddevDims(dims, keepdim, correction);
+        }
+
+        pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.stdAxes(dims, keepdim, correction);
+        }
+
+        pub fn std_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.stdDims(dims, keepdim, correction);
         }
 
         fn maxFiniteValue() T {
@@ -13126,6 +13998,22 @@ pub fn Array(comptime T: type) type {
 
         pub fn nansum_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.nansumAxes(axes, keepdims);
+        }
+
+        pub fn nansumDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nansum(dim_opt, keepdim);
+        }
+
+        pub fn nansum_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nansumDim(dim_opt, keepdim);
+        }
+
+        pub fn nansumDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nansumAxes(dims, keepdim);
+        }
+
+        pub fn nansum_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nansumDims(dims, keepdim);
         }
 
         fn nanmeanWithCounts(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!struct { values: Self, counts: Array(usize) } {
@@ -13256,6 +14144,22 @@ pub fn Array(comptime T: type) type {
 
         pub fn nanmean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.nanmeanAxes(axes, keepdims);
+        }
+
+        pub fn nanmeanDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanmean(dim_opt, keepdim);
+        }
+
+        pub fn nanmean_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanmeanDim(dim_opt, keepdim);
+        }
+
+        pub fn nanmeanDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanmeanAxes(dims, keepdim);
+        }
+
+        pub fn nanmean_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanmeanDims(dims, keepdim);
         }
 
         pub fn nanvar(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
@@ -13395,6 +14299,22 @@ pub fn Array(comptime T: type) type {
             return self.nanvarAxes(axes, keepdims, correction);
         }
 
+        pub fn nanvarDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.nanvar(dim_opt, keepdim, correction);
+        }
+
+        pub fn nanvar_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.nanvarDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn nanvarDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.nanvarAxes(dims, keepdim, correction);
+        }
+
+        pub fn nanvar_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.nanvarDims(dims, keepdim, correction);
+        }
+
         pub fn nanstd(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
             const out = try self.nanvar(axis_opt, keepdims, correction);
             for (out.data) |*value| value.* = std.math.sqrt(value.*);
@@ -13409,6 +14329,22 @@ pub fn Array(comptime T: type) type {
 
         pub fn nanstd_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
             return self.nanstdAxes(axes, keepdims, correction);
+        }
+
+        pub fn nanstdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.nanstd(dim_opt, keepdim, correction);
+        }
+
+        pub fn nanstd_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.nanstdDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn nanstdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.nanstdAxes(dims, keepdim, correction);
+        }
+
+        pub fn nanstd_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
+            return self.nanstdDims(dims, keepdim, correction);
         }
 
         fn nanExtreme(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) ArrayError!Self {
@@ -13485,6 +14421,22 @@ pub fn Array(comptime T: type) type {
             return self.nanminAxes(axes, keepdims);
         }
 
+        pub fn nanminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanmin(dim_opt, keepdim);
+        }
+
+        pub fn nanmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanminDim(dim_opt, keepdim);
+        }
+
+        pub fn nanminDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanminAxes(dims, keepdim);
+        }
+
+        pub fn nanmin_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanminDims(dims, keepdim);
+        }
+
         pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             return self.nanExtreme(axis_opt, keepdims, struct {
@@ -13501,6 +14453,22 @@ pub fn Array(comptime T: type) type {
 
         pub fn nanmax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.nanmaxAxes(axes, keepdims);
+        }
+
+        pub fn nanmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanmax(dim_opt, keepdim);
+        }
+
+        pub fn nanmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanmaxDim(dim_opt, keepdim);
+        }
+
+        pub fn nanmaxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanmaxAxes(dims, keepdim);
+        }
+
+        pub fn nanmax_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanmaxDims(dims, keepdim);
         }
 
         fn quantileFromSorted(sorted_values: []const T, q: T) T {
@@ -13648,6 +14616,22 @@ pub fn Array(comptime T: type) type {
             return self.quantileAxes(q, axes, keepdims);
         }
 
+        pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.quantile(q, dim_opt, keepdim);
+        }
+
+        pub fn quantile_dim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.quantileDim(q, dim_opt, keepdim);
+        }
+
+        pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.quantileAxes(q, dims, keepdim);
+        }
+
+        pub fn quantile_dims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.quantileDims(q, dims, keepdim);
+        }
+
         pub fn percentileAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.quantileAxes(p / castValue(T, 100), axes, keepdims);
         }
@@ -13656,12 +14640,44 @@ pub fn Array(comptime T: type) type {
             return self.percentileAxes(p, axes, keepdims);
         }
 
+        pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.percentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn percentile_dim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.percentileDim(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn percentile_dims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.percentileDims(percentile_value, dims, keepdim);
+        }
+
         pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.quantileAxes(castValue(T, 0.5), axes, keepdims);
         }
 
         pub fn median_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.medianAxes(axes, keepdims);
+        }
+
+        pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.median(dim_opt, keepdim);
+        }
+
+        pub fn median_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.medianDim(dim_opt, keepdim);
+        }
+
+        pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.medianAxes(dims, keepdim);
+        }
+
+        pub fn median_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.medianDims(dims, keepdim);
         }
 
         fn checkedBroadcastWeights(self: Self, weights: Self) ArrayError!Self {
@@ -14062,6 +15078,22 @@ pub fn Array(comptime T: type) type {
             return self.nanquantileAxes(q, axes, keepdims);
         }
 
+        pub fn nanquantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanquantile(q, dim_opt, keepdim);
+        }
+
+        pub fn nanquantile_dim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanquantileDim(q, dim_opt, keepdim);
+        }
+
+        pub fn nanquantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanquantileAxes(q, dims, keepdim);
+        }
+
+        pub fn nanquantile_dims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanquantileDims(q, dims, keepdim);
+        }
+
         pub fn nanpercentileAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.nanquantileAxes(p / castValue(T, 100), axes, keepdims);
         }
@@ -14070,12 +15102,44 @@ pub fn Array(comptime T: type) type {
             return self.nanpercentileAxes(p, axes, keepdims);
         }
 
+        pub fn nanpercentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanpercentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn nanpercentile_dim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanpercentileDim(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn nanpercentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanpercentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn nanpercentile_dims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanpercentileDims(percentile_value, dims, keepdim);
+        }
+
         pub fn nanmedianAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.nanquantileAxes(castValue(T, 0.5), axes, keepdims);
         }
 
         pub fn nanmedian_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.nanmedianAxes(axes, keepdims);
+        }
+
+        pub fn nanmedianDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanmedian(dim_opt, keepdim);
+        }
+
+        pub fn nanmedian_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.nanmedianDim(dim_opt, keepdim);
+        }
+
+        pub fn nanmedianDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanmedianAxes(dims, keepdim);
+        }
+
+        pub fn nanmedian_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.nanmedianDims(dims, keepdim);
         }
 
         fn observationValue(self: Self, variable: usize, observation: usize, rowvar: bool) T {
@@ -14360,6 +15424,22 @@ pub fn Array(comptime T: type) type {
             return self.normAxes(p, axes, keepdims);
         }
 
+        pub fn normDim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.norm(p, dim_opt, keepdim);
+        }
+
+        pub fn norm_dim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
+            return self.normDim(p, dim_opt, keepdim);
+        }
+
+        pub fn normDims(self: Self, p: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.normAxes(p, dims, keepdim);
+        }
+
+        pub fn norm_dims(self: Self, p: T, dims: []const isize, keepdim: bool) ArrayError!Self {
+            return self.normDims(p, dims, keepdim);
+        }
+
         pub fn cumsum(self: Self) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -14410,9 +15490,25 @@ pub fn Array(comptime T: type) type {
             return self.cumulativeAxis(axis_index, zero(T), opAdd);
         }
 
+        pub fn cumsumDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.cumsumAxis(dim_index);
+        }
+
+        pub fn cumsum_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.cumsumDim(dim_index);
+        }
+
         pub fn cumprodAxis(self: Self, axis_index: isize) ArrayError!Self {
             ensureNumeric(T);
             return self.cumulativeAxis(axis_index, one(T), opMul);
+        }
+
+        pub fn cumprodDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.cumprodAxis(dim_index);
+        }
+
+        pub fn cumprod_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.cumprodDim(dim_index);
         }
 
         pub fn cummaxAxis(self: Self, axis_index: isize) ArrayError!Self {
@@ -14420,9 +15516,25 @@ pub fn Array(comptime T: type) type {
             return self.cumulativeAxisFromFirst(axis_index, opCummax);
         }
 
+        pub fn cummaxDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.cummaxAxis(dim_index);
+        }
+
+        pub fn cummax_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.cummaxDim(dim_index);
+        }
+
         pub fn cumminAxis(self: Self, axis_index: isize) ArrayError!Self {
             ensureNumeric(T);
             return self.cumulativeAxisFromFirst(axis_index, opCummin);
+        }
+
+        pub fn cumminDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.cumminAxis(dim_index);
+        }
+
+        pub fn cummin_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.cumminDim(dim_index);
         }
 
         pub fn logcumsumexp(self: Self) ArrayError!Self {
@@ -14433,6 +15545,14 @@ pub fn Array(comptime T: type) type {
         pub fn logcumsumexpAxis(self: Self, axis_index: isize) ArrayError!Self {
             ensureFloat(T);
             return self.cumulativeAxisFromFirst(axis_index, opLogAddExp);
+        }
+
+        pub fn logcumsumexpDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.logcumsumexpAxis(dim_index);
+        }
+
+        pub fn logcumsumexp_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.logcumsumexpDim(dim_index);
         }
 
         fn cumulativeAxis(self: Self, axis_index: isize, init_value: T, comptime op: fn (T, T) T) ArrayError!Self {
@@ -14718,6 +15838,14 @@ pub fn Array(comptime T: type) type {
             }.better);
         }
 
+        pub fn argmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.argmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn argmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.argmaxDim(dim_opt, keepdim);
+        }
+
         pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             ensureNumeric(T);
             return self.argReduce(axis_opt, keepdims, struct {
@@ -14725,6 +15853,14 @@ pub fn Array(comptime T: type) type {
                     return lessValue(T, a, b);
                 }
             }.better);
+        }
+
+        pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.argminAxis(dim_opt, keepdim);
+        }
+
+        pub fn argmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.argminDim(dim_opt, keepdim);
         }
 
         pub fn nanargmax(self: Self) ArrayError!usize {
@@ -14766,6 +15902,14 @@ pub fn Array(comptime T: type) type {
             }.better);
         }
 
+        pub fn nanargmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.nanargmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.nanargmaxDim(dim_opt, keepdim);
+        }
+
         pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             ensureFloat(T);
             return self.nanArgReduce(axis_opt, keepdims, struct {
@@ -14773,6 +15917,14 @@ pub fn Array(comptime T: type) type {
                     return lessValue(T, a, b);
                 }
             }.better);
+        }
+
+        pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.nanargminAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
+            return self.nanargminDim(dim_opt, keepdim);
         }
 
         fn argReduce(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) ArrayError!Array(usize) {
@@ -14907,6 +16059,14 @@ pub fn Array(comptime T: type) type {
             return self.topkAxis(k, try normalizeDim(axis_opt.?, self.shape.len), largest, sorted);
         }
 
+        pub fn topkDim(self: Self, k: usize, dim_opt: ?isize, largest: bool, sorted: bool) ArrayError!TopK {
+            return self.topk(k, dim_opt, largest, sorted);
+        }
+
+        pub fn topk_dim(self: Self, k: usize, dim_opt: ?isize, largest: bool, sorted: bool) ArrayError!TopK {
+            return self.topkDim(k, dim_opt, largest, sorted);
+        }
+
         pub fn kthValue(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!KthValue {
             ensureNumeric(T);
             if (k == 0) return error.InvalidShape;
@@ -14947,6 +16107,14 @@ pub fn Array(comptime T: type) type {
 
         pub fn kth_value(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!KthValue {
             return self.kthValue(k, axis_opt, keepdims);
+        }
+
+        pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) ArrayError!KthValue {
+            return self.kthValue(k, dim_opt, keepdim);
+        }
+
+        pub fn kth_value_dim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) ArrayError!KthValue {
+            return self.kthValueDim(k, dim_opt, keepdim);
         }
 
         fn topkFlat(self: Self, k: usize, largest: bool, sorted: bool) ArrayError!TopK {
@@ -15713,6 +16881,14 @@ pub fn Array(comptime T: type) type {
             return exp_t.div(denom);
         }
 
+        pub fn softmaxDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.softmax(dim_index);
+        }
+
+        pub fn softmax_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.softmaxDim(dim_index);
+        }
+
         pub const SortResult = struct {
             values: Self,
             indices: Array(usize),
@@ -15736,6 +16912,22 @@ pub fn Array(comptime T: type) type {
             return self.sortBy(axis_opt, true);
         }
 
+        pub fn sortDim(self: Self, dim_opt: ?isize) ArrayError!Self {
+            return self.sort(dim_opt);
+        }
+
+        pub fn sort_dim(self: Self, dim_opt: ?isize) ArrayError!Self {
+            return self.sortDim(dim_opt);
+        }
+
+        pub fn sortByDim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Self {
+            return self.sortBy(dim_opt, descending);
+        }
+
+        pub fn sort_by_dim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Self {
+            return self.sortByDim(dim_opt, descending);
+        }
+
         pub fn sortBy(self: Self, axis_opt: ?isize, descending: bool) ArrayError!Self {
             var result = try self.sortWithIndices(axis_opt, descending);
             result.indices.deinit();
@@ -15754,6 +16946,14 @@ pub fn Array(comptime T: type) type {
             var result = try self.sortWithIndices(axis_opt, descending);
             result.values.deinit();
             return result.indices;
+        }
+
+        pub fn argsortDim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            return self.argsortAxis(dim_opt, descending);
+        }
+
+        pub fn argsort_dim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            return self.argsortDim(dim_opt, descending);
         }
 
         pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) ArrayError!SortResult {
@@ -15853,11 +17053,27 @@ pub fn Array(comptime T: type) type {
             return self.sortBy(axis_opt, descending);
         }
 
+        pub fn partitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Self {
+            return self.partition(kth, dim_opt, descending);
+        }
+
+        pub fn partition_dim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Self {
+            return self.partitionDim(kth, dim_opt, descending);
+        }
+
         pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             ensureOrderable(T);
             const len_axis = try self.partitionLen(axis_opt);
             if (kth >= len_axis) return error.InvalidShape;
             return self.argsortAxis(axis_opt, descending);
+        }
+
+        pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            return self.argpartition(kth, dim_opt, descending);
+        }
+
+        pub fn argpartition_dim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
+            return self.argpartitionDim(kth, dim_opt, descending);
         }
 
         pub const UniqueCounts = struct {
@@ -16774,44 +17990,84 @@ test "array reductions and matmul" {
     var s0 = try a.sum(0, false);
     defer s0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, s0.data);
+    var sum_dim0 = try a.sumDim(0, false);
+    defer sum_dim0.deinit();
+    try std.testing.expectEqualSlices(f64, s0.data, sum_dim0.data);
     var s1 = try a.sum(1, true);
     defer s1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, s1.shape);
     try std.testing.expectEqualSlices(f64, &.{ 6, 15 }, s1.data);
+    var sum_dim_alias = try a.sum_dim(1, true);
+    defer sum_dim_alias.deinit();
+    try std.testing.expectEqualSlices(f64, s1.data, sum_dim_alias.data);
     var p0 = try a.prod(0, false);
     defer p0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 10, 18 }, p0.data);
+    var prod_dim0 = try a.prodDim(0, false);
+    defer prod_dim0.deinit();
+    try std.testing.expectEqualSlices(f64, p0.data, prod_dim0.data);
     var mn = try a.min(null, false);
     defer mn.deinit();
     try std.testing.expectEqualSlices(f64, &.{1}, mn.data);
+    var min_dim_flat = try a.min_dim(null, false);
+    defer min_dim_flat.deinit();
+    try std.testing.expectEqualSlices(f64, mn.data, min_dim_flat.data);
     var amin_keep = try a.amin(null, true);
     defer amin_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, amin_keep.shape);
     try std.testing.expectEqualSlices(f64, &.{1}, amin_keep.data);
+    var amin_dim_keep = try a.aminDim(null, true);
+    defer amin_dim_keep.deinit();
+    try std.testing.expectEqualSlices(f64, amin_keep.data, amin_dim_keep.data);
     var mx = try a.max(1, false);
     defer mx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 6 }, mx.data);
+    var max_dim_rows = try a.maxDim(1, false);
+    defer max_dim_rows.deinit();
+    try std.testing.expectEqualSlices(f64, mx.data, max_dim_rows.data);
     var amax_cols = try a.amax(0, false);
     defer amax_cols.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, amax_cols.data);
+    var amax_dim_cols = try a.amax_dim(0, false);
+    defer amax_dim_cols.deinit();
+    try std.testing.expectEqualSlices(f64, amax_cols.data, amax_dim_cols.data);
     var ptp_cols = try a.ptp(0, false);
     defer ptp_cols.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3 }, ptp_cols.data);
+    var ptp_dim_cols = try a.ptpDim(0, false);
+    defer ptp_dim_cols.deinit();
+    try std.testing.expectEqualSlices(f64, ptp_cols.data, ptp_dim_cols.data);
     var ptp_flat = try a.ptp(null, false);
     defer ptp_flat.deinit();
     try std.testing.expectEqualSlices(f64, &.{5}, ptp_flat.data);
     var cs = try a.cumsum();
     defer cs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 10, 15, 21 }, cs.data);
+    var cs_dim = try a.cumsumDim(1);
+    defer cs_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 4, 9, 15 }, cs_dim.data);
     var cp = try a.cumprod();
     defer cp.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 24, 120, 720 }, cp.data);
+    var cp_dim = try a.cumprod_dim(1);
+    defer cp_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 4, 20, 120 }, cp_dim.data);
     var cmax = try a.cummax();
     defer cmax.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 5, 6 }, cmax.data);
+    var cmax_dim = try a.cummaxDim(1);
+    defer cmax_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 5, 6 }, cmax_dim.data);
     var cmin = try a.cummin();
     defer cmin.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, cmin.data);
+    var cmin_dim = try a.cummin_dim(1);
+    defer cmin_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 4, 4, 4 }, cmin_dim.data);
+    var log_cumsum_exp_dim = try a.logcumsumexpDim(1);
+    defer log_cumsum_exp_dim.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), log_cumsum_exp_dim.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1) + std.math.log1p(std.math.exp(@as(f64, 1))), log_cumsum_exp_dim.data[1], 1e-12);
     var log_cumsum_exp = try a.logcumsumexp();
     defer log_cumsum_exp.deinit();
     var running_lse = a.data[0];
@@ -16825,12 +18081,331 @@ test "array reductions and matmul" {
     var arg1 = try a.argmaxAxis(1, false);
     defer arg1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, arg1.data);
+    var arg1_dim = try a.argmaxDim(1, false);
+    defer arg1_dim.deinit();
+    try std.testing.expectEqualSlices(usize, arg1.data, arg1_dim.data);
+    var argmin_dim_keep = try a.argmin_dim(1, true);
+    defer argmin_dim_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, argmin_dim_keep.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0 }, argmin_dim_keep.data);
     var t = try a.transpose();
     defer t.deinit();
     var matrix_product = try a.matmul(t);
     defer matrix_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, matrix_product.shape);
     try std.testing.expectEqualSlices(f64, &.{ 14, 32, 32, 77 }, matrix_product.data);
+}
+
+test "array and view dim aliases mirror axis APIs" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var sum_axis = try a.sum(1, true);
+    defer sum_axis.deinit();
+    var sum_dim = try a.sumDim(1, true);
+    defer sum_dim.deinit();
+    try std.testing.expectEqualSlices(usize, sum_axis.shape, sum_dim.shape);
+    try std.testing.expectEqualSlices(f64, sum_axis.data, sum_dim.data);
+    var sum_dim_snake = try a.sum_dim(0, false);
+    defer sum_dim_snake.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, sum_dim_snake.data);
+    var sum_dims = try a.sumDims(&.{ 0, 1 }, false);
+    defer sum_dims.deinit();
+    try std.testing.expectEqual(@as(usize, 0), sum_dims.shape.len);
+    try std.testing.expectEqualSlices(f64, &.{21}, sum_dims.data);
+    var sum_dims_snake = try a.sum_dims(&.{ 0, 1 }, true);
+    defer sum_dims_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, sum_dims_snake.shape);
+    try std.testing.expectEqualSlices(f64, &.{21}, sum_dims_snake.data);
+
+    var prod_dim = try a.prodDim(0, false);
+    defer prod_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 10, 18 }, prod_dim.data);
+    var prod_dims = try a.prod_dims(&.{ 0, 1 }, false);
+    defer prod_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{720}, prod_dims.data);
+    var min_dim = try a.minDim(null, false);
+    defer min_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{1}, min_dim.data);
+    var amin_dim = try a.amin_dim(null, true);
+    defer amin_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, amin_dim.shape);
+    try std.testing.expectEqualSlices(f64, &.{1}, amin_dim.data);
+    var min_dims = try a.minDims(&.{ 0, 1 }, false);
+    defer min_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{1}, min_dims.data);
+    var max_dim = try a.maxDim(1, false);
+    defer max_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 6 }, max_dim.data);
+    var amax_dim = try a.amax_dim(0, false);
+    defer amax_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, amax_dim.data);
+    var max_dims = try a.max_dims(&.{ 0, 1 }, false);
+    defer max_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{6}, max_dims.data);
+    var ptp_dim = try a.ptpDim(0, false);
+    defer ptp_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3 }, ptp_dim.data);
+    var ptp_dims = try a.ptp_dims(&.{ 0, 1 }, false);
+    defer ptp_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{5}, ptp_dims.data);
+
+    var mean_dim = try a.meanDim(1, false);
+    defer mean_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 5 }, mean_dim.data);
+    var mean_dims = try a.mean_dims(&.{ 0, 1 }, false);
+    defer mean_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{3.5}, mean_dims.data);
+    var var_dim = try a.varDim(1, false, 0);
+    defer var_dim.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), var_dim.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), var_dim.data[1], 1e-12);
+    var variance_dims = try a.variance_dims(&.{ 0, 1 }, false, 0);
+    defer variance_dims.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 35.0 / 12.0), variance_dims.data[0], 1e-12);
+    var std_dim = try a.stdDim(1, false, 0);
+    defer std_dim.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0 / 3.0)), std_dim.data[0], 1e-12);
+    var std_dims = try a.std_dims(&.{ 0, 1 }, false, 0);
+    defer std_dims.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 35.0 / 12.0)), std_dims.data[0], 1e-12);
+    var median_dim = try a.medianDim(1, false);
+    defer median_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 5 }, median_dim.data);
+    var median_dims = try a.median_dims(&.{ 0, 1 }, false);
+    defer median_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{3.5}, median_dims.data);
+    var quantile_dim = try a.quantileDim(0.5, 1, false);
+    defer quantile_dim.deinit();
+    try std.testing.expectEqualSlices(f64, median_dim.data, quantile_dim.data);
+    var percentile_dim = try a.percentile_dim(50, 1, false);
+    defer percentile_dim.deinit();
+    try std.testing.expectEqualSlices(f64, median_dim.data, percentile_dim.data);
+    var percentile_dims = try a.percentileDims(50, &.{ 0, 1 }, true);
+    defer percentile_dims.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, percentile_dims.shape);
+    try std.testing.expectEqualSlices(f64, &.{3.5}, percentile_dims.data);
+
+    var norm_dim = try a.normDim(2, 1, false);
+    defer norm_dim.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 14)), norm_dim.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 77)), norm_dim.data[1], 1e-12);
+    var norm_dims = try a.norm_dims(1, &.{ 0, 1 }, false);
+    defer norm_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{21}, norm_dims.data);
+    var logsumexp_dim = try a.logsumexpDim(1, false);
+    defer logsumexp_dim.deinit();
+    var logsumexp_axis = try a.logsumexp(1, false);
+    defer logsumexp_axis.deinit();
+    try std.testing.expectEqualSlices(f64, logsumexp_axis.data, logsumexp_dim.data);
+    var logsumexp_dims = try a.logsumexp_dims(&.{ 0, 1 }, false);
+    defer logsumexp_dims.deinit();
+    try std.testing.expectEqual(@as(usize, 0), logsumexp_dims.shape.len);
+
+    var cumsum_dim = try a.cumsumDim(1);
+    defer cumsum_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 4, 9, 15 }, cumsum_dim.data);
+    var cumprod_dim = try a.cumprod_dim(1);
+    defer cumprod_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 4, 20, 120 }, cumprod_dim.data);
+    var cummax_dim = try a.cummaxDim(1);
+    defer cummax_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 5, 6 }, cummax_dim.data);
+    var cummin_dim = try a.cummin_dim(1);
+    defer cummin_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 4, 4, 4 }, cummin_dim.data);
+    var logcumsumexp_dim = try a.logcumsumexp_dim(1);
+    defer logcumsumexp_dim.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), logcumsumexp_dim.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4), logcumsumexp_dim.data[3], 1e-12);
+
+    var argmax_dim = try a.argmaxDim(1, false);
+    defer argmax_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, argmax_dim.data);
+    var argmin_dim = try a.argmin_dim(1, true);
+    defer argmin_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, argmin_dim.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0 }, argmin_dim.data);
+
+    var logits = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
+    defer logits.deinit();
+    var softmax_dim = try logits.softmaxDim(1);
+    defer softmax_dim.deinit();
+    var softmax_axis = try logits.softmax(1);
+    defer softmax_axis.deinit();
+    try std.testing.expectEqualSlices(f64, softmax_axis.data, softmax_dim.data);
+    var log_softmax_dim = try logits.log_softmax_dim(1);
+    defer log_softmax_dim.deinit();
+    var log_softmax_axis = try logits.logSoftmax(1);
+    defer log_softmax_axis.deinit();
+    try std.testing.expectEqualSlices(f64, log_softmax_axis.data, log_softmax_dim.data);
+
+    var unsorted = try Array(f64).fromSlice(gpa, &.{ 8, 1, 5, 3, 7, 2 }, &.{ 2, 3 });
+    defer unsorted.deinit();
+    var sorted_rows = try unsorted.sortDim(1);
+    defer sorted_rows.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 8, 2, 3, 7 }, sorted_rows.data);
+    var sorted_cols_desc = try unsorted.sort_by_dim(0, true);
+    defer sorted_cols_desc.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 8, 7, 5, 3, 1, 2 }, sorted_cols_desc.data);
+    var argsort_rows = try unsorted.argsortDim(1, false);
+    defer argsort_rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 0, 2, 0, 1 }, argsort_rows.data);
+    var partition_rows = try unsorted.partitionDim(1, 1, false);
+    defer partition_rows.deinit();
+    try std.testing.expectEqualSlices(f64, sorted_rows.data, partition_rows.data);
+    var argpartition_rows = try unsorted.argpartition_dim(1, 1, false);
+    defer argpartition_rows.deinit();
+    try std.testing.expectEqualSlices(usize, argsort_rows.data, argpartition_rows.data);
+    var top_rows = try unsorted.topkDim(2, 1, true, true);
+    defer top_rows.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 8, 5, 7, 3 }, top_rows.values.data);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0 }, top_rows.indices.data);
+    var kth_rows = try unsorted.kth_value_dim(2, 1, true);
+    defer kth_rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, kth_rows.values.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 3 }, kth_rows.values.data);
+
+    var sparse = try Array(f64).fromSlice(gpa, &.{ 1, 0, 3, 0, 5, 6 }, &.{ 2, 3 });
+    defer sparse.deinit();
+    var count_dim = try sparse.countNonzeroDim(1, false);
+    defer count_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, count_dim.data);
+    var count_dims = try sparse.count_nonzero_dims(&.{ 0, 1 }, true);
+    defer count_dims.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, count_dims.shape);
+    try std.testing.expectEqualSlices(usize, &.{4}, count_dims.data);
+
+    var flags = try Array(bool).fromSlice(gpa, &.{ true, true, false, true }, &.{ 2, 2 });
+    defer flags.deinit();
+    var all_dim = try flags.allDim(1, false);
+    defer all_dim.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false }, all_dim.data);
+    var all_dims = try flags.all_dims(&.{ 0, 1 }, true);
+    defer all_dims.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, all_dims.shape);
+    try std.testing.expectEqualSlices(bool, &.{false}, all_dims.data);
+    var any_dim = try flags.any_dim(0, false);
+    defer any_dim.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, any_dim.data);
+    var any_dims = try flags.anyDims(&.{ 0, 1 }, false);
+    defer any_dims.deinit();
+    try std.testing.expectEqualSlices(bool, &.{true}, any_dims.data);
+
+    const nan = std.math.nan(f64);
+    var nan_values = try Array(f64).fromSlice(gpa, &.{
+        1, nan, 3,
+        2, nan, 6,
+        3, 8,   9,
+    }, &.{ 3, 3 });
+    defer nan_values.deinit();
+    var nansum_dim = try nan_values.nansumDim(0, false);
+    defer nansum_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6, 8, 18 }, nansum_dim.data);
+    var nansum_dims = try nan_values.nansum_dims(&.{ 0, 1 }, false);
+    defer nansum_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{32}, nansum_dims.data);
+    var nanmean_dim = try nan_values.nanmean_dim(1, false);
+    defer nanmean_dim.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2), nanmean_dim.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4), nanmean_dim.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0 / 3.0), nanmean_dim.data[2], 1e-12);
+    var nanvar_dim = try nan_values.nanvarDim(0, false, 0);
+    defer nanvar_dim.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), nanvar_dim.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), nanvar_dim.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 6), nanvar_dim.data[2], 1e-12);
+    var nanstd_dim = try nan_values.nanstd_dim(0, false, 0);
+    defer nanstd_dim.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0 / 3.0)), nanstd_dim.data[0], 1e-12);
+    var nanmin_dim = try nan_values.nanminDim(0, false);
+    defer nanmin_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 8, 3 }, nanmin_dim.data);
+    var nanmax_dim = try nan_values.nanmax_dim(1, false);
+    defer nanmax_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 6, 9 }, nanmax_dim.data);
+    var nanmedian_dim = try nan_values.nanmedianDim(0, false);
+    defer nanmedian_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 8, 6 }, nanmedian_dim.data);
+    var nanquantile_dim = try nan_values.nanquantileDim(0.25, 0, false);
+    defer nanquantile_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 8, 4.5 }, nanquantile_dim.data);
+    var nanpercentile_dim = try nan_values.nanpercentile_dim(75, 1, false);
+    defer nanpercentile_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2.5, 5, 8.5 }, nanpercentile_dim.data);
+    var nanmedian_dims = try nan_values.nanmedian_dims(&.{ 0, 1 }, false);
+    defer nanmedian_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{3}, nanmedian_dims.data);
+
+    var view = try a.transposeView();
+    defer view.deinit();
+    var view_sum_dim = try view.sumDim(1, false);
+    defer view_sum_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, view_sum_dim.data);
+    var view_sum_dims = try view.sum_dims(&.{ 0, 1 }, false);
+    defer view_sum_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{21}, view_sum_dims.data);
+    var view_mean_dim = try view.mean_dim(1, false);
+    defer view_mean_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2.5, 3.5, 4.5 }, view_mean_dim.data);
+    var view_cumsum_dim = try view.cumsumDim(1);
+    defer view_cumsum_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 2, 7, 3, 9 }, view_cumsum_dim.data);
+    var view_argmax_dim = try view.argmax_dim(1, false);
+    defer view_argmax_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, view_argmax_dim.data);
+    var view_softmax_dim = try view.softmax_dim(1);
+    defer view_softmax_dim.deinit();
+    var view_softmax_axis = try view.softmax(1);
+    defer view_softmax_axis.deinit();
+    try std.testing.expectEqualSlices(f64, view_softmax_axis.data, view_softmax_dim.data);
+    var view_log_softmax_dim = try view.log_softmax_dim(1);
+    defer view_log_softmax_dim.deinit();
+    var view_log_softmax_axis = try view.logSoftmax(1);
+    defer view_log_softmax_axis.deinit();
+    try std.testing.expectEqualSlices(f64, view_log_softmax_axis.data, view_log_softmax_dim.data);
+    var view_norm_dim = try view.normDim(2, 1, false);
+    defer view_norm_dim.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 17)), view_norm_dim.data[0], 1e-12);
+    var view_logsumexp_dim = try view.logsumexpDim(1, false);
+    defer view_logsumexp_dim.deinit();
+    var view_logsumexp_axis = try view.logsumexp(1, false);
+    defer view_logsumexp_axis.deinit();
+    try std.testing.expectEqualSlices(f64, view_logsumexp_axis.data, view_logsumexp_dim.data);
+    var view_sort_dim = try view.sortDim(1);
+    defer view_sort_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, view_sort_dim.data);
+    var view_top_dim = try view.topk_dim(1, 1, true, true);
+    defer view_top_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, view_top_dim.values.data);
+    var view_kth_dim = try view.kth_value_dim(1, 1, false);
+    defer view_kth_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3 }, view_kth_dim.values.data);
+    var view_count_dim = try view.countNonzeroDim(1, false);
+    defer view_count_dim.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, view_count_dim.data);
+
+    var nan_view = try nan_values.transposeView();
+    defer nan_view.deinit();
+    var view_nansum_dim = try nan_view.nansumDim(1, false);
+    defer view_nansum_dim.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6, 8, 18 }, view_nansum_dim.data);
+    var view_nanmean_dim = try nan_view.nanmean_dim(1, false);
+    defer view_nanmean_dim.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2), view_nanmean_dim.data[0], 1e-12);
+    var view_nanmedian_dims = try nan_view.nanmedian_dims(&.{ 0, 1 }, false);
+    defer view_nanmedian_dims.deinit();
+    try std.testing.expectEqualSlices(f64, &.{3}, view_nanmedian_dims.data);
+
+    var flag_view = try flags.transposeView();
+    defer flag_view.deinit();
+    var view_all_dim = try flag_view.allDim(1, false);
+    defer view_all_dim.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true }, view_all_dim.data);
+    var view_any_dim = try flag_view.any_dim(0, false);
+    defer view_any_dim.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, view_any_dim.data);
 }
 
 test "array object generalized matmul semantics" {
