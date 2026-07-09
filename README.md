@@ -29,7 +29,7 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
 - CSV read/write with simple type inference.
 - Array IO helpers: `toBytes/fromBytes` for raw data, `toArchive/fromArchive` for a simple dtype+shape binary archive, and object-style file helpers `saveArchive/saveArchiveToDir` plus `loadArchive/loadArchiveFromDir`.
-- Device API placeholder (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`/`ArrayView`) for future CuPy/PyTorch-like GPU backends.
+- Device API placeholder (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`/`ArrayView`) for future CuPy/PyTorch-like GPU backends; optional `vx.axiom_cuda` can route contiguous same-shape `Array(f32)` add/mul/SAXPY smoke kernels through sibling Axiom on CUDA-capable hosts while keeping persistent `.cuda()` storage unavailable for now.
 
 ## Example
 
@@ -70,6 +70,18 @@ pub fn demo(allocator: std.mem.Allocator) !void {
     defer grouped.deinit();
 }
 ```
+
+
+## Optional Axiom CUDA bridge
+
+Vectra keeps CPU/Veyra/Alea as the default build.  To validate the experimental Axiom CUDA bridge for contiguous same-shape f32 add/mul/SAXPY, run:
+
+```sh
+zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled
+zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
+```
+
+The second command requires a CUDA/libnvvm/PTXAS-capable host.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the supported surface and current limits.
 
 ## Alea backend
 
@@ -114,5 +126,5 @@ The current high-value benchmark set covers large f64 elementwise/scalar ops, fl
 - Nullable values, categorical/string kernels and richer promotion policy.
 - Polars-like lazy query plans and expression DSL.
 - BLAS/LAPACK/high-performance FFT/sparse integrations.
-- GPU backend implementation behind the existing `Device` surface.
+- GPU backend implementation behind the existing `Device` surface; see [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the current optional Axiom CUDA bridge seed.
 - Arrow/Parquet IPC support.

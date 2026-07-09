@@ -14,6 +14,7 @@ const dataframe_mod = @import("dataframe.zig");
 pub const linalg = @import("linalg.zig");
 pub const stats = @import("stats.zig");
 pub const sparse = @import("sparse.zig");
+pub const axiom_cuda = @import("backends/axiom_cuda.zig");
 
 pub const Array = array_mod.Array;
 pub const NDArray = array_mod.NDArray;
@@ -64,4 +65,5 @@ test {
     _ = linalg;
     _ = stats;
     _ = sparse;
+    _ = axiom_cuda;
 }
