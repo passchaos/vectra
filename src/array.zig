@@ -3057,16 +3057,46 @@ pub fn ArrayView(comptime T: type) type {
             return owned.nanmedian(axis_opt, keepdims);
         }
 
+        pub fn nanmedianAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanmedianAxes(axes, keepdims);
+        }
+
+        pub fn nanmedian_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.nanmedianAxes(axes, keepdims);
+        }
+
         pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.nanquantile(q, axis_opt, keepdims);
         }
 
+        pub fn nanquantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanquantileAxes(q, axes, keepdims);
+        }
+
+        pub fn nanquantile_axes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.nanquantileAxes(q, axes, keepdims);
+        }
+
         pub fn nanpercentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.nanpercentile(p, axis_opt, keepdims);
+        }
+
+        pub fn nanpercentileAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nanpercentileAxes(p, axes, keepdims);
+        }
+
+        pub fn nanpercentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.nanpercentileAxes(p, axes, keepdims);
         }
 
         pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
@@ -10884,6 +10914,103 @@ pub fn Array(comptime T: type) type {
             return self.nanquantile(castValue(T, 0.5), axis_opt, keepdims);
         }
 
+        pub fn nanquantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            if (q < zero(T) or q > one(T)) return error.InvalidShape;
+            if (axes.len == 0) return self.clone();
+            const normalized_axes = try normalizeUniqueAxes(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var reduce_mask = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(reduce_mask);
+            @memset(reduce_mask, false);
+            const reduce_shape = try self.allocator.alloc(usize, normalized_axes.len);
+            defer self.allocator.free(reduce_shape);
+            var reduce_count: usize = 1;
+            for (normalized_axes, 0..) |axis, i| {
+                reduce_mask[axis] = true;
+                if (self.shape[axis] == 0) return error.EmptyArray;
+                reduce_shape[i] = self.shape[axis];
+                reduce_count = std.math.mul(usize, reduce_count, self.shape[axis]) catch return error.InvalidShape;
+            }
+
+            const out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - normalized_axes.len);
+            defer self.allocator.free(out_shape);
+            if (keepdims) {
+                @memcpy(out_shape, self.shape);
+                for (normalized_axes) |axis| out_shape[axis] = 1;
+            } else {
+                var write: usize = 0;
+                for (self.shape, 0..) |extent, axis| {
+                    if (reduce_mask[axis]) continue;
+                    out_shape[write] = extent;
+                    write += 1;
+                }
+            }
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            const reduce_multi = try self.allocator.alloc(usize, normalized_axes.len);
+            defer self.allocator.free(reduce_multi);
+            const scratch = try self.allocator.alloc(T, reduce_count);
+            defer self.allocator.free(scratch);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                var read: usize = 0;
+                for (0..self.shape.len) |axis| {
+                    if (reduce_mask[axis]) {
+                        in_multi[axis] = 0;
+                    } else if (keepdims) {
+                        in_multi[axis] = out_multi[axis];
+                    } else {
+                        in_multi[axis] = out_multi[read];
+                        read += 1;
+                    }
+                }
+                var count: usize = 0;
+                for (0..reduce_count) |reduce_flat| {
+                    unravelIndexInto(reduce_flat, reduce_shape, reduce_multi);
+                    for (normalized_axes, 0..) |axis, i| in_multi[axis] = reduce_multi[i];
+                    const value = self.data[ravelIndex(in_multi, self.strides)];
+                    if (std.math.isNan(value)) continue;
+                    scratch[count] = value;
+                    count += 1;
+                }
+                std.sort.insertion(T, scratch[0..count], {}, struct {
+                    fn lessThan(_: void, a: T, b: T) bool {
+                        return lessValue(T, a, b);
+                    }
+                }.lessThan);
+                slot.* = if (count == 0) std.math.nan(T) else quantileFromSorted(scratch[0..count], q);
+            }
+            return out;
+        }
+
+        pub fn nanquantile_axes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.nanquantileAxes(q, axes, keepdims);
+        }
+
+        pub fn nanpercentileAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.nanquantileAxes(p / castValue(T, 100), axes, keepdims);
+        }
+
+        pub fn nanpercentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.nanpercentileAxes(p, axes, keepdims);
+        }
+
+        pub fn nanmedianAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.nanquantileAxes(castValue(T, 0.5), axes, keepdims);
+        }
+
+        pub fn nanmedian_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.nanmedianAxes(axes, keepdims);
+        }
+
         fn observationValue(self: Self, variable: usize, observation: usize, rowvar: bool) T {
             if (rowvar) return self.data[variable * self.shape[1] + observation];
             return self.data[observation * self.shape[1] + variable];
@@ -14662,6 +14789,9 @@ test "array view object statistics wrappers" {
     var view_median_axes = try view.medianAxes(&.{ 0, 1 }, false);
     defer view_median_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{4.5}, view_median_axes.data);
+    var view_nanmedian_axes = try view.nanmedianAxes(&.{ 0, 1 }, false);
+    defer view_nanmedian_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{4}, view_nanmedian_axes.data);
     var amin0 = try view.amin(0, false);
     defer amin0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4 }, amin0.data);
