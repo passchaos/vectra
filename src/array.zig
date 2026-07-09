@@ -5479,6 +5479,16 @@ pub fn ArrayView(comptime T: type) type {
         pub fn H_(self: Self) ArrayError!Array(T) {
             return self.adjoint();
         }
+
+        pub fn matrixPower(self: Self, exponent: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.matrixPower(exponent);
+        }
+
+        pub fn matrix_power(self: Self, exponent: isize) ArrayError!Array(T) {
+            return self.matrixPower(exponent);
+        }
     };
 }
 
@@ -8333,6 +8343,72 @@ pub fn Array(comptime T: type) type {
 
         pub fn H_(self: Self) ArrayError!Self {
             return self.adjoint();
+        }
+
+        pub fn matrixPower(self: Self, exponent: isize) ArrayError!Self {
+            ensureNumeric(T);
+            if (self.shape.len < 2) return error.NonMatrixArray;
+            const rows = self.shape[self.shape.len - 2];
+            const cols = self.shape[self.shape.len - 1];
+            if (rows != cols) return error.NonMatrixArray;
+            if (exponent < 0 and self.shape.len != 2) return error.InvalidShape;
+
+            if (exponent < 0) {
+                if (comptime @typeInfo(T) != .float) @compileError("negative matrixPower requires floating-point arrays");
+                var inv_self = try self.inverse();
+                defer inv_self.deinit();
+                return inv_self.matrixPower(-exponent);
+            }
+
+            var result = try self.matrixPowerIdentity();
+            errdefer result.deinit();
+            if (exponent == 0) return result;
+
+            var base = try self.clone();
+            defer base.deinit();
+            var remaining: usize = @intCast(exponent);
+            while (remaining > 0) {
+                if ((remaining & 1) == 1) {
+                    const next = try result.matmul(base);
+                    result.deinit();
+                    result = next;
+                }
+                remaining >>= 1;
+                if (remaining > 0) {
+                    const squared = try base.matmul(base);
+                    base.deinit();
+                    base = squared;
+                }
+            }
+            return result;
+        }
+
+        pub fn matrix_power(self: Self, exponent: isize) ArrayError!Self {
+            return self.matrixPower(exponent);
+        }
+
+        fn matrixPowerIdentity(self: Self) ArrayError!Self {
+            const n = self.shape[self.shape.len - 1];
+            var out = try Self.zeros(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const batch_shape = self.shape[0 .. self.shape.len - 2];
+            const batch_count = product(batch_shape);
+            if (batch_count == 0) return out;
+            const batch_multi = try self.allocator.alloc(usize, batch_shape.len);
+            defer self.allocator.free(batch_multi);
+            var out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            for (0..batch_count) |batch_flat| {
+                unravelIndexInto(batch_flat, batch_shape, batch_multi);
+                for (batch_multi, 0..) |coord, axis| out_multi[axis] = coord;
+                for (0..n) |diag_i| {
+                    out_multi[self.shape.len - 2] = diag_i;
+                    out_multi[self.shape.len - 1] = diag_i;
+                    out.data[ravelIndex(out_multi, out.strides)] = one(T);
+                }
+            }
+            return out;
         }
 
         pub fn swapaxes(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
@@ -16073,6 +16149,15 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var batch_adj = try batch_matrix.adjoint();
     defer batch_adj.deinit();
     try std.testing.expectEqualSlices(f64, batch_mt.data, batch_adj.data);
+    var batch_square = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 2, 0, 1, 2 }, &.{ 2, 2, 2 });
+    defer batch_square.deinit();
+    var batch_power0 = try batch_square.matrixPower(0);
+    defer batch_power0.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 1, 1, 0, 0, 1 }, batch_power0.data);
+    var batch_power2 = try batch_square.matrix_power(2);
+    defer batch_power2.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, 10, 15, 22, 4, 0, 4, 4 }, batch_power2.data);
+    try std.testing.expectError(error.InvalidShape, batch_square.matrixPower(-1));
     try std.testing.expectError(error.NonMatrixArray, scalar_1d.mT());
     try std.testing.expectError(error.ShapeMismatch, cube.moveaxes(&.{0}, &.{ 1, 2 }));
     try std.testing.expectError(error.InvalidAxis, cube.moveaxes(&.{ 0, 0 }, &.{ 1, 2 }));
@@ -17355,6 +17440,9 @@ test "array view object math sort and linalg wrappers" {
     try std.testing.expectApproxEqAbs(@as(f64, 5), view_chol.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), view_chol.data[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -1), view_chol.data[6], 1e-12);
+    var view_power2 = try square_view.matrixPower(2);
+    defer view_power2.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 30, 20, 70, 50 }, view_power2.data);
 
     const C = Complex64;
     var complex_values = try Array(C).fromSlice(gpa, &.{ C.init(1, 2), C.init(3, -4), C.init(-1, 1), C.init(2, 0) }, &.{ 2, 2 });
@@ -17426,6 +17514,26 @@ test "array object linalg methods use Veyra-backed and fallback paths" {
     defer ident.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), ident.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0), ident.data[1], 1e-12);
+    var matrix_pow0 = try a.matrixPower(0);
+    defer matrix_pow0.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 1 }, matrix_pow0.data);
+    var matrix_pow1 = try a.matrixPower(1);
+    defer matrix_pow1.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, matrix_pow1.data);
+    var matrix_pow2 = try a.matrix_power(2);
+    defer matrix_pow2.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 30, 70, 20, 50 }, matrix_pow2.data);
+    var matrix_pow3 = try a.matrixPower(3);
+    defer matrix_pow3.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 260, 630, 180, 440 }, matrix_pow3.data);
+    var matrix_pow_neg1 = try a.matrixPower(-1);
+    defer matrix_pow_neg1.deinit();
+    try std.testing.expect(try matrix_pow_neg1.allclose(inv, 1e-12, 1e-12));
+    var matrix_pow_neg2 = try a.matrixPower(-2);
+    defer matrix_pow_neg2.deinit();
+    var inv_squared = try inv.matmul(inv);
+    defer inv_squared.deinit();
+    try std.testing.expect(try matrix_pow_neg2.allclose(inv_squared, 1e-12, 1e-12));
 
     var rhs_vec = try Array(f64).fromSlice(gpa, &.{ 1, 0 }, &.{2});
     defer rhs_vec.deinit();
