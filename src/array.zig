@@ -4144,9 +4144,11 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.ptpAxes(axes, keepdims);
+            var max_values = try self.maxAxes(axes, keepdims);
+            defer max_values.deinit();
+            var min_values = try self.minAxes(axes, keepdims);
+            defer min_values.deinit();
+            return max_values.sub(min_values);
         }
 
         pub fn ptp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
@@ -4278,9 +4280,17 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.varianceAxes(axes, keepdims, correction);
+            if (axes.len == 0) return self.toArray();
+            const normalized_axes = try normalizeAxesDescending(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var current = try self.variance(@intCast(normalized_axes[0]), keepdims, correction);
+            errdefer current.deinit();
+            for (normalized_axes[1..]) |axis| {
+                const next = try current.variance(@intCast(axis), keepdims, correction);
+                current.deinit();
+                current = next;
+            }
+            return current;
         }
 
         pub fn variance_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -4334,9 +4344,9 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn stddevAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.stddevAxes(axes, keepdims, correction);
+            const out = try self.varianceAxes(axes, keepdims, correction);
+            for (out.data) |*value| value.* = std.math.sqrt(value.*);
+            return out;
         }
 
         pub fn stddev_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -22186,9 +22196,29 @@ test "array view object statistics wrappers" {
     var noncontig_mean_axes = try noncontig_axes.meanAxes(&.{ 0, 1 }, false);
     defer noncontig_mean_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{2.5}, noncontig_mean_axes.data);
+    var noncontig_ptp_axes = try noncontig_axes.ptpAxes(&.{ 0, 1 }, false);
+    defer noncontig_ptp_axes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{3}, noncontig_ptp_axes.data);
+    var noncontig_ptp_keep = try noncontig_axes.ptp_dims(&.{ 0, 1 }, true);
+    defer noncontig_ptp_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, noncontig_ptp_keep.shape);
+    try std.testing.expectEqualSlices(f64, &.{3}, noncontig_ptp_keep.data);
+    var noncontig_var_axes = try noncontig_axes.varianceAxes(&.{ 0, 1 }, false, 0);
+    defer noncontig_var_axes.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), noncontig_var_axes.data[0], 1e-12);
+    var noncontig_std_axes = try noncontig_axes.stddevAxes(&.{ 0, 1 }, false, 0);
+    defer noncontig_std_axes.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), noncontig_std_axes.data[0], 1e-12);
+    var noncontig_std_axes_keep = try noncontig_axes.std_dims(&.{ 0, 1 }, true, 0);
+    defer noncontig_std_axes_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, noncontig_std_axes_keep.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), noncontig_std_axes_keep.data[0], 1e-12);
     var view_var_axes = try view.varianceAxes(&.{ 0, 1 }, false, 0);
     defer view_var_axes.deinit();
     try std.testing.expect(std.math.isNan(view_var_axes.data[0]));
+    var view_std_axes = try view.stddevAxes(&.{ 0, 1 }, false, 0);
+    defer view_std_axes.deinit();
+    try std.testing.expect(std.math.isNan(view_std_axes.data[0]));
     var view_var_alias = try view.var_(null, false, 0);
     defer view_var_alias.deinit();
     try std.testing.expect(std.math.isNan(view_var_alias.data[0]));
