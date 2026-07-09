@@ -1975,8 +1975,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.ownedWith(scalar, Array(T), Array(T).maximumScalar);
         }
 
+        pub fn maximum_scalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.maximumScalar(scalar);
+        }
+
         pub fn minimumScalar(self: Self, scalar: T) ArrayError!Array(T) {
             return self.ownedWith(scalar, Array(T), Array(T).minimumScalar);
+        }
+
+        pub fn minimum_scalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.minimumScalar(scalar);
         }
 
         pub fn clipMin(self: Self, min_value: T) ArrayError!Array(T) {
@@ -2015,8 +2023,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.ownedWith(scalar, Array(T), Array(T).fmaxScalar);
         }
 
+        pub fn fmax_scalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.fmaxScalar(scalar);
+        }
+
         pub fn fminScalar(self: Self, scalar: T) ArrayError!Array(T) {
             return self.ownedWith(scalar, Array(T), Array(T).fminScalar);
+        }
+
+        pub fn fmin_scalar(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.fminScalar(scalar);
         }
 
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -9192,6 +9208,10 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn maximum_scalar(self: Self, scalar: T) ArrayError!Self {
+            return self.maximumScalar(scalar);
+        }
+
         pub fn minimumScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, struct {
@@ -9199,6 +9219,10 @@ pub fn Array(comptime T: type) type {
                     return if (lessValue(T, b, a)) b else a;
                 }
             }.f);
+        }
+
+        pub fn minimum_scalar(self: Self, scalar: T) ArrayError!Self {
+            return self.minimumScalar(scalar);
         }
 
         pub fn clipMin(self: Self, min_value: T) ArrayError!Self {
@@ -9238,9 +9262,17 @@ pub fn Array(comptime T: type) type {
             return self.binaryScalar(scalar, opFmax);
         }
 
+        pub fn fmax_scalar(self: Self, scalar: T) ArrayError!Self {
+            return self.fmaxScalar(scalar);
+        }
+
         pub fn fminScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opFmin);
+        }
+
+        pub fn fmin_scalar(self: Self, scalar: T) ArrayError!Self {
+            return self.fminScalar(scalar);
         }
 
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Self {
