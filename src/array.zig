@@ -6376,6 +6376,22 @@ pub fn ArrayView(comptime T: type) type {
             return self.reshapeAs(other);
         }
 
+        pub fn reshapeView(self: Self, dims: []const usize) ArrayError!Self {
+            return self.reshape(dims);
+        }
+
+        pub fn reshape_view(self: Self, dims: []const usize) ArrayError!Self {
+            return self.reshapeView(dims);
+        }
+
+        pub fn reshapeInferView(self: Self, dims: []const isize) ArrayError!Self {
+            return self.reshapeInfer(dims);
+        }
+
+        pub fn reshape_infer_view(self: Self, dims: []const isize) ArrayError!Self {
+            return self.reshapeInferView(dims);
+        }
+
         pub fn view(self: Self, dims: []const usize) ArrayError!Self {
             return self.reshape(dims);
         }
@@ -6400,10 +6416,26 @@ pub fn ArrayView(comptime T: type) type {
             return self.reshape(&.{self.numel()});
         }
 
+        pub fn flattenView(self: Self) ArrayError!Self {
+            return self.flatten();
+        }
+
+        pub fn flatten_view(self: Self) ArrayError!Self {
+            return self.flattenView();
+        }
+
         pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
             const dims = try flattenShape(self.allocator, self.shape, start_axis, end_axis);
             defer self.allocator.free(dims);
             return self.reshape(dims);
+        }
+
+        pub fn flattenAxesView(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            return self.flattenAxes(start_axis, end_axis);
+        }
+
+        pub fn flatten_axes_view(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            return self.flattenAxesView(start_axis, end_axis);
         }
 
         pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
@@ -6414,6 +6446,14 @@ pub fn ArrayView(comptime T: type) type {
             return self.flattenAxes(start_axis, end_axis);
         }
 
+        pub fn flattenRangeView(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            return self.flattenRange(start_axis, end_axis);
+        }
+
+        pub fn flatten_range_view(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
+            return self.flattenRangeView(start_axis, end_axis);
+        }
+
         pub fn flattenFrom(self: Self, start_axis: isize) ArrayError!Self {
             return self.flattenAxes(start_axis, -1);
         }
@@ -6422,8 +6462,24 @@ pub fn ArrayView(comptime T: type) type {
             return self.flattenFrom(start_axis);
         }
 
+        pub fn flattenFromView(self: Self, start_axis: isize) ArrayError!Self {
+            return self.flattenFrom(start_axis);
+        }
+
+        pub fn flatten_from_view(self: Self, start_axis: isize) ArrayError!Self {
+            return self.flattenFromView(start_axis);
+        }
+
         pub fn ravel(self: Self) ArrayError!Self {
             return self.flatten();
+        }
+
+        pub fn ravelView(self: Self) ArrayError!Self {
+            return self.ravel();
+        }
+
+        pub fn ravel_view(self: Self) ArrayError!Self {
+            return self.ravelView();
         }
 
         pub fn atLeast1d(self: Self) ArrayError!Self {
@@ -6466,6 +6522,14 @@ pub fn ArrayView(comptime T: type) type {
             const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
             defer self.allocator.free(out_shape);
             return self.reshape(out_shape);
+        }
+
+        pub fn unflattenView(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
+            return self.unflatten(axis_index, dims);
+        }
+
+        pub fn unflatten_view(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
+            return self.unflattenView(axis_index, dims);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) ArrayError!Self {
@@ -9592,14 +9656,52 @@ pub fn Array(comptime T: type) type {
             return self.reshapeAs(other);
         }
 
+        pub fn reshapeView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.reshape(dims);
+        }
+
+        pub fn reshape_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.reshapeView(dims);
+        }
+
+        pub fn reshapeInferView(self: Self, dims: []const isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.reshapeInfer(dims);
+        }
+
+        pub fn reshape_infer_view(self: Self, dims: []const isize) ArrayError!ArrayView(T) {
+            return self.reshapeInferView(dims);
+        }
+
         pub fn flatten(self: Self) ArrayError!Self {
             return self.reshape(&.{self.data.len});
+        }
+
+        pub fn flattenView(self: Self) ArrayError!ArrayView(T) {
+            return self.reshapeView(&.{self.data.len});
+        }
+
+        pub fn flatten_view(self: Self) ArrayError!ArrayView(T) {
+            return self.flattenView();
         }
 
         pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
             const dims = try flattenShape(self.allocator, self.shape, start_axis, end_axis);
             defer self.allocator.free(dims);
             return self.reshape(dims);
+        }
+
+        pub fn flattenAxesView(self: Self, start_axis: isize, end_axis: isize) ArrayError!ArrayView(T) {
+            const dims = try flattenShape(self.allocator, self.shape, start_axis, end_axis);
+            defer self.allocator.free(dims);
+            return self.reshapeView(dims);
+        }
+
+        pub fn flatten_axes_view(self: Self, start_axis: isize, end_axis: isize) ArrayError!ArrayView(T) {
+            return self.flattenAxesView(start_axis, end_axis);
         }
 
         pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
@@ -9610,6 +9712,14 @@ pub fn Array(comptime T: type) type {
             return self.flattenAxes(start_axis, end_axis);
         }
 
+        pub fn flattenRangeView(self: Self, start_axis: isize, end_axis: isize) ArrayError!ArrayView(T) {
+            return self.flattenAxesView(start_axis, end_axis);
+        }
+
+        pub fn flatten_range_view(self: Self, start_axis: isize, end_axis: isize) ArrayError!ArrayView(T) {
+            return self.flattenRangeView(start_axis, end_axis);
+        }
+
         pub fn flattenFrom(self: Self, start_axis: isize) ArrayError!Self {
             return self.flattenAxes(start_axis, -1);
         }
@@ -9618,8 +9728,24 @@ pub fn Array(comptime T: type) type {
             return self.flattenFrom(start_axis);
         }
 
+        pub fn flattenFromView(self: Self, start_axis: isize) ArrayError!ArrayView(T) {
+            return self.flattenAxesView(start_axis, -1);
+        }
+
+        pub fn flatten_from_view(self: Self, start_axis: isize) ArrayError!ArrayView(T) {
+            return self.flattenFromView(start_axis);
+        }
+
         pub fn ravel(self: Self) ArrayError!Self {
             return self.flatten();
+        }
+
+        pub fn ravelView(self: Self) ArrayError!ArrayView(T) {
+            return self.flattenView();
+        }
+
+        pub fn ravel_view(self: Self) ArrayError!ArrayView(T) {
+            return self.ravelView();
         }
 
         pub fn atLeast1d(self: Self) ArrayError!Self {
@@ -9668,6 +9794,16 @@ pub fn Array(comptime T: type) type {
             const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
             defer self.allocator.free(out_shape);
             return self.reshape(out_shape);
+        }
+
+        pub fn unflattenView(self: Self, axis_index: isize, dims: []const usize) ArrayError!ArrayView(T) {
+            const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
+            defer self.allocator.free(out_shape);
+            return self.reshapeView(out_shape);
+        }
+
+        pub fn unflatten_view(self: Self, axis_index: isize, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.unflattenView(axis_index, dims);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) ArrayError!Self {
@@ -19202,6 +19338,137 @@ test "array and view scalar and flat export helpers" {
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.item_value());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalarValue());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalar_value());
+}
+
+test "array and view non-copying reshape flatten aliases" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var reshaped_view = try a.reshapeView(&.{ 3, 2 });
+    defer reshaped_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, reshaped_view.shape);
+    try std.testing.expect(a.sharesStorageView(reshaped_view));
+    try std.testing.expect(reshaped_view.sharesStorageArray(a));
+    try std.testing.expect(try a.mayOverlapView(reshaped_view));
+    try reshaped_view.set(&.{ 0, 1 }, 20);
+    try std.testing.expectEqual(@as(f64, 20), a.data[1]);
+    try reshaped_view.set(&.{ 0, 1 }, 2);
+
+    var reshaped_view_snake = try a.reshape_view(&.{ 1, 6 });
+    defer reshaped_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 6 }, reshaped_view_snake.shape);
+    try std.testing.expect(try reshaped_view_snake.mayOverlapArray(a));
+
+    var inferred_view = try a.reshapeInferView(&.{ -1, 3 });
+    defer inferred_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, inferred_view.shape);
+    var inferred_view_snake = try a.reshape_infer_view(&.{ 3, -1 });
+    defer inferred_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, inferred_view_snake.shape);
+
+    var flattened_view = try a.flattenView();
+    defer flattened_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, flattened_view.shape);
+    try flattened_view.set(&.{4}, 50);
+    try std.testing.expectEqual(@as(f64, 50), a.data[4]);
+    try flattened_view.set(&.{4}, 5);
+    var flattened_view_snake = try a.flatten_view();
+    defer flattened_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, flattened_view.shape, flattened_view_snake.shape);
+
+    var flat_axes_view = try a.flattenAxesView(0, 1);
+    defer flat_axes_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, flat_axes_view.shape);
+    var flat_axes_view_snake = try a.flatten_axes_view(0, 1);
+    defer flat_axes_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, flat_axes_view.shape, flat_axes_view_snake.shape);
+    var flat_range_view = try a.flattenRangeView(0, 1);
+    defer flat_range_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, flat_range_view.shape);
+    var flat_range_view_snake = try a.flatten_range_view(0, 1);
+    defer flat_range_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, flat_range_view.shape, flat_range_view_snake.shape);
+    var flat_from_view = try a.flattenFromView(1);
+    defer flat_from_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, flat_from_view.shape);
+    var flat_from_view_snake = try a.flatten_from_view(1);
+    defer flat_from_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, flat_from_view.shape, flat_from_view_snake.shape);
+
+    var ravel_view = try a.ravelView();
+    defer ravel_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, ravel_view.shape);
+    var ravel_view_snake = try a.ravel_view();
+    defer ravel_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, ravel_view.shape, ravel_view_snake.shape);
+
+    var unflattened_view = try ravel_view.unflattenView(0, &.{ 2, 3 });
+    defer unflattened_view.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, unflattened_view.shape);
+    try std.testing.expect(unflattened_view.sharesStorage(ravel_view));
+    var unflattened_view_snake = try ravel_view.unflatten_view(0, &.{ 3, 2 });
+    defer unflattened_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, unflattened_view_snake.shape);
+
+    var base_view = try a.asView();
+    defer base_view.deinit();
+    var view_reshaped = try base_view.reshapeView(&.{ 6, 1 });
+    defer view_reshaped.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 6, 1 }, view_reshaped.shape);
+    try std.testing.expect(view_reshaped.sharesStorage(base_view));
+    try view_reshaped.set(&.{ 1, 0 }, 20);
+    try std.testing.expectEqual(@as(f64, 20), a.data[1]);
+    try view_reshaped.set(&.{ 1, 0 }, 2);
+
+    var view_reshaped_snake = try base_view.reshape_view(&.{ 1, 6 });
+    defer view_reshaped_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 6 }, view_reshaped_snake.shape);
+    var view_inferred = try base_view.reshapeInferView(&.{-1});
+    defer view_inferred.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, view_inferred.shape);
+    var view_inferred_snake = try base_view.reshape_infer_view(&.{ 3, -1 });
+    defer view_inferred_snake.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, view_inferred_snake.shape);
+
+    var view_flat = try base_view.flattenView();
+    defer view_flat.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, view_flat.shape);
+    var view_flat_snake = try base_view.flatten_view();
+    defer view_flat_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_flat.shape, view_flat_snake.shape);
+    var view_flat_axes = try base_view.flattenAxesView(0, 1);
+    defer view_flat_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, view_flat_axes.shape);
+    var view_flat_range = try base_view.flatten_range_view(0, 1);
+    defer view_flat_range.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, view_flat_range.shape);
+    var view_flat_from = try base_view.flattenFromView(1);
+    defer view_flat_from.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_flat_from.shape);
+    var view_flat_from_snake = try base_view.flatten_from_view(1);
+    defer view_flat_from_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_flat_from.shape, view_flat_from_snake.shape);
+    var view_ravel = try base_view.ravelView();
+    defer view_ravel.deinit();
+    try std.testing.expectEqualSlices(usize, &.{6}, view_ravel.shape);
+    var view_ravel_snake = try base_view.ravel_view();
+    defer view_ravel_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_ravel.shape, view_ravel_snake.shape);
+    var view_unflattened = try view_ravel.unflattenView(0, &.{ 2, 3 });
+    defer view_unflattened.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, view_unflattened.shape);
+
+    var transposed_view = try a.transposeView();
+    defer transposed_view.deinit();
+    try std.testing.expect(!transposed_view.isContiguous());
+    try std.testing.expectError(error.InvalidShape, transposed_view.reshapeView(&.{6}));
+    try std.testing.expectError(error.InvalidShape, transposed_view.flattenView());
+    try std.testing.expectError(error.InvalidShape, transposed_view.ravelView());
+    try std.testing.expectError(error.InvalidShape, transposed_view.unflattenView(0, &.{3}));
+
+    try std.testing.expectError(error.ShapeMismatch, a.reshapeView(&.{5}));
+    try std.testing.expectError(error.ShapeMismatch, a.unflattenView(0, &.{5}));
 }
 
 test "array pytorch numpy shape indexing and layout helpers" {
