@@ -3347,6 +3347,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.diff(axis_index, n);
         }
 
+        pub fn diffWith(self: Self, axis_index: isize, n: usize, prepend: ?Array(T), append: ?Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.diffWith(axis_index, n, prepend, append);
+        }
+
+        pub fn diff_with(self: Self, axis_index: isize, n: usize, prepend: ?Array(T), append: ?Array(T)) ArrayError!Array(T) {
+            return self.diffWith(axis_index, n, prepend, append);
+        }
+
         pub fn ediff1d(self: Self, prepend: ?Array(T), append: ?Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -12206,6 +12216,29 @@ pub fn Array(comptime T: type) type {
                 current = next;
             }
             return current;
+        }
+
+        pub fn diffWith(self: Self, axis_index: isize, n: usize, prepend: ?Self, append: ?Self) ArrayError!Self {
+            ensureNumeric(T);
+            if (prepend == null and append == null) return self.diff(axis_index, n);
+            const count: usize = 1 + @as(usize, if (prepend != null) 1 else 0) + @as(usize, if (append != null) 1 else 0);
+            var arrays = try self.allocator.alloc(Self, count);
+            defer self.allocator.free(arrays);
+            var write: usize = 0;
+            if (prepend) |values| {
+                arrays[write] = values;
+                write += 1;
+            }
+            arrays[write] = self;
+            write += 1;
+            if (append) |values| arrays[write] = values;
+            var joined = try Self.concatenate(self.allocator, arrays, axis_index);
+            defer joined.deinit();
+            return joined.diff(axis_index, n);
+        }
+
+        pub fn diff_with(self: Self, axis_index: isize, n: usize, prepend: ?Self, append: ?Self) ArrayError!Self {
+            return self.diffWith(axis_index, n, prepend, append);
         }
 
         pub fn ediff1d(self: Self, prepend: ?Self, append: ?Self) ArrayError!Self {
