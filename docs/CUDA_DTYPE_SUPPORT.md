@@ -10,7 +10,7 @@ Local CUDA evidence: `/usr/local/cuda/include/library_types.h` declares
 
 | CUDA dtype | Meaning in CUDA headers | Vectra dtype | Axiom bridge status |
 | --- | --- | --- | --- |
-| `CUDA_R_16F` | real half | `f16` | Supported for same-shape add/sub/mul/div and contiguous 2D matmul through widen-to-f32 Axiom CUDA runtime seed, then narrowed to f16. Native f16 CUDA lowering remains future work. |
+| `CUDA_R_16F` | real half | `f16` | Same-shape add/sub/mul/div now try Axiom's native f16 CUDA runtime seed first, with widened-to-f32 fallback. Contiguous 2D matmul still widens through f32 today. |
 | `CUDA_C_16F` | complex half pair | Not exposed | Planned. |
 | `CUDA_R_16BF` | real bfloat16 | `BFloat16` | Supported for same-shape add/sub/mul/div and contiguous 2D matmul through widen-to-f32 Axiom CUDA runtime seed, then narrowed to BFloat16. Native BF16/CUTILE tensor-core lowering remains future work. |
 | `CUDA_C_16BF` | complex bfloat16 pair | Not exposed | Planned. |
@@ -54,10 +54,12 @@ Current registry summary:
 ## Current bridge behavior
 
 - `Array(f32)` is the native CUDA seed path.
-- `Array(f16)` and `Array(BFloat16)` now exercise Axiom CUDA through a widening
-  seed: convert inputs to f32, run Axiom's f32 CUDA kernels where CUDA execution
-  is required, then narrow outputs back to the original dtype.  Elementwise
-  provenance now uses Axiom-owned widened runtime reports
+- `Array(f16)` now tries Axiom's native f16 CUDA elementwise runtime seed for
+  same-shape add/sub/mul/div before falling back to the widened f32 route.
+- `Array(f16)` matmul and `Array(BFloat16)` elementwise/matmul still exercise
+  Axiom CUDA through a widening seed: convert inputs to f32, run Axiom's f32 CUDA
+  kernels where CUDA execution is required, then narrow outputs back to the
+  original dtype.  Elementwise provenance now uses Axiom-owned widened runtime reports
   (`runTensorElementwiseBinaryF16Widened` /
   `runTensorElementwiseBinaryBF16Widened`) instead of Vectra-local report
   reconstruction; those reports can include f32 CUDA compute-run fingerprints
@@ -77,6 +79,7 @@ zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 
 The CUDA smoke JSON includes `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`, and
 `bf16_matmul_ok` fields when the optional bridge is enabled. It also includes
+`f16_native_execution_fingerprint` when the native f16 elementwise seed runs,
 `dtype_support_count`, `dtype_bridge_count`, `dtype_native_seed_count`,
 `dtype_widened_seed_count`, and `dtype_support_fingerprint` so CI can detect
 unexpected dtype-registry drift.
