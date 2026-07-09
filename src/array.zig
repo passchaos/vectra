@@ -5451,6 +5451,34 @@ pub fn ArrayView(comptime T: type) type {
         pub fn T_(self: Self) ArrayError!Self {
             return self.transpose();
         }
+
+        pub fn matrixTranspose(self: Self) ArrayError!Self {
+            if (self.shape.len < 2) return error.NonMatrixArray;
+            return self.swapaxes(@as(isize, @intCast(self.shape.len - 2)), @as(isize, @intCast(self.shape.len - 1)));
+        }
+
+        pub fn matrix_transpose(self: Self) ArrayError!Self {
+            return self.matrixTranspose();
+        }
+
+        pub fn mT(self: Self) ArrayError!Self {
+            return self.matrixTranspose();
+        }
+
+        pub fn adjoint(self: Self) ArrayError!Array(T) {
+            var transposed_view = try self.matrixTranspose();
+            defer transposed_view.deinit();
+            if (comptime isComplex(T)) return transposed_view.conj();
+            return transposed_view.toArray();
+        }
+
+        pub fn mH(self: Self) ArrayError!Array(T) {
+            return self.adjoint();
+        }
+
+        pub fn H_(self: Self) ArrayError!Array(T) {
+            return self.adjoint();
+        }
     };
 }
 
@@ -8275,6 +8303,36 @@ pub fn Array(comptime T: type) type {
 
         pub fn T_(self: Self) ArrayError!Self {
             return self.transpose();
+        }
+
+        pub fn matrixTranspose(self: Self) ArrayError!Self {
+            if (self.shape.len < 2) return error.NonMatrixArray;
+            return self.swapaxes(@as(isize, @intCast(self.shape.len - 2)), @as(isize, @intCast(self.shape.len - 1)));
+        }
+
+        pub fn matrix_transpose(self: Self) ArrayError!Self {
+            return self.matrixTranspose();
+        }
+
+        pub fn mT(self: Self) ArrayError!Self {
+            return self.matrixTranspose();
+        }
+
+        pub fn adjoint(self: Self) ArrayError!Self {
+            var transposed = try self.matrixTranspose();
+            if (comptime isComplex(T)) {
+                defer transposed.deinit();
+                return transposed.conj();
+            }
+            return transposed;
+        }
+
+        pub fn mH(self: Self) ArrayError!Self {
+            return self.adjoint();
+        }
+
+        pub fn H_(self: Self) ArrayError!Self {
+            return self.adjoint();
         }
 
         pub fn swapaxes(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
@@ -15973,6 +16031,24 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var transposed_top = try a.transpose();
     defer transposed_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, transposed_top.data);
+    var matrix_transposed = try a.matrixTranspose();
+    defer matrix_transposed.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_top.data, matrix_transposed.data);
+    var matrix_transposed_alias = try a.matrix_transpose();
+    defer matrix_transposed_alias.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_top.data, matrix_transposed_alias.data);
+    var matrix_t = try a.mT();
+    defer matrix_t.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_top.data, matrix_t.data);
+    var real_adjoint = try a.adjoint();
+    defer real_adjoint.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_top.data, real_adjoint.data);
+    var real_mh = try a.mH();
+    defer real_mh.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_top.data, real_mh.data);
+    var real_h = try a.H_();
+    defer real_h.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_top.data, real_h.data);
     var swapped_top = try a.swapaxes(0, 1);
     defer swapped_top.deinit();
     try std.testing.expectEqualSlices(f64, transposed_top.data, swapped_top.data);
@@ -15988,6 +16064,16 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var moved_many = try cube.move_axes(&.{ 0, 2 }, &.{ 2, 0 });
     defer moved_many.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, moved_many.shape);
+    var batch_matrix = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }, &.{ 2, 2, 3 });
+    defer batch_matrix.deinit();
+    var batch_mt = try batch_matrix.mT();
+    defer batch_mt.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3, 2 }, batch_mt.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6, 7, 10, 8, 11, 9, 12 }, batch_mt.data);
+    var batch_adj = try batch_matrix.adjoint();
+    defer batch_adj.deinit();
+    try std.testing.expectEqualSlices(f64, batch_mt.data, batch_adj.data);
+    try std.testing.expectError(error.NonMatrixArray, scalar_1d.mT());
     try std.testing.expectError(error.ShapeMismatch, cube.moveaxes(&.{0}, &.{ 1, 2 }));
     try std.testing.expectError(error.InvalidAxis, cube.moveaxes(&.{ 0, 0 }, &.{ 1, 2 }));
     var selected_top = try a.select(0, 1);
@@ -17303,6 +17389,25 @@ test "array view object math sort and linalg wrappers" {
     var complex_value_mask = try complex_view.iscomplex();
     defer complex_value_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, complex_value_mask.data);
+    var complex_adjoint = try complex_values.adjoint();
+    defer complex_adjoint.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, complex_adjoint.shape);
+    try std.testing.expectApproxEqAbs(@as(f32, -2), complex_adjoint.data[0].im, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, -1), complex_adjoint.data[1].im, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 4), complex_adjoint.data[2].im, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), complex_adjoint.data[3].im, 1e-6);
+    var complex_h = try complex_values.H_();
+    defer complex_h.deinit();
+    try std.testing.expectEqualSlices(C, complex_adjoint.data, complex_h.data);
+    var complex_view_mt = try complex_view.mT();
+    defer complex_view_mt.deinit();
+    var complex_view_mt_owned = try complex_view_mt.toArray();
+    defer complex_view_mt_owned.deinit();
+    try std.testing.expectEqualSlices(C, complex_values.data, complex_view_mt_owned.data);
+    var complex_view_adjoint = try complex_view.adjoint();
+    defer complex_view_adjoint.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, -2), complex_view_adjoint.data[0].im, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f32, 4), complex_view_adjoint.data[1].im, 1e-6);
 }
 
 test "array object linalg methods use Veyra-backed and fallback paths" {
