@@ -3729,11 +3729,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            var rhs = try other.toArray();
-            defer rhs.deinit();
-            return lhs.isclose(rhs, rtol, atol);
+            return self.iscloseEqualNan(other, rtol, atol, false);
         }
 
         pub fn isClose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
@@ -3741,11 +3737,20 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn iscloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            var rhs = try other.toArray();
-            defer rhs.deinit();
-            return lhs.iscloseEqualNan(rhs, rtol, atol, equal_nan);
+            ensureFloat(T);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(bool).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const lhs_offset = self.offset + broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
+                const rhs_offset = other.offset + broadcastOffset(out_multi, out_shape.len, other.shape, other.strides);
+                slot.* = closeValue(T, self.data[lhs_offset], other.data[rhs_offset], rtol, atol, equal_nan);
+            }
+            return out;
         }
 
         pub fn isCloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
@@ -3757,11 +3762,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn allclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!bool {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            var rhs = try other.toArray();
-            defer rhs.deinit();
-            return lhs.allclose(rhs, rtol, atol);
+            return self.allcloseEqualNan(other, rtol, atol, false);
         }
 
         pub fn allClose(self: Self, other: Self, rtol: T, atol: T) ArrayError!bool {
@@ -3769,11 +3770,18 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn allcloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            var rhs = try other.toArray();
-            defer rhs.deinit();
-            return lhs.allcloseEqualNan(rhs, rtol, atol, equal_nan);
+            ensureFloat(T);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (0..product(out_shape)) |flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const lhs_offset = self.offset + broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
+                const rhs_offset = other.offset + broadcastOffset(out_multi, out_shape.len, other.shape, other.strides);
+                if (!closeValue(T, self.data[lhs_offset], other.data[rhs_offset], rtol, atol, equal_nan)) return false;
+            }
+            return true;
         }
 
         pub fn allCloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
@@ -22594,6 +22602,31 @@ test "array view object statistics wrappers" {
     defer view_close_nan.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true }, view_close_nan.data);
     try std.testing.expect(try view.allCloseEqualNan(view, 1e-5, 1e-8, true));
+    var close_source = try Array(f64).fromSlice(gpa, &.{
+        1.0, 9.0, 2.0, 8.0,
+        3.0, 7.0, 4.0, 6.0,
+    }, &.{ 2, 4 });
+    defer close_source.deinit();
+    var close_lhs = try close_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer close_lhs.deinit();
+    var close_rhs_source = try Array(f64).fromSlice(gpa, &.{ 1.0, 2.01, 3.0, 4.2 }, &.{ 2, 2 });
+    defer close_rhs_source.deinit();
+    var close_rhs = try close_rhs_source.asView();
+    defer close_rhs.deinit();
+    var close_mask = try close_lhs.isclose(close_rhs, 0.0, 0.05);
+    defer close_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, close_mask.data);
+    try std.testing.expect(!try close_lhs.allclose(close_rhs, 0.0, 0.05));
+    try close_rhs_source.set(&.{ 1, 1 }, 4.0);
+    try std.testing.expect(try close_lhs.allclose(close_rhs, 0.0, 0.05));
+    var close_nan_source = try Array(f64).fromSlice(gpa, &.{ nan, 1.0, nan, 1.0 }, &.{ 2, 2 });
+    defer close_nan_source.deinit();
+    var close_nan_view = try close_nan_source.asView();
+    defer close_nan_view.deinit();
+    var close_nan_mask = try close_nan_view.iscloseEqualNan(close_nan_view, 0.0, 0.0, true);
+    defer close_nan_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, close_nan_mask.data);
+    try std.testing.expect(try close_nan_view.allclose_equal_nan(close_nan_view, 0.0, 0.0, true));
     var view_nanmedian_axes = try view.nanmedianAxes(&.{ 0, 1 }, false);
     defer view_nanmedian_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{4}, view_nanmedian_axes.data);
