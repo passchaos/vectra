@@ -41,6 +41,15 @@ pub const ElementwiseOp = enum(u8) {
     }
 };
 
+pub const ScalarSide = enum(u8) {
+    lhs,
+    rhs,
+
+    pub fn label(side: ScalarSide) []const u8 {
+        return @tagName(side);
+    }
+};
+
 pub const BackendReport = struct {
     policy: BackendPolicy = .prefer_cuda,
     selected: BackendRoute = .direct_cpu,
@@ -105,6 +114,32 @@ pub fn selectElementwise(comptime T: type, op: ElementwiseOp, policy: BackendPol
     return report;
 }
 
+pub fn selectScalarElementwise(
+    comptime T: type,
+    op: ElementwiseOp,
+    policy: BackendPolicy,
+    input: array_mod.Array(T),
+    scalar: T,
+    scalar_side: ScalarSide,
+) BackendReport {
+    const supported = supportedScalarElementwise(T, input);
+    const selected: BackendRoute = if (!supported)
+        .direct_cpu
+    else switch (policy) {
+        .force_direct_cpu => .direct_cpu,
+        .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_cuda => if (T == f32 and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+    };
+    var report: BackendReport = .{
+        .policy = policy,
+        .selected = selected,
+        .dtype_name = @typeName(T),
+        .supported_shape = supported,
+    };
+    report.fingerprint_value = computeScalarElementwiseFingerprint(T, op, input, scalar, scalar_side, selected);
+    return report;
+}
+
 pub fn elementwise(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!array_mod.Array(T) {
     const report = selectElementwise(T, op, policy, lhs, rhs);
     switch (report.selected) {
@@ -136,6 +171,36 @@ pub fn elementwise(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, l
     return directElementwise(T, op, lhs, rhs);
 }
 
+pub fn elementwiseScalar(
+    comptime T: type,
+    op: ElementwiseOp,
+    policy: BackendPolicy,
+    input: array_mod.Array(T),
+    scalar: T,
+    scalar_side: ScalarSide,
+) array_mod.ArrayError!array_mod.Array(T) {
+    const report = selectScalarElementwise(T, op, policy, input, scalar, scalar_side);
+    switch (report.selected) {
+        .axiom_cuda, .axiom_cpu_veyra => {
+            var scalar_array = try array_mod.Array(T).full(input.allocator, input.shape, scalar);
+            defer scalar_array.deinit();
+            return switch (scalar_side) {
+                .lhs => elementwise(T, op, policy, scalar_array, input),
+                .rhs => elementwise(T, op, policy, input, scalar_array),
+            };
+        },
+        .direct_cpu => {},
+    }
+    return directScalarElementwise(T, op, input, scalar, scalar_side);
+}
+
+pub fn tryElementwiseScalarBroadcast(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (lhs.data.len == rhs.data.len) return null;
+    if (lhs.data.len == 1 and rhs.data.len != 0 and scalarBroadcastPreservesVectorShape(lhs.shape, rhs.shape)) return try elementwiseScalar(T, op, policy, rhs, lhs.data[0], .lhs);
+    if (rhs.data.len == 1 and lhs.data.len != 0 and scalarBroadcastPreservesVectorShape(rhs.shape, lhs.shape)) return try elementwiseScalar(T, op, policy, lhs, rhs.data[0], .rhs);
+    return null;
+}
+
 fn directElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!array_mod.Array(T) {
     if (!std.mem.eql(usize, lhs.shape, rhs.shape)) return error.ShapeMismatch;
     var out = try array_mod.Array(T).empty(lhs.allocator, lhs.shape);
@@ -146,6 +211,22 @@ fn directElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T
         .mul => a * b,
         .div => a / b,
     };
+    return out;
+}
+
+fn directScalarElementwise(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), scalar: T, scalar_side: ScalarSide) array_mod.ArrayError!array_mod.Array(T) {
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    for (input.data, out.data) |value, *slot| {
+        const lhs = if (scalar_side == .lhs) scalar else value;
+        const rhs = if (scalar_side == .lhs) value else scalar;
+        slot.* = switch (op) {
+            .add => lhs + rhs,
+            .sub => lhs - rhs,
+            .mul => lhs * rhs,
+            .div => lhs / rhs,
+        };
+    }
     return out;
 }
 
@@ -204,6 +285,27 @@ fn supportsAxiomCpuElementwise(comptime T: type) bool {
     return T == f32 or T == f64;
 }
 
+fn supportedScalarElementwise(comptime T: type, input: array_mod.Array(T)) bool {
+    return supportsAxiomCpuElementwise(T) and
+        input.device.isCpu() and
+        input.data.len != 0 and
+        input.isContiguous();
+}
+
+fn scalarBroadcastPreservesVectorShape(scalar_shape: []const usize, vector_shape: []const usize) bool {
+    if (scalar_shape.len > vector_shape.len) return false;
+    var scalar_index = scalar_shape.len;
+    var vector_index = vector_shape.len;
+    while (scalar_index > 0) {
+        scalar_index -= 1;
+        vector_index -= 1;
+        const scalar_dim = scalar_shape[scalar_index];
+        const vector_dim = vector_shape[vector_index];
+        if (scalar_dim != 1 and scalar_dim != vector_dim) return false;
+    }
+    return true;
+}
+
 fn computeShapeFingerprint(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), selected: BackendRoute) u64 {
     var hasher = std.hash.Wyhash.init(0x0abc_beef_0002);
     hashBytes(&hasher, @typeName(T));
@@ -223,6 +325,17 @@ fn computeElementwiseFingerprint(comptime T: type, op: ElementwiseOp, lhs: array
     return hasher.final();
 }
 
+fn computeScalarElementwiseFingerprint(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), scalar: T, scalar_side: ScalarSide, selected: BackendRoute) u64 {
+    var hasher = std.hash.Wyhash.init(0x0abc_beef_0004);
+    hashBytes(&hasher, @typeName(T));
+    hashBytes(&hasher, op.label());
+    hashBytes(&hasher, scalar_side.label());
+    hashBytes(&hasher, selected.label());
+    for (input.shape) |dim| hashU64(&hasher, dim);
+    hashElementValue(T, &hasher, scalar);
+    return hasher.final();
+}
+
 fn hashBytes(hasher: *std.hash.Wyhash, bytes: []const u8) void {
     var len_bytes: [8]u8 = undefined;
     std.mem.writeInt(u64, &len_bytes, bytes.len, .little);
@@ -238,6 +351,20 @@ fn hashU64(hasher: *std.hash.Wyhash, value: anytype) void {
     var bytes: [8]u8 = undefined;
     std.mem.writeInt(u64, &bytes, @intCast(value), .little);
     hasher.update(&bytes);
+}
+
+fn hashElementValue(comptime T: type, hasher: *std.hash.Wyhash, value: T) void {
+    if (T == f32) {
+        var bytes: [4]u8 = undefined;
+        std.mem.writeInt(u32, &bytes, @bitCast(value), .little);
+        hasher.update(&bytes);
+    } else if (T == f64) {
+        var bytes: [8]u8 = undefined;
+        std.mem.writeInt(u64, &bytes, @bitCast(value), .little);
+        hasher.update(&bytes);
+    } else {
+        hashU64(hasher, value);
+    }
 }
 
 test "Axiom backend policy reports matmul route" {
@@ -281,4 +408,23 @@ test "Axiom backend policy reports elementwise route" {
     var div_out = try elementwise(f64, .div, .prefer_axiom_cpu, lhs64, rhs64);
     defer div_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 2, 1, 1 }, div_out.data);
+
+    const scalar_report = selectScalarElementwise(f64, .sub, .prefer_axiom_cpu, lhs64, 2.0, .rhs);
+    try std.testing.expect(scalar_report.ok());
+    var scalar_out = try elementwiseScalar(f64, .sub, .prefer_axiom_cpu, lhs64, 2.0, .rhs);
+    defer scalar_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6, 4, 2, 0 }, scalar_out.data);
+
+    var scalar_lhs = try array_mod.Array(f32).fromSlice(gpa, &.{2}, &.{1});
+    defer scalar_lhs.deinit();
+    const scalar_broadcast = try tryElementwiseScalarBroadcast(f32, .sub, .prefer_cuda, scalar_lhs, rhs32);
+    try std.testing.expect(scalar_broadcast != null);
+    var scalar_broadcast_out = scalar_broadcast.?;
+    defer scalar_broadcast_out.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ -8, -18, -28, -38 }, scalar_broadcast_out.data);
+
+    var leading_singleton = try array_mod.Array(f32).fromSlice(gpa, &.{2}, &.{ 1, 1, 1 });
+    defer leading_singleton.deinit();
+    const unsupported_scalar_broadcast = try tryElementwiseScalarBroadcast(f32, .add, .prefer_cuda, leading_singleton, rhs32);
+    try std.testing.expect(unsupported_scalar_broadcast == null);
 }

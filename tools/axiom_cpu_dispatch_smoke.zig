@@ -17,6 +17,14 @@ pub fn main(init: std.process.Init) !void {
     defer mul32.deinit();
     var div32 = try a32.div(a32);
     defer div32.deinit();
+    var add_scalar32 = try a32.addScalar(2);
+    defer add_scalar32.deinit();
+    var sub_scalar32 = try a32.subScalar(2);
+    defer sub_scalar32.deinit();
+    var mul_scalar32 = try a32.mulScalar(2);
+    defer mul_scalar32.deinit();
+    var div_scalar32 = try a32.divScalar(2);
+    defer div_scalar32.deinit();
 
     var a64 = try vx.Array(f64).fromSlice(allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a64.deinit();
@@ -32,6 +40,20 @@ pub fn main(init: std.process.Init) !void {
     defer mul64.deinit();
     var div64 = try a64.div(a64);
     defer div64.deinit();
+    var add_scalar64 = try a64.addScalar(2);
+    defer add_scalar64.deinit();
+    var sub_scalar64 = try a64.subScalar(2);
+    defer sub_scalar64.deinit();
+    var mul_scalar64 = try a64.mulScalar(2);
+    defer mul_scalar64.deinit();
+    var div_scalar64 = try a64.divScalar(2);
+    defer div_scalar64.deinit();
+    var broadcast_scalar64 = try vx.Array(f64).fromSlice(allocator, &.{2}, &.{1});
+    defer broadcast_scalar64.deinit();
+    var broadcast_sub64 = try broadcast_scalar64.sub(a64);
+    defer broadcast_sub64.deinit();
+    var broadcast_div64 = try a64.div(broadcast_scalar64);
+    defer broadcast_div64.deinit();
 
     const matmul_ok = out32.data[0] == 58 and out32.data[3] == 154 and out64.data[0] == 58 and out64.data[3] == 154;
     const elementwise_ok = equalF32(add32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
@@ -42,10 +64,20 @@ pub fn main(init: std.process.Init) !void {
         equalF64(sub64.data, &.{ 0, 0, 0, 0, 0, 0 }) and
         equalF64(mul64.data, &.{ 1, 4, 9, 16, 25, 36 }) and
         equalF64(div64.data, &.{ 1, 1, 1, 1, 1, 1 });
-    const ok = matmul_ok and elementwise_ok;
+    const scalar_ok = equalF32(add_scalar32.data, &.{ 3, 4, 5, 6, 7, 8 }) and
+        equalF32(sub_scalar32.data, &.{ -1, 0, 1, 2, 3, 4 }) and
+        equalF32(mul_scalar32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
+        equalF32(div_scalar32.data, &.{ 0.5, 1, 1.5, 2, 2.5, 3 }) and
+        equalF64(add_scalar64.data, &.{ 3, 4, 5, 6, 7, 8 }) and
+        equalF64(sub_scalar64.data, &.{ -1, 0, 1, 2, 3, 4 }) and
+        equalF64(mul_scalar64.data, &.{ 2, 4, 6, 8, 10, 12 }) and
+        equalF64(div_scalar64.data, &.{ 0.5, 1, 1.5, 2, 2.5, 3 }) and
+        equalF64(broadcast_sub64.data, &.{ 1, 0, -1, -2, -3, -4 }) and
+        equalF64(broadcast_div64.data, &.{ 0.5, 1, 1.5, 2, 2.5, 3 });
+    const ok = matmul_ok and elementwise_ok and scalar_ok;
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
-    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0] });
+    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0] });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
 }

@@ -25,17 +25,21 @@ pub fn main(init: std.process.Init) !void {
     const ew64_report = vx.axiom_backend.selectElementwise(f64, .div, .prefer_axiom_cpu, lhs64, rhs64);
     var ew64 = try vx.axiom_backend.elementwise(f64, .div, .prefer_axiom_cpu, lhs64, rhs64);
     defer ew64.deinit();
+    const scalar64_report = vx.axiom_backend.selectScalarElementwise(f64, .sub, .prefer_axiom_cpu, lhs64, 2.0, .rhs);
+    var scalar64 = try vx.axiom_backend.elementwiseScalar(f64, .sub, .prefer_axiom_cpu, lhs64, 2.0, .rhs);
+    defer scalar64.deinit();
 
     const matmul_ok = report.ok() and out.data[0] == 58 and out.data[3] == 154;
     const elementwise_ok = ew32_report.ok() and ew64_report.ok() and
         equalF32(ew32.data, &.{ 11, 22, 33, 44 }) and
         equalF64(ew64.data, &.{ 4, 2, 1, 1 });
-    const ok = matmul_ok and elementwise_ok;
+    const scalar_ok = scalar64_report.ok() and equalF64(scalar64.data, &.{ 6, 4, 2, 0 });
+    const ok = matmul_ok and elementwise_ok and scalar_ok;
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{},\"fingerprint\":{d},\"elementwise_fingerprint\":{d}}}\n",
-        .{ ok, matmul_ok, elementwise_ok, report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint() },
+        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d}}}\n",
+        .{ ok, matmul_ok, elementwise_ok, scalar_ok, report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), scalar64_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint() },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

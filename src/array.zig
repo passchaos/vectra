@@ -14514,9 +14514,22 @@ pub fn Array(comptime T: type) type {
                 }
                 return out;
             }
-            if (comptime T == f32) {
-                if (build_options.enable_axiom_cuda_dispatch) {
-                    const accelerated = try axiom_cuda_backend.tryBinaryScalarBroadcastF32(if (comptime op == opAdd) .add else if (comptime op == opSub) .sub else if (comptime op == opMul) .mul else if (comptime op == opDiv) .div else .add, self, other);
+            if (comptime T == f32 or T == f64) {
+                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) {
+                    const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
+                        axiom_backend.ElementwiseOp.add
+                    else if (comptime op == opSub)
+                        axiom_backend.ElementwiseOp.sub
+                    else if (comptime op == opMul)
+                        axiom_backend.ElementwiseOp.mul
+                    else if (comptime op == opDiv)
+                        axiom_backend.ElementwiseOp.div
+                    else
+                        null;
+                    const accelerated = if (maybe_op) |op_value|
+                        try axiom_backend.tryElementwiseScalarBroadcast(T, op_value, .prefer_cuda, self, other)
+                    else
+                        null;
                     if (accelerated) |out| return out;
                 }
             }
@@ -15261,38 +15274,32 @@ pub fn Array(comptime T: type) type {
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32) {
-                if (build_options.enable_axiom_cuda_dispatch) {
-                    const accelerated = try axiom_cuda_backend.tryAddScalarF32(self, scalar);
-                    if (accelerated) |out| return out;
-                }
+            if (comptime T == f32 or T == f64) {
+                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .add, .prefer_cuda, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opAdd);
         }
 
         pub fn subScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .sub, .prefer_cuda, self, scalar, .rhs);
+            }
             return self.binaryScalar(scalar, opSub);
         }
 
         pub fn mulScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32) {
-                if (build_options.enable_axiom_cuda_dispatch) {
-                    const accelerated = try axiom_cuda_backend.tryMulScalarF32(self, scalar);
-                    if (accelerated) |out| return out;
-                }
+            if (comptime T == f32 or T == f64) {
+                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .mul, .prefer_cuda, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opMul);
         }
 
         pub fn divScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32) {
-                if (build_options.enable_axiom_cuda_dispatch) {
-                    const accelerated = try axiom_cuda_backend.tryDivScalarF32(self, scalar);
-                    if (accelerated) |out| return out;
-                }
+            if (comptime T == f32 or T == f64) {
+                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .div, .prefer_cuda, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opDiv);
         }

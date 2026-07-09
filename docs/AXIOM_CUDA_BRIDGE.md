@@ -46,8 +46,9 @@ try Axiom CUDA first and fall back through the unified policy when unsupported o
 unavailable.  `-Daxiom-cpu-dispatch=true` lets supported ordinary `Array(f32/f64)`
 methods try Axiom CPU lowering to Veyra before the existing direct CPU path.
 The current automatic dispatch covers contiguous same-shape `add/sub/mul/div`,
-f32 scalar `addScalar/mulScalar/divScalar`, f32 scalar-array broadcast
-`add/sub`, and contiguous 2D `matmul`.
+scalar `addScalar/subScalar/mulScalar/divScalar`, scalar-array broadcast
+`add/sub/mul/div`, and contiguous 2D `matmul`.  CUDA scalar routes are f32
+today; CPU scalar routes cover f32/f64 through Axiom CPU→Veyra.
 
 `vx.axiom_backend` is the shared policy seam for both CPU and CUDA paths:
 
@@ -56,6 +57,11 @@ f32 scalar `addScalar/mulScalar/divScalar`, f32 scalar-array broadcast
   add/sub/mul/div.
 - `elementwise(T, op, policy, lhs, rhs)` executes that route and falls back to
   direct CPU if an optional Axiom route is disabled or unavailable.
+- `selectScalarElementwise(T, op, policy, input, scalar, side)` and
+  `elementwiseScalar(T, op, policy, input, scalar, side)` cover scalar
+  add/sub/mul/div with explicit scalar-left/scalar-right semantics.
+- `tryElementwiseScalarBroadcast(T, op, policy, lhs, rhs)` recognizes one-element
+  scalar-array broadcast and routes it through the same policy.
 - `selectMatmul(T, policy, lhs, rhs)` and `matmul(T, policy, lhs, rhs)` do the
   same for contiguous 2D matmul.
 
@@ -89,7 +95,7 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 
 ## Current limits
 
-- Only contiguous same-shape `Array(f32/f64)` add/sub/mul/div, scalar-broadcast f32 vector inputs, experimental 1D positive-stride `ArrayView(f32)` add/sub/mul/div bridge calls, and contiguous 2D f32/f64 matmul inputs are covered by automatic policy dispatch.
+- Only contiguous same-shape `Array(f32/f64)` add/sub/mul/div, scalar and one-element scalar-broadcast `Array(f32/f64)` add/sub/mul/div, experimental 1D positive-stride `ArrayView(f32)` add/sub/mul/div bridge calls, and contiguous 2D f32/f64 matmul inputs are covered by automatic policy dispatch.
 - The bridge does not change `Device.cuda(index).isAvailable()` yet.
 - An explicit `DeviceArrayF32` handle can acquire/release Axiom pool-backed device buffers; ordinary `.cuda()` persistent storage is still intentionally unavailable.
 - Only scalar-array broadcast dispatch is covered; no general broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
@@ -101,7 +107,7 @@ This is the first integration seam for a future CuPy/PyTorch-like Vectra GPU
 backend, not the final GPU backend itself.
 
 
-Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported contiguous same-shape `Array(f32/f64).add/sub/mul/div` and contiguous 2D `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
+Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported contiguous same-shape and scalar/broadcast `Array(f32/f64).add/sub/mul/div` plus contiguous 2D `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
 
 
 Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported elementwise and matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies; `Array.add/sub/mul/div` and `Array.matmul` now use this policy when Axiom CPU/CUDA dispatch flags are enabled.
