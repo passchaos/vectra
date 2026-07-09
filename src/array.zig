@@ -187,6 +187,21 @@ pub const DType = enum {
         };
     }
 
+    pub fn isUnsigned(self: DType) bool {
+        return switch (self) {
+            .u8, .u16, .u32, .u64, .usize => true,
+            else => false,
+        };
+    }
+
+    pub fn isReal(self: DType) bool {
+        return self.isInteger() or self.isFloat();
+    }
+
+    pub fn isNumeric(self: DType) bool {
+        return self.isReal() or self.isComplex();
+    }
+
     pub fn isBool(self: DType) bool {
         return self == .bool;
     }
@@ -1047,6 +1062,123 @@ pub fn ArrayView(comptime T: type) type {
                 self.* = undefined;
             }
         };
+
+        pub fn dtypeName(self: Self) []const u8 {
+            _ = self;
+            return dtype.name();
+        }
+
+        pub fn dtype_name(self: Self) []const u8 {
+            return self.dtypeName();
+        }
+
+        pub fn dtypeTag(self: Self) u8 {
+            _ = self;
+            return dtype.tag();
+        }
+
+        pub fn dtype_tag(self: Self) u8 {
+            return self.dtypeTag();
+        }
+
+        pub fn dtypeByteSize(self: Self) usize {
+            _ = self;
+            return dtype.byteSize();
+        }
+
+        pub fn dtype_byte_size(self: Self) usize {
+            return self.dtypeByteSize();
+        }
+
+        pub fn dtypeBitSize(self: Self) usize {
+            _ = self;
+            return dtype.bitSize();
+        }
+
+        pub fn dtype_bit_size(self: Self) usize {
+            return self.dtypeBitSize();
+        }
+
+        pub fn isFloatDtype(self: Self) bool {
+            _ = self;
+            return dtype.isFloat();
+        }
+
+        pub fn is_float_dtype(self: Self) bool {
+            return self.isFloatDtype();
+        }
+
+        pub fn isIntegerDtype(self: Self) bool {
+            _ = self;
+            return dtype.isInteger();
+        }
+
+        pub fn is_integer_dtype(self: Self) bool {
+            return self.isIntegerDtype();
+        }
+
+        pub fn isSignedDtype(self: Self) bool {
+            _ = self;
+            return dtype.isSigned();
+        }
+
+        pub fn is_signed_dtype(self: Self) bool {
+            return self.isSignedDtype();
+        }
+
+        pub fn isUnsignedDtype(self: Self) bool {
+            _ = self;
+            return dtype.isUnsigned();
+        }
+
+        pub fn is_unsigned_dtype(self: Self) bool {
+            return self.isUnsignedDtype();
+        }
+
+        pub fn isComplexDtype(self: Self) bool {
+            _ = self;
+            return dtype.isComplex();
+        }
+
+        pub fn is_complex_dtype(self: Self) bool {
+            return self.isComplexDtype();
+        }
+
+        pub fn isBoolDtype(self: Self) bool {
+            _ = self;
+            return dtype.isBool();
+        }
+
+        pub fn is_bool_dtype(self: Self) bool {
+            return self.isBoolDtype();
+        }
+
+        pub fn isRealDtype(self: Self) bool {
+            _ = self;
+            return dtype.isReal();
+        }
+
+        pub fn is_real_dtype(self: Self) bool {
+            return self.isRealDtype();
+        }
+
+        pub fn isNumericDtype(self: Self) bool {
+            _ = self;
+            return dtype.isNumeric();
+        }
+
+        pub fn is_numeric_dtype(self: Self) bool {
+            return self.isNumericDtype();
+        }
+
+        pub fn canCastToDtype(self: Self, target: DType) bool {
+            _ = self;
+            return dtype.canCast(target);
+        }
+
+        pub fn can_cast_to_dtype(self: Self, target: DType) bool {
+            return self.canCastToDtype(target);
+        }
 
         pub fn fromArray(input: Array(T)) ArrayError!Self {
             const shape = try input.allocator.dupe(usize, input.shape);
@@ -5805,6 +5937,123 @@ pub fn Array(comptime T: type) type {
         pub const Scalar = T;
         pub const dtype = DType.of(T);
         pub const BroadcastPair = ArrayView(T).BroadcastPair;
+
+        pub fn dtypeName(self: Self) []const u8 {
+            _ = self;
+            return dtype.name();
+        }
+
+        pub fn dtype_name(self: Self) []const u8 {
+            return self.dtypeName();
+        }
+
+        pub fn dtypeTag(self: Self) u8 {
+            _ = self;
+            return dtype.tag();
+        }
+
+        pub fn dtype_tag(self: Self) u8 {
+            return self.dtypeTag();
+        }
+
+        pub fn dtypeByteSize(self: Self) usize {
+            _ = self;
+            return dtype.byteSize();
+        }
+
+        pub fn dtype_byte_size(self: Self) usize {
+            return self.dtypeByteSize();
+        }
+
+        pub fn dtypeBitSize(self: Self) usize {
+            _ = self;
+            return dtype.bitSize();
+        }
+
+        pub fn dtype_bit_size(self: Self) usize {
+            return self.dtypeBitSize();
+        }
+
+        pub fn isFloatDtype(self: Self) bool {
+            _ = self;
+            return dtype.isFloat();
+        }
+
+        pub fn is_float_dtype(self: Self) bool {
+            return self.isFloatDtype();
+        }
+
+        pub fn isIntegerDtype(self: Self) bool {
+            _ = self;
+            return dtype.isInteger();
+        }
+
+        pub fn is_integer_dtype(self: Self) bool {
+            return self.isIntegerDtype();
+        }
+
+        pub fn isSignedDtype(self: Self) bool {
+            _ = self;
+            return dtype.isSigned();
+        }
+
+        pub fn is_signed_dtype(self: Self) bool {
+            return self.isSignedDtype();
+        }
+
+        pub fn isUnsignedDtype(self: Self) bool {
+            _ = self;
+            return dtype.isUnsigned();
+        }
+
+        pub fn is_unsigned_dtype(self: Self) bool {
+            return self.isUnsignedDtype();
+        }
+
+        pub fn isComplexDtype(self: Self) bool {
+            _ = self;
+            return dtype.isComplex();
+        }
+
+        pub fn is_complex_dtype(self: Self) bool {
+            return self.isComplexDtype();
+        }
+
+        pub fn isBoolDtype(self: Self) bool {
+            _ = self;
+            return dtype.isBool();
+        }
+
+        pub fn is_bool_dtype(self: Self) bool {
+            return self.isBoolDtype();
+        }
+
+        pub fn isRealDtype(self: Self) bool {
+            _ = self;
+            return dtype.isReal();
+        }
+
+        pub fn is_real_dtype(self: Self) bool {
+            return self.isRealDtype();
+        }
+
+        pub fn isNumericDtype(self: Self) bool {
+            _ = self;
+            return dtype.isNumeric();
+        }
+
+        pub fn is_numeric_dtype(self: Self) bool {
+            return self.isNumericDtype();
+        }
+
+        pub fn canCastToDtype(self: Self, target: DType) bool {
+            _ = self;
+            return dtype.canCast(target);
+        }
+
+        pub fn can_cast_to_dtype(self: Self, target: DType) bool {
+            return self.canCastToDtype(target);
+        }
 
         pub fn init(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             const n = try numelFrom(dims);
@@ -20901,8 +21150,13 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expect(DType.f32.isFloat());
     try std.testing.expect(DType.i16.isInteger());
     try std.testing.expect(DType.i16.isSigned());
+    try std.testing.expect(DType.u16.isUnsigned());
     try std.testing.expect(DType.isize.isSigned());
     try std.testing.expect(DType.bool.isBool());
+    try std.testing.expect(DType.f64.isReal());
+    try std.testing.expect(DType.c64.isNumeric());
+    try std.testing.expect(DType.c128.isComplex());
+    try std.testing.expect(!DType.bool.isNumeric());
     try std.testing.expect(DType.bool.canCast(.f32));
     try std.testing.expect(DType.f32.canCast(.c64));
     try std.testing.expect(!DType.c64.canCast(.f32));
@@ -20920,11 +21174,32 @@ test "array dtype metadata and casts cover common numeric types" {
     const gpa = std.testing.allocator;
     var ints = try Array(i16).fromSlice(gpa, &.{ -1, 0, 2 }, &.{3});
     defer ints.deinit();
+    try std.testing.expectEqualStrings("i16", ints.dtypeName());
+    try std.testing.expectEqualStrings("i16", ints.dtype_name());
+    try std.testing.expectEqual(DType.i16.tag(), ints.dtypeTag());
+    try std.testing.expectEqual(DType.i16.tag(), ints.dtype_tag());
+    try std.testing.expectEqual(@as(usize, @sizeOf(i16)), ints.dtypeByteSize());
+    try std.testing.expectEqual(@as(usize, @bitSizeOf(i16)), ints.dtypeBitSize());
+    try std.testing.expect(!ints.isFloatDtype());
+    try std.testing.expect(ints.isIntegerDtype());
+    try std.testing.expect(ints.isSignedDtype());
+    try std.testing.expect(!ints.isUnsignedDtype());
+    try std.testing.expect(!ints.isComplexDtype());
+    try std.testing.expect(!ints.isBoolDtype());
+    try std.testing.expect(ints.isRealDtype());
+    try std.testing.expect(ints.isNumericDtype());
+    try std.testing.expect(ints.canCastToDtype(.f64));
+    try std.testing.expect(ints.can_cast_to_dtype(.c64));
     var floats = try ints.astype(f32);
     defer floats.deinit();
+    try std.testing.expectEqualStrings("f32", floats.dtypeName());
+    try std.testing.expect(floats.is_float_dtype());
+    try std.testing.expect(floats.is_real_dtype());
     try std.testing.expectEqualSlices(f32, &.{ -1, 0, 2 }, floats.data);
     var unsigned = try Array(u32).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer unsigned.deinit();
+    try std.testing.expect(unsigned.isUnsignedDtype());
+    try std.testing.expect(unsigned.is_unsigned_dtype());
     var widened = try unsigned.astype(u64);
     defer widened.deinit();
     try std.testing.expectEqualSlices(u64, &.{ 1, 2, 3 }, widened.data);
@@ -20962,11 +21237,40 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(DType.f32, @TypeOf(promoted_brain).dtype);
     try std.testing.expectApproxEqAbs(@as(f32, 3.0), promoted_brain.data[0], 1e-3);
     try std.testing.expectApproxEqAbs(@as(f32, -4.0), promoted_brain.data[1], 1e-3);
+    var complex_meta = try Array(Complex64).fromSlice(gpa, &.{Complex64.init(1, -2)}, &.{1});
+    defer complex_meta.deinit();
+    try std.testing.expectEqualStrings("complex64", complex_meta.dtypeName());
+    try std.testing.expect(complex_meta.isComplexDtype());
+    try std.testing.expect(complex_meta.is_numeric_dtype());
+    try std.testing.expect(!complex_meta.is_real_dtype());
+    try std.testing.expect(!complex_meta.canCastToDtype(.f32));
+    var bool_meta = try Array(bool).fromSlice(gpa, &.{ true, false }, &.{2});
+    defer bool_meta.deinit();
+    try std.testing.expectEqualStrings("bool", bool_meta.dtype_name());
+    try std.testing.expect(bool_meta.isBoolDtype());
+    try std.testing.expect(!bool_meta.isNumericDtype());
+    try std.testing.expect(bool_meta.canCastToDtype(.i32));
 
     var view_source = try Array(i16).fromSlice(gpa, &.{ 1, 9, 2, 8, 3, 7 }, &.{ 2, 3 });
     defer view_source.deinit();
     var stepped_view = try view_source.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
     defer stepped_view.deinit();
+    try std.testing.expectEqualStrings("i16", stepped_view.dtypeName());
+    try std.testing.expectEqualStrings("i16", stepped_view.dtype_name());
+    try std.testing.expectEqual(DType.i16.tag(), stepped_view.dtypeTag());
+    try std.testing.expectEqual(DType.i16.tag(), stepped_view.dtype_tag());
+    try std.testing.expectEqual(@as(usize, @sizeOf(i16)), stepped_view.dtypeByteSize());
+    try std.testing.expectEqual(@as(usize, @bitSizeOf(i16)), stepped_view.dtype_bit_size());
+    try std.testing.expect(!stepped_view.isFloatDtype());
+    try std.testing.expect(stepped_view.isIntegerDtype());
+    try std.testing.expect(stepped_view.is_signed_dtype());
+    try std.testing.expect(!stepped_view.is_unsigned_dtype());
+    try std.testing.expect(!stepped_view.is_complex_dtype());
+    try std.testing.expect(!stepped_view.is_bool_dtype());
+    try std.testing.expect(stepped_view.is_real_dtype());
+    try std.testing.expect(stepped_view.is_numeric_dtype());
+    try std.testing.expect(stepped_view.canCastToDtype(.f32));
+    try std.testing.expect(stepped_view.can_cast_to_dtype(.c128));
     var view_as_f32 = try stepped_view.astype(f32);
     defer view_as_f32.deinit();
     try std.testing.expectEqual(DType.f32, @TypeOf(view_as_f32).dtype);
