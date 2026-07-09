@@ -29,7 +29,7 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
 - CSV read/write with simple type inference.
 - Array IO helpers: `toBytes/fromBytes` for raw data, `toArchive/fromArchive` for a simple dtype+shape binary archive, and object-style file helpers `saveArchive/saveArchiveToDir` plus `loadArchive/loadArchiveFromDir`.
-- Device API placeholder (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`/`ArrayView`) for future CuPy/PyTorch-like GPU backends; optional `vx.axiom_cuda` can route contiguous same-shape `Array(f32)` add/mul/SAXPY/scalar-broadcast/matmul and 1D positive-stride view add/mul smoke kernels through sibling Axiom on CUDA-capable hosts while keeping persistent `.cuda()` storage unavailable for now.
+- Device API placeholder (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`/`ArrayView`) for future CuPy/PyTorch-like GPU backends; optional `vx.axiom_cuda` can route contiguous same-shape `Array(f32)` add/sub/mul/SAXPY/scalar-broadcast/matmul and 1D positive-stride view add/sub/mul smoke kernels through sibling Axiom on CUDA-capable hosts while keeping persistent `.cuda()` storage unavailable for now.
 
 ## Example
 
@@ -74,7 +74,7 @@ pub fn demo(allocator: std.mem.Allocator) !void {
 
 ## Optional Axiom CUDA bridge
 
-Vectra keeps CPU/Veyra/Alea as the default build.  To validate the experimental Axiom CUDA bridge for contiguous same-shape f32 add/mul/SAXPY/scalar-broadcast/matmul, run:
+Vectra keeps CPU/Veyra/Alea as the default build.  To validate the experimental Axiom CUDA bridge for contiguous same-shape f32 add/sub/mul/SAXPY/scalar-broadcast/matmul, run:
 
 ```sh
 zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled
@@ -82,7 +82,7 @@ zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
 zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 ```
 
-The CUDA-enabled commands require a CUDA/libnvvm/PTXAS-capable host; `-Daxiom-cuda-dispatch=true` additionally lets ordinary `Array(f32).add/mul/addScalar/mulScalar/matmul` methods try Axiom CUDA before falling back to CPU.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the supported surface and current limits.
+The CUDA-enabled commands require a CUDA/libnvvm/PTXAS-capable host; `-Daxiom-cuda-dispatch=true` additionally lets ordinary `Array(f32).add/sub/mul/addScalar/mulScalar/matmul` methods try Axiom CUDA before falling back to CPU.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the supported surface and current limits.
 
 ## Alea backend
 

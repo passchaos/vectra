@@ -26,6 +26,7 @@ pub const Status = enum {
 
 pub const BinaryOp = enum {
     add,
+    sub,
     mul,
 };
 
@@ -46,6 +47,7 @@ pub const SmokeReport = struct {
     enabled: bool = build_options.enable_axiom_cuda,
     status: Status = if (build_options.enable_axiom_cuda) .skipped else .disabled,
     add_ok: bool = false,
+    sub_ok: bool = false,
     mul_ok: bool = false,
     saxpy_ok: bool = false,
     matmul_ok: bool = false,
@@ -63,7 +65,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
             .failed => false,
         };
     }
@@ -73,6 +75,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.enabled);
         hashBytes(&hasher, report.status.label());
         hashBool(&hasher, report.add_ok);
+        hashBool(&hasher, report.sub_ok);
         hashBool(&hasher, report.mul_ok);
         hashBool(&hasher, report.saxpy_ok);
         hashBool(&hasher, report.matmul_ok);
@@ -99,13 +102,14 @@ pub const SmokeReport = struct {
 
     pub fn writeText(report: SmokeReport, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} mul={} saxpy={} matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} saxpy={} matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
             .{
                 report.enabled,
                 report.status.label(),
                 report.ok(),
                 report.issue_count,
                 report.add_ok,
+                report.sub_ok,
                 report.mul_ok,
                 report.saxpy_ok,
                 report.matmul_ok,
@@ -135,6 +139,7 @@ pub const SmokeReport = struct {
                 "  \"ok\": {},\n" ++
                 "  \"issue_count\": {d},\n" ++
                 "  \"add_ok\": {},\n" ++
+                "  \"sub_ok\": {},\n" ++
                 "  \"mul_ok\": {},\n" ++
                 "  \"saxpy_ok\": {},\n" ++
                 "  \"matmul_ok\": {},\n" ++
@@ -163,6 +168,7 @@ pub const SmokeReport = struct {
                 report.ok(),
                 report.issue_count,
                 report.add_ok,
+                report.sub_ok,
                 report.mul_ok,
                 report.saxpy_ok,
                 report.matmul_ok,
@@ -217,6 +223,10 @@ pub fn planArrayF32(input: array_mod.Array(f32), name: []const u8) BufferPlanEvi
 
 pub fn tryAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryBinaryF32(.add, lhs, rhs);
+}
+
+pub fn trySubF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryBinaryF32(.sub, lhs, rhs);
 }
 
 pub fn tryMulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -360,6 +370,14 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
+    var sub_out = trySubF32(rhs, lhs) catch return failedReport();
+    if (sub_out) |*out| {
+        defer out.deinit();
+        report.sub_ok = sliceClose(out.data, &.{ 9, 18, 27, 36 }, 0.0);
+        report.max_abs_error = @max(report.max_abs_error, maxAbsError(out.data, &.{ 9, 18, 27, 36 }));
+        report.output_fingerprint ^= hashF32Slice(out.data);
+    }
+
     var mul_out = tryMulF32(lhs, rhs) catch return failedReport();
     if (mul_out) |*out| {
         defer out.deinit();
@@ -395,11 +413,11 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
-    if (report.add_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
+    if (report.add_ok and report.sub_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
-    } else if (add_out == null and mul_out == null and saxpy_out == null and matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null) {
+    } else if (add_out == null and sub_out == null and mul_out == null and saxpy_out == null and matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null) {
         report.status = .skipped;
         report.issue_count = 0;
     } else {
@@ -407,6 +425,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok)) +
             @as(u8, @intFromBool(!report.add_ok)) +
+            @as(u8, @intFromBool(!report.sub_ok)) +
             @as(u8, @intFromBool(!report.mul_ok)) +
             @as(u8, @intFromBool(!report.saxpy_ok)) +
             @as(u8, @intFromBool(!report.matmul_ok)) +
@@ -429,6 +448,7 @@ fn tryBinaryViewF32(op: BinaryOp, lhs: array_mod.ArrayView(f32), rhs: array_mod.
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
     const axiom_op: axiom.accelerator.TensorBinaryElementwiseOp = switch (op) {
         .add => .add,
+        .sub => .sub,
         .mul => .mul,
     };
     const result = runtime.runTensorElementwiseBinary(lhs_slice, rhs_slice, out.data, .{
@@ -439,6 +459,7 @@ fn tryBinaryViewF32(op: BinaryOp, lhs: array_mod.ArrayView(f32), rhs: array_mod.
         .out_stride = 1,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_strided_add",
+            .sub => "vectra_axiom_strided_sub",
             .mul => "vectra_axiom_strided_mul",
         },
     }) catch |err| switch (err) {
@@ -459,6 +480,7 @@ fn tryBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f3
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
     const axiom_op: axiom.accelerator.TensorBinaryElementwiseOp = switch (op) {
         .add => .add,
+        .sub => .sub,
         .mul => .mul,
     };
     const result = runtime.runTensorElementwiseBinary(lhs.data, rhs.data, out.data, .{
@@ -466,6 +488,7 @@ fn tryBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f3
         .len = lhs.data.len,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_add",
+            .sub => "vectra_axiom_sub",
             .mul => "vectra_axiom_mul",
         },
     }) catch |err| switch (err) {

@@ -14493,6 +14493,8 @@ pub fn Array(comptime T: type) type {
                 if (build_options.enable_axiom_cuda_dispatch and std.mem.eql(usize, self.shape, other.shape)) {
                     const accelerated = if (comptime op == opAdd)
                         try axiom_cuda_backend.tryAddF32(self, other)
+                    else if (comptime op == opSub)
+                        try axiom_cuda_backend.trySubF32(self, other)
                     else if (comptime op == opMul)
                         try axiom_cuda_backend.tryMulF32(self, other)
                     else
