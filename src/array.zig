@@ -1502,6 +1502,70 @@ pub fn ArrayView(comptime T: type) type {
             return Self.init(self.allocator, self.data, dims, stride_values, view_offset, self.device);
         }
 
+        pub fn diagonalView(self: Self, offset: isize) ArrayError!Self {
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            const start_row: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= rows) return self.asStrided(&.{0}, &.{1}, 0);
+                break :blk offset_abs;
+            } else 0;
+            const start_col: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= cols) return self.asStrided(&.{0}, &.{1}, 0);
+                break :blk offset_abs;
+            } else 0;
+            const count = @min(rows - start_row, cols - start_col);
+            return self.asStrided(&.{count}, &.{self.strides[0] + self.strides[1]}, start_row * self.strides[0] + start_col * self.strides[1]);
+        }
+
+        pub fn diagonal_view(self: Self, offset: isize) ArrayError!Self {
+            return self.diagonalView(offset);
+        }
+
+        pub fn diagonalAxesView(self: Self, offset: isize, axis1_index: isize, axis2_index: isize) ArrayError!Self {
+            if (self.shape.len < 2) return error.InvalidAxis;
+            const axis1 = try normalizeDim(axis1_index, self.shape.len);
+            const axis2 = try normalizeDim(axis2_index, self.shape.len);
+            if (axis1 == axis2) return error.InvalidAxis;
+            const axis1_extent = self.shape[axis1];
+            const axis2_extent = self.shape[axis2];
+            const start_axis1: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= axis1_extent) break :blk axis1_extent;
+                break :blk offset_abs;
+            } else 0;
+            const start_axis2: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= axis2_extent) break :blk axis2_extent;
+                break :blk offset_abs;
+            } else 0;
+            const diagonal_len = if (start_axis1 >= axis1_extent or start_axis2 >= axis2_extent)
+                0
+            else
+                @min(axis1_extent - start_axis1, axis2_extent - start_axis2);
+
+            const out_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(out_shape);
+            const out_strides = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(out_strides);
+            var write: usize = 0;
+            for (self.shape, self.strides, 0..) |extent, stride_value, axis| {
+                if (axis == axis1 or axis == axis2) continue;
+                out_shape[write] = extent;
+                out_strides[write] = stride_value;
+                write += 1;
+            }
+            out_shape[out_shape.len - 1] = diagonal_len;
+            out_strides[out_strides.len - 1] = self.strides[axis1] + self.strides[axis2];
+            return self.asStrided(out_shape, out_strides, start_axis1 * self.strides[axis1] + start_axis2 * self.strides[axis2]);
+        }
+
+        pub fn diagonal_axes_view(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
+            return self.diagonalAxesView(offset, axis1, axis2);
+        }
+
         pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!Self {
             if (window_size == 0 or step == 0) return error.InvalidShape;
             if (self.shape.len == 0) return error.InvalidAxis;
@@ -7520,6 +7584,26 @@ pub fn Array(comptime T: type) type {
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) ArrayError!ArrayView(T) {
             try validateStridedBounds(self.data.len, offset, dims, stride_values);
             return ArrayView(T).init(self.allocator, self.data, dims, stride_values, offset, self.device);
+        }
+
+        pub fn diagonalView(self: Self, offset: isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.diagonalView(offset);
+        }
+
+        pub fn diagonal_view(self: Self, offset: isize) ArrayError!ArrayView(T) {
+            return self.diagonalView(offset);
+        }
+
+        pub fn diagonalAxesView(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.diagonalAxesView(offset, axis1, axis2);
+        }
+
+        pub fn diagonal_axes_view(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!ArrayView(T) {
+            return self.diagonalAxesView(offset, axis1, axis2);
         }
 
         pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!ArrayView(T) {
@@ -20081,6 +20165,67 @@ test "array creation like scalar diag and diagflat" {
     var extracted = try a.diag(0);
     defer extracted.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, extracted.data);
+
+    var diag_view = try a.diagonalView(0);
+    defer diag_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, diag_view.shape);
+    try std.testing.expectEqualSlices(usize, &.{4}, diag_view.strides);
+    try std.testing.expectEqual(@as(f64, 5), try diag_view.get(&.{1}));
+    try diag_view.set(&.{1}, 50);
+    try std.testing.expectEqual(@as(f64, 50), a.data[4]);
+    var diag_view_owned = try diag_view.toArray();
+    defer diag_view_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 50 }, diag_view_owned.data);
+
+    var upper_diag_view = try a.diagonal_view(1);
+    defer upper_diag_view.deinit();
+    var upper_diag_owned = try upper_diag_view.toArray();
+    defer upper_diag_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 6 }, upper_diag_owned.data);
+    try upper_diag_view.set(&.{0}, 20);
+    try std.testing.expectEqual(@as(f64, 20), a.data[1]);
+
+    var lower_diag_view = try a.diagonalView(-1);
+    defer lower_diag_view.deinit();
+    var lower_diag_owned = try lower_diag_view.toArray();
+    defer lower_diag_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{4}, lower_diag_owned.data);
+    var empty_diag_view = try a.diagonalView(9);
+    defer empty_diag_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{0}, empty_diag_view.shape);
+    try std.testing.expectEqual(@as(usize, 0), empty_diag_view.numel());
+
+    var cube = try Array(f64).fromSlice(gpa, &.{
+        1,  2,  3,
+        4,  5,  6,
+        7,  8,  9,
+        10, 11, 12,
+        13, 14, 15,
+        16, 17, 18,
+    }, &.{ 2, 3, 3 });
+    defer cube.deinit();
+    var batch_diag_view = try cube.diagonalAxesView(0, 1, 2);
+    defer batch_diag_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, batch_diag_view.shape);
+    var batch_diag_owned = try batch_diag_view.toArray();
+    defer batch_diag_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 9, 10, 14, 18 }, batch_diag_owned.data);
+    try batch_diag_view.set(&.{ 1, 1 }, 140);
+    try std.testing.expectEqual(@as(f64, 140), cube.data[13]);
+    var cross_diag_view = try cube.diagonal_axes_view(0, 0, 2);
+    defer cross_diag_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, cross_diag_view.shape);
+    var cross_diag_owned = try cross_diag_view.toArray();
+    defer cross_diag_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 11, 4, 140, 7, 17 }, cross_diag_owned.data);
+    var cube_view = try cube.asView();
+    defer cube_view.deinit();
+    var view_diag = try cube_view.diagonalAxesView(1, -2, -1);
+    defer view_diag.deinit();
+    var view_diag_owned = try view_diag.toArray();
+    defer view_diag_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 6, 11, 15 }, view_diag_owned.data);
+    try std.testing.expectError(error.InvalidAxis, cube.diagonalAxesView(0, 1, 1));
 
     var ident = try Array(f64).identity(gpa, 3);
     defer ident.deinit();
