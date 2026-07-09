@@ -1163,6 +1163,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.shape[try normalizeDim(axis_index, self.shape.len)];
         }
 
+        pub fn shape_at(self: Self, axis_index: isize) ArrayError!usize {
+            return self.shapeAt(axis_index);
+        }
+
         pub fn len(self: Self) ArrayError!usize {
             if (self.shape.len == 0) return error.InvalidShape;
             return self.shape[0];
@@ -1176,13 +1180,29 @@ pub fn ArrayView(comptime T: type) type {
             return self.stride(axis_index);
         }
 
+        pub fn stride_at(self: Self, axis_index: isize) ArrayError!usize {
+            return self.strideAt(axis_index);
+        }
+
         pub fn elementSize(self: Self) usize {
             _ = self;
             return @sizeOf(T);
         }
 
+        pub fn element_size(self: Self) usize {
+            return self.elementSize();
+        }
+
+        pub fn itemsize(self: Self) usize {
+            return self.elementSize();
+        }
+
         pub fn nbytes(self: Self) usize {
             return self.numel() * @sizeOf(T);
+        }
+
+        pub fn num_bytes(self: Self) usize {
+            return self.nbytes();
         }
 
         pub fn storageOffset(self: Self) usize {
@@ -1366,16 +1386,32 @@ pub fn ArrayView(comptime T: type) type {
             return Array(T).empty(self.allocator, self.shape);
         }
 
+        pub fn empty_like(self: Self) ArrayError!Array(T) {
+            return self.emptyLike();
+        }
+
         pub fn zerosLike(self: Self) ArrayError!Array(T) {
             return Array(T).zeros(self.allocator, self.shape);
+        }
+
+        pub fn zeros_like(self: Self) ArrayError!Array(T) {
+            return self.zerosLike();
         }
 
         pub fn onesLike(self: Self) ArrayError!Array(T) {
             return Array(T).ones(self.allocator, self.shape);
         }
 
+        pub fn ones_like(self: Self) ArrayError!Array(T) {
+            return self.onesLike();
+        }
+
         pub fn fullLike(self: Self, value: T) ArrayError!Array(T) {
             return Array(T).full(self.allocator, self.shape, value);
+        }
+
+        pub fn full_like(self: Self, value: T) ArrayError!Array(T) {
+            return self.fullLike(value);
         }
 
         pub fn newEmpty(self: Self, dims: []const usize) ArrayError!Array(T) {
@@ -4252,10 +4288,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.repeatInterleave(repeats, axis_opt);
         }
 
+        pub fn repeat_interleave(self: Self, repeats: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
+            return self.repeatInterleave(repeats, axis_opt);
+        }
+
         pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.repeatInterleaveScalar(repeat_count, axis_opt);
+        }
+
+        pub fn repeat_interleave_scalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Array(T) {
+            return self.repeatInterleaveScalar(repeat_count, axis_opt);
         }
 
         pub fn tile(self: Self, repeats: []const usize) ArrayError!Array(T) {
@@ -5543,6 +5587,10 @@ pub fn ArrayView(comptime T: type) type {
             };
         }
 
+        pub fn broadcast_to(self: Self, dims: []const usize) ArrayError!Self {
+            return self.broadcastTo(dims);
+        }
+
         pub fn expand(self: Self, dims: []const usize) ArrayError!Self {
             return self.broadcastTo(dims);
         }
@@ -5799,16 +5847,32 @@ pub fn Array(comptime T: type) type {
             return Self.empty(self.allocator, self.shape);
         }
 
+        pub fn empty_like(self: Self) ArrayError!Self {
+            return self.emptyLike();
+        }
+
         pub fn zerosLike(self: Self) ArrayError!Self {
             return Self.zeros(self.allocator, self.shape);
+        }
+
+        pub fn zeros_like(self: Self) ArrayError!Self {
+            return self.zerosLike();
         }
 
         pub fn onesLike(self: Self) ArrayError!Self {
             return Self.ones(self.allocator, self.shape);
         }
 
+        pub fn ones_like(self: Self) ArrayError!Self {
+            return self.onesLike();
+        }
+
         pub fn fullLike(self: Self, value: T) ArrayError!Self {
             return Self.full(self.allocator, self.shape, value);
+        }
+
+        pub fn full_like(self: Self, value: T) ArrayError!Self {
+            return self.fullLike(value);
         }
 
         pub fn newEmpty(self: Self, dims: []const usize) ArrayError!Self {
@@ -7637,6 +7701,10 @@ pub fn Array(comptime T: type) type {
             return self.shape[try normalizeDim(axis_index, self.shape.len)];
         }
 
+        pub fn shape_at(self: Self, axis_index: isize) ArrayError!usize {
+            return self.shapeAt(axis_index);
+        }
+
         pub fn len(self: Self) ArrayError!usize {
             if (self.shape.len == 0) return error.InvalidShape;
             return self.shape[0];
@@ -7650,13 +7718,29 @@ pub fn Array(comptime T: type) type {
             return self.stride(axis_index);
         }
 
+        pub fn stride_at(self: Self, axis_index: isize) ArrayError!usize {
+            return self.strideAt(axis_index);
+        }
+
         pub fn elementSize(self: Self) usize {
             _ = self;
             return @sizeOf(T);
         }
 
+        pub fn element_size(self: Self) usize {
+            return self.elementSize();
+        }
+
+        pub fn itemsize(self: Self) usize {
+            return self.elementSize();
+        }
+
         pub fn nbytes(self: Self) usize {
             return self.numel() * @sizeOf(T);
+        }
+
+        pub fn num_bytes(self: Self) usize {
+            return self.nbytes();
         }
 
         pub fn storageOffset(self: Self) usize {
@@ -8195,6 +8279,10 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn broadcast_to(self: Self, dims: []const usize) ArrayError!Self {
+            return self.broadcastTo(dims);
+        }
+
         fn repeatInterleaveTotal(source_len: usize, repeats: Array(usize)) ArrayError!usize {
             if (repeats.data.len != 1 and repeats.data.len != source_len) return error.ShapeMismatch;
             if (repeats.data.len == 1) {
@@ -8297,10 +8385,18 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn repeat_interleave(self: Self, repeats: Array(usize), axis_opt: ?isize) ArrayError!Self {
+            return self.repeatInterleave(repeats, axis_opt);
+        }
+
         pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Self {
             var repeats = try Array(usize).fromScalar(self.allocator, repeat_count);
             defer repeats.deinit();
             return self.repeatInterleave(repeats, axis_opt);
+        }
+
+        pub fn repeat_interleave_scalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Self {
+            return self.repeatInterleaveScalar(repeat_count, axis_opt);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) ArrayError!Self {
@@ -16561,9 +16657,14 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_shape_static_snake);
     try std.testing.expectError(error.ShapeMismatch, Array(f64).broadcastShapes(gpa, &.{2}, &.{3}));
     try std.testing.expectEqual(@as(usize, 3), try a.shapeAt(-1));
+    try std.testing.expectEqual(@as(usize, 3), try a.shape_at(-1));
     try std.testing.expectEqual(@as(usize, 3), try a.strideAt(0));
+    try std.testing.expectEqual(@as(usize, 3), try a.stride_at(0));
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.elementSize());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.element_size());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.itemsize());
     try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), a.nbytes());
+    try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), a.num_bytes());
     try std.testing.expectEqual(@as(usize, 0), a.storageOffset());
     try std.testing.expectEqual(@as(usize, 0), a.storage_offset());
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.dataPtr()));
@@ -16583,6 +16684,18 @@ test "array pytorch numpy shape indexing and layout helpers" {
     defer new_full.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, new_full.shape);
     try std.testing.expectEqualSlices(f64, &.{ 7, 7 }, new_full.data);
+    var empty_alias = try a.empty_like();
+    defer empty_alias.deinit();
+    try std.testing.expectEqualSlices(usize, a.shape, empty_alias.shape);
+    var zeros_alias = try a.zeros_like();
+    defer zeros_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0, 0, 0 }, zeros_alias.data);
+    var ones_alias = try a.ones_like();
+    defer ones_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, ones_alias.data);
+    var full_alias = try a.full_like(8);
+    defer full_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 8, 8, 8, 8, 8, 8 }, full_alias.data);
     var copied = try a.copy();
     defer copied.deinit();
     try a.set(&.{ 0, 0 }, 99);
@@ -16764,6 +16877,9 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var broadcast_top = try selected_top.broadcastTo(&.{ 2, 3 });
     defer broadcast_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, broadcast_top.data);
+    var broadcast_top_alias = try selected_top.broadcast_to(&.{ 2, 3 });
+    defer broadcast_top_alias.deinit();
+    try std.testing.expectEqualSlices(f64, broadcast_top.data, broadcast_top_alias.data);
     var expanded_top = try selected_top.expand(&.{ 2, 3 });
     defer expanded_top.deinit();
     var selected_top_view = try selected_top.asView();
@@ -16816,6 +16932,9 @@ test "array object style repeat interleave" {
     defer flat.deinit();
     try std.testing.expectEqualSlices(usize, &.{7}, flat.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 2, 3, 4, 4, 4, 6 }, flat.data);
+    var flat_alias = try a.repeat_interleave(flat_repeats, null);
+    defer flat_alias.deinit();
+    try std.testing.expectEqualSlices(f64, flat.data, flat_alias.data);
 
     var col_repeats = try Array(usize).fromSlice(gpa, &.{ 1, 0, 2 }, &.{3});
     defer col_repeats.deinit();
@@ -16840,6 +16959,9 @@ test "array object style repeat interleave" {
     defer scalar_axis.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 6 }, scalar_axis.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6 }, scalar_axis.data);
+    var scalar_axis_alias = try a.repeat_interleave_scalar(2, -1);
+    defer scalar_axis_alias.deinit();
+    try std.testing.expectEqualSlices(f64, scalar_axis.data, scalar_axis_alias.data);
 
     var zero_axis = try a.repeatInterleaveScalar(0, 1);
     defer zero_axis.deinit();
@@ -16858,6 +16980,12 @@ test "array object style repeat interleave" {
     defer view_repeated.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_repeated.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 3, 4, 4, 6 }, view_repeated.data);
+    var view_repeated_alias = try view.repeat_interleave(view_repeats, 1);
+    defer view_repeated_alias.deinit();
+    try std.testing.expectEqualSlices(f64, view_repeated.data, view_repeated_alias.data);
+    var view_repeated_scalar_alias = try view.repeat_interleave_scalar(2, 1);
+    defer view_repeated_scalar_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 3, 3, 4, 4, 6, 6 }, view_repeated_scalar_alias.data);
 
     var bad_axis_repeats = try Array(usize).fromSlice(gpa, &.{ 1, 2 }, &.{2});
     defer bad_axis_repeats.deinit();
@@ -16885,9 +17013,14 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqual(@as(usize, 4), view.nelement());
     try std.testing.expect(!view.isEmpty());
     try std.testing.expectEqual(@as(usize, 2), try view.shapeAt(-1));
+    try std.testing.expectEqual(@as(usize, 2), try view.shape_at(-1));
     try std.testing.expectEqual(@as(usize, 2), try view.strideAt(1));
+    try std.testing.expectEqual(@as(usize, 2), try view.stride_at(1));
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), view.elementSize());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), view.element_size());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), view.itemsize());
     try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), view.nbytes());
+    try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), view.num_bytes());
     try std.testing.expectEqual(@as(usize, 0), view.storageOffset());
     try std.testing.expectEqual(@as(usize, 0), view.storage_offset());
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(view.dataPtr()));
@@ -16896,6 +17029,18 @@ test "array view materializing shape wrappers" {
     var view_zeros = try view.zerosLike();
     defer view_zeros.deinit();
     try std.testing.expectEqualSlices(usize, view.shape, view_zeros.shape);
+    var view_empty_alias = try view.empty_like();
+    defer view_empty_alias.deinit();
+    try std.testing.expectEqualSlices(usize, view.shape, view_empty_alias.shape);
+    var view_zeros_alias = try view.zeros_like();
+    defer view_zeros_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0 }, view_zeros_alias.data);
+    var view_ones_alias = try view.ones_like();
+    defer view_ones_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, view_ones_alias.data);
+    var view_full_alias = try view.full_like(9);
+    defer view_full_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9, 9 }, view_full_alias.data);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0 }, view_zeros.data);
     var view_full = try view.fullLike(7);
     defer view_full.deinit();
@@ -17191,6 +17336,9 @@ test "array non contiguous view helpers" {
     var selected_broadcast = try selected.broadcastTo(&.{ 2, 4 });
     defer selected_broadcast.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, selected_broadcast.shape);
+    var selected_broadcast_alias = try selected.broadcast_to(&.{ 2, 4 });
+    defer selected_broadcast_alias.deinit();
+    try std.testing.expectEqualSlices(usize, selected_broadcast.shape, selected_broadcast_alias.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, selected_broadcast.strides);
     try selected_broadcast.set(&.{ 1, 3 }, 80);
     try std.testing.expectEqual(@as(f64, 80), a.data[7]);
