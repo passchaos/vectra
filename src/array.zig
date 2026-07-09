@@ -3279,6 +3279,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.logsumexp(axis_index, keepdims);
         }
 
+        pub fn logsumexpAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logsumexpAxes(axes, keepdims);
+        }
+
+        pub fn logsumexp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.logsumexpAxes(axes, keepdims);
+        }
+
         pub fn log_softmax(self: Self, axis_index: isize) ArrayError!Array(T) {
             return self.logSoftmax(axis_index);
         }
@@ -9151,6 +9161,37 @@ pub fn Array(comptime T: type) type {
             return squeezed;
         }
 
+        pub fn logsumexpAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            if (axes.len == 0) return self.clone();
+            const normalized_axes = try normalizeAxesDescending(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var max_values = try self.maxAxes(axes, true);
+            defer max_values.deinit();
+            var shifted = try self.sub(max_values);
+            defer shifted.deinit();
+            var exp_values = try shifted.exp();
+            defer exp_values.deinit();
+            var summed = try exp_values.sumAxes(axes, true);
+            defer summed.deinit();
+            var log_summed = try summed.log();
+            defer log_summed.deinit();
+            var with_max = try log_summed.add(max_values);
+            if (keepdims) return with_max;
+            errdefer with_max.deinit();
+            var current = with_max;
+            for (normalized_axes) |axis| {
+                const squeezed = try current.squeeze(@intCast(axis));
+                current.deinit();
+                current = squeezed;
+            }
+            return current;
+        }
+
+        pub fn logsumexp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.logsumexpAxes(axes, keepdims);
+        }
+
         pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Self {
             ensureFloat(T);
             var lse = try self.logsumexp(axis_index, true);
@@ -13728,6 +13769,17 @@ test "array scipy-like statistics and softmax" {
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, any_axes.shape);
     try std.testing.expectEqualSlices(bool, &.{ true, true }, any_axes.data);
 
+    var logsumexp_axes = try cube.logsumexpAxes(&.{ 0, 2 }, false);
+    defer logsumexp_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, logsumexp_axes.shape);
+    const expected_lse0 = @max(@max(@as(f64, 1), @as(f64, 2)), @max(@as(f64, 5), @as(f64, 6))) + std.math.log(f64, std.math.e, std.math.exp(@as(f64, 1) - @as(f64, 6)) + std.math.exp(@as(f64, 2) - @as(f64, 6)) + std.math.exp(@as(f64, 5) - @as(f64, 6)) + std.math.exp(@as(f64, 6) - @as(f64, 6)));
+    const expected_lse1 = @max(@max(@as(f64, 3), @as(f64, 4)), @max(@as(f64, 7), @as(f64, 8))) + std.math.log(f64, std.math.e, std.math.exp(@as(f64, 3) - @as(f64, 8)) + std.math.exp(@as(f64, 4) - @as(f64, 8)) + std.math.exp(@as(f64, 7) - @as(f64, 8)) + std.math.exp(@as(f64, 8) - @as(f64, 8)));
+    try std.testing.expectApproxEqAbs(expected_lse0, logsumexp_axes.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(expected_lse1, logsumexp_axes.data[1], 1e-12);
+    var logsumexp_axes_keep = try cube.logsumexp_axes(&.{ 0, 2 }, true);
+    defer logsumexp_axes_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, logsumexp_axes_keep.shape);
+
     var norm_top = try a.norm(2, null, false);
     defer norm_top.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 30)), norm_top.data[0], 1e-12);
@@ -14789,6 +14841,9 @@ test "array view object statistics wrappers" {
     var view_median_axes = try view.medianAxes(&.{ 0, 1 }, false);
     defer view_median_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{4.5}, view_median_axes.data);
+    var view_lse_axes = try view.logsumexpAxes(&.{ 0, 1 }, false);
+    defer view_lse_axes.deinit();
+    try std.testing.expect(std.math.isNan(view_lse_axes.data[0]));
     var view_nanmedian_axes = try view.nanmedianAxes(&.{ 0, 1 }, false);
     defer view_nanmedian_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{4}, view_nanmedian_axes.data);
