@@ -15618,6 +15618,13 @@ pub fn Array(comptime T: type) type {
         }
 
         fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
+            if (std.mem.eql(usize, self.shape, other.shape)) {
+                const out = try Array(bool).empty(self.allocator, self.shape);
+                for (self.data, other.data, out.data) |lhs, rhs, *slot| {
+                    slot.* = op(lhs, rhs);
+                }
+                return out;
+            }
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out = try Array(bool).empty(self.allocator, out_shape);
@@ -20600,6 +20607,14 @@ test "array comparison and logical wrappers" {
     var eq_out = try a.equal(b);
     defer eq_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, eq_out.data);
+    var same_shape_cmp_rhs = try Array(f64).fromSlice(gpa, &.{ 1, 3, 3, 5 }, &.{ 2, 2 });
+    defer same_shape_cmp_rhs.deinit();
+    var same_shape_eq = try a.eq(same_shape_cmp_rhs);
+    defer same_shape_eq.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, same_shape_eq.data);
+    var same_shape_ge = try a.ge(same_shape_cmp_rhs);
+    defer same_shape_ge.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, same_shape_ge.data);
     var ne_out = try a.notEqual(b);
     defer ne_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, ne_out.data);
