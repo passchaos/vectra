@@ -3064,12 +3064,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryView(other, opDiv);
         }
 
-        fn ownedWith3(self: Self, arg1: anytype, arg2: anytype, arg3: anytype, comptime R: type, comptime method: anytype) ArrayError!R {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return method(owned, arg1, arg2, arg3);
-        }
-
         pub fn addArray(self: Self, other: Array(T)) ArrayError!Array(T) {
             var other_view = try other.asView();
             defer other_view.deinit();
@@ -4206,7 +4200,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
-            return self.ownedWith3(scalar, rtol, atol, Array(bool), Array(T).iscloseScalar);
+            return self.iscloseScalarEqualNan(scalar, rtol, atol, false);
         }
 
         pub fn isCloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
@@ -4214,9 +4208,17 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn iscloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+            ensureFloat(T);
+            var out = try Array(bool).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = closeValue(T, self.data[self.offset + ravelIndex(multi, self.strides)], scalar, rtol, atol, equal_nan);
+            }
+            return out;
         }
 
         pub fn isCloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
@@ -4228,7 +4230,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!bool {
-            return self.ownedWith3(scalar, rtol, atol, bool, Array(T).allcloseScalar);
+            return self.allcloseScalarEqualNan(scalar, rtol, atol, false);
         }
 
         pub fn allCloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!bool {
@@ -4236,9 +4238,15 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn allcloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+            ensureFloat(T);
+            if (self.numel() == 0) return true;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                if (!closeValue(T, self.data[self.offset + ravelIndex(multi, self.strides)], scalar, rtol, atol, equal_nan)) return false;
+            }
+            return true;
         }
 
         pub fn allCloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
@@ -23762,6 +23770,19 @@ test "array view object unary predicate wrappers" {
     defer view_close_scalar.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, view_close_scalar.data);
     try std.testing.expect(!try finite_view.allcloseScalar(2, 0, 1));
+    var close_scalar_nan_values = try Array(f64).fromSlice(gpa, &.{ std.math.nan(f64), 9, 2, 8, std.math.nan(f64), 7, 4, 6 }, &.{ 2, 4 });
+    defer close_scalar_nan_values.deinit();
+    var close_scalar_nan_view = try close_scalar_nan_values.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer close_scalar_nan_view.deinit();
+    try std.testing.expect(!close_scalar_nan_view.isContiguous());
+    var close_scalar_nan_mask = try close_scalar_nan_view.iscloseScalarEqualNan(std.math.nan(f64), 0, 0, true);
+    defer close_scalar_nan_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, close_scalar_nan_mask.data);
+    try std.testing.expect(!try close_scalar_nan_view.allcloseScalarEqualNan(std.math.nan(f64), 0, 0, true));
+    var close_scalar_all_nan = try close_scalar_nan_values.sliceAxisView(1, .{ .start = 0, .stop = 1, .step = 1 });
+    defer close_scalar_all_nan.deinit();
+    try std.testing.expect(try close_scalar_all_nan.allcloseScalarEqualNan(std.math.nan(f64), 0, 0, true));
+    try std.testing.expect(!try close_scalar_all_nan.allcloseScalar(std.math.nan(f64), 0, 0));
 }
 
 test "array view object math sort and linalg wrappers" {
