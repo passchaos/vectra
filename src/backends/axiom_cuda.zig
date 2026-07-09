@@ -289,6 +289,8 @@ pub const SmokeReport = struct {
     dtype_native_seed_count: usize = 0,
     dtype_widened_seed_count: usize = 0,
     dtype_support_fingerprint: u64 = 0,
+    f16_widened_execution_fingerprint: u64 = 0,
+    bf16_widened_execution_fingerprint: u64 = 0,
     output_fingerprint: u64 = 0,
     issue_count: u8 = 0,
 
@@ -296,7 +298,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
             .failed => false,
         };
     }
@@ -338,6 +340,8 @@ pub const SmokeReport = struct {
         hashU64(&hasher, report.dtype_native_seed_count);
         hashU64(&hasher, report.dtype_widened_seed_count);
         hashU64(&hasher, report.dtype_support_fingerprint);
+        hashU64(&hasher, report.f16_widened_execution_fingerprint);
+        hashU64(&hasher, report.bf16_widened_execution_fingerprint);
         hashU64(&hasher, report.output_fingerprint);
         hashU64(&hasher, report.issue_count);
         return hasher.final();
@@ -379,13 +383,15 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_dtype_support count={d} bridge={d} native_seed={d} widened_seed={d} fingerprint={x}\n",
+            "vectra_axiom_cuda_dtype_support count={d} bridge={d} native_seed={d} widened_seed={d} fingerprint={x} f16_widened_execution={x} bf16_widened_execution={x}\n",
             .{
                 report.dtype_support_count,
                 report.dtype_bridge_count,
                 report.dtype_native_seed_count,
                 report.dtype_widened_seed_count,
                 report.dtype_support_fingerprint,
+                report.f16_widened_execution_fingerprint,
+                report.bf16_widened_execution_fingerprint,
             },
         );
     }
@@ -450,6 +456,8 @@ pub const SmokeReport = struct {
                 "  \"dtype_native_seed_count\": {d},\n" ++
                 "  \"dtype_widened_seed_count\": {d},\n" ++
                 "  \"dtype_support_fingerprint\": {d},\n" ++
+                "  \"f16_widened_execution_fingerprint\": {d},\n" ++
+                "  \"bf16_widened_execution_fingerprint\": {d},\n" ++
                 "  \"output_fingerprint\": {d},\n" ++
                 "  \"fingerprint\": {d}\n" ++
                 "}}\n",
@@ -476,6 +484,8 @@ pub const SmokeReport = struct {
                 report.dtype_native_seed_count,
                 report.dtype_widened_seed_count,
                 report.dtype_support_fingerprint,
+                report.f16_widened_execution_fingerprint,
+                report.bf16_widened_execution_fingerprint,
                 report.output_fingerprint,
                 report.fingerprint(),
             },
@@ -835,6 +845,11 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.f16_matmul_ok = f16Close(out.data, &.{ 70, 100, 150, 220 }, 0.25);
         report.output_fingerprint ^= hashF16Slice(out.data);
     }
+    if (f16_add_out != null and f16_matmul_out != null) {
+        report.f16_widened_execution_fingerprint =
+            (widenedF16BinaryProvenanceFingerprint(allocator, "add", .add, f16_lhs, f16_rhs) catch return failedReport()) ^
+            (widenedF16MatmulProvenanceFingerprint(allocator, "matmul", f16_lhs, f16_rhs) catch return failedReport());
+    }
 
     var bf16_lhs = array_mod.Array(BFloat16).fromSlice(allocator, &.{
         BFloat16.fromF32(1.0),
@@ -862,8 +877,13 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.bf16_matmul_ok = bf16Close(out.data, &.{ 70, 100, 150, 220 }, 0.5);
         report.output_fingerprint ^= hashBF16Slice(out.data);
     }
+    if (bf16_add_out != null and bf16_matmul_out != null) {
+        report.bf16_widened_execution_fingerprint =
+            (widenedBF16BinaryProvenanceFingerprint(allocator, "add", .add, bf16_lhs, bf16_rhs) catch return failedReport()) ^
+            (widenedBF16MatmulProvenanceFingerprint(allocator, "matmul", bf16_lhs, bf16_rhs) catch return failedReport());
+    }
 
-    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
+    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
@@ -885,6 +905,8 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!report.f16_matmul_ok)) +
             @as(u8, @intFromBool(!report.bf16_add_ok)) +
             @as(u8, @intFromBool(!report.bf16_matmul_ok)) +
+            @as(u8, @intFromBool(report.f16_widened_execution_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.bf16_widened_execution_fingerprint == 0)) +
             @as(u8, @intFromBool(!report.scalar_add_ok)) +
             @as(u8, @intFromBool(!report.scalar_mul_ok)) +
             @as(u8, @intFromBool(!report.scalar_saxpy_ok));
@@ -1121,6 +1143,80 @@ fn f32ArrayToBF16(input: array_mod.Array(f32)) array_mod.ArrayError!array_mod.Ar
     _ = axiom.accelerator.tensor_adapter.narrowF32ToBF16(input.data, bits) catch |err| return mapTensorAdapterError(err);
     for (bits, out.data) |value, *slot| slot.* = .{ .bits = value };
     return out;
+}
+
+fn widenedF16BinaryProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, op: BinaryOp, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!u64 {
+    const plan = axiom.accelerator.TensorWidenedExecutionPlan.from(.f16, operation);
+    var lhs32 = try f16ArrayToF32(lhs);
+    defer lhs32.deinit();
+    var rhs32 = try f16ArrayToF32(rhs);
+    defer rhs32.deinit();
+    var compute = try tryBinaryF32(op, lhs32, rhs32) orelse return error.BackendFailure;
+    defer compute.deinit();
+    const narrow_out = try allocator.alloc(f16, compute.data.len);
+    defer allocator.free(narrow_out);
+    const input_report = axiom.accelerator.tensor_adapter.widenF16ToF32(lhs.data, lhs32.data) catch |err| return mapTensorAdapterError(err);
+    const output_report = axiom.accelerator.tensor_adapter.narrowF32ToF16(compute.data, narrow_out) catch |err| return mapTensorAdapterError(err);
+    const report = axiom.accelerator.TensorWidenedExecutionReport.fromReports(plan, input_report, hashF32Slice(compute.data), output_report);
+    if (!report.ok()) return error.BackendFailure;
+    return report.fingerprint();
+}
+
+fn widenedF16MatmulProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!u64 {
+    const plan = axiom.accelerator.TensorWidenedExecutionPlan.from(.f16, operation);
+    var lhs32 = try f16ArrayToF32(lhs);
+    defer lhs32.deinit();
+    var rhs32 = try f16ArrayToF32(rhs);
+    defer rhs32.deinit();
+    var compute = try tryMatmulF32(lhs32, rhs32) orelse return error.BackendFailure;
+    defer compute.deinit();
+    const narrow_out = try allocator.alloc(f16, compute.data.len);
+    defer allocator.free(narrow_out);
+    const input_report = axiom.accelerator.tensor_adapter.widenF16ToF32(lhs.data, lhs32.data) catch |err| return mapTensorAdapterError(err);
+    const output_report = axiom.accelerator.tensor_adapter.narrowF32ToF16(compute.data, narrow_out) catch |err| return mapTensorAdapterError(err);
+    const report = axiom.accelerator.TensorWidenedExecutionReport.fromReports(plan, input_report, hashF32Slice(compute.data), output_report);
+    if (!report.ok()) return error.BackendFailure;
+    return report.fingerprint();
+}
+
+fn widenedBF16BinaryProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!u64 {
+    const plan = axiom.accelerator.TensorWidenedExecutionPlan.from(.bf16, operation);
+    var lhs32 = try bf16ArrayToF32(lhs);
+    defer lhs32.deinit();
+    var rhs32 = try bf16ArrayToF32(rhs);
+    defer rhs32.deinit();
+    var compute = try tryBinaryF32(op, lhs32, rhs32) orelse return error.BackendFailure;
+    defer compute.deinit();
+    const lhs_bits = try allocator.alloc(u16, lhs.data.len);
+    defer allocator.free(lhs_bits);
+    for (lhs.data, lhs_bits) |value, *slot| slot.* = value.bits;
+    const narrow_bits = try allocator.alloc(u16, compute.data.len);
+    defer allocator.free(narrow_bits);
+    const input_report = axiom.accelerator.tensor_adapter.widenBF16ToF32(lhs_bits, lhs32.data) catch |err| return mapTensorAdapterError(err);
+    const output_report = axiom.accelerator.tensor_adapter.narrowF32ToBF16(compute.data, narrow_bits) catch |err| return mapTensorAdapterError(err);
+    const report = axiom.accelerator.TensorWidenedExecutionReport.fromReports(plan, input_report, hashF32Slice(compute.data), output_report);
+    if (!report.ok()) return error.BackendFailure;
+    return report.fingerprint();
+}
+
+fn widenedBF16MatmulProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!u64 {
+    const plan = axiom.accelerator.TensorWidenedExecutionPlan.from(.bf16, operation);
+    var lhs32 = try bf16ArrayToF32(lhs);
+    defer lhs32.deinit();
+    var rhs32 = try bf16ArrayToF32(rhs);
+    defer rhs32.deinit();
+    var compute = try tryMatmulF32(lhs32, rhs32) orelse return error.BackendFailure;
+    defer compute.deinit();
+    const lhs_bits = try allocator.alloc(u16, lhs.data.len);
+    defer allocator.free(lhs_bits);
+    for (lhs.data, lhs_bits) |value, *slot| slot.* = value.bits;
+    const narrow_bits = try allocator.alloc(u16, compute.data.len);
+    defer allocator.free(narrow_bits);
+    const input_report = axiom.accelerator.tensor_adapter.widenBF16ToF32(lhs_bits, lhs32.data) catch |err| return mapTensorAdapterError(err);
+    const output_report = axiom.accelerator.tensor_adapter.narrowF32ToBF16(compute.data, narrow_bits) catch |err| return mapTensorAdapterError(err);
+    const report = axiom.accelerator.TensorWidenedExecutionReport.fromReports(plan, input_report, hashF32Slice(compute.data), output_report);
+    if (!report.ok()) return error.BackendFailure;
+    return report.fingerprint();
 }
 
 fn mapTensorAdapterError(err: anyerror) array_mod.ArrayError {
