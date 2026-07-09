@@ -1037,6 +1037,17 @@ pub fn ArrayView(comptime T: type) type {
         pub const Scalar = T;
         pub const dtype = DType.of(T);
 
+        pub const BroadcastPair = struct {
+            first: Self,
+            second: Self,
+
+            pub fn deinit(self: *@This()) void {
+                self.first.deinit();
+                self.second.deinit();
+                self.* = undefined;
+            }
+        };
+
         pub fn fromArray(input: Array(T)) ArrayError!Self {
             const shape = try input.allocator.dupe(usize, input.shape);
             errdefer input.allocator.free(shape);
@@ -1188,6 +1199,26 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn broadcastShapeArray(self: Self, other: Array(T)) ArrayError![]usize {
             return @This().broadcastShapes(self.allocator, self.shape, other.shape);
+        }
+
+        pub fn broadcastWith(self: Self, other: Self) ArrayError!BroadcastPair {
+            const out_shape = try @This().broadcastShapes(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            var first = try self.broadcastTo(out_shape);
+            errdefer first.deinit();
+            var second = try other.broadcastTo(out_shape);
+            errdefer second.deinit();
+            return .{ .first = first, .second = second };
+        }
+
+        pub fn broadcast_with(self: Self, other: Self) ArrayError!BroadcastPair {
+            return self.broadcastWith(other);
+        }
+
+        pub fn broadcastWithArray(self: Self, other: Array(T)) ArrayError!BroadcastPair {
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.broadcastWith(other_view);
         }
 
         pub fn broadcastShapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) ArrayError![]usize {
@@ -5682,6 +5713,7 @@ pub fn Array(comptime T: type) type {
 
         pub const Scalar = T;
         pub const dtype = DType.of(T);
+        pub const BroadcastPair = ArrayView(T).BroadcastPair;
 
         pub fn init(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             const n = try numelFrom(dims);
@@ -7598,6 +7630,24 @@ pub fn Array(comptime T: type) type {
 
         pub fn broadcastShapeView(self: Self, other: ArrayView(T)) ArrayError![]usize {
             return Self.broadcastShapes(self.allocator, self.shape, other.shape);
+        }
+
+        pub fn broadcastWith(self: Self, other: Self) ArrayError!BroadcastPair {
+            var self_view = try self.asView();
+            defer self_view.deinit();
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self_view.broadcastWith(other_view);
+        }
+
+        pub fn broadcast_with(self: Self, other: Self) ArrayError!BroadcastPair {
+            return self.broadcastWith(other);
+        }
+
+        pub fn broadcastWithView(self: Self, other: ArrayView(T)) ArrayError!BroadcastPair {
+            var self_view = try self.asView();
+            defer self_view.deinit();
+            return self_view.broadcastWith(other);
         }
 
         pub fn broadcastShapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) ArrayError![]usize {
@@ -16403,6 +16453,14 @@ test "array pytorch numpy shape indexing and layout helpers" {
     const broadcast_shape_snake = try a.broadcast_shape(broadcast_rhs);
     defer gpa.free(broadcast_shape_snake);
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_shape_snake);
+    var broadcast_pair = try a.broadcastWith(broadcast_rhs);
+    defer broadcast_pair.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_pair.first.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_pair.second.shape);
+    try std.testing.expectEqual(@as(f64, 7), try broadcast_pair.second.get(&.{ 1, 2 }));
+    var broadcast_pair_snake = try a.broadcast_with(broadcast_rhs);
+    defer broadcast_pair_snake.deinit();
+    try std.testing.expectEqualSlices(usize, broadcast_pair.first.shape, broadcast_pair_snake.first.shape);
     const broadcast_shape_static = try Array(f64).broadcastShapes(gpa, &.{ 2, 1, 3 }, &.{ 1, 4, 3 });
     defer gpa.free(broadcast_shape_static);
     try std.testing.expectEqualSlices(usize, &.{ 2, 4, 3 }, broadcast_shape_static);
@@ -16615,6 +16673,11 @@ test "array pytorch numpy shape indexing and layout helpers" {
     const expanded_shape = try expanded_top.broadcastShape(selected_top_view);
     defer gpa.free(expanded_shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, expanded_shape);
+    var view_pair = try expanded_top.broadcastWith(selected_top_view);
+    defer view_pair.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_pair.first.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_pair.second.shape);
+    try std.testing.expectEqual(@as(f64, 5), try view_pair.second.get(&.{ 1, 1 }));
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, expanded_top.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, expanded_top.strides);
     try std.testing.expectEqual(@as(f64, 6), try expanded_top.get(&.{ 1, 2 }));
