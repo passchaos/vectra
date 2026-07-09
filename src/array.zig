@@ -1612,6 +1612,67 @@ pub fn ArrayView(comptime T: type) type {
             return self.data[self.offset];
         }
 
+        pub fn itemValue(self: Self) ArrayError!T {
+            return self.item();
+        }
+
+        pub fn item_value(self: Self) ArrayError!T {
+            return self.itemValue();
+        }
+
+        pub fn scalarValue(self: Self) ArrayError!T {
+            return self.item();
+        }
+
+        pub fn scalar_value(self: Self) ArrayError!T {
+            return self.scalarValue();
+        }
+
+        pub fn asSlice(self: Self) ArrayError![]T {
+            if (!self.isContiguous()) return error.InvalidShape;
+            const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+            if (end > self.data.len) return error.IndexOutOfBounds;
+            return self.data[self.offset..end];
+        }
+
+        pub fn as_slice(self: Self) ArrayError![]T {
+            return self.asSlice();
+        }
+
+        pub fn asConstSlice(self: Self) ArrayError![]const T {
+            return self.asSlice();
+        }
+
+        pub fn as_const_slice(self: Self) ArrayError![]const T {
+            return self.asConstSlice();
+        }
+
+        pub fn copyToSlice(self: Self, out: []T) ArrayError!void {
+            if (out.len != self.numel()) return error.ShapeMismatch;
+            if (out.len == 0) return;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = self.data[self.offset + ravelIndex(multi, self.strides)];
+            }
+        }
+
+        pub fn copy_to_slice(self: Self, out: []T) ArrayError!void {
+            return self.copyToSlice(out);
+        }
+
+        pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) ArrayError![]T {
+            const out = try allocator.alloc(T, self.numel());
+            errdefer allocator.free(out);
+            try self.copyToSlice(out);
+            return out;
+        }
+
+        pub fn to_owned_slice(self: Self, allocator: std.mem.Allocator) ArrayError![]T {
+            return self.toOwnedSlice(allocator);
+        }
+
         pub fn toArray(self: Self) ArrayError!Array(T) {
             var out = try Array(T).empty(self.allocator, self.shape);
             errdefer out.deinit();
@@ -9219,6 +9280,58 @@ pub fn Array(comptime T: type) type {
             if (!self.isScalar()) return error.ShapeMismatch;
             if (self.data.len == 0) return error.EmptyArray;
             return self.data[0];
+        }
+
+        pub fn itemValue(self: Self) ArrayError!T {
+            return self.item();
+        }
+
+        pub fn item_value(self: Self) ArrayError!T {
+            return self.itemValue();
+        }
+
+        pub fn scalarValue(self: Self) ArrayError!T {
+            return self.item();
+        }
+
+        pub fn scalar_value(self: Self) ArrayError!T {
+            return self.scalarValue();
+        }
+
+        pub fn asSlice(self: Self) ArrayError![]T {
+            if (!self.isContiguous()) return error.InvalidShape;
+            return self.data;
+        }
+
+        pub fn as_slice(self: Self) ArrayError![]T {
+            return self.asSlice();
+        }
+
+        pub fn asConstSlice(self: Self) ArrayError![]const T {
+            return self.asSlice();
+        }
+
+        pub fn as_const_slice(self: Self) ArrayError![]const T {
+            return self.asConstSlice();
+        }
+
+        pub fn copyToSlice(self: Self, out: []T) ArrayError!void {
+            if (out.len != self.data.len) return error.ShapeMismatch;
+            @memcpy(out, self.data);
+        }
+
+        pub fn copy_to_slice(self: Self, out: []T) ArrayError!void {
+            return self.copyToSlice(out);
+        }
+
+        pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) ArrayError![]T {
+            const out = try allocator.alloc(T, self.data.len);
+            @memcpy(out, self.data);
+            return out;
+        }
+
+        pub fn to_owned_slice(self: Self, allocator: std.mem.Allocator) ArrayError![]T {
+            return self.toOwnedSlice(allocator);
         }
 
         pub fn reshape(self: Self, dims: []const usize) ArrayError!Self {
@@ -18754,6 +18867,112 @@ test "array scipy-like statistics and softmax" {
     var any_cols = try mask.anyAxis(0, false);
     defer any_cols.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true }, any_cols.data);
+}
+
+test "array and view scalar and flat export helpers" {
+    const gpa = std.testing.allocator;
+
+    var scalar_array = try Array(f64).fromScalar(gpa, 42);
+    defer scalar_array.deinit();
+    try std.testing.expectEqual(@as(f64, 42), try scalar_array.item());
+    try std.testing.expectEqual(@as(f64, 42), try scalar_array.itemValue());
+    try std.testing.expectEqual(@as(f64, 42), try scalar_array.item_value());
+    try std.testing.expectEqual(@as(f64, 42), try scalar_array.scalarValue());
+    try std.testing.expectEqual(@as(f64, 42), try scalar_array.scalar_value());
+
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+    try std.testing.expectError(error.ShapeMismatch, a.item());
+    var direct = try a.asSlice();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 5, 6 }, direct);
+    direct[0] = 10;
+    try std.testing.expectEqual(@as(f64, 10), a.data[0]);
+    direct[0] = 1;
+    const direct_snake = try a.as_slice();
+    try std.testing.expectEqualSlices(f64, a.data, direct_snake);
+    const direct_const = try a.asConstSlice();
+    try std.testing.expectEqualSlices(f64, a.data, direct_const);
+    const direct_const_snake = try a.as_const_slice();
+    try std.testing.expectEqualSlices(f64, a.data, direct_const_snake);
+
+    var stack_buf: [6]f64 = undefined;
+    try a.copyToSlice(stack_buf[0..]);
+    try std.testing.expectEqualSlices(f64, a.data, stack_buf[0..]);
+    var stack_buf_snake: [6]f64 = undefined;
+    try a.copy_to_slice(stack_buf_snake[0..]);
+    try std.testing.expectEqualSlices(f64, a.data, stack_buf_snake[0..]);
+    var too_small: [5]f64 = undefined;
+    try std.testing.expectError(error.ShapeMismatch, a.copyToSlice(too_small[0..]));
+
+    const owned = try a.toOwnedSlice(gpa);
+    defer gpa.free(owned);
+    try std.testing.expectEqualSlices(f64, a.data, owned);
+    const owned_snake = try a.to_owned_slice(gpa);
+    defer gpa.free(owned_snake);
+    try std.testing.expectEqualSlices(f64, a.data, owned_snake);
+
+    var empty = try Array(f64).empty(gpa, &.{0});
+    defer empty.deinit();
+    const empty_slice = try empty.toOwnedSlice(gpa);
+    defer gpa.free(empty_slice);
+    try std.testing.expectEqual(@as(usize, 0), empty_slice.len);
+
+    var base_view = try a.asView();
+    defer base_view.deinit();
+    try std.testing.expectError(error.ShapeMismatch, base_view.itemValue());
+    try std.testing.expectError(error.ShapeMismatch, base_view.item());
+    var view_direct = try base_view.asSlice();
+    try std.testing.expectEqualSlices(f64, a.data, view_direct);
+    view_direct[1] = 20;
+    try std.testing.expectEqual(@as(f64, 20), a.data[1]);
+    view_direct[1] = 2;
+    const view_direct_snake = try base_view.as_slice();
+    try std.testing.expectEqualSlices(f64, a.data, view_direct_snake);
+    const view_const = try base_view.asConstSlice();
+    try std.testing.expectEqualSlices(f64, a.data, view_const);
+    const view_const_snake = try base_view.as_const_slice();
+    try std.testing.expectEqualSlices(f64, a.data, view_const_snake);
+
+    var row_view = try a.selectView(0, 1);
+    defer row_view.deinit();
+    const row_slice = try row_view.asSlice();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, row_slice);
+    var row_buf: [3]f64 = undefined;
+    try row_view.copyToSlice(row_buf[0..]);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, row_buf[0..]);
+    const row_owned = try row_view.to_owned_slice(gpa);
+    defer gpa.free(row_owned);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, row_owned);
+
+    var transposed = try a.transposeView();
+    defer transposed.deinit();
+    try std.testing.expectError(error.InvalidShape, transposed.asSlice());
+    var transposed_buf: [6]f64 = undefined;
+    try transposed.copy_to_slice(transposed_buf[0..]);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, transposed_buf[0..]);
+    const transposed_owned = try transposed.toOwnedSlice(gpa);
+    defer gpa.free(transposed_owned);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, transposed_owned);
+    try std.testing.expectError(error.ShapeMismatch, transposed.copyToSlice(too_small[0..]));
+
+    var stepped = try a.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
+    defer stepped.deinit();
+    try std.testing.expectError(error.InvalidShape, stepped.as_slice());
+    var stepped_buf: [4]f64 = undefined;
+    try stepped.copyToSlice(stepped_buf[0..]);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4, 6 }, stepped_buf[0..]);
+    const stepped_owned = try stepped.toOwnedSlice(gpa);
+    defer gpa.free(stepped_owned);
+    try std.testing.expectEqualSlices(f64, stepped_buf[0..], stepped_owned);
+
+    var scalar_view_source = try Array(f64).fromScalar(gpa, 7);
+    defer scalar_view_source.deinit();
+    var scalar_view = try scalar_view_source.asView();
+    defer scalar_view.deinit();
+    try std.testing.expectEqual(@as(f64, 7), try scalar_view.item());
+    try std.testing.expectEqual(@as(f64, 7), try scalar_view.item_value());
+    try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalarValue());
+    try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalar_value());
 }
 
 test "array pytorch numpy shape indexing and layout helpers" {
