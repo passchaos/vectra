@@ -4336,6 +4336,24 @@ pub fn ArrayView(comptime T: type) type {
             var out = try Array(bool).empty(self.allocator, self.shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], out.data) |value, *slot| {
+                    slot.* = closeValue(T, value, scalar, rtol, atol, equal_nan);
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (out.data) |*slot| {
+                    slot.* = closeValue(T, self.data[source_offset], scalar, rtol, atol, equal_nan);
+                    source_offset += self.strides[0];
+                }
+                return out;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out.data, 0..) |*slot, flat| {
@@ -4364,6 +4382,24 @@ pub fn ArrayView(comptime T: type) type {
         pub fn allcloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             ensureFloat(T);
             if (self.numel() == 0) return true;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end]) |value| {
+                    if (!closeValue(T, value, scalar, rtol, atol, equal_nan)) return false;
+                }
+                return true;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (0..self.numel()) |_| {
+                    if (!closeValue(T, self.data[source_offset], scalar, rtol, atol, equal_nan)) return false;
+                    source_offset += self.strides[0];
+                }
+                return true;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (0..self.numel()) |flat| {
@@ -20660,6 +20696,10 @@ test "array comparison and logical wrappers" {
     var strided_gt = try strided_view.greaterScalar(2);
     defer strided_gt.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, strided_gt.data);
+    var strided_close = try strided_view.iscloseScalar(2, 0, 1);
+    defer strided_close.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, strided_close.data);
+    try std.testing.expect(!try strided_view.allcloseScalar(2, 0, 1));
     var strided_sum = try strided_view.sum(null, false);
     defer strided_sum.deinit();
     try std.testing.expectEqualSlices(f64, &.{10}, strided_sum.data);
