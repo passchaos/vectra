@@ -3522,35 +3522,43 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn exp(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).exp);
+            ensureNumeric(T);
+            return self.unary(Array(T).opExp);
         }
 
         pub fn exp2(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).exp2);
+            ensureFloat(T);
+            return self.unary(Array(T).opExp2);
         }
 
         pub fn expm1(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).expm1);
+            ensureNumeric(T);
+            return self.unary(Array(T).opExpm1);
         }
 
         pub fn log(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).log);
+            ensureNumeric(T);
+            return self.unary(Array(T).opLog);
         }
 
         pub fn log2(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).log2);
+            ensureNumeric(T);
+            return self.unary(Array(T).opLog2);
         }
 
         pub fn log10(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).log10);
+            ensureNumeric(T);
+            return self.unary(Array(T).opLog10);
         }
 
         pub fn log1p(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).log1p);
+            ensureNumeric(T);
+            return self.unary(Array(T).opLog1p);
         }
 
         pub fn lgamma(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).lgamma);
+            ensureFloat(T);
+            return self.unary(Array(T).opLgamma);
         }
 
         pub fn gammaln(self: Self) ArrayError!Array(T) {
@@ -3566,39 +3574,48 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn sqrt(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).sqrt);
+            ensureNumeric(T);
+            return self.unary(Array(T).opSqrt);
         }
 
         pub fn rsqrt(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).rsqrt);
+            ensureFloat(T);
+            return self.unary(Array(T).opRsqrt);
         }
 
         pub fn cbrt(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).cbrt);
+            ensureFloat(T);
+            return self.unary(Array(T).opCbrt);
         }
 
         pub fn floor(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).floor);
+            ensureNumeric(T);
+            return self.unary(Array(T).opFloor);
         }
 
         pub fn ceil(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).ceil);
+            ensureNumeric(T);
+            return self.unary(Array(T).opCeil);
         }
 
         pub fn round(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).round);
+            ensureNumeric(T);
+            return self.unary(Array(T).opRound);
         }
 
         pub fn trunc(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).trunc);
+            ensureNumeric(T);
+            return self.unary(Array(T).opTrunc);
         }
 
         pub fn deg2rad(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).deg2rad);
+            ensureFloat(T);
+            return self.unary(Array(T).opDeg2rad);
         }
 
         pub fn rad2deg(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).rad2deg);
+            ensureFloat(T);
+            return self.unary(Array(T).opRad2deg);
         }
 
         pub fn radians(self: Self) ArrayError!Array(T) {
@@ -3610,23 +3627,28 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn sinc(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).sinc);
+            ensureFloat(T);
+            return self.unary(Array(T).opSinc);
         }
 
         pub fn sin(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).sin);
+            ensureNumeric(T);
+            return self.unary(Array(T).opSin);
         }
 
         pub fn cos(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).cos);
+            ensureNumeric(T);
+            return self.unary(Array(T).opCos);
         }
 
         pub fn tan(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).tan);
+            ensureNumeric(T);
+            return self.unary(Array(T).opTan);
         }
 
         pub fn asin(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).asin);
+            ensureNumeric(T);
+            return self.unary(Array(T).opAsin);
         }
 
         pub fn arcsin(self: Self) ArrayError!Array(T) {
@@ -3634,7 +3656,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn acos(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).acos);
+            ensureNumeric(T);
+            return self.unary(Array(T).opAcos);
         }
 
         pub fn arccos(self: Self) ArrayError!Array(T) {
@@ -3642,7 +3665,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn atan(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).atan);
+            ensureNumeric(T);
+            return self.unary(Array(T).opAtan);
         }
 
         pub fn arctan(self: Self) ArrayError!Array(T) {
@@ -3650,19 +3674,28 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn sinh(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).sinh);
+            ensureNumeric(T);
+            return self.unary(Array(T).opSinh);
         }
 
         pub fn cosh(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).cosh);
+            ensureNumeric(T);
+            return self.unary(Array(T).opCosh);
         }
 
         pub fn tanh(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).tanh);
+            ensureNumeric(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime isComplex(T)) return std.math.complex.tanh(a);
+                    return std.math.tanh(a);
+                }
+            }.f);
         }
 
         pub fn asinh(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).asinh);
+            ensureFloat(T);
+            return self.unary(Array(T).opAsinh);
         }
 
         pub fn arcsinh(self: Self) ArrayError!Array(T) {
@@ -3670,7 +3703,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn acosh(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).acosh);
+            ensureFloat(T);
+            return self.unary(Array(T).opAcosh);
         }
 
         pub fn arccosh(self: Self) ArrayError!Array(T) {
@@ -3678,7 +3712,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn atanh(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).atanh);
+            ensureFloat(T);
+            return self.unary(Array(T).opAtanh);
         }
 
         pub fn arctanh(self: Self) ArrayError!Array(T) {
@@ -3686,39 +3721,85 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn relu(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).relu);
+            ensureNumeric(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    return if (a > zero(T)) a else zero(T);
+                }
+            }.f);
         }
 
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Array(T) {
-            return self.ownedWith(negative_slope, Array(T), Array(T).leakyRelu);
+            ensureNumeric(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const value = self.data[self.offset + ravelIndex(multi, self.strides)];
+                slot.* = if (value > zero(T)) value else mulValue(T, value, negative_slope);
+            }
+            return out;
         }
 
         pub fn sigmoid(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).sigmoid);
+            return self.expit();
         }
 
         pub fn expit(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).expit);
+            ensureFloat(T);
+            return self.unary(Array(T).opExpit);
         }
 
         pub fn logit(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).logit);
+            ensureFloat(T);
+            return self.unary(Array(T).opLogit);
         }
 
         pub fn softplus(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).softplus);
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    return @max(a, zero(T)) + std.math.log1p(std.math.exp(-@abs(a)));
+                }
+            }.f);
         }
 
         pub fn softsign(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).softsign);
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    return a / (one(T) + @abs(a));
+                }
+            }.f);
         }
 
         pub fn gelu(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).gelu);
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    const cubic = a * a * a;
+                    const gelu_arg = castValue(T, @sqrt(2.0 / std.math.pi)) * (a + castValue(T, 0.044715) * cubic);
+                    return castValue(T, 0.5) * a * (one(T) + std.math.tanh(gelu_arg));
+                }
+            }.f);
         }
 
         pub fn clip(self: Self, min_value: T, max_value: T) ArrayError!Array(T) {
-            return self.ownedWith2(min_value, max_value, Array(T), Array(T).clip);
+            ensureNumeric(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const value = self.data[self.offset + ravelIndex(multi, self.strides)];
+                slot.* = @min(@max(value, min_value), max_value);
+            }
+            return out;
         }
 
         pub fn clamp(self: Self, min_value: T, max_value: T) ArrayError!Array(T) {
@@ -19359,6 +19440,29 @@ fn printFlatData(comptime T: type, writer: *std.Io.Writer, data: []const T) std.
     try writer.print("]", .{});
 }
 
+fn expectApproxEqualSlices(comptime T: type, expected: []const T, actual: []const T, tolerance: T) !void {
+    try std.testing.expectEqual(expected.len, actual.len);
+    for (expected, actual) |expected_value, actual_value| {
+        try std.testing.expectApproxEqAbs(expected_value, actual_value, tolerance);
+    }
+}
+
+fn expectF64ViewUnaryMatchesArray(
+    view: ArrayView(f64),
+    comptime view_method: fn (ArrayView(f64)) ArrayError!Array(f64),
+    comptime array_method: fn (Array(f64)) ArrayError!Array(f64),
+    tolerance: f64,
+) !void {
+    var owned = try view.toArray();
+    defer owned.deinit();
+    var expected = try array_method(owned);
+    defer expected.deinit();
+    var actual = try view_method(view);
+    defer actual.deinit();
+    try std.testing.expectEqualSlices(usize, expected.shape, actual.shape);
+    try expectApproxEqualSlices(f64, expected.data, actual.data, tolerance);
+}
+
 test "array creation, reshape and broadcasting" {
     const gpa = std.testing.allocator;
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
@@ -22481,6 +22585,97 @@ test "array non contiguous view helpers" {
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
+}
+
+test "array view transcendental unary math is view aware" {
+    const gpa = std.testing.allocator;
+
+    var positive_source = try Array(f64).fromSlice(gpa, &.{ 0.25, 99, 0.5, 88, 1.25, 77, 2.0, 66 }, &.{ 2, 4 });
+    defer positive_source.deinit();
+    var positive = try positive_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer positive.deinit();
+    try std.testing.expect(!positive.isContiguous());
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).exp, Array(f64).exp, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).exp2, Array(f64).exp2, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).expm1, Array(f64).expm1, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).log, Array(f64).log, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).log2, Array(f64).log2, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).log10, Array(f64).log10, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).log1p, Array(f64).log1p, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).lgamma, Array(f64).lgamma, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).sqrt, Array(f64).sqrt, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).rsqrt, Array(f64).rsqrt, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).cbrt, Array(f64).cbrt, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).deg2rad, Array(f64).deg2rad, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).rad2deg, Array(f64).rad2deg, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).sinc, Array(f64).sinc, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).sin, Array(f64).sin, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).cos, Array(f64).cos, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).tan, Array(f64).tan, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).sinh, Array(f64).sinh, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).cosh, Array(f64).cosh, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).tanh, Array(f64).tanh, 1e-12);
+    try expectF64ViewUnaryMatchesArray(positive, ArrayView(f64).asinh, Array(f64).asinh, 1e-12);
+
+    var fractional_source = try Array(f64).fromSlice(gpa, &.{ -1.25, 9, -0.5, 8, 1.5, 7, 2.75, 6 }, &.{ 2, 4 });
+    defer fractional_source.deinit();
+    var fractional = try fractional_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer fractional.deinit();
+    try std.testing.expect(!fractional.isContiguous());
+    try expectF64ViewUnaryMatchesArray(fractional, ArrayView(f64).floor, Array(f64).floor, 1e-12);
+    try expectF64ViewUnaryMatchesArray(fractional, ArrayView(f64).ceil, Array(f64).ceil, 1e-12);
+    try expectF64ViewUnaryMatchesArray(fractional, ArrayView(f64).round, Array(f64).round, 1e-12);
+    try expectF64ViewUnaryMatchesArray(fractional, ArrayView(f64).trunc, Array(f64).trunc, 1e-12);
+
+    var bounded_source = try Array(f64).fromSlice(gpa, &.{ -0.75, 9, -0.25, 8, 0.25, 7, 0.75, 6 }, &.{ 2, 4 });
+    defer bounded_source.deinit();
+    var bounded = try bounded_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer bounded.deinit();
+    try std.testing.expect(!bounded.isContiguous());
+    try expectF64ViewUnaryMatchesArray(bounded, ArrayView(f64).asin, Array(f64).asin, 1e-12);
+    try expectF64ViewUnaryMatchesArray(bounded, ArrayView(f64).acos, Array(f64).acos, 1e-12);
+    try expectF64ViewUnaryMatchesArray(bounded, ArrayView(f64).atan, Array(f64).atan, 1e-12);
+    try expectF64ViewUnaryMatchesArray(bounded, ArrayView(f64).atanh, Array(f64).atanh, 1e-12);
+
+    var acosh_source = try Array(f64).fromSlice(gpa, &.{ 1.0, 9, 1.25, 8, 2.0, 7, 3.0, 6 }, &.{ 2, 4 });
+    defer acosh_source.deinit();
+    var acosh_view = try acosh_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer acosh_view.deinit();
+    try std.testing.expect(!acosh_view.isContiguous());
+    try expectF64ViewUnaryMatchesArray(acosh_view, ArrayView(f64).acosh, Array(f64).acosh, 1e-12);
+
+    var probability_source = try Array(f64).fromSlice(gpa, &.{ 0.2, 9, 0.4, 8, 0.6, 7, 0.8, 6 }, &.{ 2, 4 });
+    defer probability_source.deinit();
+    var probability = try probability_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer probability.deinit();
+    try std.testing.expect(!probability.isContiguous());
+    try expectF64ViewUnaryMatchesArray(probability, ArrayView(f64).logit, Array(f64).logit, 1e-12);
+    try expectF64ViewUnaryMatchesArray(probability, ArrayView(f64).expit, Array(f64).expit, 1e-12);
+    try expectF64ViewUnaryMatchesArray(probability, ArrayView(f64).sigmoid, Array(f64).sigmoid, 1e-12);
+
+    var activation_source = try Array(f64).fromSlice(gpa, &.{ -2.0, 9, -0.5, 8, 0.0, 7, 3.0, 6 }, &.{ 2, 4 });
+    defer activation_source.deinit();
+    var activation = try activation_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer activation.deinit();
+    try std.testing.expect(!activation.isContiguous());
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).relu, Array(f64).relu, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).softplus, Array(f64).softplus, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).softsign, Array(f64).softsign, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).gelu, Array(f64).gelu, 1e-12);
+
+    var activation_owned = try activation.toArray();
+    defer activation_owned.deinit();
+    var expected_leaky = try activation_owned.leakyRelu(0.1);
+    defer expected_leaky.deinit();
+    var actual_leaky = try activation.leakyRelu(0.1);
+    defer actual_leaky.deinit();
+    try expectApproxEqualSlices(f64, expected_leaky.data, actual_leaky.data, 1e-12);
+
+    var expected_clip = try activation_owned.clip(-0.25, 1.0);
+    defer expected_clip.deinit();
+    var actual_clip = try activation.clip(-0.25, 1.0);
+    defer actual_clip.deinit();
+    try expectApproxEqualSlices(f64, expected_clip.data, actual_clip.data, 1e-12);
 }
 
 test "array view object indexing wrappers" {
