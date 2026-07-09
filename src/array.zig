@@ -1798,6 +1798,12 @@ pub fn ArrayView(comptime T: type) type {
         pub fn copyToSlice(self: Self, out: []T) ArrayError!void {
             if (out.len != self.numel()) return error.ShapeMismatch;
             if (out.len == 0) return;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                @memcpy(out, self.data[self.offset..end]);
+                return;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out, 0..) |*slot, flat| {
@@ -1825,6 +1831,12 @@ pub fn ArrayView(comptime T: type) type {
             var out = try Array(T).empty(self.allocator, self.shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                @memcpy(out.data, self.data[self.offset..end]);
+                return out;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out.data, 0..) |*slot, flat| {
@@ -2511,6 +2523,12 @@ pub fn ArrayView(comptime T: type) type {
             var out = try Array(T).empty(self.allocator, self.shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value);
+                return out;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out.data, 0..) |*slot, flat| {
@@ -2524,6 +2542,12 @@ pub fn ArrayView(comptime T: type) type {
             var out = try Array(bool).empty(self.allocator, self.shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value);
+                return out;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out.data, 0..) |*slot, flat| {
@@ -2537,6 +2561,12 @@ pub fn ArrayView(comptime T: type) type {
             var out = try Array(T).empty(self.allocator, self.shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value, scalar);
+                return out;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out.data, 0..) |*slot, flat| {
@@ -4320,6 +4350,17 @@ pub fn ArrayView(comptime T: type) type {
         fn reduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
             if (axis_opt == null) {
                 var total = init_value;
+                if (self.isContiguous()) {
+                    const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                    if (end > self.data.len) return error.IndexOutOfBounds;
+                    for (self.data[self.offset..end]) |value| total = op(total, value);
+                    if (keepdims) {
+                        const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                        defer self.allocator.free(out_shape);
+                        return Array(T).fromSlice(self.allocator, &.{total}, out_shape);
+                    }
+                    return Array(T).fromSlice(self.allocator, &.{total}, &.{});
+                }
                 const multi = try self.allocator.alloc(usize, self.shape.len);
                 defer self.allocator.free(multi);
                 for (0..self.numel()) |flat| {
@@ -4362,6 +4403,18 @@ pub fn ArrayView(comptime T: type) type {
         fn reduceFirst(self: Self, axis_opt: ?isize, keepdims: bool, comptime op: fn (T, T) T) ArrayError!Array(T) {
             if (self.numel() == 0) return error.EmptyArray;
             if (axis_opt == null) {
+                if (self.isContiguous()) {
+                    const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                    if (end > self.data.len) return error.IndexOutOfBounds;
+                    var total = self.data[self.offset];
+                    for (self.data[self.offset + 1 .. end]) |value| total = op(total, value);
+                    if (keepdims) {
+                        const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                        defer self.allocator.free(out_shape);
+                        return Array(T).fromSlice(self.allocator, &.{total}, out_shape);
+                    }
+                    return Array(T).fromSlice(self.allocator, &.{total}, &.{});
+                }
                 const multi = try self.allocator.alloc(usize, self.shape.len);
                 defer self.allocator.free(multi);
                 unravelIndexInto(0, self.shape, multi);
@@ -20474,6 +20527,29 @@ test "array comparison and logical wrappers" {
     defer scalar_close.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, scalar_close.data);
     try std.testing.expect(!try a.allcloseScalar(2.0, 0.0, 1.0));
+
+    var contiguous_view = try a.asView();
+    defer contiguous_view.deinit();
+    try std.testing.expect(contiguous_view.isContiguous());
+    var copied: [4]f64 = undefined;
+    try contiguous_view.copyToSlice(&copied);
+    try std.testing.expectEqualSlices(f64, a.data, &copied);
+    var materialized = try contiguous_view.toArray();
+    defer materialized.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, materialized.data);
+    var view_plus = try contiguous_view.addScalar(1);
+    defer view_plus.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3, 4, 5 }, view_plus.data);
+    var view_positive_mask = try contiguous_view.greaterScalar(2);
+    defer view_positive_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, view_positive_mask.data);
+    var view_sum_fast = try contiguous_view.sum(null, false);
+    defer view_sum_fast.deinit();
+    try std.testing.expectEqualSlices(f64, &.{10}, view_sum_fast.data);
+    var view_min_fast = try contiguous_view.min(null, true);
+    defer view_min_fast.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, view_min_fast.shape);
+    try std.testing.expectEqualSlices(f64, &.{1}, view_min_fast.data);
 }
 
 test "array reductions and matmul" {
