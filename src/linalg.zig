@@ -4,23 +4,13 @@ const veyra = @import("veyra");
 
 pub const LinalgError = array_mod.ArrayError || error{ SingularMatrix, NotPositiveDefinite, BackendFailure } || std.mem.Allocator.Error;
 
-pub const MatrixNormOrder = enum {
-    fro,
-    one,
-    inf,
-    two,
-    nuclear,
-};
-
-pub const Triangle = enum {
-    lower,
-    upper,
-};
-
-pub const Diagonal = enum {
-    non_unit,
-    unit,
-};
+pub const MatrixNormOrder = array_mod.MatrixNormOrder;
+pub const Triangle = array_mod.Triangle;
+pub const Diagonal = array_mod.Diagonal;
+pub const QrResult = array_mod.QrResult;
+pub const SvdResult = array_mod.SvdResult;
+pub const EighResult = array_mod.EighResult;
+pub const LuResult = array_mod.LuResult;
 
 fn toVeyraMatrix(a: array_mod.Array(f64)) LinalgError!veyra.Matrix(f64) {
     if (a.shape.len != 2) return error.NonMatrixArray;
@@ -38,87 +28,6 @@ fn toVeyraVector(x: array_mod.Array(f64)) LinalgError!veyra.Vector(f64) {
 
 fn fromVeyraVector(allocator: std.mem.Allocator, vector: *const veyra.Vector(f64)) LinalgError!array_mod.Array(f64) {
     return array_mod.Array(f64).fromSlice(allocator, vector.data, &.{vector.len()});
-}
-
-pub fn QrResult(comptime T: type) type {
-    return struct {
-        q: array_mod.Array(T),
-        r: array_mod.Array(T),
-
-        pub fn deinit(self: *@This()) void {
-            self.q.deinit();
-            self.r.deinit();
-            self.* = undefined;
-        }
-    };
-}
-
-pub fn SvdResult(comptime T: type) type {
-    return struct {
-        u: array_mod.Array(T),
-        s: array_mod.Array(T),
-        vt: array_mod.Array(T),
-
-        pub fn deinit(self: *@This()) void {
-            self.u.deinit();
-            self.s.deinit();
-            self.vt.deinit();
-            self.* = undefined;
-        }
-    };
-}
-
-pub fn EighResult(comptime T: type) type {
-    return struct {
-        values: array_mod.Array(T),
-        vectors: array_mod.Array(T),
-
-        pub fn deinit(self: *@This()) void {
-            self.values.deinit();
-            self.vectors.deinit();
-            self.* = undefined;
-        }
-    };
-}
-
-pub fn LuResult(comptime T: type) type {
-    return struct {
-        p: array_mod.Array(T),
-        l: array_mod.Array(T),
-        u: array_mod.Array(T),
-
-        pub fn deinit(self: *@This()) void {
-            self.p.deinit();
-            self.l.deinit();
-            self.u.deinit();
-            self.* = undefined;
-        }
-    };
-}
-
-fn mapVeyraError(err: anyerror) LinalgError {
-    return switch (err) {
-        error.Singular => error.SingularMatrix,
-        error.NotPositiveDefinite => error.NotPositiveDefinite,
-        error.DimensionMismatch => error.ShapeMismatch,
-        error.IndexOutOfBounds => error.IndexOutOfBounds,
-        error.OutOfMemory => error.OutOfMemory,
-        else => error.BackendFailure,
-    };
-}
-
-fn toVeyraTriangle(triangle: Triangle) veyra.Triangle {
-    return switch (triangle) {
-        .lower => .lower,
-        .upper => .upper,
-    };
-}
-
-fn toVeyraDiagonal(diagonal: Diagonal) veyra.DiagonalKind {
-    return switch (diagonal) {
-        .non_unit => .non_unit,
-        .unit => .unit,
-    };
 }
 
 pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) LinalgError!array_mod.Array(T) {
@@ -189,470 +98,51 @@ pub fn cholesky(comptime T: type, a: array_mod.Array(T)) LinalgError!array_mod.A
 }
 
 pub fn qr(comptime T: type, a: array_mod.Array(T)) LinalgError!QrResult(T) {
-    if (a.shape.len != 2) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("qr requires floating-point arrays");
-    if (T == f64) return qrF64(@as(array_mod.Array(f64), a));
-    return qrReference(T, a);
-}
-
-fn qrF64(a: array_mod.Array(f64)) LinalgError!QrResult(f64) {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var factorization = veyra.qr(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
-    defer factorization.deinit();
-
-    var q_matrix = veyra.Matrix(f64).identity(a.allocator, a.shape[0], .row_major) catch return error.BackendFailure;
-    defer q_matrix.deinit();
-    var q_out_matrix = veyra.Matrix(f64).zeros(a.allocator, a.shape[0], a.shape[0], .row_major) catch return error.BackendFailure;
-    defer q_out_matrix.deinit();
-    factorization.applyQMatrix(q_matrix.asView(), q_out_matrix.asMut()) catch |err| return mapVeyraError(err);
-
-    var q = try fromVeyraMatrix(a.allocator, &q_out_matrix);
-    errdefer q.deinit();
-    var r = try array_mod.Array(f64).zeros(a.allocator, &.{ a.shape[0], a.shape[1] });
-    errdefer r.deinit();
-    const rv = factorization.rView();
-    for (0..a.shape[0]) |row| {
-        for (row..a.shape[1]) |col| {
-            if (row < rv.rows and col < rv.cols) r.data[row * a.shape[1] + col] = rv.get(row, col);
-        }
-    }
-    return .{ .q = q, .r = r };
-}
-
-fn qrReference(comptime T: type, a: array_mod.Array(T)) LinalgError!QrResult(T) {
-    const m = a.shape[0];
-    const n = a.shape[1];
-    var q = try array_mod.Array(T).zeros(a.allocator, &.{ m, m });
-    errdefer q.deinit();
-    var r = try array_mod.Array(T).zeros(a.allocator, &.{ m, n });
-    errdefer r.deinit();
-
-    // Classical Gram-Schmidt for the first n columns; complete remaining Q columns from basis vectors.
-    for (0..m) |basis_col| {
-        for (0..m) |row| q.data[row * m + basis_col] = if (row == basis_col) 1 else 0;
-    }
-    for (0..n) |j| {
-        for (0..m) |row| q.data[row * m + j] = a.data[row * n + j];
-        for (0..j) |i| {
-            var dot: T = 0;
-            for (0..m) |row| dot += q.data[row * m + i] * a.data[row * n + j];
-            r.data[i * n + j] = dot;
-            for (0..m) |row| q.data[row * m + j] -= dot * q.data[row * m + i];
-        }
-        var norm_sq: T = 0;
-        for (0..m) |row| norm_sq += q.data[row * m + j] * q.data[row * m + j];
-        if (norm_sq == 0) return error.SingularMatrix;
-        const norm = std.math.sqrt(norm_sq);
-        r.data[j * n + j] = norm;
-        for (0..m) |row| q.data[row * m + j] /= norm;
-    }
-    return .{ .q = q, .r = r };
+    return a.qr();
 }
 
 pub fn svd(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!SvdResult(T) {
-    if (a.shape.len != 2) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("svd requires floating-point arrays");
-    if (T == f64) return svdF64(@as(array_mod.Array(f64), a), @as(f64, tolerance));
-    return error.BackendFailure;
-}
-
-fn svdF64(a: array_mod.Array(f64), tolerance: f64) LinalgError!SvdResult(f64) {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
-    defer decomposition.deinit();
-    var u = try fromVeyraMatrix(a.allocator, &decomposition.u);
-    errdefer u.deinit();
-    var s_values = try fromVeyraVector(a.allocator, &decomposition.singular_values);
-    errdefer s_values.deinit();
-    var vt = try fromVeyraMatrix(a.allocator, &decomposition.vt);
-    errdefer vt.deinit();
-    return .{ .u = u, .s = s_values, .vt = vt };
+    return a.svd(tolerance);
 }
 
 pub fn singularValues(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!array_mod.Array(T) {
-    if (a.shape.len != 2) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("singularValues requires floating-point arrays");
-    var factors = try svd(T, a, tolerance);
-    defer factors.deinit();
-    return factors.s.clone();
+    return a.singularValues(tolerance);
 }
 
 pub fn matrixRank(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!usize {
-    if (a.shape.len != 2) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("matrixRank requires floating-point arrays");
-    if (T == f64) return matrixRankF64(@as(array_mod.Array(f64), a), @as(f64, tolerance));
-    var values = try singularValues(T, a, tolerance);
-    defer values.deinit();
-    var rank_value: usize = 0;
-    for (values.data) |sigma| {
-        if (sigma > tolerance) rank_value += 1;
-    }
-    return rank_value;
-}
-
-fn matrixRankF64(a: array_mod.Array(f64), tolerance: f64) LinalgError!usize {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
-    defer decomposition.deinit();
-    return decomposition.rank(tolerance);
+    return a.matrixRank(tolerance);
 }
 
 pub fn cond(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!T {
-    if (a.shape.len != 2) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("cond requires floating-point arrays");
-    if (T == f64) return condF64(@as(array_mod.Array(f64), a), @as(f64, tolerance));
-    var values = try singularValues(T, a, tolerance);
-    defer values.deinit();
-    if (values.data.len == 0) return error.InvalidShape;
-    var max_sigma = values.data[0];
-    var min_sigma: ?T = null;
-    for (values.data) |sigma| {
-        if (sigma > max_sigma) max_sigma = sigma;
-        if (sigma > tolerance) min_sigma = if (min_sigma) |current| @min(current, sigma) else sigma;
-    }
-    const min_resolved = min_sigma orelse return error.SingularMatrix;
-    return max_sigma / min_resolved;
-}
-
-fn condF64(a: array_mod.Array(f64), tolerance: f64) LinalgError!f64 {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
-    defer decomposition.deinit();
-    return decomposition.conditionNumber(tolerance) catch |err| return mapVeyraError(err);
+    return a.cond(tolerance);
 }
 
 pub fn pinv(comptime T: type, a: array_mod.Array(T), tolerance: T) LinalgError!array_mod.Array(T) {
-    if (a.shape.len != 2) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("pinv requires floating-point arrays");
-    var factors = try svd(T, a, tolerance);
-    defer factors.deinit();
-
-    const k = factors.s.data.len;
-    var sigma_inv = try array_mod.Array(T).zeros(a.allocator, &.{ k, k });
-    defer sigma_inv.deinit();
-    for (factors.s.data, 0..) |sigma, i| {
-        if (sigma > tolerance) sigma_inv.data[i * k + i] = 1 / sigma;
-    }
-    var vt_t = try factors.vt.transpose();
-    defer vt_t.deinit();
-    var left = try matmul(T, vt_t, sigma_inv);
-    defer left.deinit();
-    var u_t = try factors.u.transpose();
-    defer u_t.deinit();
-    return matmul(T, left, u_t);
+    return a.pinv(tolerance);
 }
 
 pub fn matrixNorm(comptime T: type, a: array_mod.Array(T), order: MatrixNormOrder, tolerance: T) LinalgError!T {
-    if (a.shape.len != 2) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("matrixNorm requires floating-point arrays");
-    if (T == f64) return matrixNormF64(@as(array_mod.Array(f64), a), order, @as(f64, tolerance));
-    return matrixNormReference(T, a, order, tolerance);
-}
-
-fn matrixNormF64(a: array_mod.Array(f64), order: MatrixNormOrder, tolerance: f64) LinalgError!f64 {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    return switch (order) {
-        .fro => veyra.frobeniusNorm(f64, matrix.asView()),
-        .one => veyra.matrixOneNorm(f64, matrix.asView()),
-        .inf => veyra.matrixInfNorm(f64, matrix.asView()),
-        .two => blk: {
-            var values = try singularValues(f64, a, tolerance);
-            defer values.deinit();
-            if (values.data.len == 0) break :blk 0;
-            var max_value = values.data[0];
-            for (values.data[1..]) |v| {
-                if (v > max_value) max_value = v;
-            }
-            break :blk max_value;
-        },
-        .nuclear => blk: {
-            var values = try singularValues(f64, a, tolerance);
-            defer values.deinit();
-            var total: f64 = 0;
-            for (values.data) |v| total += v;
-            break :blk total;
-        },
-    };
-}
-
-fn matrixNormReference(comptime T: type, a: array_mod.Array(T), order: MatrixNormOrder, tolerance: T) LinalgError!T {
-    return switch (order) {
-        .fro => blk: {
-            var total: T = 0;
-            for (a.data) |v| total += v * v;
-            break :blk std.math.sqrt(total);
-        },
-        .one => blk: {
-            var best: T = 0;
-            for (0..a.shape[1]) |c| {
-                var total: T = 0;
-                for (0..a.shape[0]) |r| total += @abs(a.data[r * a.shape[1] + c]);
-                if (total > best) best = total;
-            }
-            break :blk best;
-        },
-        .inf => blk: {
-            var best: T = 0;
-            for (0..a.shape[0]) |r| {
-                var total: T = 0;
-                for (0..a.shape[1]) |c| total += @abs(a.data[r * a.shape[1] + c]);
-                if (total > best) best = total;
-            }
-            break :blk best;
-        },
-        .two, .nuclear => blk: {
-            var values = try singularValues(T, a, tolerance);
-            defer values.deinit();
-            if (order == .two) {
-                if (values.data.len == 0) break :blk 0;
-                var max_value = values.data[0];
-                for (values.data[1..]) |v| {
-                    if (v > max_value) max_value = v;
-                }
-                break :blk max_value;
-            }
-            var total: T = 0;
-            for (values.data) |v| total += v;
-            break :blk total;
-        },
-    };
+    return a.matrixNorm(order, tolerance);
 }
 
 pub fn eigh(comptime T: type, a: array_mod.Array(T), max_sweeps: usize, tolerance: T) LinalgError!EighResult(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("eigh requires floating-point arrays");
-    if (T == f64) return eighF64(@as(array_mod.Array(f64), a), max_sweeps, @as(f64, tolerance));
-    return error.BackendFailure;
-}
-
-fn eighF64(a: array_mod.Array(f64), max_sweeps: usize, tolerance: f64) LinalgError!EighResult(f64) {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var eig = veyra.symmetricEigenJacobi(f64, a.allocator, matrix.asView(), max_sweeps, tolerance) catch |err| return mapVeyraError(err);
-    defer eig.deinit();
-    var values = try fromVeyraVector(a.allocator, &eig.eigenvalues);
-    errdefer values.deinit();
-    var vectors = try fromVeyraMatrix(a.allocator, &eig.eigenvectors);
-    errdefer vectors.deinit();
-    return .{ .values = values, .vectors = vectors };
+    return a.eigh(max_sweeps, tolerance);
 }
 
 pub fn eigvalsh(comptime T: type, a: array_mod.Array(T), max_sweeps: usize, tolerance: T) LinalgError!array_mod.Array(T) {
-    var result = try eigh(T, a, max_sweeps, tolerance);
-    defer result.deinit();
-    return result.values.clone();
+    return a.eigvalsh(max_sweeps, tolerance);
 }
 
 pub fn lstsq(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T), tolerance: T) LinalgError!array_mod.Array(T) {
-    if (a.shape.len != 2) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("lstsq requires floating-point arrays");
-    if (T == f64) return lstsqF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), b), @as(f64, tolerance));
-
-    // Basic fallback for vector RHS using QR. Matrix RHS can be added when needed.
-    if (b.shape.len != 1) return error.NonVectorArray;
-    var factors = try qr(T, a);
-    defer factors.deinit();
-    var qt = try factors.q.transpose();
-    defer qt.deinit();
-    var y_full = try matvec(T, qt, b);
-    defer y_full.deinit();
-    const n = a.shape[1];
-    var x = try array_mod.Array(T).zeros(a.allocator, &.{n});
-    var i = n;
-    while (i > 0) {
-        i -= 1;
-        var acc = y_full.data[i];
-        for (i + 1..n) |j| acc -= factors.r.data[i * a.shape[1] + j] * x.data[j];
-        const diag = factors.r.data[i * a.shape[1] + i];
-        if (@abs(diag) <= tolerance) return error.SingularMatrix;
-        x.data[i] = acc / diag;
-    }
-    return x;
-}
-
-fn lstsqF64(a: array_mod.Array(f64), b: array_mod.Array(f64), tolerance: f64) LinalgError!array_mod.Array(f64) {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var decomposition = veyra.svdViaEigen(f64, a.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraError(err);
-    defer decomposition.deinit();
-
-    if (b.shape.len == 1) {
-        var rhs = try toVeyraVector(b);
-        defer rhs.deinit();
-        var dst = veyra.Vector(f64).zeros(a.allocator, a.shape[1]) catch return error.BackendFailure;
-        defer dst.deinit();
-        decomposition.solveLeastSquares(rhs.asView(), dst.asMut(), tolerance) catch |err| return mapVeyraError(err);
-        return fromVeyraVector(a.allocator, &dst);
-    }
-
-    if (b.shape.len == 2) {
-        if (b.shape[0] != a.shape[0]) return error.ShapeMismatch;
-        var rhs = try toVeyraMatrix(b);
-        defer rhs.deinit();
-        var dst = veyra.Matrix(f64).zeros(a.allocator, a.shape[1], b.shape[1], .row_major) catch return error.BackendFailure;
-        defer dst.deinit();
-        decomposition.solveLeastSquaresMatrix(rhs.asView(), dst.asMut(), tolerance) catch |err| return mapVeyraError(err);
-        return fromVeyraMatrix(a.allocator, &dst);
-    }
-
-    return error.InvalidShape;
+    return a.lstsq(b, tolerance);
 }
 
 pub fn lu(comptime T: type, a: array_mod.Array(T)) LinalgError!LuResult(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("lu requires floating-point arrays");
-    if (T == f64) return luF64(@as(array_mod.Array(f64), a));
-    return luReference(T, a);
-}
-
-fn luF64(a: array_mod.Array(f64)) LinalgError!LuResult(f64) {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var factorization = veyra.lu(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
-    defer factorization.deinit();
-    const n = a.shape[0];
-    var p = try array_mod.Array(f64).zeros(a.allocator, &.{ n, n });
-    errdefer p.deinit();
-    var l = try array_mod.Array(f64).zeros(a.allocator, &.{ n, n });
-    errdefer l.deinit();
-    var u = try array_mod.Array(f64).zeros(a.allocator, &.{ n, n });
-    errdefer u.deinit();
-    const perm = factorization.permutationView();
-    const factors = factorization.factors.asView();
-    for (0..n) |r| {
-        p.data[r * n + perm.get(r)] = 1;
-        l.data[r * n + r] = 1;
-        for (0..n) |c| {
-            if (r > c) l.data[r * n + c] = factors.get(r, c) else u.data[r * n + c] = factors.get(r, c);
-        }
-    }
-    return .{ .p = p, .l = l, .u = u };
-}
-
-fn luReference(comptime T: type, a: array_mod.Array(T)) LinalgError!LuResult(T) {
-    const n = a.shape[0];
-    var p = try array_mod.Array(T).zeros(a.allocator, &.{ n, n });
-    errdefer p.deinit();
-    var l = try array_mod.Array(T).zeros(a.allocator, &.{ n, n });
-    errdefer l.deinit();
-    var u = try a.clone();
-    errdefer u.deinit();
-    for (0..n) |i| {
-        p.data[i * n + i] = 1;
-        l.data[i * n + i] = 1;
-    }
-    for (0..n) |k| {
-        var pivot = k;
-        var pivot_abs = @abs(u.data[k * n + k]);
-        for (k + 1..n) |r| {
-            const candidate = @abs(u.data[r * n + k]);
-            if (candidate > pivot_abs) {
-                pivot_abs = candidate;
-                pivot = r;
-            }
-        }
-        if (pivot_abs == 0) return error.SingularMatrix;
-        if (pivot != k) {
-            for (0..n) |c| {
-                std.mem.swap(T, &u.data[k * n + c], &u.data[pivot * n + c]);
-                std.mem.swap(T, &p.data[k * n + c], &p.data[pivot * n + c]);
-                if (c < k) std.mem.swap(T, &l.data[k * n + c], &l.data[pivot * n + c]);
-            }
-        }
-        for (k + 1..n) |r| {
-            const factor = u.data[r * n + k] / u.data[k * n + k];
-            l.data[r * n + k] = factor;
-            for (k..n) |c| u.data[r * n + c] -= factor * u.data[k * n + c];
-        }
-    }
-    return .{ .p = p, .l = l, .u = u };
+    return a.lu();
 }
 
 pub fn solveTriangular(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T), triangle: Triangle, diagonal: Diagonal) LinalgError!array_mod.Array(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
-    if (b.shape.len != 1 and b.shape.len != 2) return error.InvalidShape;
-    if (b.shape[0] != a.shape[0]) return error.ShapeMismatch;
-    if (@typeInfo(T) != .float) @compileError("solveTriangular requires floating-point arrays");
-    if (T == f64) return solveTriangularF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), b), triangle, diagonal);
-    return solveTriangularReference(T, a, b, triangle, diagonal);
-}
-
-fn solveTriangularF64(a: array_mod.Array(f64), b: array_mod.Array(f64), triangle: Triangle, diagonal: Diagonal) LinalgError!array_mod.Array(f64) {
-    var triangular = try toVeyraMatrix(a);
-    defer triangular.deinit();
-    const options: veyra.dense.TriangularSolveOptions = .{ .triangle = toVeyraTriangle(triangle), .diagonal = toVeyraDiagonal(diagonal) };
-
-    if (b.shape.len == 1) {
-        var rhs = try toVeyraVector(b);
-        defer rhs.deinit();
-        var dst = veyra.Vector(f64).zeros(a.allocator, a.shape[0]) catch return error.BackendFailure;
-        defer dst.deinit();
-        veyra.dense.solveTriangular(f64, triangular.asView(), rhs.asView(), dst.asMut(), options) catch |err| return mapVeyraError(err);
-        return fromVeyraVector(a.allocator, &dst);
-    }
-
-    var rhs = try toVeyraMatrix(b);
-    defer rhs.deinit();
-    var dst = veyra.Matrix(f64).zeros(a.allocator, a.shape[0], b.shape[1], .row_major) catch return error.BackendFailure;
-    defer dst.deinit();
-    veyra.dense.solveTriangularMatrix(f64, triangular.asView(), rhs.asView(), dst.asMut(), options) catch |err| return mapVeyraError(err);
-    return fromVeyraMatrix(a.allocator, &dst);
-}
-
-fn solveTriangularReference(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T), triangle: Triangle, diagonal: Diagonal) LinalgError!array_mod.Array(T) {
-    if (b.shape.len == 1) {
-        const out = try array_mod.Array(T).zeros(a.allocator, &.{a.shape[0]});
-        try solveTriangularVectorReference(T, a, b.data, out.data, triangle, diagonal);
-        return out;
-    }
-    var out = try array_mod.Array(T).zeros(a.allocator, &.{ a.shape[0], b.shape[1] });
-    for (0..b.shape[1]) |col| {
-        var rhs_col = try a.allocator.alloc(T, a.shape[0]);
-        defer a.allocator.free(rhs_col);
-        const dst_col = try a.allocator.alloc(T, a.shape[0]);
-        defer a.allocator.free(dst_col);
-        for (0..a.shape[0]) |row| rhs_col[row] = b.data[row * b.shape[1] + col];
-        try solveTriangularVectorReference(T, a, rhs_col, dst_col, triangle, diagonal);
-        for (0..a.shape[0]) |row| out.data[row * b.shape[1] + col] = dst_col[row];
-    }
-    return out;
-}
-
-fn solveTriangularVectorReference(comptime T: type, a: array_mod.Array(T), rhs: []const T, out: []T, triangle: Triangle, diagonal: Diagonal) LinalgError!void {
-    const n = a.shape[0];
-    switch (triangle) {
-        .lower => {
-            for (0..n) |i| {
-                var acc = rhs[i];
-                for (0..i) |j| acc -= a.data[i * n + j] * out[j];
-                if (diagonal == .non_unit) {
-                    const diag = a.data[i * n + i];
-                    if (diag == 0) return error.SingularMatrix;
-                    acc /= diag;
-                }
-                out[i] = acc;
-            }
-        },
-        .upper => {
-            var i = n;
-            while (i > 0) {
-                i -= 1;
-                var acc = rhs[i];
-                for (i + 1..n) |j| acc -= a.data[i * n + j] * out[j];
-                if (diagonal == .non_unit) {
-                    const diag = a.data[i * n + i];
-                    if (diag == 0) return error.SingularMatrix;
-                    acc /= diag;
-                }
-                out[i] = acc;
-            }
-        },
-    }
+    return a.solveTriangular(b, triangle, diagonal);
 }
 
 pub fn det(comptime T: type, a: array_mod.Array(T)) LinalgError!T {

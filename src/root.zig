@@ -49,9 +49,13 @@ pub const csrFromCompressed = sparse.csrFromCompressed;
 pub const cscFromDense = sparse.cscFromDense;
 pub const cscFromCompressed = sparse.cscFromCompressed;
 
-pub const MatrixNormOrder = linalg.MatrixNormOrder;
-pub const Triangle = linalg.Triangle;
-pub const Diagonal = linalg.Diagonal;
+pub const MatrixNormOrder = array_mod.MatrixNormOrder;
+pub const Triangle = array_mod.Triangle;
+pub const Diagonal = array_mod.Diagonal;
+pub const QrResult = array_mod.QrResult;
+pub const SvdResult = array_mod.SvdResult;
+pub const EighResult = array_mod.EighResult;
+pub const LuResult = array_mod.LuResult;
 
 test {
     _ = array_mod;

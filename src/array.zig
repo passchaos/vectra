@@ -816,6 +816,94 @@ pub const ConvMode = enum {
     valid,
 };
 
+pub const MatrixNormOrder = enum {
+    fro,
+    one,
+    inf,
+    two,
+    nuclear,
+};
+
+pub const Triangle = enum {
+    lower,
+    upper,
+};
+
+pub const Diagonal = enum {
+    non_unit,
+    unit,
+};
+
+pub fn QrResult(comptime T: type) type {
+    return struct {
+        q: Array(T),
+        r: Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.q.deinit();
+            self.r.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
+pub fn SvdResult(comptime T: type) type {
+    return struct {
+        u: Array(T),
+        s: Array(T),
+        vt: Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.u.deinit();
+            self.s.deinit();
+            self.vt.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
+pub fn EighResult(comptime T: type) type {
+    return struct {
+        values: Array(T),
+        vectors: Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.values.deinit();
+            self.vectors.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
+pub fn LuResult(comptime T: type) type {
+    return struct {
+        p: Array(T),
+        l: Array(T),
+        u: Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.p.deinit();
+            self.l.deinit();
+            self.u.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
+fn toVeyraTriangle(triangle_value: Triangle) veyra.Triangle {
+    return switch (triangle_value) {
+        .lower => .lower,
+        .upper => .upper,
+    };
+}
+
+fn toVeyraDiagonal(diagonal_kind: Diagonal) veyra.DiagonalKind {
+    return switch (diagonal_kind) {
+        .non_unit => .non_unit,
+        .unit => .unit,
+    };
+}
+
 fn normalizeSlice(s: Slice, len: usize) ArrayError!struct { start: usize, stop: usize, step: usize, count: usize } {
     if (s.step <= 0) return error.InvalidShape;
     const length: isize = @intCast(len);
@@ -1263,6 +1351,110 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.cholesky();
+        }
+
+        pub fn qr(self: Self) ArrayError!QrResult(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.qr();
+        }
+
+        pub fn lu(self: Self) ArrayError!LuResult(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.lu();
+        }
+
+        pub fn solveTriangular(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Array(T) {
+            var lhs_owned = try self.toArray();
+            defer lhs_owned.deinit();
+            var rhs_owned = try rhs.toArray();
+            defer rhs_owned.deinit();
+            return lhs_owned.solveTriangular(rhs_owned, triangle, diagonal_kind);
+        }
+
+        pub fn solveTriangularArray(self: Self, rhs: Array(T), triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Array(T) {
+            var lhs_owned = try self.toArray();
+            defer lhs_owned.deinit();
+            return lhs_owned.solveTriangular(rhs, triangle, diagonal_kind);
+        }
+
+        pub fn solve_triangular(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Array(T) {
+            return self.solveTriangular(rhs, triangle, diagonal_kind);
+        }
+
+        pub fn svd(self: Self, tolerance: T) ArrayError!SvdResult(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.svd(tolerance);
+        }
+
+        pub fn singularValues(self: Self, tolerance: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.singularValues(tolerance);
+        }
+
+        pub fn singular_values(self: Self, tolerance: T) ArrayError!Array(T) {
+            return self.singularValues(tolerance);
+        }
+
+        pub fn matrixRank(self: Self, tolerance: T) ArrayError!usize {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.matrixRank(tolerance);
+        }
+
+        pub fn matrix_rank(self: Self, tolerance: T) ArrayError!usize {
+            return self.matrixRank(tolerance);
+        }
+
+        pub fn cond(self: Self, tolerance: T) ArrayError!T {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cond(tolerance);
+        }
+
+        pub fn pinv(self: Self, tolerance: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.pinv(tolerance);
+        }
+
+        pub fn matrixNorm(self: Self, order: MatrixNormOrder, tolerance: T) ArrayError!T {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.matrixNorm(order, tolerance);
+        }
+
+        pub fn matrix_norm(self: Self, order: MatrixNormOrder, tolerance: T) ArrayError!T {
+            return self.matrixNorm(order, tolerance);
+        }
+
+        pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) ArrayError!EighResult(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.eigh(max_sweeps, tolerance);
+        }
+
+        pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.eigvalsh(max_sweeps, tolerance);
+        }
+
+        pub fn lstsq(self: Self, rhs: Self, tolerance: T) ArrayError!Array(T) {
+            var lhs_owned = try self.toArray();
+            defer lhs_owned.deinit();
+            var rhs_owned = try rhs.toArray();
+            defer rhs_owned.deinit();
+            return lhs_owned.lstsq(rhs_owned, tolerance);
+        }
+
+        pub fn lstsqArray(self: Self, rhs: Array(T), tolerance: T) ArrayError!Array(T) {
+            var lhs_owned = try self.toArray();
+            defer lhs_owned.deinit();
+            return lhs_owned.lstsq(rhs, tolerance);
         }
 
         pub fn to(self: Self, device: Device) ArrayError!Self {
@@ -6069,6 +6261,480 @@ pub fn Array(comptime T: type) type {
                 }
             }
             return out;
+        }
+
+        pub fn qr(self: Self) ArrayError!QrResult(T) {
+            if (comptime @typeInfo(T) != .float) @compileError("qr requires floating-point arrays");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            if (comptime T == f64) return self.qrF64();
+            return self.qrReference();
+        }
+
+        fn qrF64(self: Self) ArrayError!QrResult(T) {
+            var matrix = try self.toVeyraMatrixF64();
+            defer matrix.deinit();
+            var factorization = veyra.qr(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
+            defer factorization.deinit();
+
+            var identity_matrix = veyra.Matrix(f64).identity(self.allocator, self.shape[0], .row_major) catch |err| return mapVeyraArrayError(err);
+            defer identity_matrix.deinit();
+            var q_matrix = veyra.Matrix(f64).zeros(self.allocator, self.shape[0], self.shape[0], .row_major) catch |err| return mapVeyraArrayError(err);
+            defer q_matrix.deinit();
+            factorization.applyQMatrix(identity_matrix.asView(), q_matrix.asMut()) catch |err| return mapVeyraArrayError(err);
+
+            var q = try Self.fromVeyraMatrixF64(self.allocator, &q_matrix);
+            errdefer q.deinit();
+            var r = try Self.zeros(self.allocator, &.{ self.shape[0], self.shape[1] });
+            errdefer r.deinit();
+            const r_view = factorization.rView();
+            for (0..self.shape[0]) |row| {
+                for (row..self.shape[1]) |col| {
+                    if (row < r_view.rows and col < r_view.cols) r.data[row * self.shape[1] + col] = r_view.get(row, col);
+                }
+            }
+            return .{ .q = q, .r = r };
+        }
+
+        fn qrReference(self: Self) ArrayError!QrResult(T) {
+            const m = self.shape[0];
+            const n = self.shape[1];
+            var q = try Self.zeros(self.allocator, &.{ m, m });
+            errdefer q.deinit();
+            var r = try Self.zeros(self.allocator, &.{ m, n });
+            errdefer r.deinit();
+
+            for (0..m) |basis_col| {
+                for (0..m) |row| q.data[row * m + basis_col] = if (row == basis_col) one(T) else zero(T);
+            }
+            for (0..n) |j| {
+                for (0..m) |row| q.data[row * m + j] = self.data[row * n + j];
+                for (0..j) |i| {
+                    var dot_value = zero(T);
+                    for (0..m) |row| dot_value += q.data[row * m + i] * self.data[row * n + j];
+                    r.data[i * n + j] = dot_value;
+                    for (0..m) |row| q.data[row * m + j] -= dot_value * q.data[row * m + i];
+                }
+                var norm_sq = zero(T);
+                for (0..m) |row| norm_sq += q.data[row * m + j] * q.data[row * m + j];
+                if (norm_sq == zero(T)) return error.SingularMatrix;
+                const norm_value = std.math.sqrt(norm_sq);
+                r.data[j * n + j] = norm_value;
+                for (0..m) |row| q.data[row * m + j] /= norm_value;
+            }
+            return .{ .q = q, .r = r };
+        }
+
+        pub fn lu(self: Self) ArrayError!LuResult(T) {
+            if (comptime @typeInfo(T) != .float) @compileError("lu requires floating-point arrays");
+            if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (comptime T == f64) return self.luF64();
+            return self.luReference();
+        }
+
+        fn luF64(self: Self) ArrayError!LuResult(T) {
+            var matrix = try self.toVeyraMatrixF64();
+            defer matrix.deinit();
+            var factorization = veyra.lu(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
+            defer factorization.deinit();
+            const n = self.shape[0];
+            var p = try Self.zeros(self.allocator, &.{ n, n });
+            errdefer p.deinit();
+            var l = try Self.zeros(self.allocator, &.{ n, n });
+            errdefer l.deinit();
+            var u = try Self.zeros(self.allocator, &.{ n, n });
+            errdefer u.deinit();
+            const permutation_view = factorization.permutationView();
+            const factors = factorization.factors.asView();
+            for (0..n) |r_idx| {
+                p.data[r_idx * n + permutation_view.get(r_idx)] = one(T);
+                l.data[r_idx * n + r_idx] = one(T);
+                for (0..n) |c_idx| {
+                    if (r_idx > c_idx) {
+                        l.data[r_idx * n + c_idx] = factors.get(r_idx, c_idx);
+                    } else {
+                        u.data[r_idx * n + c_idx] = factors.get(r_idx, c_idx);
+                    }
+                }
+            }
+            return .{ .p = p, .l = l, .u = u };
+        }
+
+        fn luReference(self: Self) ArrayError!LuResult(T) {
+            const n = self.shape[0];
+            var p = try Self.zeros(self.allocator, &.{ n, n });
+            errdefer p.deinit();
+            var l = try Self.zeros(self.allocator, &.{ n, n });
+            errdefer l.deinit();
+            var u = try self.clone();
+            errdefer u.deinit();
+            for (0..n) |i| {
+                p.data[i * n + i] = one(T);
+                l.data[i * n + i] = one(T);
+            }
+            for (0..n) |k| {
+                var pivot = k;
+                var pivot_abs = @abs(u.data[k * n + k]);
+                for (k + 1..n) |r_idx| {
+                    const candidate = @abs(u.data[r_idx * n + k]);
+                    if (candidate > pivot_abs) {
+                        pivot_abs = candidate;
+                        pivot = r_idx;
+                    }
+                }
+                if (pivot_abs == zero(T)) return error.SingularMatrix;
+                if (pivot != k) {
+                    for (0..n) |c_idx| {
+                        std.mem.swap(T, &u.data[k * n + c_idx], &u.data[pivot * n + c_idx]);
+                        std.mem.swap(T, &p.data[k * n + c_idx], &p.data[pivot * n + c_idx]);
+                        if (c_idx < k) std.mem.swap(T, &l.data[k * n + c_idx], &l.data[pivot * n + c_idx]);
+                    }
+                }
+                for (k + 1..n) |r_idx| {
+                    const factor = u.data[r_idx * n + k] / u.data[k * n + k];
+                    l.data[r_idx * n + k] = factor;
+                    for (k..n) |c_idx| u.data[r_idx * n + c_idx] -= factor * u.data[k * n + c_idx];
+                }
+            }
+            return .{ .p = p, .l = l, .u = u };
+        }
+
+        pub fn solveTriangular(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Self {
+            if (comptime @typeInfo(T) != .float) @compileError("solveTriangular requires floating-point arrays");
+            if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
+            if (rhs.shape[0] != self.shape[0]) return error.ShapeMismatch;
+            if (comptime T == f64) return self.solveTriangularF64(rhs, triangle, diagonal_kind);
+            return self.solveTriangularReference(rhs, triangle, diagonal_kind);
+        }
+
+        pub fn solve_triangular(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Self {
+            return self.solveTriangular(rhs, triangle, diagonal_kind);
+        }
+
+        fn solveTriangularF64(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Self {
+            var triangular_matrix = try self.toVeyraMatrixF64();
+            defer triangular_matrix.deinit();
+            const options: veyra.dense.TriangularSolveOptions = .{ .triangle = toVeyraTriangle(triangle), .diagonal = toVeyraDiagonal(diagonal_kind) };
+
+            if (rhs.shape.len == 1) {
+                var rhs_vector = try rhs.toVeyraVectorF64();
+                defer rhs_vector.deinit();
+                var dst_vector = veyra.Vector(f64).zeros(self.allocator, self.shape[0]) catch |err| return mapVeyraArrayError(err);
+                defer dst_vector.deinit();
+                veyra.dense.solveTriangular(f64, triangular_matrix.asView(), rhs_vector.asView(), dst_vector.asMut(), options) catch |err| return mapVeyraArrayError(err);
+                return Self.fromVeyraVectorF64(self.allocator, &dst_vector);
+            }
+
+            var rhs_matrix = try rhs.toVeyraMatrixF64();
+            defer rhs_matrix.deinit();
+            var dst_matrix = veyra.Matrix(f64).zeros(self.allocator, self.shape[0], rhs.shape[1], .row_major) catch |err| return mapVeyraArrayError(err);
+            defer dst_matrix.deinit();
+            veyra.dense.solveTriangularMatrix(f64, triangular_matrix.asView(), rhs_matrix.asView(), dst_matrix.asMut(), options) catch |err| return mapVeyraArrayError(err);
+            return Self.fromVeyraMatrixF64(self.allocator, &dst_matrix);
+        }
+
+        fn solveTriangularReference(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Self {
+            if (rhs.shape.len == 1) {
+                var out = try Self.zeros(self.allocator, &.{self.shape[0]});
+                errdefer out.deinit();
+                try self.solveTriangularVectorReference(rhs.data, out.data, triangle, diagonal_kind);
+                return out;
+            }
+
+            var out = try Self.zeros(self.allocator, &.{ self.shape[0], rhs.shape[1] });
+            errdefer out.deinit();
+            for (0..rhs.shape[1]) |col| {
+                const rhs_col = try self.allocator.alloc(T, self.shape[0]);
+                defer self.allocator.free(rhs_col);
+                const dst_col = try self.allocator.alloc(T, self.shape[0]);
+                defer self.allocator.free(dst_col);
+                for (0..self.shape[0]) |row| rhs_col[row] = rhs.data[row * rhs.shape[1] + col];
+                try self.solveTriangularVectorReference(rhs_col, dst_col, triangle, diagonal_kind);
+                for (0..self.shape[0]) |row| out.data[row * rhs.shape[1] + col] = dst_col[row];
+            }
+            return out;
+        }
+
+        fn solveTriangularVectorReference(self: Self, rhs: []const T, out: []T, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!void {
+            const n = self.shape[0];
+            switch (triangle) {
+                .lower => {
+                    for (0..n) |i| {
+                        var acc = rhs[i];
+                        for (0..i) |j| acc -= self.data[i * n + j] * out[j];
+                        if (diagonal_kind == .non_unit) {
+                            const diagonal_value = self.data[i * n + i];
+                            if (diagonal_value == zero(T)) return error.SingularMatrix;
+                            acc /= diagonal_value;
+                        }
+                        out[i] = acc;
+                    }
+                },
+                .upper => {
+                    var i = n;
+                    while (i > 0) {
+                        i -= 1;
+                        var acc = rhs[i];
+                        for (i + 1..n) |j| acc -= self.data[i * n + j] * out[j];
+                        if (diagonal_kind == .non_unit) {
+                            const diagonal_value = self.data[i * n + i];
+                            if (diagonal_value == zero(T)) return error.SingularMatrix;
+                            acc /= diagonal_value;
+                        }
+                        out[i] = acc;
+                    }
+                },
+            }
+        }
+
+        pub fn svd(self: Self, tolerance: T) ArrayError!SvdResult(T) {
+            if (comptime @typeInfo(T) != .float) @compileError("svd requires floating-point arrays");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            if (comptime T != f64) return error.BackendFailure;
+
+            var matrix = try self.toVeyraMatrixF64();
+            defer matrix.deinit();
+            var decomposition = veyra.svdViaEigen(f64, self.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraArrayError(err);
+            defer decomposition.deinit();
+            var u = try Self.fromVeyraMatrixF64(self.allocator, &decomposition.u);
+            errdefer u.deinit();
+            var s_values = try Self.fromVeyraVectorF64(self.allocator, &decomposition.singular_values);
+            errdefer s_values.deinit();
+            var vt = try Self.fromVeyraMatrixF64(self.allocator, &decomposition.vt);
+            errdefer vt.deinit();
+            return .{ .u = u, .s = s_values, .vt = vt };
+        }
+
+        pub fn singularValues(self: Self, tolerance: T) ArrayError!Self {
+            if (comptime @typeInfo(T) != .float) @compileError("singularValues requires floating-point arrays");
+            var factors = try self.svd(tolerance);
+            defer factors.deinit();
+            return factors.s.clone();
+        }
+
+        pub fn singular_values(self: Self, tolerance: T) ArrayError!Self {
+            return self.singularValues(tolerance);
+        }
+
+        pub fn matrixRank(self: Self, tolerance: T) ArrayError!usize {
+            if (comptime @typeInfo(T) != .float) @compileError("matrixRank requires floating-point arrays");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            if (comptime T == f64) {
+                var matrix = try self.toVeyraMatrixF64();
+                defer matrix.deinit();
+                var decomposition = veyra.svdViaEigen(f64, self.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraArrayError(err);
+                defer decomposition.deinit();
+                return decomposition.rank(tolerance);
+            }
+
+            var values = try self.singularValues(tolerance);
+            defer values.deinit();
+            var rank_value: usize = 0;
+            for (values.data) |sigma| {
+                if (sigma > tolerance) rank_value += 1;
+            }
+            return rank_value;
+        }
+
+        pub fn matrix_rank(self: Self, tolerance: T) ArrayError!usize {
+            return self.matrixRank(tolerance);
+        }
+
+        pub fn cond(self: Self, tolerance: T) ArrayError!T {
+            if (comptime @typeInfo(T) != .float) @compileError("cond requires floating-point arrays");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            if (comptime T == f64) {
+                var matrix = try self.toVeyraMatrixF64();
+                defer matrix.deinit();
+                var decomposition = veyra.svdViaEigen(f64, self.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraArrayError(err);
+                defer decomposition.deinit();
+                return decomposition.conditionNumber(tolerance) catch |err| return mapVeyraArrayError(err);
+            }
+
+            var values = try self.singularValues(tolerance);
+            defer values.deinit();
+            if (values.data.len == 0) return error.InvalidShape;
+            var max_sigma = values.data[0];
+            var min_sigma: ?T = null;
+            for (values.data) |sigma| {
+                if (sigma > max_sigma) max_sigma = sigma;
+                if (sigma > tolerance) min_sigma = if (min_sigma) |current| @min(current, sigma) else sigma;
+            }
+            const min_resolved = min_sigma orelse return error.SingularMatrix;
+            return max_sigma / min_resolved;
+        }
+
+        pub fn pinv(self: Self, tolerance: T) ArrayError!Self {
+            if (comptime @typeInfo(T) != .float) @compileError("pinv requires floating-point arrays");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            var factors = try self.svd(tolerance);
+            defer factors.deinit();
+
+            const k = factors.s.data.len;
+            var sigma_inv = try Self.zeros(self.allocator, &.{ k, k });
+            defer sigma_inv.deinit();
+            for (factors.s.data, 0..) |sigma, i| {
+                if (sigma > tolerance) sigma_inv.data[i * k + i] = one(T) / sigma;
+            }
+            var vt_t = try factors.vt.transpose();
+            defer vt_t.deinit();
+            var left = try vt_t.matmul(sigma_inv);
+            defer left.deinit();
+            var u_t = try factors.u.transpose();
+            defer u_t.deinit();
+            return left.matmul(u_t);
+        }
+
+        pub fn matrixNorm(self: Self, order: MatrixNormOrder, tolerance: T) ArrayError!T {
+            if (comptime @typeInfo(T) != .float) @compileError("matrixNorm requires floating-point arrays");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            if (comptime T == f64) {
+                var matrix = try self.toVeyraMatrixF64();
+                defer matrix.deinit();
+                return switch (order) {
+                    .fro => veyra.frobeniusNorm(f64, matrix.asView()),
+                    .one => veyra.matrixOneNorm(f64, matrix.asView()),
+                    .inf => veyra.matrixInfNorm(f64, matrix.asView()),
+                    .two => blk: {
+                        var values = try self.singularValues(tolerance);
+                        defer values.deinit();
+                        if (values.data.len == 0) break :blk zero(T);
+                        var max_value = values.data[0];
+                        for (values.data[1..]) |value| {
+                            if (value > max_value) max_value = value;
+                        }
+                        break :blk max_value;
+                    },
+                    .nuclear => blk: {
+                        var values = try self.singularValues(tolerance);
+                        defer values.deinit();
+                        var total = zero(T);
+                        for (values.data) |value| total += value;
+                        break :blk total;
+                    },
+                };
+            }
+
+            return switch (order) {
+                .fro => blk: {
+                    var total = zero(T);
+                    for (self.data) |value| total += value * value;
+                    break :blk std.math.sqrt(total);
+                },
+                .one => blk: {
+                    var best = zero(T);
+                    for (0..self.shape[1]) |c_idx| {
+                        var total = zero(T);
+                        for (0..self.shape[0]) |r_idx| total += @abs(self.data[r_idx * self.shape[1] + c_idx]);
+                        if (total > best) best = total;
+                    }
+                    break :blk best;
+                },
+                .inf => blk: {
+                    var best = zero(T);
+                    for (0..self.shape[0]) |r_idx| {
+                        var total = zero(T);
+                        for (0..self.shape[1]) |c_idx| total += @abs(self.data[r_idx * self.shape[1] + c_idx]);
+                        if (total > best) best = total;
+                    }
+                    break :blk best;
+                },
+                .two, .nuclear => blk: {
+                    var values = try self.singularValues(tolerance);
+                    defer values.deinit();
+                    if (order == .two) {
+                        if (values.data.len == 0) break :blk zero(T);
+                        var max_value = values.data[0];
+                        for (values.data[1..]) |value| {
+                            if (value > max_value) max_value = value;
+                        }
+                        break :blk max_value;
+                    }
+                    var total = zero(T);
+                    for (values.data) |value| total += value;
+                    break :blk total;
+                },
+            };
+        }
+
+        pub fn matrix_norm(self: Self, order: MatrixNormOrder, tolerance: T) ArrayError!T {
+            return self.matrixNorm(order, tolerance);
+        }
+
+        pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) ArrayError!EighResult(T) {
+            if (comptime @typeInfo(T) != .float) @compileError("eigh requires floating-point arrays");
+            if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (comptime T != f64) return error.BackendFailure;
+
+            var matrix = try self.toVeyraMatrixF64();
+            defer matrix.deinit();
+            var eig = veyra.symmetricEigenJacobi(f64, self.allocator, matrix.asView(), max_sweeps, tolerance) catch |err| return mapVeyraArrayError(err);
+            defer eig.deinit();
+            var values = try Self.fromVeyraVectorF64(self.allocator, &eig.eigenvalues);
+            errdefer values.deinit();
+            var vectors = try Self.fromVeyraMatrixF64(self.allocator, &eig.eigenvectors);
+            errdefer vectors.deinit();
+            return .{ .values = values, .vectors = vectors };
+        }
+
+        pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) ArrayError!Self {
+            var result = try self.eigh(max_sweeps, tolerance);
+            defer result.deinit();
+            return result.values.clone();
+        }
+
+        pub fn lstsq(self: Self, rhs: Self, tolerance: T) ArrayError!Self {
+            if (comptime @typeInfo(T) != .float) @compileError("lstsq requires floating-point arrays");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            if (comptime T == f64) return self.lstsqF64(rhs, tolerance);
+
+            if (rhs.shape.len != 1) return error.NonVectorArray;
+            var factors = try self.qr();
+            defer factors.deinit();
+            var qt = try factors.q.transpose();
+            defer qt.deinit();
+            var y_full = try qt.matvec(rhs);
+            defer y_full.deinit();
+            const n = self.shape[1];
+            var x = try Self.zeros(self.allocator, &.{n});
+            var i = n;
+            while (i > 0) {
+                i -= 1;
+                var acc = y_full.data[i];
+                for (i + 1..n) |j| acc -= factors.r.data[i * self.shape[1] + j] * x.data[j];
+                const diagonal_value = factors.r.data[i * self.shape[1] + i];
+                if (@abs(diagonal_value) <= tolerance) return error.SingularMatrix;
+                x.data[i] = acc / diagonal_value;
+            }
+            return x;
+        }
+
+        fn lstsqF64(self: Self, rhs: Self, tolerance: T) ArrayError!Self {
+            var matrix = try self.toVeyraMatrixF64();
+            defer matrix.deinit();
+            var decomposition = veyra.svdViaEigen(f64, self.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraArrayError(err);
+            defer decomposition.deinit();
+
+            if (rhs.shape.len == 1) {
+                var rhs_vector = try rhs.toVeyraVectorF64();
+                defer rhs_vector.deinit();
+                var dst_vector = veyra.Vector(f64).zeros(self.allocator, self.shape[1]) catch |err| return mapVeyraArrayError(err);
+                defer dst_vector.deinit();
+                decomposition.solveLeastSquares(rhs_vector.asView(), dst_vector.asMut(), tolerance) catch |err| return mapVeyraArrayError(err);
+                return Self.fromVeyraVectorF64(self.allocator, &dst_vector);
+            }
+
+            if (rhs.shape.len == 2) {
+                if (rhs.shape[0] != self.shape[0]) return error.ShapeMismatch;
+                var rhs_matrix = try rhs.toVeyraMatrixF64();
+                defer rhs_matrix.deinit();
+                var dst_matrix = veyra.Matrix(f64).zeros(self.allocator, self.shape[1], rhs.shape[1], .row_major) catch |err| return mapVeyraArrayError(err);
+                defer dst_matrix.deinit();
+                decomposition.solveLeastSquaresMatrix(rhs_matrix.asView(), dst_matrix.asMut(), tolerance) catch |err| return mapVeyraArrayError(err);
+                return Self.fromVeyraMatrixF64(self.allocator, &dst_matrix);
+            }
+
+            return error.InvalidShape;
         }
 
         pub fn real(self: Self) ArrayError!Array(complexRealType(T)) {
@@ -16527,6 +17193,183 @@ test "array object linalg methods use Veyra-backed and fallback paths" {
     var indefinite = try Array(f64).fromSlice(gpa, &.{ 1, 2, 2, 1 }, &.{ 2, 2 });
     defer indefinite.deinit();
     try std.testing.expectError(error.NotPositiveDefinite, indefinite.cholesky());
+}
+
+test "array object advanced linalg methods" {
+    const gpa = std.testing.allocator;
+    var rect = try Array(f64).fromSlice(gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    defer rect.deinit();
+
+    var qr_factors = try rect.qr();
+    defer qr_factors.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, qr_factors.q.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, qr_factors.r.shape);
+    var qr_reconstructed = try qr_factors.q.matmul(qr_factors.r);
+    defer qr_reconstructed.deinit();
+    try std.testing.expect(try qr_reconstructed.allclose(rect, 1e-10, 1e-10));
+
+    var svd_factors = try rect.svd(1e-12);
+    defer svd_factors.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, svd_factors.u.shape);
+    try std.testing.expectEqualSlices(usize, &.{2}, svd_factors.s.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, svd_factors.vt.shape);
+    var sigma = try Array(f64).zeros(gpa, &.{ 2, 2 });
+    defer sigma.deinit();
+    sigma.data[0] = svd_factors.s.data[0];
+    sigma.data[3] = svd_factors.s.data[1];
+    var us = try svd_factors.u.matmul(sigma);
+    defer us.deinit();
+    var svd_reconstructed = try us.matmul(svd_factors.vt);
+    defer svd_reconstructed.deinit();
+    try std.testing.expect(try svd_reconstructed.allclose(rect, 1e-10, 1e-10));
+
+    var rhs = try Array(f64).fromSlice(gpa, &.{ 1, 2, 2 }, &.{3});
+    defer rhs.deinit();
+    var least_squares = try rect.lstsq(rhs, 1e-12);
+    defer least_squares.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), least_squares.data[0], 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), least_squares.data[1], 1e-10);
+
+    var rhs_matrix = try Array(f64).fromSlice(gpa, &.{ 1, 2, 2, 1, 2, 0 }, &.{ 3, 2 });
+    defer rhs_matrix.deinit();
+    var least_squares_matrix = try rect.lstsq(rhs_matrix, 1e-12);
+    defer least_squares_matrix.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, least_squares_matrix.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), least_squares_matrix.data[0], 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), least_squares_matrix.data[1], 1e-10);
+
+    var diag_values = try Array(f64).fromSlice(gpa, &.{ 3, 0, 0, 2 }, &.{ 2, 2 });
+    defer diag_values.deinit();
+    var singular_values = try diag_values.singularValues(1e-12);
+    defer singular_values.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, singular_values.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), singular_values.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), singular_values.data[1], 1e-12);
+    var singular_values_alias = try diag_values.singular_values(1e-12);
+    defer singular_values_alias.deinit();
+    try std.testing.expectEqualSlices(f64, singular_values.data, singular_values_alias.data);
+    try std.testing.expectEqual(@as(usize, 2), try diag_values.matrixRank(1e-12));
+    try std.testing.expectEqual(@as(usize, 2), try diag_values.matrix_rank(1e-12));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), try diag_values.cond(1e-12), 1e-12);
+
+    var pseudo_inverse = try diag_values.pinv(1e-12);
+    defer pseudo_inverse.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, pseudo_inverse.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), pseudo_inverse.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), pseudo_inverse.data[3], 1e-12);
+    var rect_pinv = try rect.pinv(1e-12);
+    defer rect_pinv.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, rect_pinv.shape);
+    var projected = try rect_pinv.matmul(rect);
+    defer projected.deinit();
+    var ident = try Array(f64).eye(gpa, 2);
+    defer ident.deinit();
+    try std.testing.expect(try projected.allclose(ident, 1e-10, 1e-10));
+
+    var norm_source = try Array(f64).fromSlice(gpa, &.{ 1, -2, 3, -4, 5, -6 }, &.{ 2, 3 });
+    defer norm_source.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(91.0)), try norm_source.matrixNorm(.fro, 1e-12), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9), try norm_source.matrix_norm(.one, 1e-12), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try norm_source.matrixNorm(.inf, 1e-12), 1e-12);
+
+    var symmetric = try Array(f64).fromSlice(gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
+    defer symmetric.deinit();
+    var eigen = try symmetric.eigh(64, 1e-12);
+    defer eigen.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), eigen.values.data[0], 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), eigen.values.data[1], 1e-10);
+    var eig_values = try symmetric.eigvalsh(64, 1e-12);
+    defer eig_values.deinit();
+    try std.testing.expectEqualSlices(f64, eigen.values.data, eig_values.data);
+
+    var lu_source = try Array(f64).fromSlice(gpa, &.{ 0, 2, 1, 2, 1, 1, 1, 1, 0 }, &.{ 3, 3 });
+    defer lu_source.deinit();
+    var lu_factors = try lu_source.lu();
+    defer lu_factors.deinit();
+    var lu_product = try lu_factors.l.matmul(lu_factors.u);
+    defer lu_product.deinit();
+    var lu_reconstructed = try lu_factors.p.matmul(lu_product);
+    defer lu_reconstructed.deinit();
+    try std.testing.expect(try lu_reconstructed.allclose(lu_source, 1e-10, 1e-10));
+
+    var lower = try Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
+    defer lower.deinit();
+    var tri_rhs = try Array(f64).fromSlice(gpa, &.{ 2, 2, 25 }, &.{3});
+    defer tri_rhs.deinit();
+    var tri_solution = try lower.solveTriangular(tri_rhs, .lower, .non_unit);
+    defer tri_solution.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), tri_solution.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), tri_solution.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.8), tri_solution.data[2], 1e-12);
+    var tri_check = try lower.matvec(tri_solution);
+    defer tri_check.deinit();
+    try std.testing.expect(try tri_check.allclose(tri_rhs, 1e-12, 1e-12));
+
+    var f32_rect = try Array(f32).fromSlice(gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    defer f32_rect.deinit();
+    var f32_qr = try f32_rect.qr();
+    defer f32_qr.deinit();
+    var f32_qr_reconstructed = try f32_qr.q.matmul(f32_qr.r);
+    defer f32_qr_reconstructed.deinit();
+    try std.testing.expect(try f32_qr_reconstructed.allclose(f32_rect, 1e-4, 1e-4));
+    try std.testing.expectError(error.BackendFailure, f32_rect.svd(1e-5));
+}
+
+test "array view object advanced linalg wrappers" {
+    const gpa = std.testing.allocator;
+    var rect = try Array(f64).fromSlice(gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+    defer rect.deinit();
+    var rect_view = try rect.asView();
+    defer rect_view.deinit();
+
+    var view_qr = try rect_view.qr();
+    defer view_qr.deinit();
+    var view_qr_reconstructed = try view_qr.q.matmul(view_qr.r);
+    defer view_qr_reconstructed.deinit();
+    try std.testing.expect(try view_qr_reconstructed.allclose(rect, 1e-10, 1e-10));
+
+    var view_svd = try rect_view.svd(1e-12);
+    defer view_svd.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, view_svd.s.shape);
+    var view_lstsq_rhs = try Array(f64).fromSlice(gpa, &.{ 1, 2, 2 }, &.{3});
+    defer view_lstsq_rhs.deinit();
+    var view_lstsq = try rect_view.lstsqArray(view_lstsq_rhs, 1e-12);
+    defer view_lstsq.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), view_lstsq.data[0], 1e-10);
+    var view_pinv = try rect_view.pinv(1e-12);
+    defer view_pinv.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_pinv.shape);
+
+    var symmetric = try Array(f64).fromSlice(gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
+    defer symmetric.deinit();
+    var symmetric_view = try symmetric.transposeView();
+    defer symmetric_view.deinit();
+    var view_lu = try symmetric_view.lu();
+    defer view_lu.deinit();
+    var view_lu_product = try view_lu.l.matmul(view_lu.u);
+    defer view_lu_product.deinit();
+    var view_lu_reconstructed = try view_lu.p.matmul(view_lu_product);
+    defer view_lu_reconstructed.deinit();
+    try std.testing.expect(try view_lu_reconstructed.allclose(symmetric, 1e-10, 1e-10));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric_view.matrixRank(1e-12));
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try symmetric_view.cond(1e-12), 1e-10);
+    try std.testing.expectApproxEqAbs(@as(f64, std.math.sqrt(@as(f64, 10))), try symmetric_view.matrixNorm(.fro, 1e-12), 1e-10);
+    var view_eigen = try symmetric_view.eigh(64, 1e-12);
+    defer view_eigen.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), view_eigen.values.data[0], 1e-10);
+    var view_eig_values = try symmetric_view.eigvalsh(64, 1e-12);
+    defer view_eig_values.deinit();
+    try std.testing.expectEqualSlices(f64, view_eigen.values.data, view_eig_values.data);
+
+    var lower = try Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
+    defer lower.deinit();
+    var lower_view = try lower.asView();
+    defer lower_view.deinit();
+    var tri_rhs = try Array(f64).fromSlice(gpa, &.{ 2, 2, 25 }, &.{3});
+    defer tri_rhs.deinit();
+    var tri_solution = try lower_view.solveTriangularArray(tri_rhs, .lower, .non_unit);
+    defer tri_solution.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 3.8), tri_solution.data[2], 1e-12);
 }
 
 test "array object unfold sliding-window views" {
