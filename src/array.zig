@@ -1,5 +1,6 @@
 const std = @import("std");
 const alea = @import("alea");
+const veyra = @import("veyra");
 
 pub const Complex64 = std.math.Complex(f32);
 pub const Complex128 = std.math.Complex(f64);
@@ -353,7 +354,21 @@ pub const ArrayError = error{
     NonVectorArray,
     EmptyArray,
     TypeUnsupported,
+    SingularMatrix,
+    NotPositiveDefinite,
+    BackendFailure,
 } || std.mem.Allocator.Error;
+
+fn mapVeyraArrayError(err: anyerror) ArrayError {
+    return switch (err) {
+        error.Singular => error.SingularMatrix,
+        error.NotPositiveDefinite => error.NotPositiveDefinite,
+        error.DimensionMismatch => error.ShapeMismatch,
+        error.IndexOutOfBounds => error.IndexOutOfBounds,
+        error.OutOfMemory => error.OutOfMemory,
+        else => error.BackendFailure,
+    };
+}
 
 pub const Shape = struct {
     allocator: std.mem.Allocator,
@@ -1212,6 +1227,42 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.astype(U);
+        }
+
+        pub fn det(self: Self) ArrayError!T {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.det();
+        }
+
+        pub fn inverse(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.inverse();
+        }
+
+        pub fn inv(self: Self) ArrayError!Array(T) {
+            return self.inverse();
+        }
+
+        pub fn solve(self: Self, rhs: Self) ArrayError!Array(T) {
+            var lhs_owned = try self.toArray();
+            defer lhs_owned.deinit();
+            var rhs_owned = try rhs.toArray();
+            defer rhs_owned.deinit();
+            return lhs_owned.solve(rhs_owned);
+        }
+
+        pub fn solveArray(self: Self, rhs: Array(T)) ArrayError!Array(T) {
+            var lhs_owned = try self.toArray();
+            defer lhs_owned.deinit();
+            return lhs_owned.solve(rhs);
+        }
+
+        pub fn cholesky(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cholesky();
         }
 
         pub fn to(self: Self, device: Device) ArrayError!Self {
@@ -5833,6 +5884,193 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn toVeyraMatrixF64(self: Self) ArrayError!veyra.Matrix(f64) {
+            if (comptime T != f64) @compileError("Veyra dense backend path requires Array(f64)");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            return veyra.Matrix(f64).fromSlice(self.allocator, self.shape[0], self.shape[1], .row_major, self.data) catch |err| return mapVeyraArrayError(err);
+        }
+
+        fn toVeyraVectorF64(self: Self) ArrayError!veyra.Vector(f64) {
+            if (comptime T != f64) @compileError("Veyra dense backend path requires Array(f64)");
+            if (self.shape.len != 1) return error.NonVectorArray;
+            return veyra.Vector(f64).fromSlice(self.allocator, self.data) catch |err| return mapVeyraArrayError(err);
+        }
+
+        fn fromVeyraMatrixF64(allocator: std.mem.Allocator, matrix: *const veyra.Matrix(f64)) ArrayError!Self {
+            if (comptime T != f64) @compileError("Veyra dense backend path requires Array(f64)");
+            return Self.fromSlice(allocator, matrix.data, &.{ matrix.rows, matrix.cols });
+        }
+
+        fn fromVeyraVectorF64(allocator: std.mem.Allocator, vector: *const veyra.Vector(f64)) ArrayError!Self {
+            if (comptime T != f64) @compileError("Veyra dense backend path requires Array(f64)");
+            return Self.fromSlice(allocator, vector.data, &.{vector.len()});
+        }
+
+        pub fn det(self: Self) ArrayError!T {
+            if (comptime @typeInfo(T) != .float) @compileError("det requires floating-point arrays");
+            if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (comptime T == f64) {
+                var matrix = try self.toVeyraMatrixF64();
+                defer matrix.deinit();
+                var factorization = veyra.lu(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
+                defer factorization.deinit();
+                return factorization.determinant() catch |err| return mapVeyraArrayError(err);
+            }
+
+            const n = self.shape[0];
+            var matrix_data = try self.allocator.dupe(T, self.data);
+            defer self.allocator.free(matrix_data);
+            var det_sign = one(T);
+            var result = one(T);
+            for (0..n) |i| {
+                var pivot = i;
+                var pivot_abs = @abs(matrix_data[i * n + i]);
+                for (i + 1..n) |r| {
+                    const candidate = @abs(matrix_data[r * n + i]);
+                    if (candidate > pivot_abs) {
+                        pivot_abs = candidate;
+                        pivot = r;
+                    }
+                }
+                if (pivot_abs == zero(T)) return zero(T);
+                if (pivot != i) {
+                    for (0..n) |c| std.mem.swap(T, &matrix_data[i * n + c], &matrix_data[pivot * n + c]);
+                    det_sign = -det_sign;
+                }
+                const pivot_diag = matrix_data[i * n + i];
+                result *= pivot_diag;
+                for (i + 1..n) |r| {
+                    const factor = matrix_data[r * n + i] / pivot_diag;
+                    for (i..n) |c| matrix_data[r * n + c] -= factor * matrix_data[i * n + c];
+                }
+            }
+            return result * det_sign;
+        }
+
+        pub fn inverse(self: Self) ArrayError!Self {
+            if (comptime @typeInfo(T) != .float) @compileError("inverse requires floating-point arrays");
+            if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (comptime T == f64) {
+                var matrix = try self.toVeyraMatrixF64();
+                defer matrix.deinit();
+                var inverse_matrix = veyra.inverse(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
+                defer inverse_matrix.deinit();
+                return Self.fromVeyraMatrixF64(self.allocator, &inverse_matrix);
+            }
+
+            const n = self.shape[0];
+            var augmented = try self.allocator.alloc(T, n * n * 2);
+            defer self.allocator.free(augmented);
+            for (0..n) |r| {
+                for (0..n) |c| {
+                    augmented[r * (2 * n) + c] = self.data[r * n + c];
+                    augmented[r * (2 * n) + n + c] = if (r == c) one(T) else zero(T);
+                }
+            }
+            for (0..n) |i| {
+                var pivot = i;
+                var pivot_abs = @abs(augmented[i * (2 * n) + i]);
+                for (i + 1..n) |r| {
+                    const candidate = @abs(augmented[r * (2 * n) + i]);
+                    if (candidate > pivot_abs) {
+                        pivot_abs = candidate;
+                        pivot = r;
+                    }
+                }
+                if (pivot_abs == zero(T)) return error.SingularMatrix;
+                if (pivot != i) {
+                    for (0..2 * n) |c| std.mem.swap(T, &augmented[i * (2 * n) + c], &augmented[pivot * (2 * n) + c]);
+                }
+                const pivot_diag = augmented[i * (2 * n) + i];
+                for (0..2 * n) |c| augmented[i * (2 * n) + c] /= pivot_diag;
+                for (0..n) |r| {
+                    if (r == i) continue;
+                    const factor = augmented[r * (2 * n) + i];
+                    for (0..2 * n) |c| augmented[r * (2 * n) + c] -= factor * augmented[i * (2 * n) + c];
+                }
+            }
+
+            var out = try Self.empty(self.allocator, &.{ n, n });
+            errdefer out.deinit();
+            for (0..n) |r| {
+                for (0..n) |c| out.data[r * n + c] = augmented[r * (2 * n) + n + c];
+            }
+            return out;
+        }
+
+        pub fn inv(self: Self) ArrayError!Self {
+            return self.inverse();
+        }
+
+        pub fn solve(self: Self, rhs: Self) ArrayError!Self {
+            if (comptime @typeInfo(T) != .float) @compileError("solve requires floating-point arrays");
+            if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
+            if (rhs.shape[0] != self.shape[0]) return error.ShapeMismatch;
+            if (comptime T == f64) {
+                var matrix = try self.toVeyraMatrixF64();
+                defer matrix.deinit();
+                var factorization = veyra.lu(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
+                defer factorization.deinit();
+                if (rhs.shape.len == 1) {
+                    var rhs_vector = try rhs.toVeyraVectorF64();
+                    defer rhs_vector.deinit();
+                    var dst_vector = veyra.Vector(f64).zeros(self.allocator, self.shape[1]) catch |err| return mapVeyraArrayError(err);
+                    defer dst_vector.deinit();
+                    factorization.solve(rhs_vector.asView(), dst_vector.asMut()) catch |err| return mapVeyraArrayError(err);
+                    return Self.fromVeyraVectorF64(self.allocator, &dst_vector);
+                }
+                var rhs_matrix = try rhs.toVeyraMatrixF64();
+                defer rhs_matrix.deinit();
+                var dst_matrix = veyra.Matrix(f64).zeros(self.allocator, self.shape[1], rhs.shape[1], .row_major) catch |err| return mapVeyraArrayError(err);
+                defer dst_matrix.deinit();
+                factorization.solveMatrix(rhs_matrix.asView(), dst_matrix.asMut()) catch |err| return mapVeyraArrayError(err);
+                return Self.fromVeyraMatrixF64(self.allocator, &dst_matrix);
+            }
+
+            var inv_self = try self.inverse();
+            defer inv_self.deinit();
+            return inv_self.matmul(rhs);
+        }
+
+        pub fn cholesky(self: Self) ArrayError!Self {
+            if (comptime @typeInfo(T) != .float) @compileError("cholesky requires floating-point arrays");
+            if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (comptime T == f64) {
+                var matrix = try self.toVeyraMatrixF64();
+                defer matrix.deinit();
+                var factorization = veyra.cholesky(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
+                defer factorization.deinit();
+                var out = try Self.zeros(self.allocator, &.{ self.shape[0], self.shape[1] });
+                errdefer out.deinit();
+                const lower = factorization.lView();
+                for (0..self.shape[0]) |r| {
+                    for (0..r + 1) |c| out.data[r * self.shape[1] + c] = lower.get(r, c);
+                }
+                return out;
+            }
+
+            const n = self.shape[0];
+            var out = try Self.zeros(self.allocator, &.{ n, n });
+            errdefer out.deinit();
+            for (0..n) |i| {
+                for (0..i + 1) |j| {
+                    var sum_value = zero(T);
+                    for (0..j) |k| sum_value += out.data[i * n + k] * out.data[j * n + k];
+                    if (i == j) {
+                        const value = self.data[i * n + i] - sum_value;
+                        if (!(value > zero(T))) return error.NotPositiveDefinite;
+                        out.data[i * n + j] = std.math.sqrt(value);
+                    } else {
+                        const denom = out.data[j * n + j];
+                        if (denom == zero(T)) return error.NotPositiveDefinite;
+                        out.data[i * n + j] = (self.data[i * n + j] - sum_value) / denom;
+                    }
+                }
+            }
+            return out;
+        }
+
         pub fn real(self: Self) ArrayError!Array(complexRealType(T)) {
             ensureComplex(T);
             const Real = complexRealType(T);
@@ -5890,7 +6128,7 @@ pub fn Array(comptime T: type) type {
             return self.angle();
         }
 
-        fn fftWithSign(self: Self, inverse: bool) ArrayError!Self {
+        fn fftWithSign(self: Self, inverse_flag: bool) ArrayError!Self {
             ensureComplex(T);
             if (self.shape.len != 1) return error.NonVectorArray;
             const n = self.shape[0];
@@ -5899,7 +6137,7 @@ pub fn Array(comptime T: type) type {
             if (n == 0) return out;
             const Real = complexRealType(T);
             const n_real: Real = @floatFromInt(n);
-            const direction: Real = if (inverse) 1 else -1;
+            const direction: Real = if (inverse_flag) 1 else -1;
             for (0..n) |k| {
                 var acc = zero(T);
                 const k_real: Real = @floatFromInt(k);
@@ -5909,12 +6147,12 @@ pub fn Array(comptime T: type) type {
                     const twiddle = T.init(@cos(phase_angle), @sin(phase_angle));
                     acc = acc.add(self.data[j].mul(twiddle));
                 }
-                out.data[k] = if (inverse) acc.div(T.init(n_real, 0)) else acc;
+                out.data[k] = if (inverse_flag) acc.div(T.init(n_real, 0)) else acc;
             }
             return out;
         }
 
-        fn fftAxisWithSign(self: Self, axis_index: isize, inverse: bool) ArrayError!Self {
+        fn fftAxisWithSign(self: Self, axis_index: isize, inverse_flag: bool) ArrayError!Self {
             ensureComplex(T);
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
@@ -5925,7 +6163,7 @@ pub fn Array(comptime T: type) type {
 
             const Real = complexRealType(T);
             const n_real: Real = @floatFromInt(n);
-            const direction: Real = if (inverse) 1 else -1;
+            const direction: Real = if (inverse_flag) 1 else -1;
             const out_multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(out_multi);
             var in_multi = try self.allocator.alloc(usize, self.shape.len);
@@ -5944,7 +6182,7 @@ pub fn Array(comptime T: type) type {
                     const twiddle = T.init(@cos(phase_angle), @sin(phase_angle));
                     acc = acc.add(self.data[ravelIndex(in_multi, self.strides)].mul(twiddle));
                 }
-                slot.* = if (inverse) acc.div(T.init(n_real, 0)) else acc;
+                slot.* = if (inverse_flag) acc.div(T.init(n_real, 0)) else acc;
             }
             return out;
         }
@@ -6018,12 +6256,12 @@ pub fn Array(comptime T: type) type {
             return self.fftAxisWithSign(axis_index, true);
         }
 
-        fn fftAxesWithSign(self: Self, axes: []const isize, inverse: bool) ArrayError!Self {
+        fn fftAxesWithSign(self: Self, axes: []const isize, inverse_flag: bool) ArrayError!Self {
             ensureComplex(T);
             var current = try self.clone();
             errdefer current.deinit();
             for (axes) |axis_index| {
-                const next = try current.fftAxisWithSign(axis_index, inverse);
+                const next = try current.fftAxisWithSign(axis_index, inverse_flag);
                 current.deinit();
                 current = next;
             }
@@ -16151,6 +16389,35 @@ test "array view object math sort and linalg wrappers" {
     const trace_value = try view.trace();
     try std.testing.expectEqual(@as(f64, 7), trace_value);
 
+    var square = try Array(f64).fromSlice(gpa, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
+    defer square.deinit();
+    var square_view = try square.transposeView();
+    defer square_view.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 10), try square_view.det(), 1e-12);
+    var view_inv = try square_view.inv();
+    defer view_inv.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), view_inv.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.2), view_inv.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.7), view_inv.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.4), view_inv.data[3], 1e-12);
+    var solve_rhs = try Array(f64).fromSlice(gpa, &.{ 1, 0 }, &.{2});
+    defer solve_rhs.deinit();
+    var view_solution = try square_view.solveArray(solve_rhs);
+    defer view_solution.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, view_solution.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), view_solution.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.7), view_solution.data[1], 1e-12);
+
+    var spd = try Array(f64).fromSlice(gpa, &.{ 25, 15, -5, 15, 18, 0, -5, 0, 11 }, &.{ 3, 3 });
+    defer spd.deinit();
+    var spd_view = try spd.transposeView();
+    defer spd_view.deinit();
+    var view_chol = try spd_view.cholesky();
+    defer view_chol.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 5), view_chol.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), view_chol.data[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1), view_chol.data[6], 1e-12);
+
     const C = Complex64;
     var complex_values = try Array(C).fromSlice(gpa, &.{ C.init(1, 2), C.init(3, -4), C.init(-1, 1), C.init(2, 0) }, &.{ 2, 2 });
     defer complex_values.deinit();
@@ -16184,6 +16451,82 @@ test "array view object math sort and linalg wrappers" {
     var complex_value_mask = try complex_view.iscomplex();
     defer complex_value_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, complex_value_mask.data);
+}
+
+test "array object linalg methods use Veyra-backed and fallback paths" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
+    defer a.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 10), try a.det(), 1e-12);
+    var inv = try a.inverse();
+    defer inv.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), inv.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.7), inv.data[1], 1e-12);
+    var inv_alias = try a.inv();
+    defer inv_alias.deinit();
+    try std.testing.expect(try inv_alias.allclose(inv, 1e-12, 1e-12));
+    var ident = try a.matmul(inv);
+    defer ident.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), ident.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), ident.data[1], 1e-12);
+
+    var rhs_vec = try Array(f64).fromSlice(gpa, &.{ 1, 0 }, &.{2});
+    defer rhs_vec.deinit();
+    var x_vec = try a.solve(rhs_vec);
+    defer x_vec.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, x_vec.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), x_vec.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.2), x_vec.data[1], 1e-12);
+    var rhs_matrix = try Array(f64).fromSlice(gpa, &.{ 1, 0, 0, 1 }, &.{ 2, 2 });
+    defer rhs_matrix.deinit();
+    var x_matrix = try a.solve(rhs_matrix);
+    defer x_matrix.deinit();
+    try std.testing.expect(try x_matrix.allclose(inv, 1e-12, 1e-12));
+
+    var spd = try Array(f64).fromSlice(gpa, &.{ 25, 15, -5, 15, 18, 0, -5, 0, 11 }, &.{ 3, 3 });
+    defer spd.deinit();
+    var chol = try spd.cholesky();
+    defer chol.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 5), chol.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), chol.data[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1), chol.data[6], 1e-12);
+    var chol_t = try chol.transpose();
+    defer chol_t.deinit();
+    var reconstructed = try chol.matmul(chol_t);
+    defer reconstructed.deinit();
+    try std.testing.expect(try reconstructed.allclose(spd, 1e-12, 1e-12));
+
+    var f32_matrix = try Array(f32).fromSlice(gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
+    defer f32_matrix.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 3), try f32_matrix.det(), 1e-5);
+    var f32_inv = try f32_matrix.inverse();
+    defer f32_inv.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 2.0 / 3.0), f32_inv.data[0], 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, -1.0 / 3.0), f32_inv.data[1], 1e-5);
+    var f32_rhs = try Array(f32).fromSlice(gpa, &.{ 3, 3 }, &.{2});
+    defer f32_rhs.deinit();
+    var f32_solution = try f32_matrix.solve(f32_rhs);
+    defer f32_solution.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 1), f32_solution.data[0], 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), f32_solution.data[1], 1e-5);
+    var f32_spd = try Array(f32).fromSlice(gpa, &.{ 4, 2, 2, 3 }, &.{ 2, 2 });
+    defer f32_spd.deinit();
+    var f32_chol = try f32_spd.cholesky();
+    defer f32_chol.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 2), f32_chol.data[0], 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), f32_chol.data[2], 1e-5);
+    try std.testing.expectApproxEqAbs(@as(f32, @sqrt(2.0)), f32_chol.data[3], 1e-5);
+
+    var non_square = try Array(f64).zeros(gpa, &.{ 2, 3 });
+    defer non_square.deinit();
+    try std.testing.expectError(error.NonMatrixArray, non_square.det());
+    var singular = try Array(f64).fromSlice(gpa, &.{ 1, 2, 2, 4 }, &.{ 2, 2 });
+    defer singular.deinit();
+    try std.testing.expectError(error.SingularMatrix, singular.inverse());
+    try std.testing.expectError(error.SingularMatrix, singular.solve(rhs_vec));
+    var indefinite = try Array(f64).fromSlice(gpa, &.{ 1, 2, 2, 1 }, &.{ 2, 2 });
+    defer indefinite.deinit();
+    try std.testing.expectError(error.NotPositiveDefinite, indefinite.cholesky());
 }
 
 test "array object unfold sliding-window views" {

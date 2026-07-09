@@ -96,15 +96,6 @@ pub fn LuResult(comptime T: type) type {
     };
 }
 
-fn mapVeyraInverseError(err: anyerror) LinalgError {
-    return switch (err) {
-        error.Singular => error.SingularMatrix,
-        error.DimensionMismatch => error.NonMatrixArray,
-        error.OutOfMemory => error.OutOfMemory,
-        else => error.BackendFailure,
-    };
-}
-
 fn mapVeyraError(err: anyerror) LinalgError {
     return switch (err) {
         error.Singular => error.SingularMatrix,
@@ -194,42 +185,7 @@ fn matvecF64(a: array_mod.Array(f64), x: array_mod.Array(f64)) LinalgError!array
 }
 
 pub fn cholesky(comptime T: type, a: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("cholesky requires floating-point arrays");
-    if (T == f64) return choleskyF64(@as(array_mod.Array(f64), a));
-
-    const n = a.shape[0];
-    var out = try array_mod.Array(T).zeros(a.allocator, &.{ n, n });
-    for (0..n) |i| {
-        for (0..i + 1) |j| {
-            var sum: T = 0;
-            for (0..j) |k| sum += out.data[i * n + k] * out.data[j * n + k];
-            if (i == j) {
-                const value = a.data[i * n + i] - sum;
-                if (value <= 0) return error.NotPositiveDefinite;
-                out.data[i * n + j] = std.math.sqrt(value);
-            } else {
-                const denom = out.data[j * n + j];
-                if (denom == 0) return error.NotPositiveDefinite;
-                out.data[i * n + j] = (a.data[i * n + j] - sum) / denom;
-            }
-        }
-    }
-    return out;
-}
-
-fn choleskyF64(a: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var factorization = veyra.cholesky(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
-    defer factorization.deinit();
-    var out = try array_mod.Array(f64).zeros(a.allocator, &.{ a.shape[0], a.shape[1] });
-    errdefer out.deinit();
-    const l = factorization.lView();
-    for (0..a.shape[0]) |r| {
-        for (0..r + 1) |c| out.data[r * a.shape[1] + c] = l.get(r, c);
-    }
-    return out;
+    return a.cholesky();
 }
 
 pub fn qr(comptime T: type, a: array_mod.Array(T)) LinalgError!QrResult(T) {
@@ -700,131 +656,15 @@ fn solveTriangularVectorReference(comptime T: type, a: array_mod.Array(T), rhs: 
 }
 
 pub fn det(comptime T: type, a: array_mod.Array(T)) LinalgError!T {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("det currently requires floating-point arrays");
-    if (T == f64) return detF64(@as(array_mod.Array(f64), a));
-    const n = a.shape[0];
-    var m = try a.allocator.dupe(T, a.data);
-    defer a.allocator.free(m);
-    var sign: T = 1;
-    var result: T = 1;
-    for (0..n) |i| {
-        var pivot = i;
-        var pivot_abs = @abs(m[i * n + i]);
-        for (i + 1..n) |r| {
-            const candidate = @abs(m[r * n + i]);
-            if (candidate > pivot_abs) {
-                pivot_abs = candidate;
-                pivot = r;
-            }
-        }
-        if (pivot_abs == 0) return 0;
-        if (pivot != i) {
-            for (0..n) |c| std.mem.swap(T, &m[i * n + c], &m[pivot * n + c]);
-            sign = -sign;
-        }
-        const diag = m[i * n + i];
-        result *= diag;
-        for (i + 1..n) |r| {
-            const factor = m[r * n + i] / diag;
-            for (i..n) |c| m[r * n + c] -= factor * m[i * n + c];
-        }
-    }
-    return result * sign;
-}
-
-fn detF64(a: array_mod.Array(f64)) LinalgError!f64 {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var factorization = veyra.lu(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
-    defer factorization.deinit();
-    return factorization.determinant() catch |err| return mapVeyraError(err);
+    return a.det();
 }
 
 pub fn inverse(comptime T: type, a: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
-    if (@typeInfo(T) != .float) @compileError("inverse currently requires floating-point arrays");
-    if (T == f64) return inverseF64(@as(array_mod.Array(f64), a));
-
-    const n = a.shape[0];
-    var aug = try a.allocator.alloc(T, n * n * 2);
-    defer a.allocator.free(aug);
-    for (0..n) |r| {
-        for (0..n) |c| {
-            aug[r * (2 * n) + c] = a.data[r * n + c];
-            aug[r * (2 * n) + n + c] = if (r == c) 1 else 0;
-        }
-    }
-    for (0..n) |i| {
-        var pivot = i;
-        var pivot_abs = @abs(aug[i * (2 * n) + i]);
-        for (i + 1..n) |r| {
-            const candidate = @abs(aug[r * (2 * n) + i]);
-            if (candidate > pivot_abs) {
-                pivot_abs = candidate;
-                pivot = r;
-            }
-        }
-        if (pivot_abs == 0) return error.SingularMatrix;
-        if (pivot != i) {
-            for (0..2 * n) |c| std.mem.swap(T, &aug[i * (2 * n) + c], &aug[pivot * (2 * n) + c]);
-        }
-        const diag = aug[i * (2 * n) + i];
-        for (0..2 * n) |c| aug[i * (2 * n) + c] /= diag;
-        for (0..n) |r| {
-            if (r == i) continue;
-            const factor = aug[r * (2 * n) + i];
-            for (0..2 * n) |c| aug[r * (2 * n) + c] -= factor * aug[i * (2 * n) + c];
-        }
-    }
-    var out = try array_mod.Array(T).empty(a.allocator, &.{ n, n });
-    for (0..n) |r| {
-        for (0..n) |c| {
-            out.data[r * n + c] = aug[r * (2 * n) + n + c];
-        }
-    }
-    return out;
-}
-
-fn inverseF64(a: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var inv = veyra.inverse(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraInverseError(err);
-    defer inv.deinit();
-    return fromVeyraMatrix(a.allocator, &inv);
+    return a.inverse();
 }
 
 pub fn solve(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
-    if (T == f64) return solveF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), b));
-    var inv = try inverse(T, a);
-    defer inv.deinit();
-    return matmul(T, inv, b);
-}
-
-fn solveF64(a: array_mod.Array(f64), b: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
-    if (a.shape.len != 2 or a.shape[0] != a.shape[1]) return error.NonMatrixArray;
-    if (b.shape.len != 1 and b.shape.len != 2) return error.InvalidShape;
-    if (b.shape[0] != a.shape[0]) return error.ShapeMismatch;
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var factorization = veyra.lu(f64, a.allocator, matrix.asView()) catch |err| return mapVeyraError(err);
-    defer factorization.deinit();
-
-    if (b.shape.len == 1) {
-        var rhs = try toVeyraVector(b);
-        defer rhs.deinit();
-        var dst = veyra.Vector(f64).zeros(a.allocator, a.shape[1]) catch return error.BackendFailure;
-        defer dst.deinit();
-        factorization.solve(rhs.asView(), dst.asMut()) catch |err| return mapVeyraError(err);
-        return fromVeyraVector(a.allocator, &dst);
-    }
-
-    var rhs = try toVeyraMatrix(b);
-    defer rhs.deinit();
-    var dst = veyra.Matrix(f64).zeros(a.allocator, a.shape[1], b.shape[1], .row_major) catch return error.BackendFailure;
-    defer dst.deinit();
-    factorization.solveMatrix(rhs.asView(), dst.asMut()) catch |err| return mapVeyraError(err);
-    return fromVeyraMatrix(a.allocator, &dst);
+    return a.solve(b);
 }
 
 test "linalg inverse det solve" {
