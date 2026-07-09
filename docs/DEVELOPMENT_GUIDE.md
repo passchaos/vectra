@@ -183,7 +183,7 @@ CSC 当前支持：
 Vectra 当前新增一个可选的 Axiom CUDA 集成种子：
 
 - 默认构建不导入 Axiom，`Device.cuda(index).isAvailable()` 仍保持 false。
-- `-Daxiom-cuda=true` 时导入相邻 `../axiom`，暴露 `vx.axiom_cuda`。
+- `-Daxiom-cuda=true` 时导入相邻 `../axiom`，暴露 `vx.axiom_cuda`；`-Daxiom-cuda-dispatch=true` 还会让普通 `Array(f32).add/mul/matmul` 在支持条件下先尝试 Axiom CUDA，再回退 CPU。
 - 当前覆盖 contiguous same-shape `Array(f32)` add/mul/SAXPY/scalar-broadcast/matmul host-slice bridge，并通过 Axiom `TensorDeviceBufferPlan` / `TensorDeviceCopyPlan` 记录 logical elements、required span、byte counts、linear-copy 状态和 fingerprints。
-- 验证命令：`zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled` 和 CUDA 主机上的 `zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke`。
+- 验证命令：`zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled` 和 CUDA 主机上的 `zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke`，以及 dispatch 模式下的 `zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke`。
 - 后续如果继续推进 GPU backend，应先补 persistent device allocation/cache、broadcast lowering、reductions/GEMM host-slice bridge，再考虑让 `.cuda()` 语义变为可用。

@@ -20,6 +20,7 @@ CUDA-capable hosts can opt in:
 
 ```sh
 zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
+zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 ```
 
 The smoke gate runs f32 add, f32 mul, f32 SAXPY, scalar-broadcast f32 add/SAXPY, and 2D f32 matmul through Axiom's
@@ -31,6 +32,15 @@ planning evidence:
 - logical and required byte counts
 - linear-copy compatibility
 - device-copy-plan status and fingerprints
+
+
+## Automatic dispatch
+
+`-Daxiom-cuda=true` only exposes explicit `vx.axiom_cuda.*` bridge calls.
+`-Daxiom-cuda-dispatch=true` also lets supported ordinary `Array(f32)` methods
+try Axiom CUDA first and fall back to the existing CPU path when unsupported or
+unavailable.  The current automatic dispatch covers same-shape `add`, same-shape
+`mul`, and contiguous 2D `matmul`.
 
 ## Current API surface
 

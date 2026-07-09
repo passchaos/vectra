@@ -16,7 +16,9 @@ pub fn build(b: *std.Build) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
-    const enable_axiom_cuda = b.option(bool, "axiom-cuda", "Enable the optional Axiom CUDA tensor accelerator bridge") orelse false;
+    const requested_axiom_cuda = b.option(bool, "axiom-cuda", "Enable the optional Axiom CUDA tensor accelerator bridge") orelse false;
+    const enable_axiom_cuda_dispatch = b.option(bool, "axiom-cuda-dispatch", "Route supported Array(f32) methods through the optional Axiom CUDA bridge before CPU fallback") orelse false;
+    const enable_axiom_cuda = requested_axiom_cuda or enable_axiom_cuda_dispatch;
     const axiom_cuda_expect = b.option([]const u8, "axiom-cuda-expect", "Optional Axiom CUDA smoke status expectation: disabled, skipped, ran, or failed");
     // It's also possible to define more custom flags to toggle optional features
     // of this build script using `b.option()`. All defined flags (including
@@ -46,6 +48,7 @@ pub fn build(b: *std.Build) void {
     }) else null;
     const build_options = b.addOptions();
     build_options.addOption(bool, "enable_axiom_cuda", enable_axiom_cuda);
+    build_options.addOption(bool, "enable_axiom_cuda_dispatch", enable_axiom_cuda_dispatch);
 
     const mod = b.addModule("vectra", .{
         // The root source file is the "entry point" of this module. Users of
@@ -173,6 +176,21 @@ pub fn build(b: *std.Build) void {
     if (axiom_cuda_expect) |expect| axiom_cuda_smoke_cmd.addArgs(&.{ "--expect", expect });
     const axiom_cuda_smoke_step = b.step("axiom-cuda-smoke", "Run optional Axiom CUDA f32 elementwise/SAXPY smoke bridge");
     axiom_cuda_smoke_step.dependOn(&axiom_cuda_smoke_cmd.step);
+
+    const axiom_cuda_dispatch_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-cuda-dispatch-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/axiom_cuda_dispatch_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_cuda_dispatch_smoke_cmd = b.addRunArtifact(axiom_cuda_dispatch_smoke_exe);
+    const axiom_cuda_dispatch_smoke_step = b.step("axiom-cuda-dispatch-smoke", "Run ordinary Array(f32) methods through opt-in Axiom CUDA dispatch");
+    axiom_cuda_dispatch_smoke_step.dependOn(&axiom_cuda_dispatch_smoke_cmd.step);
 
     // Creates an executable that will run `test` blocks from the provided module.
     // Here `mod` needs to define a target, which is why earlier we made sure to

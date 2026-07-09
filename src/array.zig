@@ -1,6 +1,8 @@
 const std = @import("std");
+const build_options = @import("vectra_build_options");
 const alea = @import("alea");
 const veyra = @import("veyra");
+const axiom_cuda_backend = @import("backends/axiom_cuda.zig");
 
 pub const Complex64 = std.math.Complex(f32);
 pub const Complex128 = std.math.Complex(f64);
@@ -14487,6 +14489,17 @@ pub fn Array(comptime T: type) type {
         }
 
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
+            if (comptime T == f32) {
+                if (build_options.enable_axiom_cuda_dispatch and std.mem.eql(usize, self.shape, other.shape)) {
+                    const accelerated = if (comptime op == opAdd)
+                        try axiom_cuda_backend.tryAddF32(self, other)
+                    else if (comptime op == opMul)
+                        try axiom_cuda_backend.tryMulF32(self, other)
+                    else
+                        null;
+                    if (accelerated) |out| return out;
+                }
+            }
             if (std.mem.eql(usize, self.shape, other.shape)) {
                 const out = try Self.empty(self.allocator, self.shape);
                 if (binaryArraySimd(out.data, self.data, other.data, op)) return out;
@@ -19562,6 +19575,12 @@ pub fn Array(comptime T: type) type {
             if (lhs_k != rhs_k) return error.ShapeMismatch;
 
             if (lhs_vec and rhs_vec) return self.dot(other);
+            if (comptime T == f32) {
+                if (build_options.enable_axiom_cuda_dispatch and !lhs_vec and !rhs_vec) {
+                    const accelerated = try axiom_cuda_backend.tryMatmulF32(self, other);
+                    if (accelerated) |out| return out;
+                }
+            }
             if (comptime T == f64) {
                 if (!lhs_vec and rhs_vec and
                     self.shape.len == 2 and other.shape.len == 1 and
