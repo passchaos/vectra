@@ -14202,6 +14202,117 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn compareArraySimdLanes(
+            comptime lanes: usize,
+            out: []bool,
+            lhs: []const T,
+            rhs: []const T,
+            comptime op: fn (T, T) bool,
+        ) bool {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            if (comptime op == opEqCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a == b;
+                }
+            } else if (comptime op == opNeCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a != b;
+                }
+            } else if (comptime op == opGtCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = b < a;
+                }
+            } else if (comptime op == opGeCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = !(a < b);
+                }
+            } else if (comptime op == opLtCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a < b;
+                }
+            } else if (comptime op == opLeCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = !(b < a);
+                }
+            } else {
+                return false;
+            }
+            while (i < out.len) : (i += 1) out[i] = op(lhs[i], rhs[i]);
+            return true;
+        }
+
+        fn compareArraySimd(out: []bool, lhs: []const T, rhs: []const T, comptime op: fn (T, T) bool) bool {
+            if (comptime T == f64) return compareArraySimdLanes(4, out, lhs, rhs, op);
+            if (comptime T == f32) return compareArraySimdLanes(8, out, lhs, rhs, op);
+            return false;
+        }
+
+        fn compareScalarSimdLanes(
+            comptime lanes: usize,
+            out: []bool,
+            input: []const T,
+            scalar: T,
+            comptime op: fn (T, T) bool,
+        ) bool {
+            const Vec = @Vector(lanes, T);
+            const scalar_vec: Vec = @splat(scalar);
+            var i: usize = 0;
+            if (comptime op == opEqCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a == scalar_vec;
+                }
+            } else if (comptime op == opNeCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a != scalar_vec;
+                }
+            } else if (comptime op == opGtCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = scalar_vec < a;
+                }
+            } else if (comptime op == opGeCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = !(a < scalar_vec);
+                }
+            } else if (comptime op == opLtCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a < scalar_vec;
+                }
+            } else if (comptime op == opLeCompare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = !(scalar_vec < a);
+                }
+            } else {
+                return false;
+            }
+            while (i < out.len) : (i += 1) out[i] = op(input[i], scalar);
+            return true;
+        }
+
+        fn compareScalarSimd(out: []bool, input: []const T, scalar: T, comptime op: fn (T, T) bool) bool {
+            if (comptime T == f64) return compareScalarSimdLanes(4, out, input, scalar, op);
+            if (comptime T == f32) return compareScalarSimdLanes(8, out, input, scalar, op);
+            return false;
+        }
+
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
             if (std.mem.eql(usize, self.shape, other.shape)) {
                 const out = try Self.empty(self.allocator, self.shape);
@@ -14415,6 +14526,24 @@ pub fn Array(comptime T: type) type {
                 .int, .comptime_int => @min(a, b),
                 else => @compileError("fmin requires an orderable numeric array"),
             };
+        }
+        fn opEqCompare(a: T, b: T) bool {
+            return a == b;
+        }
+        fn opNeCompare(a: T, b: T) bool {
+            return a != b;
+        }
+        fn opGtCompare(a: T, b: T) bool {
+            return lessValue(T, b, a);
+        }
+        fn opGeCompare(a: T, b: T) bool {
+            return !lessValue(T, a, b);
+        }
+        fn opLtCompare(a: T, b: T) bool {
+            return lessValue(T, a, b);
+        }
+        fn opLeCompare(a: T, b: T) bool {
+            return !lessValue(T, b, a);
         }
         fn opCummax(a: T, b: T) T {
             if (comptime isComplex(T)) @compileError("cummax requires an orderable numeric array");
@@ -15594,11 +15723,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
-            return self.compare(other, struct {
-                fn f(a: T, b: T) bool {
-                    return a == b;
-                }
-            }.f);
+            return self.compare(other, opEqCompare);
         }
 
         pub fn equal(self: Self, other: Self) ArrayError!Array(bool) {
@@ -15607,11 +15732,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn gt(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
-            return self.compare(other, struct {
-                fn f(a: T, b: T) bool {
-                    return lessValue(T, b, a);
-                }
-            }.f);
+            return self.compare(other, opGtCompare);
         }
 
         pub fn greater(self: Self, other: Self) ArrayError!Array(bool) {
@@ -15620,11 +15741,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn lt(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
-            return self.compare(other, struct {
-                fn f(a: T, b: T) bool {
-                    return lessValue(T, a, b);
-                }
-            }.f);
+            return self.compare(other, opLtCompare);
         }
 
         pub fn less(self: Self, other: Self) ArrayError!Array(bool) {
@@ -15632,11 +15749,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn ne(self: Self, other: Self) ArrayError!Array(bool) {
-            return self.compare(other, struct {
-                fn f(a: T, b: T) bool {
-                    return a != b;
-                }
-            }.f);
+            return self.compare(other, opNeCompare);
         }
 
         pub fn notEqual(self: Self, other: Self) ArrayError!Array(bool) {
@@ -15645,11 +15758,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn ge(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
-            return self.compare(other, struct {
-                fn f(a: T, b: T) bool {
-                    return !lessValue(T, a, b);
-                }
-            }.f);
+            return self.compare(other, opGeCompare);
         }
 
         pub fn greaterEqual(self: Self, other: Self) ArrayError!Array(bool) {
@@ -15658,11 +15767,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn le(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
-            return self.compare(other, struct {
-                fn f(a: T, b: T) bool {
-                    return !lessValue(T, b, a);
-                }
-            }.f);
+            return self.compare(other, opLeCompare);
         }
 
         pub fn lessEqual(self: Self, other: Self) ArrayError!Array(bool) {
@@ -15670,11 +15775,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn eqScalar(self: Self, scalar: T) ArrayError!Array(bool) {
-            return self.compareScalar(scalar, struct {
-                fn f(a: T, b: T) bool {
-                    return a == b;
-                }
-            }.f);
+            return self.compareScalar(scalar, opEqCompare);
         }
 
         pub fn equalScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -15682,11 +15783,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn neScalar(self: Self, scalar: T) ArrayError!Array(bool) {
-            return self.compareScalar(scalar, struct {
-                fn f(a: T, b: T) bool {
-                    return a != b;
-                }
-            }.f);
+            return self.compareScalar(scalar, opNeCompare);
         }
 
         pub fn notEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -15695,11 +15792,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn gtScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
-            return self.compareScalar(scalar, struct {
-                fn f(a: T, b: T) bool {
-                    return lessValue(T, b, a);
-                }
-            }.f);
+            return self.compareScalar(scalar, opGtCompare);
         }
 
         pub fn greaterScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -15708,11 +15801,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn geScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
-            return self.compareScalar(scalar, struct {
-                fn f(a: T, b: T) bool {
-                    return !lessValue(T, a, b);
-                }
-            }.f);
+            return self.compareScalar(scalar, opGeCompare);
         }
 
         pub fn greaterEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -15721,11 +15810,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn ltScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
-            return self.compareScalar(scalar, struct {
-                fn f(a: T, b: T) bool {
-                    return lessValue(T, a, b);
-                }
-            }.f);
+            return self.compareScalar(scalar, opLtCompare);
         }
 
         pub fn lessScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -15734,11 +15819,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn leScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
-            return self.compareScalar(scalar, struct {
-                fn f(a: T, b: T) bool {
-                    return !lessValue(T, b, a);
-                }
-            }.f);
+            return self.compareScalar(scalar, opLeCompare);
         }
 
         pub fn lessEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -15864,6 +15945,7 @@ pub fn Array(comptime T: type) type {
         fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
             if (std.mem.eql(usize, self.shape, other.shape)) {
                 const out = try Array(bool).empty(self.allocator, self.shape);
+                if (compareArraySimd(out.data, self.data, other.data, op)) return out;
                 for (self.data, other.data, out.data) |lhs, rhs, *slot| {
                     slot.* = op(lhs, rhs);
                 }
@@ -15887,6 +15969,7 @@ pub fn Array(comptime T: type) type {
 
         fn compareScalar(self: Self, scalar: T, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
             const out = try Array(bool).empty(self.allocator, self.shape);
+            if (compareScalarSimd(out.data, self.data, scalar, op)) return out;
             for (self.data, out.data) |value, *slot| slot.* = op(value, scalar);
             return out;
         }
@@ -20900,6 +20983,18 @@ test "array comparison and logical wrappers" {
     var same_shape_ge = try a.ge(same_shape_cmp_rhs);
     defer same_shape_ge.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, same_shape_ge.data);
+    var same_shape_ne = try a.ne(same_shape_cmp_rhs);
+    defer same_shape_ne.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, same_shape_ne.data);
+    var same_shape_gt = try a.gt(same_shape_cmp_rhs);
+    defer same_shape_gt.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, same_shape_gt.data);
+    var same_shape_lt = try a.lt(same_shape_cmp_rhs);
+    defer same_shape_lt.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, same_shape_lt.data);
+    var same_shape_le = try a.le(same_shape_cmp_rhs);
+    defer same_shape_le.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, same_shape_le.data);
     var ne_out = try a.notEqual(b);
     defer ne_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, ne_out.data);
@@ -20937,6 +21032,17 @@ test "array comparison and logical wrappers" {
     var not_equal_scalar_out = try a.notEqualScalar(2);
     defer not_equal_scalar_out.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, not_equal_scalar_out.data);
+    var greater_scalar_out = try a.greaterScalar(2);
+    defer greater_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, greater_scalar_out.data);
+    var less_equal_scalar_out = try a.lessEqualScalar(2);
+    defer less_equal_scalar_out.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false }, less_equal_scalar_out.data);
+    var f32_cmp = try Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
+    defer f32_cmp.deinit();
+    var f32_gt_scalar = try f32_cmp.gtScalar(4);
+    defer f32_gt_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, true, true, true, true }, f32_gt_scalar.data);
 
     try std.testing.expect(try a.allclose(a, 1e-12, 1e-12));
 
