@@ -61,7 +61,9 @@ f16 and BFloat16 currently use a widen-to-f32 CUDA seed before narrowing back.
 For elementwise provenance, Vectra consumes Axiom's
 `runTensorElementwiseBinaryF16Widened` and
 `runTensorElementwiseBinaryBF16Widened` runtime reports instead of rebuilding
-those reports locally.
+those reports locally; those Axiom reports can carry compute-run fingerprints
+when the widened bridge delegates its f32 compute step to Axiom's f32 CUDA
+elementwise runtime.
 CPU scalar routes cover f32/f64 through Axiom CPU→Veyra.
 
 `vx.axiom_backend` is the shared policy seam for both CPU and CUDA paths:
@@ -125,7 +127,8 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 - Only scalar-array broadcast dispatch is covered; no general broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
 - The CUDA matmul bridge is native for contiguous 2D `Array(f32)` inputs and
   routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path. f16 and
-  BFloat16 elementwise provenance uses Axiom widened runtime reports; f16 and
+  BFloat16 elementwise provenance uses Axiom widened runtime reports, including
+  f32 CUDA compute evidence when that runtime route is available; f16 and
   BFloat16 matmul widen through f32 today. f64 matmul routes through Axiom
   CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
 - The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.

@@ -60,7 +60,8 @@ Current registry summary:
   provenance now uses Axiom-owned widened runtime reports
   (`runTensorElementwiseBinaryF16Widened` /
   `runTensorElementwiseBinaryBF16Widened`) instead of Vectra-local report
-  reconstruction.
+  reconstruction; those reports can include f32 CUDA compute-run fingerprints
+  when Axiom delegates the widened compute step to its f32 CUDA runtime.
 - The widening seed is useful for API integration, smoke tests, policy routing,
   and downstream code shape, but it is not native f16/BF16 device code and does
   not claim tensor-core throughput.
