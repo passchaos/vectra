@@ -6773,8 +6773,24 @@ pub fn ArrayView(comptime T: type) type {
             return self.broadcastTo(dims);
         }
 
+        pub fn broadcastToView(self: Self, dims: []const usize) ArrayError!Self {
+            return self.broadcastTo(dims);
+        }
+
+        pub fn broadcast_to_view(self: Self, dims: []const usize) ArrayError!Self {
+            return self.broadcastToView(dims);
+        }
+
         pub fn expand(self: Self, dims: []const usize) ArrayError!Self {
             return self.broadcastTo(dims);
+        }
+
+        pub fn expandToView(self: Self, dims: []const usize) ArrayError!Self {
+            return self.expand(dims);
+        }
+
+        pub fn expand_to_view(self: Self, dims: []const usize) ArrayError!Self {
+            return self.expandToView(dims);
         }
 
         pub fn expandAs(self: Self, other: Self) ArrayError!Self {
@@ -6785,8 +6801,40 @@ pub fn ArrayView(comptime T: type) type {
             return self.expand(other.shape);
         }
 
+        pub fn expand_as_array(self: Self, other: Array(T)) ArrayError!Self {
+            return self.expandAsArray(other);
+        }
+
         pub fn expandAsView(self: Self, other: Self) ArrayError!Self {
             return self.expand(other.shape);
+        }
+
+        pub fn expand_as_view(self: Self, other: Self) ArrayError!Self {
+            return self.expandAsView(other);
+        }
+
+        pub fn broadcastAs(self: Self, other: Self) ArrayError!Self {
+            return self.expandAs(other);
+        }
+
+        pub fn broadcast_as(self: Self, other: Self) ArrayError!Self {
+            return self.broadcastAs(other);
+        }
+
+        pub fn broadcastAsArray(self: Self, other: Array(T)) ArrayError!Self {
+            return self.expandAsArray(other);
+        }
+
+        pub fn broadcast_as_array(self: Self, other: Array(T)) ArrayError!Self {
+            return self.broadcastAsArray(other);
+        }
+
+        pub fn broadcastAsView(self: Self, other: Self) ArrayError!Self {
+            return self.expandAsView(other);
+        }
+
+        pub fn broadcast_as_view(self: Self, other: Self) ArrayError!Self {
+            return self.broadcastAsView(other);
         }
 
         pub fn expand_as(self: Self, other: Self) ArrayError!Self {
@@ -9442,6 +9490,18 @@ pub fn Array(comptime T: type) type {
             return base.broadcastTo(dims);
         }
 
+        pub fn broadcast_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.broadcastView(dims);
+        }
+
+        pub fn broadcastToView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.broadcastView(dims);
+        }
+
+        pub fn broadcast_to_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.broadcastToView(dims);
+        }
+
         pub fn expand(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
             return self.expandView(dims);
         }
@@ -9450,12 +9510,60 @@ pub fn Array(comptime T: type) type {
             return self.broadcastView(dims);
         }
 
+        pub fn expand_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.expandView(dims);
+        }
+
+        pub fn expandToView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.expandView(dims);
+        }
+
+        pub fn expand_to_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
+            return self.expandToView(dims);
+        }
+
         pub fn expandAs(self: Self, other: Self) ArrayError!ArrayView(T) {
             return self.expandView(other.shape);
         }
 
         pub fn expandAsView(self: Self, other: ArrayView(T)) ArrayError!ArrayView(T) {
             return self.expandView(other.shape);
+        }
+
+        pub fn expand_as_view(self: Self, other: ArrayView(T)) ArrayError!ArrayView(T) {
+            return self.expandAsView(other);
+        }
+
+        pub fn expandAsArray(self: Self, other: Self) ArrayError!ArrayView(T) {
+            return self.expandAs(other);
+        }
+
+        pub fn expand_as_array(self: Self, other: Self) ArrayError!ArrayView(T) {
+            return self.expandAsArray(other);
+        }
+
+        pub fn broadcastAs(self: Self, other: Self) ArrayError!ArrayView(T) {
+            return self.expandAs(other);
+        }
+
+        pub fn broadcast_as(self: Self, other: Self) ArrayError!ArrayView(T) {
+            return self.broadcastAs(other);
+        }
+
+        pub fn broadcastAsView(self: Self, other: ArrayView(T)) ArrayError!ArrayView(T) {
+            return self.expandAsView(other);
+        }
+
+        pub fn broadcast_as_view(self: Self, other: ArrayView(T)) ArrayError!ArrayView(T) {
+            return self.broadcastAsView(other);
+        }
+
+        pub fn broadcastAsArray(self: Self, other: Self) ArrayError!ArrayView(T) {
+            return self.expandAs(other);
+        }
+
+        pub fn broadcast_as_array(self: Self, other: Self) ArrayError!ArrayView(T) {
+            return self.broadcastAsArray(other);
         }
 
         pub fn expand_as(self: Self, other: Self) ArrayError!ArrayView(T) {
@@ -19338,6 +19446,119 @@ test "array and view scalar and flat export helpers" {
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.item_value());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalarValue());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalar_value());
+}
+
+test "array and view zero-copy broadcast aliases" {
+    const gpa = std.testing.allocator;
+    var row = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{ 1, 3 });
+    defer row.deinit();
+
+    var broadcast_view = try row.broadcastView(&.{ 2, 3 });
+    defer broadcast_view.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_view.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, broadcast_view.strides);
+    try std.testing.expect(row.sharesStorageView(broadcast_view));
+    try std.testing.expect(try row.mayOverlapView(broadcast_view));
+    try std.testing.expectEqual(@as(f64, 2), try broadcast_view.get(&.{ 1, 1 }));
+    try broadcast_view.set(&.{ 1, 2 }, 30);
+    try std.testing.expectEqual(@as(f64, 30), row.data[2]);
+    try broadcast_view.set(&.{ 0, 2 }, 3);
+
+    var broadcast_view_snake = try row.broadcast_view(&.{ 2, 3 });
+    defer broadcast_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, broadcast_view.shape, broadcast_view_snake.shape);
+    var broadcast_to_view = try row.broadcastToView(&.{ 2, 3 });
+    defer broadcast_to_view.deinit();
+    try std.testing.expectEqualSlices(usize, broadcast_view.strides, broadcast_to_view.strides);
+    var broadcast_to_view_snake = try row.broadcast_to_view(&.{ 2, 3 });
+    defer broadcast_to_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, broadcast_view.strides, broadcast_to_view_snake.strides);
+
+    var expanded_view = try row.expandView(&.{ 2, 3 });
+    defer expanded_view.deinit();
+    try std.testing.expectEqualSlices(usize, broadcast_view.strides, expanded_view.strides);
+    var expanded_view_snake = try row.expand_view(&.{ 2, 3 });
+    defer expanded_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, expanded_view.strides, expanded_view_snake.strides);
+    var expand_to_view = try row.expandToView(&.{ 2, 3 });
+    defer expand_to_view.deinit();
+    try std.testing.expectEqualSlices(usize, expanded_view.strides, expand_to_view.strides);
+    var expand_to_view_snake = try row.expand_to_view(&.{ 2, 3 });
+    defer expand_to_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, expanded_view.strides, expand_to_view_snake.strides);
+
+    var target_array = try Array(f64).empty(gpa, &.{ 2, 3 });
+    defer target_array.deinit();
+    var expand_as_array = try row.expandAsArray(target_array);
+    defer expand_as_array.deinit();
+    try std.testing.expectEqualSlices(usize, target_array.shape, expand_as_array.shape);
+    var expand_as_array_snake = try row.expand_as_array(target_array);
+    defer expand_as_array_snake.deinit();
+    try std.testing.expectEqualSlices(usize, target_array.shape, expand_as_array_snake.shape);
+    var broadcast_as_array = try row.broadcastAsArray(target_array);
+    defer broadcast_as_array.deinit();
+    try std.testing.expectEqualSlices(usize, target_array.shape, broadcast_as_array.shape);
+    var broadcast_as_array_snake = try row.broadcast_as_array(target_array);
+    defer broadcast_as_array_snake.deinit();
+    try std.testing.expectEqualSlices(usize, target_array.shape, broadcast_as_array_snake.shape);
+
+    var target_view = try target_array.asView();
+    defer target_view.deinit();
+    var expand_as_view = try row.expandAsView(target_view);
+    defer expand_as_view.deinit();
+    try std.testing.expectEqualSlices(usize, target_view.shape, expand_as_view.shape);
+    var expand_as_view_snake = try row.expand_as_view(target_view);
+    defer expand_as_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, target_view.shape, expand_as_view_snake.shape);
+    var broadcast_as_view = try row.broadcastAsView(target_view);
+    defer broadcast_as_view.deinit();
+    try std.testing.expectEqualSlices(usize, target_view.shape, broadcast_as_view.shape);
+    var broadcast_as_view_snake = try row.broadcast_as_view(target_view);
+    defer broadcast_as_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, target_view.shape, broadcast_as_view_snake.shape);
+
+    try std.testing.expectError(error.ShapeMismatch, row.broadcastView(&.{ 2, 2 }));
+
+    var row_view = try row.asView();
+    defer row_view.deinit();
+    var view_broadcast = try row_view.broadcastToView(&.{ 2, 3 });
+    defer view_broadcast.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_broadcast.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, view_broadcast.strides);
+    var view_broadcast_snake = try row_view.broadcast_to_view(&.{ 2, 3 });
+    defer view_broadcast_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_broadcast.strides, view_broadcast_snake.strides);
+    var view_expand_to = try row_view.expandToView(&.{ 2, 3 });
+    defer view_expand_to.deinit();
+    try std.testing.expectEqualSlices(usize, view_broadcast.strides, view_expand_to.strides);
+    var view_expand_to_snake = try row_view.expand_to_view(&.{ 2, 3 });
+    defer view_expand_to_snake.deinit();
+    try std.testing.expectEqualSlices(usize, view_broadcast.strides, view_expand_to_snake.strides);
+    var view_expand_as_array = try row_view.expandAsArray(target_array);
+    defer view_expand_as_array.deinit();
+    try std.testing.expectEqualSlices(usize, target_array.shape, view_expand_as_array.shape);
+    var view_expand_as_array_snake = try row_view.expand_as_array(target_array);
+    defer view_expand_as_array_snake.deinit();
+    try std.testing.expectEqualSlices(usize, target_array.shape, view_expand_as_array_snake.shape);
+    var view_expand_as_view = try row_view.expandAsView(target_view);
+    defer view_expand_as_view.deinit();
+    try std.testing.expectEqualSlices(usize, target_view.shape, view_expand_as_view.shape);
+    var view_expand_as_view_snake = try row_view.expand_as_view(target_view);
+    defer view_expand_as_view_snake.deinit();
+    try std.testing.expectEqualSlices(usize, target_view.shape, view_expand_as_view_snake.shape);
+    var view_broadcast_as = try row_view.broadcastAs(target_view);
+    defer view_broadcast_as.deinit();
+    try std.testing.expectEqualSlices(usize, target_view.shape, view_broadcast_as.shape);
+    var view_broadcast_as_snake = try row_view.broadcast_as(target_view);
+    defer view_broadcast_as_snake.deinit();
+    try std.testing.expectEqualSlices(usize, target_view.shape, view_broadcast_as_snake.shape);
+    var view_broadcast_as_array = try row_view.broadcastAsArray(target_array);
+    defer view_broadcast_as_array.deinit();
+    try std.testing.expectEqualSlices(usize, target_array.shape, view_broadcast_as_array.shape);
+    var view_broadcast_as_array_snake = try row_view.broadcast_as_array(target_array);
+    defer view_broadcast_as_array_snake.deinit();
+    try std.testing.expectEqualSlices(usize, target_array.shape, view_broadcast_as_array_snake.shape);
+    try std.testing.expectError(error.ShapeMismatch, row_view.broadcastToView(&.{ 2, 2 }));
 }
 
 test "array and view non-copying reshape flatten aliases" {
