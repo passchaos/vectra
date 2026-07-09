@@ -108,6 +108,7 @@ zig fmt build.zig build.zig.zon src/*.zig
 zig build test
 ```
 
+- 性能相关变更应尽量运行 `zig build bench --release=fast` 和 `tools/bench_numpy_torch.py` 做本地 Vectra/NumPy/PyTorch 对比，避免提交没有实测收益的优化。
 - 如果目录是 git 仓库，完成变更后应只提交本次相关文件；如果不是 git 仓库则不提交。
 
 ## 6. Veyra 后端使用策略
