@@ -4757,10 +4757,38 @@ pub fn ArrayView(comptime T: type) type {
             return owned.traceOffset(offset);
         }
 
+        pub fn traceAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.traceAxes(offset, axis1, axis2);
+        }
+
+        pub fn trace_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
+            return self.traceAxes(offset, axis1, axis2);
+        }
+
+        pub fn traceOffsetAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
+            return self.traceAxes(offset, axis1, axis2);
+        }
+
+        pub fn trace_offset_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
+            return self.traceOffsetAxes(offset, axis1, axis2);
+        }
+
         pub fn diagonal(self: Self, offset: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.diagonal(offset);
+        }
+
+        pub fn diagonalAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.diagonalAxes(offset, axis1, axis2);
+        }
+
+        pub fn diagonal_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
+            return self.diagonalAxes(offset, axis1, axis2);
         }
 
         pub fn diag(self: Self, offset: isize) ArrayError!Array(T) {
@@ -14101,6 +14129,82 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn diagonalAxes(self: Self, offset: isize, axis1_index: isize, axis2_index: isize) ArrayError!Self {
+            if (self.shape.len < 2) return error.InvalidAxis;
+            const axis1 = try normalizeDim(axis1_index, self.shape.len);
+            const axis2 = try normalizeDim(axis2_index, self.shape.len);
+            if (axis1 == axis2) return error.InvalidAxis;
+            const axis1_extent = self.shape[axis1];
+            const axis2_extent = self.shape[axis2];
+            const start_axis1: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= axis1_extent) {
+                    const out_shape_empty = try self.allocator.alloc(usize, self.shape.len - 1);
+                    defer self.allocator.free(out_shape_empty);
+                    var write_empty: usize = 0;
+                    for (self.shape, 0..) |extent, axis| {
+                        if (axis == axis1 or axis == axis2) continue;
+                        out_shape_empty[write_empty] = extent;
+                        write_empty += 1;
+                    }
+                    out_shape_empty[out_shape_empty.len - 1] = 0;
+                    return Self.empty(self.allocator, out_shape_empty);
+                }
+                break :blk offset_abs;
+            } else 0;
+            const start_axis2: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= axis2_extent) {
+                    const out_shape_empty = try self.allocator.alloc(usize, self.shape.len - 1);
+                    defer self.allocator.free(out_shape_empty);
+                    var write_empty: usize = 0;
+                    for (self.shape, 0..) |extent, axis| {
+                        if (axis == axis1 or axis == axis2) continue;
+                        out_shape_empty[write_empty] = extent;
+                        write_empty += 1;
+                    }
+                    out_shape_empty[out_shape_empty.len - 1] = 0;
+                    return Self.empty(self.allocator, out_shape_empty);
+                }
+                break :blk offset_abs;
+            } else 0;
+            const diagonal_len = @min(axis1_extent - start_axis1, axis2_extent - start_axis2);
+            const out_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(out_shape);
+            var write: usize = 0;
+            for (self.shape, 0..) |extent, axis| {
+                if (axis == axis1 or axis == axis2) continue;
+                out_shape[write] = extent;
+                write += 1;
+            }
+            out_shape[out_shape.len - 1] = diagonal_len;
+            var out = try Self.empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                var read: usize = 0;
+                for (0..self.shape.len) |axis| {
+                    if (axis == axis1 or axis == axis2) continue;
+                    in_multi[axis] = out_multi[read];
+                    read += 1;
+                }
+                const diagonal_index = out_multi[out_shape.len - 1];
+                in_multi[axis1] = start_axis1 + diagonal_index;
+                in_multi[axis2] = start_axis2 + diagonal_index;
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn diagonal_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
+            return self.diagonalAxes(offset, axis1, axis2);
+        }
+
         pub fn diag(self: Self, offset: isize) ArrayError!Self {
             if (self.shape.len == 1) return self.diagflat(offset);
             if (self.shape.len == 2) return self.diagonal(offset);
@@ -14146,6 +14250,74 @@ pub fn Array(comptime T: type) type {
             var total = zero(T);
             for (0..count) |i| total = addValue(T, total, self.data[(start_row + i) * cols + start_col + i]);
             return total;
+        }
+
+        pub fn traceAxes(self: Self, offset: isize, axis1_index: isize, axis2_index: isize) ArrayError!Self {
+            ensureNumeric(T);
+            if (self.shape.len < 2) return error.InvalidAxis;
+            const axis1 = try normalizeDim(axis1_index, self.shape.len);
+            const axis2 = try normalizeDim(axis2_index, self.shape.len);
+            if (axis1 == axis2) return error.InvalidAxis;
+            const axis1_extent = self.shape[axis1];
+            const axis2_extent = self.shape[axis2];
+            const start_axis1: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= axis1_extent) break :blk axis1_extent;
+                break :blk offset_abs;
+            } else 0;
+            const start_axis2: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= axis2_extent) break :blk axis2_extent;
+                break :blk offset_abs;
+            } else 0;
+            const diagonal_len = if (start_axis1 >= axis1_extent or start_axis2 >= axis2_extent)
+                0
+            else
+                @min(axis1_extent - start_axis1, axis2_extent - start_axis2);
+            const out_shape = try self.allocator.alloc(usize, self.shape.len - 2);
+            defer self.allocator.free(out_shape);
+            var write: usize = 0;
+            for (self.shape, 0..) |extent, axis| {
+                if (axis == axis1 or axis == axis2) continue;
+                out_shape[write] = extent;
+                write += 1;
+            }
+            var out = try Self.zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0 or diagonal_len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                var read: usize = 0;
+                for (0..self.shape.len) |axis| {
+                    if (axis == axis1 or axis == axis2) continue;
+                    in_multi[axis] = out_multi[read];
+                    read += 1;
+                }
+                var total = zero(T);
+                for (0..diagonal_len) |diagonal_index| {
+                    in_multi[axis1] = start_axis1 + diagonal_index;
+                    in_multi[axis2] = start_axis2 + diagonal_index;
+                    total = addValue(T, total, self.data[ravelIndex(in_multi, self.strides)]);
+                }
+                slot.* = total;
+            }
+            return out;
+        }
+
+        pub fn trace_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
+            return self.traceAxes(offset, axis1, axis2);
+        }
+
+        pub fn traceOffsetAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
+            return self.traceAxes(offset, axis1, axis2);
+        }
+
+        pub fn trace_offset_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
+            return self.traceOffsetAxes(offset, axis1, axis2);
         }
 
         pub fn triu(self: Self, diagonal_offset: isize) ArrayError!Self {
@@ -17054,6 +17226,20 @@ test "array view object math sort and linalg wrappers" {
 
     const trace_value = try view.trace();
     try std.testing.expectEqual(@as(f64, 7), trace_value);
+    var view_diag_axes = try view.diagonalAxes(0, 0, 1);
+    defer view_diag_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, view_diag_axes.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 4 }, view_diag_axes.data);
+    var view_diag_axes_alias = try view.diagonal_axes(1, 0, 1);
+    defer view_diag_axes_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{6}, view_diag_axes_alias.data);
+    var view_trace_axes = try view.traceAxes(0, 0, 1);
+    defer view_trace_axes.deinit();
+    try std.testing.expectEqual(@as(usize, 0), view_trace_axes.shape.len);
+    try std.testing.expectEqualSlices(f64, &.{7}, view_trace_axes.data);
+    var view_trace_axes_alias = try view.trace_offset_axes(1, 0, 1);
+    defer view_trace_axes_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{6}, view_trace_axes_alias.data);
 
     var square = try Array(f64).fromSlice(gpa, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
     defer square.deinit();
@@ -18499,6 +18685,48 @@ test "array logsoftmax norm and matrix helpers" {
     var mt_row_diag = try mt_row.diag(0);
     defer mt_row_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 4, 0, 0, 0, 7 }, mt_row_diag.data);
+
+    var cube = try Array(f64).fromSlice(gpa, &.{
+        1,  2,  3,
+        4,  5,  6,
+        7,  8,  9,
+        10, 11, 12,
+        13, 14, 15,
+        16, 17, 18,
+    }, &.{ 2, 3, 3 });
+    defer cube.deinit();
+    var batch_diag = try cube.diagonalAxes(0, 1, 2);
+    defer batch_diag.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, batch_diag.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 5, 9, 10, 14, 18 }, batch_diag.data);
+    var batch_diag_alias = try cube.diagonal_axes(1, -2, -1);
+    defer batch_diag_alias.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, batch_diag_alias.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 6, 11, 15 }, batch_diag_alias.data);
+    var batch_trace = try cube.traceAxes(0, 1, 2);
+    defer batch_trace.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, batch_trace.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 15, 42 }, batch_trace.data);
+    var batch_trace_alias = try cube.trace_offset_axes(-1, 1, 2);
+    defer batch_trace_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 12, 30 }, batch_trace_alias.data);
+    var cross_axis_diag = try cube.diagonalAxes(0, 0, 2);
+    defer cross_axis_diag.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, cross_axis_diag.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 11, 4, 14, 7, 17 }, cross_axis_diag.data);
+    var cross_axis_trace = try cube.trace_axes(0, 0, 2);
+    defer cross_axis_trace.deinit();
+    try std.testing.expectEqualSlices(usize, &.{3}, cross_axis_trace.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 12, 18, 24 }, cross_axis_trace.data);
+    var empty_diag = try cube.diagonalAxes(9, 1, 2);
+    defer empty_diag.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 0 }, empty_diag.shape);
+    try std.testing.expectEqual(@as(usize, 0), empty_diag.data.len);
+    var zero_trace = try cube.traceAxes(9, 1, 2);
+    defer zero_trace.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, zero_trace.data);
+    try std.testing.expectError(error.InvalidAxis, cube.diagonalAxes(0, 1, 1));
+    try std.testing.expectError(error.InvalidAxis, cube.traceAxes(0, 1, 9));
 }
 
 test "array min max arg reductions and topk" {
