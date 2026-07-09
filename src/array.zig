@@ -9516,10 +9516,22 @@ pub fn Array(comptime T: type) type {
             return base.unfold(axis_index, window_size, step);
         }
 
+        pub fn unfoldView(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!ArrayView(T) {
+            return self.unfold(axis_index, window_size, step);
+        }
+
+        pub fn unfold_view(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!ArrayView(T) {
+            return self.unfoldView(axis_index, window_size, step);
+        }
+
         pub fn sliceAxisView(self: Self, axis_index: isize, slice_value: Slice) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.sliceAxis(axis_index, slice_value);
+        }
+
+        pub fn slice_axis_view(self: Self, axis_index: isize, slice_value: Slice) ArrayError!ArrayView(T) {
+            return self.sliceAxisView(axis_index, slice_value);
         }
 
         pub fn sliceView(self: Self, slices: []const Slice) ArrayError!ArrayView(T) {
@@ -9528,16 +9540,48 @@ pub fn Array(comptime T: type) type {
             return base.slice(slices);
         }
 
+        pub fn slice_view(self: Self, slices: []const Slice) ArrayError!ArrayView(T) {
+            return self.sliceView(slices);
+        }
+
         pub fn selectView(self: Self, axis_index: isize, index: usize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.select(axis_index, index);
         }
 
+        pub fn select_view(self: Self, axis_index: isize, index: usize) ArrayError!ArrayView(T) {
+            return self.selectView(axis_index, index);
+        }
+
+        pub fn selectSignedView(self: Self, axis_index: isize, index: isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.selectSigned(axis_index, index);
+        }
+
+        pub fn select_signed_view(self: Self, axis_index: isize, index: isize) ArrayError!ArrayView(T) {
+            return self.selectSignedView(axis_index, index);
+        }
+
         pub fn narrowView(self: Self, axis_index: isize, start: usize, length: usize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.narrow(axis_index, start, length);
+        }
+
+        pub fn narrow_view(self: Self, axis_index: isize, start: usize, length: usize) ArrayError!ArrayView(T) {
+            return self.narrowView(axis_index, start, length);
+        }
+
+        pub fn narrowSignedView(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.narrowSigned(axis_index, start, length);
+        }
+
+        pub fn narrow_signed_view(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!ArrayView(T) {
+            return self.narrowSignedView(axis_index, start, length);
         }
 
         pub fn permuteView(self: Self, axes: []const usize) ArrayError!ArrayView(T) {
@@ -19620,6 +19664,74 @@ test "array and view scalar and flat export helpers" {
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.item_value());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalarValue());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalar_value());
+}
+
+test "array zero-copy indexing view aliases" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
+    defer a.deinit();
+
+    var sliced_axis = try a.slice_axis_view(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer sliced_axis.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, sliced_axis.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, sliced_axis.strides);
+    try std.testing.expect(a.sharesStorageView(sliced_axis));
+    try sliced_axis.set(&.{ 0, 1 }, 30);
+    try std.testing.expectEqual(@as(f64, 30), a.data[2]);
+    try sliced_axis.set(&.{ 0, 1 }, 3);
+
+    var sliced_full = try a.slice_view(&.{
+        .{ .start = 0, .stop = 2, .step = 1 },
+        .{ .start = 1, .stop = 4, .step = 2 },
+    });
+    defer sliced_full.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, sliced_full.shape);
+    var sliced_full_owned = try sliced_full.toArray();
+    defer sliced_full_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 4, 6, 8 }, sliced_full_owned.data);
+
+    var selected = try a.select_view(0, 1);
+    defer selected.deinit();
+    try std.testing.expectEqualSlices(usize, &.{4}, selected.shape);
+    try std.testing.expectEqualSlices(usize, &.{1}, selected.strides);
+    try selected.set(&.{0}, 40);
+    try std.testing.expectEqual(@as(f64, 40), a.data[4]);
+    try selected.set(&.{0}, 5);
+
+    var selected_signed = try a.selectSignedView(0, -1);
+    defer selected_signed.deinit();
+    try std.testing.expectEqualSlices(usize, selected.shape, selected_signed.shape);
+    var selected_signed_snake = try a.select_signed_view(0, -1);
+    defer selected_signed_snake.deinit();
+    try std.testing.expectEqualSlices(usize, selected.shape, selected_signed_snake.shape);
+
+    var narrowed = try a.narrow_view(1, 1, 2);
+    defer narrowed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, narrowed.shape);
+    var narrowed_owned = try narrowed.toArray();
+    defer narrowed_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3, 6, 7 }, narrowed_owned.data);
+    var narrowed_signed = try a.narrowSignedView(1, -2, 2);
+    defer narrowed_signed.deinit();
+    var narrowed_signed_owned = try narrowed_signed.toArray();
+    defer narrowed_signed_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 4, 7, 8 }, narrowed_signed_owned.data);
+    var narrowed_signed_snake = try a.narrow_signed_view(1, -2, 2);
+    defer narrowed_signed_snake.deinit();
+    var narrowed_signed_snake_owned = try narrowed_signed_snake.toArray();
+    defer narrowed_signed_snake_owned.deinit();
+    try std.testing.expectEqualSlices(f64, narrowed_signed_owned.data, narrowed_signed_snake_owned.data);
+
+    var unfolded = try a.unfoldView(1, 2, 1);
+    defer unfolded.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3, 2 }, unfolded.shape);
+    var unfolded_snake = try a.unfold_view(1, 2, 1);
+    defer unfolded_snake.deinit();
+    try std.testing.expectEqualSlices(usize, unfolded.shape, unfolded_snake.shape);
+
+    try std.testing.expectError(error.IndexOutOfBounds, a.selectSignedView(0, -3));
+    try std.testing.expectError(error.IndexOutOfBounds, a.narrowSignedView(1, -1, 2));
+    try std.testing.expectError(error.InvalidShape, a.unfoldView(1, 0, 1));
 }
 
 test "array and view zero-copy squeeze unsqueeze aliases" {
