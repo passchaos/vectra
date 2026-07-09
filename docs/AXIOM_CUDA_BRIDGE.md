@@ -49,8 +49,10 @@ unavailable.  The current automatic dispatch covers same-shape `add`, same-shape
 - `enabled()`
 - `planArrayF32(array, name)`
 - `tryAddF32(lhs, rhs)`
+- `trySubF32(lhs, rhs)`
 - `tryMulF32(lhs, rhs)`
 - `tryAddViewF32(lhs_view, rhs_view)`
+- `trySubViewF32(lhs_view, rhs_view)`
 - `tryMulViewF32(lhs_view, rhs_view)`
 - `trySaxpyF32(alpha, x, y)`
 - `tryAddScalarF32(input, scalar)`
