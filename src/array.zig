@@ -4590,6 +4590,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.sliceAxis(axis_index, .{ .start = @intCast(start), .stop = @intCast(start + length), .step = 1 });
         }
 
+        pub fn narrowSigned(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!Self {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const normalized_start = try normalizeIndex(start, self.shape[axis]);
+            return self.narrow(axis_index, normalized_start, length);
+        }
+
+        pub fn narrow_signed(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!Self {
+            return self.narrowSigned(axis_index, start, length);
+        }
+
         pub fn select(self: Self, axis_index: isize, index: usize) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
@@ -7154,6 +7164,16 @@ pub fn Array(comptime T: type) type {
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
+        }
+
+        pub fn narrowSigned(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!Self {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const normalized_start = try normalizeIndex(start, self.shape[axis]);
+            return self.narrow(axis_index, normalized_start, length);
+        }
+
+        pub fn narrow_signed(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!Self {
+            return self.narrowSigned(axis_index, start, length);
         }
 
         pub const SplitResult = struct {
@@ -14107,6 +14127,10 @@ test "array pytorch numpy shape indexing and layout helpers" {
     defer n.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, n.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5, 6 }, n.data);
+    var n_signed = try a.narrow_signed(1, -2, 2);
+    defer n_signed.deinit();
+    try std.testing.expectEqualSlices(f64, n.data, n_signed.data);
+    try std.testing.expectError(error.IndexOutOfBounds, a.narrowSigned(1, -1, 2));
     var unbound_rows = try a.unbind(0);
     defer unbound_rows.deinit();
     try std.testing.expectEqual(@as(usize, 2), unbound_rows.items.len);
@@ -14367,6 +14391,12 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqualSlices(usize, &.{2}, unbound_view.items[0].shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, unbound_view.items[0].data);
     try std.testing.expectEqualSlices(f64, &.{ 3, 7 }, unbound_view.items[1].data);
+
+    var view_narrow_signed = try view.narrow_signed(1, -1, 1);
+    defer view_narrow_signed.deinit();
+    var view_narrow_signed_owned = try view_narrow_signed.toArray();
+    defer view_narrow_signed_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 7 }, view_narrow_signed_owned.data);
 
     var repeated = try view.repeat(2, 1);
     defer repeated.deinit();
