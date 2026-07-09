@@ -1185,6 +1185,30 @@ pub fn ArrayView(comptime T: type) type {
             return self.numel() * @sizeOf(T);
         }
 
+        pub fn storageOffset(self: Self) usize {
+            return self.offset;
+        }
+
+        pub fn storage_offset(self: Self) usize {
+            return self.storageOffset();
+        }
+
+        pub fn dataPtr(self: Self) [*]T {
+            return self.data.ptr + self.offset;
+        }
+
+        pub fn data_ptr(self: Self) [*]T {
+            return self.dataPtr();
+        }
+
+        pub fn storageDataPtr(self: Self) [*]T {
+            return self.data.ptr;
+        }
+
+        pub fn storage_data_ptr(self: Self) [*]T {
+            return self.storageDataPtr();
+        }
+
         pub fn sameShape(self: Self, other: Self) bool {
             return std.mem.eql(usize, self.shape, other.shape);
         }
@@ -7614,6 +7638,31 @@ pub fn Array(comptime T: type) type {
 
         pub fn nbytes(self: Self) usize {
             return self.numel() * @sizeOf(T);
+        }
+
+        pub fn storageOffset(self: Self) usize {
+            _ = self;
+            return 0;
+        }
+
+        pub fn storage_offset(self: Self) usize {
+            return self.storageOffset();
+        }
+
+        pub fn dataPtr(self: Self) [*]T {
+            return self.data.ptr;
+        }
+
+        pub fn data_ptr(self: Self) [*]T {
+            return self.dataPtr();
+        }
+
+        pub fn storageDataPtr(self: Self) [*]T {
+            return self.data.ptr;
+        }
+
+        pub fn storage_data_ptr(self: Self) [*]T {
+            return self.storageDataPtr();
         }
 
         pub fn sameShape(self: Self, other: Self) bool {
@@ -16472,6 +16521,12 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqual(@as(usize, 3), try a.strideAt(0));
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.elementSize());
     try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), a.nbytes());
+    try std.testing.expectEqual(@as(usize, 0), a.storageOffset());
+    try std.testing.expectEqual(@as(usize, 0), a.storage_offset());
+    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.dataPtr()));
+    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.data_ptr()));
+    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storageDataPtr()));
+    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storage_data_ptr()));
     try std.testing.expect(a.is_contiguous());
     try std.testing.expectEqual(@as(f64, 5), try a.at(&.{ 1, 1 }));
     var empty_meta = try Array(f64).zeros(gpa, &.{ 0, 3 });
@@ -16790,6 +16845,10 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqual(@as(usize, 2), try view.strideAt(1));
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), view.elementSize());
     try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), view.nbytes());
+    try std.testing.expectEqual(@as(usize, 0), view.storageOffset());
+    try std.testing.expectEqual(@as(usize, 0), view.storage_offset());
+    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(view.dataPtr()));
+    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(view.storageDataPtr()));
     try std.testing.expect(!view.is_contiguous());
     var view_zeros = try view.zerosLike();
     defer view_zeros.deinit();
@@ -18391,6 +18450,11 @@ test "array object asStrided view helpers" {
 
     var shifted = try base.asStrided(&.{ 2, 2 }, &.{ 2, 1 }, 1);
     defer shifted.deinit();
+    try std.testing.expectEqual(@as(usize, 1), shifted.storageOffset());
+    try std.testing.expectEqual(@as(usize, 1), shifted.storage_offset());
+    try std.testing.expectEqual(@intFromPtr(base.data.ptr) + @sizeOf(f64), @intFromPtr(shifted.dataPtr()));
+    try std.testing.expectEqual(@intFromPtr(base.data.ptr), @intFromPtr(shifted.storageDataPtr()));
+    try std.testing.expectEqual(@intFromPtr(shifted.dataPtr()), @intFromPtr(shifted.data_ptr()));
     var shifted_owned = try shifted.toArray();
     defer shifted_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 20, 3, 4, 5 }, shifted_owned.data);
