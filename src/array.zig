@@ -1566,6 +1566,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.diagonalAxesView(offset, axis1, axis2);
         }
 
+        pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) ArrayError!void {
+            var diag_view = try self.diagonalAxesView(offset, axis1, axis2);
+            defer diag_view.deinit();
+            return diag_view.fill(value);
+        }
+
+        pub fn fill_diagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) ArrayError!void {
+            return self.fillDiagonal(value, offset, axis1, axis2);
+        }
+
         pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!Self {
             if (window_size == 0 or step == 0) return error.InvalidShape;
             if (self.shape.len == 0) return error.InvalidAxis;
@@ -7604,6 +7614,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn diagonal_axes_view(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!ArrayView(T) {
             return self.diagonalAxesView(offset, axis1, axis2);
+        }
+
+        pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) ArrayError!void {
+            var diag_view = try self.diagonalAxesView(offset, axis1, axis2);
+            defer diag_view.deinit();
+            return diag_view.fill(value);
+        }
+
+        pub fn fill_diagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) ArrayError!void {
+            return self.fillDiagonal(value, offset, axis1, axis2);
         }
 
         pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!ArrayView(T) {
@@ -20225,7 +20245,26 @@ test "array creation like scalar diag and diagflat" {
     var view_diag_owned = try view_diag.toArray();
     defer view_diag_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 6, 11, 15 }, view_diag_owned.data);
+    try a.fillDiagonal(7, 0, 0, 1);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 20, 3, 4, 7, 6 }, a.data);
+    try a.fill_diagonal(8, 1, 0, 1);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 4, 7, 8 }, a.data);
+    try cube.fillDiagonal(-1, 0, 1, 2);
+    try std.testing.expectEqualSlices(f64, &.{
+        -1, 2,  3,
+        4,  -1, 6,
+        7,  8,  -1,
+        -1, 11, 12,
+        13, -1, 15,
+        16, 17, -1,
+    }, cube.data);
+    try cube_view.fill_diagonal(99, 1, -2, -1);
+    try std.testing.expectEqual(@as(f64, 99), cube.data[1]);
+    try std.testing.expectEqual(@as(f64, 99), cube.data[5]);
+    try std.testing.expectEqual(@as(f64, 99), cube.data[10]);
+    try std.testing.expectEqual(@as(f64, 99), cube.data[14]);
     try std.testing.expectError(error.InvalidAxis, cube.diagonalAxesView(0, 1, 1));
+    try std.testing.expectError(error.InvalidAxis, cube.fillDiagonal(0, 0, 1, 1));
 
     var ident = try Array(f64).identity(gpa, 3);
     defer ident.deinit();
