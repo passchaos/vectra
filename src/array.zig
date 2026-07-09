@@ -988,6 +988,11 @@ fn normalizeSlice(s: Slice, len: usize) ArrayError!struct { start: usize, stop: 
     return .{ .start = u_start, .stop = u_stop, .step = u_step, .count = count };
 }
 
+fn usizeToPositiveIsize(value: usize) ArrayError!isize {
+    if (value > @as(usize, @intCast(std.math.maxInt(isize)))) return error.InvalidShape;
+    return @intCast(value);
+}
+
 fn inferredShape(allocator: std.mem.Allocator, dims: []const isize, element_count: usize) ArrayError![]usize {
     if (dims.len == 0) {
         if (element_count != 1) return error.ShapeMismatch;
@@ -9452,6 +9457,44 @@ pub fn Array(comptime T: type) type {
         fn fromVeyraVectorF64(allocator: std.mem.Allocator, vector: *const veyra.Vector(f64)) ArrayError!Self {
             if (comptime T != f64) @compileError("Veyra dense backend path requires Array(f64)");
             return Self.fromSlice(allocator, vector.data, &.{vector.len()});
+        }
+
+        fn matmul2dContiguousF64(self: Self, other: Self) ArrayError!Self {
+            if (comptime T != f64) @compileError("Veyra dense matmul fast path requires Array(f64)");
+            if (self.shape.len != 2 or other.shape.len != 2) return error.NonMatrixArray;
+            if (self.shape[1] != other.shape[0]) return error.ShapeMismatch;
+            if (!self.isContiguous() or !other.isContiguous()) return error.InvalidShape;
+
+            var out = try Self.empty(self.allocator, &.{ self.shape[0], other.shape[1] });
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            if (self.shape[1] == 0) {
+                @memset(out.data, 0);
+                return out;
+            }
+
+            const lhs = veyra.MatrixView(f64).fromStridedSlice(
+                self.data,
+                self.shape[0],
+                self.shape[1],
+                try usizeToPositiveIsize(self.strides[0]),
+                try usizeToPositiveIsize(self.strides[1]),
+            ) catch |err| return mapVeyraArrayError(err);
+            const rhs = veyra.MatrixView(f64).fromStridedSlice(
+                other.data,
+                other.shape[0],
+                other.shape[1],
+                try usizeToPositiveIsize(other.strides[0]),
+                try usizeToPositiveIsize(other.strides[1]),
+            ) catch |err| return mapVeyraArrayError(err);
+            const dst = veyra.MatrixMut(f64).fromSlice(
+                out.data,
+                out.shape[0],
+                out.shape[1],
+                .row_major,
+            ) catch |err| return mapVeyraArrayError(err);
+            veyra.matmul(f64, lhs, rhs, dst) catch |err| return mapVeyraArrayError(err);
+            return out;
         }
 
         pub fn det(self: Self) ArrayError!T {
@@ -18818,6 +18861,14 @@ pub fn Array(comptime T: type) type {
             if (lhs_k != rhs_k) return error.ShapeMismatch;
 
             if (lhs_vec and rhs_vec) return self.dot(other);
+            if (comptime T == f64) {
+                if (!lhs_vec and !rhs_vec and
+                    self.shape.len == 2 and other.shape.len == 2 and
+                    self.isContiguous() and other.isContiguous())
+                {
+                    return self.matmul2dContiguousF64(other);
+                }
+            }
 
             const lhs_batch = if (lhs_vec) self.shape[0..0] else self.shape[0 .. self.shape.len - 2];
             const rhs_batch = if (rhs_vec) other.shape[0..0] else other.shape[0 .. other.shape.len - 2];
@@ -21197,6 +21248,24 @@ test "array object generalized matmul semantics" {
     var vm_alias = try vm_rhs_view.T_();
     defer vm_alias.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, vm_alias.shape);
+
+    var lhs2 = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer lhs2.deinit();
+    var rhs2 = try Array(f64).fromSlice(gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
+    defer rhs2.deinit();
+    var mm_out = try lhs2.mm(rhs2);
+    defer mm_out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, mm_out.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 58, 64, 139, 154 }, mm_out.data);
+
+    var empty_lhs = try Array(f64).empty(gpa, &.{ 2, 0 });
+    defer empty_lhs.deinit();
+    var empty_rhs = try Array(f64).empty(gpa, &.{ 0, 3 });
+    defer empty_rhs.deinit();
+    var empty_mm = try empty_lhs.matmul(empty_rhs);
+    defer empty_mm.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, empty_mm.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0, 0, 0 }, empty_mm.data);
 
     var batch_a = try Array(f64).fromSlice(gpa, &.{
         1, 2, 3, 4,
