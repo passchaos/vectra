@@ -3347,6 +3347,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.diff(axis_index, n);
         }
 
+        pub fn ediff1d(self: Self, prepend: ?Array(T), append: ?Array(T)) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.ediff1d(prepend, append);
+        }
+
         pub fn trapezoid(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -12200,6 +12206,32 @@ pub fn Array(comptime T: type) type {
                 current = next;
             }
             return current;
+        }
+
+        pub fn ediff1d(self: Self, prepend: ?Self, append: ?Self) ArrayError!Self {
+            ensureNumeric(T);
+            const diff_len = if (self.data.len == 0) 0 else self.data.len - 1;
+            const prepend_len = if (prepend) |values| values.data.len else 0;
+            const append_len = if (append) |values| values.data.len else 0;
+            const out_len = std.math.add(usize, prepend_len, diff_len) catch return error.InvalidShape;
+            const total_len = std.math.add(usize, out_len, append_len) catch return error.InvalidShape;
+            var out = try Self.empty(self.allocator, &.{total_len});
+            errdefer out.deinit();
+            var write: usize = 0;
+            if (prepend) |values| {
+                @memcpy(out.data[write..][0..values.data.len], values.data);
+                write += values.data.len;
+            }
+            if (self.data.len >= 2) {
+                for (self.data[1..], self.data[0 .. self.data.len - 1]) |rhs, lhs| {
+                    out.data[write] = rhs - lhs;
+                    write += 1;
+                }
+            }
+            if (append) |values| {
+                @memcpy(out.data[write..][0..values.data.len], values.data);
+            }
+            return out;
         }
 
         fn diffOnce(self: Self, axis_index: isize) ArrayError!Self {
