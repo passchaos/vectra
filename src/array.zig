@@ -14008,9 +14008,155 @@ pub fn Array(comptime T: type) type {
             return self.scatterReduceScalar(axis_index, indices, value, .sum);
         }
 
+        fn binaryArraySimdLanes(
+            comptime lanes: usize,
+            out: []T,
+            lhs: []const T,
+            rhs: []const T,
+            comptime op: fn (T, T) T,
+        ) bool {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            if (comptime op == opAdd) {
+                while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+                    const a0: Vec = lhs[i..][0..lanes].*;
+                    const b0: Vec = rhs[i..][0..lanes].*;
+                    const a1: Vec = lhs[i + lanes ..][0..lanes].*;
+                    const b1: Vec = rhs[i + lanes ..][0..lanes].*;
+                    out[i..][0..lanes].* = a0 + b0;
+                    out[i + lanes ..][0..lanes].* = a1 + b1;
+                }
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a + b;
+                }
+            } else if (comptime op == opSub) {
+                while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+                    const a0: Vec = lhs[i..][0..lanes].*;
+                    const b0: Vec = rhs[i..][0..lanes].*;
+                    const a1: Vec = lhs[i + lanes ..][0..lanes].*;
+                    const b1: Vec = rhs[i + lanes ..][0..lanes].*;
+                    out[i..][0..lanes].* = a0 - b0;
+                    out[i + lanes ..][0..lanes].* = a1 - b1;
+                }
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a - b;
+                }
+            } else if (comptime op == opMul) {
+                while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+                    const a0: Vec = lhs[i..][0..lanes].*;
+                    const b0: Vec = rhs[i..][0..lanes].*;
+                    const a1: Vec = lhs[i + lanes ..][0..lanes].*;
+                    const b1: Vec = rhs[i + lanes ..][0..lanes].*;
+                    out[i..][0..lanes].* = a0 * b0;
+                    out[i + lanes ..][0..lanes].* = a1 * b1;
+                }
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a * b;
+                }
+            } else if (comptime op == opDiv) {
+                while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+                    const a0: Vec = lhs[i..][0..lanes].*;
+                    const b0: Vec = rhs[i..][0..lanes].*;
+                    const a1: Vec = lhs[i + lanes ..][0..lanes].*;
+                    const b1: Vec = rhs[i + lanes ..][0..lanes].*;
+                    out[i..][0..lanes].* = a0 / b0;
+                    out[i + lanes ..][0..lanes].* = a1 / b1;
+                }
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = lhs[i..][0..lanes].*;
+                    const b: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a / b;
+                }
+            } else {
+                return false;
+            }
+            while (i < out.len) : (i += 1) out[i] = op(lhs[i], rhs[i]);
+            return true;
+        }
+
+        fn binaryArraySimd(out: []T, lhs: []const T, rhs: []const T, comptime op: fn (T, T) T) bool {
+            if (comptime T == f64) return binaryArraySimdLanes(4, out, lhs, rhs, op);
+            if (comptime T == f32) return binaryArraySimdLanes(8, out, lhs, rhs, op);
+            return false;
+        }
+
+        fn binaryScalarSimdLanes(
+            comptime lanes: usize,
+            out: []T,
+            input: []const T,
+            scalar: T,
+            comptime op: fn (T, T) T,
+        ) bool {
+            const Vec = @Vector(lanes, T);
+            const scalar_vec: Vec = @splat(scalar);
+            var i: usize = 0;
+            if (comptime op == opAdd) {
+                while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+                    const a0: Vec = input[i..][0..lanes].*;
+                    const a1: Vec = input[i + lanes ..][0..lanes].*;
+                    out[i..][0..lanes].* = a0 + scalar_vec;
+                    out[i + lanes ..][0..lanes].* = a1 + scalar_vec;
+                }
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a + scalar_vec;
+                }
+            } else if (comptime op == opSub) {
+                while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+                    const a0: Vec = input[i..][0..lanes].*;
+                    const a1: Vec = input[i + lanes ..][0..lanes].*;
+                    out[i..][0..lanes].* = a0 - scalar_vec;
+                    out[i + lanes ..][0..lanes].* = a1 - scalar_vec;
+                }
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a - scalar_vec;
+                }
+            } else if (comptime op == opMul) {
+                while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+                    const a0: Vec = input[i..][0..lanes].*;
+                    const a1: Vec = input[i + lanes ..][0..lanes].*;
+                    out[i..][0..lanes].* = a0 * scalar_vec;
+                    out[i + lanes ..][0..lanes].* = a1 * scalar_vec;
+                }
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a * scalar_vec;
+                }
+            } else if (comptime op == opDiv) {
+                while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+                    const a0: Vec = input[i..][0..lanes].*;
+                    const a1: Vec = input[i + lanes ..][0..lanes].*;
+                    out[i..][0..lanes].* = a0 / scalar_vec;
+                    out[i + lanes ..][0..lanes].* = a1 / scalar_vec;
+                }
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const a: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = a / scalar_vec;
+                }
+            } else {
+                return false;
+            }
+            while (i < out.len) : (i += 1) out[i] = op(input[i], scalar);
+            return true;
+        }
+
+        fn binaryScalarSimd(out: []T, input: []const T, scalar: T, comptime op: fn (T, T) T) bool {
+            if (comptime T == f64) return binaryScalarSimdLanes(4, out, input, scalar, op);
+            if (comptime T == f32) return binaryScalarSimdLanes(8, out, input, scalar, op);
+            return false;
+        }
+
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
             if (std.mem.eql(usize, self.shape, other.shape)) {
                 const out = try Self.empty(self.allocator, self.shape);
+                if (binaryArraySimd(out.data, self.data, other.data, op)) return out;
                 for (self.data, other.data, out.data) |lhs, rhs, *slot| {
                     slot.* = op(lhs, rhs);
                 }
@@ -14055,6 +14201,7 @@ pub fn Array(comptime T: type) type {
 
         fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Self {
             const out = try Self.empty(self.allocator, self.shape);
+            if (binaryScalarSimd(out.data, self.data, scalar, op)) return out;
             for (self.data, out.data) |v, *slot| slot.* = op(v, scalar);
             return out;
         }
@@ -20442,6 +20589,34 @@ test "array binary math wrappers and clamp aliases" {
     var same_shape_multiplied = try a.mul(same_shape_rhs);
     defer same_shape_multiplied.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 40, 90, 160 }, same_shape_multiplied.data);
+    var same_shape_subbed = try a.sub(same_shape_rhs);
+    defer same_shape_subbed.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -9, -18, -27, -36 }, same_shape_subbed.data);
+    var same_shape_divided = try same_shape_rhs.div(a);
+    defer same_shape_divided.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 10, 10, 10 }, same_shape_divided.data);
+    var scalar_added = try a.addScalar(0.5);
+    defer scalar_added.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 2.5, 3.5, 4.5 }, scalar_added.data);
+    var scalar_subbed = try a.subScalar(0.5);
+    defer scalar_subbed.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 1.5, 2.5, 3.5 }, scalar_subbed.data);
+    var scalar_multiplied = try a.mulScalar(2);
+    defer scalar_multiplied.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 4, 6, 8 }, scalar_multiplied.data);
+    var scalar_divided = try scalar_multiplied.divScalar(2);
+    defer scalar_divided.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, scalar_divided.data);
+    var f32_values = try Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
+    defer f32_values.deinit();
+    var f32_rhs = try Array(f32).fromSlice(gpa, &.{ 8, 7, 6, 5, 4, 3, 2, 1 }, &.{ 2, 4 });
+    defer f32_rhs.deinit();
+    var f32_added = try f32_values.add(f32_rhs);
+    defer f32_added.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ 9, 9, 9, 9, 9, 9, 9, 9 }, f32_added.data);
+    var f32_scaled = try f32_values.mulScalar(0.5);
+    defer f32_scaled.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4 }, f32_scaled.data);
     var subbed = try a.sub(b);
     defer subbed.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -9, -18, -7, -16 }, subbed.data);
