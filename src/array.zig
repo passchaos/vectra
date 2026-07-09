@@ -6946,6 +6946,14 @@ pub fn ArrayView(comptime T: type) type {
             };
         }
 
+        pub fn permuteView(self: Self, axes: []const usize) ArrayError!Self {
+            return self.permute(axes);
+        }
+
+        pub fn permute_view(self: Self, axes: []const usize) ArrayError!Self {
+            return self.permuteView(axes);
+        }
+
         pub fn swapaxes(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
             const a0 = try normalizeDim(dim0, self.shape.len);
             const a1 = try normalizeDim(dim1, self.shape.len);
@@ -6956,12 +6964,28 @@ pub fn ArrayView(comptime T: type) type {
             return self.permute(axes);
         }
 
+        pub fn swapaxesView(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
+            return self.swapaxes(dim0, dim1);
+        }
+
+        pub fn swapaxes_view(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
+            return self.swapaxesView(dim0, dim1);
+        }
+
         pub fn swapDims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
             return self.swapaxes(dim0, dim1);
         }
 
         pub fn swap_dims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
             return self.swapDims(dim0, dim1);
+        }
+
+        pub fn swapDimsView(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
+            return self.swapDims(dim0, dim1);
+        }
+
+        pub fn swap_dims_view(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
+            return self.swapDimsView(dim0, dim1);
         }
 
         pub fn movedim(self: Self, source: isize, destination: isize) ArrayError!Self {
@@ -6989,8 +7013,24 @@ pub fn ArrayView(comptime T: type) type {
             return self.permute(axes);
         }
 
+        pub fn movedimView(self: Self, source: isize, destination: isize) ArrayError!Self {
+            return self.movedim(source, destination);
+        }
+
+        pub fn movedim_view(self: Self, source: isize, destination: isize) ArrayError!Self {
+            return self.movedimView(source, destination);
+        }
+
         pub fn moveaxis(self: Self, source: isize, destination: isize) ArrayError!Self {
             return self.movedim(source, destination);
+        }
+
+        pub fn moveaxisView(self: Self, source: isize, destination: isize) ArrayError!Self {
+            return self.moveaxis(source, destination);
+        }
+
+        pub fn moveaxis_view(self: Self, source: isize, destination: isize) ArrayError!Self {
+            return self.moveaxisView(source, destination);
         }
 
         pub fn moveaxes(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
@@ -7003,6 +7043,18 @@ pub fn ArrayView(comptime T: type) type {
             return self.moveaxes(sources, destinations);
         }
 
+        pub fn moveaxesView(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
+            return self.moveaxes(sources, destinations);
+        }
+
+        pub fn moveaxes_view(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
+            return self.moveaxesView(sources, destinations);
+        }
+
+        pub fn move_axes_view(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
+            return self.moveaxesView(sources, destinations);
+        }
+
         pub fn transpose(self: Self) ArrayError!Self {
             if (self.shape.len != 2) return error.NonMatrixArray;
             return self.swapaxes(0, 1);
@@ -7010,6 +7062,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn T_(self: Self) ArrayError!Self {
             return self.transpose();
+        }
+
+        pub fn transposeView(self: Self) ArrayError!Self {
+            return self.transpose();
+        }
+
+        pub fn transpose_view(self: Self) ArrayError!Self {
+            return self.transposeView();
+        }
+
+        pub fn TView(self: Self) ArrayError!Self {
+            return self.transposeView();
+        }
+
+        pub fn T_view(self: Self) ArrayError!Self {
+            return self.TView();
         }
 
         pub fn matrixTranspose(self: Self) ArrayError!Self {
@@ -7023,6 +7091,22 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn mT(self: Self) ArrayError!Self {
             return self.matrixTranspose();
+        }
+
+        pub fn matrixTransposeView(self: Self) ArrayError!Self {
+            return self.matrixTranspose();
+        }
+
+        pub fn matrix_transpose_view(self: Self) ArrayError!Self {
+            return self.matrixTransposeView();
+        }
+
+        pub fn mTView(self: Self) ArrayError!Self {
+            return self.matrixTransposeView();
+        }
+
+        pub fn mT_view(self: Self) ArrayError!Self {
+            return self.mTView();
         }
 
         pub fn adjoint(self: Self) ArrayError!Array(T) {
@@ -9590,10 +9674,26 @@ pub fn Array(comptime T: type) type {
             return base.permute(axes);
         }
 
+        pub fn permute_view(self: Self, axes: []const usize) ArrayError!ArrayView(T) {
+            return self.permuteView(axes);
+        }
+
         pub fn swapaxesView(self: Self, dim0: isize, dim1: isize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.swapaxes(dim0, dim1);
+        }
+
+        pub fn swapaxes_view(self: Self, dim0: isize, dim1: isize) ArrayError!ArrayView(T) {
+            return self.swapaxesView(dim0, dim1);
+        }
+
+        pub fn swapDimsView(self: Self, dim0: isize, dim1: isize) ArrayError!ArrayView(T) {
+            return self.swapaxesView(dim0, dim1);
+        }
+
+        pub fn swap_dims_view(self: Self, dim0: isize, dim1: isize) ArrayError!ArrayView(T) {
+            return self.swapDimsView(dim0, dim1);
         }
 
         pub fn movedimView(self: Self, source: isize, destination: isize) ArrayError!ArrayView(T) {
@@ -9602,10 +9702,66 @@ pub fn Array(comptime T: type) type {
             return base.movedim(source, destination);
         }
 
+        pub fn movedim_view(self: Self, source: isize, destination: isize) ArrayError!ArrayView(T) {
+            return self.movedimView(source, destination);
+        }
+
+        pub fn moveaxisView(self: Self, source: isize, destination: isize) ArrayError!ArrayView(T) {
+            return self.movedimView(source, destination);
+        }
+
+        pub fn moveaxis_view(self: Self, source: isize, destination: isize) ArrayError!ArrayView(T) {
+            return self.moveaxisView(source, destination);
+        }
+
+        pub fn moveaxesView(self: Self, sources: []const isize, destinations: []const isize) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.moveaxes(sources, destinations);
+        }
+
+        pub fn moveaxes_view(self: Self, sources: []const isize, destinations: []const isize) ArrayError!ArrayView(T) {
+            return self.moveaxesView(sources, destinations);
+        }
+
+        pub fn move_axes_view(self: Self, sources: []const isize, destinations: []const isize) ArrayError!ArrayView(T) {
+            return self.moveaxesView(sources, destinations);
+        }
+
         pub fn transposeView(self: Self) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.transpose();
+        }
+
+        pub fn transpose_view(self: Self) ArrayError!ArrayView(T) {
+            return self.transposeView();
+        }
+
+        pub fn TView(self: Self) ArrayError!ArrayView(T) {
+            return self.transposeView();
+        }
+
+        pub fn T_view(self: Self) ArrayError!ArrayView(T) {
+            return self.TView();
+        }
+
+        pub fn matrixTransposeView(self: Self) ArrayError!ArrayView(T) {
+            var base = try self.asView();
+            defer base.deinit();
+            return base.matrixTranspose();
+        }
+
+        pub fn matrix_transpose_view(self: Self) ArrayError!ArrayView(T) {
+            return self.matrixTransposeView();
+        }
+
+        pub fn mTView(self: Self) ArrayError!ArrayView(T) {
+            return self.matrixTransposeView();
+        }
+
+        pub fn mT_view(self: Self) ArrayError!ArrayView(T) {
+            return self.mTView();
         }
 
         pub fn broadcastView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
@@ -19664,6 +19820,153 @@ test "array and view scalar and flat export helpers" {
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.item_value());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalarValue());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalar_value());
+}
+
+test "array and view zero-copy permutation aliases" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+
+    var p = try a.permuteView(&.{ 1, 0 });
+    defer p.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, p.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, p.strides);
+    try std.testing.expect(a.sharesStorageView(p));
+    try p.set(&.{ 1, 0 }, 20);
+    try std.testing.expectEqual(@as(f64, 20), a.data[1]);
+    try p.set(&.{ 1, 0 }, 2);
+    var p_snake = try a.permute_view(&.{ 1, 0 });
+    defer p_snake.deinit();
+    try std.testing.expectEqualSlices(usize, p.shape, p_snake.shape);
+
+    var swapped = try a.swapaxesView(0, 1);
+    defer swapped.deinit();
+    try std.testing.expectEqualSlices(usize, p.shape, swapped.shape);
+    var swapped_snake = try a.swapaxes_view(0, 1);
+    defer swapped_snake.deinit();
+    try std.testing.expectEqualSlices(usize, swapped.shape, swapped_snake.shape);
+    var swap_dims = try a.swapDimsView(0, 1);
+    defer swap_dims.deinit();
+    try std.testing.expectEqualSlices(usize, swapped.shape, swap_dims.shape);
+    var swap_dims_snake = try a.swap_dims_view(0, 1);
+    defer swap_dims_snake.deinit();
+    try std.testing.expectEqualSlices(usize, swapped.shape, swap_dims_snake.shape);
+
+    var moved = try a.movedimView(0, 1);
+    defer moved.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, moved.shape);
+    var moved_snake = try a.movedim_view(0, 1);
+    defer moved_snake.deinit();
+    try std.testing.expectEqualSlices(usize, moved.shape, moved_snake.shape);
+    var moveaxis = try a.moveaxisView(0, 1);
+    defer moveaxis.deinit();
+    try std.testing.expectEqualSlices(usize, moved.shape, moveaxis.shape);
+    var moveaxis_snake = try a.moveaxis_view(0, 1);
+    defer moveaxis_snake.deinit();
+    try std.testing.expectEqualSlices(usize, moved.shape, moveaxis_snake.shape);
+    var moveaxes = try a.moveaxesView(&.{ 0, 1 }, &.{ 1, 0 });
+    defer moveaxes.deinit();
+    try std.testing.expectEqualSlices(usize, p.shape, moveaxes.shape);
+    var moveaxes_snake = try a.moveaxes_view(&.{ 0, 1 }, &.{ 1, 0 });
+    defer moveaxes_snake.deinit();
+    try std.testing.expectEqualSlices(usize, moveaxes.shape, moveaxes_snake.shape);
+    var move_axes_snake = try a.move_axes_view(&.{ 0, 1 }, &.{ 1, 0 });
+    defer move_axes_snake.deinit();
+    try std.testing.expectEqualSlices(usize, moveaxes.shape, move_axes_snake.shape);
+
+    var t = try a.transposeView();
+    defer t.deinit();
+    try std.testing.expectEqualSlices(usize, p.shape, t.shape);
+    var t_snake = try a.transpose_view();
+    defer t_snake.deinit();
+    try std.testing.expectEqualSlices(usize, t.shape, t_snake.shape);
+    var t_alias = try a.TView();
+    defer t_alias.deinit();
+    try std.testing.expectEqualSlices(usize, t.shape, t_alias.shape);
+    var t_alias_snake = try a.T_view();
+    defer t_alias_snake.deinit();
+    try std.testing.expectEqualSlices(usize, t.shape, t_alias_snake.shape);
+
+    var mt = try a.matrixTransposeView();
+    defer mt.deinit();
+    try std.testing.expectEqualSlices(usize, t.shape, mt.shape);
+    var mt_snake = try a.matrix_transpose_view();
+    defer mt_snake.deinit();
+    try std.testing.expectEqualSlices(usize, mt.shape, mt_snake.shape);
+    var mt_alias = try a.mTView();
+    defer mt_alias.deinit();
+    try std.testing.expectEqualSlices(usize, mt.shape, mt_alias.shape);
+    var mt_alias_snake = try a.mT_view();
+    defer mt_alias_snake.deinit();
+    try std.testing.expectEqualSlices(usize, mt.shape, mt_alias_snake.shape);
+    var cube = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 2, 2 });
+    defer cube.deinit();
+    var cube_mt = try cube.matrixTransposeView();
+    defer cube_mt.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, cube_mt.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 4, 1, 2 }, cube_mt.strides);
+
+    var view = try a.asView();
+    defer view.deinit();
+    var vp = try view.permuteView(&.{ 1, 0 });
+    defer vp.deinit();
+    try std.testing.expectEqualSlices(usize, p.shape, vp.shape);
+    var vp_snake = try view.permute_view(&.{ 1, 0 });
+    defer vp_snake.deinit();
+    try std.testing.expectEqualSlices(usize, vp.shape, vp_snake.shape);
+    var vswap = try view.swapaxesView(0, 1);
+    defer vswap.deinit();
+    try std.testing.expectEqualSlices(usize, p.shape, vswap.shape);
+    var vswap_snake = try view.swapaxes_view(0, 1);
+    defer vswap_snake.deinit();
+    try std.testing.expectEqualSlices(usize, vswap.shape, vswap_snake.shape);
+    var vswap_dim = try view.swapDimsView(0, 1);
+    defer vswap_dim.deinit();
+    try std.testing.expectEqualSlices(usize, vswap.shape, vswap_dim.shape);
+    var vswap_dim_snake = try view.swap_dims_view(0, 1);
+    defer vswap_dim_snake.deinit();
+    try std.testing.expectEqualSlices(usize, vswap.shape, vswap_dim_snake.shape);
+    var vmoved = try view.movedimView(0, 1);
+    defer vmoved.deinit();
+    try std.testing.expectEqualSlices(usize, p.shape, vmoved.shape);
+    var vmoved_snake = try view.movedim_view(0, 1);
+    defer vmoved_snake.deinit();
+    try std.testing.expectEqualSlices(usize, vmoved.shape, vmoved_snake.shape);
+    var vmoveaxis = try view.moveaxisView(0, 1);
+    defer vmoveaxis.deinit();
+    try std.testing.expectEqualSlices(usize, vmoved.shape, vmoveaxis.shape);
+    var vmoveaxes = try view.moveaxesView(&.{ 0, 1 }, &.{ 1, 0 });
+    defer vmoveaxes.deinit();
+    try std.testing.expectEqualSlices(usize, p.shape, vmoveaxes.shape);
+    var vmove_axes_snake = try view.move_axes_view(&.{ 0, 1 }, &.{ 1, 0 });
+    defer vmove_axes_snake.deinit();
+    try std.testing.expectEqualSlices(usize, vmoveaxes.shape, vmove_axes_snake.shape);
+    var vt = try view.transposeView();
+    defer vt.deinit();
+    try std.testing.expectEqualSlices(usize, p.shape, vt.shape);
+    var vt_snake = try view.transpose_view();
+    defer vt_snake.deinit();
+    try std.testing.expectEqualSlices(usize, vt.shape, vt_snake.shape);
+    var vt_alias = try view.TView();
+    defer vt_alias.deinit();
+    try std.testing.expectEqualSlices(usize, vt.shape, vt_alias.shape);
+    var vt_alias_snake = try view.T_view();
+    defer vt_alias_snake.deinit();
+    try std.testing.expectEqualSlices(usize, vt.shape, vt_alias_snake.shape);
+    var vmt = try view.matrixTransposeView();
+    defer vmt.deinit();
+    try std.testing.expectEqualSlices(usize, vt.shape, vmt.shape);
+    var vmt_snake = try view.matrix_transpose_view();
+    defer vmt_snake.deinit();
+    try std.testing.expectEqualSlices(usize, vmt.shape, vmt_snake.shape);
+    try std.testing.expectError(error.InvalidPermutation, a.permuteView(&.{0}));
+    try std.testing.expectError(error.InvalidPermutation, view.permuteView(&.{ 0, 0 }));
+    var vector = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
+    defer vector.deinit();
+    try std.testing.expectError(error.NonMatrixArray, vector.transposeView());
+    var vector_view = try vector.asView();
+    defer vector_view.deinit();
+    try std.testing.expectError(error.NonMatrixArray, vector_view.transposeView());
 }
 
 test "array zero-copy indexing view aliases" {
