@@ -569,6 +569,32 @@ fn absValue(comptime T: type, value: T) T {
     };
 }
 
+fn isNanValue(comptime T: type, value: T) bool {
+    if (comptime T == BFloat16) return std.math.isNan(value.toF32());
+    return switch (@typeInfo(T)) {
+        .float => std.math.isNan(value),
+        else => @compileError("isNanValue requires a floating-point scalar"),
+    };
+}
+
+fn closeValue(comptime T: type, lhs: T, rhs: T, rtol: T, atol: T, equal_nan: bool) bool {
+    if (comptime T == BFloat16) {
+        const a = lhs.toF32();
+        const b = rhs.toF32();
+        if (std.math.isNan(a) or std.math.isNan(b)) return equal_nan and std.math.isNan(a) and std.math.isNan(b);
+        if (a == b) return true;
+        return @abs(a - b) <= atol.toF32() + rtol.toF32() * @abs(b);
+    }
+    return switch (@typeInfo(T)) {
+        .float => {
+            if (std.math.isNan(lhs) or std.math.isNan(rhs)) return equal_nan and std.math.isNan(lhs) and std.math.isNan(rhs);
+            if (lhs == rhs) return true;
+            return @abs(lhs - rhs) <= atol + rtol * @abs(rhs);
+        },
+        else => @compileError("closeValue requires a floating-point scalar"),
+    };
+}
+
 fn normalizeDim(dim: isize, rank: usize) ArrayError!usize {
     const signed_rank: isize = @intCast(rank);
     const normalized = if (dim < 0) signed_rank + dim else dim;
@@ -2511,6 +2537,18 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.isclose(rhs, rtol, atol);
         }
 
+        pub fn iscloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.iscloseEqualNan(rhs, rtol, atol, equal_nan);
+        }
+
+        pub fn isclose_equal_nan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
+            return self.iscloseEqualNan(other, rtol, atol, equal_nan);
+        }
+
         pub fn allclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!bool {
             var lhs = try self.toArray();
             defer lhs.deinit();
@@ -2519,12 +2557,44 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.allclose(rhs, rtol, atol);
         }
 
+        pub fn allcloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.allcloseEqualNan(rhs, rtol, atol, equal_nan);
+        }
+
+        pub fn allclose_equal_nan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
+            return self.allcloseEqualNan(other, rtol, atol, equal_nan);
+        }
+
         pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
             return self.ownedWith3(scalar, rtol, atol, Array(bool), Array(T).iscloseScalar);
         }
 
+        pub fn iscloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
+        pub fn isclose_scalar_equal_nan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
+            return self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
         pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!bool {
             return self.ownedWith3(scalar, rtol, atol, bool, Array(T).allcloseScalar);
+        }
+
+        pub fn allcloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
+        pub fn allclose_scalar_equal_nan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
+            return self.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
@@ -9382,6 +9452,10 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn allclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!bool {
+            return self.allcloseEqualNan(other, rtol, atol, false);
+        }
+
+        pub fn allcloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             ensureFloat(T);
             const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
@@ -9393,12 +9467,20 @@ pub fn Array(comptime T: type) type {
                 const bi = broadcastOffset(out_multi, out_shape.len, other.shape, other.strides);
                 const lhs = self.data[ai];
                 const rhs = other.data[bi];
-                if (@abs(lhs - rhs) > atol + rtol * @abs(rhs)) return false;
+                if (!closeValue(T, lhs, rhs, rtol, atol, equal_nan)) return false;
             }
             return true;
         }
 
+        pub fn allclose_equal_nan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
+            return self.allcloseEqualNan(other, rtol, atol, equal_nan);
+        }
+
         pub fn isclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
+            return self.iscloseEqualNan(other, rtol, atol, false);
+        }
+
+        pub fn iscloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
             ensureFloat(T);
             const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
@@ -9411,26 +9493,46 @@ pub fn Array(comptime T: type) type {
                 const bi = broadcastOffset(out_multi, out_shape.len, other.shape, other.strides);
                 const lhs = self.data[ai];
                 const rhs = other.data[bi];
-                slot.* = @abs(lhs - rhs) <= atol + rtol * @abs(rhs);
+                slot.* = closeValue(T, lhs, rhs, rtol, atol, equal_nan);
             }
             return out;
+        }
+
+        pub fn isclose_equal_nan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
+            return self.iscloseEqualNan(other, rtol, atol, equal_nan);
         }
 
         pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
+            return self.iscloseScalarEqualNan(scalar, rtol, atol, false);
+        }
+
+        pub fn iscloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
             ensureFloat(T);
             const out = try Array(bool).empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
-                slot.* = @abs(value - scalar) <= atol + rtol * @abs(scalar);
+                slot.* = closeValue(T, value, scalar, rtol, atol, equal_nan);
             }
             return out;
         }
 
+        pub fn isclose_scalar_equal_nan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
+            return self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
         pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!bool {
+            return self.allcloseScalarEqualNan(scalar, rtol, atol, false);
+        }
+
+        pub fn allcloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             ensureFloat(T);
             for (self.data) |value| {
-                if (@abs(value - scalar) > atol + rtol * @abs(scalar)) return false;
+                if (!closeValue(T, value, scalar, rtol, atol, equal_nan)) return false;
             }
             return true;
+        }
+
+        pub fn allclose_scalar_equal_nan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
+            return self.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
         fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
@@ -14926,6 +15028,9 @@ test "array view object statistics wrappers" {
     var view_norm_axes = try view.normAxes(1, &.{ 0, 1 }, false);
     defer view_norm_axes.deinit();
     try std.testing.expect(std.math.isNan(view_norm_axes.data[0]));
+    var view_close_nan = try view.iscloseEqualNan(view, 1e-5, 1e-8, true);
+    defer view_close_nan.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true }, view_close_nan.data);
     var view_nanmedian_axes = try view.nanmedianAxes(&.{ 0, 1 }, false);
     defer view_nanmedian_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{4}, view_nanmedian_axes.data);
