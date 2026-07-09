@@ -29,7 +29,7 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
 - CSV read/write with simple type inference.
 - Array IO helpers: `toBytes/fromBytes` for raw data, `toArchive/fromArchive` for a simple dtype+shape binary archive, and object-style file helpers `saveArchive/saveArchiveToDir` plus `loadArchive/loadArchiveFromDir`.
-- Device API placeholder (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`/`ArrayView`) for future CuPy/PyTorch-like GPU backends; optional `vx.axiom_cuda` can route contiguous same-shape `Array(f32)` add/mul/SAXPY/scalar-broadcast/matmul smoke kernels through sibling Axiom on CUDA-capable hosts while keeping persistent `.cuda()` storage unavailable for now.
+- Device API placeholder (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`/`ArrayView`) for future CuPy/PyTorch-like GPU backends; optional `vx.axiom_cuda` can route contiguous same-shape `Array(f32)` add/mul/SAXPY/scalar-broadcast/matmul and 1D positive-stride view add/mul smoke kernels through sibling Axiom on CUDA-capable hosts while keeping persistent `.cuda()` storage unavailable for now.
 
 ## Example
 

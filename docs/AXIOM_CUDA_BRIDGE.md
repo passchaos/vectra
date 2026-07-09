@@ -23,7 +23,7 @@ zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
 zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 ```
 
-The smoke gate runs f32 add, f32 mul, f32 SAXPY, scalar-broadcast f32 add/SAXPY, and 2D f32 matmul through Axiom's
+The smoke gate runs f32 add, f32 mul, f32 SAXPY, scalar-broadcast f32 add/SAXPY, experimental 1D positive-stride view add/mul, and 2D f32 matmul through Axiom's
 builder-style CUDA tensor runtime.  It also reports Vectra-to-Axiom buffer
 planning evidence:
 
@@ -50,6 +50,8 @@ unavailable.  The current automatic dispatch covers same-shape `add`, same-shape
 - `planArrayF32(array, name)`
 - `tryAddF32(lhs, rhs)`
 - `tryMulF32(lhs, rhs)`
+- `tryAddViewF32(lhs_view, rhs_view)`
+- `tryMulViewF32(lhs_view, rhs_view)`
 - `trySaxpyF32(alpha, x, y)`
 - `tryAddScalarF32(input, scalar)`
 - `trySaxpyScalarF32(alpha, scalar_x, y)`
@@ -62,11 +64,12 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 
 ## Current limits
 
-- Only `Array(f32)` contiguous same-shape host arrays, scalar-broadcast f32 vector inputs, and contiguous 2D f32 matmul inputs are covered.
+- Only `Array(f32)` contiguous same-shape host arrays, scalar-broadcast f32 vector inputs, experimental 1D positive-stride `ArrayView(f32)` add/mul bridge calls, and contiguous 2D f32 matmul inputs are covered.
 - The bridge does not change `Device.cuda(index).isAvailable()` yet.
 - No persistent CUDA allocation/cache API is owned by Vectra yet.
 - No broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
 - The matmul bridge is limited to contiguous 2D `Array(f32)` inputs.
+- The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.
 - f64 linalg remains Veyra/CPU first until Axiom exposes matching tensor runtime
   support.
 
