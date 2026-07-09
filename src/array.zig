@@ -9497,6 +9497,71 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn veyraVectorViewF64(self: Self) ArrayError!veyra.VectorView(f64) {
+            if (comptime T != f64) @compileError("Veyra dense vector fast path requires Array(f64)");
+            if (self.shape.len != 1) return error.NonVectorArray;
+            return veyra.VectorView(f64).fromStridedSlice(
+                self.data,
+                self.shape[0],
+                try usizeToPositiveIsize(self.strides[0]),
+            ) catch |err| return mapVeyraArrayError(err);
+        }
+
+        fn veyraMatrixViewF64(self: Self) ArrayError!veyra.MatrixView(f64) {
+            if (comptime T != f64) @compileError("Veyra dense matrix fast path requires Array(f64)");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            return veyra.MatrixView(f64).fromStridedSlice(
+                self.data,
+                self.shape[0],
+                self.shape[1],
+                try usizeToPositiveIsize(self.strides[0]),
+                try usizeToPositiveIsize(self.strides[1]),
+            ) catch |err| return mapVeyraArrayError(err);
+        }
+
+        fn matvecF64(self: Self, vector: Self) ArrayError!Self {
+            if (comptime T != f64) @compileError("Veyra dense matvec fast path requires Array(f64)");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            if (vector.shape.len != 1) return error.NonVectorArray;
+            if (self.shape[1] != vector.shape[0]) return error.ShapeMismatch;
+            if (!self.isContiguous() or !vector.isContiguous()) return error.InvalidShape;
+
+            var out = try Self.zeros(self.allocator, &.{self.shape[0]});
+            errdefer out.deinit();
+            const lhs = try self.veyraMatrixViewF64();
+            const rhs = try vector.veyraVectorViewF64();
+            const dst = veyra.VectorMut(f64).fromSlice(out.data);
+            veyra.matvec(f64, lhs, rhs, dst) catch |err| return mapVeyraArrayError(err);
+            return out;
+        }
+
+        fn vecmatF64(self: Self, matrix: Self) ArrayError!Self {
+            if (comptime T != f64) @compileError("Veyra dense vector-matrix fast path requires Array(f64)");
+            if (self.shape.len != 1) return error.NonVectorArray;
+            if (matrix.shape.len != 2) return error.NonMatrixArray;
+            if (self.shape[0] != matrix.shape[0]) return error.ShapeMismatch;
+            if (!self.isContiguous() or !matrix.isContiguous()) return error.InvalidShape;
+
+            var out = try Self.zeros(self.allocator, &.{matrix.shape[1]});
+            errdefer out.deinit();
+            const lhs = try matrix.veyraMatrixViewF64();
+            const rhs = try self.veyraVectorViewF64();
+            const dst = veyra.VectorMut(f64).fromSlice(out.data);
+            veyra.gemv(f64, lhs, rhs, dst, .{ .transpose_lhs = .transpose }) catch |err| return mapVeyraArrayError(err);
+            return out;
+        }
+
+        fn dotF64(self: Self, other: Self) ArrayError!Self {
+            if (comptime T != f64) @compileError("Veyra dense dot fast path requires Array(f64)");
+            if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
+            if (self.shape[0] != other.shape[0]) return error.ShapeMismatch;
+            if (!self.isContiguous() or !other.isContiguous()) return error.InvalidShape;
+            const lhs = try self.veyraVectorViewF64();
+            const rhs = try other.veyraVectorViewF64();
+            const result = veyra.dot(f64, lhs, rhs) catch |err| return mapVeyraArrayError(err);
+            return Self.fromSlice(self.allocator, &.{result}, &.{});
+        }
+
         pub fn det(self: Self) ArrayError!T {
             if (comptime @typeInfo(T) != .float) @compileError("det requires floating-point arrays");
             if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
@@ -19146,6 +19211,18 @@ pub fn Array(comptime T: type) type {
 
             if (lhs_vec and rhs_vec) return self.dot(other);
             if (comptime T == f64) {
+                if (!lhs_vec and rhs_vec and
+                    self.shape.len == 2 and other.shape.len == 1 and
+                    self.isContiguous() and other.isContiguous())
+                {
+                    return self.matvecF64(other);
+                }
+                if (lhs_vec and !rhs_vec and
+                    self.shape.len == 1 and other.shape.len == 2 and
+                    self.isContiguous() and other.isContiguous())
+                {
+                    return self.vecmatF64(other);
+                }
                 if (!lhs_vec and !rhs_vec and
                     self.shape.len == 2 and other.shape.len == 2 and
                     self.isContiguous() and other.isContiguous())
@@ -19273,6 +19350,9 @@ pub fn Array(comptime T: type) type {
             if (self.shape.len != 2) return error.NonMatrixArray;
             if (vector.shape.len != 1) return error.NonVectorArray;
             if (self.shape[1] != vector.shape[0]) return error.ShapeMismatch;
+            if (comptime T == f64) {
+                if (self.isContiguous() and vector.isContiguous()) return self.matvecF64(vector);
+            }
             const rows = self.shape[0];
             const cols = self.shape[1];
             const out = try Self.empty(self.allocator, &.{rows});
@@ -19294,6 +19374,9 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
             if (self.shape[0] != other.shape[0]) return error.ShapeMismatch;
+            if (comptime T == f64) {
+                if (self.isContiguous() and other.isContiguous()) return self.dotF64(other);
+            }
             var acc = zero(T);
             for (self.data, other.data) |a, b| acc = addValue(T, acc, mulValue(T, a, b));
             return Self.fromSlice(self.allocator, &.{acc}, &.{});
@@ -21585,6 +21668,9 @@ test "array object generalized matmul semantics" {
     defer dot_out.deinit();
     try std.testing.expectEqual(@as(usize, 0), dot_out.shape.len);
     try std.testing.expectEqual(@as(f64, 32), dot_out.data[0]);
+    var dot_method = try v.dot(w);
+    defer dot_method.deinit();
+    try std.testing.expectEqualSlices(f64, dot_out.data, dot_method.data);
 
     var m = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer m.deinit();
@@ -21592,6 +21678,9 @@ test "array object generalized matmul semantics" {
     defer mv.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, mv.shape);
     try std.testing.expectEqualSlices(f64, &.{ 14, 32 }, mv.data);
+    var mv_method = try m.matvec(v);
+    defer mv_method.deinit();
+    try std.testing.expectEqualSlices(f64, mv.data, mv_method.data);
 
     var vm_rhs = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 3, 2 });
     defer vm_rhs.deinit();
@@ -21599,6 +21688,14 @@ test "array object generalized matmul semantics" {
     defer vm.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, vm.shape);
     try std.testing.expectEqualSlices(f64, &.{ 22, 28 }, vm.data);
+    var empty_vec = try Array(f64).empty(gpa, &.{0});
+    defer empty_vec.deinit();
+    var empty_mat = try Array(f64).empty(gpa, &.{ 0, 2 });
+    defer empty_mat.deinit();
+    var empty_vm = try empty_vec.matmul(empty_mat);
+    defer empty_vm.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, empty_vm.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, empty_vm.data);
     var vm_rhs_view = try vm_rhs.asView();
     defer vm_rhs_view.deinit();
     var vm_alias = try vm_rhs_view.T_();
