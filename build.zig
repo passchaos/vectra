@@ -192,6 +192,21 @@ pub fn build(b: *std.Build) void {
     const axiom_cuda_dispatch_smoke_step = b.step("axiom-cuda-dispatch-smoke", "Run ordinary Array(f32) methods through opt-in Axiom CUDA dispatch");
     axiom_cuda_dispatch_smoke_step.dependOn(&axiom_cuda_dispatch_smoke_cmd.step);
 
+    const axiom_cuda_device_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-cuda-device-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/axiom_cuda_device_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_cuda_device_smoke_cmd = b.addRunArtifact(axiom_cuda_device_smoke_exe);
+    const axiom_cuda_device_smoke_step = b.step("axiom-cuda-device-smoke", "Run explicit Axiom CUDA device-buffer handle smoke");
+    axiom_cuda_device_smoke_step.dependOn(&axiom_cuda_device_smoke_cmd.step);
+
     // Creates an executable that will run `test` blocks from the provided module.
     // Here `mod` needs to define a target, which is why earlier we made sure to
     // set the releative field.

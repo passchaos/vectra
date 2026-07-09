@@ -44,6 +44,73 @@ pub const BufferPlanEvidence = struct {
     copy_fingerprint: u64 = 0,
 };
 
+pub const DeviceArrayF32 = struct {
+    allocator: std.mem.Allocator,
+    shape: []usize,
+    device_ptr: u64,
+    required_bytes: usize,
+    logical_elements: usize,
+    allocation_fingerprint: u64,
+    pool_fingerprint: u64,
+    released: bool = false,
+
+    pub fn fromHost(allocator: std.mem.Allocator, host: array_mod.Array(f32)) array_mod.ArrayError!?DeviceArrayF32 {
+        if (!build_options.enable_axiom_cuda) return null;
+        if (!supportedNonEmptyContiguous(host)) return null;
+        const plan = axiom.accelerator.TensorDeviceBufferPlan.fromBufferView(
+            axiom.accelerator.TensorBufferView.contiguous("vectra_device_array", @intCast(@intFromPtr(host.data.ptr)), host.data.len),
+        ) catch return null;
+        var pool = axiom.accelerator.TensorDeviceBufferPool.init(axiom.accelerator.AcceleratorRuntime.cuda(allocator));
+        const acquired = pool.acquire(plan) catch return null;
+        if (!acquired.ok()) return null;
+        const shape = try allocator.dupe(usize, host.shape);
+        return .{
+            .allocator = allocator,
+            .shape = shape,
+            .device_ptr = acquired.allocation.device_ptr,
+            .required_bytes = acquired.allocation.requested_bytes,
+            .logical_elements = host.data.len,
+            .allocation_fingerprint = acquired.allocation.fingerprint(),
+            .pool_fingerprint = pool.fingerprint(),
+        };
+    }
+
+    pub fn deinit(self: *DeviceArrayF32) void {
+        if (!self.released and build_options.enable_axiom_cuda and self.device_ptr != 0) {
+            _ = axiom.accelerator.AcceleratorRuntime.cuda(self.allocator).freeTensorDeviceBuffer(self.device_ptr) catch null;
+        }
+        self.allocator.free(self.shape);
+        self.* = undefined;
+    }
+
+    pub fn release(self: *DeviceArrayF32) void {
+        if (!self.released and build_options.enable_axiom_cuda and self.device_ptr != 0) {
+            _ = axiom.accelerator.AcceleratorRuntime.cuda(self.allocator).freeTensorDeviceBuffer(self.device_ptr) catch null;
+            self.released = true;
+        }
+    }
+
+    pub fn ok(self: DeviceArrayF32) bool {
+        return self.device_ptr != 0 and self.required_bytes != 0 and self.logical_elements != 0 and self.allocation_fingerprint != 0 and self.pool_fingerprint != 0 and !self.released;
+    }
+
+    pub fn fingerprint(self: DeviceArrayF32) u64 {
+        var hasher = std.hash.Wyhash.init(0x0abc_7aaa_deb0_0001);
+        hashU64(&hasher, self.device_ptr);
+        hashU64(&hasher, self.required_bytes);
+        hashU64(&hasher, self.logical_elements);
+        hashU64(&hasher, self.allocation_fingerprint);
+        hashU64(&hasher, self.pool_fingerprint);
+        hashBool(&hasher, self.released);
+        for (self.shape) |dim| hashU64(&hasher, dim);
+        return hasher.final();
+    }
+};
+
+pub fn toDeviceF32(allocator: std.mem.Allocator, host: array_mod.Array(f32)) array_mod.ArrayError!?DeviceArrayF32 {
+    return DeviceArrayF32.fromHost(allocator, host);
+}
+
 pub const SmokeReport = struct {
     enabled: bool = build_options.enable_axiom_cuda,
     status: Status = if (build_options.enable_axiom_cuda) .skipped else .disabled,
@@ -58,6 +125,7 @@ pub const SmokeReport = struct {
     scalar_saxpy_ok: bool = false,
     strided_add_ok: bool = false,
     strided_mul_ok: bool = false,
+    device_array_ok: bool = false,
     max_abs_error: f32 = 0.0,
     lhs_plan: BufferPlanEvidence = .{},
     output_fingerprint: u64 = 0,
@@ -87,6 +155,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.scalar_saxpy_ok);
         hashBool(&hasher, report.strided_add_ok);
         hashBool(&hasher, report.strided_mul_ok);
+        hashBool(&hasher, report.device_array_ok);
         hashF32(&hasher, report.max_abs_error);
         hashBool(&hasher, report.lhs_plan.ok);
         hashU64(&hasher, report.lhs_plan.logical_elements);
@@ -105,7 +174,7 @@ pub const SmokeReport = struct {
 
     pub fn writeText(report: SmokeReport, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} device_array={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
             .{
                 report.enabled,
                 report.status.label(),
@@ -122,6 +191,7 @@ pub const SmokeReport = struct {
                 report.scalar_saxpy_ok,
                 report.strided_add_ok,
                 report.strided_mul_ok,
+                report.device_array_ok,
                 report.max_abs_error,
                 report.lhs_plan.logical_elements,
                 report.lhs_plan.required_bytes,
@@ -153,6 +223,7 @@ pub const SmokeReport = struct {
                 "  \"scalar_saxpy_ok\": {},\n" ++
                 "  \"strided_add_ok\": {},\n" ++
                 "  \"strided_mul_ok\": {},\n" ++
+                "  \"device_array_ok\": {},\n" ++
                 "  \"max_abs_error\": {d},\n" ++
                 "  \"lhs_plan_ok\": {},\n" ++
                 "  \"lhs_plan_logical_elements\": {d},\n" ++
@@ -183,6 +254,7 @@ pub const SmokeReport = struct {
                 report.scalar_saxpy_ok,
                 report.strided_add_ok,
                 report.strided_mul_ok,
+                report.device_array_ok,
                 report.max_abs_error,
                 report.lhs_plan.ok,
                 report.lhs_plan.logical_elements,
@@ -376,6 +448,13 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         .status = .skipped,
         .lhs_plan = planArrayF32(lhs, "lhs"),
     };
+
+    var device_array = toDeviceF32(allocator, lhs) catch return failedReport();
+    if (device_array) |*dev| {
+        report.device_array_ok = dev.ok();
+        report.output_fingerprint ^= dev.fingerprint();
+        dev.deinit();
+    }
 
     var scalar_add_out = tryAddScalarF32(rhs, 2.0) catch return failedReport();
     if (scalar_add_out) |*out| {
