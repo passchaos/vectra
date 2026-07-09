@@ -22,7 +22,7 @@ CUDA-capable hosts can opt in:
 zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
 ```
 
-The smoke gate runs f32 add, f32 mul, and f32 SAXPY through Axiom's
+The smoke gate runs f32 add, f32 mul, f32 SAXPY, and 2D f32 matmul through Axiom's
 builder-style CUDA tensor runtime.  It also reports Vectra-to-Axiom buffer
 planning evidence:
 
@@ -41,6 +41,7 @@ planning evidence:
 - `tryAddF32(lhs, rhs)`
 - `tryMulF32(lhs, rhs)`
 - `trySaxpyF32(alpha, x, y)`
+- `tryMatmulF32(lhs, rhs)`
 - `runSmoke(allocator)`
 
 The `try*` functions return `null` when the optional backend is disabled,
@@ -52,8 +53,8 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 - Only `Array(f32)` contiguous same-shape host arrays are covered.
 - The bridge does not change `Device.cuda(index).isAvailable()` yet.
 - No persistent CUDA allocation/cache API is owned by Vectra yet.
-- No broadcast lowering, reductions, softmax, or GEMM host-slice bridge is
-  exposed through Vectra yet.
+- No broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
+- The matmul bridge is limited to contiguous 2D `Array(f32)` inputs.
 - f64 linalg remains Veyra/CPU first until Axiom exposes matching tensor runtime
   support.
 

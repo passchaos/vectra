@@ -48,6 +48,7 @@ pub const SmokeReport = struct {
     add_ok: bool = false,
     mul_ok: bool = false,
     saxpy_ok: bool = false,
+    matmul_ok: bool = false,
     max_abs_error: f32 = 0.0,
     lhs_plan: BufferPlanEvidence = .{},
     output_fingerprint: u64 = 0,
@@ -57,7 +58,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.mul_ok and report.saxpy_ok,
+            .ran => report.enabled and report.add_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok,
             .failed => false,
         };
     }
@@ -69,6 +70,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.add_ok);
         hashBool(&hasher, report.mul_ok);
         hashBool(&hasher, report.saxpy_ok);
+        hashBool(&hasher, report.matmul_ok);
         hashF32(&hasher, report.max_abs_error);
         hashBool(&hasher, report.lhs_plan.ok);
         hashU64(&hasher, report.lhs_plan.logical_elements);
@@ -87,7 +89,7 @@ pub const SmokeReport = struct {
 
     pub fn writeText(report: SmokeReport, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} mul={} saxpy={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} mul={} saxpy={} matmul={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
             .{
                 report.enabled,
                 report.status.label(),
@@ -96,6 +98,7 @@ pub const SmokeReport = struct {
                 report.add_ok,
                 report.mul_ok,
                 report.saxpy_ok,
+                report.matmul_ok,
                 report.max_abs_error,
                 report.lhs_plan.logical_elements,
                 report.lhs_plan.required_bytes,
@@ -119,6 +122,7 @@ pub const SmokeReport = struct {
                 "  \"add_ok\": {},\n" ++
                 "  \"mul_ok\": {},\n" ++
                 "  \"saxpy_ok\": {},\n" ++
+                "  \"matmul_ok\": {},\n" ++
                 "  \"max_abs_error\": {d},\n" ++
                 "  \"lhs_plan_ok\": {},\n" ++
                 "  \"lhs_plan_logical_elements\": {d},\n" ++
@@ -141,6 +145,7 @@ pub const SmokeReport = struct {
                 report.add_ok,
                 report.mul_ok,
                 report.saxpy_ok,
+                report.matmul_ok,
                 report.max_abs_error,
                 report.lhs_plan.ok,
                 report.lhs_plan.logical_elements,
@@ -213,6 +218,38 @@ pub fn trySaxpyF32(alpha: f32, x: array_mod.Array(f32), y: array_mod.Array(f32))
     return out;
 }
 
+pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedMatmul2dContiguous(lhs, rhs)) return null;
+
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    var c = try array_mod.Array(f32).zeros(lhs.allocator, &.{ m, n });
+    defer c.deinit();
+    var out = try array_mod.Array(f32).empty(lhs.allocator, &.{ m, n });
+    errdefer out.deinit();
+
+    var spec = axiom.accelerator.TensorGemmSpec.rowMajor(
+        .rowMajor("lhs", @intCast(@intFromPtr(lhs.data.ptr)), m, k),
+        .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
+        .rowMajor("out", @intCast(@intFromPtr(out.data.ptr)), m, n),
+    );
+    spec.alpha = 1.0;
+    spec.beta = 0.0;
+    spec.tile_x = 16;
+    spec.tile_y = 16;
+    spec.kernel_symbol = "vectra_axiom_gemm";
+
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const result = runtime.runTensorGemmHostSlices(spec, lhs.data, rhs.data, c.data, out.data) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => return null,
+    };
+    if (!result.verified) return null;
+    return out;
+}
+
 pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     if (!build_options.enable_axiom_cuda) return .{};
 
@@ -251,11 +288,30 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
-    if (report.add_ok and report.mul_ok and report.saxpy_ok) {
+    var mat_lhs = array_mod.Array(f32).fromSlice(allocator, &.{
+        1, 2, 3,
+        4, 5, 6,
+    }, &.{ 2, 3 }) catch return failedReport();
+    defer mat_lhs.deinit();
+    var mat_rhs = array_mod.Array(f32).fromSlice(allocator, &.{
+        7,  8,
+        9,  10,
+        11, 12,
+    }, &.{ 3, 2 }) catch return failedReport();
+    defer mat_rhs.deinit();
+    var matmul_out = tryMatmulF32(mat_lhs, mat_rhs) catch return failedReport();
+    if (matmul_out) |*out| {
+        defer out.deinit();
+        report.matmul_ok = sliceClose(out.data, &.{ 58, 64, 139, 154 }, 0.0);
+        report.max_abs_error = @max(report.max_abs_error, maxAbsError(out.data, &.{ 58, 64, 139, 154 }));
+        report.output_fingerprint ^= hashF32Slice(out.data);
+    }
+
+    if (report.add_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
-    } else if (add_out == null and mul_out == null and saxpy_out == null) {
+    } else if (add_out == null and mul_out == null and saxpy_out == null and matmul_out == null) {
         report.status = .skipped;
         report.issue_count = 0;
     } else {
@@ -264,7 +320,8 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok)) +
             @as(u8, @intFromBool(!report.add_ok)) +
             @as(u8, @intFromBool(!report.mul_ok)) +
-            @as(u8, @intFromBool(!report.saxpy_ok));
+            @as(u8, @intFromBool(!report.saxpy_ok)) +
+            @as(u8, @intFromBool(!report.matmul_ok));
     }
     return report;
 }
@@ -301,6 +358,18 @@ fn supportedSameShapeContiguous(lhs: array_mod.Array(f32), rhs: array_mod.Array(
         rhs.device.isCpu() and
         lhs.data.len != 0 and
         lhs.sameShape(rhs) and
+        lhs.isContiguous() and
+        rhs.isContiguous();
+}
+
+fn supportedMatmul2dContiguous(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) bool {
+    return lhs.device.isCpu() and
+        rhs.device.isCpu() and
+        lhs.shape.len == 2 and
+        rhs.shape.len == 2 and
+        lhs.shape[1] == rhs.shape[0] and
+        lhs.data.len != 0 and
+        rhs.data.len != 0 and
         lhs.isContiguous() and
         rhs.isContiguous();
 }
