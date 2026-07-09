@@ -78,6 +78,45 @@ pub const Device = struct {
         return .{ .backend = .cuda, .index = index };
     }
 
+    pub fn isCpu(self: Device) bool {
+        return self.backend == .cpu;
+    }
+
+    pub fn is_cpu(self: Device) bool {
+        return self.isCpu();
+    }
+
+    pub fn isCuda(self: Device) bool {
+        return self.backend == .cuda;
+    }
+
+    pub fn is_cuda(self: Device) bool {
+        return self.isCuda();
+    }
+
+    pub fn backendName(self: Device) []const u8 {
+        return switch (self.backend) {
+            .cpu => "cpu",
+            .cuda => "cuda",
+        };
+    }
+
+    pub fn backend_name(self: Device) []const u8 {
+        return self.backendName();
+    }
+
+    pub fn eql(self: Device, other: Device) bool {
+        return self.backend == other.backend and self.index == other.index;
+    }
+
+    pub fn sameDevice(self: Device, other: Device) bool {
+        return self.eql(other);
+    }
+
+    pub fn same_device(self: Device, other: Device) bool {
+        return self.sameDevice(other);
+    }
+
     pub fn isAvailable(self: Device) bool {
         return switch (self.backend) {
             .cpu => true,
@@ -86,6 +125,10 @@ pub const Device = struct {
             // call sites.
             .cuda => false,
         };
+    }
+
+    pub fn is_available(self: Device) bool {
+        return self.isAvailable();
     }
 };
 
@@ -1250,6 +1293,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.ndim();
         }
 
+        pub fn num_dims(self: Self) usize {
+            return self.numDims();
+        }
+
         pub fn numel(self: Self) usize {
             return product(self.shape);
         }
@@ -1260,6 +1307,10 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn isEmpty(self: Self) bool {
             return self.numel() == 0;
+        }
+
+        pub fn is_empty(self: Self) bool {
+            return self.isEmpty();
         }
 
         pub fn isMatrix(self: Self) bool {
@@ -1365,6 +1416,34 @@ pub fn ArrayView(comptime T: type) type {
             return std.mem.eql(usize, self.shape, other.shape);
         }
 
+        pub fn same_shape(self: Self, other: Self) bool {
+            return self.sameShape(other);
+        }
+
+        pub fn shapeEquals(self: Self, dims: []const usize) bool {
+            return std.mem.eql(usize, self.shape, dims);
+        }
+
+        pub fn shape_equals(self: Self, dims: []const usize) bool {
+            return self.shapeEquals(dims);
+        }
+
+        pub fn hasShape(self: Self, dims: []const usize) bool {
+            return self.shapeEquals(dims);
+        }
+
+        pub fn has_shape(self: Self, dims: []const usize) bool {
+            return self.hasShape(dims);
+        }
+
+        pub fn sameShapeArray(self: Self, other: Array(T)) bool {
+            return std.mem.eql(usize, self.shape, other.shape);
+        }
+
+        pub fn same_shape_array(self: Self, other: Array(T)) bool {
+            return self.sameShapeArray(other);
+        }
+
         pub fn broadcastShape(self: Self, other: Self) ArrayError![]usize {
             return @This().broadcastShapes(self.allocator, self.shape, other.shape);
         }
@@ -1407,6 +1486,42 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn isScalar(self: Self) bool {
             return self.shape.len == 0 or (self.shape.len == 1 and self.shape[0] == 1);
+        }
+
+        pub fn is_scalar(self: Self) bool {
+            return self.isScalar();
+        }
+
+        pub fn isVector(self: Self) bool {
+            return self.shape.len == 1;
+        }
+
+        pub fn is_vector(self: Self) bool {
+            return self.isVector();
+        }
+
+        pub fn isRowVector(self: Self) bool {
+            return self.shape.len == 2 and self.shape[0] == 1;
+        }
+
+        pub fn is_row_vector(self: Self) bool {
+            return self.isRowVector();
+        }
+
+        pub fn isColumnVector(self: Self) bool {
+            return self.shape.len == 2 and self.shape[1] == 1;
+        }
+
+        pub fn is_column_vector(self: Self) bool {
+            return self.isColumnVector();
+        }
+
+        pub fn isVectorLike(self: Self) bool {
+            return self.isVector() or self.isRowVector() or self.isColumnVector();
+        }
+
+        pub fn is_vector_like(self: Self) bool {
+            return self.isVectorLike();
         }
 
         pub fn isContiguous(self: Self) bool {
@@ -1737,6 +1852,70 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn cuda(self: Self, index: usize) ArrayError!Self {
             return self.to(Device.cuda(index));
+        }
+
+        pub fn deviceBackend(self: Self) Backend {
+            return self.device.backend;
+        }
+
+        pub fn device_backend(self: Self) Backend {
+            return self.deviceBackend();
+        }
+
+        pub fn deviceIndex(self: Self) usize {
+            return self.device.index;
+        }
+
+        pub fn device_index(self: Self) usize {
+            return self.deviceIndex();
+        }
+
+        pub fn deviceBackendName(self: Self) []const u8 {
+            return self.device.backendName();
+        }
+
+        pub fn device_backend_name(self: Self) []const u8 {
+            return self.deviceBackendName();
+        }
+
+        pub fn isCpu(self: Self) bool {
+            return self.device.isCpu();
+        }
+
+        pub fn is_cpu(self: Self) bool {
+            return self.isCpu();
+        }
+
+        pub fn isCuda(self: Self) bool {
+            return self.device.isCuda();
+        }
+
+        pub fn is_cuda(self: Self) bool {
+            return self.isCuda();
+        }
+
+        pub fn isDeviceAvailable(self: Self) bool {
+            return self.device.isAvailable();
+        }
+
+        pub fn is_device_available(self: Self) bool {
+            return self.isDeviceAvailable();
+        }
+
+        pub fn sameDevice(self: Self, other: Self) bool {
+            return self.device.sameDevice(other.device);
+        }
+
+        pub fn same_device(self: Self, other: Self) bool {
+            return self.sameDevice(other);
+        }
+
+        pub fn sameDeviceArray(self: Self, other: Array(T)) bool {
+            return self.device.sameDevice(other.device);
+        }
+
+        pub fn same_device_array(self: Self, other: Array(T)) bool {
+            return self.sameDeviceArray(other);
         }
 
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) ArrayError!Self {
@@ -7769,6 +7948,70 @@ pub fn Array(comptime T: type) type {
             return self.to(Device.cuda(index));
         }
 
+        pub fn deviceBackend(self: Self) Backend {
+            return self.device.backend;
+        }
+
+        pub fn device_backend(self: Self) Backend {
+            return self.deviceBackend();
+        }
+
+        pub fn deviceIndex(self: Self) usize {
+            return self.device.index;
+        }
+
+        pub fn device_index(self: Self) usize {
+            return self.deviceIndex();
+        }
+
+        pub fn deviceBackendName(self: Self) []const u8 {
+            return self.device.backendName();
+        }
+
+        pub fn device_backend_name(self: Self) []const u8 {
+            return self.deviceBackendName();
+        }
+
+        pub fn isCpu(self: Self) bool {
+            return self.device.isCpu();
+        }
+
+        pub fn is_cpu(self: Self) bool {
+            return self.isCpu();
+        }
+
+        pub fn isCuda(self: Self) bool {
+            return self.device.isCuda();
+        }
+
+        pub fn is_cuda(self: Self) bool {
+            return self.isCuda();
+        }
+
+        pub fn isDeviceAvailable(self: Self) bool {
+            return self.device.isAvailable();
+        }
+
+        pub fn is_device_available(self: Self) bool {
+            return self.isDeviceAvailable();
+        }
+
+        pub fn sameDevice(self: Self, other: Self) bool {
+            return self.device.sameDevice(other.device);
+        }
+
+        pub fn same_device(self: Self, other: Self) bool {
+            return self.sameDevice(other);
+        }
+
+        pub fn sameDeviceView(self: Self, other: ArrayView(T)) bool {
+            return self.device.sameDevice(other.device);
+        }
+
+        pub fn same_device_view(self: Self, other: ArrayView(T)) bool {
+            return self.sameDeviceView(other);
+        }
+
         pub fn fill(self: Self, value: T) void {
             @memset(self.data, value);
         }
@@ -7909,6 +8152,10 @@ pub fn Array(comptime T: type) type {
             return self.ndim();
         }
 
+        pub fn num_dims(self: Self) usize {
+            return self.numDims();
+        }
+
         pub fn size(self: Self, axis_opt: ?isize) ArrayError!usize {
             if (axis_opt) |d| return self.shape[try normalizeDim(d, self.shape.len)];
             return self.numel();
@@ -7920,6 +8167,10 @@ pub fn Array(comptime T: type) type {
 
         pub fn isEmpty(self: Self) bool {
             return self.numel() == 0;
+        }
+
+        pub fn is_empty(self: Self) bool {
+            return self.isEmpty();
         }
 
         pub fn isMatrix(self: Self) bool {
@@ -8019,6 +8270,34 @@ pub fn Array(comptime T: type) type {
 
         pub fn sameShape(self: Self, other: Self) bool {
             return std.mem.eql(usize, self.shape, other.shape);
+        }
+
+        pub fn same_shape(self: Self, other: Self) bool {
+            return self.sameShape(other);
+        }
+
+        pub fn shapeEquals(self: Self, dims: []const usize) bool {
+            return std.mem.eql(usize, self.shape, dims);
+        }
+
+        pub fn shape_equals(self: Self, dims: []const usize) bool {
+            return self.shapeEquals(dims);
+        }
+
+        pub fn hasShape(self: Self, dims: []const usize) bool {
+            return self.shapeEquals(dims);
+        }
+
+        pub fn has_shape(self: Self, dims: []const usize) bool {
+            return self.hasShape(dims);
+        }
+
+        pub fn sameShapeView(self: Self, other: ArrayView(T)) bool {
+            return std.mem.eql(usize, self.shape, other.shape);
+        }
+
+        pub fn same_shape_view(self: Self, other: ArrayView(T)) bool {
+            return self.sameShapeView(other);
         }
 
         pub fn broadcastShape(self: Self, other: Self) ArrayError![]usize {
@@ -8223,6 +8502,42 @@ pub fn Array(comptime T: type) type {
 
         pub fn isScalar(self: Self) bool {
             return self.shape.len == 0 or (self.shape.len == 1 and self.shape[0] == 1);
+        }
+
+        pub fn is_scalar(self: Self) bool {
+            return self.isScalar();
+        }
+
+        pub fn isVector(self: Self) bool {
+            return self.shape.len == 1;
+        }
+
+        pub fn is_vector(self: Self) bool {
+            return self.isVector();
+        }
+
+        pub fn isRowVector(self: Self) bool {
+            return self.shape.len == 2 and self.shape[0] == 1;
+        }
+
+        pub fn is_row_vector(self: Self) bool {
+            return self.isRowVector();
+        }
+
+        pub fn isColumnVector(self: Self) bool {
+            return self.shape.len == 2 and self.shape[1] == 1;
+        }
+
+        pub fn is_column_vector(self: Self) bool {
+            return self.isColumnVector();
+        }
+
+        pub fn isVectorLike(self: Self) bool {
+            return self.isVector() or self.isRowVector() or self.isColumnVector();
+        }
+
+        pub fn is_vector_like(self: Self) bool {
+            return self.isVectorLike();
         }
 
         fn offsetOf(self: Self, indices: []const usize) ArrayError!usize {
@@ -16874,13 +17189,32 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqual(@as(usize, 2), a.dim());
     try std.testing.expectEqual(@as(usize, 2), a.rank());
     try std.testing.expectEqual(@as(usize, 2), a.numDims());
+    try std.testing.expectEqual(@as(usize, 2), a.num_dims());
     try std.testing.expectEqual(@as(usize, 6), a.numel());
     try std.testing.expectEqual(@as(usize, 6), a.nelement());
     try std.testing.expect(!a.isEmpty());
+    try std.testing.expect(!a.is_empty());
     try std.testing.expect(a.isMatrix());
     try std.testing.expect(a.is_matrix());
     try std.testing.expect(!a.isBatchedMatrix());
     try std.testing.expect(!a.isSquare());
+    try std.testing.expect(!a.isScalar());
+    try std.testing.expect(!a.is_scalar());
+    try std.testing.expect(!a.isVector());
+    try std.testing.expect(!a.is_vector());
+    try std.testing.expect(!a.isRowVector());
+    try std.testing.expect(!a.is_row_vector());
+    try std.testing.expect(!a.isColumnVector());
+    try std.testing.expect(!a.is_column_vector());
+    try std.testing.expect(!a.isVectorLike());
+    try std.testing.expect(!a.is_vector_like());
+    try std.testing.expect(a.shapeEquals(&.{ 2, 3 }));
+    try std.testing.expect(a.shape_equals(&.{ 2, 3 }));
+    try std.testing.expect(a.hasShape(&.{ 2, 3 }));
+    try std.testing.expect(a.has_shape(&.{ 2, 3 }));
+    try std.testing.expect(!a.hasShape(&.{ 3, 2 }));
+    try std.testing.expect(a.sameShape(a));
+    try std.testing.expect(a.same_shape(a));
     try std.testing.expectEqual(@as(usize, 3), try a.size(1));
     var broadcast_rhs = try Array(f64).full(gpa, &.{ 1, 3 }, 7);
     defer broadcast_rhs.deinit();
@@ -16921,10 +17255,46 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storageDataPtr()));
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storage_data_ptr()));
     try std.testing.expect(a.is_contiguous());
+    try std.testing.expect(Device.cpu.isCpu());
+    try std.testing.expect(Device.cpu.is_cpu());
+    try std.testing.expect(!Device.cpu.isCuda());
+    try std.testing.expect(!Device.cpu.is_cuda());
+    try std.testing.expectEqualStrings("cpu", Device.cpu.backendName());
+    try std.testing.expectEqualStrings("cpu", Device.cpu.backend_name());
+    try std.testing.expect(Device.cpu.sameDevice(.cpu));
+    try std.testing.expect(Device.cpu.same_device(.cpu));
+    try std.testing.expect(Device.cpu.eql(.cpu));
+    try std.testing.expect(Device.cpu.is_available());
+    const cuda_device = Device.cuda(1);
+    try std.testing.expect(cuda_device.isCuda());
+    try std.testing.expect(cuda_device.is_cuda());
+    try std.testing.expect(!cuda_device.isCpu());
+    try std.testing.expectEqualStrings("cuda", cuda_device.backendName());
+    try std.testing.expectEqual(@as(usize, 1), cuda_device.index);
+    try std.testing.expect(!cuda_device.isAvailable());
+    try std.testing.expect(!Device.cpu.sameDevice(cuda_device));
+    try std.testing.expectEqual(Backend.cpu, a.deviceBackend());
+    try std.testing.expectEqual(Backend.cpu, a.device_backend());
+    try std.testing.expectEqual(@as(usize, 0), a.deviceIndex());
+    try std.testing.expectEqual(@as(usize, 0), a.device_index());
+    try std.testing.expectEqualStrings("cpu", a.deviceBackendName());
+    try std.testing.expectEqualStrings("cpu", a.device_backend_name());
+    try std.testing.expect(a.isCpu());
+    try std.testing.expect(a.is_cpu());
+    try std.testing.expect(!a.isCuda());
+    try std.testing.expect(!a.is_cuda());
+    try std.testing.expect(a.isDeviceAvailable());
+    try std.testing.expect(a.is_device_available());
+    var cpu_clone = try a.cpu();
+    defer cpu_clone.deinit();
+    try std.testing.expect(a.sameDevice(cpu_clone));
+    try std.testing.expect(a.same_device(cpu_clone));
+    try std.testing.expectError(error.InvalidDevice, a.cuda(0));
     try std.testing.expectEqual(@as(f64, 5), try a.at(&.{ 1, 1 }));
     var empty_meta = try Array(f64).zeros(gpa, &.{ 0, 3 });
     defer empty_meta.deinit();
     try std.testing.expect(empty_meta.isEmpty());
+    try std.testing.expect(empty_meta.is_empty());
     try std.testing.expectEqual(@as(usize, 0), empty_meta.nbytes());
     var new_zeros = try a.newZeros(&.{2});
     defer new_zeros.deinit();
@@ -17036,10 +17406,18 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqualSlices(f64, flat_top.data, ravel_top.data);
     var scalar = try Array(f64).fromScalar(gpa, 9);
     defer scalar.deinit();
+    try std.testing.expect(scalar.isScalar());
+    try std.testing.expect(scalar.is_scalar());
+    try std.testing.expect(!scalar.isVector());
+    try std.testing.expect(!scalar.isVectorLike());
     var scalar_1d = try scalar.atLeast1d();
     defer scalar_1d.deinit();
     try std.testing.expectEqualSlices(usize, &.{1}, scalar_1d.shape);
     try std.testing.expectEqualSlices(f64, &.{9}, scalar_1d.data);
+    try std.testing.expect(scalar_1d.isScalar());
+    try std.testing.expect(scalar_1d.isVector());
+    try std.testing.expect(scalar_1d.is_vector());
+    try std.testing.expect(scalar_1d.isVectorLike());
     var scalar_2d = try scalar.atLeast2d();
     defer scalar_2d.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, scalar_2d.shape);
@@ -17117,9 +17495,23 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var selected_top = try a.select(0, 1);
     defer selected_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, selected_top.data);
+    try std.testing.expect(selected_top.isVector());
+    try std.testing.expect(selected_top.is_vector());
+    try std.testing.expect(selected_top.isVectorLike());
+    try std.testing.expect(selected_top.is_vector_like());
+    try std.testing.expect(!selected_top.isRowVector());
+    try std.testing.expect(!selected_top.isColumnVector());
     var vector_2d = try selected_top.atLeast2d();
     defer vector_2d.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, vector_2d.shape);
+    try std.testing.expect(vector_2d.isRowVector());
+    try std.testing.expect(vector_2d.is_row_vector());
+    try std.testing.expect(vector_2d.isVectorLike());
+    var column_vector = try selected_top.reshape(&.{ 3, 1 });
+    defer column_vector.deinit();
+    try std.testing.expect(column_vector.isColumnVector());
+    try std.testing.expect(column_vector.is_column_vector());
+    try std.testing.expect(column_vector.isVectorLike());
     var vector_3d = try selected_top.atLeast3d();
     defer vector_3d.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 3, 1 }, vector_3d.shape);
@@ -17258,9 +17650,22 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqual(@as(usize, 2), view.dim());
     try std.testing.expectEqual(@as(usize, 2), view.rank());
     try std.testing.expectEqual(@as(usize, 2), view.numDims());
+    try std.testing.expectEqual(@as(usize, 2), view.num_dims());
     try std.testing.expectEqual(@as(usize, 4), view.numel());
     try std.testing.expectEqual(@as(usize, 4), view.nelement());
     try std.testing.expect(!view.isEmpty());
+    try std.testing.expect(!view.is_empty());
+    try std.testing.expect(view.isMatrix());
+    try std.testing.expect(view.is_matrix());
+    try std.testing.expect(view.isSquare());
+    try std.testing.expect(view.is_square());
+    try std.testing.expect(!view.isVector());
+    try std.testing.expect(!view.is_vector());
+    try std.testing.expect(!view.isVectorLike());
+    try std.testing.expect(view.shapeEquals(&.{ 2, 2 }));
+    try std.testing.expect(view.shape_equals(&.{ 2, 2 }));
+    try std.testing.expect(view.hasShape(&.{ 2, 2 }));
+    try std.testing.expect(view.has_shape(&.{ 2, 2 }));
     try std.testing.expectEqual(@as(usize, 2), try view.shapeAt(-1));
     try std.testing.expectEqual(@as(usize, 2), try view.shape_at(-1));
     try std.testing.expectEqual(@as(usize, 2), try view.strideAt(1));
@@ -17275,9 +17680,34 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(view.dataPtr()));
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(view.storageDataPtr()));
     try std.testing.expect(!view.is_contiguous());
+    try std.testing.expectEqual(Backend.cpu, view.deviceBackend());
+    try std.testing.expectEqual(Backend.cpu, view.device_backend());
+    try std.testing.expectEqual(@as(usize, 0), view.deviceIndex());
+    try std.testing.expectEqual(@as(usize, 0), view.device_index());
+    try std.testing.expectEqualStrings("cpu", view.deviceBackendName());
+    try std.testing.expectEqualStrings("cpu", view.device_backend_name());
+    try std.testing.expect(view.isCpu());
+    try std.testing.expect(view.is_cpu());
+    try std.testing.expect(!view.isCuda());
+    try std.testing.expect(!view.is_cuda());
+    try std.testing.expect(view.isDeviceAvailable());
+    try std.testing.expect(view.is_device_available());
+    var view_cpu_clone = try view.cpu();
+    defer view_cpu_clone.deinit();
+    try std.testing.expect(view.sameDevice(view_cpu_clone));
+    try std.testing.expect(view.same_device(view_cpu_clone));
+    try std.testing.expect(view.sameDeviceArray(a));
+    try std.testing.expect(view.same_device_array(a));
+    try std.testing.expect(a.sameDeviceView(view));
+    try std.testing.expect(a.same_device_view(view));
+    try std.testing.expectError(error.InvalidDevice, view.cuda(0));
     var view_zeros = try view.zerosLike();
     defer view_zeros.deinit();
     try std.testing.expectEqualSlices(usize, view.shape, view_zeros.shape);
+    try std.testing.expect(view.sameShape(view));
+    try std.testing.expect(view.same_shape(view));
+    try std.testing.expect(view.sameShapeArray(view_zeros));
+    try std.testing.expect(view.same_shape_array(view_zeros));
     var view_empty_alias = try view.empty_like();
     defer view_empty_alias.deinit();
     try std.testing.expectEqualSlices(usize, view.shape, view_empty_alias.shape);
@@ -17314,6 +17744,8 @@ test "array view materializing shape wrappers" {
     var view_back = try view_reshaped.view_as(contiguous_view);
     defer view_back.deinit();
     try std.testing.expectEqualSlices(usize, contiguous_view.shape, view_back.shape);
+    try std.testing.expect(a.sameShapeView(contiguous_view));
+    try std.testing.expect(a.same_shape_view(contiguous_view));
     var view_flat_from = try contiguous_view.flattenFrom(1);
     defer view_flat_from.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, view_flat_from.shape);
@@ -17454,6 +17886,19 @@ test "array view materializing shape wrappers" {
 
     var vector = try a.selectView(0, 1);
     defer vector.deinit();
+    try std.testing.expect(vector.isVector());
+    try std.testing.expect(vector.is_vector());
+    try std.testing.expect(vector.isVectorLike());
+    try std.testing.expect(!vector.isRowVector());
+    try std.testing.expect(!vector.isColumnVector());
+    var vector_row = try vector.unsqueezeDim(0);
+    defer vector_row.deinit();
+    try std.testing.expect(vector_row.isRowVector());
+    try std.testing.expect(vector_row.is_row_vector());
+    var vector_col = try vector.unsqueezeDim(1);
+    defer vector_col.deinit();
+    try std.testing.expect(vector_col.isColumnVector());
+    try std.testing.expect(vector_col.is_column_vector());
     var sliced = try vector.slice1d(.{ .start = 1, .stop = 4, .step = 2 });
     defer sliced.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6, 8 }, sliced.data);
