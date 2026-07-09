@@ -3745,6 +3745,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.flip(axis_index);
         }
 
+        pub fn flipud(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.flipud();
+        }
+
+        pub fn fliplr(self: Self) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.fliplr();
+        }
+
         pub fn flipAxes(self: Self, axes: []const isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -6878,6 +6890,16 @@ pub fn Array(comptime T: type) type {
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
+        }
+
+        pub fn flipud(self: Self) ArrayError!Self {
+            if (self.shape.len < 1) return error.InvalidAxis;
+            return self.flip(0);
+        }
+
+        pub fn fliplr(self: Self) ArrayError!Self {
+            if (self.shape.len < 2) return error.InvalidAxis;
+            return self.flip(1);
         }
 
         pub fn flipAxes(self: Self, axes: []const isize) ArrayError!Self {
@@ -14750,6 +14772,12 @@ test "array view materializing shape wrappers" {
     var flipped = try view.flip(1);
     defer flipped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 7, 5 }, flipped.data);
+    var flipped_lr = try view.fliplr();
+    defer flipped_lr.deinit();
+    try std.testing.expectEqualSlices(f64, flipped.data, flipped_lr.data);
+    var flipped_ud = try view.flipud();
+    defer flipped_ud.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 7, 1, 3 }, flipped_ud.data);
 
     var flipped_axes = try view.flipAxes(&.{ 0, 1 });
     defer flipped_axes.deinit();
@@ -14848,6 +14876,9 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 3 }, chunks.items[0].data);
     try std.testing.expectEqualSlices(f64, &.{ 5, 7 }, chunks.items[1].data);
 
+    var vector_for_flip = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
+    defer vector_for_flip.deinit();
+    try std.testing.expectError(error.InvalidAxis, vector_for_flip.fliplr());
     try std.testing.expectError(error.InvalidAxis, view.flip(2));
     try std.testing.expectError(error.InvalidAxis, view.flipAxes(&.{ 0, 0 }));
     try std.testing.expectError(error.ShapeMismatch, view.rollAxes(&.{1}, &.{ 0, 1 }));
