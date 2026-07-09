@@ -2305,6 +2305,22 @@ pub fn ArrayView(comptime T: type) type {
             return !a;
         }
 
+        fn opIsReal(a: T) bool {
+            if (comptime isComplex(T)) {
+                return a.im == 0;
+            } else {
+                return true;
+            }
+        }
+
+        fn opIsComplex(a: T) bool {
+            if (comptime isComplex(T)) {
+                return a.im != 0;
+            } else {
+                return false;
+            }
+        }
+
         fn opIsNan(a: T) bool {
             if (comptime isComplex(T)) return std.math.isNan(a.re) or std.math.isNan(a.im);
             if (comptime T == BFloat16) return std.math.isNan(a.toF32());
@@ -3218,15 +3234,18 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn powScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).powScalar);
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, Array(T).opPow);
         }
 
         pub fn floorDivScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).floorDivScalar);
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, Array(T).opFloorDiv);
         }
 
         pub fn modScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).modScalar);
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, Array(T).opMod);
         }
 
         pub fn remainderScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -3234,7 +3253,12 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn maximumScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).maximumScalar);
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, struct {
+                fn f(a: T, b: T) T {
+                    return if (lessValue(T, a, b)) b else a;
+                }
+            }.f);
         }
 
         pub fn maximum_scalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -3242,7 +3266,12 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn minimumScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).minimumScalar);
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, struct {
+                fn f(a: T, b: T) T {
+                    return if (lessValue(T, b, a)) b else a;
+                }
+            }.f);
         }
 
         pub fn minimum_scalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -3282,7 +3311,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn fmaxScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).fmaxScalar);
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, Array(T).opFmax);
         }
 
         pub fn fmax_scalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -3290,7 +3320,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn fminScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).fminScalar);
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, Array(T).opFmin);
         }
 
         pub fn fmin_scalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -3298,11 +3329,13 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).hypotScalar);
+            ensureFloat(T);
+            return self.binaryScalar(scalar, Array(T).opHypot);
         }
 
         pub fn atan2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).atan2Scalar);
+            ensureFloat(T);
+            return self.binaryScalar(scalar, Array(T).opAtan2);
         }
 
         pub fn arctan2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -3310,7 +3343,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn nextAfterScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).nextAfterScalar);
+            ensureFloat(T);
+            return self.binaryScalar(scalar, Array(T).opNextAfter);
         }
 
         pub fn nextafterScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -3318,15 +3352,18 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn copysignScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).copysignScalar);
+            ensureFloat(T);
+            return self.binaryScalar(scalar, Array(T).opCopysign);
         }
 
         pub fn heavisideScalar(self: Self, value_at_zero: T) ArrayError!Array(T) {
-            return self.ownedWith(value_at_zero, Array(T), Array(T).heavisideScalar);
+            ensureNumeric(T);
+            return self.binaryScalar(value_at_zero, Array(T).opHeaviside);
         }
 
         pub fn logAddExpScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).logAddExpScalar);
+            ensureFloat(T);
+            return self.binaryScalar(scalar, Array(T).opLogAddExp);
         }
 
         pub fn logaddexpScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -3334,7 +3371,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logAddExp2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).logAddExp2Scalar);
+            ensureFloat(T);
+            return self.binaryScalar(scalar, Array(T).opLogAddExp2);
         }
 
         pub fn logaddexp2Scalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -3342,11 +3380,22 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn xlogyScalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).xlogyScalar);
+            ensureFloat(T);
+            return self.binaryScalar(scalar, Array(T).opXlogy);
         }
 
         pub fn ldexpScalar(self: Self, exponent: i32) ArrayError!Array(T) {
-            return self.ownedWith(exponent, Array(T), Array(T).ldexpScalar);
+            ensureFloat(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = std.math.ldexp(self.data[self.offset + ravelIndex(multi, self.strides)], exponent);
+            }
+            return out;
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -3861,7 +3910,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isReal(self: Self) ArrayError!Array(bool) {
-            return self.ownedUnary(Array(bool), Array(T).isReal);
+            return self.unaryBool(opIsReal);
         }
 
         pub fn isreal(self: Self) ArrayError!Array(bool) {
@@ -3869,7 +3918,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn iscomplex(self: Self) ArrayError!Array(bool) {
-            return self.ownedUnary(Array(bool), Array(T).iscomplex);
+            return self.unaryBool(opIsComplex);
         }
 
         pub fn logicalNot(self: Self) ArrayError!Array(T) {
@@ -3887,13 +3936,18 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalAndArray(self: Self, other: Array(T)) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            return lhs.logicalAnd(other);
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.logicalAnd(other_view);
         }
 
         pub fn logicalAndScalar(self: Self, scalar: bool) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).logicalAndScalar);
+            if (comptime T != bool) @compileError("logicalAndScalar requires Array(bool)");
+            return self.binaryScalar(scalar, struct {
+                fn f(lhs: bool, rhs: bool) bool {
+                    return lhs and rhs;
+                }
+            }.f);
         }
 
         pub fn logicalOr(self: Self, other: Self) ArrayError!Array(T) {
@@ -3906,13 +3960,18 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalOrArray(self: Self, other: Array(T)) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            return lhs.logicalOr(other);
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.logicalOr(other_view);
         }
 
         pub fn logicalOrScalar(self: Self, scalar: bool) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).logicalOrScalar);
+            if (comptime T != bool) @compileError("logicalOrScalar requires Array(bool)");
+            return self.binaryScalar(scalar, struct {
+                fn f(lhs: bool, rhs: bool) bool {
+                    return lhs or rhs;
+                }
+            }.f);
         }
 
         pub fn logicalXor(self: Self, other: Self) ArrayError!Array(T) {
@@ -3925,13 +3984,18 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalXorArray(self: Self, other: Array(T)) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            return lhs.logicalXor(other);
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.logicalXor(other_view);
         }
 
         pub fn logicalXorScalar(self: Self, scalar: bool) ArrayError!Array(T) {
-            return self.ownedWith(scalar, Array(T), Array(T).logicalXorScalar);
+            if (comptime T != bool) @compileError("logicalXorScalar requires Array(bool)");
+            return self.binaryScalar(scalar, struct {
+                fn f(lhs: bool, rhs: bool) bool {
+                    return lhs != rhs;
+                }
+            }.f);
         }
 
         pub fn isclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
@@ -19463,6 +19527,23 @@ fn expectF64ViewUnaryMatchesArray(
     try expectApproxEqualSlices(f64, expected.data, actual.data, tolerance);
 }
 
+fn expectF64ViewScalarMatchesArray(
+    view: ArrayView(f64),
+    comptime view_method: fn (ArrayView(f64), f64) ArrayError!Array(f64),
+    comptime array_method: fn (Array(f64), f64) ArrayError!Array(f64),
+    scalar_value: f64,
+    tolerance: f64,
+) !void {
+    var owned = try view.toArray();
+    defer owned.deinit();
+    var expected = try array_method(owned, scalar_value);
+    defer expected.deinit();
+    var actual = try view_method(view, scalar_value);
+    defer actual.deinit();
+    try std.testing.expectEqualSlices(usize, expected.shape, actual.shape);
+    try expectApproxEqualSlices(f64, expected.data, actual.data, tolerance);
+}
+
 test "array creation, reshape and broadcasting" {
     const gpa = std.testing.allocator;
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
@@ -22676,6 +22757,104 @@ test "array view transcendental unary math is view aware" {
     var actual_clip = try activation.clip(-0.25, 1.0);
     defer actual_clip.deinit();
     try expectApproxEqualSlices(f64, expected_clip.data, actual_clip.data, 1e-12);
+}
+
+test "array view scalar elementwise and logical wrappers are view aware" {
+    const gpa = std.testing.allocator;
+
+    var source = try Array(f64).fromSlice(gpa, &.{
+        -2.0, 90.0, 0.5, 80.0,
+        1.5,  70.0, 3.0, 60.0,
+    }, &.{ 2, 4 });
+    defer source.deinit();
+    var view = try source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer view.deinit();
+    try std.testing.expect(!view.isContiguous());
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).powScalar, Array(f64).powScalar, 2.0, 1e-12);
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).floorDivScalar, Array(f64).floorDivScalar, 2.0, 1e-12);
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).modScalar, Array(f64).modScalar, 2.0, 1e-12);
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).maximumScalar, Array(f64).maximumScalar, 1.0, 1e-12);
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).minimumScalar, Array(f64).minimumScalar, 1.0, 1e-12);
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).hypotScalar, Array(f64).hypotScalar, 4.0, 1e-12);
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).atan2Scalar, Array(f64).atan2Scalar, 2.0, 1e-12);
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).copysignScalar, Array(f64).copysignScalar, -1.0, 1e-12);
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).heavisideScalar, Array(f64).heavisideScalar, 0.25, 1e-12);
+    try expectF64ViewScalarMatchesArray(view, ArrayView(f64).xlogyScalar, Array(f64).xlogyScalar, std.math.e, 1e-12);
+
+    var positive_source = try Array(f64).fromSlice(gpa, &.{
+        0.0, 90.0, 1.0, 80.0,
+        2.0, 70.0, 3.0, 60.0,
+    }, &.{ 2, 4 });
+    defer positive_source.deinit();
+    var positive_view = try positive_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer positive_view.deinit();
+    try expectF64ViewScalarMatchesArray(positive_view, ArrayView(f64).logAddExpScalar, Array(f64).logAddExpScalar, 0.5, 1e-12);
+    try expectF64ViewScalarMatchesArray(positive_view, ArrayView(f64).logAddExp2Scalar, Array(f64).logAddExp2Scalar, 0.5, 1e-12);
+
+    var nan_source = try Array(f64).fromSlice(gpa, &.{ std.math.nan(f64), 90.0, 2.0, 80.0 }, &.{ 1, 4 });
+    defer nan_source.deinit();
+    var nan_view = try nan_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer nan_view.deinit();
+    try expectF64ViewScalarMatchesArray(nan_view, ArrayView(f64).fmaxScalar, Array(f64).fmaxScalar, 1.0, 1e-12);
+    try expectF64ViewScalarMatchesArray(nan_view, ArrayView(f64).fminScalar, Array(f64).fminScalar, 1.0, 1e-12);
+
+    var next_source = try Array(f64).fromSlice(gpa, &.{ 1.0, 90.0, 2.0, 80.0 }, &.{ 1, 4 });
+    defer next_source.deinit();
+    var next_view = try next_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer next_view.deinit();
+    var next_owned = try next_view.toArray();
+    defer next_owned.deinit();
+    var expected_next = try next_owned.nextAfterScalar(10.0);
+    defer expected_next.deinit();
+    var actual_next = try next_view.nextAfterScalar(10.0);
+    defer actual_next.deinit();
+    try std.testing.expectEqualSlices(f64, expected_next.data, actual_next.data);
+    var expected_ldexp = try next_owned.ldexpScalar(2);
+    defer expected_ldexp.deinit();
+    var actual_ldexp = try next_view.ldexpScalar(2);
+    defer actual_ldexp.deinit();
+    try expectApproxEqualSlices(f64, expected_ldexp.data, actual_ldexp.data, 1e-12);
+
+    var complex_source = try Array(Complex64).fromSlice(gpa, &.{
+        Complex64.init(1, 0), Complex64.init(9, 9), Complex64.init(2, 3), Complex64.init(8, 8),
+    }, &.{ 1, 4 });
+    defer complex_source.deinit();
+    var complex_view = try complex_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer complex_view.deinit();
+    var real_mask = try complex_view.isReal();
+    defer real_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false }, real_mask.data);
+    var complex_mask = try complex_view.iscomplex();
+    defer complex_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true }, complex_mask.data);
+
+    var bool_source = try Array(bool).fromSlice(gpa, &.{
+        true, false, false, true,
+        true, true,  false, false,
+    }, &.{ 2, 4 });
+    defer bool_source.deinit();
+    var bool_view = try bool_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer bool_view.deinit();
+    var rhs = try Array(bool).fromSlice(gpa, &.{ true, false }, &.{ 1, 2 });
+    defer rhs.deinit();
+    var and_array = try bool_view.logicalAndArray(rhs);
+    defer and_array.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, and_array.data);
+    var or_array = try bool_view.logicalOrArray(rhs);
+    defer or_array.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, or_array.data);
+    var xor_array = try bool_view.logicalXorArray(rhs);
+    defer xor_array.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, xor_array.data);
+    var and_scalar = try bool_view.logicalAndScalar(false);
+    defer and_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, and_scalar.data);
+    var or_scalar = try bool_view.logicalOrScalar(false);
+    defer or_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, or_scalar.data);
+    var xor_scalar = try bool_view.logicalXorScalar(true);
+    defer xor_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, xor_scalar.data);
 }
 
 test "array view object indexing wrappers" {
