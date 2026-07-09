@@ -1651,6 +1651,25 @@ pub fn ArrayView(comptime T: type) type {
             return self.fillDiagonal(value, offset, axis1, axis2);
         }
 
+        pub fn diagonalScatter(self: Self, values: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
+            var out = try self.toArray();
+            errdefer out.deinit();
+            var target = try out.diagonalAxesView(offset, axis1, axis2);
+            defer target.deinit();
+            try target.copyFromView(values);
+            return out;
+        }
+
+        pub fn diagonal_scatter(self: Self, values: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
+            return self.diagonalScatter(values, offset, axis1, axis2);
+        }
+
+        pub fn diagonalScatterArray(self: Self, values: Array(T), offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
+            var values_view = try values.asView();
+            defer values_view.deinit();
+            return self.diagonalScatter(values_view, offset, axis1, axis2);
+        }
+
         pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!Self {
             if (window_size == 0 or step == 0) return error.InvalidShape;
             if (self.shape.len == 0) return error.InvalidAxis;
@@ -7763,6 +7782,30 @@ pub fn Array(comptime T: type) type {
 
         pub fn fill_diagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) ArrayError!void {
             return self.fillDiagonal(value, offset, axis1, axis2);
+        }
+
+        pub fn diagonalScatter(self: Self, values: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
+            var out = try self.clone();
+            errdefer out.deinit();
+            var target = try out.diagonalAxesView(offset, axis1, axis2);
+            defer target.deinit();
+            var values_view = try values.asView();
+            defer values_view.deinit();
+            try target.copyFromView(values_view);
+            return out;
+        }
+
+        pub fn diagonal_scatter(self: Self, values: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
+            return self.diagonalScatter(values, offset, axis1, axis2);
+        }
+
+        pub fn diagonalScatterView(self: Self, values: ArrayView(T), offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
+            var out = try self.clone();
+            errdefer out.deinit();
+            var target = try out.diagonalAxesView(offset, axis1, axis2);
+            defer target.deinit();
+            try target.copyFromView(values);
+            return out;
         }
 
         pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!ArrayView(T) {
@@ -20450,6 +20493,35 @@ test "array creation like scalar diag and diagflat" {
     try std.testing.expectEqual(@as(f64, 99), cube.data[5]);
     try std.testing.expectEqual(@as(f64, 99), cube.data[10]);
     try std.testing.expectEqual(@as(f64, 99), cube.data[14]);
+
+    var scatter_values = try Array(f64).fromSlice(gpa, &.{ 100, 200 }, &.{2});
+    defer scatter_values.deinit();
+    var scattered = try a.diagonalScatter(scatter_values, 0, 0, 1);
+    defer scattered.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 100, 8, 3, 4, 200, 8 }, scattered.data);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 4, 7, 8 }, a.data);
+    var scalar_scatter_value = try Array(f64).fromScalar(gpa, -5);
+    defer scalar_scatter_value.deinit();
+    var scalar_scattered = try a.diagonal_scatter(scalar_scatter_value, 1, 0, 1);
+    defer scalar_scattered.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 7, -5, 3, 4, 7, -5 }, scalar_scattered.data);
+    var batch_scatter_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer batch_scatter_values.deinit();
+    var batch_scattered = try cube.diagonalScatter(batch_scatter_values, 0, 1, 2);
+    defer batch_scattered.deinit();
+    try std.testing.expectEqual(@as(f64, 1), batch_scattered.data[0]);
+    try std.testing.expectEqual(@as(f64, 2), batch_scattered.data[4]);
+    try std.testing.expectEqual(@as(f64, 3), batch_scattered.data[8]);
+    try std.testing.expectEqual(@as(f64, 4), batch_scattered.data[9]);
+    try std.testing.expectEqual(@as(f64, 5), batch_scattered.data[13]);
+    try std.testing.expectEqual(@as(f64, 6), batch_scattered.data[17]);
+    var scatter_values_view = try scatter_values.asView();
+    defer scatter_values_view.deinit();
+    var view_scattered = try cube_view.diagonalScatterArray(scatter_values, 1, -2, -1);
+    defer view_scattered.deinit();
+    try std.testing.expectEqual(@as(f64, 100), view_scattered.data[1]);
+    try std.testing.expectEqual(@as(f64, 200), view_scattered.data[5]);
+    try std.testing.expectError(error.ShapeMismatch, cube.diagonalScatter(scatter_values, 0, 1, 2));
     try std.testing.expectError(error.InvalidAxis, cube.diagonalAxesView(0, 1, 1));
     try std.testing.expectError(error.InvalidAxis, cube.fillDiagonal(0, 0, 1, 1));
 
