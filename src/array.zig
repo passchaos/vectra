@@ -1903,9 +1903,16 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.astype(U);
+            var out = try Array(U).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = castValue(U, self.data[self.offset + ravelIndex(multi, self.strides)]);
+            }
+            return out;
         }
 
         pub fn det(self: Self) ArrayError!T {
@@ -3182,39 +3189,57 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn addPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
-            var lhs = try self.toArray();
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
             defer lhs.deinit();
-            return lhs.addPromote(U, other);
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.add(rhs);
         }
 
         pub fn subPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
-            var lhs = try self.toArray();
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
             defer lhs.deinit();
-            return lhs.subPromote(U, other);
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.sub(rhs);
         }
 
         pub fn mulPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
-            var lhs = try self.toArray();
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
             defer lhs.deinit();
-            return lhs.mulPromote(U, other);
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.mul(rhs);
         }
 
         pub fn divPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
-            var lhs = try self.toArray();
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
             defer lhs.deinit();
-            return lhs.divPromote(U, other);
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.div(rhs);
         }
 
         pub fn maximumPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
-            var lhs = try self.toArray();
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
             defer lhs.deinit();
-            return lhs.maximumPromote(U, other);
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.maximum(rhs);
         }
 
         pub fn minimumPromote(self: Self, comptime U: type, other: Array(U)) ArrayError!Array(promoteType(T, U)) {
-            var lhs = try self.toArray();
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
             defer lhs.deinit();
-            return lhs.minimumPromote(U, other);
+            var rhs = try other.astype(P);
+            defer rhs.deinit();
+            return lhs.minimum(rhs);
         }
 
         pub fn hypot(self: Self, other: Self) ArrayError!Array(T) {
@@ -26854,13 +26879,23 @@ test "array dtype metadata and casts cover common numeric types" {
     defer view_promoted_sum.deinit();
     try std.testing.expectEqual(DType.i32, @TypeOf(view_promoted_sum).dtype);
     try std.testing.expectEqualSlices(i32, &.{ 11, 22, 18, 27 }, view_promoted_sum.data);
+    var view_promoted_sub = try stepped_view.subPromote(u16, promote_rhs);
+    defer view_promoted_sub.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ -9, -18, -2, -13 }, view_promoted_sub.data);
     var view_promoted_mul = try stepped_view.mulPromote(f32, view_as_f32);
     defer view_promoted_mul.deinit();
     try std.testing.expectEqual(DType.f32, @TypeOf(view_promoted_mul).dtype);
     try std.testing.expectEqualSlices(f32, &.{ 1, 4, 64, 49 }, view_promoted_mul.data);
+    var view_promoted_div = try stepped_view.divPromote(f32, view_as_f32);
+    defer view_promoted_div.deinit();
+    try std.testing.expectEqual(DType.f32, @TypeOf(view_promoted_div).dtype);
+    try std.testing.expectEqualSlices(f32, &.{ 1, 1, 1, 1 }, view_promoted_div.data);
     var view_promoted_max = try stepped_view.maximumPromote(u16, promote_rhs);
     defer view_promoted_max.deinit();
     try std.testing.expectEqualSlices(i32, &.{ 10, 20, 10, 20 }, view_promoted_max.data);
+    var view_promoted_min = try stepped_view.minimumPromote(u16, promote_rhs);
+    defer view_promoted_min.deinit();
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 8, 7 }, view_promoted_min.data);
 
     var r = try Array(u16).randint(gpa, &.{16}, 10, 20, 42);
     defer r.deinit();
