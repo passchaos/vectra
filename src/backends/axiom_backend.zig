@@ -93,7 +93,23 @@ pub fn matmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Array(T), 
         },
         .direct_cpu => {},
     }
-    return lhs.matmul(rhs);
+    return directMatmul(T, lhs, rhs);
+}
+
+fn directMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!array_mod.Array(T) {
+    if (!supportedMatmul2d(T, lhs, rhs)) return error.NonMatrixArray;
+    var out = try array_mod.Array(T).zeros(lhs.allocator, &.{ lhs.shape[0], rhs.shape[1] });
+    errdefer out.deinit();
+    for (0..lhs.shape[0]) |row| {
+        for (0..rhs.shape[1]) |col| {
+            var acc: T = 0;
+            for (0..lhs.shape[1]) |kk| {
+                acc += lhs.data[row * lhs.shape[1] + kk] * rhs.data[kk * rhs.shape[1] + col];
+            }
+            out.data[row * rhs.shape[1] + col] = acc;
+        }
+    }
+    return out;
 }
 
 fn supportedMatmul2d(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {

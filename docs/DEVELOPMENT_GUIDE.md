@@ -195,4 +195,4 @@ zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke`。
 Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
 
 
-Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies.
+Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies; `Array.matmul` now uses this policy when Axiom CPU/CUDA dispatch flags are enabled.

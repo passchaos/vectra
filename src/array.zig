@@ -4,6 +4,7 @@ const alea = @import("alea");
 const veyra = @import("veyra");
 const axiom_cuda_backend = @import("backends/axiom_cuda.zig");
 const axiom_cpu_backend = @import("backends/axiom_cpu.zig");
+const axiom_backend = @import("backends/axiom_backend.zig");
 
 pub const Complex64 = std.math.Complex(f32);
 pub const Complex128 = std.math.Complex(f64);
@@ -19604,22 +19605,26 @@ pub fn Array(comptime T: type) type {
             if (lhs_k != rhs_k) return error.ShapeMismatch;
 
             if (lhs_vec and rhs_vec) return self.dot(other);
-            if (comptime T == f32) {
-                if (build_options.enable_axiom_cuda_dispatch and !lhs_vec and !rhs_vec) {
-                    const accelerated = try axiom_cuda_backend.tryMatmulF32(self, other);
-                    if (accelerated) |out| return out;
-                }
-                if (build_options.enable_axiom_cpu_dispatch and !lhs_vec and !rhs_vec) {
-                    const accelerated = try axiom_cpu_backend.tryMatmulF32(self, other);
-                    if (accelerated) |out| return out;
+            if (comptime T == f32 or T == f64) {
+                if (!lhs_vec and !rhs_vec and (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch)) {
+                    const report = axiom_backend.selectMatmul(T, .prefer_cuda, self, other);
+                    switch (report.selected) {
+                        .axiom_cuda => if (comptime T == f32) {
+                            const accelerated = try axiom_cuda_backend.tryMatmulF32(self, other);
+                            if (accelerated) |out| return out;
+                        },
+                        .axiom_cpu_veyra => {
+                            const accelerated = if (comptime T == f32)
+                                try axiom_cpu_backend.tryMatmulF32(self, other)
+                            else
+                                try axiom_cpu_backend.tryMatmulF64(self, other);
+                            if (accelerated) |out| return out;
+                        },
+                        .direct_cpu => {},
+                    }
                 }
             }
             if (comptime T == f64) {
-                if (build_options.enable_axiom_cpu_dispatch and !lhs_vec and !rhs_vec) {
-                    const accelerated = try axiom_cpu_backend.tryMatmulF64(self, other);
-                    if (accelerated) |out| return out;
-                }
-
                 if (!lhs_vec and rhs_vec and
                     self.shape.len == 2 and other.shape.len == 1 and
                     self.isContiguous() and other.isContiguous())
