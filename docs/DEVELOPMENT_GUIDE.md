@@ -23,7 +23,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 
 优先完善：
 
-- 数组数据结构：shape、stride、dtype、device、内存布局、metadata helpers（`dim/rank/numDims`、`nelement`、`shapeAt/strideAt`、`nbytes/elementSize`、`isEmpty/is_contiguous`、`isMatrix/isSquare/isBatchedMatrix`）和深拷贝 helpers（`clone/copy/detach`）、contiguous/non-contiguous view；当前已有 `ArrayView` / `NDArrayView` 非 owning 视图基础，后续继续把更多 kernel 做成 view-aware。
+- 数组数据结构：shape、stride、dtype、device、内存布局、metadata helpers（`dim/rank/numDims`、`nelement`、`shapeAt/strideAt`、`nbytes/elementSize`、`isEmpty/is_contiguous`、`isMatrix/isSquare/isBatchedMatrix`、`broadcastShape/broadcastShapes`）和深拷贝 helpers（`clone/copy/detach`）、contiguous/non-contiguous view；当前已有 `ArrayView` / `NDArrayView` 非 owning 视图基础，后续继续把更多 kernel 做成 view-aware。
 - 创建函数：通过 `Array(T)` / `NDArray(T)` 的类型方法创建，例如 `fromSlice`、`zeros`、`ones`、`empty`、`full`、like helpers、`newEmpty/newZeros/newOnes/newFull`、`eye/identity/eyeRect`、`arange`、`linspace`、`logspace`、`geomspace`、`meshgrid`、随机初始化等。
 - 索引与切片：整数索引、range/slice、bool mask、坐标索引、take/gather/scatter、IndexMode raise/wrap/clip、masked/index put、compress、advanced indexing、membership/search helpers。
 - 形状变换：reshape/view/reshapeAs/viewAs、flatten/ravel/flattenRange/flattenFrom、squeeze/unsqueeze/squeezeDim/squeezeAxes/unsqueezeDim/unsqueezeAxes/expandDims、transpose、matrixTranspose/matrix_transpose/mT、adjoint/mH/H_、matrixPower/matrix_power、permute/swapaxes/swapDims/movedim/moveaxis/moveaxes、broadcast、repeat/tile（含 NumPy-like leading-rank 对齐）、slice/sliceAxis/slice1d、split/splitWithSizes/splitAtIndices/chunk/unbind、hstack/vstack/dstack/columnStack、flip、roll、padConstant。

@@ -746,7 +746,7 @@ fn ravelIndex(indices: []const usize, strides: []const usize) usize {
     return offset;
 }
 
-fn broadcastShape(allocator: std.mem.Allocator, a: []const usize, b: []const usize) ArrayError![]usize {
+fn computeBroadcastShape(allocator: std.mem.Allocator, a: []const usize, b: []const usize) ArrayError![]usize {
     const rank = @max(a.len, b.len);
     const out = try allocator.alloc(usize, rank);
     errdefer allocator.free(out);
@@ -1176,6 +1176,26 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn sameShape(self: Self, other: Self) bool {
             return std.mem.eql(usize, self.shape, other.shape);
+        }
+
+        pub fn broadcastShape(self: Self, other: Self) ArrayError![]usize {
+            return @This().broadcastShapes(self.allocator, self.shape, other.shape);
+        }
+
+        pub fn broadcast_shape(self: Self, other: Self) ArrayError![]usize {
+            return self.broadcastShape(other);
+        }
+
+        pub fn broadcastShapeArray(self: Self, other: Array(T)) ArrayError![]usize {
+            return @This().broadcastShapes(self.allocator, self.shape, other.shape);
+        }
+
+        pub fn broadcastShapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) ArrayError![]usize {
+            return computeBroadcastShape(allocator, lhs_shape, rhs_shape);
+        }
+
+        pub fn broadcast_shapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) ArrayError![]usize {
+            return @This().broadcastShapes(allocator, lhs_shape, rhs_shape);
         }
 
         pub fn isScalar(self: Self) bool {
@@ -1652,7 +1672,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn binaryView(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Array(T) {
-            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             var out = try Array(T).empty(self.allocator, out_shape);
             errdefer out.deinit();
@@ -1667,7 +1687,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn compareView(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
-            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             var out = try Array(bool).empty(self.allocator, out_shape);
             errdefer out.deinit();
@@ -1704,7 +1724,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn copyFromView(self: Self, source: Self) ArrayError!void {
-            const out_shape = try broadcastShape(self.allocator, self.shape, source.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, source.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -1732,7 +1752,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn maskedFill(self: Self, mask: Array(bool), value: T) ArrayError!void {
-            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -1750,7 +1770,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn maskedCopyFromView(self: Self, mask: Array(bool), values: Self) ArrayError!void {
-            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -1784,9 +1804,9 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn copyWhereFromView(self: Self, mask: Array(bool), source: Self) ArrayError!void {
-            const tmp_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            const tmp_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(tmp_shape);
-            const out_shape = try broadcastShape(self.allocator, tmp_shape, source.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, tmp_shape, source.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -1814,7 +1834,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn assignView(self: Self, source: Self, comptime op: fn (T, T) T) ArrayError!void {
-            const out_shape = try broadcastShape(self.allocator, self.shape, source.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, source.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -5426,7 +5446,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, dims);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, dims);
             errdefer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, dims)) return error.ShapeMismatch;
             const out_strides = try self.allocator.alloc(usize, dims.len);
@@ -7568,6 +7588,26 @@ pub fn Array(comptime T: type) type {
             return std.mem.eql(usize, self.shape, other.shape);
         }
 
+        pub fn broadcastShape(self: Self, other: Self) ArrayError![]usize {
+            return Self.broadcastShapes(self.allocator, self.shape, other.shape);
+        }
+
+        pub fn broadcast_shape(self: Self, other: Self) ArrayError![]usize {
+            return self.broadcastShape(other);
+        }
+
+        pub fn broadcastShapeView(self: Self, other: ArrayView(T)) ArrayError![]usize {
+            return Self.broadcastShapes(self.allocator, self.shape, other.shape);
+        }
+
+        pub fn broadcastShapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) ArrayError![]usize {
+            return computeBroadcastShape(allocator, lhs_shape, rhs_shape);
+        }
+
+        pub fn broadcast_shapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) ArrayError![]usize {
+            return Self.broadcastShapes(allocator, lhs_shape, rhs_shape);
+        }
+
         pub fn isContiguous(self: Self) bool {
             var expected: usize = 1;
             var i = self.shape.len;
@@ -8000,7 +8040,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, dims);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, dims);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, dims)) return error.ShapeMismatch;
             const out = try Self.empty(self.allocator, dims);
@@ -9197,7 +9237,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
             defer self.allocator.free(out_multi);
@@ -9222,7 +9262,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedFill(self: Self, mask: Array(bool), value: T) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try self.broadcastTo(out_shape);
             errdefer out.deinit();
@@ -9241,7 +9281,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedScatter(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try self.broadcastTo(out_shape);
             errdefer out.deinit();
@@ -9266,7 +9306,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedPut(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try self.broadcastTo(out_shape);
             errdefer out.deinit();
@@ -9340,7 +9380,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try Self.empty(self.allocator, out_shape);
             errdefer out.deinit();
@@ -9639,7 +9679,7 @@ pub fn Array(comptime T: type) type {
             var out_shape = try self.allocator.dupe(usize, indices[0].shape);
             errdefer self.allocator.free(out_shape);
             for (indices[1..]) |idx_array| {
-                const next_shape = try broadcastShape(self.allocator, out_shape, idx_array.shape);
+                const next_shape = try computeBroadcastShape(self.allocator, out_shape, idx_array.shape);
                 self.allocator.free(out_shape);
                 out_shape = next_shape;
             }
@@ -9930,7 +9970,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out = try Self.empty(self.allocator, out_shape);
 
@@ -9953,9 +9993,9 @@ pub fn Array(comptime T: type) type {
         }
 
         fn ternaryArray(self: Self, second: Self, third: Self, comptime op: fn (T, T, T) T) ArrayError!Self {
-            const tmp_shape = try broadcastShape(self.allocator, self.shape, second.shape);
+            const tmp_shape = try computeBroadcastShape(self.allocator, self.shape, second.shape);
             defer self.allocator.free(tmp_shape);
-            const out_shape = try broadcastShape(self.allocator, tmp_shape, third.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, tmp_shape, third.shape);
             defer self.allocator.free(out_shape);
             const out = try Self.empty(self.allocator, out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -9971,9 +10011,9 @@ pub fn Array(comptime T: type) type {
         }
 
         fn ternaryArrayScalar(self: Self, second: Self, third: Self, scalar: T, comptime op: fn (T, T, T, T) T) ArrayError!Self {
-            const tmp_shape = try broadcastShape(self.allocator, self.shape, second.shape);
+            const tmp_shape = try computeBroadcastShape(self.allocator, self.shape, second.shape);
             defer self.allocator.free(tmp_shape);
-            const out_shape = try broadcastShape(self.allocator, tmp_shape, third.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, tmp_shape, third.shape);
             defer self.allocator.free(out_shape);
             const out = try Self.empty(self.allocator, out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -9989,7 +10029,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn binaryArrayScalar(self: Self, other: Self, scalar: T, comptime op: fn (T, T, T) T) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out = try Self.empty(self.allocator, out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -10933,7 +10973,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn ldexp(self: Self, exponents: Array(i32)) ArrayError!Self {
             ensureFloat(T);
-            const out_shape = try broadcastShape(self.allocator, self.shape, exponents.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, exponents.shape);
             defer self.allocator.free(out_shape);
             const out = try Self.empty(self.allocator, out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -11444,7 +11484,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn allcloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             ensureFloat(T);
-            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
             defer self.allocator.free(out_multi);
@@ -11477,7 +11517,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn iscloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
             ensureFloat(T);
-            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out = try Array(bool).empty(self.allocator, out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -11551,7 +11591,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
-            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out = try Array(bool).empty(self.allocator, out_shape);
 
@@ -11574,9 +11614,9 @@ pub fn Array(comptime T: type) type {
         }
 
         fn whereMask(mask: Array(bool), a: Self, b: Self) ArrayError!Self {
-            const tmp_shape = try broadcastShape(a.allocator, a.shape, b.shape);
+            const tmp_shape = try computeBroadcastShape(a.allocator, a.shape, b.shape);
             defer a.allocator.free(tmp_shape);
-            const out_shape = try broadcastShape(a.allocator, tmp_shape, mask.shape);
+            const out_shape = try computeBroadcastShape(a.allocator, tmp_shape, mask.shape);
             defer a.allocator.free(out_shape);
             var out = try Self.empty(a.allocator, out_shape);
             errdefer out.deinit();
@@ -12823,7 +12863,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn checkedBroadcastWeights(self: Self, weights: Self) ArrayError!Self {
-            const out_shape = try broadcastShape(self.allocator, self.shape, weights.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, weights.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
             return weights.broadcastTo(self.shape);
@@ -14222,7 +14262,7 @@ pub fn Array(comptime T: type) type {
 
             const lhs_batch = if (lhs_vec) self.shape[0..0] else self.shape[0 .. self.shape.len - 2];
             const rhs_batch = if (rhs_vec) other.shape[0..0] else other.shape[0 .. other.shape.len - 2];
-            const batch_shape = try broadcastShape(self.allocator, lhs_batch, rhs_batch);
+            const batch_shape = try computeBroadcastShape(self.allocator, lhs_batch, rhs_batch);
             defer self.allocator.free(batch_shape);
 
             const lhs_m: usize = if (lhs_vec) 1 else self.shape[self.shape.len - 2];
@@ -14448,7 +14488,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn cross(self: Self, other: Self, axis_index: isize) ArrayError!Self {
             ensureNumeric(T);
-            const out_shape = try broadcastShape(self.allocator, self.shape, other.shape);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const axis = try normalizeDim(axis_index, out_shape.len);
             if (out_shape[axis] != 3) return error.ShapeMismatch;
@@ -16355,6 +16395,21 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expect(!a.isBatchedMatrix());
     try std.testing.expect(!a.isSquare());
     try std.testing.expectEqual(@as(usize, 3), try a.size(1));
+    var broadcast_rhs = try Array(f64).full(gpa, &.{ 1, 3 }, 7);
+    defer broadcast_rhs.deinit();
+    const broadcast_shape_top = try a.broadcastShape(broadcast_rhs);
+    defer gpa.free(broadcast_shape_top);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_shape_top);
+    const broadcast_shape_snake = try a.broadcast_shape(broadcast_rhs);
+    defer gpa.free(broadcast_shape_snake);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_shape_snake);
+    const broadcast_shape_static = try Array(f64).broadcastShapes(gpa, &.{ 2, 1, 3 }, &.{ 1, 4, 3 });
+    defer gpa.free(broadcast_shape_static);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4, 3 }, broadcast_shape_static);
+    const broadcast_shape_static_snake = try Array(f64).broadcast_shapes(gpa, &.{3}, &.{ 2, 3 });
+    defer gpa.free(broadcast_shape_static_snake);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_shape_static_snake);
+    try std.testing.expectError(error.ShapeMismatch, Array(f64).broadcastShapes(gpa, &.{2}, &.{3}));
     try std.testing.expectEqual(@as(usize, 3), try a.shapeAt(-1));
     try std.testing.expectEqual(@as(usize, 3), try a.strideAt(0));
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.elementSize());
@@ -16555,6 +16610,11 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, broadcast_top.data);
     var expanded_top = try selected_top.expand(&.{ 2, 3 });
     defer expanded_top.deinit();
+    var selected_top_view = try selected_top.asView();
+    defer selected_top_view.deinit();
+    const expanded_shape = try expanded_top.broadcastShape(selected_top_view);
+    defer gpa.free(expanded_shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, expanded_shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, expanded_top.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, expanded_top.strides);
     try std.testing.expectEqual(@as(f64, 6), try expanded_top.get(&.{ 1, 2 }));
