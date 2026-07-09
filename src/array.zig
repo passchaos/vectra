@@ -4827,6 +4827,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.diagflat(offset);
         }
 
+        pub fn diagEmbed(self: Self, offset: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.diagEmbed(offset);
+        }
+
+        pub fn diag_embed(self: Self, offset: isize) ArrayError!Array(T) {
+            return self.diagEmbed(offset);
+        }
+
         pub fn triu(self: Self, diagonal_offset: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -14576,6 +14586,50 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn diagEmbed(self: Self, offset: isize) ArrayError!Self {
+            if (self.shape.len == 0) return error.NonVectorArray;
+            const diagonal_len = self.shape[self.shape.len - 1];
+            const offset_abs: usize = if (offset < 0) @intCast(-offset) else @intCast(offset);
+            const matrix_size = diagonal_len + offset_abs;
+            const out_shape = try self.allocator.alloc(usize, self.shape.len + 1);
+            defer self.allocator.free(out_shape);
+            for (self.shape[0 .. self.shape.len - 1], 0..) |extent, axis| out_shape[axis] = extent;
+            out_shape[out_shape.len - 2] = matrix_size;
+            out_shape[out_shape.len - 1] = matrix_size;
+            var out = try Self.zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (diagonal_len == 0 or out.data.len == 0) return out;
+
+            const batch_shape = self.shape[0 .. self.shape.len - 1];
+            const batch_count = product(batch_shape);
+            const batch_multi = try self.allocator.alloc(usize, batch_shape.len);
+            defer self.allocator.free(batch_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (0..batch_count) |batch_flat| {
+                unravelIndexInto(batch_flat, batch_shape, batch_multi);
+                for (batch_multi, 0..) |coord, axis| {
+                    in_multi[axis] = coord;
+                    out_multi[axis] = coord;
+                }
+                for (0..diagonal_len) |diag_i| {
+                    in_multi[self.shape.len - 1] = diag_i;
+                    const row = if (offset < 0) diag_i + offset_abs else diag_i;
+                    const col = if (offset > 0) diag_i + offset_abs else diag_i;
+                    out_multi[out_shape.len - 2] = row;
+                    out_multi[out_shape.len - 1] = col;
+                    out.data[ravelIndex(out_multi, out.strides)] = self.data[ravelIndex(in_multi, self.strides)];
+                }
+            }
+            return out;
+        }
+
+        pub fn diag_embed(self: Self, offset: isize) ArrayError!Self {
+            return self.diagEmbed(offset);
+        }
+
         pub fn trace(self: Self) ArrayError!T {
             return self.traceOffset(0);
         }
@@ -19991,6 +20045,38 @@ test "array creation like scalar diag and diagflat" {
     defer d1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 4 }, d1.shape);
     try std.testing.expectEqualSlices(f64, &.{ 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0 }, d1.data);
+    var embedded = try v.diagEmbed(0);
+    defer embedded.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, embedded.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 2, 0, 0, 0, 3 }, embedded.data);
+    var embedded_upper = try v.diag_embed(1);
+    defer embedded_upper.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 4 }, embedded_upper.shape);
+    try std.testing.expectEqualSlices(f64, d1.data, embedded_upper.data);
+    var embedded_lower = try v.diagEmbed(-1);
+    defer embedded_lower.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 4, 4 }, embedded_lower.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0 }, embedded_lower.data);
+
+    var batched = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer batched.deinit();
+    var batched_embed = try batched.diagEmbed(0);
+    defer batched_embed.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, batched_embed.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 2, 3, 0, 0, 4 }, batched_embed.data);
+    var batched_embed_upper = try batched.diag_embed(1);
+    defer batched_embed_upper.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3, 3 }, batched_embed_upper.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0 }, batched_embed_upper.data);
+    var batched_view = try batched.asView();
+    defer batched_view.deinit();
+    var batched_view_embed = try batched_view.diagEmbed(0);
+    defer batched_view_embed.deinit();
+    try std.testing.expectEqualSlices(f64, batched_embed.data, batched_view_embed.data);
+
+    var scalar = try Array(f64).fromScalar(gpa, 5);
+    defer scalar.deinit();
+    try std.testing.expectError(error.NonVectorArray, scalar.diagEmbed(0));
 
     var extracted = try a.diag(0);
     defer extracted.deinit();
