@@ -3273,6 +3273,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.norm(p, axis_opt, keepdims);
         }
 
+        pub fn normAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.normAxes(p, axes, keepdims);
+        }
+
+        pub fn norm_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            return self.normAxes(p, axes, keepdims);
+        }
+
         pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -11305,6 +11315,35 @@ pub fn Array(comptime T: type) type {
             return summed.powScalar(one(T) / p);
         }
 
+        pub fn normAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            if (p == zero(T)) return error.InvalidShape;
+            if (axes.len == 0) return self.abs();
+            var abs_t = try self.abs();
+            defer abs_t.deinit();
+
+            if (p == one(T)) {
+                return abs_t.sumAxes(axes, keepdims);
+            }
+            if (p == castValue(T, 2)) {
+                var squared = try abs_t.mul(abs_t);
+                defer squared.deinit();
+                const summed = try squared.sumAxes(axes, keepdims);
+                for (summed.data) |*value| value.* = std.math.sqrt(value.*);
+                return summed;
+            }
+
+            var powered = try abs_t.powScalar(p);
+            defer powered.deinit();
+            var summed = try powered.sumAxes(axes, keepdims);
+            defer summed.deinit();
+            return summed.powScalar(one(T) / p);
+        }
+
+        pub fn norm_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
+            return self.normAxes(p, axes, keepdims);
+        }
+
         pub fn cumsum(self: Self) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -13783,6 +13822,15 @@ test "array scipy-like statistics and softmax" {
     var norm_top = try a.norm(2, null, false);
     defer norm_top.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 30)), norm_top.data[0], 1e-12);
+    var norm_axes = try cube.normAxes(2, &.{ 0, 2 }, false);
+    defer norm_axes.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, norm_axes.shape);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 66)), norm_axes.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 138)), norm_axes.data[1], 1e-12);
+    var norm_axes_keep = try cube.norm_axes(1, &.{ 0, 2 }, true);
+    defer norm_axes_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, norm_axes_keep.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 14, 22 }, norm_axes_keep.data);
 
     var logits = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 1, 2, 3 }, &.{ 2, 3 });
     defer logits.deinit();
@@ -14844,6 +14892,9 @@ test "array view object statistics wrappers" {
     var view_lse_axes = try view.logsumexpAxes(&.{ 0, 1 }, false);
     defer view_lse_axes.deinit();
     try std.testing.expect(std.math.isNan(view_lse_axes.data[0]));
+    var view_norm_axes = try view.normAxes(1, &.{ 0, 1 }, false);
+    defer view_norm_axes.deinit();
+    try std.testing.expect(std.math.isNan(view_norm_axes.data[0]));
     var view_nanmedian_axes = try view.nanmedianAxes(&.{ 0, 1 }, false);
     defer view_nanmedian_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{4}, view_nanmedian_axes.data);
