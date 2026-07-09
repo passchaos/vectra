@@ -52,6 +52,32 @@ fn benchAddScalar(io: std.Io, a: ArrayF64, iters: usize) !f64 {
     return elapsed / @as(f64, @floatFromInt(iters));
 }
 
+fn benchAddArrayOut(io: std.Io, a: ArrayF64, b: ArrayF64, out: ArrayF64, iters: usize) !f64 {
+    var sink: f64 = 0;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        try a.addOut(b, out);
+        sink += out.data[0];
+        std.mem.doNotOptimizeAway(out.data.ptr);
+    }
+    std.mem.doNotOptimizeAway(sink);
+    const elapsed: f64 = @floatFromInt(nowNs(io) - start);
+    return elapsed / @as(f64, @floatFromInt(iters));
+}
+
+fn benchAddScalarOut(io: std.Io, a: ArrayF64, out: ArrayF64, iters: usize) !f64 {
+    var sink: f64 = 0;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        try a.addScalarOut(1.25, out);
+        sink += out.data[0];
+        std.mem.doNotOptimizeAway(out.data.ptr);
+    }
+    std.mem.doNotOptimizeAway(sink);
+    const elapsed: f64 = @floatFromInt(nowNs(io) - start);
+    return elapsed / @as(f64, @floatFromInt(iters));
+}
+
 fn benchMulArray(io: std.Io, a: ArrayF64, b: ArrayF64, iters: usize) !f64 {
     var sink: f64 = 0;
     const start = nowNs(io);
@@ -228,6 +254,10 @@ pub fn main() !void {
     warm_add.deinit();
     var warm_scalar = try a.addScalar(1.25);
     warm_scalar.deinit();
+    var warm_out = try ArrayF64.empty(allocator, &.{n});
+    defer warm_out.deinit();
+    try a.addOut(b, warm_out);
+    try a.addScalarOut(1.25, warm_out);
     var warm_mul = try a.mul(b);
     warm_mul.deinit();
     var warm_gt = try a.gtScalar(0.5);
@@ -261,6 +291,8 @@ pub fn main() !void {
     std.debug.print("bench,items,ns_per_op\n", .{});
     std.debug.print("add_array_f64,{d},{d:.3}\n", .{ n, try benchAddArray(io, a, b, 120) });
     std.debug.print("add_scalar_f64,{d},{d:.3}\n", .{ n, try benchAddScalar(io, a, 120) });
+    std.debug.print("add_array_out_f64,{d},{d:.3}\n", .{ n, try benchAddArrayOut(io, a, b, warm_out, 240) });
+    std.debug.print("add_scalar_out_f64,{d},{d:.3}\n", .{ n, try benchAddScalarOut(io, a, warm_out, 240) });
     std.debug.print("mul_array_f64,{d},{d:.3}\n", .{ n, try benchMulArray(io, a, b, 120) });
     std.debug.print("gt_scalar_f64,{d},{d:.3}\n", .{ n, try benchGtScalar(io, a, 120) });
     std.debug.print("sum_all_f64,{d},{d:.3}\n", .{ n, try benchSumAll(io, a, 240) });

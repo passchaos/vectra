@@ -14378,6 +14378,30 @@ pub fn Array(comptime T: type) type {
             return false;
         }
 
+        fn binaryArrayOut(self: Self, other: Self, out: Self, comptime op: fn (T, T) T) ArrayError!void {
+            if (std.mem.eql(usize, self.shape, other.shape)) {
+                if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
+                if (binaryArraySimd(out.data, self.data, other.data, op)) return;
+                for (self.data, other.data, out.data) |lhs, rhs, *slot| {
+                    slot.* = op(lhs, rhs);
+                }
+                return;
+            }
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            if (!std.mem.eql(usize, out.shape, out_shape)) return error.ShapeMismatch;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+
+            for (out.data, 0..) |*slot, i| {
+                unravelIndexInto(i, out_shape, out_multi);
+                const ai = broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
+                const bi = broadcastOffset(out_multi, out_shape.len, other.shape, other.strides);
+                slot.* = op(self.data[ai], other.data[bi]);
+            }
+        }
+
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
             if (std.mem.eql(usize, self.shape, other.shape)) {
                 const out = try Self.empty(self.allocator, self.shape);
@@ -14422,6 +14446,12 @@ pub fn Array(comptime T: type) type {
             var rhs = try other.astype(P);
             defer rhs.deinit();
             return lhs.binaryArray(rhs, op);
+        }
+
+        fn binaryScalarOut(self: Self, scalar: T, out: Self, comptime op: fn (T, T) T) ArrayError!void {
+            if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
+            if (binaryScalarSimd(out.data, self.data, scalar, op)) return;
+            for (self.data, out.data) |v, *slot| slot.* = op(v, scalar);
         }
 
         fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Self {
@@ -14915,6 +14945,42 @@ pub fn Array(comptime T: type) type {
             return self.binaryArray(other, opDiv);
         }
 
+        pub fn addOut(self: Self, other: Self, out: Self) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryArrayOut(other, out, opAdd);
+        }
+
+        pub fn add_out(self: Self, other: Self, out: Self) ArrayError!void {
+            return self.addOut(other, out);
+        }
+
+        pub fn subOut(self: Self, other: Self, out: Self) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryArrayOut(other, out, opSub);
+        }
+
+        pub fn sub_out(self: Self, other: Self, out: Self) ArrayError!void {
+            return self.subOut(other, out);
+        }
+
+        pub fn mulOut(self: Self, other: Self, out: Self) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryArrayOut(other, out, opMul);
+        }
+
+        pub fn mul_out(self: Self, other: Self, out: Self) ArrayError!void {
+            return self.mulOut(other, out);
+        }
+
+        pub fn divOut(self: Self, other: Self, out: Self) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryArrayOut(other, out, opDiv);
+        }
+
+        pub fn div_out(self: Self, other: Self, out: Self) ArrayError!void {
+            return self.divOut(other, out);
+        }
+
         pub fn pow(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryArray(other, opPow);
@@ -15102,6 +15168,42 @@ pub fn Array(comptime T: type) type {
         pub fn divScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opDiv);
+        }
+
+        pub fn addScalarOut(self: Self, scalar: T, out: Self) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryScalarOut(scalar, out, opAdd);
+        }
+
+        pub fn add_scalar_out(self: Self, scalar: T, out: Self) ArrayError!void {
+            return self.addScalarOut(scalar, out);
+        }
+
+        pub fn subScalarOut(self: Self, scalar: T, out: Self) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryScalarOut(scalar, out, opSub);
+        }
+
+        pub fn sub_scalar_out(self: Self, scalar: T, out: Self) ArrayError!void {
+            return self.subScalarOut(scalar, out);
+        }
+
+        pub fn mulScalarOut(self: Self, scalar: T, out: Self) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryScalarOut(scalar, out, opMul);
+        }
+
+        pub fn mul_scalar_out(self: Self, scalar: T, out: Self) ArrayError!void {
+            return self.mulScalarOut(scalar, out);
+        }
+
+        pub fn divScalarOut(self: Self, scalar: T, out: Self) ArrayError!void {
+            ensureNumeric(T);
+            return self.binaryScalarOut(scalar, out, opDiv);
+        }
+
+        pub fn div_scalar_out(self: Self, scalar: T, out: Self) ArrayError!void {
+            return self.divScalarOut(scalar, out);
         }
 
         pub fn powScalar(self: Self, scalar: T) ArrayError!Self {
@@ -20827,6 +20929,20 @@ test "array binary math wrappers and clamp aliases" {
     var scalar_divided = try scalar_multiplied.divScalar(2);
     defer scalar_divided.deinit();
     try std.testing.expectEqualSlices(f64, a.data, scalar_divided.data);
+    var out_reuse = try Array(f64).empty(gpa, &.{ 2, 2 });
+    defer out_reuse.deinit();
+    try a.addOut(same_shape_rhs, out_reuse);
+    try std.testing.expectEqualSlices(f64, same_shape_added.data, out_reuse.data);
+    try a.mul_out(same_shape_rhs, out_reuse);
+    try std.testing.expectEqualSlices(f64, same_shape_multiplied.data, out_reuse.data);
+    try a.addScalarOut(0.5, out_reuse);
+    try std.testing.expectEqualSlices(f64, scalar_added.data, out_reuse.data);
+    try a.div_scalar_out(2, out_reuse);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 1, 1.5, 2 }, out_reuse.data);
+    var bad_out = try Array(f64).empty(gpa, &.{4});
+    defer bad_out.deinit();
+    try std.testing.expectError(error.ShapeMismatch, a.addOut(same_shape_rhs, bad_out));
+    try std.testing.expectError(error.ShapeMismatch, a.addScalarOut(1, bad_out));
     var f32_values = try Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
     defer f32_values.deinit();
     var f32_rhs = try Array(f32).fromSlice(gpa, &.{ 8, 7, 6, 5, 4, 3, 2, 1 }, &.{ 2, 4 });
