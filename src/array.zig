@@ -2275,8 +2275,94 @@ pub fn ArrayView(comptime T: type) type {
             return absValue(T, a);
         }
 
+        fn opLogicalNot(a: T) T {
+            if (comptime T != bool) @compileError("logicalNot requires Array(bool)");
+            return !a;
+        }
+
+        fn opIsNan(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isNan(a.re) or std.math.isNan(a.im);
+            if (comptime T == BFloat16) return std.math.isNan(a.toF32());
+            return switch (@typeInfo(T)) {
+                .float => std.math.isNan(a),
+                .int, .comptime_int => false,
+                else => @compileError("isNan requires a numeric array"),
+            };
+        }
+
+        fn opIsInf(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isInf(a.re) or std.math.isInf(a.im);
+            if (comptime T == BFloat16) return std.math.isInf(a.toF32());
+            return switch (@typeInfo(T)) {
+                .float => std.math.isInf(a),
+                .int, .comptime_int => false,
+                else => @compileError("isInf requires a numeric array"),
+            };
+        }
+
+        fn opIsPosInf(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isPositiveInf(a.re) or std.math.isPositiveInf(a.im);
+            if (comptime T == BFloat16) return std.math.isPositiveInf(a.toF32());
+            return switch (@typeInfo(T)) {
+                .float => std.math.isPositiveInf(a),
+                .int, .comptime_int => false,
+                else => @compileError("isPosInf requires a numeric array"),
+            };
+        }
+
+        fn opIsNegInf(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isNegativeInf(a.re) or std.math.isNegativeInf(a.im);
+            if (comptime T == BFloat16) return std.math.isNegativeInf(a.toF32());
+            return switch (@typeInfo(T)) {
+                .float => std.math.isNegativeInf(a),
+                .int, .comptime_int => false,
+                else => @compileError("isNegInf requires a numeric array"),
+            };
+        }
+
+        fn opIsFinite(a: T) bool {
+            if (comptime isComplex(T)) return std.math.isFinite(a.re) and std.math.isFinite(a.im);
+            if (comptime T == BFloat16) return std.math.isFinite(a.toF32());
+            return switch (@typeInfo(T)) {
+                .float => std.math.isFinite(a),
+                .int, .comptime_int => true,
+                else => @compileError("isFinite requires a numeric array"),
+            };
+        }
+
+        fn opIsNormal(a: T) bool {
+            if (comptime T == BFloat16) return std.math.isNormal(a.toF32());
+            return switch (@typeInfo(T)) {
+                .float => std.math.isNormal(a),
+                else => @compileError("isNormal requires a floating-point array"),
+            };
+        }
+
+        fn opSignbit(a: T) bool {
+            if (comptime T == BFloat16) return std.math.signbit(a.toF32());
+            return switch (@typeInfo(T)) {
+                .float => std.math.signbit(a),
+                .int => |info| if (info.signedness == .signed) a < 0 else false,
+                .comptime_int => a < 0,
+                else => @compileError("signbit requires a numeric array"),
+            };
+        }
+
         fn unary(self: Self, comptime op: fn (T) T) ArrayError!Array(T) {
             var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = op(self.data[self.offset + ravelIndex(multi, self.strides)]);
+            }
+            return out;
+        }
+
+        fn unaryBool(self: Self, comptime op: fn (T) bool) ArrayError!Array(bool) {
+            var out = try Array(bool).empty(self.allocator, self.shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -3403,7 +3489,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn signbit(self: Self) ArrayError!Array(bool) {
-            return self.ownedUnary(Array(bool), Array(T).signbit);
+            ensureNumeric(T);
+            return self.unaryBool(opSignbit);
         }
 
         pub fn exp(self: Self) ArrayError!Array(T) {
@@ -3611,7 +3698,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isNan(self: Self) ArrayError!Array(bool) {
-            return self.ownedUnary(Array(bool), Array(T).isNan);
+            ensureNumeric(T);
+            return self.unaryBool(opIsNan);
         }
 
         pub fn isnan(self: Self) ArrayError!Array(bool) {
@@ -3619,7 +3707,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isInf(self: Self) ArrayError!Array(bool) {
-            return self.ownedUnary(Array(bool), Array(T).isInf);
+            ensureNumeric(T);
+            return self.unaryBool(opIsInf);
         }
 
         pub fn isinf(self: Self) ArrayError!Array(bool) {
@@ -3627,7 +3716,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isPosInf(self: Self) ArrayError!Array(bool) {
-            return self.ownedUnary(Array(bool), Array(T).isPosInf);
+            ensureNumeric(T);
+            return self.unaryBool(opIsPosInf);
         }
 
         pub fn isposinf(self: Self) ArrayError!Array(bool) {
@@ -3635,7 +3725,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isNegInf(self: Self) ArrayError!Array(bool) {
-            return self.ownedUnary(Array(bool), Array(T).isNegInf);
+            ensureNumeric(T);
+            return self.unaryBool(opIsNegInf);
         }
 
         pub fn isneginf(self: Self) ArrayError!Array(bool) {
@@ -3643,7 +3734,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isFinite(self: Self) ArrayError!Array(bool) {
-            return self.ownedUnary(Array(bool), Array(T).isFinite);
+            ensureNumeric(T);
+            return self.unaryBool(opIsFinite);
         }
 
         pub fn isfinite(self: Self) ArrayError!Array(bool) {
@@ -3651,7 +3743,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn isNormal(self: Self) ArrayError!Array(bool) {
-            return self.ownedUnary(Array(bool), Array(T).isNormal);
+            ensureFloat(T);
+            return self.unaryBool(opIsNormal);
         }
 
         pub fn isnormal(self: Self) ArrayError!Array(bool) {
@@ -3671,7 +3764,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logicalNot(self: Self) ArrayError!Array(T) {
-            return self.ownedUnary(Array(T), Array(T).logicalNot);
+            if (comptime T != bool) @compileError("logicalNot requires Array(bool)");
+            return self.unary(opLogicalNot);
         }
 
         pub fn logicalAnd(self: Self, other: Self) ArrayError!Array(T) {
@@ -22284,6 +22378,40 @@ test "array non contiguous view helpers" {
     var logical_xor_view = try bool_lhs.logicalXor(bool_rhs);
     defer logical_xor_view.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, logical_xor_view.data);
+    var logical_not_view = try bool_lhs.logicalNot();
+    defer logical_not_view.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, logical_not_view.data);
+
+    var predicate_source = try Array(f64).fromSlice(gpa, &.{
+        -1.0, std.math.nan(f64), 0.0,                    std.math.inf(f64),
+        -0.0, 2.0,               std.math.floatMin(f64), -std.math.inf(f64),
+    }, &.{ 2, 4 });
+    defer predicate_source.deinit();
+    var predicate_view = try predicate_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer predicate_view.deinit();
+    var sign_bits = try predicate_view.signbit();
+    defer sign_bits.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false }, sign_bits.data);
+    var nan_mask = try predicate_view.isNan();
+    defer nan_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, nan_mask.data);
+    var inf_mask = try predicate_view.isInf();
+    defer inf_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, inf_mask.data);
+    var finite_mask = try predicate_view.isFinite();
+    defer finite_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, finite_mask.data);
+    var normal_mask = try predicate_view.isNormal();
+    defer normal_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, normal_mask.data);
+    var predicate_full_view = try predicate_source.asView();
+    defer predicate_full_view.deinit();
+    var pos_inf_mask = try predicate_full_view.isPosInf();
+    defer pos_inf_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false, false, false, false }, pos_inf_mask.data);
+    var neg_inf_mask = try predicate_full_view.isNegInf();
+    defer neg_inf_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false, false, true }, neg_inf_mask.data);
 
     var heaviside_source = try Array(f64).fromSlice(gpa, &.{ -1, 0, 2, 0 }, &.{ 2, 2 });
     defer heaviside_source.deinit();
