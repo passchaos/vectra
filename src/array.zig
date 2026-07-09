@@ -14153,6 +14153,55 @@ pub fn Array(comptime T: type) type {
             return false;
         }
 
+        fn sumFlatSimdLanes(comptime lanes: usize, values: []const T) T {
+            const Vec = @Vector(lanes, T);
+            var acc0: Vec = @splat(zero(T));
+            var acc1: Vec = @splat(zero(T));
+            var acc2: Vec = @splat(zero(T));
+            var acc3: Vec = @splat(zero(T));
+            var i: usize = 0;
+            while (i + lanes * 4 <= values.len) : (i += lanes * 4) {
+                acc0 += values[i..][0..lanes].*;
+                acc1 += values[i + lanes ..][0..lanes].*;
+                acc2 += values[i + lanes * 2 ..][0..lanes].*;
+                acc3 += values[i + lanes * 3 ..][0..lanes].*;
+            }
+            while (i + lanes <= values.len) : (i += lanes) {
+                acc0 += values[i..][0..lanes].*;
+            }
+
+            var total = zero(T);
+            inline for (0..lanes) |lane| {
+                total += acc0[lane];
+                total += acc1[lane];
+                total += acc2[lane];
+                total += acc3[lane];
+            }
+            while (i < values.len) : (i += 1) total += values[i];
+            return total;
+        }
+
+        fn sumFlatValue(self: Self) T {
+            if (comptime T == f64) return sumFlatSimdLanes(4, self.data);
+            if (comptime T == f32) return sumFlatSimdLanes(8, self.data);
+            var total = zero(T);
+            for (self.data) |value| total = addValue(T, total, value);
+            return total;
+        }
+
+        fn scalarReductionResult(self: Self, value: T, keepdims: bool) ArrayError!Self {
+            if (keepdims) {
+                const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                defer self.allocator.free(out_shape);
+                var out = try Self.empty(self.allocator, out_shape);
+                out.data[0] = value;
+                return out;
+            }
+            var out = try Self.empty(self.allocator, &.{});
+            out.data[0] = value;
+            return out;
+        }
+
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
             if (std.mem.eql(usize, self.shape, other.shape)) {
                 const out = try Self.empty(self.allocator, self.shape);
@@ -16377,6 +16426,7 @@ pub fn Array(comptime T: type) type {
 
         fn reduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: T, comptime op: fn (T, T) T) ArrayError!Self {
             if (axis_opt == null) {
+                if (comptime op == opAdd) return self.scalarReductionResult(self.sumFlatValue(), keepdims);
                 var total = init_value;
                 for (self.data) |v| total = op(total, v);
                 if (keepdims) {
@@ -16428,6 +16478,10 @@ pub fn Array(comptime T: type) type {
 
         pub fn mean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
+            if (axis_opt == null) {
+                const result = self.sumFlatValue() / castValue(T, self.data.len);
+                return self.scalarReductionResult(result, keepdims);
+            }
             const out = try self.sum(axis_opt, keepdims);
             const divisor: T = if (axis_opt) |d| castValue(T, self.shape[try normalizeDim(d, self.shape.len)]) else castValue(T, self.data.len);
             for (out.data) |*v| v.* /= divisor;
@@ -20973,6 +21027,27 @@ test "array reductions and matmul" {
     const gpa = std.testing.allocator;
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
+    var total_sum = try a.sum(null, false);
+    defer total_sum.deinit();
+    try std.testing.expectEqual(@as(usize, 0), total_sum.shape.len);
+    try std.testing.expectEqualSlices(f64, &.{21}, total_sum.data);
+    var total_sum_keep = try a.sum(null, true);
+    defer total_sum_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, total_sum_keep.shape);
+    try std.testing.expectEqualSlices(f64, &.{21}, total_sum_keep.data);
+    var total_mean = try a.mean(null, false);
+    defer total_mean.deinit();
+    try std.testing.expectEqual(@as(usize, 0), total_mean.shape.len);
+    try std.testing.expectEqualSlices(f64, &.{3.5}, total_mean.data);
+    var f32_reduce = try Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
+    defer f32_reduce.deinit();
+    var f32_sum = try f32_reduce.sum(null, false);
+    defer f32_sum.deinit();
+    try std.testing.expectEqualSlices(f32, &.{36}, f32_sum.data);
+    var f32_mean = try f32_reduce.mean(null, true);
+    defer f32_mean.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, f32_mean.shape);
+    try std.testing.expectEqualSlices(f32, &.{4.5}, f32_mean.data);
     var s0 = try a.sum(0, false);
     defer s0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, s0.data);
