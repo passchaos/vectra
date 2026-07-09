@@ -106,6 +106,19 @@ fn benchGtScalar(io: std.Io, a: ArrayF64, iters: usize) !f64 {
     return elapsed / @as(f64, @floatFromInt(iters));
 }
 
+fn benchGtScalarOut(io: std.Io, a: ArrayF64, out: vx.Array(bool), iters: usize) !f64 {
+    var sink = false;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        try a.gtScalarOut(0.5, out);
+        sink = sink != out.data[0];
+        std.mem.doNotOptimizeAway(out.data.ptr);
+    }
+    std.mem.doNotOptimizeAway(sink);
+    const elapsed: f64 = @floatFromInt(nowNs(io) - start);
+    return elapsed / @as(f64, @floatFromInt(iters));
+}
+
 fn benchSumAll(io: std.Io, a: ArrayF64, iters: usize) !f64 {
     var sink: f64 = 0;
     const start = nowNs(io);
@@ -277,6 +290,9 @@ pub fn main() !void {
     warm_mul.deinit();
     var warm_gt = try a.gtScalar(0.5);
     warm_gt.deinit();
+    var warm_mask_out = try vx.Array(bool).empty(allocator, &.{n});
+    defer warm_mask_out.deinit();
+    try a.gtScalarOut(0.5, warm_mask_out);
     var warm_sum = try a.sum(null, false);
     warm_sum.deinit();
     var warm_mean = try a.mean(null, false);
@@ -315,6 +331,7 @@ pub fn main() !void {
     std.debug.print("add_scalar_out_f64,{d},{d:.3}\n", .{ n, try benchAddScalarOut(io, a, warm_out, 240) });
     std.debug.print("mul_array_f64,{d},{d:.3}\n", .{ n, try benchMulArray(io, a, b, 120) });
     std.debug.print("gt_scalar_f64,{d},{d:.3}\n", .{ n, try benchGtScalar(io, a, 120) });
+    std.debug.print("gt_scalar_out_f64,{d},{d:.3}\n", .{ n, try benchGtScalarOut(io, a, warm_mask_out, 240) });
     std.debug.print("sum_all_f64,{d},{d:.3}\n", .{ n, try benchSumAll(io, a, 240) });
     std.debug.print("mean_all_f64,{d},{d:.3}\n", .{ n, try benchMeanAll(io, a, 120) });
     std.debug.print("promoted_add_i32_f64,{d},{d:.3}\n", .{ n, try benchPromotedAdd(io, ai, b, 120) });

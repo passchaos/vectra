@@ -15977,6 +15977,22 @@ pub fn Array(comptime T: type) type {
             return self.compare(other, opEqCompare);
         }
 
+        pub fn eqOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.compareOut(other, out, opEqCompare);
+        }
+
+        pub fn eq_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.eqOut(other, out);
+        }
+
+        pub fn equalOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.eqOut(other, out);
+        }
+
+        pub fn equal_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.equalOut(other, out);
+        }
+
         pub fn equal(self: Self, other: Self) ArrayError!Array(bool) {
             return self.eq(other);
         }
@@ -15984,6 +16000,23 @@ pub fn Array(comptime T: type) type {
         pub fn gt(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compare(other, opGtCompare);
+        }
+
+        pub fn gtOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            ensureNumeric(T);
+            return self.compareOut(other, out, opGtCompare);
+        }
+
+        pub fn gt_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.gtOut(other, out);
+        }
+
+        pub fn greaterOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.gtOut(other, out);
+        }
+
+        pub fn greater_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.greaterOut(other, out);
         }
 
         pub fn greater(self: Self, other: Self) ArrayError!Array(bool) {
@@ -15995,12 +16028,45 @@ pub fn Array(comptime T: type) type {
             return self.compare(other, opLtCompare);
         }
 
+        pub fn ltOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            ensureNumeric(T);
+            return self.compareOut(other, out, opLtCompare);
+        }
+
+        pub fn lt_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.ltOut(other, out);
+        }
+
+        pub fn lessOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.ltOut(other, out);
+        }
+
+        pub fn less_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.lessOut(other, out);
+        }
+
         pub fn less(self: Self, other: Self) ArrayError!Array(bool) {
             return self.lt(other);
         }
 
         pub fn ne(self: Self, other: Self) ArrayError!Array(bool) {
             return self.compare(other, opNeCompare);
+        }
+
+        pub fn neOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.compareOut(other, out, opNeCompare);
+        }
+
+        pub fn ne_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.neOut(other, out);
+        }
+
+        pub fn notEqualOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.neOut(other, out);
+        }
+
+        pub fn not_equal_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.notEqualOut(other, out);
         }
 
         pub fn notEqual(self: Self, other: Self) ArrayError!Array(bool) {
@@ -16012,6 +16078,23 @@ pub fn Array(comptime T: type) type {
             return self.compare(other, opGeCompare);
         }
 
+        pub fn geOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            ensureNumeric(T);
+            return self.compareOut(other, out, opGeCompare);
+        }
+
+        pub fn ge_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.geOut(other, out);
+        }
+
+        pub fn greaterEqualOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.geOut(other, out);
+        }
+
+        pub fn greater_equal_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.greaterEqualOut(other, out);
+        }
+
         pub fn greaterEqual(self: Self, other: Self) ArrayError!Array(bool) {
             return self.ge(other);
         }
@@ -16019,6 +16102,23 @@ pub fn Array(comptime T: type) type {
         pub fn le(self: Self, other: Self) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compare(other, opLeCompare);
+        }
+
+        pub fn leOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            ensureNumeric(T);
+            return self.compareOut(other, out, opLeCompare);
+        }
+
+        pub fn le_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.leOut(other, out);
+        }
+
+        pub fn lessEqualOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.leOut(other, out);
+        }
+
+        pub fn less_equal_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
+            return self.lessEqualOut(other, out);
         }
 
         pub fn lessEqual(self: Self, other: Self) ArrayError!Array(bool) {
@@ -16029,12 +16129,28 @@ pub fn Array(comptime T: type) type {
             return self.compareScalar(scalar, opEqCompare);
         }
 
+        pub fn eqScalarOut(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            return self.compareScalarOut(scalar, out, opEqCompare);
+        }
+
+        pub fn eq_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            return self.eqScalarOut(scalar, out);
+        }
+
         pub fn equalScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.eqScalar(scalar);
         }
 
         pub fn neScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.compareScalar(scalar, opNeCompare);
+        }
+
+        pub fn neScalarOut(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            return self.compareScalarOut(scalar, out, opNeCompare);
+        }
+
+        pub fn ne_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            return self.neScalarOut(scalar, out);
         }
 
         pub fn notEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -16046,6 +16162,15 @@ pub fn Array(comptime T: type) type {
             return self.compareScalar(scalar, opGtCompare);
         }
 
+        pub fn gtScalarOut(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            ensureNumeric(T);
+            return self.compareScalarOut(scalar, out, opGtCompare);
+        }
+
+        pub fn gt_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            return self.gtScalarOut(scalar, out);
+        }
+
         pub fn greaterScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.gtScalar(scalar);
         }
@@ -16053,6 +16178,15 @@ pub fn Array(comptime T: type) type {
         pub fn geScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, opGeCompare);
+        }
+
+        pub fn geScalarOut(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            ensureNumeric(T);
+            return self.compareScalarOut(scalar, out, opGeCompare);
+        }
+
+        pub fn ge_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            return self.geScalarOut(scalar, out);
         }
 
         pub fn greaterEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -16064,6 +16198,15 @@ pub fn Array(comptime T: type) type {
             return self.compareScalar(scalar, opLtCompare);
         }
 
+        pub fn ltScalarOut(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            ensureNumeric(T);
+            return self.compareScalarOut(scalar, out, opLtCompare);
+        }
+
+        pub fn lt_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            return self.ltScalarOut(scalar, out);
+        }
+
         pub fn lessScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.ltScalar(scalar);
         }
@@ -16071,6 +16214,15 @@ pub fn Array(comptime T: type) type {
         pub fn leScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             ensureNumeric(T);
             return self.compareScalar(scalar, opLeCompare);
+        }
+
+        pub fn leScalarOut(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            ensureNumeric(T);
+            return self.compareScalarOut(scalar, out, opLeCompare);
+        }
+
+        pub fn le_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
+            return self.leScalarOut(scalar, out);
         }
 
         pub fn lessEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -16193,18 +16345,18 @@ pub fn Array(comptime T: type) type {
             return self.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
-        fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
+        fn compareOut(self: Self, other: Self, out: Array(bool), comptime op: fn (T, T) bool) ArrayError!void {
             if (std.mem.eql(usize, self.shape, other.shape)) {
-                const out = try Array(bool).empty(self.allocator, self.shape);
-                if (compareArraySimd(out.data, self.data, other.data, op)) return out;
+                if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
+                if (compareArraySimd(out.data, self.data, other.data, op)) return;
                 for (self.data, other.data, out.data) |lhs, rhs, *slot| {
                     slot.* = op(lhs, rhs);
                 }
-                return out;
+                return;
             }
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
-            const out = try Array(bool).empty(self.allocator, out_shape);
+            if (!std.mem.eql(usize, out.shape, out_shape)) return error.ShapeMismatch;
 
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
             defer self.allocator.free(out_multi);
@@ -16215,13 +16367,27 @@ pub fn Array(comptime T: type) type {
                 const bi = broadcastOffset(out_multi, out_shape.len, other.shape, other.strides);
                 slot.* = op(self.data[ai], other.data[bi]);
             }
+        }
+
+        fn compare(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(bool).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            try self.compareOut(other, out, op);
             return out;
         }
 
-        fn compareScalar(self: Self, scalar: T, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
-            const out = try Array(bool).empty(self.allocator, self.shape);
-            if (compareScalarSimd(out.data, self.data, scalar, op)) return out;
+        fn compareScalarOut(self: Self, scalar: T, out: Array(bool), comptime op: fn (T, T) bool) ArrayError!void {
+            if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
+            if (compareScalarSimd(out.data, self.data, scalar, op)) return;
             for (self.data, out.data) |value, *slot| slot.* = op(value, scalar);
+        }
+
+        fn compareScalar(self: Self, scalar: T, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
+            var out = try Array(bool).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            try self.compareScalarOut(scalar, out, op);
             return out;
         }
 
@@ -21326,6 +21492,16 @@ test "array comparison and logical wrappers" {
     var f32_gt_scalar = try f32_cmp.gtScalar(4);
     defer f32_gt_scalar.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, true, true, true, true }, f32_gt_scalar.data);
+    var mask_out = try Array(bool).empty(gpa, &.{ 2, 2 });
+    defer mask_out.deinit();
+    try a.eqOut(same_shape_cmp_rhs, mask_out);
+    try std.testing.expectEqualSlices(bool, same_shape_eq.data, mask_out.data);
+    try a.gtScalarOut(2, mask_out);
+    try std.testing.expectEqualSlices(bool, greater_scalar_out.data, mask_out.data);
+    var bad_mask_out = try Array(bool).empty(gpa, &.{4});
+    defer bad_mask_out.deinit();
+    try std.testing.expectError(error.ShapeMismatch, a.eqOut(same_shape_cmp_rhs, bad_mask_out));
+    try std.testing.expectError(error.ShapeMismatch, a.gtScalarOut(2, bad_mask_out));
 
     try std.testing.expect(try a.allclose(a, 1e-12, 1e-12));
 
