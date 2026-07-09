@@ -1119,6 +1119,30 @@ pub fn ArrayView(comptime T: type) type {
             return self.numel() == 0;
         }
 
+        pub fn isMatrix(self: Self) bool {
+            return self.shape.len == 2;
+        }
+
+        pub fn is_matrix(self: Self) bool {
+            return self.isMatrix();
+        }
+
+        pub fn isBatchedMatrix(self: Self) bool {
+            return self.shape.len >= 3;
+        }
+
+        pub fn is_batched_matrix(self: Self) bool {
+            return self.isBatchedMatrix();
+        }
+
+        pub fn isSquare(self: Self) bool {
+            return self.shape.len >= 2 and self.shape[self.shape.len - 2] == self.shape[self.shape.len - 1];
+        }
+
+        pub fn is_square(self: Self) bool {
+            return self.isSquare();
+        }
+
         pub fn size(self: Self, axis_opt: ?isize) ArrayError!usize {
             if (axis_opt) |axis_index| return self.shape[try normalizeDim(axis_index, self.shape.len)];
             return self.numel();
@@ -5489,6 +5513,56 @@ pub fn ArrayView(comptime T: type) type {
         pub fn matrix_power(self: Self, exponent: isize) ArrayError!Array(T) {
             return self.matrixPower(exponent);
         }
+
+        pub fn isDiagonalMatrix(self: Self) ArrayError!bool {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isDiagonalMatrix();
+        }
+
+        pub fn is_diagonal_matrix(self: Self) ArrayError!bool {
+            return self.isDiagonalMatrix();
+        }
+
+        pub fn isUpperTriangular(self: Self) ArrayError!bool {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isUpperTriangular();
+        }
+
+        pub fn is_upper_triangular(self: Self) ArrayError!bool {
+            return self.isUpperTriangular();
+        }
+
+        pub fn isLowerTriangular(self: Self) ArrayError!bool {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isLowerTriangular();
+        }
+
+        pub fn is_lower_triangular(self: Self) ArrayError!bool {
+            return self.isLowerTriangular();
+        }
+
+        pub fn isSymmetric(self: Self, rtol: T, atol: T) ArrayError!bool {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isSymmetric(rtol, atol);
+        }
+
+        pub fn is_symmetric(self: Self, rtol: T, atol: T) ArrayError!bool {
+            return self.isSymmetric(rtol, atol);
+        }
+
+        pub fn isHermitian(self: Self, rtol: T, atol: T) ArrayError!bool {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.isHermitian(rtol, atol);
+        }
+
+        pub fn is_hermitian(self: Self, rtol: T, atol: T) ArrayError!bool {
+            return self.isHermitian(rtol, atol);
+        }
     };
 }
 
@@ -7356,6 +7430,30 @@ pub fn Array(comptime T: type) type {
             return self.numel() == 0;
         }
 
+        pub fn isMatrix(self: Self) bool {
+            return self.shape.len == 2;
+        }
+
+        pub fn is_matrix(self: Self) bool {
+            return self.isMatrix();
+        }
+
+        pub fn isBatchedMatrix(self: Self) bool {
+            return self.shape.len >= 3;
+        }
+
+        pub fn is_batched_matrix(self: Self) bool {
+            return self.isBatchedMatrix();
+        }
+
+        pub fn isSquare(self: Self) bool {
+            return self.shape.len >= 2 and self.shape[self.shape.len - 2] == self.shape[self.shape.len - 1];
+        }
+
+        pub fn is_square(self: Self) bool {
+            return self.isSquare();
+        }
+
         pub fn shapeAt(self: Self, axis_index: isize) ArrayError!usize {
             return self.shape[try normalizeDim(axis_index, self.shape.len)];
         }
@@ -8385,6 +8483,123 @@ pub fn Array(comptime T: type) type {
 
         pub fn matrix_power(self: Self, exponent: isize) ArrayError!Self {
             return self.matrixPower(exponent);
+        }
+
+        pub fn isDiagonalMatrix(self: Self) ArrayError!bool {
+            if (!self.isSquare()) return error.NonMatrixArray;
+            const n = self.shape[self.shape.len - 1];
+            if (n == 0) return true;
+            const batch_shape = self.shape[0 .. self.shape.len - 2];
+            const batch_count = product(batch_shape);
+            if (batch_count == 0) return true;
+            const batch_multi = try self.allocator.alloc(usize, batch_shape.len);
+            defer self.allocator.free(batch_multi);
+            var multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..batch_count) |batch_flat| {
+                unravelIndexInto(batch_flat, batch_shape, batch_multi);
+                for (batch_multi, 0..) |coord, axis| multi[axis] = coord;
+                for (0..n) |row| {
+                    for (0..n) |col| {
+                        if (row == col) continue;
+                        multi[self.shape.len - 2] = row;
+                        multi[self.shape.len - 1] = col;
+                        if (self.data[ravelIndex(multi, self.strides)] != zero(T)) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        pub fn is_diagonal_matrix(self: Self) ArrayError!bool {
+            return self.isDiagonalMatrix();
+        }
+
+        pub fn isUpperTriangular(self: Self) ArrayError!bool {
+            if (!self.isSquare()) return error.NonMatrixArray;
+            const n = self.shape[self.shape.len - 1];
+            if (n == 0) return true;
+            const batch_shape = self.shape[0 .. self.shape.len - 2];
+            const batch_count = product(batch_shape);
+            if (batch_count == 0) return true;
+            const batch_multi = try self.allocator.alloc(usize, batch_shape.len);
+            defer self.allocator.free(batch_multi);
+            var multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..batch_count) |batch_flat| {
+                unravelIndexInto(batch_flat, batch_shape, batch_multi);
+                for (batch_multi, 0..) |coord, axis| multi[axis] = coord;
+                for (0..n) |row| {
+                    for (0..row) |col| {
+                        multi[self.shape.len - 2] = row;
+                        multi[self.shape.len - 1] = col;
+                        if (self.data[ravelIndex(multi, self.strides)] != zero(T)) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        pub fn is_upper_triangular(self: Self) ArrayError!bool {
+            return self.isUpperTriangular();
+        }
+
+        pub fn isLowerTriangular(self: Self) ArrayError!bool {
+            if (!self.isSquare()) return error.NonMatrixArray;
+            const n = self.shape[self.shape.len - 1];
+            if (n == 0) return true;
+            const batch_shape = self.shape[0 .. self.shape.len - 2];
+            const batch_count = product(batch_shape);
+            if (batch_count == 0) return true;
+            const batch_multi = try self.allocator.alloc(usize, batch_shape.len);
+            defer self.allocator.free(batch_multi);
+            var multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..batch_count) |batch_flat| {
+                unravelIndexInto(batch_flat, batch_shape, batch_multi);
+                for (batch_multi, 0..) |coord, axis| multi[axis] = coord;
+                for (0..n) |row| {
+                    for (row + 1..n) |col| {
+                        multi[self.shape.len - 2] = row;
+                        multi[self.shape.len - 1] = col;
+                        if (self.data[ravelIndex(multi, self.strides)] != zero(T)) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        pub fn is_lower_triangular(self: Self) ArrayError!bool {
+            return self.isLowerTriangular();
+        }
+
+        pub fn isSymmetric(self: Self, rtol: T, atol: T) ArrayError!bool {
+            if (!self.isSquare()) return error.NonMatrixArray;
+            if (comptime @typeInfo(T) != .float) @compileError("isSymmetric requires floating-point arrays");
+            var transposed = try self.matrixTranspose();
+            defer transposed.deinit();
+            return self.allclose(transposed, rtol, atol);
+        }
+
+        pub fn is_symmetric(self: Self, rtol: T, atol: T) ArrayError!bool {
+            return self.isSymmetric(rtol, atol);
+        }
+
+        pub fn isHermitian(self: Self, rtol: T, atol: T) ArrayError!bool {
+            if (!self.isSquare()) return error.NonMatrixArray;
+            if (comptime !isComplex(T)) @compileError("isHermitian requires complex arrays");
+            var adj = try self.adjoint();
+            defer adj.deinit();
+            if (!std.mem.eql(usize, self.shape, adj.shape)) return false;
+            for (self.data, adj.data) |lhs, rhs| {
+                if (!closeValue(complexRealType(T), lhs.re, rhs.re, rtol.re, atol.re, false)) return false;
+                if (!closeValue(complexRealType(T), lhs.im, rhs.im, rtol.re, atol.re, false)) return false;
+            }
+            return true;
+        }
+
+        pub fn is_hermitian(self: Self, rtol: T, atol: T) ArrayError!bool {
+            return self.isHermitian(rtol, atol);
         }
 
         fn matrixPowerIdentity(self: Self) ArrayError!Self {
@@ -15977,6 +16192,10 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqual(@as(usize, 6), a.numel());
     try std.testing.expectEqual(@as(usize, 6), a.nelement());
     try std.testing.expect(!a.isEmpty());
+    try std.testing.expect(a.isMatrix());
+    try std.testing.expect(a.is_matrix());
+    try std.testing.expect(!a.isBatchedMatrix());
+    try std.testing.expect(!a.isSquare());
     try std.testing.expectEqual(@as(usize, 3), try a.size(1));
     try std.testing.expectEqual(@as(usize, 3), try a.shapeAt(-1));
     try std.testing.expectEqual(@as(usize, 3), try a.strideAt(0));
@@ -16142,6 +16361,9 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, moved_many.shape);
     var batch_matrix = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }, &.{ 2, 2, 3 });
     defer batch_matrix.deinit();
+    try std.testing.expect(batch_matrix.isBatchedMatrix());
+    try std.testing.expect(batch_matrix.is_batched_matrix());
+    try std.testing.expect(!batch_matrix.isSquare());
     var batch_mt = try batch_matrix.mT();
     defer batch_mt.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3, 2 }, batch_mt.shape);
@@ -17487,6 +17709,12 @@ test "array view object math sort and linalg wrappers" {
     var complex_h = try complex_values.H_();
     defer complex_h.deinit();
     try std.testing.expectEqualSlices(C, complex_adjoint.data, complex_h.data);
+    const complex_tol = C.init(1e-6, 0);
+    var hermitian = try Array(C).fromSlice(gpa, &.{ C.init(2, 0), C.init(1, 2), C.init(1, -2), C.init(3, 0) }, &.{ 2, 2 });
+    defer hermitian.deinit();
+    try std.testing.expect(try hermitian.isHermitian(complex_tol, complex_tol));
+    try std.testing.expect(try hermitian.is_hermitian(complex_tol, complex_tol));
+    try std.testing.expect(!try complex_values.isHermitian(complex_tol, complex_tol));
     var complex_view_mt = try complex_view.mT();
     defer complex_view_mt.deinit();
     var complex_view_mt_owned = try complex_view_mt.toArray();
@@ -17496,6 +17724,9 @@ test "array view object math sort and linalg wrappers" {
     defer complex_view_adjoint.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, -2), complex_view_adjoint.data[0].im, 1e-6);
     try std.testing.expectApproxEqAbs(@as(f32, 4), complex_view_adjoint.data[1].im, 1e-6);
+    var hermitian_view = try hermitian.asView();
+    defer hermitian_view.deinit();
+    try std.testing.expect(try hermitian_view.isHermitian(complex_tol, complex_tol));
 }
 
 test "array object linalg methods use Veyra-backed and fallback paths" {
@@ -17576,6 +17807,10 @@ test "array object linalg methods use Veyra-backed and fallback paths" {
     try std.testing.expectApproxEqAbs(@as(f32, 1), f32_solution.data[1], 1e-5);
     var f32_spd = try Array(f32).fromSlice(gpa, &.{ 4, 2, 2, 3 }, &.{ 2, 2 });
     defer f32_spd.deinit();
+    try std.testing.expect(f32_spd.isSquare());
+    try std.testing.expect(f32_spd.is_square());
+    try std.testing.expect(try f32_spd.isSymmetric(1e-5, 1e-5));
+    try std.testing.expect(try f32_spd.is_symmetric(1e-5, 1e-5));
     var f32_chol = try f32_spd.cholesky();
     defer f32_chol.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, 2), f32_chol.data[0], 1e-5);
@@ -17584,7 +17819,9 @@ test "array object linalg methods use Veyra-backed and fallback paths" {
 
     var non_square = try Array(f64).zeros(gpa, &.{ 2, 3 });
     defer non_square.deinit();
+    try std.testing.expect(!non_square.isSquare());
     try std.testing.expectError(error.NonMatrixArray, non_square.det());
+    try std.testing.expectError(error.NonMatrixArray, non_square.isDiagonalMatrix());
     var singular = try Array(f64).fromSlice(gpa, &.{ 1, 2, 2, 4 }, &.{ 2, 2 });
     defer singular.deinit();
     try std.testing.expectError(error.SingularMatrix, singular.inverse());
@@ -17673,6 +17910,8 @@ test "array object advanced linalg methods" {
 
     var symmetric = try Array(f64).fromSlice(gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
     defer symmetric.deinit();
+    try std.testing.expect(try symmetric.isSymmetric(1e-12, 1e-12));
+    try std.testing.expect(try symmetric.is_symmetric(1e-12, 1e-12));
     var eigen = try symmetric.eigh(64, 1e-12);
     defer eigen.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), eigen.values.data[0], 1e-10);
@@ -17691,8 +17930,25 @@ test "array object advanced linalg methods" {
     defer lu_reconstructed.deinit();
     try std.testing.expect(try lu_reconstructed.allclose(lu_source, 1e-10, 1e-10));
 
+    var diagonal_values = try Array(f64).fromSlice(gpa, &.{ 2, 0, 0, 0, 3, 0, 0, 0, 5 }, &.{ 3, 3 });
+    defer diagonal_values.deinit();
+    try std.testing.expect(try diagonal_values.isDiagonalMatrix());
+    try std.testing.expect(try diagonal_values.is_diagonal_matrix());
+    try std.testing.expect(try diagonal_values.isUpperTriangular());
+    try std.testing.expect(try diagonal_values.isLowerTriangular());
+    try std.testing.expect(!try lu_source.isDiagonalMatrix());
+    try std.testing.expect(!try lu_source.isUpperTriangular());
+    try std.testing.expect(!try lu_source.isLowerTriangular());
+
+    var upper_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 0, 4, 5, 0, 0, 6 }, &.{ 3, 3 });
+    defer upper_values.deinit();
+    try std.testing.expect(try upper_values.is_upper_triangular());
+    try std.testing.expect(!try upper_values.is_lower_triangular());
+
     var lower = try Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
     defer lower.deinit();
+    try std.testing.expect(try lower.isLowerTriangular());
+    try std.testing.expect(!try lower.isUpperTriangular());
     var tri_rhs = try Array(f64).fromSlice(gpa, &.{ 2, 2, 25 }, &.{3});
     defer tri_rhs.deinit();
     var tri_solution = try lower.solveTriangular(tri_rhs, .lower, .non_unit);
@@ -17743,6 +17999,8 @@ test "array view object advanced linalg wrappers" {
     defer symmetric.deinit();
     var symmetric_view = try symmetric.transposeView();
     defer symmetric_view.deinit();
+    try std.testing.expect(symmetric_view.isSquare());
+    try std.testing.expect(try symmetric_view.isSymmetric(1e-12, 1e-12));
     var view_lu = try symmetric_view.lu();
     defer view_lu.deinit();
     var view_lu_product = try view_lu.l.matmul(view_lu.u);
