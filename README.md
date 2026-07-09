@@ -74,7 +74,7 @@ pub fn demo(allocator: std.mem.Allocator) !void {
 
 ## Optional Axiom accelerator bridge
 
-Vectra keeps CPU/Veyra/Alea as the default build.  To validate the experimental Axiom accelerator bridge for contiguous same-shape and scalar/broadcast f32/f64 add/sub/mul/div, 2D matmul, and explicit CUDA f32 SAXPY/scalar-broadcast/device-buffer seeds, run:
+Vectra keeps CPU/Veyra/Alea as the default build.  To validate the experimental Axiom accelerator bridge for contiguous same-shape and scalar/broadcast f32/f16/BFloat16/f64 add/sub/mul/div, 2D matmul, and explicit CUDA f32 SAXPY/scalar-broadcast/device-buffer seeds, run:
 
 ```sh
 zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled
@@ -85,7 +85,7 @@ zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke
 zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
 ```
 
-The CUDA-enabled commands require a CUDA/libnvvm/PTXAS-capable host; `-Daxiom-cuda-dispatch=true` additionally lets ordinary `Array(f32).add/sub/mul/div/addScalar/mulScalar/divScalar/matmul` methods use `vx.axiom_backend` policy to try Axiom CUDA/Axiom CPU before falling back to CPU.  The f32 CUDA matmul path now builds Axiom CUDA Tile IR and hands it to Axiom's Tile-IR-to-CUTILE GEMM runtime bridge.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the supported surface and current limits.
+The CUDA-enabled commands require a CUDA/libnvvm/PTXAS-capable host; `-Daxiom-cuda-dispatch=true` additionally lets ordinary `Array(f32).add/sub/mul/div/addScalar/mulScalar/divScalar/matmul` methods use `vx.axiom_backend` policy to try Axiom CUDA/Axiom CPU before falling back to CPU.  The f32 CUDA matmul path now builds Axiom CUDA Tile IR and hands it to Axiom's Tile-IR-to-CUTILE GEMM runtime bridge.  `Array(f16)` and `Array(BFloat16)` have widened CUDA seeds for same-shape add/sub/mul/div and contiguous 2D matmul.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) and [`docs/CUDA_DTYPE_SUPPORT.md`](docs/CUDA_DTYPE_SUPPORT.md) for the supported surface, local CUDA dtype matrix, and current limits.
 
 `-Daxiom-cpu-dispatch=true` lets ordinary contiguous same-shape `Array(f32/f64).add/sub/mul/div`, scalar `addScalar/subScalar/mulScalar/divScalar`, scalar-array broadcast, and contiguous 2D `Array(f32/f64).matmul` calls flow through Axiom's CPU lowering, which delegates the current seed kernels to Veyra.  This gives Vectra one opt-in Axiom policy seam for both CPU and CUDA paths while preserving existing direct CPU fallbacks.
 

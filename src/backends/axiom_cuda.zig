@@ -15,6 +15,7 @@ const build_options = @import("vectra_build_options");
 const array_mod = @import("../array.zig");
 
 const axiom = if (build_options.enable_axiom_cuda) @import("axiom") else struct {};
+const BFloat16 = array_mod.BFloat16;
 
 pub const Status = enum {
     disabled,
@@ -124,6 +125,10 @@ pub const SmokeReport = struct {
     saxpy_ok: bool = false,
     matmul_ok: bool = false,
     matmul_tile_ir_ok: bool = false,
+    f16_add_ok: bool = false,
+    f16_matmul_ok: bool = false,
+    bf16_add_ok: bool = false,
+    bf16_matmul_ok: bool = false,
     scalar_add_ok: bool = false,
     scalar_mul_ok: bool = false,
     scalar_saxpy_ok: bool = false,
@@ -139,7 +144,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
             .failed => false,
         };
     }
@@ -155,6 +160,10 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.saxpy_ok);
         hashBool(&hasher, report.matmul_ok);
         hashBool(&hasher, report.matmul_tile_ir_ok);
+        hashBool(&hasher, report.f16_add_ok);
+        hashBool(&hasher, report.f16_matmul_ok);
+        hashBool(&hasher, report.bf16_add_ok);
+        hashBool(&hasher, report.bf16_matmul_ok);
         hashBool(&hasher, report.scalar_add_ok);
         hashBool(&hasher, report.scalar_mul_ok);
         hashBool(&hasher, report.scalar_saxpy_ok);
@@ -179,7 +188,7 @@ pub const SmokeReport = struct {
 
     pub fn writeText(report: SmokeReport, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} matmul_tile_ir={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} device_array={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} matmul_tile_ir={} f16_add={} f16_matmul={} bf16_add={} bf16_matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} device_array={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
             .{
                 report.enabled,
                 report.status.label(),
@@ -192,6 +201,10 @@ pub const SmokeReport = struct {
                 report.saxpy_ok,
                 report.matmul_ok,
                 report.matmul_tile_ir_ok,
+                report.f16_add_ok,
+                report.f16_matmul_ok,
+                report.bf16_add_ok,
+                report.bf16_matmul_ok,
                 report.scalar_add_ok,
                 report.scalar_mul_ok,
                 report.scalar_saxpy_ok,
@@ -225,7 +238,30 @@ pub const SmokeReport = struct {
                 "  \"saxpy_ok\": {},\n" ++
                 "  \"matmul_ok\": {},\n" ++
                 "  \"matmul_tile_ir_ok\": {},\n" ++
-                "  \"scalar_add_ok\": {},\n" ++
+                "  \"f16_add_ok\": {},\n" ++
+                "  \"f16_matmul_ok\": {},\n" ++
+                "  \"bf16_add_ok\": {},\n" ++
+                "  \"bf16_matmul_ok\": {},\n",
+            .{
+                report.enabled,
+                report.status.label(),
+                report.ok(),
+                report.issue_count,
+                report.add_ok,
+                report.sub_ok,
+                report.mul_ok,
+                report.div_ok,
+                report.saxpy_ok,
+                report.matmul_ok,
+                report.matmul_tile_ir_ok,
+                report.f16_add_ok,
+                report.f16_matmul_ok,
+                report.bf16_add_ok,
+                report.bf16_matmul_ok,
+            },
+        );
+        try writer.print(
+            "  \"scalar_add_ok\": {},\n" ++
                 "  \"scalar_mul_ok\": {},\n" ++
                 "  \"scalar_saxpy_ok\": {},\n" ++
                 "  \"strided_add_ok\": {},\n" ++
@@ -246,17 +282,6 @@ pub const SmokeReport = struct {
                 "  \"fingerprint\": {d}\n" ++
                 "}}\n",
             .{
-                report.enabled,
-                report.status.label(),
-                report.ok(),
-                report.issue_count,
-                report.add_ok,
-                report.sub_ok,
-                report.mul_ok,
-                report.div_ok,
-                report.saxpy_ok,
-                report.matmul_ok,
-                report.matmul_tile_ir_ok,
                 report.scalar_add_ok,
                 report.scalar_mul_ok,
                 report.scalar_saxpy_ok,
@@ -321,6 +346,38 @@ pub fn tryMulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod
 
 pub fn tryDivF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryBinaryF32(.div, lhs, rhs);
+}
+
+pub fn tryAddF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryBinaryF16(.add, lhs, rhs);
+}
+
+pub fn trySubF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryBinaryF16(.sub, lhs, rhs);
+}
+
+pub fn tryMulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryBinaryF16(.mul, lhs, rhs);
+}
+
+pub fn tryDivF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryBinaryF16(.div, lhs, rhs);
+}
+
+pub fn tryAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryBinaryBF16(.add, lhs, rhs);
+}
+
+pub fn trySubBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryBinaryBF16(.sub, lhs, rhs);
+}
+
+pub fn tryMulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryBinaryBF16(.mul, lhs, rhs);
+}
+
+pub fn tryDivBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryBinaryBF16(.div, lhs, rhs);
 }
 
 pub fn trySaxpyF32(alpha: f32, x: array_mod.Array(f32), y: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -433,6 +490,32 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
     return out;
 }
 
+pub fn tryMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return null;
+
+    var lhs32 = try bf16ArrayToF32(lhs);
+    defer lhs32.deinit();
+    var rhs32 = try bf16ArrayToF32(rhs);
+    defer rhs32.deinit();
+    var out32 = try tryMatmulF32(lhs32, rhs32) orelse return null;
+    defer out32.deinit();
+    return try f32ArrayToBF16(out32);
+}
+
+pub fn tryMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedMatmul2dContiguousF16(lhs, rhs)) return null;
+
+    var lhs32 = try f16ArrayToF32(lhs);
+    defer lhs32.deinit();
+    var rhs32 = try f16ArrayToF32(rhs);
+    defer rhs32.deinit();
+    var out32 = try tryMatmulF32(lhs32, rhs32) orelse return null;
+    defer out32.deinit();
+    return try f32ArrayToF16(out32);
+}
+
 pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     if (!build_options.enable_axiom_cuda) return .{};
 
@@ -538,11 +621,65 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
-    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
+    var f16_lhs = array_mod.Array(f16).fromSlice(allocator, &.{
+        @as(f16, 1.0),
+        @as(f16, 2.0),
+        @as(f16, 3.0),
+        @as(f16, 4.0),
+    }, &.{ 2, 2 }) catch return failedReport();
+    defer f16_lhs.deinit();
+    var f16_rhs = array_mod.Array(f16).fromSlice(allocator, &.{
+        @as(f16, 10.0),
+        @as(f16, 20.0),
+        @as(f16, 30.0),
+        @as(f16, 40.0),
+    }, &.{ 2, 2 }) catch return failedReport();
+    defer f16_rhs.deinit();
+    var f16_add_out = tryAddF16(f16_lhs, f16_rhs) catch return failedReport();
+    if (f16_add_out) |*out| {
+        defer out.deinit();
+        report.f16_add_ok = f16Close(out.data, &.{ 11, 22, 33, 44 }, 0.02);
+        report.output_fingerprint ^= hashF16Slice(out.data);
+    }
+    var f16_matmul_out = tryMatmulF16(f16_lhs, f16_rhs) catch return failedReport();
+    if (f16_matmul_out) |*out| {
+        defer out.deinit();
+        report.f16_matmul_ok = f16Close(out.data, &.{ 70, 100, 150, 220 }, 0.25);
+        report.output_fingerprint ^= hashF16Slice(out.data);
+    }
+
+    var bf16_lhs = array_mod.Array(BFloat16).fromSlice(allocator, &.{
+        BFloat16.fromF32(1.0),
+        BFloat16.fromF32(2.0),
+        BFloat16.fromF32(3.0),
+        BFloat16.fromF32(4.0),
+    }, &.{ 2, 2 }) catch return failedReport();
+    defer bf16_lhs.deinit();
+    var bf16_rhs = array_mod.Array(BFloat16).fromSlice(allocator, &.{
+        BFloat16.fromF32(10.0),
+        BFloat16.fromF32(20.0),
+        BFloat16.fromF32(30.0),
+        BFloat16.fromF32(40.0),
+    }, &.{ 2, 2 }) catch return failedReport();
+    defer bf16_rhs.deinit();
+    var bf16_add_out = tryAddBF16(bf16_lhs, bf16_rhs) catch return failedReport();
+    if (bf16_add_out) |*out| {
+        defer out.deinit();
+        report.bf16_add_ok = bf16Close(out.data, &.{ 11, 22, 33, 44 }, 0.125);
+        report.output_fingerprint ^= hashBF16Slice(out.data);
+    }
+    var bf16_matmul_out = tryMatmulBF16(bf16_lhs, bf16_rhs) catch return failedReport();
+    if (bf16_matmul_out) |*out| {
+        defer out.deinit();
+        report.bf16_matmul_ok = bf16Close(out.data, &.{ 70, 100, 150, 220 }, 0.5);
+        report.output_fingerprint ^= hashBF16Slice(out.data);
+    }
+
+    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
-    } else if (add_out == null and sub_out == null and mul_out == null and div_out == null and saxpy_out == null and matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null) {
+    } else if (add_out == null and sub_out == null and mul_out == null and div_out == null and saxpy_out == null and matmul_out == null and f16_add_out == null and f16_matmul_out == null and bf16_add_out == null and bf16_matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null) {
         report.status = .skipped;
         report.issue_count = 0;
     } else {
@@ -556,6 +693,10 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!report.saxpy_ok)) +
             @as(u8, @intFromBool(!report.matmul_ok)) +
             @as(u8, @intFromBool(!report.matmul_tile_ir_ok)) +
+            @as(u8, @intFromBool(!report.f16_add_ok)) +
+            @as(u8, @intFromBool(!report.f16_matmul_ok)) +
+            @as(u8, @intFromBool(!report.bf16_add_ok)) +
+            @as(u8, @intFromBool(!report.bf16_matmul_ok)) +
             @as(u8, @intFromBool(!report.scalar_add_ok)) +
             @as(u8, @intFromBool(!report.scalar_mul_ok)) +
             @as(u8, @intFromBool(!report.scalar_saxpy_ok));
@@ -630,9 +771,45 @@ fn tryBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f3
     return out;
 }
 
+fn tryBinaryBF16(op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedSameShapeContiguousBF16(lhs, rhs)) return null;
+    var lhs32 = try bf16ArrayToF32(lhs);
+    defer lhs32.deinit();
+    var rhs32 = try bf16ArrayToF32(rhs);
+    defer rhs32.deinit();
+    var out32 = try tryBinaryF32(op, lhs32, rhs32) orelse return null;
+    defer out32.deinit();
+    return try f32ArrayToBF16(out32);
+}
+
+fn tryBinaryF16(op: BinaryOp, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedSameShapeContiguousF16(lhs, rhs)) return null;
+    var lhs32 = try f16ArrayToF32(lhs);
+    defer lhs32.deinit();
+    var rhs32 = try f16ArrayToF32(rhs);
+    defer rhs32.deinit();
+    var out32 = try tryBinaryF32(op, lhs32, rhs32) orelse return null;
+    defer out32.deinit();
+    return try f32ArrayToF16(out32);
+}
+
 fn supportedSameShapeContiguous(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) bool {
     return supportedNonEmptyContiguous(lhs) and
         supportedNonEmptyContiguous(rhs) and
+        lhs.sameShape(rhs);
+}
+
+fn supportedSameShapeContiguousF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) bool {
+    return supportedNonEmptyContiguousF16(lhs) and
+        supportedNonEmptyContiguousF16(rhs) and
+        lhs.sameShape(rhs);
+}
+
+fn supportedSameShapeContiguousBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) bool {
+    return supportedNonEmptyContiguousBF16(lhs) and
+        supportedNonEmptyContiguousBF16(rhs) and
         lhs.sameShape(rhs);
 }
 
@@ -640,7 +817,39 @@ fn supportedNonEmptyContiguous(input: array_mod.Array(f32)) bool {
     return input.device.isCpu() and input.data.len != 0 and input.isContiguous();
 }
 
+fn supportedNonEmptyContiguousF16(input: array_mod.Array(f16)) bool {
+    return input.device.isCpu() and input.data.len != 0 and input.isContiguous();
+}
+
+fn supportedNonEmptyContiguousBF16(input: array_mod.Array(BFloat16)) bool {
+    return input.device.isCpu() and input.data.len != 0 and input.isContiguous();
+}
+
 fn supportedMatmul2dContiguous(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) bool {
+    return lhs.device.isCpu() and
+        rhs.device.isCpu() and
+        lhs.shape.len == 2 and
+        rhs.shape.len == 2 and
+        lhs.shape[1] == rhs.shape[0] and
+        lhs.data.len != 0 and
+        rhs.data.len != 0 and
+        lhs.isContiguous() and
+        rhs.isContiguous();
+}
+
+fn supportedMatmul2dContiguousF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) bool {
+    return lhs.device.isCpu() and
+        rhs.device.isCpu() and
+        lhs.shape.len == 2 and
+        rhs.shape.len == 2 and
+        lhs.shape[1] == rhs.shape[0] and
+        lhs.data.len != 0 and
+        rhs.data.len != 0 and
+        lhs.isContiguous() and
+        rhs.isContiguous();
+}
+
+fn supportedMatmul2dContiguousBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) bool {
     return lhs.device.isCpu() and
         rhs.device.isCpu() and
         lhs.shape.len == 2 and
@@ -693,9 +902,53 @@ fn failedReport() SmokeReport {
     };
 }
 
+fn f16ArrayToF32(input: array_mod.Array(f16)) array_mod.ArrayError!array_mod.Array(f32) {
+    var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    for (input.data, out.data) |value, *slot| slot.* = @floatCast(value);
+    return out;
+}
+
+fn bf16ArrayToF32(input: array_mod.Array(BFloat16)) array_mod.ArrayError!array_mod.Array(f32) {
+    var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    for (input.data, out.data) |value, *slot| slot.* = value.toF32();
+    return out;
+}
+
+fn f32ArrayToF16(input: array_mod.Array(f32)) array_mod.ArrayError!array_mod.Array(f16) {
+    var out = try array_mod.Array(f16).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    for (input.data, out.data) |value, *slot| slot.* = @floatCast(value);
+    return out;
+}
+
+fn f32ArrayToBF16(input: array_mod.Array(f32)) array_mod.ArrayError!array_mod.Array(BFloat16) {
+    var out = try array_mod.Array(BFloat16).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    for (input.data, out.data) |value, *slot| slot.* = BFloat16.fromF32(value);
+    return out;
+}
+
 fn sliceClose(actual: []const f32, expected: []const f32, tolerance: f32) bool {
     if (actual.len != expected.len) return false;
     return maxAbsError(actual, expected) <= tolerance;
+}
+
+fn f16Close(actual: []const f16, expected: []const f32, tolerance: f32) bool {
+    if (actual.len != expected.len) return false;
+    for (actual, expected) |a, e| {
+        if (@abs(@as(f32, @floatCast(a)) - e) > tolerance) return false;
+    }
+    return true;
+}
+
+fn bf16Close(actual: []const BFloat16, expected: []const f32, tolerance: f32) bool {
+    if (actual.len != expected.len) return false;
+    for (actual, expected) |a, e| {
+        if (@abs(a.toF32() - e) > tolerance) return false;
+    }
+    return true;
 }
 
 fn maxAbsError(actual: []const f32, expected: []const f32) f32 {
@@ -731,10 +984,36 @@ fn hashF32(hasher: *std.hash.Wyhash, value: f32) void {
     hasher.update(&bytes);
 }
 
+fn hashF16(hasher: *std.hash.Wyhash, value: f16) void {
+    var bytes: [2]u8 = undefined;
+    std.mem.writeInt(u16, &bytes, @bitCast(value), .little);
+    hasher.update(&bytes);
+}
+
+fn hashBF16(hasher: *std.hash.Wyhash, value: BFloat16) void {
+    var bytes: [2]u8 = undefined;
+    std.mem.writeInt(u16, &bytes, value.bits, .little);
+    hasher.update(&bytes);
+}
+
 fn hashF32Slice(values: []const f32) u64 {
     var hasher = std.hash.Wyhash.init(0x0abc_7aaa_f325_511c);
     hashU64(&hasher, values.len);
     for (values) |value| hashF32(&hasher, value);
+    return hasher.final();
+}
+
+fn hashF16Slice(values: []const f16) u64 {
+    var hasher = std.hash.Wyhash.init(0x0abc_7aaa_f016_511c);
+    hashU64(&hasher, values.len);
+    for (values) |value| hashF16(&hasher, value);
+    return hasher.final();
+}
+
+fn hashBF16Slice(values: []const BFloat16) u64 {
+    var hasher = std.hash.Wyhash.init(0x0abc_7aaa_bf16_511c);
+    hashU64(&hasher, values.len);
+    for (values) |value| hashBF16(&hasher, value);
     return hasher.final();
 }
 

@@ -82,8 +82,8 @@ pub fn selectMatmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Arra
         .direct_cpu
     else switch (policy) {
         .force_direct_cpu => .direct_cpu,
-        .prefer_axiom_cpu => if (axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
-        .prefer_cuda => if (T == f32 and axiom_cuda.enabled()) .axiom_cuda else if (axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_axiom_cpu => if (supportsAxiomCpuMatmul(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_cuda => if (supportsAxiomCudaMatmul(T) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuMatmul(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
     };
     var report: BackendReport = .{
         .policy = policy,
@@ -102,7 +102,7 @@ pub fn selectElementwise(comptime T: type, op: ElementwiseOp, policy: BackendPol
     else switch (policy) {
         .force_direct_cpu => .direct_cpu,
         .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
-        .prefer_cuda => if (T == f32 and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_cuda => if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
     };
     var report: BackendReport = .{
         .policy = policy,
@@ -128,7 +128,7 @@ pub fn selectScalarElementwise(
     else switch (policy) {
         .force_direct_cpu => .direct_cpu,
         .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
-        .prefer_cuda => if (T == f32 and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_cuda => if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
     };
     var report: BackendReport = .{
         .policy = policy,
@@ -149,6 +149,22 @@ pub fn elementwise(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, l
                 .sub => try axiom_cuda.trySubF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
                 .mul => try axiom_cuda.tryMulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
                 .div => try axiom_cuda.tryDivF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
+            };
+            if (out) |value| return @as(array_mod.Array(T), value);
+        } else if (T == array_mod.BFloat16) {
+            const out = switch (op) {
+                .add => try axiom_cuda.tryAddBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
+                .sub => try axiom_cuda.trySubBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
+                .mul => try axiom_cuda.tryMulBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
+                .div => try axiom_cuda.tryDivBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
+            };
+            if (out) |value| return @as(array_mod.Array(T), value);
+        } else if (T == f16) {
+            const out = switch (op) {
+                .add => try axiom_cuda.tryAddF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
+                .sub => try axiom_cuda.trySubF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
+                .mul => try axiom_cuda.tryMulF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
+                .div => try axiom_cuda.tryDivF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
             };
             if (out) |value| return @as(array_mod.Array(T), value);
         },
@@ -205,12 +221,7 @@ fn directElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T
     if (!std.mem.eql(usize, lhs.shape, rhs.shape)) return error.ShapeMismatch;
     var out = try array_mod.Array(T).empty(lhs.allocator, lhs.shape);
     errdefer out.deinit();
-    for (lhs.data, rhs.data, out.data) |a, b, *slot| slot.* = switch (op) {
-        .add => a + b,
-        .sub => a - b,
-        .mul => a * b,
-        .div => a / b,
-    };
+    for (lhs.data, rhs.data, out.data) |a, b, *slot| slot.* = elementwiseValue(T, op, a, b);
     return out;
 }
 
@@ -220,12 +231,7 @@ fn directScalarElementwise(comptime T: type, op: ElementwiseOp, input: array_mod
     for (input.data, out.data) |value, *slot| {
         const lhs = if (scalar_side == .lhs) scalar else value;
         const rhs = if (scalar_side == .lhs) value else scalar;
-        slot.* = switch (op) {
-            .add => lhs + rhs,
-            .sub => lhs - rhs,
-            .mul => lhs * rhs,
-            .div => lhs / rhs,
-        };
+        slot.* = elementwiseValue(T, op, lhs, rhs);
     }
     return out;
 }
@@ -235,6 +241,12 @@ pub fn matmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Array(T), 
     switch (report.selected) {
         .axiom_cuda => if (T == f32) {
             const out = try axiom_cuda.tryMatmulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs));
+            if (out) |value| return @as(array_mod.Array(T), value);
+        } else if (T == array_mod.BFloat16) {
+            const out = try axiom_cuda.tryMatmulBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs));
+            if (out) |value| return @as(array_mod.Array(T), value);
+        } else if (T == f16) {
+            const out = try axiom_cuda.tryMatmulF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs));
             if (out) |value| return @as(array_mod.Array(T), value);
         },
         .axiom_cpu_veyra => {
@@ -257,9 +269,9 @@ fn directMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(
     errdefer out.deinit();
     for (0..lhs.shape[0]) |row| {
         for (0..rhs.shape[1]) |col| {
-            var acc: T = 0;
+            var acc = zeroValue(T);
             for (0..lhs.shape[1]) |kk| {
-                acc += lhs.data[row * lhs.shape[1] + kk] * rhs.data[kk * rhs.shape[1] + col];
+                acc = elementwiseValue(T, .add, acc, elementwiseValue(T, .mul, lhs.data[row * lhs.shape[1] + kk], rhs.data[kk * rhs.shape[1] + col]));
             }
             out.data[row * rhs.shape[1] + col] = acc;
         }
@@ -272,7 +284,7 @@ fn supportedMatmul2d(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
 }
 
 fn supportedElementwiseSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
-    return supportsAxiomCpuElementwise(T) and
+    return supportsAxiomElementwise(T) and
         lhs.device.isCpu() and
         rhs.device.isCpu() and
         lhs.data.len != 0 and
@@ -281,12 +293,24 @@ fn supportedElementwiseSameShapeContiguous(comptime T: type, lhs: array_mod.Arra
         rhs.isContiguous();
 }
 
+fn supportsAxiomElementwise(comptime T: type) bool {
+    return T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16;
+}
+
 fn supportsAxiomCpuElementwise(comptime T: type) bool {
     return T == f32 or T == f64;
 }
 
+fn supportsAxiomCpuMatmul(comptime T: type) bool {
+    return T == f32 or T == f64;
+}
+
+fn supportsAxiomCudaMatmul(comptime T: type) bool {
+    return T == f32 or T == f16 or T == array_mod.BFloat16;
+}
+
 fn supportedScalarElementwise(comptime T: type, input: array_mod.Array(T)) bool {
-    return supportsAxiomCpuElementwise(T) and
+    return supportsAxiomElementwise(T) and
         input.device.isCpu() and
         input.data.len != 0 and
         input.isContiguous();
@@ -362,9 +386,39 @@ fn hashElementValue(comptime T: type, hasher: *std.hash.Wyhash, value: T) void {
         var bytes: [8]u8 = undefined;
         std.mem.writeInt(u64, &bytes, @bitCast(value), .little);
         hasher.update(&bytes);
+    } else if (T == f16) {
+        var bytes: [2]u8 = undefined;
+        std.mem.writeInt(u16, &bytes, @bitCast(value), .little);
+        hasher.update(&bytes);
+    } else if (T == array_mod.BFloat16) {
+        var bytes: [2]u8 = undefined;
+        std.mem.writeInt(u16, &bytes, value.bits, .little);
+        hasher.update(&bytes);
     } else {
         hashU64(hasher, value);
     }
+}
+
+fn zeroValue(comptime T: type) T {
+    if (T == array_mod.BFloat16) return array_mod.BFloat16.fromF32(0);
+    return 0;
+}
+
+fn elementwiseValue(comptime T: type, op: ElementwiseOp, lhs: T, rhs: T) T {
+    if (T == array_mod.BFloat16) {
+        return switch (op) {
+            .add => lhs.add(rhs),
+            .sub => lhs.sub(rhs),
+            .mul => lhs.mul(rhs),
+            .div => lhs.div(rhs),
+        };
+    }
+    return switch (op) {
+        .add => lhs + rhs,
+        .sub => lhs - rhs,
+        .mul => lhs * rhs,
+        .div => lhs / rhs,
+    };
 }
 
 test "Axiom backend policy reports matmul route" {
@@ -427,4 +481,29 @@ test "Axiom backend policy reports elementwise route" {
     defer leading_singleton.deinit();
     const unsupported_scalar_broadcast = try tryElementwiseScalarBroadcast(f32, .add, .prefer_cuda, leading_singleton, rhs32);
     try std.testing.expect(unsupported_scalar_broadcast == null);
+
+    var lhs_bf16 = try array_mod.Array(array_mod.BFloat16).fromSlice(gpa, &.{
+        array_mod.BFloat16.fromF32(1),
+        array_mod.BFloat16.fromF32(2),
+        array_mod.BFloat16.fromF32(3),
+        array_mod.BFloat16.fromF32(4),
+    }, &.{ 2, 2 });
+    defer lhs_bf16.deinit();
+    var rhs_bf16 = try array_mod.Array(array_mod.BFloat16).fromSlice(gpa, &.{
+        array_mod.BFloat16.fromF32(10),
+        array_mod.BFloat16.fromF32(20),
+        array_mod.BFloat16.fromF32(30),
+        array_mod.BFloat16.fromF32(40),
+    }, &.{ 2, 2 });
+    defer rhs_bf16.deinit();
+    const bf16_report = selectElementwise(array_mod.BFloat16, .add, .prefer_cuda, lhs_bf16, rhs_bf16);
+    try std.testing.expect(bf16_report.ok());
+    var bf16_add = try elementwise(array_mod.BFloat16, .add, .prefer_cuda, lhs_bf16, rhs_bf16);
+    defer bf16_add.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 11), bf16_add.data[0].toF32(), 0.125);
+    try std.testing.expectApproxEqAbs(@as(f32, 44), bf16_add.data[3].toF32(), 0.125);
+    var bf16_matmul = try matmul(array_mod.BFloat16, .prefer_cuda, lhs_bf16, rhs_bf16);
+    defer bf16_matmul.deinit();
+    try std.testing.expectApproxEqAbs(@as(f32, 70), bf16_matmul.data[0].toF32(), 0.5);
+    try std.testing.expectApproxEqAbs(@as(f32, 220), bf16_matmul.data[3].toF32(), 0.5);
 }

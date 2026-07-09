@@ -14491,7 +14491,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if ((build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) and std.mem.eql(usize, self.shape, other.shape)) {
                     const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
                         axiom_backend.ElementwiseOp.add
@@ -14514,7 +14514,7 @@ pub fn Array(comptime T: type) type {
                 }
                 return out;
             }
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) {
                     const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
                         axiom_backend.ElementwiseOp.add
@@ -15274,7 +15274,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .add, .prefer_cuda, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opAdd);
@@ -15282,7 +15282,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn subScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .sub, .prefer_cuda, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opSub);
@@ -15290,7 +15290,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn mulScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .mul, .prefer_cuda, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opMul);
@@ -15298,7 +15298,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn divScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .div, .prefer_cuda, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opDiv);
@@ -19612,19 +19612,24 @@ pub fn Array(comptime T: type) type {
             if (lhs_k != rhs_k) return error.ShapeMismatch;
 
             if (lhs_vec and rhs_vec) return self.dot(other);
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (!lhs_vec and !rhs_vec and (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch)) {
                     const report = axiom_backend.selectMatmul(T, .prefer_cuda, self, other);
                     switch (report.selected) {
                         .axiom_cuda => if (comptime T == f32) {
                             const accelerated = try axiom_cuda_backend.tryMatmulF32(self, other);
                             if (accelerated) |out| return out;
+                        } else if (comptime T == f16 or T == BFloat16) {
+                            const accelerated = try axiom_backend.matmul(T, .prefer_cuda, self, other);
+                            return accelerated;
                         },
                         .axiom_cpu_veyra => {
                             const accelerated = if (comptime T == f32)
                                 try axiom_cpu_backend.tryMatmulF32(self, other)
+                            else if (comptime T == f64)
+                                try axiom_cpu_backend.tryMatmulF64(self, other)
                             else
-                                try axiom_cpu_backend.tryMatmulF64(self, other);
+                                null;
                             if (accelerated) |out| return out;
                         },
                         .direct_cpu => {},

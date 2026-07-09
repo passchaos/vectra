@@ -28,10 +28,11 @@ zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
 ```
 
 The CUDA smoke gate runs f32 add/sub/mul/div, f32 SAXPY, scalar-broadcast f32
-add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, and 2D f32
-matmul.  Elementwise/SAXPY paths use Axiom's builder-style CUDA tensor runtime;
-matmul now builds Axiom CUDA Tile IR and hands it to Axiom's Tile-IR-to-CUTILE
-GEMM runtime bridge.  It also reports Vectra-to-Axiom buffer planning evidence:
+add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, 2D f32
+matmul, and widened f16/BFloat16 add/matmul seeds.  Elementwise/SAXPY paths use
+Axiom's builder-style CUDA tensor runtime; matmul now builds Axiom CUDA Tile IR
+and hands it to Axiom's Tile-IR-to-CUTILE GEMM runtime bridge.  It also reports
+Vectra-to-Axiom buffer planning evidence:
 
 - logical element count
 - required backing span
@@ -40,6 +41,8 @@ GEMM runtime bridge.  It also reports Vectra-to-Axiom buffer planning evidence:
 - device-copy-plan status and fingerprints
 - `matmul_tile_ir_ok` evidence proving the matmul smoke went through the Axiom
   CUDA Tile IR bridge
+- `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`, and `bf16_matmul_ok` evidence for
+  the widened dtype bridge
 
 
 ## Automatic dispatch and policy
@@ -51,8 +54,9 @@ unavailable.  `-Daxiom-cpu-dispatch=true` lets supported ordinary `Array(f32/f64
 methods try Axiom CPU lowering to Veyra before the existing direct CPU path.
 The current automatic dispatch covers contiguous same-shape `add/sub/mul/div`,
 scalar `addScalar/subScalar/mulScalar/divScalar`, scalar-array broadcast
-`add/sub/mul/div`, and contiguous 2D `matmul`.  CUDA scalar routes are f32
-today; CPU scalar routes cover f32/f64 through Axiom CPU→Veyra.
+`add/sub/mul/div`, and contiguous 2D `matmul`.  CUDA native seed routes are f32;
+f16 and BFloat16 currently use a widen-to-f32 CUDA seed before narrowing back.
+CPU scalar routes cover f32/f64 through Axiom CPU→Veyra.
 
 `vx.axiom_backend` is the shared policy seam for both CPU and CUDA paths:
 
@@ -79,6 +83,14 @@ today; CPU scalar routes cover f32/f64 through Axiom CPU→Veyra.
 - `trySubF32(lhs, rhs)`
 - `tryMulF32(lhs, rhs)`
 - `tryDivF32(lhs, rhs)`
+- `tryAddF16(lhs, rhs)`
+- `trySubF16(lhs, rhs)`
+- `tryMulF16(lhs, rhs)`
+- `tryDivF16(lhs, rhs)`
+- `tryAddBF16(lhs, rhs)`
+- `trySubBF16(lhs, rhs)`
+- `tryMulBF16(lhs, rhs)`
+- `tryDivBF16(lhs, rhs)`
 - `tryAddViewF32(lhs_view, rhs_view)`
 - `trySubViewF32(lhs_view, rhs_view)`
 - `tryMulViewF32(lhs_view, rhs_view)`
@@ -89,6 +101,8 @@ today; CPU scalar routes cover f32/f64 through Axiom CPU→Veyra.
 - `tryDivScalarF32(input, scalar)`
 - `trySaxpyScalarF32(alpha, scalar_x, y)`
 - `tryMatmulF32(lhs, rhs)`
+- `tryMatmulF16(lhs, rhs)`
+- `tryMatmulBF16(lhs, rhs)`
 - `toDeviceF32(allocator, host)`
 - `DeviceArrayF32`
 - `runSmoke(allocator)`
@@ -99,15 +113,18 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 
 ## Current limits
 
-- Only contiguous same-shape `Array(f32/f64)` add/sub/mul/div, scalar and one-element scalar-broadcast `Array(f32/f64)` add/sub/mul/div, experimental 1D positive-stride `ArrayView(f32)` add/sub/mul/div bridge calls, and contiguous 2D f32/f64 matmul inputs are covered by automatic policy dispatch.
+- Only contiguous same-shape `Array(f32/f16/BFloat16/f64)` add/sub/mul/div, scalar and one-element scalar-broadcast `Array(f32/f16/BFloat16/f64)` add/sub/mul/div, experimental 1D positive-stride `ArrayView(f32)` add/sub/mul/div bridge calls, and contiguous 2D f32/f16/BFloat16/f64 matmul inputs are covered by automatic policy dispatch.
 - The bridge does not change `Device.cuda(index).isAvailable()` yet.
 - An explicit `DeviceArrayF32` handle can acquire/release Axiom pool-backed device buffers; ordinary `.cuda()` persistent storage is still intentionally unavailable.
 - Only scalar-array broadcast dispatch is covered; no general broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
-- The CUDA matmul bridge is limited to contiguous 2D `Array(f32)` inputs and
-  routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path; f64
-  matmul routes through Axiom CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
+- The CUDA matmul bridge is native for contiguous 2D `Array(f32)` inputs and
+  routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path. f16 and
+  BFloat16 matmul widen through f32 today. f64 matmul routes through Axiom
+  CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
 - The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.
 - f64 CUDA tensor runtime support is not exposed yet.
+- See [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md) for the local CUDA dtype
+  support matrix and current Vectra/Axiom bridge status.
 
 This is the first integration seam for a future CuPy/PyTorch-like Vectra GPU
 backend, not the final GPU backend itself.
