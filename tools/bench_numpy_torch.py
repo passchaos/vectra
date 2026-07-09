@@ -27,6 +27,7 @@ ITERS = {
     "mean_all_f64": 120,
     "promoted_add_i32_f64": 120,
     "strided_add_scalar_f64": 120,
+    "strided_add_array_f64": 120,
     "matmul_f64": 12,
 }
 
@@ -87,6 +88,7 @@ np_cases = [
     ("mean_all_f64", N, lambda: np_a.mean()),
     ("promoted_add_i32_f64", N, lambda: np_ai + np_b),
     ("strided_add_scalar_f64", N // 2, lambda: np_a[::2] + 1.25),
+    ("strided_add_array_f64", N // 2, lambda: np_a[::2] + np_b[::2]),
     ("matmul_f64", f"{M}x{M}", lambda: np_ma @ np_mb),
 ]
 for name, items, func in np_cases:
@@ -101,6 +103,7 @@ torch_cases = [
     ("mean_all_f64", N, lambda: th_a.mean()),
     ("promoted_add_i32_f64", N, lambda: th_ai + th_b),
     ("strided_add_scalar_f64", N // 2, lambda: th_a[::2] + 1.25),
+    ("strided_add_array_f64", N // 2, lambda: th_a[::2] + th_b[::2]),
     ("matmul_f64", f"{M}x{M}", lambda: th_ma @ th_mb),
 ]
 for name, items, func in torch_cases:

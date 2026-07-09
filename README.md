@@ -106,7 +106,7 @@ OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 python3 tools/bench_numpy_torch.py
 ```
 
-The current high-value benchmark set covers large f64 elementwise/scalar ops, flat reductions, promoted i32+f64 arithmetic, strided scalar ops, and 256x256 f64 matmul.
+The current high-value benchmark set covers large f64 elementwise/scalar ops, flat reductions, promoted i32+f64 arithmetic, strided scalar/array ops, and 256x256 f64 matmul.
 
 ## Roadmap
 

@@ -136,6 +136,24 @@ fn benchStridedAddScalar(io: std.Io, a: ArrayF64, iters: usize) !f64 {
     return elapsed / @as(f64, @floatFromInt(iters));
 }
 
+fn benchStridedAddArray(io: std.Io, a: ArrayF64, b: ArrayF64, iters: usize) !f64 {
+    var lhs = try a.slice1d(.{ .start = 0, .stop = null, .step = 2 });
+    defer lhs.deinit();
+    var rhs = try b.slice1d(.{ .start = 0, .stop = null, .step = 2 });
+    defer rhs.deinit();
+    var sink: f64 = 0;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        var out = try lhs.add(rhs);
+        sink += out.data[0];
+        std.mem.doNotOptimizeAway(out.data.ptr);
+        out.deinit();
+    }
+    std.mem.doNotOptimizeAway(sink);
+    const elapsed: f64 = @floatFromInt(nowNs(io) - start);
+    return elapsed / @as(f64, @floatFromInt(iters));
+}
+
 fn benchMatmul(io: std.Io, a: ArrayF64, b: ArrayF64, iters: usize) !f64 {
     var sink: f64 = 0;
     const start = nowNs(io);
@@ -199,5 +217,6 @@ pub fn main() !void {
     std.debug.print("mean_all_f64,{d},{d:.3}\n", .{ n, try benchMeanAll(io, a, 120) });
     std.debug.print("promoted_add_i32_f64,{d},{d:.3}\n", .{ n, try benchPromotedAdd(io, ai, b, 120) });
     std.debug.print("strided_add_scalar_f64,{d},{d:.3}\n", .{ n / 2, try benchStridedAddScalar(io, a, 120) });
+    std.debug.print("strided_add_array_f64,{d},{d:.3}\n", .{ n / 2, try benchStridedAddArray(io, a, b, 120) });
     std.debug.print("matmul_f64,{d}x{d},{d:.3}\n", .{ m, m, try benchMatmul(io, ma, mb, 12) });
 }
