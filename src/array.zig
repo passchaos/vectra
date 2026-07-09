@@ -539,6 +539,16 @@ fn lessValue(comptime T: type, a: T, b: T) bool {
     };
 }
 
+fn quantileFromSortedValues(comptime T: type, sorted_values: []const T, q: T) T {
+    const max_index = sorted_values.len - 1;
+    const position = q * castValue(T, max_index);
+    const lower_float = @floor(position);
+    const lower: usize = @intFromFloat(lower_float);
+    const upper = @min(lower + 1, max_index);
+    const weight = position - lower_float;
+    return sorted_values[lower] * (one(T) - weight) + sorted_values[upper] * weight;
+}
+
 fn castValue(comptime T: type, value: anytype) T {
     const V = @TypeOf(value);
     if (comptime T == BFloat16) {
@@ -4426,9 +4436,60 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.quantile(q, axis_opt, keepdims);
+            ensureFloat(T);
+            if (q < zero(T) or q > one(T)) return error.InvalidShape;
+            if (self.numel() == 0) return error.EmptyArray;
+            if (axis_opt == null) {
+                const scratch = try self.allocator.alloc(T, self.numel());
+                defer self.allocator.free(scratch);
+                const multi = try self.allocator.alloc(usize, self.shape.len);
+                defer self.allocator.free(multi);
+                for (scratch, 0..) |*slot, flat| {
+                    unravelIndexInto(flat, self.shape, multi);
+                    slot.* = self.data[self.offset + ravelIndex(multi, self.strides)];
+                }
+                std.sort.insertion(T, scratch, {}, struct {
+                    fn lessThan(_: void, lhs: T, rhs: T) bool {
+                        return lessValue(T, lhs, rhs);
+                    }
+                }.lessThan);
+                const result = quantileFromSortedValues(T, scratch, q);
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Array(T).fromSlice(self.allocator, &.{result}, out_shape);
+                }
+                return Array(T).fromSlice(self.allocator, &.{result}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyArray;
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            const scratch = try self.allocator.alloc(T, self.shape[axis]);
+            defer self.allocator.free(scratch);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                mapReducedToInput(axis, keepdims, out_multi, in_multi);
+                for (scratch, 0..) |*value, axis_i| {
+                    in_multi[axis] = axis_i;
+                    value.* = self.data[self.offset + ravelIndex(in_multi, self.strides)];
+                }
+                std.sort.insertion(T, scratch, {}, struct {
+                    fn lessThan(_: void, lhs: T, rhs: T) bool {
+                        return lessValue(T, lhs, rhs);
+                    }
+                }.lessThan);
+                slot.* = quantileFromSortedValues(T, scratch, q);
+            }
+            return out;
         }
 
         pub fn quantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
@@ -22136,6 +22197,35 @@ test "array view object statistics wrappers" {
     try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, q0.shape);
     try std.testing.expect(std.math.isNan(q0.data[0]));
     try std.testing.expectEqual(@as(f64, 5), q0.data[1]);
+    var q_flat = try view.quantile(0.5, null, false);
+    defer q_flat.deinit();
+    var view_owned_for_quantile = try view.toArray();
+    defer view_owned_for_quantile.deinit();
+    var q_flat_expected = try view_owned_for_quantile.quantile(0.5, null, false);
+    defer q_flat_expected.deinit();
+    try std.testing.expectEqualSlices(f64, q_flat_expected.data, q_flat.data);
+    var pct1 = try view.percentile(50, 1, false);
+    defer pct1.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), pct1.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.5), pct1.data[1], 1e-12);
+    try std.testing.expect(std.math.isNan(pct1.data[2]));
+    var noncontig_quantile_source = try Array(f64).fromSlice(gpa, &.{
+        1, 9, 2, 8,
+        3, 7, 4, 6,
+    }, &.{ 2, 4 });
+    defer noncontig_quantile_source.deinit();
+    var noncontig_quantile = try noncontig_quantile_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer noncontig_quantile.deinit();
+    var noncontig_median_rows = try noncontig_quantile.median(1, false);
+    defer noncontig_median_rows.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 3.5 }, noncontig_median_rows.data);
+    var noncontig_quantile_cols = try noncontig_quantile.quantile(0.25, 0, true);
+    defer noncontig_quantile_cols.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, noncontig_quantile_cols.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 2.5 }, noncontig_quantile_cols.data);
+    var noncontig_percentile_flat = try noncontig_quantile.percentile(75, null, false);
+    defer noncontig_percentile_flat.deinit();
+    try std.testing.expectEqualSlices(f64, &.{3.25}, noncontig_percentile_flat.data);
 
     var nmedian0 = try view.nanmedian(0, false);
     defer nmedian0.deinit();
