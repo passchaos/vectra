@@ -2305,6 +2305,109 @@ pub fn ArrayView(comptime T: type) type {
             return !a;
         }
 
+        fn opPow(a: T, b: T) T {
+            if (comptime isComplex(T)) return std.math.complex.pow(a, b);
+            return std.math.pow(T, a, b);
+        }
+
+        fn opFloorDiv(a: T, b: T) T {
+            return @divFloor(a, b);
+        }
+
+        fn opMod(a: T, b: T) T {
+            return @mod(a, b);
+        }
+
+        fn opHypot(a: T, b: T) T {
+            return std.math.hypot(a, b);
+        }
+
+        fn opAtan2(a: T, b: T) T {
+            return std.math.atan2(a, b);
+        }
+
+        fn opNextAfter(a: T, b: T) T {
+            return std.math.nextAfter(T, a, b);
+        }
+
+        fn opCopysign(a: T, b: T) T {
+            return std.math.copysign(a, b);
+        }
+
+        fn opHeaviside(a: T, b: T) T {
+            return if (a < zero(T)) zero(T) else if (a > zero(T)) one(T) else b;
+        }
+
+        fn opLogAddExp(a: T, b: T) T {
+            if (comptime T == BFloat16) {
+                const lhs = a.toF32();
+                const rhs = b.toF32();
+                const max_value = @max(lhs, rhs);
+                return BFloat16.fromF32(max_value + std.math.log1p(std.math.exp(-@abs(lhs - rhs))));
+            }
+            const max_value = @max(a, b);
+            return max_value + std.math.log1p(std.math.exp(-@abs(a - b)));
+        }
+
+        fn opLogAddExp2(a: T, b: T) T {
+            if (comptime T == BFloat16) {
+                const lhs = a.toF32();
+                const rhs = b.toF32();
+                const max_value = @max(lhs, rhs);
+                return BFloat16.fromF32(max_value + std.math.log2(@as(f32, 1) + std.math.pow(f32, 2, -@abs(lhs - rhs))));
+            }
+            const max_value = @max(a, b);
+            return max_value + std.math.log2(one(T) + std.math.pow(T, castValue(T, 2), -@abs(a - b)));
+        }
+
+        fn opXlogy(a: T, b: T) T {
+            return if (a == zero(T)) zero(T) else a * std.math.log(T, std.math.e, b);
+        }
+
+        fn opLerp(a: T, b: T, weight: T) T {
+            return addValue(T, a, mulValue(T, subValue(T, b, a), weight));
+        }
+
+        fn opLerpScalar(a: T, b: T, weight: T) T {
+            return opLerp(a, b, weight);
+        }
+
+        fn opAddcmul(a: T, b: T, c: T, value: T) T {
+            return addValue(T, a, mulValue(T, value, mulValue(T, b, c)));
+        }
+
+        fn opAddcdiv(a: T, b: T, c: T, value: T) T {
+            return addValue(T, a, mulValue(T, value, divValue(T, b, c)));
+        }
+
+        fn opFmax(a: T, b: T) T {
+            if (comptime T == BFloat16) {
+                if (std.math.isNan(a.toF32())) return b;
+                if (std.math.isNan(b.toF32())) return a;
+                return if (a.lt(b)) b else a;
+            }
+            if (comptime isComplex(T)) @compileError("fmax requires an orderable numeric array");
+            return switch (@typeInfo(T)) {
+                .float => if (std.math.isNan(a)) b else if (std.math.isNan(b)) a else @max(a, b),
+                .int, .comptime_int => @max(a, b),
+                else => @compileError("fmax requires an orderable numeric array"),
+            };
+        }
+
+        fn opFmin(a: T, b: T) T {
+            if (comptime T == BFloat16) {
+                if (std.math.isNan(a.toF32())) return b;
+                if (std.math.isNan(b.toF32())) return a;
+                return if (a.lt(b)) a else b;
+            }
+            if (comptime isComplex(T)) @compileError("fmin requires an orderable numeric array");
+            return switch (@typeInfo(T)) {
+                .float => if (std.math.isNan(a)) b else if (std.math.isNan(b)) a else @min(a, b),
+                .int, .comptime_int => @min(a, b),
+                else => @compileError("fmin requires an orderable numeric array"),
+            };
+        }
+
         fn opIsReal(a: T) bool {
             if (comptime isComplex(T)) {
                 return a.im == 0;
@@ -2439,6 +2542,64 @@ pub fn ArrayView(comptime T: type) type {
             for (out.data, 0..) |*slot, flat| {
                 unravelIndexInto(flat, out_shape, out_multi);
                 slot.* = op(self.data[self.broadcastOffsetOf(out_multi, out_shape.len)], other.data[other.broadcastOffsetOf(out_multi, out_shape.len)]);
+            }
+            return out;
+        }
+
+        fn binaryViewScalar(self: Self, other: Self, scalar: T, comptime op: fn (T, T, T) T) ArrayError!Array(T) {
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                slot.* = op(self.data[self.broadcastOffsetOf(out_multi, out_shape.len)], other.data[other.broadcastOffsetOf(out_multi, out_shape.len)], scalar);
+            }
+            return out;
+        }
+
+        fn ternaryView(self: Self, second: Self, third: Self, comptime op: fn (T, T, T) T) ArrayError!Array(T) {
+            const tmp_shape = try computeBroadcastShape(self.allocator, self.shape, second.shape);
+            defer self.allocator.free(tmp_shape);
+            const out_shape = try computeBroadcastShape(self.allocator, tmp_shape, third.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                slot.* = op(
+                    self.data[self.broadcastOffsetOf(out_multi, out_shape.len)],
+                    second.data[second.broadcastOffsetOf(out_multi, out_shape.len)],
+                    third.data[third.broadcastOffsetOf(out_multi, out_shape.len)],
+                );
+            }
+            return out;
+        }
+
+        fn ternaryViewScalar(self: Self, second: Self, third: Self, scalar: T, comptime op: fn (T, T, T, T) T) ArrayError!Array(T) {
+            const tmp_shape = try computeBroadcastShape(self.allocator, self.shape, second.shape);
+            defer self.allocator.free(tmp_shape);
+            const out_shape = try computeBroadcastShape(self.allocator, tmp_shape, third.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                slot.* = op(
+                    self.data[self.broadcastOffsetOf(out_multi, out_shape.len)],
+                    second.data[second.broadcastOffsetOf(out_multi, out_shape.len)],
+                    third.data[third.broadcastOffsetOf(out_multi, out_shape.len)],
+                    scalar,
+                );
             }
             return out;
         }
@@ -2903,56 +3064,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryView(other, opDiv);
         }
 
-        fn ownedBinary(self: Self, other: Self, comptime method: fn (Array(T), Array(T)) ArrayError!Array(T)) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            var rhs = try other.toArray();
-            defer rhs.deinit();
-            return method(lhs, rhs);
-        }
-
-        fn ownedUnary(self: Self, comptime R: type, comptime method: fn (Array(T)) ArrayError!R) ArrayError!R {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return method(owned);
-        }
-
-        fn ownedWith(self: Self, arg: anytype, comptime R: type, comptime method: anytype) ArrayError!R {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return method(owned, arg);
-        }
-
-        fn ownedWith2(self: Self, arg1: anytype, arg2: anytype, comptime R: type, comptime method: anytype) ArrayError!R {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return method(owned, arg1, arg2);
-        }
-
         fn ownedWith3(self: Self, arg1: anytype, arg2: anytype, arg3: anytype, comptime R: type, comptime method: anytype) ArrayError!R {
             var owned = try self.toArray();
             defer owned.deinit();
             return method(owned, arg1, arg2, arg3);
-        }
-
-        fn ownedTernary(self: Self, second: Self, third: Self, comptime method: anytype) ArrayError!Array(T) {
-            var first_owned = try self.toArray();
-            defer first_owned.deinit();
-            var second_owned = try second.toArray();
-            defer second_owned.deinit();
-            var third_owned = try third.toArray();
-            defer third_owned.deinit();
-            return method(first_owned, second_owned, third_owned);
-        }
-
-        fn ownedTernaryScalar(self: Self, second: Self, third: Self, scalar: T, comptime method: anytype) ArrayError!Array(T) {
-            var first_owned = try self.toArray();
-            defer first_owned.deinit();
-            var second_owned = try second.toArray();
-            defer second_owned.deinit();
-            var third_owned = try third.toArray();
-            defer third_owned.deinit();
-            return method(first_owned, second_owned, third_owned, scalar);
         }
 
         pub fn addArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -2980,7 +3095,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn pow(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).pow);
+            ensureNumeric(T);
+            return self.binaryView(other, opPow);
         }
 
         pub fn powArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -2990,7 +3106,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn floorDiv(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).floorDiv);
+            ensureNumeric(T);
+            return self.binaryView(other, opFloorDiv);
         }
 
         pub fn floorDivArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -3000,7 +3117,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn mod(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).mod);
+            ensureNumeric(T);
+            return self.binaryView(other, opMod);
         }
 
         pub fn modArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -3018,7 +3136,12 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn maximum(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).maximum);
+            ensureNumeric(T);
+            return self.binaryView(other, struct {
+                fn f(a: T, b: T) T {
+                    return if (lessValue(T, a, b)) b else a;
+                }
+            }.f);
         }
 
         pub fn maximumArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -3028,7 +3151,12 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn minimum(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).minimum);
+            ensureNumeric(T);
+            return self.binaryView(other, struct {
+                fn f(a: T, b: T) T {
+                    return if (lessValue(T, b, a)) b else a;
+                }
+            }.f);
         }
 
         pub fn minimumArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -3038,7 +3166,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn fmax(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).fmax);
+            ensureNumeric(T);
+            return self.binaryView(other, opFmax);
         }
 
         pub fn fmaxArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -3048,7 +3177,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn fmin(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).fmin);
+            ensureNumeric(T);
+            return self.binaryView(other, opFmin);
         }
 
         pub fn fminArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -3094,7 +3224,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn hypot(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).hypot);
+            ensureFloat(T);
+            return self.binaryView(other, opHypot);
         }
 
         pub fn hypotArray(self: Self, other: Array(T)) ArrayError!Array(T) {
@@ -3104,7 +3235,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn atan2(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).atan2);
+            ensureFloat(T);
+            return self.binaryView(other, opAtan2);
         }
 
         pub fn arctan2(self: Self, other: Self) ArrayError!Array(T) {
@@ -3122,7 +3254,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn nextAfter(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).nextAfter);
+            ensureFloat(T);
+            return self.binaryView(other, opNextAfter);
         }
 
         pub fn nextafter(self: Self, other: Self) ArrayError!Array(T) {
@@ -3130,15 +3263,18 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn copysign(self: Self, sign_values: Self) ArrayError!Array(T) {
-            return self.ownedBinary(sign_values, Array(T).copysign);
+            ensureFloat(T);
+            return self.binaryView(sign_values, opCopysign);
         }
 
         pub fn heaviside(self: Self, values_at_zero: Self) ArrayError!Array(T) {
-            return self.ownedBinary(values_at_zero, Array(T).heaviside);
+            ensureNumeric(T);
+            return self.binaryView(values_at_zero, opHeaviside);
         }
 
         pub fn logAddExp(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).logAddExp);
+            ensureFloat(T);
+            return self.binaryView(other, opLogAddExp);
         }
 
         pub fn logaddexp(self: Self, other: Self) ArrayError!Array(T) {
@@ -3146,7 +3282,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logAddExp2(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).logAddExp2);
+            ensureFloat(T);
+            return self.binaryView(other, opLogAddExp2);
         }
 
         pub fn logaddexp2(self: Self, other: Self) ArrayError!Array(T) {
@@ -3154,29 +3291,31 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn xlogy(self: Self, other: Self) ArrayError!Array(T) {
-            return self.ownedBinary(other, Array(T).xlogy);
+            ensureFloat(T);
+            return self.binaryView(other, opXlogy);
         }
 
         pub fn lerp(self: Self, end: Self, weight: Self) ArrayError!Array(T) {
-            return self.ownedTernary(end, weight, Array(T).lerp);
+            ensureFloat(T);
+            return self.ternaryView(end, weight, opLerp);
         }
 
         pub fn lerpArray(self: Self, end: Array(T), weight: Array(T)) ArrayError!Array(T) {
-            var first_owned = try self.toArray();
-            defer first_owned.deinit();
-            return first_owned.lerp(end, weight);
+            var end_view = try end.asView();
+            defer end_view.deinit();
+            var weight_view = try weight.asView();
+            defer weight_view.deinit();
+            return self.lerp(end_view, weight_view);
         }
 
         pub fn lerpScalar(self: Self, end: Self, weight: T) ArrayError!Array(T) {
-            var first_owned = try self.toArray();
-            defer first_owned.deinit();
-            var end_owned = try end.toArray();
-            defer end_owned.deinit();
-            return first_owned.lerpScalar(end_owned, weight);
+            ensureFloat(T);
+            return self.binaryViewScalar(end, weight, opLerpScalar);
         }
 
         pub fn addcmul(self: Self, input1: Self, input2: Self, value: T) ArrayError!Array(T) {
-            return self.ownedTernaryScalar(input1, input2, value, Array(T).addcmul);
+            ensureNumeric(T);
+            return self.ternaryViewScalar(input1, input2, value, opAddcmul);
         }
 
         pub fn addCMul(self: Self, input1: Self, input2: Self, value: T) ArrayError!Array(T) {
@@ -3184,13 +3323,16 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn addcmulArray(self: Self, input1: Array(T), input2: Array(T), value: T) ArrayError!Array(T) {
-            var first_owned = try self.toArray();
-            defer first_owned.deinit();
-            return first_owned.addcmul(input1, input2, value);
+            var input1_view = try input1.asView();
+            defer input1_view.deinit();
+            var input2_view = try input2.asView();
+            defer input2_view.deinit();
+            return self.addcmul(input1_view, input2_view, value);
         }
 
         pub fn addcdiv(self: Self, input1: Self, input2: Self, value: T) ArrayError!Array(T) {
-            return self.ownedTernaryScalar(input1, input2, value, Array(T).addcdiv);
+            ensureNumeric(T);
+            return self.ternaryViewScalar(input1, input2, value, opAddcdiv);
         }
 
         pub fn addCDiv(self: Self, input1: Self, input2: Self, value: T) ArrayError!Array(T) {
@@ -3198,19 +3340,20 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn addcdivArray(self: Self, input1: Array(T), input2: Array(T), value: T) ArrayError!Array(T) {
-            var first_owned = try self.toArray();
-            defer first_owned.deinit();
-            return first_owned.addcdiv(input1, input2, value);
+            var input1_view = try input1.asView();
+            defer input1_view.deinit();
+            var input2_view = try input2.asView();
+            defer input2_view.deinit();
+            return self.addcdiv(input1_view, input2_view, value);
         }
 
         pub fn clipArray(self: Self, min_values: Self, max_values: Self) ArrayError!Array(T) {
-            var values = try self.toArray();
-            defer values.deinit();
-            var min_owned = try min_values.toArray();
-            defer min_owned.deinit();
-            var max_owned = try max_values.toArray();
-            defer max_owned.deinit();
-            return values.clipArray(min_owned, max_owned);
+            ensureNumeric(T);
+            var lower = try self.maximum(min_values);
+            defer lower.deinit();
+            var lower_view = try lower.asView();
+            defer lower_view.deinit();
+            return lower_view.minimum(max_values);
         }
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -19544,6 +19687,70 @@ fn expectF64ViewScalarMatchesArray(
     try expectApproxEqualSlices(f64, expected.data, actual.data, tolerance);
 }
 
+fn expectF64ViewBinaryMatchesArray(
+    lhs: ArrayView(f64),
+    rhs: ArrayView(f64),
+    comptime view_method: fn (ArrayView(f64), ArrayView(f64)) ArrayError!Array(f64),
+    comptime array_method: fn (Array(f64), Array(f64)) ArrayError!Array(f64),
+    tolerance: f64,
+) !void {
+    var lhs_owned = try lhs.toArray();
+    defer lhs_owned.deinit();
+    var rhs_owned = try rhs.toArray();
+    defer rhs_owned.deinit();
+    var expected = try array_method(lhs_owned, rhs_owned);
+    defer expected.deinit();
+    var actual = try view_method(lhs, rhs);
+    defer actual.deinit();
+    try std.testing.expectEqualSlices(usize, expected.shape, actual.shape);
+    try expectApproxEqualSlices(f64, expected.data, actual.data, tolerance);
+}
+
+fn expectF64ViewTernaryMatchesArray(
+    first: ArrayView(f64),
+    second: ArrayView(f64),
+    third: ArrayView(f64),
+    comptime view_method: fn (ArrayView(f64), ArrayView(f64), ArrayView(f64)) ArrayError!Array(f64),
+    comptime array_method: fn (Array(f64), Array(f64), Array(f64)) ArrayError!Array(f64),
+    tolerance: f64,
+) !void {
+    var first_owned = try first.toArray();
+    defer first_owned.deinit();
+    var second_owned = try second.toArray();
+    defer second_owned.deinit();
+    var third_owned = try third.toArray();
+    defer third_owned.deinit();
+    var expected = try array_method(first_owned, second_owned, third_owned);
+    defer expected.deinit();
+    var actual = try view_method(first, second, third);
+    defer actual.deinit();
+    try std.testing.expectEqualSlices(usize, expected.shape, actual.shape);
+    try expectApproxEqualSlices(f64, expected.data, actual.data, tolerance);
+}
+
+fn expectF64ViewTernaryScalarMatchesArray(
+    first: ArrayView(f64),
+    second: ArrayView(f64),
+    third: ArrayView(f64),
+    scalar_value: f64,
+    comptime view_method: fn (ArrayView(f64), ArrayView(f64), ArrayView(f64), f64) ArrayError!Array(f64),
+    comptime array_method: fn (Array(f64), Array(f64), Array(f64), f64) ArrayError!Array(f64),
+    tolerance: f64,
+) !void {
+    var first_owned = try first.toArray();
+    defer first_owned.deinit();
+    var second_owned = try second.toArray();
+    defer second_owned.deinit();
+    var third_owned = try third.toArray();
+    defer third_owned.deinit();
+    var expected = try array_method(first_owned, second_owned, third_owned, scalar_value);
+    defer expected.deinit();
+    var actual = try view_method(first, second, third, scalar_value);
+    defer actual.deinit();
+    try std.testing.expectEqualSlices(usize, expected.shape, actual.shape);
+    try expectApproxEqualSlices(f64, expected.data, actual.data, tolerance);
+}
+
 test "array creation, reshape and broadcasting" {
     const gpa = std.testing.allocator;
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
@@ -22855,6 +23062,116 @@ test "array view scalar elementwise and logical wrappers are view aware" {
     var xor_scalar = try bool_view.logicalXorScalar(true);
     defer xor_scalar.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, xor_scalar.data);
+}
+
+test "array view binary and fused elementwise wrappers are view aware" {
+    const gpa = std.testing.allocator;
+
+    var lhs_source = try Array(f64).fromSlice(gpa, &.{
+        1.0, 90.0, 2.0, 80.0,
+        3.0, 70.0, 4.0, 60.0,
+    }, &.{ 2, 4 });
+    defer lhs_source.deinit();
+    var lhs = try lhs_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer lhs.deinit();
+    try std.testing.expect(!lhs.isContiguous());
+
+    var rhs_source = try Array(f64).fromSlice(gpa, &.{ 2.0, 99.0, 3.0, 88.0 }, &.{ 1, 4 });
+    defer rhs_source.deinit();
+    var rhs = try rhs_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer rhs.deinit();
+    try std.testing.expect(!rhs.isContiguous());
+
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).pow, Array(f64).pow, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).floorDiv, Array(f64).floorDiv, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).mod, Array(f64).mod, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).maximum, Array(f64).maximum, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).minimum, Array(f64).minimum, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).hypot, Array(f64).hypot, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).atan2, Array(f64).atan2, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).nextAfter, Array(f64).nextAfter, 0.0);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).logAddExp, Array(f64).logAddExp, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).logAddExp2, Array(f64).logAddExp2, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, rhs, ArrayView(f64).xlogy, Array(f64).xlogy, 1e-12);
+
+    var sign_source = try Array(f64).fromSlice(gpa, &.{ -1.0, 99.0, 1.0, 88.0 }, &.{ 1, 4 });
+    defer sign_source.deinit();
+    var sign_view = try sign_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer sign_view.deinit();
+    try expectF64ViewBinaryMatchesArray(lhs, sign_view, ArrayView(f64).copysign, Array(f64).copysign, 1e-12);
+
+    var heaviside_source = try Array(f64).fromSlice(gpa, &.{ -1.0, 90.0, 0.0, 80.0, 2.0, 70.0, 0.0, 60.0 }, &.{ 2, 4 });
+    defer heaviside_source.deinit();
+    var heaviside_view = try heaviside_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer heaviside_view.deinit();
+    var zero_values_source = try Array(f64).fromSlice(gpa, &.{ 0.25, 99.0, 0.75, 88.0 }, &.{ 1, 4 });
+    defer zero_values_source.deinit();
+    var zero_values = try zero_values_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer zero_values.deinit();
+    try expectF64ViewBinaryMatchesArray(heaviside_view, zero_values, ArrayView(f64).heaviside, Array(f64).heaviside, 1e-12);
+
+    var nan_rhs_source = try Array(f64).fromSlice(gpa, &.{ std.math.nan(f64), 99.0, 2.5, 88.0 }, &.{ 1, 4 });
+    defer nan_rhs_source.deinit();
+    var nan_rhs = try nan_rhs_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer nan_rhs.deinit();
+    try expectF64ViewBinaryMatchesArray(lhs, nan_rhs, ArrayView(f64).fmax, Array(f64).fmax, 1e-12);
+    try expectF64ViewBinaryMatchesArray(lhs, nan_rhs, ArrayView(f64).fmin, Array(f64).fmin, 1e-12);
+
+    var end_source = try Array(f64).fromSlice(gpa, &.{ 10.0, 90.0, 20.0, 80.0 }, &.{ 1, 4 });
+    defer end_source.deinit();
+    var end = try end_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer end.deinit();
+    var weight_source = try Array(f64).fromSlice(gpa, &.{ 0.0, 99.0, 0.5, 88.0 }, &.{ 2, 2 });
+    defer weight_source.deinit();
+    var weight = try weight_source.sliceAxisView(1, .{ .start = 0, .stop = 2, .step = 2 });
+    defer weight.deinit();
+    try expectF64ViewTernaryMatchesArray(lhs, end, weight, ArrayView(f64).lerp, Array(f64).lerp, 1e-12);
+
+    var lhs_owned = try lhs.toArray();
+    defer lhs_owned.deinit();
+    var end_owned = try end.toArray();
+    defer end_owned.deinit();
+    var expected_lerp_scalar = try lhs_owned.lerpScalar(end_owned, 0.25);
+    defer expected_lerp_scalar.deinit();
+    var actual_lerp_scalar = try lhs.lerpScalar(end, 0.25);
+    defer actual_lerp_scalar.deinit();
+    try expectApproxEqualSlices(f64, expected_lerp_scalar.data, actual_lerp_scalar.data, 1e-12);
+
+    var input1_source = try Array(f64).fromSlice(gpa, &.{ 2.0, 99.0, 3.0, 88.0 }, &.{ 1, 4 });
+    defer input1_source.deinit();
+    var input1 = try input1_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer input1.deinit();
+    var input2_source = try Array(f64).fromSlice(gpa, &.{ 5.0, 99.0, 7.0, 88.0 }, &.{ 1, 4 });
+    defer input2_source.deinit();
+    var input2 = try input2_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer input2.deinit();
+    try expectF64ViewTernaryScalarMatchesArray(lhs, input1, input2, 0.5, ArrayView(f64).addcmul, Array(f64).addcmul, 1e-12);
+    try expectF64ViewTernaryScalarMatchesArray(lhs, input1, input2, 2.0, ArrayView(f64).addcdiv, Array(f64).addcdiv, 1e-12);
+
+    var lo_source = try Array(f64).fromSlice(gpa, &.{ 2.0, 99.0, 2.5, 88.0 }, &.{ 1, 4 });
+    defer lo_source.deinit();
+    var lo = try lo_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer lo.deinit();
+    var hi_source = try Array(f64).fromSlice(gpa, &.{ 2.5, 99.0, 3.5, 88.0 }, &.{ 1, 4 });
+    defer hi_source.deinit();
+    var hi = try hi_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer hi.deinit();
+    var lo_owned = try lo.toArray();
+    defer lo_owned.deinit();
+    var hi_owned = try hi.toArray();
+    defer hi_owned.deinit();
+    var expected_clip = try lhs_owned.clipArray(lo_owned, hi_owned);
+    defer expected_clip.deinit();
+    var actual_clip = try lhs.clipArray(lo, hi);
+    defer actual_clip.deinit();
+    try expectApproxEqualSlices(f64, expected_clip.data, actual_clip.data, 1e-12);
+
+    var bad_rhs = try Array(f64).fromSlice(gpa, &.{ 1.0, 2.0, 3.0 }, &.{3});
+    defer bad_rhs.deinit();
+    var bad_rhs_view = try bad_rhs.asView();
+    defer bad_rhs_view.deinit();
+    try std.testing.expectError(error.ShapeMismatch, lhs.maximum(bad_rhs_view));
+    try std.testing.expectError(error.ShapeMismatch, lhs.lerp(end, bad_rhs_view));
 }
 
 test "array view object indexing wrappers" {
