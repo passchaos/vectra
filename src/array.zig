@@ -3601,6 +3601,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.maskedSelect(mask);
         }
 
+        pub fn masked_select(self: Self, mask: Array(bool)) ArrayError!Array(T) {
+            return self.maskedSelect(mask);
+        }
+
         pub fn maskedScatter(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3868,6 +3872,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.flatNonzero();
         }
 
+        pub fn flat_nonzero(self: Self) ArrayError!Array(usize) {
+            return self.flatNonzero();
+        }
+
         pub fn nonzero(self: Self) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3882,10 +3890,18 @@ pub fn ArrayView(comptime T: type) type {
             return self.nonzero();
         }
 
+        pub fn where_indices(self: Self) ArrayError!Array(usize) {
+            return self.whereIndices();
+        }
+
         pub fn putFlat(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putFlat(indices, values);
+        }
+
+        pub fn put_flat(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
+            return self.putFlat(indices, values);
         }
 
         pub fn putFlatMode(self: Self, indices: Array(usize), values: Array(T), mode: IndexMode) ArrayError!Array(T) {
@@ -3898,6 +3914,10 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putFlatScalar(indices, value);
+        }
+
+        pub fn put_flat_scalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
+            return self.putFlatScalar(indices, value);
         }
 
         pub fn putFlatScalarMode(self: Self, indices: Array(usize), value: T, mode: IndexMode) ArrayError!Array(T) {
@@ -3922,8 +3942,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.putFlat(indices, values);
         }
 
+        pub fn index_put(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
+            return self.indexPut(indices, values);
+        }
+
         pub fn indexPutScalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
             return self.putFlatScalar(indices, value);
+        }
+
+        pub fn index_put_scalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
+            return self.indexPutScalar(indices, value);
         }
 
         pub fn ravelCoords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
@@ -7465,6 +7493,10 @@ pub fn Array(comptime T: type) type {
             return self.scatter(axis_index, indices, src);
         }
 
+        pub fn masked_select(self: Self, mask: Array(bool)) ArrayError!Self {
+            return self.maskedSelect(mask);
+        }
+
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
@@ -7589,6 +7621,10 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn put_flat(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
+            return self.putFlat(indices, values);
+        }
+
         pub fn putFlat(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
             if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
             var out = try self.clone();
@@ -7618,6 +7654,10 @@ pub fn Array(comptime T: type) type {
                 out.data[try applyIndexMode(idx, out.data.len, mode)] = values.data[if (values.data.len == 1) 0 else i];
             }
             return out;
+        }
+
+        pub fn put_flat_scalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
+            return self.putFlatScalar(indices, value);
         }
 
         pub fn putFlatScalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
@@ -7652,8 +7692,16 @@ pub fn Array(comptime T: type) type {
             return self.putFlat(indices, values);
         }
 
+        pub fn index_put(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
+            return self.indexPut(indices, values);
+        }
+
         pub fn indexPutScalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
             return self.putFlatScalar(indices, value);
+        }
+
+        pub fn index_put_scalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
+            return self.indexPutScalar(indices, value);
         }
 
         pub fn countNonzero(self: Self) usize {
@@ -7740,6 +7788,10 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn flat_nonzero(self: Self) ArrayError!Array(usize) {
+            return self.flatNonzero();
+        }
+
         pub fn nonzero(self: Self) ArrayError!Array(usize) {
             const count = self.countNonzero();
             const out = try Array(usize).empty(self.allocator, &.{ count, self.shape.len });
@@ -7763,6 +7815,10 @@ pub fn Array(comptime T: type) type {
         pub fn whereIndices(self: Self) ArrayError!Array(usize) {
             if (comptime T != bool) @compileError("whereIndices requires Array(bool)");
             return self.nonzero();
+        }
+
+        pub fn where_indices(self: Self) ArrayError!Array(usize) {
+            return self.whereIndices();
         }
 
         pub fn ravelCoords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
@@ -15813,6 +15869,16 @@ test "array signed negative indexing helpers" {
     var selected_alias = try a.index_select_signed(1, col_idx);
     defer selected_alias.deinit();
     try std.testing.expectEqualSlices(f64, selected.data, selected_alias.data);
+    var values = try Array(f64).fromSlice(gpa, &.{ 100, 200 }, &.{2});
+    defer values.deinit();
+    var edge_indices = try Array(usize).fromSlice(gpa, &.{ 0, 5 }, &.{2});
+    defer edge_indices.deinit();
+    var index_put_alias = try a.index_put(edge_indices, values);
+    defer index_put_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 100, 11, 12, 20, 21, 200 }, index_put_alias.data);
+    var index_put_scalar_alias = try a.index_put_scalar(edge_indices, -7);
+    defer index_put_scalar_alias.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -7, 11, 12, 20, 21, -7 }, index_put_scalar_alias.data);
 
     var gather_idx = try Array(isize).fromSlice(gpa, &.{ -1, 0, -2, 0, -1, 1 }, &.{ 2, 3 });
     defer gather_idx.deinit();
@@ -15829,16 +15895,22 @@ test "array signed negative indexing helpers" {
     defer gathered_alias_snake.deinit();
     try std.testing.expectEqualSlices(f64, gathered.data, gathered_alias_snake.data);
 
-    var values = try Array(f64).fromSlice(gpa, &.{ 100, 200 }, &.{2});
-    defer values.deinit();
     var put_idx = try Array(isize).fromSlice(gpa, &.{ -1, -6 }, &.{2});
     defer put_idx.deinit();
     var put = try a.putFlatSigned(put_idx, values);
     defer put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 200, 11, 12, 20, 21, 100 }, put.data);
+    var reverse_edge_indices = try Array(usize).fromSlice(gpa, &.{ 5, 0 }, &.{2});
+    defer reverse_edge_indices.deinit();
+    var put_alias = try a.put_flat(reverse_edge_indices, values);
+    defer put_alias.deinit();
+    try std.testing.expectEqualSlices(f64, put.data, put_alias.data);
     var scalar_put = try a.putFlatScalarSigned(put_idx, -5);
     defer scalar_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -5, 11, 12, 20, 21, -5 }, scalar_put.data);
+    var scalar_put_alias = try a.put_flat_scalar(reverse_edge_indices, -5);
+    defer scalar_put_alias.deinit();
+    try std.testing.expectEqualSlices(f64, scalar_put.data, scalar_put_alias.data);
 
     var bad = try Array(isize).fromSlice(gpa, &.{-7}, &.{1});
     defer bad.deinit();
@@ -15944,6 +16016,9 @@ test "array advanced indexing mutation helpers" {
     var flat_idx = try a.flatNonzero();
     defer flat_idx.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 5 }, flat_idx.data);
+    var flat_idx_alias = try a.flat_nonzero();
+    defer flat_idx_alias.deinit();
+    try std.testing.expectEqualSlices(usize, flat_idx.data, flat_idx_alias.data);
     try std.testing.expectEqual(@as(usize, 4), a.count_nonzero());
     var count_flat = try a.countNonzeroAxis(null, false);
     defer count_flat.deinit();
@@ -16069,6 +16144,9 @@ test "array advanced indexing mutation helpers" {
     defer mask_coords.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, mask_coords.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 2, 1, 1 }, mask_coords.data);
+    var mask_coords_alias = try mask.where_indices();
+    defer mask_coords_alias.deinit();
+    try std.testing.expectEqualSlices(usize, mask_coords.data, mask_coords_alias.data);
     var copy_src = try Array(f64).full(gpa, &.{ 2, 3 }, 42);
     defer copy_src.deinit();
     var copied_where = try a.copyWhere(mask, copy_src);
@@ -16123,8 +16201,14 @@ test "array advanced indexing mutation helpers" {
     var flat_put_view = try view.putFlat(flat_put_indices, put_values_view);
     defer flat_put_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 7, 8, 6 }, flat_put_view.data);
+    var flat_put_view_alias = try view.put_flat(flat_put_indices, put_values_view);
+    defer flat_put_view_alias.deinit();
+    try std.testing.expectEqualSlices(f64, flat_put_view.data, flat_put_view_alias.data);
     var flat_put_scalar_view = try view.putFlatScalar(flat_put_indices, -3);
     defer flat_put_scalar_view.deinit();
+    var flat_put_scalar_view_alias = try view.put_flat_scalar(flat_put_indices, -3);
+    defer flat_put_scalar_view_alias.deinit();
+    try std.testing.expectEqualSlices(f64, flat_put_scalar_view.data, flat_put_scalar_view_alias.data);
     try std.testing.expectEqualSlices(f64, &.{ 1, -3, -3, 6 }, flat_put_scalar_view.data);
     var signed_flat_indices = try Array(isize).fromSlice(gpa, &.{-1}, &.{1});
     defer signed_flat_indices.deinit();
