@@ -3543,6 +3543,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.takeSigned(indices, axis_opt);
         }
 
+        pub fn takeSignedMode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.takeSignedMode(indices, axis_opt, mode);
+        }
+
+        pub fn take_signed_mode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
+            return self.takeSignedMode(indices, axis_opt, mode);
+        }
+
         pub fn takeMode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -7595,6 +7605,16 @@ pub fn Array(comptime T: type) type {
             };
         }
 
+        fn applySignedIndexMode(idx: isize, extent: usize, mode: IndexMode) ArrayError!usize {
+            if (extent == 0) return error.IndexOutOfBounds;
+            const signed_extent: isize = @intCast(extent);
+            return switch (mode) {
+                .raise => normalizeIndex(idx, extent),
+                .wrap => @intCast(@mod(idx, signed_extent)),
+                .clip => @intCast(@min(@max(idx, 0), signed_extent - 1)),
+            };
+        }
+
         pub fn takeMode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Self {
             if (axis_opt == null) {
                 const out = try Self.empty(self.allocator, indices.shape);
@@ -7624,6 +7644,37 @@ pub fn Array(comptime T: type) type {
 
         pub fn take_mode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Self {
             return self.takeMode(indices, axis_opt, mode);
+        }
+
+        pub fn takeSignedMode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Self {
+            if (axis_opt == null) {
+                const out = try Self.empty(self.allocator, indices.shape);
+                for (indices.data, out.data) |idx, *slot| {
+                    slot.* = self.data[try applySignedIndexMode(idx, self.data.len, mode)];
+                }
+                return out;
+            }
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = indices.data.len;
+            const out = try Self.empty(self.allocator, out_shape);
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = try applySignedIndexMode(indices.data[out_multi[axis]], self.shape[axis], mode);
+                slot.* = self.data[ravelIndex(in_multi, self.strides)];
+            }
+            return out;
+        }
+
+        pub fn take_signed_mode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Self {
+            return self.takeSignedMode(indices, axis_opt, mode);
         }
 
         pub fn indexSelect(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Self {
@@ -16190,6 +16241,19 @@ test "array signed negative indexing helpers" {
     defer scalar_put_alias.deinit();
     try std.testing.expectEqualSlices(f64, scalar_put.data, scalar_put_alias.data);
 
+    var signed_mode = try Array(isize).fromSlice(gpa, &.{ -1, -7, 7 }, &.{3});
+    defer signed_mode.deinit();
+    var signed_wrapped = try a.takeSignedMode(signed_mode, null, .wrap);
+    defer signed_wrapped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 22, 22, 11 }, signed_wrapped.data);
+    var signed_clipped = try a.take_signed_mode(signed_mode, null, .clip);
+    defer signed_clipped.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 10, 22 }, signed_clipped.data);
+    var signed_axis_mode = try a.takeSignedMode(signed_mode, 1, .clip);
+    defer signed_axis_mode.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, signed_axis_mode.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 10, 12, 20, 20, 22 }, signed_axis_mode.data);
+
     var bad = try Array(isize).fromSlice(gpa, &.{-7}, &.{1});
     defer bad.deinit();
     try std.testing.expectError(error.IndexOutOfBounds, a.takeSigned(bad, null));
@@ -16529,6 +16593,11 @@ test "array advanced indexing mutation helpers" {
     var signed_view_taken_alias = try view.take_along_axis_signed(signed_view_indices, 1);
     defer signed_view_taken_alias.deinit();
     try std.testing.expectEqualSlices(f64, signed_view_taken.data, signed_view_taken_alias.data);
+    var signed_view_mode_indices = try Array(isize).fromSlice(gpa, &.{ -1, 0, 0, 3 }, &.{ 2, 2 });
+    defer signed_view_mode_indices.deinit();
+    var signed_view_mode = try view.takeSignedMode(signed_view_mode_indices, null, .clip);
+    defer signed_view_mode.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 6 }, signed_view_mode.data);
     var put_values_view = try Array(f64).fromSlice(gpa, &.{ 7, 8 }, &.{2});
     defer put_values_view.deinit();
     var flat_put_indices = try Array(usize).fromSlice(gpa, &.{ 1, 2 }, &.{2});
