@@ -29,9 +29,11 @@ zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
 
 The CUDA smoke gate runs f32 add/sub/mul/div, f32 SAXPY, scalar-broadcast f32
 add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, 2D f32
-matmul, and widened f16/BFloat16 add/matmul seeds.  Elementwise/SAXPY paths use
-Axiom's builder-style CUDA tensor runtime; matmul now builds Axiom CUDA Tile IR
-and hands it to Axiom's Tile-IR-to-CUTILE GEMM runtime bridge.  It also reports
+matmul, and widened f16/BFloat16 add/matmul seeds.  f32 elementwise/SAXPY paths
+use Axiom's builder-style CUDA tensor runtime; f16/BFloat16 elementwise
+provenance now calls Axiom's widened elementwise runtime APIs directly; matmul
+now builds Axiom CUDA Tile IR and hands it to Axiom's Tile-IR-to-CUTILE GEMM
+runtime bridge.  It also reports
 Vectra-to-Axiom buffer planning evidence:
 
 - logical element count
@@ -56,6 +58,10 @@ The current automatic dispatch covers contiguous same-shape `add/sub/mul/div`,
 scalar `addScalar/subScalar/mulScalar/divScalar`, scalar-array broadcast
 `add/sub/mul/div`, and contiguous 2D `matmul`.  CUDA native seed routes are f32;
 f16 and BFloat16 currently use a widen-to-f32 CUDA seed before narrowing back.
+For elementwise provenance, Vectra consumes Axiom's
+`runTensorElementwiseBinaryF16Widened` and
+`runTensorElementwiseBinaryBF16Widened` runtime reports instead of rebuilding
+those reports locally.
 CPU scalar routes cover f32/f64 through Axiom CPU→Veyra.
 
 `vx.axiom_backend` is the shared policy seam for both CPU and CUDA paths:
@@ -119,6 +125,7 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 - Only scalar-array broadcast dispatch is covered; no general broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
 - The CUDA matmul bridge is native for contiguous 2D `Array(f32)` inputs and
   routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path. f16 and
+  BFloat16 elementwise provenance uses Axiom widened runtime reports; f16 and
   BFloat16 matmul widen through f32 today. f64 matmul routes through Axiom
   CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
 - The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.

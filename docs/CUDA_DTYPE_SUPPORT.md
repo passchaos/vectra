@@ -55,8 +55,12 @@ Current registry summary:
 
 - `Array(f32)` is the native CUDA seed path.
 - `Array(f16)` and `Array(BFloat16)` now exercise Axiom CUDA through a widening
-  seed: convert inputs to Vectra-owned f32 arrays, run Axiom's f32 CUDA kernels,
-  then narrow outputs back to the original dtype.
+  seed: convert inputs to f32, run Axiom's f32 CUDA kernels where CUDA execution
+  is required, then narrow outputs back to the original dtype.  Elementwise
+  provenance now uses Axiom-owned widened runtime reports
+  (`runTensorElementwiseBinaryF16Widened` /
+  `runTensorElementwiseBinaryBF16Widened`) instead of Vectra-local report
+  reconstruction.
 - The widening seed is useful for API integration, smoke tests, policy routing,
   and downstream code shape, but it is not native f16/BF16 device code and does
   not claim tensor-core throughput.
