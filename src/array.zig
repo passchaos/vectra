@@ -14491,19 +14491,19 @@ pub fn Array(comptime T: type) type {
         }
 
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
-            if (comptime T == f32) {
-                if (build_options.enable_axiom_cuda_dispatch and std.mem.eql(usize, self.shape, other.shape)) {
-                    const accelerated = if (comptime op == opAdd)
-                        try axiom_cuda_backend.tryAddF32(self, other)
+            if (comptime T == f32 or T == f64) {
+                if ((build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) and std.mem.eql(usize, self.shape, other.shape)) {
+                    const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
+                        axiom_backend.ElementwiseOp.add
                     else if (comptime op == opSub)
-                        try axiom_cuda_backend.trySubF32(self, other)
+                        axiom_backend.ElementwiseOp.sub
                     else if (comptime op == opMul)
-                        try axiom_cuda_backend.tryMulF32(self, other)
+                        axiom_backend.ElementwiseOp.mul
                     else if (comptime op == opDiv)
-                        try axiom_cuda_backend.tryDivF32(self, other)
+                        axiom_backend.ElementwiseOp.div
                     else
                         null;
-                    if (accelerated) |out| return out;
+                    if (maybe_op) |op_value| return try axiom_backend.elementwise(T, op_value, .prefer_cuda, self, other);
                 }
             }
             if (std.mem.eql(usize, self.shape, other.shape)) {

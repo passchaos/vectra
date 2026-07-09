@@ -29,7 +29,7 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
 - CSV read/write with simple type inference.
 - Array IO helpers: `toBytes/fromBytes` for raw data, `toArchive/fromArchive` for a simple dtype+shape binary archive, and object-style file helpers `saveArchive/saveArchiveToDir` plus `loadArchive/loadArchiveFromDir`.
-- Device API placeholder (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`/`ArrayView`) for future CuPy/PyTorch-like GPU backends; optional `vx.axiom_cuda` can route contiguous same-shape `Array(f32)` add/sub/mul/div/SAXPY/scalar-broadcast/matmul and 1D positive-stride view add/sub/mul/div smoke kernels through sibling Axiom on CUDA-capable hosts while keeping persistent `.cuda()` storage unavailable for now.
+- Device API placeholder (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`/`ArrayView`) for future CuPy/PyTorch-like GPU backends; optional `vx.axiom_backend` can route contiguous same-shape `Array(f32/f64)` add/sub/mul/div and 2D matmul through sibling Axiom policy, selecting Axiom CUDA for f32 when enabled or Axiom CPU→Veyra for f32/f64 when enabled.  The explicit `vx.axiom_cuda` surface also exposes f32 SAXPY, scalar-broadcast, device-buffer handle, and 1D positive-stride view smoke kernels on CUDA-capable hosts while keeping persistent `.cuda()` storage unavailable for now.
 
 ## Example
 
@@ -72,9 +72,9 @@ pub fn demo(allocator: std.mem.Allocator) !void {
 ```
 
 
-## Optional Axiom CUDA bridge
+## Optional Axiom accelerator bridge
 
-Vectra keeps CPU/Veyra/Alea as the default build.  To validate the experimental Axiom CUDA bridge for contiguous same-shape f32 add/sub/mul/div/SAXPY/scalar-broadcast/matmul, run:
+Vectra keeps CPU/Veyra/Alea as the default build.  To validate the experimental Axiom accelerator bridge for contiguous same-shape f32/f64 add/sub/mul/div, 2D matmul, and explicit CUDA f32 SAXPY/scalar-broadcast/device-buffer seeds, run:
 
 ```sh
 zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled
@@ -86,6 +86,8 @@ zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
 ```
 
 The CUDA-enabled commands require a CUDA/libnvvm/PTXAS-capable host; `-Daxiom-cuda-dispatch=true` additionally lets ordinary `Array(f32).add/sub/mul/div/addScalar/mulScalar/divScalar/matmul` methods use `vx.axiom_backend` policy to try Axiom CUDA/Axiom CPU before falling back to CPU.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the supported surface and current limits.
+
+`-Daxiom-cpu-dispatch=true` lets ordinary contiguous same-shape `Array(f32/f64).add/sub/mul/div` and contiguous 2D `Array(f32/f64).matmul` calls flow through Axiom's CPU lowering, which delegates the current seed kernels to Veyra.  This gives Vectra one opt-in Axiom policy seam for both CPU and CUDA paths while preserving existing direct CPU fallbacks.
 
 ## Alea backend
 
@@ -134,7 +136,7 @@ The current high-value benchmark set covers large f64 elementwise/scalar ops, fl
 - Arrow/Parquet IPC support.
 
 
-Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
+Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported contiguous same-shape `Array(f32/f64).add/sub/mul/div` and contiguous 2D `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
 
 
-Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies; `Array.matmul` now uses this policy when Axiom CPU/CUDA dispatch flags are enabled.
+Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported elementwise and matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies; `Array.add/sub/mul/div` and `Array.matmul` now use this policy when Axiom CPU/CUDA dispatch flags are enabled.
