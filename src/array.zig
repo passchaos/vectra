@@ -1687,6 +1687,17 @@ pub fn ArrayView(comptime T: type) type {
             return self.isContiguous();
         }
 
+        fn isOneDimensionalStrided(self: Self) bool {
+            return self.shape.len == 1;
+        }
+
+        fn oneDimensionalEndOffset(self: Self) ArrayError!usize {
+            if (!self.isOneDimensionalStrided()) return error.InvalidShape;
+            if (self.numel() == 0) return self.offset;
+            const last_delta = std.math.mul(usize, self.shape[0] - 1, self.strides[0]) catch return error.InvalidShape;
+            return std.math.add(usize, self.offset, last_delta) catch return error.InvalidShape;
+        }
+
         fn offsetOf(self: Self, indices: []const usize) ArrayError!usize {
             if (indices.len != self.shape.len) return error.InvalidShape;
             var offset = self.offset;
@@ -1804,6 +1815,16 @@ pub fn ArrayView(comptime T: type) type {
                 @memcpy(out, self.data[self.offset..end]);
                 return;
             }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (out) |*slot| {
+                    slot.* = self.data[source_offset];
+                    source_offset += self.strides[0];
+                }
+                return;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out, 0..) |*slot, flat| {
@@ -1835,6 +1856,16 @@ pub fn ArrayView(comptime T: type) type {
                 const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
                 @memcpy(out.data, self.data[self.offset..end]);
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (out.data) |*slot| {
+                    slot.* = self.data[source_offset];
+                    source_offset += self.strides[0];
+                }
                 return out;
             }
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -2529,6 +2560,16 @@ pub fn ArrayView(comptime T: type) type {
                 for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value);
                 return out;
             }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (out.data) |*slot| {
+                    slot.* = op(self.data[source_offset]);
+                    source_offset += self.strides[0];
+                }
+                return out;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out.data, 0..) |*slot, flat| {
@@ -2548,6 +2589,16 @@ pub fn ArrayView(comptime T: type) type {
                 for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value);
                 return out;
             }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (out.data) |*slot| {
+                    slot.* = op(self.data[source_offset]);
+                    source_offset += self.strides[0];
+                }
+                return out;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out.data, 0..) |*slot, flat| {
@@ -2565,6 +2616,16 @@ pub fn ArrayView(comptime T: type) type {
                 const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
                 for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value, scalar);
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (out.data) |*slot| {
+                    slot.* = op(self.data[source_offset], scalar);
+                    source_offset += self.strides[0];
+                }
                 return out;
             }
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -4361,6 +4422,21 @@ pub fn ArrayView(comptime T: type) type {
                     }
                     return Array(T).fromSlice(self.allocator, &.{total}, &.{});
                 }
+                if (self.isOneDimensionalStrided()) {
+                    const end_offset = try self.oneDimensionalEndOffset();
+                    if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                    var source_offset = self.offset;
+                    for (0..self.numel()) |_| {
+                        total = op(total, self.data[source_offset]);
+                        source_offset += self.strides[0];
+                    }
+                    if (keepdims) {
+                        const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                        defer self.allocator.free(out_shape);
+                        return Array(T).fromSlice(self.allocator, &.{total}, out_shape);
+                    }
+                    return Array(T).fromSlice(self.allocator, &.{total}, &.{});
+                }
                 const multi = try self.allocator.alloc(usize, self.shape.len);
                 defer self.allocator.free(multi);
                 for (0..self.numel()) |flat| {
@@ -4408,6 +4484,22 @@ pub fn ArrayView(comptime T: type) type {
                     if (end > self.data.len) return error.IndexOutOfBounds;
                     var total = self.data[self.offset];
                     for (self.data[self.offset + 1 .. end]) |value| total = op(total, value);
+                    if (keepdims) {
+                        const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                        defer self.allocator.free(out_shape);
+                        return Array(T).fromSlice(self.allocator, &.{total}, out_shape);
+                    }
+                    return Array(T).fromSlice(self.allocator, &.{total}, &.{});
+                }
+                if (self.isOneDimensionalStrided()) {
+                    const end_offset = try self.oneDimensionalEndOffset();
+                    if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                    var total = self.data[self.offset];
+                    var source_offset = self.offset + self.strides[0];
+                    for (1..self.numel()) |_| {
+                        total = op(total, self.data[source_offset]);
+                        source_offset += self.strides[0];
+                    }
                     if (keepdims) {
                         const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
                         defer self.allocator.free(out_shape);
@@ -20550,6 +20642,30 @@ test "array comparison and logical wrappers" {
     defer view_min_fast.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, view_min_fast.shape);
     try std.testing.expectEqualSlices(f64, &.{1}, view_min_fast.data);
+
+    var strided_source = try Array(f64).fromSlice(gpa, &.{ 1, 9, 2, 8, 3, 7, 4, 6 }, &.{8});
+    defer strided_source.deinit();
+    var strided_view = try strided_source.sliceAxisView(0, .{ .start = 0, .stop = 8, .step = 2 });
+    defer strided_view.deinit();
+    try std.testing.expect(!strided_view.isContiguous());
+    var strided_copy: [4]f64 = undefined;
+    try strided_view.copyToSlice(&strided_copy);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, &strided_copy);
+    var strided_owned = try strided_view.toArray();
+    defer strided_owned.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, strided_owned.data);
+    var strided_neg = try strided_view.negative();
+    defer strided_neg.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, -2, -3, -4 }, strided_neg.data);
+    var strided_gt = try strided_view.greaterScalar(2);
+    defer strided_gt.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, strided_gt.data);
+    var strided_sum = try strided_view.sum(null, false);
+    defer strided_sum.deinit();
+    try std.testing.expectEqualSlices(f64, &.{10}, strided_sum.data);
+    var strided_max = try strided_view.max(null, false);
+    defer strided_max.deinit();
+    try std.testing.expectEqualSlices(f64, &.{4}, strided_max.data);
 }
 
 test "array reductions and matmul" {
