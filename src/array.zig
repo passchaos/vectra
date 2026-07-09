@@ -3,6 +3,7 @@ const build_options = @import("vectra_build_options");
 const alea = @import("alea");
 const veyra = @import("veyra");
 const axiom_cuda_backend = @import("backends/axiom_cuda.zig");
+const axiom_cpu_backend = @import("backends/axiom_cpu.zig");
 
 pub const Complex64 = std.math.Complex(f32);
 pub const Complex128 = std.math.Complex(f64);
@@ -19608,8 +19609,17 @@ pub fn Array(comptime T: type) type {
                     const accelerated = try axiom_cuda_backend.tryMatmulF32(self, other);
                     if (accelerated) |out| return out;
                 }
+                if (build_options.enable_axiom_cpu_dispatch and !lhs_vec and !rhs_vec) {
+                    const accelerated = try axiom_cpu_backend.tryMatmulF32(self, other);
+                    if (accelerated) |out| return out;
+                }
             }
             if (comptime T == f64) {
+                if (build_options.enable_axiom_cpu_dispatch and !lhs_vec and !rhs_vec) {
+                    const accelerated = try axiom_cpu_backend.tryMatmulF64(self, other);
+                    if (accelerated) |out| return out;
+                }
+
                 if (!lhs_vec and rhs_vec and
                     self.shape.len == 2 and other.shape.len == 1 and
                     self.isContiguous() and other.isContiguous())

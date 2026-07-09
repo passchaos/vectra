@@ -22,6 +22,7 @@ CUDA-capable hosts can opt in:
 zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
 zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 zig build -Daxiom-cuda=true axiom-cuda-device-smoke
+zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke
 ```
 
 The smoke gate runs f32 add, f32 mul, f32 SAXPY, scalar-broadcast f32 add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, and 2D f32 matmul through Axiom's
@@ -80,3 +81,6 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 
 This is the first integration seam for a future CuPy/PyTorch-like Vectra GPU
 backend, not the final GPU backend itself.
+
+
+Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
