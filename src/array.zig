@@ -2559,6 +2559,166 @@ pub fn ArrayView(comptime T: type) type {
             return self.assignScalar(scalar, opDiv);
         }
 
+        pub fn fill_(self: Self, value: T) ArrayError!void {
+            return self.fill(value);
+        }
+
+        pub fn zero_(self: Self) ArrayError!void {
+            return self.fill(zero(T));
+        }
+
+        pub fn copy_(self: Self, source: Self) ArrayError!void {
+            return self.copyFromView(source);
+        }
+
+        pub fn copy_from(self: Self, source: Self) ArrayError!void {
+            return self.copyFrom(source);
+        }
+
+        pub fn copy_from_view(self: Self, source: Self) ArrayError!void {
+            return self.copyFromView(source);
+        }
+
+        pub fn copyFromArrayAssign(self: Self, source: Array(T)) ArrayError!void {
+            return self.copyFromArray(source);
+        }
+
+        pub fn copy_from_array(self: Self, source: Array(T)) ArrayError!void {
+            return self.copyFromArray(source);
+        }
+
+        pub fn maskedFillAssign_(self: Self, mask: Array(bool), value: T) ArrayError!void {
+            return self.maskedFill(mask, value);
+        }
+
+        pub fn masked_fill_(self: Self, mask: Array(bool), value: T) ArrayError!void {
+            return self.maskedFill(mask, value);
+        }
+
+        pub fn maskedCopyFromAssign(self: Self, mask: Array(bool), values: Self) ArrayError!void {
+            return self.maskedCopyFromView(mask, values);
+        }
+
+        pub fn masked_copy_from(self: Self, mask: Array(bool), values: Self) ArrayError!void {
+            return self.maskedCopyFrom(mask, values);
+        }
+
+        pub fn maskedCopyFromArrayAssign(self: Self, mask: Array(bool), values: Array(T)) ArrayError!void {
+            return self.maskedCopyFromArray(mask, values);
+        }
+
+        pub fn masked_copy_from_array(self: Self, mask: Array(bool), values: Array(T)) ArrayError!void {
+            return self.maskedCopyFromArray(mask, values);
+        }
+
+        pub fn copyWhereAssign_(self: Self, mask: Array(bool), source: Self) ArrayError!void {
+            return self.copyWhereFromView(mask, source);
+        }
+
+        pub fn copy_where_(self: Self, mask: Array(bool), source: Self) ArrayError!void {
+            return self.copyWhereFromView(mask, source);
+        }
+
+        pub fn copy_where_from_array(self: Self, mask: Array(bool), source: Array(T)) ArrayError!void {
+            return self.copyWhereFromArray(mask, source);
+        }
+
+        pub fn add_(self: Self, source: Self) ArrayError!void {
+            return self.addAssign(source);
+        }
+
+        pub fn add_assign(self: Self, source: Self) ArrayError!void {
+            return self.addAssign(source);
+        }
+
+        pub fn sub_(self: Self, source: Self) ArrayError!void {
+            return self.subAssign(source);
+        }
+
+        pub fn sub_assign(self: Self, source: Self) ArrayError!void {
+            return self.subAssign(source);
+        }
+
+        pub fn mul_(self: Self, source: Self) ArrayError!void {
+            return self.mulAssign(source);
+        }
+
+        pub fn mul_assign(self: Self, source: Self) ArrayError!void {
+            return self.mulAssign(source);
+        }
+
+        pub fn div_(self: Self, source: Self) ArrayError!void {
+            return self.divAssign(source);
+        }
+
+        pub fn div_assign(self: Self, source: Self) ArrayError!void {
+            return self.divAssign(source);
+        }
+
+        pub fn addArray_(self: Self, source: Array(T)) ArrayError!void {
+            return self.addAssignArray(source);
+        }
+
+        pub fn add_array_(self: Self, source: Array(T)) ArrayError!void {
+            return self.addArray_(source);
+        }
+
+        pub fn subArray_(self: Self, source: Array(T)) ArrayError!void {
+            return self.subAssignArray(source);
+        }
+
+        pub fn sub_array_(self: Self, source: Array(T)) ArrayError!void {
+            return self.subArray_(source);
+        }
+
+        pub fn mulArray_(self: Self, source: Array(T)) ArrayError!void {
+            return self.mulAssignArray(source);
+        }
+
+        pub fn mul_array_(self: Self, source: Array(T)) ArrayError!void {
+            return self.mulArray_(source);
+        }
+
+        pub fn divArray_(self: Self, source: Array(T)) ArrayError!void {
+            return self.divAssignArray(source);
+        }
+
+        pub fn div_array_(self: Self, source: Array(T)) ArrayError!void {
+            return self.divArray_(source);
+        }
+
+        pub fn addScalar_(self: Self, value: T) ArrayError!void {
+            return self.addScalarAssign(value);
+        }
+
+        pub fn add_scalar_(self: Self, value: T) ArrayError!void {
+            return self.addScalar_(value);
+        }
+
+        pub fn subScalar_(self: Self, value: T) ArrayError!void {
+            return self.subScalarAssign(value);
+        }
+
+        pub fn sub_scalar_(self: Self, value: T) ArrayError!void {
+            return self.subScalar_(value);
+        }
+
+        pub fn mulScalar_(self: Self, value: T) ArrayError!void {
+            return self.mulScalarAssign(value);
+        }
+
+        pub fn mul_scalar_(self: Self, value: T) ArrayError!void {
+            return self.mulScalar_(value);
+        }
+
+        pub fn divScalar_(self: Self, value: T) ArrayError!void {
+            return self.divScalarAssign(value);
+        }
+
+        pub fn div_scalar_(self: Self, value: T) ArrayError!void {
+            return self.divScalar_(value);
+        }
+
         pub fn neg(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.unary(opNeg);
@@ -9213,6 +9373,154 @@ pub fn Array(comptime T: type) type {
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.divScalarAssign(scalar);
+        }
+
+        pub fn fill_(self: Self, value: T) void {
+            return self.fill(value);
+        }
+
+        pub fn zero_(self: Self) void {
+            return self.fill(zero(T));
+        }
+
+        pub fn copy_(self: Self, source: Self) ArrayError!void {
+            return self.copyFrom(source);
+        }
+
+        pub fn copy_from(self: Self, source: Self) ArrayError!void {
+            return self.copyFrom(source);
+        }
+
+        pub fn copy_from_view(self: Self, source: ArrayView(T)) ArrayError!void {
+            return self.copyFromView(source);
+        }
+
+        pub fn copyFromArrayAssign(self: Self, source: Self) ArrayError!void {
+            return self.copyFrom(source);
+        }
+
+        pub fn copy_from_array(self: Self, source: Self) ArrayError!void {
+            return self.copyFromArrayAssign(source);
+        }
+
+        pub fn maskedFillAssign_(self: Self, mask: Array(bool), value: T) ArrayError!void {
+            return self.maskedFillAssign(mask, value);
+        }
+
+        pub fn masked_fill_(self: Self, mask: Array(bool), value: T) ArrayError!void {
+            return self.maskedFillAssign(mask, value);
+        }
+
+        pub fn masked_copy_from(self: Self, mask: Array(bool), values: Self) ArrayError!void {
+            return self.maskedCopyFrom(mask, values);
+        }
+
+        pub fn masked_copy_from_view(self: Self, mask: Array(bool), values: ArrayView(T)) ArrayError!void {
+            return self.maskedCopyFromView(mask, values);
+        }
+
+        pub fn copy_where_(self: Self, mask: Array(bool), source: Self) ArrayError!void {
+            return self.copyWhereAssign(mask, source);
+        }
+
+        pub fn copy_where_view_(self: Self, mask: Array(bool), source: ArrayView(T)) ArrayError!void {
+            return self.copyWhereAssignView(mask, source);
+        }
+
+        pub fn add_(self: Self, source: Self) ArrayError!void {
+            return self.addAssign(source);
+        }
+
+        pub fn add_assign(self: Self, source: Self) ArrayError!void {
+            return self.addAssign(source);
+        }
+
+        pub fn sub_(self: Self, source: Self) ArrayError!void {
+            return self.subAssign(source);
+        }
+
+        pub fn sub_assign(self: Self, source: Self) ArrayError!void {
+            return self.subAssign(source);
+        }
+
+        pub fn mul_(self: Self, source: Self) ArrayError!void {
+            return self.mulAssign(source);
+        }
+
+        pub fn mul_assign(self: Self, source: Self) ArrayError!void {
+            return self.mulAssign(source);
+        }
+
+        pub fn div_(self: Self, source: Self) ArrayError!void {
+            return self.divAssign(source);
+        }
+
+        pub fn div_assign(self: Self, source: Self) ArrayError!void {
+            return self.divAssign(source);
+        }
+
+        pub fn addView_(self: Self, source: ArrayView(T)) ArrayError!void {
+            return self.addAssignView(source);
+        }
+
+        pub fn add_view_(self: Self, source: ArrayView(T)) ArrayError!void {
+            return self.addView_(source);
+        }
+
+        pub fn subView_(self: Self, source: ArrayView(T)) ArrayError!void {
+            return self.subAssignView(source);
+        }
+
+        pub fn sub_view_(self: Self, source: ArrayView(T)) ArrayError!void {
+            return self.subView_(source);
+        }
+
+        pub fn mulView_(self: Self, source: ArrayView(T)) ArrayError!void {
+            return self.mulAssignView(source);
+        }
+
+        pub fn mul_view_(self: Self, source: ArrayView(T)) ArrayError!void {
+            return self.mulView_(source);
+        }
+
+        pub fn divView_(self: Self, source: ArrayView(T)) ArrayError!void {
+            return self.divAssignView(source);
+        }
+
+        pub fn div_view_(self: Self, source: ArrayView(T)) ArrayError!void {
+            return self.divView_(source);
+        }
+
+        pub fn addScalar_(self: Self, value: T) ArrayError!void {
+            return self.addScalarAssign(value);
+        }
+
+        pub fn add_scalar_(self: Self, value: T) ArrayError!void {
+            return self.addScalar_(value);
+        }
+
+        pub fn subScalar_(self: Self, value: T) ArrayError!void {
+            return self.subScalarAssign(value);
+        }
+
+        pub fn sub_scalar_(self: Self, value: T) ArrayError!void {
+            return self.subScalar_(value);
+        }
+
+        pub fn mulScalar_(self: Self, value: T) ArrayError!void {
+            return self.mulScalarAssign(value);
+        }
+
+        pub fn mul_scalar_(self: Self, value: T) ArrayError!void {
+            return self.mulScalar_(value);
+        }
+
+        pub fn divScalar_(self: Self, value: T) ArrayError!void {
+            return self.divScalarAssign(value);
+        }
+
+        pub fn div_scalar_(self: Self, value: T) ArrayError!void {
+            return self.divScalar_(value);
         }
 
         pub fn numel(self: Self) usize {
@@ -22685,6 +22993,92 @@ test "array object shape inference helpers" {
     try std.testing.expectError(error.ShapeMismatch, a.reshapeInfer(&.{ 5, -1 }));
     try std.testing.expectError(error.ShapeMismatch, flat_axes.unflatten(1, &.{ 4, 4 }));
     try std.testing.expectError(error.InvalidAxis, a.flattenAxes(2, 1));
+}
+
+test "array and view in-place alias helpers" {
+    const gpa = std.testing.allocator;
+    var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer a.deinit();
+
+    a.fill_(1);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, a.data);
+    a.zero_();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0 }, a.data);
+    var ones = try Array(f64).ones(gpa, &.{ 2, 2 });
+    defer ones.deinit();
+    try a.copy_(ones);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, a.data);
+    var twos = try Array(f64).full(gpa, &.{ 1, 2 }, 2);
+    defer twos.deinit();
+    try a.copy_from(twos);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 2, 2, 2 }, a.data);
+    try a.addScalar_(1);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
+    try a.sub_scalar_(1);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 2, 2, 2 }, a.data);
+    try a.mulScalar_(3);
+    try std.testing.expectEqualSlices(f64, &.{ 6, 6, 6, 6 }, a.data);
+    try a.div_scalar_(2);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
+    try a.add_(ones);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 4, 4, 4 }, a.data);
+    try a.sub_assign(ones);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
+    try a.mul_(ones);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
+    try a.div_assign(ones);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
+
+    var row = try a.selectView(0, 0);
+    defer row.deinit();
+    try row.fill_(5);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 5, 3, 3 }, a.data);
+    try row.zero_();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 3, 3 }, a.data);
+    var row_values = try Array(f64).fromSlice(gpa, &.{ 7, 8 }, &.{2});
+    defer row_values.deinit();
+    try row.copy_from_array(row_values);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
+    var row_delta = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
+    defer row_delta.deinit();
+    try row.add_array_(row_delta);
+    try std.testing.expectEqualSlices(f64, &.{ 8, 10, 3, 3 }, a.data);
+    try row.sub_array_(row_delta);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
+    try row.mul_scalar_(2);
+    try std.testing.expectEqualSlices(f64, &.{ 14, 16, 3, 3 }, a.data);
+    try row.divScalar_(2);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
+
+    var row_view_values = try row_values.asView();
+    defer row_view_values.deinit();
+    try row.copy_(row_view_values);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
+    try row.add_(row_view_values);
+    try std.testing.expectEqualSlices(f64, &.{ 14, 16, 3, 3 }, a.data);
+    try row.sub_(row_view_values);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
+    try row.mul_(row_view_values);
+    try std.testing.expectEqualSlices(f64, &.{ 49, 64, 3, 3 }, a.data);
+    try row.div_(row_view_values);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
+
+    var mask = try Array(bool).fromSlice(gpa, &.{ true, false, false, true }, &.{ 2, 2 });
+    defer mask.deinit();
+    try a.masked_fill_(mask, -1);
+    try std.testing.expectEqualSlices(f64, &.{ -1, 8, 3, -1 }, a.data);
+    var mask_values = try Array(f64).fromSlice(gpa, &.{ 10, 20 }, &.{2});
+    defer mask_values.deinit();
+    try a.masked_copy_from(mask, mask_values);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 8, 3, 20 }, a.data);
+    var copy_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer copy_source.deinit();
+    try a.copy_where_(mask, copy_source);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 8, 3, 4 }, a.data);
+
+    var bad = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
+    defer bad.deinit();
+    try std.testing.expectError(error.ShapeMismatch, a.copy_(bad));
 }
 
 test "array object in-place assignment helpers" {
