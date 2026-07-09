@@ -954,6 +954,14 @@ pub fn ArrayView(comptime T: type) type {
             return Self.init(self.allocator, self.data, self.shape, self.strides, self.offset, self.device);
         }
 
+        pub fn copy(self: Self) ArrayError!Array(T) {
+            return self.toArray();
+        }
+
+        pub fn detach(self: Self) ArrayError!Array(T) {
+            return self.copy();
+        }
+
         pub fn ndim(self: Self) usize {
             return self.shape.len;
         }
@@ -5411,6 +5419,14 @@ pub fn Array(comptime T: type) type {
 
         pub fn clone(self: Self) ArrayError!Self {
             return Self.fromSlice(self.allocator, self.data, self.shape);
+        }
+
+        pub fn copy(self: Self) ArrayError!Self {
+            return self.clone();
+        }
+
+        pub fn detach(self: Self) ArrayError!Self {
+            return self.copy();
         }
 
         pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
@@ -13880,6 +13896,14 @@ test "array pytorch numpy shape indexing and layout helpers" {
     defer new_full.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, new_full.shape);
     try std.testing.expectEqualSlices(f64, &.{ 7, 7 }, new_full.data);
+    var copied = try a.copy();
+    defer copied.deinit();
+    try a.set(&.{ 0, 0 }, 99);
+    try std.testing.expectEqual(@as(f64, 1), copied.data[0]);
+    try a.set(&.{ 0, 0 }, 1);
+    var detached = try a.detach();
+    defer detached.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, detached.data);
 
     var u = try a.unsqueeze(0);
     defer u.deinit();
@@ -14130,6 +14154,13 @@ test "array view materializing shape wrappers" {
     var view_new_ones = try view.new_ones(&.{3});
     defer view_new_ones.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1 }, view_new_ones.data);
+    var view_copy = try view.copy();
+    defer view_copy.deinit();
+    try std.testing.expect(view_copy.isContiguous());
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5, 7 }, view_copy.data);
+    var view_detached = try view.detach();
+    defer view_detached.deinit();
+    try std.testing.expectEqualSlices(f64, view_copy.data, view_detached.data);
     var contiguous_view = try a.asView();
     defer contiguous_view.deinit();
     var view_shape_template = try Array(f64).empty(gpa, &.{ 4, 2 });
