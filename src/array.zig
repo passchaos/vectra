@@ -1983,16 +1983,32 @@ pub fn ArrayView(comptime T: type) type {
             return self.maximumScalar(min_value);
         }
 
+        pub fn clip_min(self: Self, min_value: T) ArrayError!Array(T) {
+            return self.clipMin(min_value);
+        }
+
         pub fn clampMin(self: Self, min_value: T) ArrayError!Array(T) {
             return self.clipMin(min_value);
+        }
+
+        pub fn clamp_min(self: Self, min_value: T) ArrayError!Array(T) {
+            return self.clampMin(min_value);
         }
 
         pub fn clipMax(self: Self, max_value: T) ArrayError!Array(T) {
             return self.minimumScalar(max_value);
         }
 
+        pub fn clip_max(self: Self, max_value: T) ArrayError!Array(T) {
+            return self.clipMax(max_value);
+        }
+
         pub fn clampMax(self: Self, max_value: T) ArrayError!Array(T) {
             return self.clipMax(max_value);
+        }
+
+        pub fn clamp_max(self: Self, max_value: T) ArrayError!Array(T) {
+            return self.clampMax(max_value);
         }
 
         pub fn fmaxScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -9189,16 +9205,32 @@ pub fn Array(comptime T: type) type {
             return self.maximumScalar(min_value);
         }
 
+        pub fn clip_min(self: Self, min_value: T) ArrayError!Self {
+            return self.clipMin(min_value);
+        }
+
         pub fn clampMin(self: Self, min_value: T) ArrayError!Self {
             return self.clipMin(min_value);
+        }
+
+        pub fn clamp_min(self: Self, min_value: T) ArrayError!Self {
+            return self.clampMin(min_value);
         }
 
         pub fn clipMax(self: Self, max_value: T) ArrayError!Self {
             return self.minimumScalar(max_value);
         }
 
+        pub fn clip_max(self: Self, max_value: T) ArrayError!Self {
+            return self.clipMax(max_value);
+        }
+
         pub fn clampMax(self: Self, max_value: T) ArrayError!Self {
             return self.clipMax(max_value);
+        }
+
+        pub fn clamp_max(self: Self, max_value: T) ArrayError!Self {
+            return self.clampMax(max_value);
         }
 
         pub fn fmaxScalar(self: Self, scalar: T) ArrayError!Self {
