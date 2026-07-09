@@ -154,6 +154,47 @@ fn benchStridedAddArray(io: std.Io, a: ArrayF64, b: ArrayF64, iters: usize) !f64
     return elapsed / @as(f64, @floatFromInt(iters));
 }
 
+fn benchDot(io: std.Io, a: ArrayF64, b: ArrayF64, iters: usize) !f64 {
+    var sink: f64 = 0;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        var out = try a.dot(b);
+        sink += out.data[0];
+        out.deinit();
+    }
+    std.mem.doNotOptimizeAway(sink);
+    const elapsed: f64 = @floatFromInt(nowNs(io) - start);
+    return elapsed / @as(f64, @floatFromInt(iters));
+}
+
+fn benchMatvec(io: std.Io, matrix: ArrayF64, vector: ArrayF64, iters: usize) !f64 {
+    var sink: f64 = 0;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        var out = try matrix.matvec(vector);
+        sink += out.data[0];
+        std.mem.doNotOptimizeAway(out.data.ptr);
+        out.deinit();
+    }
+    std.mem.doNotOptimizeAway(sink);
+    const elapsed: f64 = @floatFromInt(nowNs(io) - start);
+    return elapsed / @as(f64, @floatFromInt(iters));
+}
+
+fn benchVecmat(io: std.Io, vector: ArrayF64, matrix: ArrayF64, iters: usize) !f64 {
+    var sink: f64 = 0;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        var out = try vector.matmul(matrix);
+        sink += out.data[0];
+        std.mem.doNotOptimizeAway(out.data.ptr);
+        out.deinit();
+    }
+    std.mem.doNotOptimizeAway(sink);
+    const elapsed: f64 = @floatFromInt(nowNs(io) - start);
+    return elapsed / @as(f64, @floatFromInt(iters));
+}
+
 fn benchMatmul(io: std.Io, a: ArrayF64, b: ArrayF64, iters: usize) !f64 {
     var sink: f64 = 0;
     const start = nowNs(io);
@@ -197,6 +238,8 @@ pub fn main() !void {
     warm_mean.deinit();
     var warm_promote = try ai.addPromote(f64, b);
     warm_promote.deinit();
+    var warm_dot = try a.dot(b);
+    warm_dot.deinit();
 
     const m: usize = 256;
     var ma = try ArrayF64.empty(allocator, &.{ m, m });
@@ -205,6 +248,13 @@ pub fn main() !void {
     defer mb.deinit();
     fillF64(ma);
     fillF64(mb);
+    var mv = try ArrayF64.empty(allocator, &.{m});
+    defer mv.deinit();
+    fillF64(mv);
+    var warm_matvec = try ma.matvec(mv);
+    warm_matvec.deinit();
+    var warm_vecmat = try mv.matmul(mb);
+    warm_vecmat.deinit();
     var warm_mm = try ma.matmul(mb);
     warm_mm.deinit();
 
@@ -218,5 +268,8 @@ pub fn main() !void {
     std.debug.print("promoted_add_i32_f64,{d},{d:.3}\n", .{ n, try benchPromotedAdd(io, ai, b, 120) });
     std.debug.print("strided_add_scalar_f64,{d},{d:.3}\n", .{ n / 2, try benchStridedAddScalar(io, a, 120) });
     std.debug.print("strided_add_array_f64,{d},{d:.3}\n", .{ n / 2, try benchStridedAddArray(io, a, b, 120) });
+    std.debug.print("dot_f64,{d},{d:.3}\n", .{ n, try benchDot(io, a, b, 240) });
+    std.debug.print("matvec_f64,{d}x{d},{d:.3}\n", .{ m, m, try benchMatvec(io, ma, mv, 240) });
+    std.debug.print("vecmat_f64,{d}x{d},{d:.3}\n", .{ m, m, try benchVecmat(io, mv, mb, 240) });
     std.debug.print("matmul_f64,{d}x{d},{d:.3}\n", .{ m, m, try benchMatmul(io, ma, mb, 12) });
 }

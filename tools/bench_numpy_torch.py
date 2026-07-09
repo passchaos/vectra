@@ -28,6 +28,9 @@ ITERS = {
     "promoted_add_i32_f64": 120,
     "strided_add_scalar_f64": 120,
     "strided_add_array_f64": 120,
+    "dot_f64": 240,
+    "matvec_f64": 240,
+    "vecmat_f64": 240,
     "matmul_f64": 12,
 }
 
@@ -41,6 +44,7 @@ np_b = make_base(N).copy()
 np_ai = (np.arange(N, dtype=np.int32) % 1024).copy()
 np_ma = make_base(M * M).reshape(M, M).copy()
 np_mb = make_base(M * M).reshape(M, M).copy()
+np_mv = make_base(M).copy()
 
 torch.set_grad_enabled(False)
 th_a = torch.from_numpy(np_a.copy())
@@ -48,6 +52,7 @@ th_b = torch.from_numpy(np_b.copy())
 th_ai = torch.from_numpy(np_ai.copy())
 th_ma = torch.from_numpy(np_ma.copy())
 th_mb = torch.from_numpy(np_mb.copy())
+th_mv = torch.from_numpy(np_mv.copy())
 
 sink = 0.0
 
@@ -89,6 +94,9 @@ np_cases = [
     ("promoted_add_i32_f64", N, lambda: np_ai + np_b),
     ("strided_add_scalar_f64", N // 2, lambda: np_a[::2] + 1.25),
     ("strided_add_array_f64", N // 2, lambda: np_a[::2] + np_b[::2]),
+    ("dot_f64", N, lambda: np_a.dot(np_b)),
+    ("matvec_f64", f"{M}x{M}", lambda: np_ma @ np_mv),
+    ("vecmat_f64", f"{M}x{M}", lambda: np_mv @ np_mb),
     ("matmul_f64", f"{M}x{M}", lambda: np_ma @ np_mb),
 ]
 for name, items, func in np_cases:
@@ -104,6 +112,9 @@ torch_cases = [
     ("promoted_add_i32_f64", N, lambda: th_ai + th_b),
     ("strided_add_scalar_f64", N // 2, lambda: th_a[::2] + 1.25),
     ("strided_add_array_f64", N // 2, lambda: th_a[::2] + th_b[::2]),
+    ("dot_f64", N, lambda: torch.dot(th_a, th_b)),
+    ("matvec_f64", f"{M}x{M}", lambda: th_ma @ th_mv),
+    ("vecmat_f64", f"{M}x{M}", lambda: th_mv @ th_mb),
     ("matmul_f64", f"{M}x{M}", lambda: th_ma @ th_mb),
 ]
 for name, items, func in torch_cases:
