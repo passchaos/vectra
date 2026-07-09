@@ -1097,12 +1097,20 @@ pub fn ArrayView(comptime T: type) type {
             return self.data[try self.offsetOfSigned(indices)];
         }
 
+        pub fn get_signed(self: Self, indices: []const isize) ArrayError!T {
+            return self.getSigned(indices);
+        }
+
         pub fn at(self: Self, indices: []const usize) ArrayError!T {
             return self.get(indices);
         }
 
         pub fn atSigned(self: Self, indices: []const isize) ArrayError!T {
             return self.getSigned(indices);
+        }
+
+        pub fn at_signed(self: Self, indices: []const isize) ArrayError!T {
+            return self.atSigned(indices);
         }
 
         pub fn set(self: Self, indices: []const usize, value: T) ArrayError!void {
@@ -1113,12 +1121,20 @@ pub fn ArrayView(comptime T: type) type {
             self.data[try self.offsetOfSigned(indices)] = value;
         }
 
+        pub fn set_signed(self: Self, indices: []const isize, value: T) ArrayError!void {
+            return self.setSigned(indices, value);
+        }
+
         pub fn put(self: Self, indices: []const usize, value: T) ArrayError!void {
             return self.set(indices, value);
         }
 
         pub fn putSigned(self: Self, indices: []const isize, value: T) ArrayError!void {
             return self.setSigned(indices, value);
+        }
+
+        pub fn put_signed(self: Self, indices: []const isize, value: T) ArrayError!void {
+            return self.putSigned(indices, value);
         }
 
         pub fn item(self: Self) ArrayError!T {
@@ -3519,6 +3535,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeSigned(indices, axis_opt);
         }
 
+        pub fn take_signed(self: Self, indices: Array(isize), axis_opt: ?isize) ArrayError!Array(T) {
+            return self.takeSigned(indices, axis_opt);
+        }
+
         pub fn takeMode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3533,6 +3553,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.takeSigned(indices, axis_index);
         }
 
+        pub fn index_select_signed(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Array(T) {
+            return self.indexSelectSigned(axis_index, indices);
+        }
+
         pub fn gather(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3545,6 +3569,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.gatherSigned(axis_index, indices);
         }
 
+        pub fn gather_signed(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Array(T) {
+            return self.gatherSigned(axis_index, indices);
+        }
+
         pub fn takeAlongAxis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3555,6 +3583,10 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.takeAlongAxisSigned(indices, axis_index);
+        }
+
+        pub fn take_along_axis_signed(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Array(T) {
+            return self.takeAlongAxisSigned(indices, axis_index);
         }
 
         pub fn putAlongAxis(self: Self, indices: Array(usize), src: Array(T), axis_index: isize) ArrayError!Array(T) {
@@ -4624,6 +4656,10 @@ pub fn ArrayView(comptime T: type) type {
         pub fn selectSigned(self: Self, axis_index: isize, index: isize) ArrayError!Self {
             const axis = try normalizeDim(axis_index, self.shape.len);
             return self.select(axis_index, try normalizeIndex(index, self.shape[axis]));
+        }
+
+        pub fn select_signed(self: Self, axis_index: isize, index: isize) ArrayError!Self {
+            return self.selectSigned(axis_index, index);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) ArrayError!Self {
@@ -6271,12 +6307,20 @@ pub fn Array(comptime T: type) type {
             return self.data[try self.offsetOfSigned(indices)];
         }
 
+        pub fn get_signed(self: Self, indices: []const isize) ArrayError!T {
+            return self.getSigned(indices);
+        }
+
         pub fn set(self: *Self, indices: []const usize, value: T) ArrayError!void {
             self.data[try self.offsetOf(indices)] = value;
         }
 
         pub fn setSigned(self: *Self, indices: []const isize, value: T) ArrayError!void {
             self.data[try self.offsetOfSigned(indices)] = value;
+        }
+
+        pub fn set_signed(self: *Self, indices: []const isize, value: T) ArrayError!void {
+            return self.setSigned(indices, value);
         }
 
         pub fn at(self: Self, indices: []const usize) ArrayError!T {
@@ -6287,12 +6331,20 @@ pub fn Array(comptime T: type) type {
             return self.getSigned(indices);
         }
 
+        pub fn at_signed(self: Self, indices: []const isize) ArrayError!T {
+            return self.atSigned(indices);
+        }
+
         pub fn put(self: *Self, indices: []const usize, value: T) ArrayError!void {
             return self.set(indices, value);
         }
 
         pub fn putSigned(self: *Self, indices: []const isize, value: T) ArrayError!void {
             return self.setSigned(indices, value);
+        }
+
+        pub fn put_signed(self: *Self, indices: []const isize, value: T) ArrayError!void {
+            return self.putSigned(indices, value);
         }
 
         pub fn item(self: Self) ArrayError!T {
@@ -7345,6 +7397,10 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn take_signed(self: Self, indices: Array(isize), axis_opt: ?isize) ArrayError!Self {
+            return self.takeSigned(indices, axis_opt);
+        }
+
         fn applyIndexMode(idx: usize, extent: usize, mode: IndexMode) ArrayError!usize {
             if (extent == 0) return error.IndexOutOfBounds;
             return switch (mode) {
@@ -7389,12 +7445,20 @@ pub fn Array(comptime T: type) type {
             return self.takeSigned(indices, axis_index);
         }
 
+        pub fn index_select_signed(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Self {
+            return self.indexSelectSigned(axis_index, indices);
+        }
+
         pub fn takeAlongAxis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Self {
             return self.gather(axis_index, indices);
         }
 
         pub fn takeAlongAxisSigned(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Self {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn take_along_axis_signed(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Self {
+            return self.takeAlongAxisSigned(indices, axis_index);
         }
 
         pub fn putAlongAxis(self: Self, indices: Array(usize), src: Self, axis_index: isize) ArrayError!Self {
@@ -7899,6 +7963,10 @@ pub fn Array(comptime T: type) type {
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
+        }
+
+        pub fn gather_signed(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Self {
+            return self.gatherSigned(axis_index, indices);
         }
 
         pub fn scatter(self: Self, axis_index: isize, indices: Array(usize), src: Self) ArrayError!Self {
@@ -15702,10 +15770,17 @@ test "array scalar signed indexing helpers" {
 
     var view = try a.transposeView();
     defer view.deinit();
+    try std.testing.expectEqual(@as(f64, 6), try a.get_signed(&.{ -1, -1 }));
+    try std.testing.expectEqual(@as(f64, 6), try a.at_signed(&.{ -1, -1 }));
+    try a.set_signed(&.{ -1, -1 }, 66);
+    try std.testing.expectEqual(@as(f64, 66), a.data[5]);
+    try a.put_signed(&.{ -1, -1 }, 6);
+    try std.testing.expectEqual(@as(f64, 6), a.data[5]);
     try std.testing.expectEqual(@as(f64, 6), try view.getSigned(&.{ -1, -1 }));
-    try view.setSigned(&.{ -1, 0 }, 60);
+    try view.set_signed(&.{ -1, 0 }, 60);
     try std.testing.expectEqual(@as(f64, 60), a.data[2]);
-    var selected = try view.selectSigned(0, -1);
+    try std.testing.expectEqual(@as(f64, 60), try view.get_signed(&.{ -1, 0 }));
+    var selected = try view.select_signed(0, -1);
     defer selected.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, selected.shape);
     var selected_owned = try selected.toArray();
@@ -15725,6 +15800,9 @@ test "array signed negative indexing helpers" {
     var flat_taken = try a.takeSigned(flat_idx, null);
     defer flat_taken.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 22, 10, 20 }, flat_taken.data);
+    var flat_taken_alias = try a.take_signed(flat_idx, null);
+    defer flat_taken_alias.deinit();
+    try std.testing.expectEqualSlices(f64, flat_taken.data, flat_taken_alias.data);
 
     var col_idx = try Array(isize).fromSlice(gpa, &.{ -1, 0 }, &.{2});
     defer col_idx.deinit();
@@ -15732,15 +15810,24 @@ test "array signed negative indexing helpers" {
     defer selected.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, selected.shape);
     try std.testing.expectEqualSlices(f64, &.{ 12, 10, 22, 20 }, selected.data);
+    var selected_alias = try a.index_select_signed(1, col_idx);
+    defer selected_alias.deinit();
+    try std.testing.expectEqualSlices(f64, selected.data, selected_alias.data);
 
     var gather_idx = try Array(isize).fromSlice(gpa, &.{ -1, 0, -2, 0, -1, 1 }, &.{ 2, 3 });
     defer gather_idx.deinit();
     var gathered = try a.gatherSigned(1, gather_idx);
     defer gathered.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 12, 10, 11, 20, 22, 21 }, gathered.data);
+    var gathered_snake = try a.gather_signed(1, gather_idx);
+    defer gathered_snake.deinit();
+    try std.testing.expectEqualSlices(f64, gathered.data, gathered_snake.data);
     var gathered_alias = try a.takeAlongAxisSigned(gather_idx, 1);
     defer gathered_alias.deinit();
     try std.testing.expectEqualSlices(f64, gathered.data, gathered_alias.data);
+    var gathered_alias_snake = try a.take_along_axis_signed(gather_idx, 1);
+    defer gathered_alias_snake.deinit();
+    try std.testing.expectEqualSlices(f64, gathered.data, gathered_alias_snake.data);
 
     var values = try Array(f64).fromSlice(gpa, &.{ 100, 200 }, &.{2});
     defer values.deinit();
@@ -16026,6 +16113,9 @@ test "array advanced indexing mutation helpers" {
     var signed_view_taken = try view.takeAlongAxisSigned(signed_view_indices, 1);
     defer signed_view_taken.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 0, 6 }, signed_view_taken.data);
+    var signed_view_taken_alias = try view.take_along_axis_signed(signed_view_indices, 1);
+    defer signed_view_taken_alias.deinit();
+    try std.testing.expectEqualSlices(f64, signed_view_taken.data, signed_view_taken_alias.data);
     var put_values_view = try Array(f64).fromSlice(gpa, &.{ 7, 8 }, &.{2});
     defer put_values_view.deinit();
     var flat_put_indices = try Array(usize).fromSlice(gpa, &.{ 1, 2 }, &.{2});
