@@ -82,7 +82,7 @@ zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
 zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 ```
 
-The CUDA-enabled commands require a CUDA/libnvvm/PTXAS-capable host; `-Daxiom-cuda-dispatch=true` additionally lets ordinary `Array(f32).add/mul/matmul` methods try Axiom CUDA before falling back to CPU.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the supported surface and current limits.
+The CUDA-enabled commands require a CUDA/libnvvm/PTXAS-capable host; `-Daxiom-cuda-dispatch=true` additionally lets ordinary `Array(f32).add/mul/addScalar/mulScalar/matmul` methods try Axiom CUDA before falling back to CPU.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the supported surface and current limits.
 
 ## Alea backend
 

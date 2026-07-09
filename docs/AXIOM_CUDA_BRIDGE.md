@@ -40,7 +40,7 @@ planning evidence:
 `-Daxiom-cuda-dispatch=true` also lets supported ordinary `Array(f32)` methods
 try Axiom CUDA first and fall back to the existing CPU path when unsupported or
 unavailable.  The current automatic dispatch covers same-shape `add`, same-shape
-`mul`, and contiguous 2D `matmul`.
+`mul`, scalar `addScalar`, scalar `mulScalar`, and contiguous 2D `matmul`.
 
 ## Current API surface
 

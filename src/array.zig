@@ -15249,6 +15249,12 @@ pub fn Array(comptime T: type) type {
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32) {
+                if (build_options.enable_axiom_cuda_dispatch) {
+                    const accelerated = try axiom_cuda_backend.tryAddScalarF32(self, scalar);
+                    if (accelerated) |out| return out;
+                }
+            }
             return self.binaryScalar(scalar, opAdd);
         }
 
@@ -15259,6 +15265,12 @@ pub fn Array(comptime T: type) type {
 
         pub fn mulScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32) {
+                if (build_options.enable_axiom_cuda_dispatch) {
+                    const accelerated = try axiom_cuda_backend.tryMulScalarF32(self, scalar);
+                    if (accelerated) |out| return out;
+                }
+            }
             return self.binaryScalar(scalar, opMul);
         }
 

@@ -50,6 +50,7 @@ pub const SmokeReport = struct {
     saxpy_ok: bool = false,
     matmul_ok: bool = false,
     scalar_add_ok: bool = false,
+    scalar_mul_ok: bool = false,
     scalar_saxpy_ok: bool = false,
     max_abs_error: f32 = 0.0,
     lhs_plan: BufferPlanEvidence = .{},
@@ -60,7 +61,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_saxpy_ok,
+            .ran => report.enabled and report.add_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
             .failed => false,
         };
     }
@@ -74,6 +75,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.saxpy_ok);
         hashBool(&hasher, report.matmul_ok);
         hashBool(&hasher, report.scalar_add_ok);
+        hashBool(&hasher, report.scalar_mul_ok);
         hashBool(&hasher, report.scalar_saxpy_ok);
         hashF32(&hasher, report.max_abs_error);
         hashBool(&hasher, report.lhs_plan.ok);
@@ -93,7 +95,7 @@ pub const SmokeReport = struct {
 
     pub fn writeText(report: SmokeReport, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} mul={} saxpy={} matmul={} scalar_add={} scalar_saxpy={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} mul={} saxpy={} matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
             .{
                 report.enabled,
                 report.status.label(),
@@ -104,6 +106,7 @@ pub const SmokeReport = struct {
                 report.saxpy_ok,
                 report.matmul_ok,
                 report.scalar_add_ok,
+                report.scalar_mul_ok,
                 report.scalar_saxpy_ok,
                 report.max_abs_error,
                 report.lhs_plan.logical_elements,
@@ -130,6 +133,7 @@ pub const SmokeReport = struct {
                 "  \"saxpy_ok\": {},\n" ++
                 "  \"matmul_ok\": {},\n" ++
                 "  \"scalar_add_ok\": {},\n" ++
+                "  \"scalar_mul_ok\": {},\n" ++
                 "  \"scalar_saxpy_ok\": {},\n" ++
                 "  \"max_abs_error\": {d},\n" ++
                 "  \"lhs_plan_ok\": {},\n" ++
@@ -155,6 +159,7 @@ pub const SmokeReport = struct {
                 report.saxpy_ok,
                 report.matmul_ok,
                 report.scalar_add_ok,
+                report.scalar_mul_ok,
                 report.scalar_saxpy_ok,
                 report.max_abs_error,
                 report.lhs_plan.ok,
@@ -241,6 +246,15 @@ pub fn tryAddScalarF32(input: array_mod.Array(f32), scalar: f32) array_mod.Array
     return tryBinaryF32(.add, scalar_array, input);
 }
 
+pub fn tryMulScalarF32(input: array_mod.Array(f32), scalar: f32) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedNonEmptyContiguous(input)) return null;
+
+    var scalar_array = try array_mod.Array(f32).full(input.allocator, input.shape, scalar);
+    defer scalar_array.deinit();
+    return tryBinaryF32(.mul, scalar_array, input);
+}
+
 pub fn trySaxpyScalarF32(alpha: f32, scalar_x: f32, y: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedNonEmptyContiguous(y)) return null;
@@ -304,6 +318,14 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
+    var scalar_mul_out = tryMulScalarF32(rhs, 2.0) catch return failedReport();
+    if (scalar_mul_out) |*out| {
+        defer out.deinit();
+        report.scalar_mul_ok = sliceClose(out.data, &.{ 20, 40, 60, 80 }, 0.0);
+        report.max_abs_error = @max(report.max_abs_error, maxAbsError(out.data, &.{ 20, 40, 60, 80 }));
+        report.output_fingerprint ^= hashF32Slice(out.data);
+    }
+
     var scalar_saxpy_out = trySaxpyScalarF32(3.0, 2.0, rhs) catch return failedReport();
     if (scalar_saxpy_out) |*out| {
         defer out.deinit();
@@ -355,11 +377,11 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
-    if (report.add_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_saxpy_ok) {
+    if (report.add_ok and report.mul_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
-    } else if (add_out == null and mul_out == null and saxpy_out == null and matmul_out == null and scalar_add_out == null and scalar_saxpy_out == null) {
+    } else if (add_out == null and mul_out == null and saxpy_out == null and matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null) {
         report.status = .skipped;
         report.issue_count = 0;
     } else {
@@ -371,6 +393,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!report.saxpy_ok)) +
             @as(u8, @intFromBool(!report.matmul_ok)) +
             @as(u8, @intFromBool(!report.scalar_add_ok)) +
+            @as(u8, @intFromBool(!report.scalar_mul_ok)) +
             @as(u8, @intFromBool(!report.scalar_saxpy_ok));
     }
     return report;
