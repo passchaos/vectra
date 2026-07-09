@@ -27,15 +27,19 @@ zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke
 zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
 ```
 
-The CUDA smoke gate runs f32 add/sub/mul/div, f32 SAXPY, scalar-broadcast f32 add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, and 2D f32 matmul through Axiom's
-builder-style CUDA tensor runtime.  It also reports Vectra-to-Axiom buffer
-planning evidence:
+The CUDA smoke gate runs f32 add/sub/mul/div, f32 SAXPY, scalar-broadcast f32
+add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, and 2D f32
+matmul.  Elementwise/SAXPY paths use Axiom's builder-style CUDA tensor runtime;
+matmul now builds Axiom CUDA Tile IR and hands it to Axiom's Tile-IR-to-CUTILE
+GEMM runtime bridge.  It also reports Vectra-to-Axiom buffer planning evidence:
 
 - logical element count
 - required backing span
 - logical and required byte counts
 - linear-copy compatibility
 - device-copy-plan status and fingerprints
+- `matmul_tile_ir_ok` evidence proving the matmul smoke went through the Axiom
+  CUDA Tile IR bridge
 
 
 ## Automatic dispatch and policy
@@ -99,7 +103,9 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 - The bridge does not change `Device.cuda(index).isAvailable()` yet.
 - An explicit `DeviceArrayF32` handle can acquire/release Axiom pool-backed device buffers; ordinary `.cuda()` persistent storage is still intentionally unavailable.
 - Only scalar-array broadcast dispatch is covered; no general broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
-- The CUDA matmul bridge is limited to contiguous 2D `Array(f32)` inputs; f64 matmul routes through Axiom CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
+- The CUDA matmul bridge is limited to contiguous 2D `Array(f32)` inputs and
+  routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path; f64
+  matmul routes through Axiom CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
 - The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.
 - f64 CUDA tensor runtime support is not exposed yet.
 

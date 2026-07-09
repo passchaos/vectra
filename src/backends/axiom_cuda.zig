@@ -2,10 +2,13 @@
 //!
 //! This module deliberately keeps CUDA acceleration opt-in.  The default Vectra
 //! build remains CPU/Veyra/Alea only, while `zig build -Daxiom-cuda=true ...`
-//! imports Axiom and routes a small f32 tensor-kernel seed through Axiom's
-//! builder-style CUDA tensor runtime.  The bridge is host-slice based today: it
-//! proves Vectra metadata can feed Axiom's tensor adapter without claiming that
-//! `Array.cuda()` is a persistent device-resident storage backend yet.
+//! imports Axiom and routes small f32 tensor-kernel seeds through Axiom's
+//! builder-style CUDA tensor runtime.  Elementwise paths still use Axiom tensor
+//! adapter launches; matmul now builds Axiom CUDA Tile IR and hands it to the
+//! Tile-IR-to-CUTILE GEMM runtime bridge.  The bridge is host-slice based today:
+//! it proves Vectra metadata can feed Axiom's accelerator layers without
+//! claiming that `Array.cuda()` is a persistent device-resident storage backend
+//! yet.
 
 const std = @import("std");
 const build_options = @import("vectra_build_options");
@@ -120,6 +123,7 @@ pub const SmokeReport = struct {
     div_ok: bool = false,
     saxpy_ok: bool = false,
     matmul_ok: bool = false,
+    matmul_tile_ir_ok: bool = false,
     scalar_add_ok: bool = false,
     scalar_mul_ok: bool = false,
     scalar_saxpy_ok: bool = false,
@@ -150,6 +154,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.div_ok);
         hashBool(&hasher, report.saxpy_ok);
         hashBool(&hasher, report.matmul_ok);
+        hashBool(&hasher, report.matmul_tile_ir_ok);
         hashBool(&hasher, report.scalar_add_ok);
         hashBool(&hasher, report.scalar_mul_ok);
         hashBool(&hasher, report.scalar_saxpy_ok);
@@ -174,7 +179,7 @@ pub const SmokeReport = struct {
 
     pub fn writeText(report: SmokeReport, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} device_array={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} matmul_tile_ir={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} device_array={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
             .{
                 report.enabled,
                 report.status.label(),
@@ -186,6 +191,7 @@ pub const SmokeReport = struct {
                 report.div_ok,
                 report.saxpy_ok,
                 report.matmul_ok,
+                report.matmul_tile_ir_ok,
                 report.scalar_add_ok,
                 report.scalar_mul_ok,
                 report.scalar_saxpy_ok,
@@ -218,6 +224,7 @@ pub const SmokeReport = struct {
                 "  \"div_ok\": {},\n" ++
                 "  \"saxpy_ok\": {},\n" ++
                 "  \"matmul_ok\": {},\n" ++
+                "  \"matmul_tile_ir_ok\": {},\n" ++
                 "  \"scalar_add_ok\": {},\n" ++
                 "  \"scalar_mul_ok\": {},\n" ++
                 "  \"scalar_saxpy_ok\": {},\n" ++
@@ -249,6 +256,7 @@ pub const SmokeReport = struct {
                 report.div_ok,
                 report.saxpy_ok,
                 report.matmul_ok,
+                report.matmul_tile_ir_ok,
                 report.scalar_add_ok,
                 report.scalar_mul_ok,
                 report.scalar_saxpy_ok,
@@ -415,19 +423,9 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
     var out = try array_mod.Array(f32).empty(lhs.allocator, &.{ m, n });
     errdefer out.deinit();
 
-    var spec = axiom.accelerator.TensorGemmSpec.rowMajor(
-        .rowMajor("lhs", @intCast(@intFromPtr(lhs.data.ptr)), m, k),
-        .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
-        .rowMajor("out", @intCast(@intFromPtr(out.data.ptr)), m, n),
-    );
-    spec.alpha = 1.0;
-    spec.beta = 0.0;
-    spec.tile_x = 16;
-    spec.tile_y = 16;
-    spec.kernel_symbol = "vectra_axiom_gemm";
-
+    const tile_program = buildMatmulTileIr(m, n, k, "vectra_axiom_tile_gemm");
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const result = runtime.runTensorGemmHostSlices(spec, lhs.data, rhs.data, c.data, out.data) catch |err| switch (err) {
+    const result = runtime.runCudaTileGemmHostSlices(tile_program, 1.0, 0.0, "auto", lhs.data, rhs.data, c.data, out.data) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => return null,
     };
@@ -535,11 +533,12 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     if (matmul_out) |*out| {
         defer out.deinit();
         report.matmul_ok = sliceClose(out.data, &.{ 58, 64, 139, 154 }, 0.0);
+        report.matmul_tile_ir_ok = report.matmul_ok;
         report.max_abs_error = @max(report.max_abs_error, maxAbsError(out.data, &.{ 58, 64, 139, 154 }));
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
-    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
+    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
@@ -556,6 +555,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!report.div_ok)) +
             @as(u8, @intFromBool(!report.saxpy_ok)) +
             @as(u8, @intFromBool(!report.matmul_ok)) +
+            @as(u8, @intFromBool(!report.matmul_tile_ir_ok)) +
             @as(u8, @intFromBool(!report.scalar_add_ok)) +
             @as(u8, @intFromBool(!report.scalar_mul_ok)) +
             @as(u8, @intFromBool(!report.scalar_saxpy_ok));
@@ -650,6 +650,27 @@ fn supportedMatmul2dContiguous(lhs: array_mod.Array(f32), rhs: array_mod.Array(f
         rhs.data.len != 0 and
         lhs.isContiguous() and
         rhs.isContiguous();
+}
+
+fn buildMatmulTileIr(m: usize, n: usize, k: usize, kernel_symbol: []const u8) axiom.accelerator.CudaTileProgram {
+    const tile_m: usize = @min(m, @as(usize, 16));
+    const tile_n: usize = @min(n, @as(usize, 16));
+    const tile_k: usize = @min(k, @as(usize, 16));
+    return axiom.accelerator.cuda_tile_ir.builder(kernel_symbol)
+        .tensor(.init("lhs", .f32, .rowMajor2d(m, k), .global))
+        .tensor(.init("rhs", .f32, .rowMajor2d(k, n), .global))
+        .tensor(.init("out", .f32, .rowMajor2d(m, n), .global))
+        .fragment(.init("lhs_tile", .f32, .rowMajor2d(tile_m, tile_k), .shared))
+        .fragment(.init("rhs_tile", .f32, .rowMajor2d(tile_k, tile_n), .shared))
+        .fragment(.init("acc", .f32, .rowMajor2d(tile_m, tile_n), .accumulator))
+        .cta(tile_m, tile_n, tile_k)
+        .warp(tile_m, @min(tile_n, @as(usize, 8)), tile_k)
+        .mmaTile(@min(tile_m, @as(usize, 16)), @min(tile_n, @as(usize, 8)), @min(tile_k, @as(usize, 8)))
+        .load("lhs_tile", "lhs")
+        .load("rhs_tile", "rhs")
+        .mma("acc", "lhs_tile", "rhs_tile")
+        .store("out", "acc")
+        .build();
 }
 
 fn supportedOneDimensionalView(view: array_mod.ArrayView(f32)) bool {
