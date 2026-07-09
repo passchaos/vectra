@@ -225,6 +225,21 @@ pub fn build(b: *std.Build) void {
     const axiom_cpu_dispatch_smoke_step = b.step("axiom-cpu-dispatch-smoke", "Run ordinary Array(f32/f64).matmul through opt-in Axiom CPU-to-Veyra dispatch");
     axiom_cpu_dispatch_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
 
+    const axiom_backend_policy_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-backend-policy-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/axiom_backend_policy_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_backend_policy_smoke_cmd = b.addRunArtifact(axiom_backend_policy_smoke_exe);
+    const axiom_backend_policy_smoke_step = b.step("axiom-backend-policy-smoke", "Run unified Axiom CPU/CUDA backend policy smoke");
+    axiom_backend_policy_smoke_step.dependOn(&axiom_backend_policy_smoke_cmd.step);
+
     // Creates an executable that will run `test` blocks from the provided module.
     // Here `mod` needs to define a target, which is why earlier we made sure to
     // set the releative field.

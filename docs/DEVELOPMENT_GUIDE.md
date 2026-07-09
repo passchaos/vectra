@@ -187,8 +187,12 @@ Vectra 当前新增一个可选的 Axiom CUDA 集成种子：
 - 当前覆盖 contiguous same-shape `Array(f32)` add/sub/mul/div/SAXPY/scalar-broadcast/matmul and 1D positive-stride view add/sub/mul/div host-slice bridge，并通过 Axiom `TensorDeviceBufferPlan` / `TensorDeviceCopyPlan` 记录 logical elements、required span、byte counts、linear-copy 状态和 fingerprints。
 - 验证命令：`zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled` 和 CUDA 主机上的 `zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke`，以及 dispatch 模式下的 `zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 zig build -Daxiom-cuda=true axiom-cuda-device-smoke
-zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke`。
+zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke
+zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke`。
 - 后续如果继续推进 GPU backend，应先补 persistent device allocation/cache、broadcast lowering、reductions/GEMM host-slice bridge，再考虑让 `.cuda()` 语义变为可用。
 
 
 Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
+
+
+Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies.

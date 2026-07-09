@@ -82,6 +82,7 @@ zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
 zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 zig build -Daxiom-cuda=true axiom-cuda-device-smoke
 zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke
+zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
 ```
 
 The CUDA-enabled commands require a CUDA/libnvvm/PTXAS-capable host; `-Daxiom-cuda-dispatch=true` additionally lets ordinary `Array(f32).add/sub/mul/div/addScalar/mulScalar/divScalar/matmul` methods try Axiom CUDA before falling back to CPU.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the supported surface and current limits.
@@ -134,3 +135,6 @@ The current high-value benchmark set covers large f64 elementwise/scalar ops, fl
 
 
 Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
+
+
+Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies.

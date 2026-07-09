@@ -23,6 +23,7 @@ zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
 zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
 zig build -Daxiom-cuda=true axiom-cuda-device-smoke
 zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke
+zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
 ```
 
 The smoke gate runs f32 add, f32 mul, f32 SAXPY, scalar-broadcast f32 add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, and 2D f32 matmul through Axiom's
@@ -84,3 +85,6 @@ backend, not the final GPU backend itself.
 
 
 Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
+
+
+Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies.

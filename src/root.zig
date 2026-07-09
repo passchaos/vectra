@@ -37,6 +37,7 @@ pub const MeshGridIndexing = array_mod.MeshGridIndexing;
 pub const ConvMode = array_mod.ConvMode;
 pub const ArrayError = array_mod.ArrayError;
 pub const axiom_cpu = @import("backends/axiom_cpu.zig");
+pub const axiom_backend = @import("backends/axiom_backend.zig");
 
 pub const Series = series_mod.Series;
 pub const DataFrame = dataframe_mod.DataFrame;
@@ -62,6 +63,7 @@ pub const LuResult = array_mod.LuResult;
 test {
     _ = array_mod;
     _ = axiom_cpu;
+    _ = axiom_backend;
     _ = series_mod;
     _ = dataframe_mod;
     _ = linalg;
