@@ -3545,8 +3545,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeMode(indices, axis_opt, mode);
         }
 
+        pub fn take_mode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
+            return self.takeMode(indices, axis_opt, mode);
+        }
+
         pub fn indexSelect(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
             return self.take(indices, axis_index);
+        }
+
+        pub fn index_select(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
+            return self.indexSelect(axis_index, indices);
         }
 
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Array(T) {
@@ -3579,6 +3587,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeAlongAxis(indices, axis_index);
         }
 
+        pub fn take_along_axis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Array(T) {
+            return self.takeAlongAxis(indices, axis_index);
+        }
+
         pub fn takeAlongAxisSigned(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -3593,6 +3605,10 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putAlongAxis(indices, src, axis_index);
+        }
+
+        pub fn put_along_axis(self: Self, indices: Array(usize), src: Array(T), axis_index: isize) ArrayError!Array(T) {
+            return self.putAlongAxis(indices, src, axis_index);
         }
 
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Array(T) {
@@ -7553,8 +7569,16 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn take_mode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Self {
+            return self.takeMode(indices, axis_opt, mode);
+        }
+
         pub fn indexSelect(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Self {
             return self.take(indices, axis_index);
+        }
+
+        pub fn index_select(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Self {
+            return self.indexSelect(axis_index, indices);
         }
 
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Self {
@@ -7569,6 +7593,10 @@ pub fn Array(comptime T: type) type {
             return self.gather(axis_index, indices);
         }
 
+        pub fn take_along_axis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Self {
+            return self.takeAlongAxis(indices, axis_index);
+        }
+
         pub fn takeAlongAxisSigned(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Self {
             return self.gatherSigned(axis_index, indices);
         }
@@ -7579,6 +7607,10 @@ pub fn Array(comptime T: type) type {
 
         pub fn putAlongAxis(self: Self, indices: Array(usize), src: Self, axis_index: isize) ArrayError!Self {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn put_along_axis(self: Self, indices: Array(usize), src: Self, axis_index: isize) ArrayError!Self {
+            return self.putAlongAxis(indices, src, axis_index);
         }
 
         pub fn masked_select(self: Self, mask: Array(bool)) ArrayError!Self {
@@ -16091,6 +16123,9 @@ test "array take mask stack cat and neural helpers" {
     defer picked.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, picked.shape);
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 6, 4 }, picked.data);
+    var picked_alias = try a.index_select(1, idx);
+    defer picked_alias.deinit();
+    try std.testing.expectEqualSlices(f64, picked.data, picked_alias.data);
     var picked_top = try a.indexSelect(1, idx);
     defer picked_top.deinit();
     try std.testing.expectEqualSlices(f64, picked.data, picked_top.data);
@@ -16401,6 +16436,9 @@ test "array advanced indexing mutation helpers" {
     var view_taken = try view.takeAlongAxis(view_indices, 1);
     defer view_taken.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 0, 6 }, view_taken.data);
+    var view_taken_alias = try view.take_along_axis(view_indices, 1);
+    defer view_taken_alias.deinit();
+    try std.testing.expectEqualSlices(f64, view_taken.data, view_taken_alias.data);
     var signed_view_indices = try Array(isize).fromSlice(gpa, &.{ -1, 0, 0, -1 }, &.{ 2, 2 });
     defer signed_view_indices.deinit();
     var signed_view_taken = try view.takeAlongAxisSigned(signed_view_indices, 1);
