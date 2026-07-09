@@ -2805,6 +2805,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.sumAxes(axes, keepdims);
         }
 
+        pub fn sumToSize(self: Self, dims: []const usize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.sumToSize(dims);
+        }
+
+        pub fn sum_to_size(self: Self, dims: []const usize) ArrayError!Array(T) {
+            return self.sumToSize(dims);
+        }
+
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.reduce(axis_opt, keepdims, one(T), opMul);
@@ -10404,6 +10414,43 @@ pub fn Array(comptime T: type) type {
             return self.sumAxes(axes, keepdims);
         }
 
+        pub fn sumToSize(self: Self, dims: []const usize) ArrayError!Self {
+            ensureNumeric(T);
+            if (dims.len > self.shape.len) return error.ShapeMismatch;
+            const leading = self.shape.len - dims.len;
+            for (dims, 0..) |target_extent, i| {
+                const source_extent = self.shape[leading + i];
+                if (target_extent != source_extent and target_extent != 1) return error.ShapeMismatch;
+            }
+            var current = try self.clone();
+            errdefer current.deinit();
+            var leading_left = leading;
+            while (leading_left > 0) : (leading_left -= 1) {
+                const next = try current.sum(0, false);
+                current.deinit();
+                current = next;
+            }
+            var i: usize = dims.len;
+            while (i > 0) {
+                i -= 1;
+                if (dims[i] == 1 and current.shape[i] != 1) {
+                    const next = try current.sum(@intCast(i), true);
+                    current.deinit();
+                    current = next;
+                }
+            }
+            if (!std.mem.eql(usize, current.shape, dims)) {
+                const reshaped = try current.reshape(dims);
+                current.deinit();
+                current = reshaped;
+            }
+            return current;
+        }
+
+        pub fn sum_to_size(self: Self, dims: []const usize) ArrayError!Self {
+            return self.sumToSize(dims);
+        }
+
         pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             return self.reduceAxes(axes, keepdims, Self.prod);
@@ -14592,6 +14639,15 @@ test "array scipy-like statistics and softmax" {
     defer sum_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, sum_axes.shape);
     try std.testing.expectEqualSlices(f64, &.{ 14, 22 }, sum_axes.data);
+    var sum_to_size = try cube.sumToSize(&.{ 1, 2 });
+    defer sum_to_size.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, sum_to_size.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 16, 20 }, sum_to_size.data);
+    var sum_to_scalar = try cube.sum_to_size(&.{});
+    defer sum_to_scalar.deinit();
+    try std.testing.expectEqual(@as(usize, 0), sum_to_scalar.shape.len);
+    try std.testing.expectEqualSlices(f64, &.{36}, sum_to_scalar.data);
+    try std.testing.expectError(error.ShapeMismatch, cube.sumToSize(&.{ 3, 2 }));
     var sum_axes_keep = try cube.sum_axes(&.{ 0, 2 }, true);
     defer sum_axes_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, sum_axes_keep.shape);
@@ -15760,6 +15816,10 @@ test "array view object statistics wrappers" {
     var view_sum_axes = try view.sumAxes(&.{ 0, 1 }, false);
     defer view_sum_axes.deinit();
     try std.testing.expect(std.math.isNan(view_sum_axes.data[0]));
+    var view_sum_to_size = try view.sumToSize(&.{ 1, 2 });
+    defer view_sum_to_size.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, view_sum_to_size.shape);
+    try std.testing.expect(std.math.isNan(view_sum_to_size.data[0]));
     var view_mean_axes = try view.mean_axes(&.{ 0, 1 }, true);
     defer view_mean_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, view_mean_axes.shape);
