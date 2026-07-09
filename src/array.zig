@@ -14512,6 +14512,12 @@ pub fn Array(comptime T: type) type {
                 }
                 return out;
             }
+            if (comptime T == f32) {
+                if (build_options.enable_axiom_cuda_dispatch) {
+                    const accelerated = try axiom_cuda_backend.tryBinaryScalarBroadcastF32(if (comptime op == opAdd) .add else if (comptime op == opSub) .sub else if (comptime op == opMul) .mul else if (comptime op == opDiv) .div else .add, self, other);
+                    if (accelerated) |out| return out;
+                }
+            }
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out = try Self.empty(self.allocator, out_shape);

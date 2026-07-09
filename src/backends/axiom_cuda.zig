@@ -294,6 +294,22 @@ pub fn tryDivScalarF32(input: array_mod.Array(f32), scalar: f32) array_mod.Array
     return tryBinaryF32(.div, input, scalar_array);
 }
 
+pub fn tryBinaryScalarBroadcastF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedNonEmptyContiguous(lhs) or !supportedNonEmptyContiguous(rhs)) return null;
+    if (lhs.data.len == rhs.data.len) return null;
+    if (lhs.data.len != 1 and rhs.data.len != 1) return null;
+
+    const scalar_left = lhs.data.len == 1;
+    const vector = if (scalar_left) rhs else lhs;
+    var scalar_array = try array_mod.Array(f32).full(vector.allocator, vector.shape, if (scalar_left) lhs.data[0] else rhs.data[0]);
+    defer scalar_array.deinit();
+    return if (scalar_left)
+        tryBinaryF32(op, scalar_array, vector)
+    else
+        tryBinaryF32(op, vector, scalar_array);
+}
+
 pub fn trySaxpyScalarF32(alpha: f32, scalar_x: f32, y: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedNonEmptyContiguous(y)) return null;

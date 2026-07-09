@@ -69,7 +69,7 @@ should fall back to Vectra's CPU/Veyra paths in that case.
 - Only `Array(f32)` contiguous same-shape host arrays, scalar-broadcast f32 vector inputs, experimental 1D positive-stride `ArrayView(f32)` add/sub/mul/div bridge calls, and contiguous 2D f32 matmul inputs are covered.
 - The bridge does not change `Device.cuda(index).isAvailable()` yet.
 - No persistent CUDA allocation/cache API is owned by Vectra yet.
-- No broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
+- Only scalar-array broadcast dispatch is covered; no general broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
 - The matmul bridge is limited to contiguous 2D `Array(f32)` inputs.
 - The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.
 - f64 linalg remains Veyra/CPU first until Axiom exposes matching tensor runtime
