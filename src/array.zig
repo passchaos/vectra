@@ -3559,6 +3559,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.topk(k, axis_opt, largest, sorted);
         }
 
+        pub fn kthValue(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T).KthValue {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.kthValue(k, axis_opt, keepdims);
+        }
+
+        pub fn kth_value(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T).KthValue {
+            return self.kthValue(k, axis_opt, keepdims);
+        }
+
         pub fn take(self: Self, indices: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -12506,11 +12516,64 @@ pub fn Array(comptime T: type) type {
             }
         };
 
+        pub const KthValue = struct {
+            values: Self,
+            indices: Array(usize),
+
+            pub fn deinit(self: *@This()) void {
+                self.values.deinit();
+                self.indices.deinit();
+                self.* = undefined;
+            }
+        };
+
         pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) ArrayError!TopK {
             ensureNumeric(T);
             if (self.data.len == 0 and k > 0) return error.EmptyArray;
             if (axis_opt == null) return self.topkFlat(k, largest, sorted);
             return self.topkAxis(k, try normalizeDim(axis_opt.?, self.shape.len), largest, sorted);
+        }
+
+        pub fn kthValue(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!KthValue {
+            ensureNumeric(T);
+            if (k == 0) return error.InvalidShape;
+            var smallest = try self.topk(k, axis_opt, false, true);
+            defer smallest.deinit();
+            if (axis_opt == null) {
+                const value = smallest.values.data[k - 1];
+                const index = smallest.indices.data[k - 1];
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return .{
+                        .values = try Self.fromSlice(self.allocator, &.{value}, out_shape),
+                        .indices = try Array(usize).fromSlice(self.allocator, &.{index}, out_shape),
+                    };
+                }
+                return .{
+                    .values = try Self.fromSlice(self.allocator, &.{value}, &.{}),
+                    .indices = try Array(usize).fromSlice(self.allocator, &.{index}, &.{}),
+                };
+            }
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            var values = try smallest.values.select(@intCast(axis), k - 1);
+            errdefer values.deinit();
+            var indices = try smallest.indices.select(@intCast(axis), k - 1);
+            errdefer indices.deinit();
+            if (keepdims) {
+                const kept_values = try values.unsqueeze(@intCast(axis));
+                values.deinit();
+                values = kept_values;
+                errdefer values.deinit();
+                const kept_indices = try indices.unsqueeze(@intCast(axis));
+                indices.deinit();
+                indices = kept_indices;
+            }
+            return .{ .values = values, .indices = indices };
+        }
+
+        pub fn kth_value(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!KthValue {
+            return self.kthValue(k, axis_opt, keepdims);
         }
 
         fn topkFlat(self: Self, k: usize, largest: bool, sorted: bool) ArrayError!TopK {
@@ -17146,12 +17209,23 @@ test "array min max arg reductions and topk" {
     defer flat_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 9, 8, 5 }, flat_top.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 0, 4, 2 }, flat_top.indices.data);
+    var kth_flat = try a.kthValue(2, null, false);
+    defer kth_flat.deinit();
+    try std.testing.expectEqual(@as(usize, 0), kth_flat.values.shape.len);
+    try std.testing.expectEqualSlices(f64, &.{2}, kth_flat.values.data);
+    try std.testing.expectEqualSlices(usize, &.{5}, kth_flat.indices.data);
+    try std.testing.expectError(error.InvalidShape, a.kthValue(0, null, false));
 
     var row_top = try a.topk(2, 1, false, true);
     defer row_top.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, row_top.values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 2, 4 }, row_top.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2, 0 }, row_top.indices.data);
+    var row_kth = try a.kth_value(2, 1, true);
+    defer row_kth.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, row_kth.values.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 4 }, row_kth.values.data);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 0 }, row_kth.indices.data);
 
     var flat_unsorted = try a.topk(3, null, true, false);
     defer flat_unsorted.deinit();
