@@ -4205,9 +4205,68 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.variance(axis_opt, keepdims, correction);
+            ensureFloat(T);
+            if (axis_opt == null) {
+                if (self.numel() == 0) return error.EmptyArray;
+                var mean_value: T = zero(T);
+                const multi = try self.allocator.alloc(usize, self.shape.len);
+                defer self.allocator.free(multi);
+                for (0..self.numel()) |flat| {
+                    unravelIndexInto(flat, self.shape, multi);
+                    mean_value += self.data[self.offset + ravelIndex(multi, self.strides)];
+                }
+                mean_value /= castValue(T, self.numel());
+                var total: T = zero(T);
+                for (0..self.numel()) |flat| {
+                    unravelIndexInto(flat, self.shape, multi);
+                    const value = self.data[self.offset + ravelIndex(multi, self.strides)];
+                    const delta = value - mean_value;
+                    total += delta * delta;
+                }
+                const denom = castValue(T, self.numel()) - correction;
+                const result = total / denom;
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Array(T).fromSlice(self.allocator, &.{result}, out_shape);
+                }
+                return Array(T).fromSlice(self.allocator, &.{result}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyArray;
+            var mean_values = try self.mean(axis_opt, true);
+            defer mean_values.deinit();
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var mean_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(mean_multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, in_multi);
+                @memcpy(mean_multi, in_multi);
+                mean_multi[axis] = 0;
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                const value = self.data[self.offset + ravelIndex(in_multi, self.strides)];
+                const mean_value = mean_values.data[ravelIndex(mean_multi, mean_values.strides)];
+                const delta = value - mean_value;
+                out.data[ravelIndex(out_multi, out.strides)] += delta * delta;
+            }
+            const denom = castValue(T, self.shape[axis]) - correction;
+            for (out.data) |*value| value.* /= denom;
+            return out;
         }
 
         pub fn var_(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -4265,9 +4324,9 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.stddev(axis_opt, keepdims, correction);
+            const out = try self.variance(axis_opt, keepdims, correction);
+            for (out.data) |*value| value.* = std.math.sqrt(value.*);
+            return out;
         }
 
         pub fn stddevAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -22020,6 +22079,39 @@ test "array view object statistics wrappers" {
     defer var1.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2.25), var1.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.25), var1.data[1], 1e-12);
+    var var_flat = try view.variance(null, false, 0);
+    defer var_flat.deinit();
+    try std.testing.expect(std.math.isNan(var_flat.data[0]));
+    var var1_keep = try view.var_dim(1, true, 0);
+    defer var1_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 1 }, var1_keep.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.25), var1_keep.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.25), var1_keep.data[1], 1e-12);
+    var std1 = try view.stddev(1, false, 0);
+    defer std1.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), std1.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), std1.data[1], 1e-12);
+
+    var noncontig_source = try Array(f64).fromSlice(gpa, &.{
+        1, 9, 2, 8,
+        3, 7, 4, 6,
+    }, &.{ 2, 4 });
+    defer noncontig_source.deinit();
+    var noncontig = try noncontig_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer noncontig.deinit();
+    var noncontig_var_rows = try noncontig.variance(1, false, 0);
+    defer noncontig_var_rows.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0.25, 0.25 }, noncontig_var_rows.data);
+    var noncontig_std_cols = try noncontig.stddev(0, false, 0);
+    defer noncontig_std_cols.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1 }, noncontig_std_cols.data);
+    var noncontig_var_flat = try noncontig.variance(null, false, 0);
+    defer noncontig_var_flat.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), noncontig_var_flat.data[0], 1e-12);
+    var noncontig_std_keep = try noncontig.std_dim(1, true, 0);
+    defer noncontig_std_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, noncontig_std_keep.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.5 }, noncontig_std_keep.data);
 
     var median0 = try view.median(0, false);
     defer median0.deinit();
