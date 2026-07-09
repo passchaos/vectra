@@ -3611,14 +3611,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.maskedScatter(mask, src);
         }
 
+        pub fn masked_scatter(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
+            return self.maskedScatter(mask, src);
+        }
+
         pub fn maskedPut(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.maskedPut(mask, values);
         }
 
+        pub fn masked_put(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
+            return self.maskedPut(mask, values);
+        }
+
         pub fn putMask(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
             return self.maskedPut(mask, values);
+        }
+
+        pub fn put_mask(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
+            return self.putMask(mask, values);
         }
 
         pub fn maskedPutScalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
@@ -3627,14 +3639,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.maskedPutScalar(mask, value);
         }
 
+        pub fn masked_put_scalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
+            return self.maskedPutScalar(mask, value);
+        }
+
         pub fn putMaskScalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
             return self.maskedPutScalar(mask, value);
+        }
+
+        pub fn put_mask_scalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
+            return self.putMaskScalar(mask, value);
         }
 
         pub fn copyWhere(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.copyWhere(mask, src);
+        }
+
+        pub fn copy_where(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
+            return self.copyWhere(mask, src);
         }
 
         pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Array(T) {
@@ -3657,10 +3681,18 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.where(mask, other);
         }
 
+        pub fn where_array(self: Self, mask: Array(bool), other: Array(T)) ArrayError!Array(T) {
+            return self.whereArray(mask, other);
+        }
+
         pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Array(T) {
             var lhs = try self.toArray();
             defer lhs.deinit();
             return lhs.whereScalar(mask, other_value);
+        }
+
+        pub fn where_scalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Array(T) {
+            return self.whereScalar(mask, other_value);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) ArrayError!Array(T) {
@@ -7537,6 +7569,10 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn masked_fill(self: Self, mask: Array(bool), value: T) ArrayError!Self {
+            return self.maskedFill(mask, value);
+        }
+
         pub fn maskedScatter(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
             const out_shape = try broadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
@@ -7556,6 +7592,10 @@ pub fn Array(comptime T: type) type {
             }
             if (write != src.data.len) return error.ShapeMismatch;
             return out;
+        }
+
+        pub fn masked_scatter(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
+            return self.maskedScatter(mask, src);
         }
 
         pub fn maskedPut(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
@@ -7584,24 +7624,52 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn masked_put(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
+            return self.maskedPut(mask, values);
+        }
+
         pub fn putMask(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
             return self.maskedPut(mask, values);
+        }
+
+        pub fn put_mask(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
+            return self.putMask(mask, values);
         }
 
         pub fn maskedPutScalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
             return self.maskedFill(mask, value);
         }
 
+        pub fn masked_put_scalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
+            return self.maskedPutScalar(mask, value);
+        }
+
         pub fn putMaskScalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
             return self.maskedPutScalar(mask, value);
+        }
+
+        pub fn put_mask_scalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
+            return self.putMaskScalar(mask, value);
         }
 
         pub fn copyWhere(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
             return src.where(mask, self);
         }
 
+        pub fn copy_where(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
+            return self.copyWhere(mask, src);
+        }
+
         pub fn where(self: Self, mask: Array(bool), other: Self) ArrayError!Self {
             return whereMask(mask, self, other);
+        }
+
+        pub fn whereArray(self: Self, mask: Array(bool), other: Self) ArrayError!Self {
+            return self.where(mask, other);
+        }
+
+        pub fn where_array(self: Self, mask: Array(bool), other: Self) ArrayError!Self {
+            return self.whereArray(mask, other);
         }
 
         pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Self {
@@ -7619,6 +7687,10 @@ pub fn Array(comptime T: type) type {
                 slot.* = if (mask.data[mi]) self.data[si] else other_value;
             }
             return out;
+        }
+
+        pub fn where_scalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Self {
+            return self.whereScalar(mask, other_value);
         }
 
         pub fn put_flat(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
@@ -16130,16 +16202,28 @@ test "array advanced indexing mutation helpers" {
     var mask_put = try a.maskedPut(mask, mask_values);
     defer mask_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 20, 0, 30, 6 }, mask_put.data);
+    var mask_put_snake = try a.masked_put(mask, mask_values);
+    defer mask_put_snake.deinit();
+    try std.testing.expectEqualSlices(f64, mask_put.data, mask_put_snake.data);
     var mask_alias = try a.putMask(mask, mask_values);
     defer mask_alias.deinit();
     try std.testing.expectEqualSlices(f64, mask_put.data, mask_alias.data);
+    var mask_alias_snake = try a.put_mask(mask, mask_values);
+    defer mask_alias_snake.deinit();
+    try std.testing.expectEqualSlices(f64, mask_put.data, mask_alias_snake.data);
 
     var mask_scalar = try a.maskedPutScalar(mask, -1);
     defer mask_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 0, -1, 0, -1, 6 }, mask_scalar.data);
+    var mask_scalar_snake = try a.masked_put_scalar(mask, -1);
+    defer mask_scalar_snake.deinit();
+    try std.testing.expectEqualSlices(f64, mask_scalar.data, mask_scalar_snake.data);
     var mask_scalar_alias = try a.putMaskScalar(mask, -2);
     defer mask_scalar_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -2, 0, -2, 0, -2, 6 }, mask_scalar_alias.data);
+    var mask_scalar_alias_snake = try a.put_mask_scalar(mask, -2);
+    defer mask_scalar_alias_snake.deinit();
+    try std.testing.expectEqualSlices(f64, mask_scalar_alias.data, mask_scalar_alias_snake.data);
     var mask_coords = try mask.whereIndices();
     defer mask_coords.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, mask_coords.shape);
@@ -16152,15 +16236,24 @@ test "array advanced indexing mutation helpers" {
     var copied_where = try a.copyWhere(mask, copy_src);
     defer copied_where.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 42, 0, 42, 0, 42, 6 }, copied_where.data);
+    var copied_where_snake = try a.copy_where(mask, copy_src);
+    defer copied_where_snake.deinit();
+    try std.testing.expectEqualSlices(f64, copied_where.data, copied_where_snake.data);
     var where_other = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30 }, &.{ 1, 3 });
     defer where_other.deinit();
     var where_out = try a.where(mask, where_other);
     defer where_out.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, where_out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 20, 3, 10, 5, 30 }, where_out.data);
+    var where_out_snake = try a.where_array(mask, where_other);
+    defer where_out_snake.deinit();
+    try std.testing.expectEqualSlices(f64, where_out.data, where_out_snake.data);
     var where_scalar = try a.whereScalar(mask, -1);
     defer where_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, -1, 3, -1, 5, -1 }, where_scalar.data);
+    var where_scalar_snake = try a.where_scalar(mask, -1);
+    defer where_scalar_snake.deinit();
+    try std.testing.expectEqualSlices(f64, where_scalar.data, where_scalar_snake.data);
     var row_view = try a.selectView(0, 0);
     defer row_view.deinit();
     var view_where = try row_view.whereArray(mask, copy_src);
@@ -16170,6 +16263,9 @@ test "array advanced indexing mutation helpers" {
     var view_where_scalar = try row_view.whereScalar(mask, -2);
     defer view_where_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, -2, 3, -2, 0, -2 }, view_where_scalar.data);
+    var view_where_scalar_snake = try row_view.where_scalar(mask, -2);
+    defer view_where_scalar_snake.deinit();
+    try std.testing.expectEqualSlices(f64, view_where_scalar.data, view_where_scalar_snake.data);
     var other_view = try where_other.broadcastView(&.{ 2, 3 });
     defer other_view.deinit();
     var view_where_view = try row_view.where(mask, other_view);
@@ -16204,6 +16300,9 @@ test "array advanced indexing mutation helpers" {
     var flat_put_view_alias = try view.put_flat(flat_put_indices, put_values_view);
     defer flat_put_view_alias.deinit();
     try std.testing.expectEqualSlices(f64, flat_put_view.data, flat_put_view_alias.data);
+    var index_put_view_alias = try view.index_put(flat_put_indices, put_values_view);
+    defer index_put_view_alias.deinit();
+    try std.testing.expectEqualSlices(f64, flat_put_view.data, index_put_view_alias.data);
     var flat_put_scalar_view = try view.putFlatScalar(flat_put_indices, -3);
     defer flat_put_scalar_view.deinit();
     var flat_put_scalar_view_alias = try view.put_flat_scalar(flat_put_indices, -3);
