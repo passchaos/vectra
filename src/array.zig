@@ -3992,10 +3992,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.ravelCoords(coords);
         }
 
+        pub fn ravel_coords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
+            return self.ravelCoords(coords);
+        }
+
         pub fn unravelFlat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.unravelFlat(indices);
+        }
+
+        pub fn unravel_flat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
+            return self.unravelFlat(indices);
         }
 
         pub fn takeCoords(self: Self, coords: Array(usize)) ArrayError!Array(T) {
@@ -4004,10 +4012,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeCoords(coords);
         }
 
+        pub fn take_coords(self: Self, coords: Array(usize)) ArrayError!Array(T) {
+            return self.takeCoords(coords);
+        }
+
         pub fn putCoords(self: Self, coords: Array(usize), values: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putCoords(coords, values);
+        }
+
+        pub fn put_coords(self: Self, coords: Array(usize), values: Array(T)) ArrayError!Array(T) {
+            return self.putCoords(coords, values);
         }
 
         pub fn putCoordsScalar(self: Self, coords: Array(usize), value: T) ArrayError!Array(T) {
@@ -4016,10 +4032,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.putCoordsScalar(coords, value);
         }
 
+        pub fn put_coords_scalar(self: Self, coords: Array(usize), value: T) ArrayError!Array(T) {
+            return self.putCoordsScalar(coords, value);
+        }
+
         pub fn ravelMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.ravelMultiIndex(indices);
+        }
+
+        pub fn ravel_multi_index(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
+            return self.ravelMultiIndex(indices);
         }
 
         pub fn takeMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(T) {
@@ -4028,16 +4052,28 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeMultiIndex(indices);
         }
 
+        pub fn take_multi_index(self: Self, indices: []const Array(usize)) ArrayError!Array(T) {
+            return self.takeMultiIndex(indices);
+        }
+
         pub fn putMultiIndex(self: Self, indices: []const Array(usize), values: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putMultiIndex(indices, values);
         }
 
+        pub fn put_multi_index(self: Self, indices: []const Array(usize), values: Array(T)) ArrayError!Array(T) {
+            return self.putMultiIndex(indices, values);
+        }
+
         pub fn putMultiIndexScalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putMultiIndexScalar(indices, value);
+        }
+
+        pub fn put_multi_index_scalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Array(T) {
+            return self.putMultiIndexScalar(indices, value);
         }
 
         pub fn scatter(self: Self, axis_index: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
@@ -4052,14 +4088,26 @@ pub fn ArrayView(comptime T: type) type {
             return owned.scatterScalar(axis_index, indices, value);
         }
 
+        pub fn scatter_scalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
+            return self.scatterScalar(axis_index, indices, value);
+        }
+
         pub fn scatterReduce(self: Self, axis_index: isize, indices: Array(usize), src: Array(T), reduction: ScatterReduce) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.scatterReduce(axis_index, indices, src, reduction);
         }
 
+        pub fn scatter_reduce(self: Self, axis_index: isize, indices: Array(usize), src: Array(T), reduction: ScatterReduce) ArrayError!Array(T) {
+            return self.scatterReduce(axis_index, indices, src, reduction);
+        }
+
         pub fn scatterAdd(self: Self, axis_index: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
             return self.scatterReduce(axis_index, indices, src, .sum);
+        }
+
+        pub fn scatter_add(self: Self, axis_index: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
+            return self.scatterAdd(axis_index, indices, src);
         }
 
         pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: Array(usize), value: T, reduction: ScatterReduce) ArrayError!Array(T) {
@@ -4068,8 +4116,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.scatterReduceScalar(axis_index, indices, value, reduction);
         }
 
+        pub fn scatter_reduce_scalar(self: Self, axis_index: isize, indices: Array(usize), value: T, reduction: ScatterReduce) ArrayError!Array(T) {
+            return self.scatterReduceScalar(axis_index, indices, value, reduction);
+        }
+
         pub fn scatterAddScalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
             return self.scatterReduceScalar(axis_index, indices, value, .sum);
+        }
+
+        pub fn scatter_add_scalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
+            return self.scatterAddScalar(axis_index, indices, value);
         }
 
         pub fn unique(self: Self) ArrayError!Array(T) {
@@ -7910,6 +7966,10 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn ravel_coords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
+            return self.ravelCoords(coords);
+        }
+
         pub fn unravelFlat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
             var out_shape = try self.allocator.alloc(usize, indices.shape.len + 1);
             defer self.allocator.free(out_shape);
@@ -7933,16 +7993,28 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn unravel_flat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
+            return self.unravelFlat(indices);
+        }
+
         pub fn takeCoords(self: Self, coords: Array(usize)) ArrayError!Self {
             var flat = try self.ravelCoords(coords);
             defer flat.deinit();
             return self.take(flat, null);
         }
 
+        pub fn take_coords(self: Self, coords: Array(usize)) ArrayError!Self {
+            return self.takeCoords(coords);
+        }
+
         pub fn putCoords(self: Self, coords: Array(usize), values: Self) ArrayError!Self {
             var flat = try self.ravelCoords(coords);
             defer flat.deinit();
             return self.putFlat(flat, values);
+        }
+
+        pub fn put_coords(self: Self, coords: Array(usize), values: Self) ArrayError!Self {
+            return self.putCoords(coords, values);
         }
 
         pub fn putCoordsScalar(self: Self, coords: Array(usize), value: T) ArrayError!Self {
@@ -7961,6 +8033,10 @@ pub fn Array(comptime T: type) type {
                 out_shape = next_shape;
             }
             return out_shape;
+        }
+
+        pub fn put_coords_scalar(self: Self, coords: Array(usize), value: T) ArrayError!Self {
+            return self.putCoordsScalar(coords, value);
         }
 
         pub fn ravelMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
@@ -7984,10 +8060,18 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn ravel_multi_index(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
+            return self.ravelMultiIndex(indices);
+        }
+
         pub fn takeMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Self {
             var flat = try self.ravelMultiIndex(indices);
             defer flat.deinit();
             return self.take(flat, null);
+        }
+
+        pub fn take_multi_index(self: Self, indices: []const Array(usize)) ArrayError!Self {
+            return self.takeMultiIndex(indices);
         }
 
         pub fn putMultiIndex(self: Self, indices: []const Array(usize), values: Self) ArrayError!Self {
@@ -7996,10 +8080,18 @@ pub fn Array(comptime T: type) type {
             return self.putFlat(flat, values);
         }
 
+        pub fn put_multi_index(self: Self, indices: []const Array(usize), values: Self) ArrayError!Self {
+            return self.putMultiIndex(indices, values);
+        }
+
         pub fn putMultiIndexScalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Self {
             var flat = try self.ravelMultiIndex(indices);
             defer flat.deinit();
             return self.putFlatScalar(flat, value);
+        }
+
+        pub fn put_multi_index_scalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Self {
+            return self.putMultiIndexScalar(indices, value);
         }
 
         pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Self {
@@ -16120,20 +16212,35 @@ test "array advanced indexing mutation helpers" {
     var flat_from_coords = try a.ravelCoords(coords);
     defer flat_from_coords.deinit();
     try std.testing.expectEqualSlices(usize, flat_idx.data, flat_from_coords.data);
+    var flat_from_coords_alias = try a.ravel_coords(coords);
+    defer flat_from_coords_alias.deinit();
+    try std.testing.expectEqualSlices(usize, flat_from_coords.data, flat_from_coords_alias.data);
     var coords_roundtrip = try a.unravelFlat(flat_from_coords);
     defer coords_roundtrip.deinit();
     try std.testing.expectEqualSlices(usize, coords.data, coords_roundtrip.data);
+    var coords_roundtrip_alias = try a.unravel_flat(flat_from_coords);
+    defer coords_roundtrip_alias.deinit();
+    try std.testing.expectEqualSlices(usize, coords_roundtrip.data, coords_roundtrip_alias.data);
     var coord_values = try a.takeCoords(coords);
     defer coord_values.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5, 6 }, coord_values.data);
+    var coord_values_alias = try a.take_coords(coords);
+    defer coord_values_alias.deinit();
+    try std.testing.expectEqualSlices(f64, coord_values.data, coord_values_alias.data);
     var coord_replacements = try Array(f64).fromSlice(gpa, &.{ 10, 30, 50, 60 }, &.{4});
     defer coord_replacements.deinit();
     var coord_put = try a.putCoords(coords, coord_replacements);
     defer coord_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 0, 50, 60 }, coord_put.data);
+    var coord_put_alias = try a.put_coords(coords, coord_replacements);
+    defer coord_put_alias.deinit();
+    try std.testing.expectEqualSlices(f64, coord_put.data, coord_put_alias.data);
     var coord_scalar_put = try a.putCoordsScalar(coords, -5);
     defer coord_scalar_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -5, 0, -5, 0, -5, -5 }, coord_scalar_put.data);
+    var coord_scalar_put_alias = try a.put_coords_scalar(coords, -5);
+    defer coord_scalar_put_alias.deinit();
+    try std.testing.expectEqualSlices(f64, coord_scalar_put.data, coord_scalar_put_alias.data);
     var grid_coords = try Array(usize).fromSlice(gpa, &.{
         0, 0, 0, 2,
         1, 1, 1, 2,
@@ -16165,18 +16272,30 @@ test "array advanced indexing mutation helpers" {
     defer flat_multi.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, flat_multi.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 5 }, flat_multi.data);
+    var flat_multi_alias = try a.ravel_multi_index(multi_indices[0..]);
+    defer flat_multi_alias.deinit();
+    try std.testing.expectEqualSlices(usize, flat_multi.data, flat_multi_alias.data);
     var multi_values = try a.takeMultiIndex(multi_indices[0..]);
     defer multi_values.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, multi_values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 0, 6 }, multi_values.data);
+    var multi_values_alias = try a.take_multi_index(multi_indices[0..]);
+    defer multi_values_alias.deinit();
+    try std.testing.expectEqualSlices(f64, multi_values.data, multi_values_alias.data);
     var multi_replacements = try Array(f64).fromSlice(gpa, &.{ 10, 30, 40, 60 }, &.{ 2, 2 });
     defer multi_replacements.deinit();
     var multi_put = try a.putMultiIndex(multi_indices[0..], multi_replacements);
     defer multi_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 40, 5, 60 }, multi_put.data);
+    var multi_put_alias = try a.put_multi_index(multi_indices[0..], multi_replacements);
+    defer multi_put_alias.deinit();
+    try std.testing.expectEqualSlices(f64, multi_put.data, multi_put_alias.data);
     var multi_scalar_put = try a.putMultiIndexScalar(multi_indices[0..], -9);
     defer multi_scalar_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -9, 0, -9, -9, 5, -9 }, multi_scalar_put.data);
+    var multi_scalar_put_alias = try a.put_multi_index_scalar(multi_indices[0..], -9);
+    defer multi_scalar_put_alias.deinit();
+    try std.testing.expectEqualSlices(f64, multi_scalar_put.data, multi_scalar_put_alias.data);
     var bad_coords = try Array(usize).fromSlice(gpa, &.{ 2, 0 }, &.{ 1, 2 });
     defer bad_coords.deinit();
     try std.testing.expectError(error.IndexOutOfBounds, a.takeCoords(bad_coords));
