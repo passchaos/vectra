@@ -1092,29 +1092,43 @@ fn failedReport() SmokeReport {
 fn f16ArrayToF32(input: array_mod.Array(f16)) array_mod.ArrayError!array_mod.Array(f32) {
     var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
     errdefer out.deinit();
-    for (input.data, out.data) |value, *slot| slot.* = @floatCast(value);
+    _ = axiom.accelerator.tensor_adapter.widenF16ToF32(input.data, out.data) catch |err| return mapTensorAdapterError(err);
     return out;
 }
 
 fn bf16ArrayToF32(input: array_mod.Array(BFloat16)) array_mod.ArrayError!array_mod.Array(f32) {
     var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
     errdefer out.deinit();
-    for (input.data, out.data) |value, *slot| slot.* = value.toF32();
+    const bits = try input.allocator.alloc(u16, input.data.len);
+    defer input.allocator.free(bits);
+    for (input.data, bits) |value, *slot| slot.* = value.bits;
+    _ = axiom.accelerator.tensor_adapter.widenBF16ToF32(bits, out.data) catch |err| return mapTensorAdapterError(err);
     return out;
 }
 
 fn f32ArrayToF16(input: array_mod.Array(f32)) array_mod.ArrayError!array_mod.Array(f16) {
     var out = try array_mod.Array(f16).empty(input.allocator, input.shape);
     errdefer out.deinit();
-    for (input.data, out.data) |value, *slot| slot.* = @floatCast(value);
+    _ = axiom.accelerator.tensor_adapter.narrowF32ToF16(input.data, out.data) catch |err| return mapTensorAdapterError(err);
     return out;
 }
 
 fn f32ArrayToBF16(input: array_mod.Array(f32)) array_mod.ArrayError!array_mod.Array(BFloat16) {
     var out = try array_mod.Array(BFloat16).empty(input.allocator, input.shape);
     errdefer out.deinit();
-    for (input.data, out.data) |value, *slot| slot.* = BFloat16.fromF32(value);
+    const bits = try input.allocator.alloc(u16, input.data.len);
+    defer input.allocator.free(bits);
+    _ = axiom.accelerator.tensor_adapter.narrowF32ToBF16(input.data, bits) catch |err| return mapTensorAdapterError(err);
+    for (bits, out.data) |value, *slot| slot.* = .{ .bits = value };
     return out;
+}
+
+fn mapTensorAdapterError(err: anyerror) array_mod.ArrayError {
+    return switch (err) {
+        error.OutOfMemory => error.OutOfMemory,
+        error.TensorShapeMismatch, error.InvalidTensorView => error.ShapeMismatch,
+        else => error.BackendFailure,
+    };
 }
 
 fn sliceClose(actual: []const f32, expected: []const f32, tolerance: f32) bool {
