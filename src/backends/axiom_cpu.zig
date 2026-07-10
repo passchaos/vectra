@@ -210,6 +210,14 @@ pub fn trySolveTriangularF64(
     return trySolveTriangularTyped(f64, matrix, rhs, triangle, diagonal);
 }
 
+pub fn tryMatrixNormF32(matrix: array_mod.Array(f32), order: array_mod.MatrixNormOrder) array_mod.ArrayError!?f32 {
+    return tryMatrixNormTyped(f32, matrix, order);
+}
+
+pub fn tryMatrixNormF64(matrix: array_mod.Array(f64), order: array_mod.MatrixNormOrder) array_mod.ArrayError!?f64 {
+    return tryMatrixNormTyped(f64, matrix, order);
+}
+
 fn tryMatmulTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cpu_dispatch) return null;
     if (!supportedMatmul2dContiguous(T, lhs, rhs)) return null;
@@ -564,6 +572,20 @@ fn trySolveTriangularTyped(
     return out;
 }
 
+fn tryMatrixNormTyped(comptime T: type, matrix: array_mod.Array(T), order: array_mod.MatrixNormOrder) array_mod.ArrayError!?T {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedMatrix(T, matrix)) return null;
+    const axiom_order = cpuMatrixNormOrder(order) orelse return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var out: T = 0;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runMatrixNormF32(matrix_view, matrix.data, axiom_order, &out) catch return null
+    else
+        axiom.accelerator.cpu_veyra.runMatrixNormF64(matrix_view, matrix.data, axiom_order, &out) catch return null;
+    if (!report.ok()) return null;
+    return out;
+}
+
 fn supportedSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     return lhs.device.isCpu() and
         rhs.device.isCpu() and
@@ -645,6 +667,15 @@ fn cpuDiagonal(diagonal: array_mod.Diagonal) axiom.accelerator.cpu_veyra.CpuVeyr
     return switch (diagonal) {
         .non_unit => .non_unit,
         .unit => .unit,
+    };
+}
+
+fn cpuMatrixNormOrder(order: array_mod.MatrixNormOrder) ?axiom.accelerator.cpu_veyra.CpuVeyraMatrixNormOrder {
+    return switch (order) {
+        .fro => .fro,
+        .one => .one,
+        .inf => .inf,
+        .two, .nuclear => null,
     };
 }
 
@@ -849,6 +880,20 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         var triangular_out = triangular_solution.?;
         defer triangular_out.deinit();
         try std.testing.expectApproxEqAbs(@as(f64, 3.8), triangular_out.data[2], 1e-12);
+
+        var norm_source = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, -2, 3, -4, 5, -6 }, &.{ 2, 3 });
+        defer norm_source.deinit();
+        const fro = try tryMatrixNormF64(norm_source, .fro);
+        try std.testing.expect(fro != null);
+        try std.testing.expectApproxEqAbs(@as(f64, @sqrt(91.0)), fro.?, 1e-12);
+        const one_norm = try tryMatrixNormF64(norm_source, .one);
+        try std.testing.expect(one_norm != null);
+        try std.testing.expectApproxEqAbs(@as(f64, 9), one_norm.?, 1e-12);
+        const inf_norm = try tryMatrixNormF64(norm_source, .inf);
+        try std.testing.expect(inf_norm != null);
+        try std.testing.expectApproxEqAbs(@as(f64, 15), inf_norm.?, 1e-12);
+        const unsupported_two = try tryMatrixNormF64(norm_source, .two);
+        try std.testing.expect(unsupported_two == null);
     } else {
         try std.testing.expect(mv32 == null);
         try std.testing.expect(vt64 == null);

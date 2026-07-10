@@ -10282,6 +10282,11 @@ pub fn Array(comptime T: type) type {
         pub fn matrixNorm(self: Self, order: MatrixNormOrder, tolerance: T) ArrayError!T {
             if (comptime @typeInfo(T) != .float) @compileError("matrixNorm requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryMatrixNormF32(self, order)) |value| return value;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryMatrixNormF64(self, order)) |value| return value;
+            }
             if (comptime T == f64) {
                 var matrix = try self.toVeyraMatrixF64();
                 defer matrix.deinit();
