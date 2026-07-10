@@ -20,6 +20,11 @@ pub const ElementwiseOp = enum {
     div,
 };
 
+pub const UnaryOp = enum {
+    sqrt,
+    exp,
+};
+
 pub fn tryAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryElementwise(f32, .add, lhs, rhs);
 }
@@ -45,6 +50,22 @@ pub fn tryDivF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod
     return tryElementwise(f64, .div, lhs, rhs);
 }
 
+pub fn trySqrtF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .sqrt, input);
+}
+
+pub fn tryExpF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .exp, input);
+}
+
+pub fn trySqrtF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .sqrt, input);
+}
+
+pub fn tryExpF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .exp, input);
+}
+
 fn tryElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (comptime build_options.enable_axiom_cpu_dispatch) {
         if (!supportedSameShapeContiguous(T, lhs, rhs)) return null;
@@ -63,6 +84,35 @@ fn tryElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), 
             }
         else
             axiom.accelerator.cpu_veyra.runElementwiseF64(axiom_op, lhs.data, rhs.data, out.data) catch {
+                out.deinit();
+                return null;
+            };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return out;
+    } else {
+        return null;
+    }
+}
+
+fn tryUnaryElementwise(comptime T: type, op: UnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (comptime build_options.enable_axiom_cpu_dispatch) {
+        if (!supportedNonEmptyContiguous(T, input)) return null;
+        var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+        errdefer out.deinit();
+        const axiom_op: axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp = switch (op) {
+            .sqrt => .sqrt,
+            .exp => .exp,
+        };
+        const report = if (T == f32)
+            axiom.accelerator.cpu_veyra.runUnaryElementwiseF32(axiom_op, input.data, out.data) catch {
+                out.deinit();
+                return null;
+            }
+        else
+            axiom.accelerator.cpu_veyra.runUnaryElementwiseF64(axiom_op, input.data, out.data) catch {
                 out.deinit();
                 return null;
             };
@@ -820,12 +870,14 @@ fn tryMatrixNormTyped(comptime T: type, matrix: array_mod.Array(T), order: array
 }
 
 fn supportedSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
-    return lhs.device.isCpu() and
-        rhs.device.isCpu() and
-        lhs.data.len != 0 and
+    return supportedNonEmptyContiguous(T, lhs) and
+        supportedNonEmptyContiguous(T, rhs) and
         lhs.sameShape(rhs) and
-        lhs.isContiguous() and
         rhs.isContiguous();
+}
+
+fn supportedNonEmptyContiguous(comptime T: type, input: array_mod.Array(T)) bool {
+    return input.device.isCpu() and input.data.len != 0 and input.isContiguous();
 }
 
 fn supportedMatmul2dContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {

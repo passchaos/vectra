@@ -17,6 +17,10 @@ pub fn main(init: std.process.Init) !void {
     defer mul32.deinit();
     var div32 = try a32.div(a32);
     defer div32.deinit();
+    var sqrt32 = try a32.sqrt();
+    defer sqrt32.deinit();
+    var exp32 = try a32.exp();
+    defer exp32.deinit();
     var add_scalar32 = try a32.addScalar(2);
     defer add_scalar32.deinit();
     var sub_scalar32 = try a32.subScalar(2);
@@ -48,6 +52,10 @@ pub fn main(init: std.process.Init) !void {
     defer mul64.deinit();
     var div64 = try a64.div(a64);
     defer div64.deinit();
+    var sqrt64 = try a64.sqrt();
+    defer sqrt64.deinit();
+    var exp64 = try a64.exp();
+    defer exp64.deinit();
     var add_scalar64 = try a64.addScalar(2);
     defer add_scalar64.deinit();
     var sub_scalar64 = try a64.subScalar(2);
@@ -139,10 +147,14 @@ pub fn main(init: std.process.Init) !void {
         equalF32(sub32.data, &.{ 0, 0, 0, 0, 0, 0 }) and
         equalF32(mul32.data, &.{ 1, 4, 9, 16, 25, 36 }) and
         equalF32(div32.data, &.{ 1, 1, 1, 1, 1, 1 }) and
+        approxF32(sqrt32.data[3], 2.0, 0.001) and
+        approxF32(exp32.data[0], std.math.exp(@as(f32, 1.0)), 0.001) and
         equalF64(add64.data, &.{ 2, 4, 6, 8, 10, 12 }) and
         equalF64(sub64.data, &.{ 0, 0, 0, 0, 0, 0 }) and
         equalF64(mul64.data, &.{ 1, 4, 9, 16, 25, 36 }) and
-        equalF64(div64.data, &.{ 1, 1, 1, 1, 1, 1 });
+        equalF64(div64.data, &.{ 1, 1, 1, 1, 1, 1 }) and
+        approxF64(sqrt64.data[3], 2.0, 1e-12) and
+        approxF64(exp64.data[0], std.math.exp(@as(f64, 1.0)), 1e-12);
     const scalar_ok = equalF32(add_scalar32.data, &.{ 3, 4, 5, 6, 7, 8 }) and
         equalF32(sub_scalar32.data, &.{ -1, 0, 1, 2, 3, 4 }) and
         equalF32(mul_scalar32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
@@ -182,7 +194,8 @@ pub fn main(init: std.process.Init) !void {
     const ok = matmul_ok and elementwise_ok and scalar_ok and vector_ok and dense_linalg_ok;
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
-    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d},\"fro64\":{d},\"svd64_s0\":{d},\"singular64_s0\":{d},\"rank64\":{},\"cond64\":{d},\"two_norm64\":{d},\"nuclear64\":{d},\"pinv64_0\":{d},\"lstsq64_0\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, dense_linalg_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2], fro64, svd64.s.data[0], singular_values64.data[0], rank64, cond64, two_norm64, nuclear_norm64, pinv64.data[0], lstsq64.data[0] });
+    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"sqrt32_3\":{d},\"exp32_0\":{d},\"div64_0\":{d},\"sqrt64_3\":{d},\"exp64_0\":{d},\"sub_scalar64_0\":{d},", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, dense_linalg_ok, out32.data[0], out64.data[3], add32.data[5], sqrt32.data[3], exp32.data[0], div64.data[0], sqrt64.data[3], exp64.data[0], sub_scalar64.data[0] });
+    try stdout.interface.print("\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d},\"fro64\":{d},\"svd64_s0\":{d},\"singular64_s0\":{d},\"rank64\":{},\"cond64\":{d},\"two_norm64\":{d},\"nuclear64\":{d},\"pinv64_0\":{d},\"lstsq64_0\":{d}}}\n", .{ matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2], fro64, svd64.s.data[0], singular_values64.data[0], rank64, cond64, two_norm64, nuclear_norm64, pinv64.data[0], lstsq64.data[0] });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
 }
@@ -204,6 +217,10 @@ fn equalF64(actual: []const f64, expected: []const f64) bool {
 }
 
 fn approxF64(actual: f64, expected: f64, tolerance: f64) bool {
+    return @abs(actual - expected) <= tolerance;
+}
+
+fn approxF32(actual: f32, expected: f32, tolerance: f32) bool {
     return @abs(actual - expected) <= tolerance;
 }
 

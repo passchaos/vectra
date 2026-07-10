@@ -15911,6 +15911,12 @@ pub fn Array(comptime T: type) type {
                 if (try self.tryPendingUnary(.exp)) |out| return out;
                 return self.runCudaUnaryExp();
             }
+            if (self.device.isCpu() and comptime T == f32) {
+                if (try axiom_cpu_backend.tryExpF32(self)) |out| return out;
+            }
+            if (self.device.isCpu() and comptime T == f64) {
+                if (try axiom_cpu_backend.tryExpF64(self)) |out| return out;
+            }
             return self.unary(opExp);
         }
 
@@ -15970,6 +15976,12 @@ pub fn Array(comptime T: type) type {
             if (self.device.isCuda() and comptime T == BFloat16) {
                 if (try self.tryPendingUnary(.sqrt)) |out| return out;
                 return self.runCudaUnarySqrt();
+            }
+            if (self.device.isCpu() and comptime T == f32) {
+                if (try axiom_cpu_backend.trySqrtF32(self)) |out| return out;
+            }
+            if (self.device.isCpu() and comptime T == f64) {
+                if (try axiom_cpu_backend.trySqrtF64(self)) |out| return out;
             }
             return self.unary(opSqrt);
         }
