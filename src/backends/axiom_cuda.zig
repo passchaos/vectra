@@ -1816,6 +1816,7 @@ fn tryBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f3
             .mul => "vectra_axiom_mul",
             .div => "vectra_axiom_div",
         },
+        .prefer_cached_device = true,
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => return null,
