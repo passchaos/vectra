@@ -1,159 +1,88 @@
-# Optional Axiom accelerator bridge
+# Axiom accelerator backend
 
-Vectra can optionally call the sibling Axiom next-generation compiler
-infrastructure for small CPU and CUDA tensor accelerator seeds.  The bridge is
-deliberately opt-in and host-slice based today: it validates that Vectra
-`Array(f32/f64)` metadata can be mapped into Axiom CPU lowering and that
-`Array(f32)` metadata can be mapped into Axiom tensor buffer/copy plans and real
-CUDA runtime kernels, without claiming that `Array.cuda()` is already a
-persistent device-resident storage backend.
+Vectra imports the sibling Axiom compiler/runtime package by default for the
+supported CPU and CUDA tensor paths. CPU-backed contiguous `Array(f32/f64)`
+elementwise/scalar/matmul operations route through Axiom CPU lowering to Veyra.
+CUDA-owning `Array(f32)` values allocate real device storage when the CUDA driver
+can retain the requested primary context, and supported kernels consume existing
+device pointers rather than staging through host arrays.
 
-## Enable the bridge
-
-Default builds do not import Axiom:
+## Validation
 
 ```sh
 zig build test
-zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled
+zig build axiom-cpu-dispatch-smoke
+zig build axiom-backend-policy-smoke
+zig build axiom-cuda-dispatch-smoke
+zig build axiom-cuda-device-smoke
+zig build -Daxiom-cuda-expect=ran axiom-cuda-smoke
+zig build -Doptimize=ReleaseFast example-large-matmul-add -- --execute --backend=cuda --require-cuda
 ```
 
-CUDA-capable hosts can opt in:
+CUDA validation requires a CUDA/libnvvm/PTXAS-capable host.
 
-```sh
-zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
-zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
-zig build -Daxiom-cuda=true axiom-cuda-device-smoke
-zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke
-zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
-```
+## CUDA owning-array behavior
 
-The CUDA smoke gate runs f32 add/sub/mul/div, f32 SAXPY, scalar-broadcast f32
-add/SAXPY, experimental 1D positive-stride view add/sub/mul/div, 2D f32
-matmul, native f16/BFloat16 same-shape elementwise seeds, and Axiom-owned
-widened f16/BFloat16 GEMM/provenance seeds.  f32 elementwise/SAXPY paths use Axiom's
-builder-style CUDA tensor runtime; f16/BFloat16 same-shape elementwise dispatch
-now tries Axiom's native typed runtime seed before falling back to widened f32
-compute; f16/BFloat16 elementwise provenance calls Axiom's widened elementwise runtime APIs directly;
-matmul now builds Axiom CUDA Tile IR and hands it to Axiom's
-Tile-IR-to-CUTILE GEMM runtime bridge.  It also reports
-Vectra-to-Axiom buffer planning evidence:
+- `Device.cuda(index).isAvailable()` is true when Axiom can load the CUDA driver
+  and retain that device's primary context.
+- `Array.*On(..., vx.cuda(i))`, deterministic `Context.*With(vx.onDevice(...))`
+  creation helpers, and `.cuda(i)` allocate/copy real device storage.
+- `.cpu()` explicitly downloads CUDA storage.
+- `ArrayView.cuda()` remains unsupported until view/device storage semantics are
+  implemented.
+- CUDA `Array(f32).add/sub/mul/div` launch Axiom elementwise kernels with
+  existing device pointers.
+- CUDA `Array(f32).matmul` uses Axiom's cached cuBLAS-backed SGEMM wrapper first
+  for PyTorch-class throughput and falls back to the Axiom PTX/CUDA Tile IR seed
+  if cuBLAS is unavailable.
+- CUDA `vx.matmulAdd(Array(f32), Array(f32), Array(f32))` uses Axiom's cached
+  cuBLAS SGEMM wrapper with `beta=1` so the addend is consumed in the GEMM
+  epilogue instead of launching a separate add kernel.
 
-- logical element count
-- required backing span
-- logical and required byte counts
-- linear-copy compatibility
-- device-copy-plan status and fingerprints
-- `matmul_tile_ir_ok` evidence proving the matmul smoke went through the Axiom
-  CUDA Tile IR bridge
-- `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`, and `bf16_matmul_ok` evidence for
-  native/widened dtype bridges
-- `f16_native_execution_fingerprint` evidence when the native f16 elementwise
-  runtime seed is available
-- `bf16_native_execution_fingerprint` evidence when the native BFloat16
-  elementwise runtime seed is available
+## CPU-backed policy
 
+`vx.axiom_backend` reports and executes the shared route policy:
 
-## Automatic dispatch and policy
+- `selectElementwise(T, op, policy, lhs, rhs)` / `elementwise(...)`
+- `selectScalarElementwise(T, op, policy, input, scalar, side)` /
+  `elementwiseScalar(...)`
+- `tryElementwiseScalarBroadcast(T, op, policy, lhs, rhs)`
+- `selectMatmul(T, policy, lhs, rhs)` / `matmul(...)`
 
-`-Daxiom-cuda=true` only exposes explicit `vx.axiom_cuda.*` bridge calls.
-`-Daxiom-cuda-dispatch=true` also lets supported ordinary `Array(f32)` methods
-try Axiom CUDA first and fall back through the unified policy when unsupported or
-unavailable.  `-Daxiom-cpu-dispatch=true` lets supported ordinary `Array(f32/f64)`
-methods try Axiom CPU lowering to Veyra before the existing direct CPU path.
-The current automatic dispatch covers contiguous same-shape `add/sub/mul/div`,
-scalar `addScalar/subScalar/mulScalar/divScalar`, scalar-array broadcast
-`add/sub/mul/div`, and contiguous 2D `matmul`.  CUDA native seed routes cover
-f32 and same-shape f16/BFloat16 elementwise operations; f16/BFloat16 matmul
-now uses Axiom's typed SIMT GEMM runtime seed, which still delegates compute to
-the widened f32 GEMM path before narrowing back.
-For elementwise provenance, Vectra consumes Axiom's
-`runTensorElementwiseBinaryF16Widened` and
-`runTensorElementwiseBinaryBF16Widened` runtime reports instead of rebuilding
-those reports locally; those Axiom reports can carry compute-run fingerprints
-when the widened bridge delegates its f32 compute step to Axiom's f32 CUDA
-elementwise runtime.
-CPU scalar routes cover f32/f64 through Axiom CPU→Veyra.
+Supported CPU routes currently cover contiguous f32/f64 same-shape
+add/sub/mul/div, scalar and one-element scalar-broadcast add/sub/mul/div, and
+contiguous 2D matmul through Axiom CPU→Veyra. Unsupported shapes or dtypes return
+explicit errors or fall back only where Vectra still has a non-Axiom generic
+implementation.
 
-`vx.axiom_backend` is the shared policy seam for both CPU and CUDA paths:
-
-- `selectElementwise(T, op, policy, lhs, rhs)` reports the selected direct CPU,
-  Axiom CPU→Veyra, or Axiom CUDA route for contiguous same-shape f32/f64
-  add/sub/mul/div.
-- `elementwise(T, op, policy, lhs, rhs)` executes that route and falls back to
-  direct CPU if an optional Axiom route is disabled or unavailable.
-- `selectScalarElementwise(T, op, policy, input, scalar, side)` and
-  `elementwiseScalar(T, op, policy, input, scalar, side)` cover scalar
-  add/sub/mul/div with explicit scalar-left/scalar-right semantics.
-- `tryElementwiseScalarBroadcast(T, op, policy, lhs, rhs)` recognizes one-element
-  scalar-array broadcast and routes it through the same policy.
-- `selectMatmul(T, policy, lhs, rhs)` and `matmul(T, policy, lhs, rhs)` do the
-  same for contiguous 2D matmul.
-
-## Current API surface
-
-`vx.axiom_cuda` exposes:
+## `vx.axiom_cuda` API surface
 
 - `enabled()`
 - `planArrayF32(array, name)`
-- `tryAddF32(lhs, rhs)`
-- `trySubF32(lhs, rhs)`
-- `tryMulF32(lhs, rhs)`
-- `tryDivF32(lhs, rhs)`
-- `tryAddF16(lhs, rhs)`
-- `trySubF16(lhs, rhs)`
-- `tryMulF16(lhs, rhs)`
-- `tryDivF16(lhs, rhs)`
-- `tryAddBF16(lhs, rhs)`
-- `trySubBF16(lhs, rhs)`
-- `tryMulBF16(lhs, rhs)`
-- `tryDivBF16(lhs, rhs)`
-- `tryAddViewF32(lhs_view, rhs_view)`
-- `trySubViewF32(lhs_view, rhs_view)`
-- `tryMulViewF32(lhs_view, rhs_view)`
-- `tryDivViewF32(lhs_view, rhs_view)`
+- `tryAddF32(lhs, rhs)` / `trySubF32` / `tryMulF32` / `tryDivF32`
+- `tryAddF16(lhs, rhs)` / `trySubF16` / `tryMulF16` / `tryDivF16`
+- `tryAddBF16(lhs, rhs)` / `trySubBF16` / `tryMulBF16` / `tryDivBF16`
+- `tryAddViewF32(lhs_view, rhs_view)` / `trySubViewF32` / `tryMulViewF32` /
+  `tryDivViewF32`
 - `trySaxpyF32(alpha, x, y)`
-- `tryAddScalarF32(input, scalar)`
-- `tryMulScalarF32(input, scalar)`
-- `tryDivScalarF32(input, scalar)`
+- `tryAddScalarF32(input, scalar)` / `tryMulScalarF32` / `tryDivScalarF32`
 - `trySaxpyScalarF32(alpha, scalar_x, y)`
-- `tryMatmulF32(lhs, rhs)`
-- `tryMatmulF16(lhs, rhs)`
-- `tryMatmulBF16(lhs, rhs)`
-- `toDeviceF32(allocator, host)`
-- `DeviceArrayF32`
+- `tryMatmulF32(lhs, rhs)` / `tryMatmulF16(lhs, rhs)` /
+  `tryMatmulBF16(lhs, rhs)`
+- `tryDeviceBinaryF32(op, lhs, rhs)`
+- `tryDeviceMatmulF32(lhs, rhs)`
+- `tryDeviceMatmulAddF32(lhs, rhs, addend)`
+- `toDeviceF32(allocator, host)` and `DeviceArrayF32`
 - `runSmoke(allocator)`
-
-The `try*` functions return `null` when the optional backend is disabled,
-unsupported by the current array metadata, or unavailable at runtime.  Callers
-should fall back to Vectra's CPU/Veyra paths in that case.
 
 ## Current limits
 
-- Only contiguous same-shape `Array(f32/f16/BFloat16/f64)` add/sub/mul/div, scalar and one-element scalar-broadcast `Array(f32/f16/BFloat16/f64)` add/sub/mul/div, experimental 1D positive-stride `ArrayView(f32)` add/sub/mul/div bridge calls, and contiguous 2D f32/f16/BFloat16/f64 matmul inputs are covered by automatic policy dispatch.
-- The bridge does not change `Device.cuda(index).isAvailable()` yet.
-- An explicit `DeviceArrayF32` handle can acquire/release Axiom pool-backed device buffers; ordinary `.cuda()` persistent storage is still intentionally unavailable.
-- Only scalar-array broadcast dispatch is covered; no general broadcast lowering, reductions, or softmax bridge is exposed through Vectra yet.
-- The CUDA elementwise bridge is native for contiguous same-shape `Array(f32)`,
-  `Array(f16)`, and `Array(BFloat16)` inputs when Axiom's typed CUBIN paths are
-  available.
-- The CUDA matmul bridge is native for contiguous 2D `Array(f32)` inputs and
-  routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path. f16 and
-  BFloat16 elementwise provenance uses Axiom widened runtime reports, including
-  f32 CUDA compute evidence when that runtime route is available; f16 and
-  BFloat16 matmul now call Axiom's typed SIMT GEMM runtime seed, which reports
-  typed launch-plan/readiness metadata plus the explicit `widened_f32_cuda_compute`
-  route while still using widened f32 compute underneath. f64 matmul routes through Axiom
-  CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
-- The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.
-- f64 CUDA tensor runtime support is not exposed yet.
-- See [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md) for the local CUDA dtype
-  support matrix and current Vectra/Axiom bridge status.
-
-This is the first integration seam for a future CuPy/PyTorch-like Vectra GPU
-backend, not the final GPU backend itself.
-
-
-Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported contiguous same-shape and scalar/broadcast `Array(f32/f64).add/sub/mul/div` plus contiguous 2D `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
-
-
-Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported elementwise and matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies; `Array.add/sub/mul/div` and `Array.matmul` now use this policy when Axiom CPU/CUDA dispatch flags are enabled.
+- Automatic Axiom dispatch covers contiguous same-shape elementwise,
+  scalar/one-element scalar-broadcast, and contiguous 2D matmul for the dtypes
+  listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).
+- General broadcast lowering, reductions, softmax, random CUDA creation, and
+  CUDA view storage are not exposed yet.
+- f16 and BFloat16 matmul call Axiom typed SIMT GEMM seed entry points, which
+  report typed launch/readiness metadata while using widened f32 compute today.
+- f64 CUDA tensor runtime support is not exposed yet; f64 supported accelerator
+  routes are CPU→Veyra.

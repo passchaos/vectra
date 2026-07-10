@@ -33,7 +33,7 @@ Vectra 目标是在 Zig 中实现一套完整的数据处理与数值计算库�
 - 线性代数基础：dot、inner/vecdot/vdot、outer、cross、contractAxes、matmul/mm、matvec、bmm、norm、solve/inverse/det/eig/svd/qr/cholesky 等逐步补齐；数学/线性代数底层优先复用相邻 `../veyra` 库；f64 二维 contiguous `Array.matmul/mm` 应优先走 Veyra 优化 GEMM。
 - 数学/神经网络常用函数：neg/abs/square/reciprocal/sign、nextAfter/ldexp/frexp、exp/exp2/log/log2/log10/lgamma/gammaln/sqrt/rsqrt/cbrt、log1p/expm1、floor/ceil/round/trunc、deg2rad/rad2deg、sinc/logit/expit、三角/反三角/双曲函数（含 asinh/acosh/atanh）、copysign/heaviside、isnan/isinf/isfinite/isnormal、relu、sigmoid、tanh、softmax、log_softmax、cross_entropy 相关基础。
 - dtype 转换与类型提升规则：当前支持 `bool`、常用有符号/无符号整数、`isize/usize`、`BFloat16`、`f16/f32/f64`、`Complex64/Complex128`、对象式 dtype 查询（`dtypeName/dtype_name`、`dtypeTag/dtype_tag`、`dtypeByteSize/dtype_byte_size`、`dtypeBitSize/dtype_bit_size`、`isFloatDtype/isIntegerDtype/isSignedDtype/isUnsignedDtype/isComplexDtype/isBoolDtype/isRealDtype/isNumericDtype`、`canCastToDtype/can_cast_to_dtype`）、`canCastDType`、`promoteDType/resultDType`、`promoteType` 与一批 promoted mixed-dtype/complex/bf16 运算；后续继续补更完整 promotion。
-- 设备抽象：先保持 CPU 正确；CUDA/GPU API 形态参考 CuPy/PyTorch；当前允许通过 `-Daxiom-cuda=true` 使用 `vx.axiom_cuda` 做 contiguous same-shape `Array(f32)` add/sub/mul/div/SAXPY/scalar-broadcast/matmul and 1D positive-stride view add/sub/mul/div 的 opt-in Axiom CUDA smoke bridge，但 `.cuda()` 持久 device storage 仍不得假装已完成。
+- 设备抽象：CPU/CUDA 支持路径默认通过 Axiom；CUDA/GPU API 形态参考 CuPy/PyTorch；CUDA `Array(f32)` 必须持有真实 device storage 并直接用 device pointer 调 Axiom kernel/cuBLAS，不得只改 device 标签或隐式回传 host。
 
 API 取向：
 
@@ -178,21 +178,13 @@ CSC 当前支持：
 - `sum/frobeniusNorm`：基础 CSC 统计。
 - `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSC 结构诊断，f64 路径优先复用 Veyra。
 - `solveTriangular`：CSC sparse triangular solve，支持 vector/matrix RHS，f64 路径复用 Veyra。
-## 9. Axiom CUDA bridge seed
+## 9. Axiom accelerator backend
 
-Vectra 当前新增一个可选的 Axiom CUDA 集成种子：
+Vectra 当前默认导入相邻 `../axiom`，CPU 和 CUDA 支持路径都优先走 Axiom：
 
-- 默认构建不导入 Axiom，`Device.cuda(index).isAvailable()` 仍保持 false。
-- `-Daxiom-cuda=true` 时导入相邻 `../axiom`，暴露 `vx.axiom_cuda`；`-Daxiom-cuda-dispatch=true` 还会让普通 `Array(f32).add/sub/mul/div/addScalar/mulScalar/divScalar/matmul` 在支持条件下先尝试 Axiom CUDA，再回退 CPU。
-- 当前覆盖 contiguous same-shape `Array(f32)` add/sub/mul/div/SAXPY/scalar-broadcast/matmul and 1D positive-stride view add/sub/mul/div host-slice bridge，并通过 Axiom `TensorDeviceBufferPlan` / `TensorDeviceCopyPlan` 记录 logical elements、required span、byte counts、linear-copy 状态和 fingerprints。
-- 验证命令：`zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled` 和 CUDA 主机上的 `zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke`，以及 dispatch 模式下的 `zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
-zig build -Daxiom-cuda=true axiom-cuda-device-smoke
-zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke
-zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke`。
-- 后续如果继续推进 GPU backend，应先补 persistent device allocation/cache、broadcast lowering、reductions/GEMM host-slice bridge，再考虑让 `.cuda()` 语义变为可用。
-
-
-Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
-
-
-Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies; `Array.matmul` now uses this policy when Axiom CPU/CUDA dispatch flags are enabled.
+- CPU-backed contiguous `Array(f32/f64)` add/sub/mul/div、scalar/one-element scalar broadcast 和 contiguous 2D matmul 通过 Axiom CPU lowering 到 Veyra。
+- 只有 CUDA driver 能 retain 对应 device primary context 时 `Device.cuda(index).isAvailable()` 才为 true；`Array.*On(..., vx.cuda(i))`、确定性 `Context.*With(vx.onDevice(...))` 创建 helper 和 `.cuda(i)` 必须直接分配/持有 device storage，不能只改 device 标签。
+- CUDA owning `Array(f32)` 的 same-device `add/sub/mul/div`、contiguous 2D `matmul` 和 `vx.matmulAdd` 必须直接使用已有 device pointer；大 GEMM/GEMM+add 走 Axiom cached cuBLAS SGEMM（`matmulAdd` 使用 `beta=1` 融合 addend），不能把数据拷回 host 再重新上传。`ArrayView.cuda()` 仍未实现，应返回 `InvalidDevice`。
+- CPU-backed Axiom bridge 仍覆盖 contiguous same-shape `Array(f32)` add/sub/mul/div/SAXPY/scalar-broadcast/matmul and 1D positive-stride view add/sub/mul/div host-slice provenance，并通过 Axiom `TensorDeviceBufferPlan` / `TensorDeviceCopyPlan` 记录 logical elements、required span、byte counts、linear-copy 状态和 fingerprints。
+- 验证命令：`zig build test`、`zig build axiom-cpu-dispatch-smoke`、`zig build axiom-backend-policy-smoke`、`zig build axiom-cuda-dispatch-smoke`、`zig build axiom-cuda-device-smoke`、CUDA 主机上的 `zig build -Daxiom-cuda-expect=ran axiom-cuda-smoke`，以及性能对齐检查 `zig build -Doptimize=ReleaseFast example-large-matmul-add -- --execute --backend=cuda --require-cuda`。
+- 后续继续推进 GPU backend 时，优先补 general broadcast、reductions、更多 dtype/device kernel、device cache/pool 策略和 view/device storage 语义；不能退回“创建在 CPU、计算时来回拷贝”的实现。

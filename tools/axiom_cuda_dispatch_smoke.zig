@@ -1,4 +1,4 @@
-//! Smoke gate for opt-in automatic Array(f32/f16/BFloat16) -> Axiom CUDA dispatch.
+//! Smoke gate for automatic Array(f32/f16/BFloat16) -> Axiom CUDA dispatch.
 
 const std = @import("std");
 const vx = @import("vectra");

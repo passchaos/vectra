@@ -1,10 +1,7 @@
 //! Unified Axiom backend policy example.
 //!
-//! This example works in the default build and becomes more interesting when
-//! optional dispatch is enabled:
+//! Axiom is the default backend policy for supported CPU and CUDA operations:
 //!   zig build example-axiom-backend-policy
-//!   zig build -Daxiom-cpu-dispatch=true example-axiom-backend-policy
-//!   zig build -Daxiom-cuda-dispatch=true example-axiom-backend-policy
 
 const std = @import("std");
 const vx = @import("vectra");

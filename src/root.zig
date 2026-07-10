@@ -5,8 +5,9 @@
 //! The current implementation provides a compact CPU core: typed arrays,
 //! broadcasting arithmetic, reductions, linalg/stat helpers, typed Series,
 //! heterogeneous DataFrame operations, sparse matrices, and CSV IO. CUDA/GPU is
-//! represented in the API surface and returns `error.InvalidDevice` until a real
-//! backend is wired in.
+//! available through the default Axiom backend when a CUDA device is
+//! present; CUDA arrays own device-resident storage and dispatch supported f32
+//! operations without staging through host arrays.
 
 const array_mod = @import("array.zig");
 const series_mod = @import("series.zig");
@@ -99,7 +100,7 @@ pub fn add(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     return switch (lhs.device.backend) {
         .cpu => lhs.add(rhs),
-        .cuda => addCuda(lhs, rhs),
+        .cuda => lhs.add(rhs),
     };
 }
 
@@ -107,13 +108,18 @@ pub fn matmul(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     return switch (lhs.device.backend) {
         .cpu => lhs.matmul(rhs),
-        .cuda => matmulCuda(lhs, rhs),
+        .cuda => lhs.matmul(rhs),
     };
 }
 
 pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
+    if (comptime @TypeOf(lhs) == Array(f32)) {
+        if (try tryCudaMatmulAddF32(@as(Array(f32), lhs), @as(Array(f32), rhs), @as(Array(f32), addend))) |out| {
+            return @as(@TypeOf(lhs), out);
+        }
+    }
     var product = try matmul(lhs, rhs);
     defer product.deinit();
     return add(product, addend);
@@ -123,52 +129,13 @@ pub fn tryCudaMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32))
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
     if (!lhs.device.isCuda()) return null;
-    var product = try matmulCuda(lhs, rhs);
-    defer product.deinit();
-    return try addCuda(product, addend);
+    if (try axiom_cuda.tryDeviceMatmulAddF32(lhs, rhs, addend)) |out| return out;
+    return null;
 }
 
 fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {
     if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
     if (!lhs.device.isAvailable()) return error.InvalidDevice;
-}
-
-fn addCuda(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
-    const T = @TypeOf(lhs).Scalar;
-    var host_lhs = lhs;
-    var host_rhs = rhs;
-    host_lhs.device = .cpu;
-    host_rhs.device = .cpu;
-    const out = if (T == f32)
-        try axiom_cuda.tryAddF32(@as(Array(f32), host_lhs), @as(Array(f32), host_rhs))
-    else if (T == f16)
-        try axiom_cuda.tryAddF16(@as(Array(f16), host_lhs), @as(Array(f16), host_rhs))
-    else if (T == BFloat16)
-        try axiom_cuda.tryAddBF16(@as(Array(BFloat16), host_lhs), @as(Array(BFloat16), host_rhs))
-    else
-        return error.TypeUnsupported;
-    var value = out orelse return error.BackendFailure;
-    value.device = lhs.device;
-    return @as(@TypeOf(lhs), value);
-}
-
-fn matmulCuda(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
-    const T = @TypeOf(lhs).Scalar;
-    var host_lhs = lhs;
-    var host_rhs = rhs;
-    host_lhs.device = .cpu;
-    host_rhs.device = .cpu;
-    const out = if (T == f32)
-        try axiom_cuda.tryMatmulF32(@as(Array(f32), host_lhs), @as(Array(f32), host_rhs))
-    else if (T == f16)
-        try axiom_cuda.tryMatmulF16(@as(Array(f16), host_lhs), @as(Array(f16), host_rhs))
-    else if (T == BFloat16)
-        try axiom_cuda.tryMatmulBF16(@as(Array(BFloat16), host_lhs), @as(Array(BFloat16), host_rhs))
-    else
-        return error.TypeUnsupported;
-    var value = out orelse return error.BackendFailure;
-    value.device = lhs.device;
-    return @as(@TypeOf(lhs), value);
 }
 
 pub fn sum(input: anytype, axis_opt: ?isize, keepdims: bool) ArrayError!@TypeOf(input) {

@@ -29,7 +29,7 @@ while leaning toward PyTorch-style fluent array methods for common operations. V
 - `Series(T)` and heterogeneous `DataFrame` with select/filter/sort/head/tail/describe/group-by-sum.
 - CSV read/write with simple type inference.
 - Array IO helpers: `toBytes/fromBytes` for raw data, `toArchive/fromArchive` for a simple dtype+shape binary archive, and object-style file helpers `saveArchive/saveArchiveToDir` plus `loadArchive/loadArchiveFromDir`.
-- Device API placeholder (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`/`ArrayView`) for future CuPy/PyTorch-like GPU backends; optional `vx.axiom_backend` can route contiguous same-shape and scalar/broadcast `Array(f32/f64)` add/sub/mul/div plus 2D matmul through sibling Axiom policy, selecting Axiom CUDA for f32 when enabled or Axiom CPU→Veyra for f32/f64 when enabled.  The explicit `vx.axiom_cuda` surface also exposes f32 SAXPY, scalar-broadcast, device-buffer handle, and 1D positive-stride view smoke kernels on CUDA-capable hosts while keeping persistent `.cuda()` storage unavailable for now.
+- Device API (`Device.cpu`, `Device.cuda(index)`, object-style `to/cpu/cuda` on `Array`) backed by Axiom by default for supported accelerator paths: CPU-backed contiguous `Array(f32/f64)` add/sub/mul/div/scalar-broadcast/matmul route through Axiom CPU→Veyra, and CUDA-resident owning `Array(f32)` storage is available when a CUDA device can be retained. `fromSliceOn`/`emptyOn`/`zerosOn`/`onesOn`/`fullOn`, deterministic `Context` creation helpers such as `arrayWith`/`zerosWith`/`onesWith`, and `.cuda()` allocate directly in device memory, while `.cpu()` explicitly downloads. CUDA `Array(f32)` same-device `add/sub/mul/div`, `matmul`, and `matmulAdd` launch using existing device pointers; large f32 GEMM/GEMM+add uses Axiom's cached cuBLAS-backed SGEMM wrapper for PyTorch-class throughput, with the Axiom PTX seed retained as fallback/provenance. `ArrayView.cuda()` remains unsupported until view/device storage semantics are implemented.
 
 ## Example
 
@@ -81,8 +81,7 @@ context and top-level `vx.add/vx.matmul/vx.sum/...` helpers are the intended
 short-form front door for examples and application code. Ordinary array creation
 and random creation do not require a seed: `try np.rand(f32, &.{ m, k })` uses the
 context RNG stream. Creation options keep `dtype` as a Zig type parameter and
-`device` as runtime metadata, e.g. `try np.randWith(vx.onDevice(f32, vx.cuda(0)),
-&.{ m, k })` or `try np.zerosWith(vx.onDevice(f64, vx.cuda(0)), &.{ rows, cols })`.
+`device` as runtime metadata, e.g. `try np.zerosWith(vx.onDevice(f64, vx.cuda(0)), &.{ rows, cols })` or `try vx.Array(f32).fromSliceOn(allocator, values, dims, vx.cuda(0))`. Random CUDA creation is not exposed until a device RNG kernel exists; use CPU `rand` or explicit seeded CPU creation when reproducible host data is needed.
 Use `vx.withSeed(...)` or `vx.seeded(...)` only when reproducible random values
 are required; device is optional and defaults to `vx.cpu`.
 
@@ -103,10 +102,13 @@ static information:
   serialization, and heterogeneous containers.
 
 `device` is runtime metadata in every layer and follows PyTorch-like dispatch:
-CPU arrays run CPU kernels, CUDA arrays run CUDA kernels when the optional bridge
-is enabled, and mixed-device operations fail with `InvalidDevice`. Persistent
-CUDA-resident Array storage is still future work; optional Axiom CUDA paths
-remain exposed through `vx.axiom_cuda` / `vx.axiom_backend`.
+CPU arrays use Axiom CPU lowering for supported operations, CUDA arrays use Axiom
+CUDA when a CUDA device is available, and mixed-device operations fail with
+`InvalidDevice`. CUDA-resident Array storage is available for owning `Array`
+values; supported f32 CUDA kernels consume those device pointers directly, while
+unsupported operations return explicit errors or require an explicit `.cpu()`
+transfer. Axiom host-slice bridge paths remain exposed through `vx.axiom_cuda` /
+`vx.axiom_backend` for smoke coverage and provenance.
 
 More runnable examples live under [`examples/`](examples):
 
@@ -119,37 +121,49 @@ zig build example-large-matmul-add
 zig build example-large-matmul-add-smoke
 ```
 
-`example-basic-array` is a pure Vectra CPU example.  The Axiom examples run in
-the default build and report direct CPU / disabled CUDA routes; opt into the
-same examples with `-Daxiom-cpu-dispatch=true`, `-Daxiom-cuda-dispatch=true`, or
-`-Daxiom-cuda=true` to inspect the corresponding Axiom bridge paths.
-`example-large-matmul-add` now keeps the user-facing body close to PyTorch:
-seedless `rand` / device-aware `randWith` followed by the same `vx.matmulAdd` call for CPU and CUDA tensors.
-It documents the random `Y = A[M,K] * B[K,N] + C[M,N]` workload. The checked-in
-execute size is intentionally modest (`M = 40 * 4`, `N = 40`, `K = 40`) so the
-example stays interactive; edit the example's `production` constant for larger
-stress runs such as `4096 * 4 x 4096 x 4096`. It dry-runs by default; pass
-`-- --smoke` for a tiny executable check, `-- --execute` for the execute path,
-or build with `-Daxiom-cuda=true` to let CUDA-device tensors dispatch through the
-CUDA path.
+`example-basic-array` is a Vectra CPU example that uses Axiom-backed supported
+kernels where available. The Axiom examples run in the default build; CUDA routes
+run when a CUDA device is available and otherwise report a skipped CUDA backend.
+`example-large-matmul-add` keeps the user-facing body close to PyTorch:
+device-aware creation followed by the same `vx.matmulAdd` call for CPU and CUDA
+tensors. It documents the `Y = A[M,K] * B[K,N] + C[M,N]` workload. The checked-in
+execute size is a CUDA stress run (`M = 4096 * 4`, `N = 4096`, `K = 4096`) and
+dry-runs by default; pass `-- --smoke` for a tiny executable check or
+`-- --execute --backend=cuda --require-cuda` for the production CUDA benchmark.
+The execute mode warms up and averages repeated `matmulAdd` iterations so it can
+be compared directly with a PyTorch CUDA tensor reuse benchmark.
 
 
-## Optional Axiom accelerator bridge
+## Axiom accelerator backend
 
-Vectra keeps CPU/Veyra/Alea as the default build.  To validate the experimental Axiom accelerator bridge for contiguous same-shape and scalar/broadcast f32/f16/BFloat16/f64 add/sub/mul/div, 2D matmul, and explicit CUDA f32 SAXPY/scalar-broadcast/device-buffer seeds, run:
+Vectra imports the sibling [`../axiom`](../axiom) package by default. Supported
+CPU-backed contiguous same-shape and scalar/broadcast `Array(f32/f64)`
+add/sub/mul/div plus contiguous 2D matmul flow through Axiom CPU lowering to
+Veyra. Supported CUDA owning-array f32 add/sub/mul/div, matmul, and fused
+matmul+add use existing device pointers through Axiom CUDA. Large f32 GEMM and
+GEMM+add use Axiom's cached cuBLAS-backed SGEMM wrapper; the Axiom PTX/CUDA Tile
+IR seeds remain as fallback/provenance paths.
+
+Validation commands:
 
 ```sh
-zig build axiom-cuda-smoke -Daxiom-cuda-expect=disabled
-zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
-zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
-zig build -Daxiom-cuda=true axiom-cuda-device-smoke
-zig build -Daxiom-cpu-dispatch=true axiom-cpu-dispatch-smoke
-zig build -Daxiom-cpu-dispatch=true axiom-backend-policy-smoke
+zig build test
+zig build axiom-cpu-dispatch-smoke
+zig build axiom-backend-policy-smoke
+zig build axiom-cuda-dispatch-smoke
+zig build axiom-cuda-device-smoke
+zig build -Daxiom-cuda-expect=ran axiom-cuda-smoke
+zig build -Doptimize=ReleaseFast example-large-matmul-add -- --execute --backend=cuda --require-cuda
 ```
 
-The CUDA-enabled commands require a CUDA/libnvvm/PTXAS-capable host; `-Daxiom-cuda-dispatch=true` additionally lets ordinary `Array(f32).add/sub/mul/div/addScalar/mulScalar/divScalar/matmul` methods use `vx.axiom_backend` policy to try Axiom CUDA/Axiom CPU before falling back to CPU.  The f32 CUDA matmul path now builds Axiom CUDA Tile IR and hands it to Axiom's Tile-IR-to-CUTILE GEMM runtime bridge.  `Array(f16)` and `Array(BFloat16)` have native Axiom CUDA same-shape elementwise seeds plus Axiom typed SIMT GEMM runtime seed entry points for contiguous 2D matmul; the typed GEMM seed reports launch-plan readiness metadata and the explicit `widened_f32_cuda_compute` route while using widened f32 compute underneath today.  See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) and [`docs/CUDA_DTYPE_SUPPORT.md`](docs/CUDA_DTYPE_SUPPORT.md) for the supported surface, local CUDA dtype matrix, and current limits.
-
-`-Daxiom-cpu-dispatch=true` lets ordinary contiguous same-shape `Array(f32/f64).add/sub/mul/div`, scalar `addScalar/subScalar/mulScalar/divScalar`, scalar-array broadcast, and contiguous 2D `Array(f32/f64).matmul` calls flow through Axiom's CPU lowering, which delegates the current seed kernels to Veyra.  This gives Vectra one opt-in Axiom policy seam for both CPU and CUDA paths while preserving existing direct CPU fallbacks.
+CUDA commands require a CUDA/libnvvm/PTXAS-capable host. `Array(f16)` and
+`Array(BFloat16)` have native Axiom CUDA same-shape elementwise seeds plus Axiom
+typed SIMT GEMM runtime seed entry points for contiguous 2D matmul; the typed
+GEMM seed reports launch-plan readiness metadata and the explicit
+`widened_f32_cuda_compute` route while using widened f32 compute underneath
+today. See [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) and
+[`docs/CUDA_DTYPE_SUPPORT.md`](docs/CUDA_DTYPE_SUPPORT.md) for the supported
+surface, local CUDA dtype matrix, and current limits.
 
 ## Alea backend
 
@@ -194,11 +208,5 @@ The current high-value benchmark set covers large f64 elementwise/scalar ops, fl
 - Nullable values, categorical/string kernels and richer promotion policy.
 - Polars-like lazy query plans and expression DSL.
 - BLAS/LAPACK/high-performance FFT/sparse integrations.
-- GPU backend implementation behind the existing `Device` surface; see [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the current optional Axiom CUDA bridge seed.
+- Broader GPU coverage behind the existing `Device` surface; see [`docs/AXIOM_CUDA_BRIDGE.md`](docs/AXIOM_CUDA_BRIDGE.md) for the current Axiom CUDA backend surface.
 - Arrow/Parquet IPC support.
-
-
-Axiom CPU dispatch seed: `-Daxiom-cpu-dispatch=true` routes supported contiguous same-shape and scalar/broadcast `Array(f32/f64).add/sub/mul/div` plus contiguous 2D `Array(f32/f64).matmul` calls through Axiom CPU lowering to Veyra before falling back to Vectra CPU paths.
-
-
-Unified Axiom backend policy seed: `vx.axiom_backend` reports and routes supported elementwise and matmul calls across direct CPU, Axiom CPU→Veyra, and Axiom CUDA policies; `Array.add/sub/mul/div` and `Array.matmul` now use this policy when Axiom CPU/CUDA dispatch flags are enabled.

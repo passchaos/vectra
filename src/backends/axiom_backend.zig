@@ -82,7 +82,7 @@ pub fn selectMatmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Arra
         .direct_cpu
     else switch (policy) {
         .force_direct_cpu => .direct_cpu,
-        .prefer_axiom_cpu => if (supportsAxiomCpuMatmul(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_axiom_cpu => if (supportsAxiomCpuMatmul(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else if (supportsAxiomCudaMatmul(T) and axiom_cuda.enabled()) .axiom_cuda else .direct_cpu,
         .prefer_cuda => if (supportsAxiomCudaMatmul(T) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuMatmul(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
     };
     var report: BackendReport = .{
@@ -101,7 +101,7 @@ pub fn selectElementwise(comptime T: type, op: ElementwiseOp, policy: BackendPol
         .direct_cpu
     else switch (policy) {
         .force_direct_cpu => .direct_cpu,
-        .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else .direct_cpu,
         .prefer_cuda => if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
     };
     var report: BackendReport = .{
@@ -127,7 +127,7 @@ pub fn selectScalarElementwise(
         .direct_cpu
     else switch (policy) {
         .force_direct_cpu => .direct_cpu,
-        .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else .direct_cpu,
         .prefer_cuda => if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
     };
     var report: BackendReport = .{

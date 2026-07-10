@@ -1,16 +1,13 @@
-//! Optional Axiom CUDA bridge for Vectra.
+//! Axiom CUDA bridge for Vectra.
 //!
-//! This module deliberately keeps CUDA acceleration opt-in.  The default Vectra
-//! build remains CPU/Veyra/Alea only, while `zig build -Daxiom-cuda=true ...`
-//! imports Axiom and routes small f32 tensor-kernel seeds through Axiom's
-//! builder-style CUDA tensor runtime.  Elementwise paths still use Axiom tensor
-//! adapter launches; matmul now builds Axiom CUDA Tile IR and hands it to the
-//! Tile-IR-to-CUTILE GEMM runtime bridge.  The bridge is host-slice based today:
-//! it proves Vectra metadata can feed Axiom's accelerator layers without
-//! claiming that `Array.cuda()` is a persistent device-resident storage backend
-//! yet.
+//! Vectra now imports Axiom by default.  CUDA availability is runtime-gated by
+//! the CUDA driver/device, while supported CUDA-resident f32 elementwise/matmul
+//! paths launch through Axiom with existing device pointers.  Device matmul uses
+//! Axiom's cuBLAS-backed SGEMM wrapper first for PyTorch-class throughput and
+//! falls back to the existing Axiom PTX seed if cuBLAS is unavailable.
 
 const std = @import("std");
+const builtin = @import("builtin");
 const build_options = @import("vectra_build_options");
 const array_mod = @import("../array.zig");
 
@@ -304,6 +301,370 @@ pub const DeviceArrayF32 = struct {
 
 pub fn toDeviceF32(allocator: std.mem.Allocator, host: array_mod.Array(f32)) array_mod.ArrayError!?DeviceArrayF32 {
     return DeviceArrayF32.fromHost(allocator, host);
+}
+
+const CudaResult = c_int;
+const CudaDevice = c_int;
+const CudaDevicePtr = u64;
+const CudaContext = ?*anyopaque;
+const CudaModule = ?*anyopaque;
+const CudaFunction = ?*anyopaque;
+const CudaStream = ?*anyopaque;
+const CudaUChar = u8;
+const CudaUShort = u16;
+
+const cuda_success: CudaResult = 0;
+const cuda_device_attribute_compute_capability_major: c_int = 75;
+const cuda_device_attribute_compute_capability_minor: c_int = 76;
+
+const CudaPrimaryContext = struct {
+    device: CudaDevice,
+    handle: CudaContext,
+
+    fn release(context: *CudaPrimaryContext, driver: *CudaDriver) void {
+        _ = driver.cuDevicePrimaryCtxRelease(context.device);
+    }
+};
+
+const CudaDriver = struct {
+    lib: std.DynLib,
+    cuInit: *const fn (c_uint) callconv(.c) CudaResult,
+    cuDeviceGet: *const fn (*CudaDevice, c_int) callconv(.c) CudaResult,
+    cuDeviceGetAttribute: *const fn (*c_int, c_int, CudaDevice) callconv(.c) CudaResult,
+    cuDevicePrimaryCtxRetain: *const fn (*CudaContext, CudaDevice) callconv(.c) CudaResult,
+    cuDevicePrimaryCtxRelease: *const fn (CudaDevice) callconv(.c) CudaResult,
+    cuCtxSetCurrent: *const fn (CudaContext) callconv(.c) CudaResult,
+    cuMemAlloc_v2: *const fn (*CudaDevicePtr, usize) callconv(.c) CudaResult,
+    cuMemFree_v2: *const fn (CudaDevicePtr) callconv(.c) CudaResult,
+    cuMemcpyHtoD_v2: *const fn (CudaDevicePtr, *const anyopaque, usize) callconv(.c) CudaResult,
+    cuMemcpyDtoH_v2: *const fn (*anyopaque, CudaDevicePtr, usize) callconv(.c) CudaResult,
+    cuMemcpyDtoD_v2: *const fn (CudaDevicePtr, CudaDevicePtr, usize) callconv(.c) CudaResult,
+    cuMemsetD8_v2: *const fn (CudaDevicePtr, CudaUChar, usize) callconv(.c) CudaResult,
+    cuMemsetD16_v2: *const fn (CudaDevicePtr, CudaUShort, usize) callconv(.c) CudaResult,
+    cuMemsetD32_v2: *const fn (CudaDevicePtr, c_uint, usize) callconv(.c) CudaResult,
+    cuModuleLoadData: *const fn (*CudaModule, *const anyopaque) callconv(.c) CudaResult,
+    cuModuleUnload: *const fn (CudaModule) callconv(.c) CudaResult,
+    cuModuleGetFunction: *const fn (*CudaFunction, CudaModule, [*:0]const u8) callconv(.c) CudaResult,
+    cuLaunchKernel: *const fn (CudaFunction, c_uint, c_uint, c_uint, c_uint, c_uint, c_uint, c_uint, CudaStream, [*]?*anyopaque, ?*?*anyopaque) callconv(.c) CudaResult,
+    cuCtxSynchronize: *const fn () callconv(.c) CudaResult,
+
+    fn load() !CudaDriver {
+        if (!builtin.link_libc) return error.CudaUnavailable;
+        var lib = openCudaDynLib() catch return error.CudaUnavailable;
+        errdefer lib.close();
+        return .{
+            .lib = lib,
+            .cuInit = try lookupCuda(&lib, *const fn (c_uint) callconv(.c) CudaResult, "cuInit"),
+            .cuDeviceGet = try lookupCuda(&lib, *const fn (*CudaDevice, c_int) callconv(.c) CudaResult, "cuDeviceGet"),
+            .cuDeviceGetAttribute = try lookupCuda(&lib, *const fn (*c_int, c_int, CudaDevice) callconv(.c) CudaResult, "cuDeviceGetAttribute"),
+            .cuDevicePrimaryCtxRetain = try lookupCuda(&lib, *const fn (*CudaContext, CudaDevice) callconv(.c) CudaResult, "cuDevicePrimaryCtxRetain"),
+            .cuDevicePrimaryCtxRelease = try lookupCuda(&lib, *const fn (CudaDevice) callconv(.c) CudaResult, "cuDevicePrimaryCtxRelease"),
+            .cuCtxSetCurrent = try lookupCuda(&lib, *const fn (CudaContext) callconv(.c) CudaResult, "cuCtxSetCurrent"),
+            .cuMemAlloc_v2 = try lookupCuda(&lib, *const fn (*CudaDevicePtr, usize) callconv(.c) CudaResult, "cuMemAlloc_v2"),
+            .cuMemFree_v2 = try lookupCuda(&lib, *const fn (CudaDevicePtr) callconv(.c) CudaResult, "cuMemFree_v2"),
+            .cuMemcpyHtoD_v2 = try lookupCuda(&lib, *const fn (CudaDevicePtr, *const anyopaque, usize) callconv(.c) CudaResult, "cuMemcpyHtoD_v2"),
+            .cuMemcpyDtoH_v2 = try lookupCuda(&lib, *const fn (*anyopaque, CudaDevicePtr, usize) callconv(.c) CudaResult, "cuMemcpyDtoH_v2"),
+            .cuMemcpyDtoD_v2 = try lookupCuda(&lib, *const fn (CudaDevicePtr, CudaDevicePtr, usize) callconv(.c) CudaResult, "cuMemcpyDtoD_v2"),
+            .cuMemsetD8_v2 = try lookupCuda(&lib, *const fn (CudaDevicePtr, CudaUChar, usize) callconv(.c) CudaResult, "cuMemsetD8_v2"),
+            .cuMemsetD16_v2 = try lookupCuda(&lib, *const fn (CudaDevicePtr, CudaUShort, usize) callconv(.c) CudaResult, "cuMemsetD16_v2"),
+            .cuMemsetD32_v2 = try lookupCuda(&lib, *const fn (CudaDevicePtr, c_uint, usize) callconv(.c) CudaResult, "cuMemsetD32_v2"),
+            .cuModuleLoadData = try lookupCuda(&lib, *const fn (*CudaModule, *const anyopaque) callconv(.c) CudaResult, "cuModuleLoadData"),
+            .cuModuleUnload = try lookupCuda(&lib, *const fn (CudaModule) callconv(.c) CudaResult, "cuModuleUnload"),
+            .cuModuleGetFunction = try lookupCuda(&lib, *const fn (*CudaFunction, CudaModule, [*:0]const u8) callconv(.c) CudaResult, "cuModuleGetFunction"),
+            .cuLaunchKernel = try lookupCuda(&lib, *const fn (CudaFunction, c_uint, c_uint, c_uint, c_uint, c_uint, c_uint, c_uint, CudaStream, [*]?*anyopaque, ?*?*anyopaque) callconv(.c) CudaResult, "cuLaunchKernel"),
+            .cuCtxSynchronize = try lookupCuda(&lib, *const fn () callconv(.c) CudaResult, "cuCtxSynchronize"),
+        };
+    }
+
+    fn close(driver: *CudaDriver) void {
+        driver.lib.close();
+    }
+
+    fn init(driver: *CudaDriver) !void {
+        try checkCuda(driver.cuInit(0));
+    }
+
+    fn primaryContextRetain(driver: *CudaDriver, index: usize) !CudaPrimaryContext {
+        if (index > @as(usize, @intCast(std.math.maxInt(c_int)))) return error.InvalidDevice;
+        var device: CudaDevice = 0;
+        try checkCuda(driver.cuDeviceGet(&device, @intCast(index)));
+        var context: CudaContext = null;
+        try checkCuda(driver.cuDevicePrimaryCtxRetain(&context, device));
+        return .{ .device = device, .handle = context };
+    }
+
+    fn setCurrent(driver: *CudaDriver, context: CudaContext) !void {
+        try checkCuda(driver.cuCtxSetCurrent(context));
+    }
+
+    fn deviceAttribute(driver: *CudaDriver, device: CudaDevice, attribute: c_int) !c_int {
+        var value: c_int = 0;
+        try checkCuda(driver.cuDeviceGetAttribute(&value, attribute, device));
+        return value;
+    }
+
+    fn resolveCudaArch(driver: *CudaDriver, device: CudaDevice, requested: []const u8, buffer: *[16]u8) ![]const u8 {
+        if (std.mem.eql(u8, requested, "auto")) {
+            const major = try driver.deviceAttribute(device, cuda_device_attribute_compute_capability_major);
+            const minor = try driver.deviceAttribute(device, cuda_device_attribute_compute_capability_minor);
+            if (major < 0 or minor < 0 or major > 99 or minor > 99) return error.CudaUnavailable;
+            return std.fmt.bufPrint(buffer, "sm_{d}{d}", .{ major, minor });
+        }
+        if (std.mem.startsWith(u8, requested, "compute_")) {
+            const suffix = requested["compute_".len..];
+            if (suffix.len == 0 or suffix.len + "sm_".len > buffer.len) return error.CudaUnavailable;
+            @memcpy(buffer[0.."sm_".len], "sm_");
+            @memcpy(buffer["sm_".len .. "sm_".len + suffix.len], suffix);
+            return buffer[0 .. "sm_".len + suffix.len];
+        }
+        return requested;
+    }
+
+    fn memAlloc(driver: *CudaDriver, bytes: usize) !CudaDevicePtr {
+        var ptr: CudaDevicePtr = 0;
+        try checkCuda(driver.cuMemAlloc_v2(&ptr, bytes));
+        return ptr;
+    }
+
+    fn memFree(driver: *CudaDriver, ptr: CudaDevicePtr) void {
+        _ = driver.cuMemFree_v2(ptr);
+    }
+
+    fn memcpyHtoD(driver: *CudaDriver, dst: CudaDevicePtr, src: *const anyopaque, bytes: usize) !void {
+        try checkCuda(driver.cuMemcpyHtoD_v2(dst, src, bytes));
+    }
+
+    fn memcpyDtoH(driver: *CudaDriver, dst: *anyopaque, src: CudaDevicePtr, bytes: usize) !void {
+        try checkCuda(driver.cuMemcpyDtoH_v2(dst, src, bytes));
+    }
+
+    fn memcpyDtoD(driver: *CudaDriver, dst: CudaDevicePtr, src: CudaDevicePtr, bytes: usize) !void {
+        try checkCuda(driver.cuMemcpyDtoD_v2(dst, src, bytes));
+    }
+
+    fn memsetD8(driver: *CudaDriver, dst: CudaDevicePtr, value: u8, bytes: usize) !void {
+        try checkCuda(driver.cuMemsetD8_v2(dst, @intCast(value), bytes));
+    }
+
+    fn memsetD16(driver: *CudaDriver, dst: CudaDevicePtr, value: u16, count: usize) !void {
+        try checkCuda(driver.cuMemsetD16_v2(dst, @intCast(value), count));
+    }
+
+    fn memsetD32(driver: *CudaDriver, dst: CudaDevicePtr, value: u32, count: usize) !void {
+        try checkCuda(driver.cuMemsetD32_v2(dst, @intCast(value), count));
+    }
+
+    fn moduleLoadData(driver: *CudaDriver, image: []const u8) !CudaModule {
+        var module: CudaModule = null;
+        try checkCuda(driver.cuModuleLoadData(&module, image.ptr));
+        return module;
+    }
+
+    fn moduleUnload(driver: *CudaDriver, module: CudaModule) void {
+        _ = driver.cuModuleUnload(module);
+    }
+
+    fn moduleGetFunction(driver: *CudaDriver, module: CudaModule, symbol: [*:0]const u8) !CudaFunction {
+        var function: CudaFunction = null;
+        try checkCuda(driver.cuModuleGetFunction(&function, module, symbol));
+        return function;
+    }
+
+    fn launchKernel(
+        driver: *CudaDriver,
+        function: CudaFunction,
+        grid: anytype,
+        block: anytype,
+        shared_memory_bytes: u32,
+        args: [*]?*anyopaque,
+    ) !void {
+        try checkCuda(driver.cuLaunchKernel(
+            function,
+            grid.x,
+            grid.y,
+            grid.z,
+            block.x,
+            block.y,
+            block.z,
+            shared_memory_bytes,
+            null,
+            args,
+            null,
+        ));
+    }
+
+    fn synchronize(driver: *CudaDriver) !void {
+        try checkCuda(driver.cuCtxSynchronize());
+    }
+
+    fn hasDevice(index: usize) bool {
+        var driver = CudaDriver.load() catch return false;
+        defer driver.close();
+        driver.init() catch return false;
+        var context = driver.primaryContextRetain(index) catch return false;
+        defer context.release(&driver);
+        driver.setCurrent(context.handle) catch return false;
+        return true;
+    }
+};
+
+fn openCudaDynLib() !std.DynLib {
+    var last_error: anyerror = error.FileNotFound;
+    for (&[_][]const u8{
+        "libcuda.so.1",
+        "libcuda.so",
+        "/lib/x86_64-linux-gnu/libcuda.so.1",
+        "/usr/lib/x86_64-linux-gnu/libcuda.so.1",
+        "/usr/lib/x86_64-linux-gnu/libcuda.so",
+    }) |path| {
+        return std.DynLib.open(path) catch |err| {
+            last_error = err;
+            continue;
+        };
+    }
+    return last_error;
+}
+
+fn lookupCuda(lib: *std.DynLib, comptime T: type, name: [:0]const u8) !T {
+    if (lib.lookup(T, name)) |symbol| return symbol;
+    if (@hasDecl(@TypeOf(lib.inner), "lookupAddress")) {
+        if (lib.inner.lookupAddress("libcuda.so.1", name)) |address| return @as(T, @ptrFromInt(address));
+    }
+    return error.MissingCudaSymbol;
+}
+
+fn checkCuda(result: CudaResult) !void {
+    if (result != cuda_success) return error.CudaError;
+}
+
+fn withCudaContext(index: usize) !struct { driver: CudaDriver, context: CudaPrimaryContext } {
+    var driver = try CudaDriver.load();
+    errdefer driver.close();
+    try driver.init();
+    var context = try driver.primaryContextRetain(index);
+    errdefer context.release(&driver);
+    try driver.setCurrent(context.handle);
+    return .{ .driver = driver, .context = context };
+}
+
+pub fn allocateStorage(device: array_mod.Device, len: usize, element_size: usize) array_mod.ArrayError!?array_mod.DeviceStorage {
+    if (!build_options.enable_axiom_cuda or !device.isCuda()) return null;
+    const bytes = std.math.mul(usize, len, element_size) catch return error.InvalidShape;
+    if (bytes == 0) return .{ .device = device, .ptr = 0, .len = len, .bytes = 0 };
+    var session = withCudaContext(device.index) catch return error.InvalidDevice;
+    // Keep one primary-context retain alive for the lifetime of the device
+    // allocation; otherwise the driver may destroy the primary context and make
+    // the returned device pointer invalid before the next operation.
+    defer session.driver.close();
+    const ptr = session.driver.memAlloc(bytes) catch {
+        session.context.release(&session.driver);
+        return error.BackendFailure;
+    };
+    return .{ .device = device, .ptr = ptr, .len = len, .bytes = bytes };
+}
+
+pub fn freeStorage(storage: array_mod.DeviceStorage) void {
+    if (!build_options.enable_axiom_cuda or !storage.device.isCuda() or storage.ptr == 0 or !storage.owns) return;
+    var session = withCudaContext(storage.device.index) catch return;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    session.driver.memFree(storage.ptr);
+    _ = session.driver.cuDevicePrimaryCtxRelease(session.context.device);
+}
+
+pub fn uploadStorage(storage: array_mod.DeviceStorage, bytes: []const u8) array_mod.ArrayError!void {
+    if (!build_options.enable_axiom_cuda or !storage.device.isCuda() or bytes.len > storage.bytes) return error.InvalidDevice;
+    if (bytes.len == 0) return;
+    var session = withCudaContext(storage.device.index) catch return error.InvalidDevice;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    session.driver.memcpyHtoD(storage.ptr, bytes.ptr, bytes.len) catch return error.BackendFailure;
+}
+
+pub fn downloadStorage(storage: array_mod.DeviceStorage, bytes: []u8) array_mod.ArrayError!void {
+    if (!build_options.enable_axiom_cuda or !storage.device.isCuda() or bytes.len > storage.bytes) return error.InvalidDevice;
+    if (bytes.len == 0) return;
+    var session = withCudaContext(storage.device.index) catch return error.InvalidDevice;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    session.driver.memcpyDtoH(bytes.ptr, storage.ptr, bytes.len) catch return error.BackendFailure;
+}
+
+pub fn copyStorage(dst: array_mod.DeviceStorage, src: array_mod.DeviceStorage) array_mod.ArrayError!void {
+    if (!build_options.enable_axiom_cuda or !dst.device.sameDevice(src.device) or !dst.device.isCuda()) return error.InvalidDevice;
+    if (dst.bytes < src.bytes or dst.len != src.len) return error.ShapeMismatch;
+    if (src.bytes == 0) return;
+    var session = withCudaContext(dst.device.index) catch return error.InvalidDevice;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    session.driver.memcpyDtoD(dst.ptr, src.ptr, src.bytes) catch return error.BackendFailure;
+}
+
+pub fn zeroStorage(storage: array_mod.DeviceStorage) array_mod.ArrayError!void {
+    if (!build_options.enable_axiom_cuda or !storage.device.isCuda()) return error.InvalidDevice;
+    if (storage.bytes == 0) return;
+    var session = withCudaContext(storage.device.index) catch return error.InvalidDevice;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    session.driver.memsetD8(storage.ptr, 0, storage.bytes) catch return error.BackendFailure;
+}
+
+pub fn fillStorage(comptime T: type, storage: array_mod.DeviceStorage, value: T) array_mod.ArrayError!void {
+    if (!build_options.enable_axiom_cuda or !storage.device.isCuda()) return error.InvalidDevice;
+    if (storage.len == 0) return;
+    if (storage.bytes != storage.len * @sizeOf(T)) return error.ShapeMismatch;
+    if (std.meta.eql(value, std.mem.zeroes(T))) return zeroStorage(storage);
+    var session = withCudaContext(storage.device.index) catch return error.InvalidDevice;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    if (comptime T == bool) {
+        const pattern: u8 = if (value) 1 else 0;
+        session.driver.memsetD8(storage.ptr, pattern, storage.bytes) catch return error.BackendFailure;
+        return;
+    }
+    if (comptime T == BFloat16) {
+        session.driver.memsetD16(storage.ptr, value.bits, storage.len) catch return error.BackendFailure;
+        return;
+    }
+    if (comptime @typeInfo(T) == .int and @sizeOf(T) == 1) {
+        const pattern: u8 = @bitCast(value);
+        session.driver.memsetD8(storage.ptr, pattern, storage.bytes) catch return error.BackendFailure;
+        return;
+    }
+    if (comptime (@typeInfo(T) == .int or @typeInfo(T) == .float) and @sizeOf(T) == 2) {
+        const pattern: u16 = @bitCast(value);
+        session.driver.memsetD16(storage.ptr, pattern, storage.len) catch return error.BackendFailure;
+        return;
+    }
+    if (comptime (@typeInfo(T) == .int or @typeInfo(T) == .float) and @sizeOf(T) == 4) {
+        const pattern: u32 = @bitCast(value);
+        session.driver.memsetD32(storage.ptr, pattern, storage.len) catch return error.BackendFailure;
+        return;
+    }
+    const scratch = std.heap.smp_allocator;
+    const tmp = try scratch.alloc(T, storage.len);
+    defer scratch.free(tmp);
+    @memset(tmp, value);
+    return uploadStorage(storage, std.mem.sliceAsBytes(tmp));
+}
+
+fn ptxFallbackNameForImage(file_name: []const u8, buffer: *[256]u8) ![]const u8 {
+    if (std.mem.endsWith(u8, file_name, ".ptx")) return file_name;
+    if (!std.mem.endsWith(u8, file_name, ".cubin")) return error.BackendFailure;
+    const stem = file_name[0 .. file_name.len - ".cubin".len];
+    return std.fmt.bufPrint(buffer, "{s}.ptx", .{stem});
+}
+
+fn readRuntimeImage(allocator: std.mem.Allocator, root_dir: []const u8, file_name: []const u8) ![:0]u8 {
+    var runtime_threaded_io = std.Io.Threaded.init(allocator, .{});
+    defer runtime_threaded_io.deinit();
+    const runtime_io = runtime_threaded_io.io();
+    var dir = if (std.fs.path.isAbsolute(root_dir))
+        try std.Io.Dir.openDirAbsolute(runtime_io, root_dir, .{})
+    else
+        try std.Io.Dir.cwd().openDir(runtime_io, root_dir, .{});
+    defer dir.close(runtime_io);
+    return dir.readFileAllocOptions(runtime_io, file_name, allocator, .limited(64 * 1024 * 1024), .of(u8), 0);
 }
 
 pub const SmokeReport = struct {
@@ -657,6 +1018,11 @@ pub fn enabled() bool {
     return build_options.enable_axiom_cuda;
 }
 
+pub fn deviceAvailable(index: usize) bool {
+    if (!build_options.enable_axiom_cuda) return false;
+    return CudaDriver.hasDevice(index);
+}
+
 pub fn planArrayF32(input: array_mod.Array(f32), name: []const u8) BufferPlanEvidence {
     if (!build_options.enable_axiom_cuda) return .{};
     if (!input.device.isCpu() or !input.isContiguous() or input.data.len == 0) return .{};
@@ -720,19 +1086,118 @@ fn baseSmokeReport() SmokeReport {
 }
 
 pub fn tryAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (try tryDeviceBinaryF32(.add, lhs, rhs)) |out| return out;
     return tryBinaryF32(.add, lhs, rhs);
 }
 
 pub fn trySubF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (try tryDeviceBinaryF32(.sub, lhs, rhs)) |out| return out;
     return tryBinaryF32(.sub, lhs, rhs);
 }
 
 pub fn tryMulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (try tryDeviceBinaryF32(.mul, lhs, rhs)) |out| return out;
     return tryBinaryF32(.mul, lhs, rhs);
 }
 
 pub fn tryDivF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (try tryDeviceBinaryF32(.div, lhs, rhs)) |out| return out;
     return tryBinaryF32(.div, lhs, rhs);
+}
+
+pub fn tryDeviceBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (!lhs.sameShape(rhs) or lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    if (lhs_storage.len == 0 or lhs_storage.len != rhs_storage.len) return null;
+
+    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, lhs.shape, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var session = withCudaContext(lhs.device.index) catch return error.InvalidDevice;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    var cuda_arch_buffer: [16]u8 = undefined;
+    const resolved_arch = session.driver.resolveCudaArch(session.context.device, "auto", &cuda_arch_buffer) catch return error.BackendFailure;
+
+    var spec = switch (op) {
+        .add => axiom.accelerator.TensorElementwiseBinarySpec.add(
+            .contiguous("lhs", lhs_storage.ptr, lhs_storage.len),
+            .contiguous("rhs", rhs_storage.ptr, rhs_storage.len),
+            .contiguous("out", out_storage.ptr, out_storage.len),
+        ),
+        .sub => axiom.accelerator.TensorElementwiseBinarySpec.sub(
+            .contiguous("lhs", lhs_storage.ptr, lhs_storage.len),
+            .contiguous("rhs", rhs_storage.ptr, rhs_storage.len),
+            .contiguous("out", out_storage.ptr, out_storage.len),
+        ),
+        .mul => axiom.accelerator.TensorElementwiseBinarySpec.mul(
+            .contiguous("lhs", lhs_storage.ptr, lhs_storage.len),
+            .contiguous("rhs", rhs_storage.ptr, rhs_storage.len),
+            .contiguous("out", out_storage.ptr, out_storage.len),
+        ),
+        .div => axiom.accelerator.TensorElementwiseBinarySpec.div(
+            .contiguous("lhs", lhs_storage.ptr, lhs_storage.len),
+            .contiguous("rhs", rhs_storage.ptr, rhs_storage.len),
+            .contiguous("out", out_storage.ptr, out_storage.len),
+        ),
+    };
+    spec.blocks = std.math.cast(u32, (lhs_storage.len + 127) / 128) orelse return error.InvalidShape;
+    if (spec.blocks == 0) spec.blocks = 1;
+    spec.threads = 128;
+    spec.target_arch = resolved_arch;
+    spec.kernel_symbol = switch (op) {
+        .add => "vectra_device_add",
+        .sub => "vectra_device_sub",
+        .mul => "vectra_device_mul",
+        .div => "vectra_device_div",
+    };
+
+    var runtime_threaded_io = std.Io.Threaded.init(lhs.allocator, .{});
+    defer runtime_threaded_io.deinit();
+    const runtime_io = runtime_threaded_io.io();
+    const launch_plan = axiom.accelerator.tensor_adapter.buildElementwiseBinaryLaunchPlan(runtime_io, lhs.allocator, spec, true) catch return null;
+    if (launch_plan.runtime_image.image_kind == .none) return null;
+    const image = readRuntimeImage(lhs.allocator, launch_plan.runtime_image.rootSlice(), launch_plan.runtime_image.fileNameSlice()) catch return null;
+    defer lhs.allocator.free(image);
+    var fallback_image: ?[:0]u8 = null;
+    defer if (fallback_image) |bytes| lhs.allocator.free(bytes);
+    const module = session.driver.moduleLoadData(image) catch module_fallback: {
+        if (launch_plan.runtime_image.image_kind != .cubin) return null;
+        var ptx_name_buffer: [256]u8 = undefined;
+        const ptx_name = ptxFallbackNameForImage(launch_plan.runtime_image.fileNameSlice(), &ptx_name_buffer) catch return null;
+        fallback_image = readRuntimeImage(lhs.allocator, launch_plan.runtime_image.rootSlice(), ptx_name) catch return null;
+        break :module_fallback session.driver.moduleLoadData(fallback_image.?) catch return null;
+    };
+    defer session.driver.moduleUnload(module);
+    var symbol_buffer: [128]u8 = undefined;
+    const symbol = std.fmt.bufPrintSentinel(&symbol_buffer, "{s}", .{spec.kernel_symbol}, 0) catch return null;
+    const function = session.driver.moduleGetFunction(module, symbol.ptr) catch return null;
+    var lhs_ptr = lhs_storage.ptr;
+    var rhs_ptr = rhs_storage.ptr;
+    var out_ptr = out_storage.ptr;
+    var n_arg: i32 = std.math.cast(i32, lhs_storage.len) orelse return error.InvalidShape;
+    var args = [_]?*anyopaque{
+        @ptrCast(&lhs_ptr),
+        @ptrCast(&rhs_ptr),
+        @ptrCast(&out_ptr),
+        @ptrCast(&n_arg),
+    };
+    session.driver.launchKernel(
+        function,
+        launch_plan.driver_launch.grid,
+        launch_plan.driver_launch.block,
+        launch_plan.driver_launch.shared_memory_bytes,
+        &args,
+    ) catch return null;
+    session.driver.synchronize() catch return null;
+    return out;
 }
 
 pub fn tryAddF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
@@ -856,6 +1321,7 @@ pub fn tryDivViewF32(lhs: array_mod.ArrayView(f32), rhs: array_mod.ArrayView(f32
 }
 
 pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (try tryDeviceMatmulF32(lhs, rhs)) |out| return out;
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedMatmul2dContiguous(lhs, rhs)) return null;
 
@@ -875,6 +1341,113 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
     };
     if (!result.verified) return null;
     return out;
+}
+
+pub fn tryDeviceMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0 or lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0] or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const cublas_report = runtime.runCudaDeviceSgemm(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch null;
+    if (cublas_report) |report| {
+        if (report.valid()) return out;
+    }
+
+    try zeroStorage(out_storage);
+    var session = withCudaContext(lhs.device.index) catch return error.InvalidDevice;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    var cuda_arch_buffer: [16]u8 = undefined;
+    const resolved_arch = session.driver.resolveCudaArch(session.context.device, "auto", &cuda_arch_buffer) catch return error.BackendFailure;
+    const target = axiom.accelerator.cuda_backend.CudaBackendTarget.fromArch(resolved_arch);
+    const plan = axiom.accelerator.GemmBuilder.init()
+        .dimensions(m, n, k)
+        .alpha(1.0)
+        .beta(0.0)
+        .tile(@intCast(@min(n, @as(usize, 16))), @intCast(@min(m, @as(usize, 16))))
+        .cudaArch(resolved_arch)
+        .kernelSymbol("vectra_device_tile_gemm")
+        .build();
+    var artifact = axiom.accelerator.cuda_backend.lowerGemmKernelIrToCudaArtifact(lhs.allocator, plan.lowerToKernelIr(), target) catch return null;
+    defer artifact.deinit(lhs.allocator);
+    if (!artifact.valid()) return null;
+    const module = session.driver.moduleLoadData(artifact.ptx) catch return null;
+    defer session.driver.moduleUnload(module);
+    var symbol_buffer: [128]u8 = undefined;
+    const symbol = std.fmt.bufPrintSentinel(&symbol_buffer, "{s}", .{plan.kernel_symbol}, 0) catch return null;
+    const function = session.driver.moduleGetFunction(module, symbol.ptr) catch return null;
+    const invocation = plan.invocation() catch return null;
+
+    var a_ptr = lhs_storage.ptr;
+    var b_ptr = rhs_storage.ptr;
+    var c_ptr = out_storage.ptr;
+    var m_arg: i32 = std.math.cast(i32, m) orelse return error.InvalidShape;
+    var n_arg: i32 = std.math.cast(i32, n) orelse return error.InvalidShape;
+    var k_arg: i32 = std.math.cast(i32, k) orelse return error.InvalidShape;
+    var args = [_]?*anyopaque{
+        @ptrCast(&a_ptr),
+        @ptrCast(&b_ptr),
+        @ptrCast(&c_ptr),
+        @ptrCast(&m_arg),
+        @ptrCast(&n_arg),
+        @ptrCast(&k_arg),
+    };
+    session.driver.launchKernel(function, invocation.grid, invocation.block, invocation.shared_memory_bytes, &args) catch return null;
+    session.driver.synchronize() catch return null;
+    return out;
+}
+
+pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !addend.device.isCuda()) return null;
+    if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(addend.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0 or addend.data.len != 0) return null;
+    if (lhs.shape.len != 2 or rhs.shape.len != 2 or addend.shape.len != 2) return null;
+    if (lhs.shape[1] != rhs.shape[0] or addend.shape[0] != lhs.shape[0] or addend.shape[1] != rhs.shape[1]) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous() or !addend.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    const add_storage = addend.device_storage orelse return null;
+    if (lhs_storage.len == 0 or rhs_storage.len == 0 or add_storage.len == 0) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+
+    {
+        var out = try addend.clone();
+        errdefer out.deinit();
+        const out_storage = out.device_storage orelse {
+            out.deinit();
+            return null;
+        };
+
+        var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+        const report = runtime.runCudaDeviceSgemmEx(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, 1.0, 1.0) catch null;
+        if (report) |value| {
+            if (value.valid()) return out;
+        }
+        out.deinit();
+    }
+
+    var product = tryDeviceMatmulF32(lhs, rhs) catch return null;
+    if (product) |*matmul_out| {
+        defer matmul_out.deinit();
+        return tryDeviceBinaryF32(.add, matmul_out.*, addend);
+    }
+    return null;
 }
 
 pub fn tryMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
@@ -1773,7 +2346,7 @@ fn hashBF16Slice(values: []const BFloat16) u64 {
     return hasher.final();
 }
 
-test "Axiom CUDA bridge is disabled by default but reports deterministically" {
+test "Axiom CUDA bridge reports dtype metadata deterministically" {
     const report = runSmoke(std.testing.allocator);
     try std.testing.expectEqual(cuda_dtype_support.len, report.dtype_support_count);
     try std.testing.expectEqual(@as(usize, 3), report.dtype_bridge_count);

@@ -124,16 +124,33 @@ pub const Device = struct {
     pub fn isAvailable(self: Device) bool {
         return switch (self.backend) {
             .cpu => true,
-            // CUDA arrays are available only when the optional Axiom CUDA bridge
-            // is compiled in.  This keeps PyTorch-like device semantics honest:
-            // CPU arrays run CPU paths, CUDA arrays run CUDA paths, and creation
-            // on CUDA fails instead of silently becoming a CPU array otherwise.
-            .cuda => build_options.enable_axiom_cuda,
+            // CUDA arrays are available only when Axiom can retain a real CUDA
+            // primary context.  This keeps PyTorch-like device semantics
+            // honest: CPU arrays run Axiom CPU paths, CUDA arrays run Axiom
+            // CUDA paths, and creation on CUDA fails instead of silently
+            // becoming a CPU array otherwise.
+            .cuda => build_options.enable_axiom_cuda and axiom_cuda_backend.deviceAvailable(self.index),
         };
     }
 
     pub fn is_available(self: Device) bool {
         return self.isAvailable();
+    }
+};
+
+pub const DeviceStorage = struct {
+    device: Device,
+    ptr: u64 = 0,
+    len: usize = 0,
+    bytes: usize = 0,
+    owns: bool = true,
+
+    pub fn isAllocated(self: DeviceStorage) bool {
+        return self.ptr != 0 and self.bytes != 0;
+    }
+
+    pub fn is_allocated(self: DeviceStorage) bool {
+        return self.isAllocated();
     }
 };
 
@@ -2110,6 +2127,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn to(self: Self, device: Device) ArrayError!Self {
             if (!device.isAvailable()) return error.InvalidDevice;
+            if (!device.isCpu()) return error.InvalidDevice;
             var out = try self.clone();
             out.device = device;
             return out;
@@ -8751,6 +8769,7 @@ pub fn Array(comptime T: type) type {
         shape: []usize,
         strides: []usize,
         device: Device = .cpu,
+        device_storage: ?DeviceStorage = null,
 
         pub const Scalar = T;
         pub const dtype = DType.of(T);
@@ -8874,36 +8893,88 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn init(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
+            return Self.zerosOn(allocator, dims, .cpu);
+        }
+
+        pub fn initOn(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
+            return Self.zerosOn(allocator, dims, device);
+        }
+
+        pub fn init_on(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
+            return Self.initOn(allocator, dims, device);
+        }
+
+        pub fn emptyOn(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
+            if (!device.isAvailable()) return error.InvalidDevice;
             const n = try numelFrom(dims);
-            const values = try allocator.alloc(T, n);
-            @memset(values, zero(T));
             const shape = try allocator.dupe(usize, dims);
             errdefer allocator.free(shape);
             const strides = try stridesFor(allocator, shape);
-            return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides };
+            errdefer allocator.free(strides);
+            if (device.isCpu()) {
+                const values = try allocator.alloc(T, n);
+                errdefer allocator.free(values);
+                return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides, .device = device };
+            }
+            const values = try allocator.alloc(T, 0);
+            errdefer allocator.free(values);
+            const storage = (try axiom_cuda_backend.allocateStorage(device, n, @sizeOf(T))) orelse return error.InvalidDevice;
+            errdefer axiom_cuda_backend.freeStorage(storage);
+            return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides, .device = device, .device_storage = storage };
+        }
+
+        pub fn empty_on(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
+            return Self.emptyOn(allocator, dims, device);
         }
 
         pub fn full(allocator: std.mem.Allocator, dims: []const usize, value: T) ArrayError!Self {
-            const out = try Self.init(allocator, dims);
-            @memset(out.data, value);
+            return Self.fullOn(allocator, dims, value, .cpu);
+        }
+
+        pub fn fullOn(allocator: std.mem.Allocator, dims: []const usize, value: T, device: Device) ArrayError!Self {
+            const out = try Self.emptyOn(allocator, dims, device);
+            errdefer {
+                var cleanup = out;
+                cleanup.deinit();
+            }
+            if (device.isCpu()) {
+                @memset(out.data, value);
+            } else if (out.device_storage) |storage| {
+                try axiom_cuda_backend.fillStorage(T, storage, value);
+            }
             return out;
+        }
+
+        pub fn full_on(allocator: std.mem.Allocator, dims: []const usize, value: T, device: Device) ArrayError!Self {
+            return Self.fullOn(allocator, dims, value, device);
         }
 
         pub fn zeros(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             return Self.full(allocator, dims, zero(T));
         }
 
+        pub fn zerosOn(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
+            return Self.fullOn(allocator, dims, zero(T), device);
+        }
+
+        pub fn zeros_on(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
+            return Self.zerosOn(allocator, dims, device);
+        }
+
         pub fn ones(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             return Self.full(allocator, dims, one(T));
         }
 
+        pub fn onesOn(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
+            return Self.fullOn(allocator, dims, one(T), device);
+        }
+
+        pub fn ones_on(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
+            return Self.onesOn(allocator, dims, device);
+        }
+
         pub fn empty(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
-            const n = try numelFrom(dims);
-            const values = try allocator.alloc(T, n);
-            const shape = try allocator.dupe(usize, dims);
-            errdefer allocator.free(shape);
-            const strides = try stridesFor(allocator, shape);
-            return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides };
+            return Self.emptyOn(allocator, dims, .cpu);
         }
 
         pub fn fromScalar(allocator: std.mem.Allocator, value: T) ArrayError!Self {
@@ -8911,7 +8982,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn emptyLike(self: Self) ArrayError!Self {
-            return Self.empty(self.allocator, self.shape);
+            return Self.emptyOn(self.allocator, self.shape, self.device);
         }
 
         pub fn empty_like(self: Self) ArrayError!Self {
@@ -8919,7 +8990,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn zerosLike(self: Self) ArrayError!Self {
-            return Self.zeros(self.allocator, self.shape);
+            return Self.zerosOn(self.allocator, self.shape, self.device);
         }
 
         pub fn zeros_like(self: Self) ArrayError!Self {
@@ -8927,7 +8998,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn onesLike(self: Self) ArrayError!Self {
-            return Self.ones(self.allocator, self.shape);
+            return Self.onesOn(self.allocator, self.shape, self.device);
         }
 
         pub fn ones_like(self: Self) ArrayError!Self {
@@ -8935,7 +9006,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn fullLike(self: Self, value: T) ArrayError!Self {
-            return Self.full(self.allocator, self.shape, value);
+            return Self.fullOn(self.allocator, self.shape, value, self.device);
         }
 
         pub fn full_like(self: Self, value: T) ArrayError!Self {
@@ -8943,7 +9014,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn newEmpty(self: Self, dims: []const usize) ArrayError!Self {
-            return Self.empty(self.allocator, dims);
+            return Self.emptyOn(self.allocator, dims, self.device);
         }
 
         pub fn new_empty(self: Self, dims: []const usize) ArrayError!Self {
@@ -8951,7 +9022,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn newZeros(self: Self, dims: []const usize) ArrayError!Self {
-            return Self.zeros(self.allocator, dims);
+            return Self.zerosOn(self.allocator, dims, self.device);
         }
 
         pub fn new_zeros(self: Self, dims: []const usize) ArrayError!Self {
@@ -8959,7 +9030,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn newOnes(self: Self, dims: []const usize) ArrayError!Self {
-            return Self.ones(self.allocator, dims);
+            return Self.onesOn(self.allocator, dims, self.device);
         }
 
         pub fn new_ones(self: Self, dims: []const usize) ArrayError!Self {
@@ -8967,7 +9038,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn newFull(self: Self, dims: []const usize, value: T) ArrayError!Self {
-            return Self.full(self.allocator, dims, value);
+            return Self.fullOn(self.allocator, dims, value, self.device);
         }
 
         pub fn new_full(self: Self, dims: []const usize, value: T) ArrayError!Self {
@@ -9087,14 +9158,28 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn fromSlice(allocator: std.mem.Allocator, values: []const T, dims: []const usize) ArrayError!Self {
+            return Self.fromSliceOn(allocator, values, dims, .cpu);
+        }
+
+        pub fn fromSliceOn(allocator: std.mem.Allocator, values: []const T, dims: []const usize, device: Device) ArrayError!Self {
+            if (!device.isAvailable()) return error.InvalidDevice;
             const n = try numelFrom(dims);
             if (values.len != n) return error.ShapeMismatch;
-            const data = try allocator.dupe(T, values);
+            const data = if (device.isCpu()) try allocator.dupe(T, values) else try allocator.alloc(T, 0);
             errdefer allocator.free(data);
             const shape = try allocator.dupe(usize, dims);
             errdefer allocator.free(shape);
             const strides = try stridesFor(allocator, shape);
-            return .{ .allocator = allocator, .data = data, .shape = shape, .strides = strides };
+            errdefer allocator.free(strides);
+            if (device.isCpu()) return .{ .allocator = allocator, .data = data, .shape = shape, .strides = strides, .device = device };
+            const storage = (try axiom_cuda_backend.allocateStorage(device, n, @sizeOf(T))) orelse return error.InvalidDevice;
+            errdefer axiom_cuda_backend.freeStorage(storage);
+            try axiom_cuda_backend.uploadStorage(storage, std.mem.sliceAsBytes(values));
+            return .{ .allocator = allocator, .data = data, .shape = shape, .strides = strides, .device = device, .device_storage = storage };
+        }
+
+        pub fn from_slice_on(allocator: std.mem.Allocator, values: []const T, dims: []const usize, device: Device) ArrayError!Self {
+            return Self.fromSliceOn(allocator, values, dims, device);
         }
 
         pub fn fromNested2D(allocator: std.mem.Allocator, comptime rows: usize, comptime cols: usize, values: [rows][cols]T) ArrayError!Self {
@@ -9500,6 +9585,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn deinit(self: *Self) void {
+            if (self.device_storage) |storage| axiom_cuda_backend.freeStorage(storage);
             self.allocator.free(self.data);
             self.allocator.free(self.shape);
             self.allocator.free(self.strides);
@@ -9507,7 +9593,16 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn clone(self: Self) ArrayError!Self {
-            return Self.fromSlice(self.allocator, self.data, self.shape);
+            var out = try Self.emptyOn(self.allocator, self.shape, self.device);
+            errdefer out.deinit();
+            if (self.device.isCpu()) {
+                @memcpy(out.data, self.data);
+            } else if (self.device_storage) |src_storage| {
+                if (out.device_storage) |dst_storage| try axiom_cuda_backend.copyStorage(dst_storage, src_storage) else return error.InvalidDevice;
+            } else {
+                return error.InvalidDevice;
+            }
+            return out;
         }
 
         pub fn copy(self: Self) ArrayError!Self {
@@ -9519,6 +9614,17 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
+            if (!self.device.isCpu()) {
+                var host = try self.to(.cpu);
+                defer host.deinit();
+                var out = try host.astype(U);
+                if (self.device.isCuda()) {
+                    const device_out = try out.to(self.device);
+                    out.deinit();
+                    return device_out;
+                }
+                return out;
+            }
             const out = try Array(U).empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| {
                 slot.* = castValue(U, v);
@@ -10677,8 +10783,21 @@ pub fn Array(comptime T: type) type {
 
         pub fn to(self: Self, device: Device) ArrayError!Self {
             if (!device.isAvailable()) return error.InvalidDevice;
-            var out = try self.clone();
-            out.device = device;
+            if (self.device.sameDevice(device)) return self.clone();
+
+            var out = try Self.emptyOn(self.allocator, self.shape, device);
+            errdefer out.deinit();
+            if (self.device.isCpu() and device.isCuda()) {
+                if (out.device_storage) |storage| try axiom_cuda_backend.uploadStorage(storage, std.mem.sliceAsBytes(self.data)) else return error.InvalidDevice;
+            } else if (self.device.isCuda() and device.isCpu()) {
+                if (self.device_storage) |storage| try axiom_cuda_backend.downloadStorage(storage, std.mem.sliceAsBytes(out.data)) else return error.InvalidDevice;
+            } else if (self.device.isCuda() and device.isCuda()) {
+                if (self.device_storage) |src_storage| {
+                    if (out.device_storage) |dst_storage| try axiom_cuda_backend.copyStorage(dst_storage, src_storage) else return error.InvalidDevice;
+                } else return error.InvalidDevice;
+            } else {
+                return error.InvalidDevice;
+            }
             return out;
         }
 
@@ -11023,7 +11142,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn numel(self: Self) usize {
-            return self.data.len;
+            return product(self.shape);
         }
 
         pub fn ndim(self: Self) usize {
@@ -11143,6 +11262,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn dataPtr(self: Self) [*]T {
+            if (self.device_storage) |storage| return @ptrFromInt(storage.ptr);
             return self.data.ptr;
         }
 
@@ -11151,6 +11271,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn storageDataPtr(self: Self) [*]T {
+            if (self.device_storage) |storage| return @ptrFromInt(storage.ptr);
             return self.data.ptr;
         }
 
@@ -11159,6 +11280,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn storageSize(self: Self) usize {
+            if (self.device_storage) |storage| return storage.len;
             return self.data.len;
         }
 
@@ -11167,6 +11289,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn storageNbytes(self: Self) usize {
+            if (self.device_storage) |storage| return storage.bytes;
             return self.data.len * @sizeOf(T);
         }
 
@@ -11339,10 +11462,12 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn asView(self: Self) ArrayError!ArrayView(T) {
+            if (!self.device.isCpu()) return error.InvalidDevice;
             return ArrayView(T).fromArray(self);
         }
 
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) ArrayError!ArrayView(T) {
+            if (!self.device.isCpu()) return error.InvalidDevice;
             try validateStridedBounds(self.data.len, offset, dims, stride_values);
             return ArrayView(T).init(self.allocator, self.data, dims, stride_values, offset, self.device);
         }
@@ -11787,6 +11912,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn asSlice(self: Self) ArrayError![]T {
+            if (!self.device.isCpu()) return error.InvalidDevice;
             if (!self.isContiguous()) return error.InvalidShape;
             return self.data;
         }
@@ -11804,7 +11930,11 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn copyToSlice(self: Self, out: []T) ArrayError!void {
-            if (out.len != self.data.len) return error.ShapeMismatch;
+            if (out.len != self.numel()) return error.ShapeMismatch;
+            if (!self.device.isCpu()) {
+                if (self.device_storage) |storage| return axiom_cuda_backend.downloadStorage(storage, std.mem.sliceAsBytes(out));
+                return error.InvalidDevice;
+            }
             @memcpy(out, self.data);
         }
 
@@ -11813,8 +11943,9 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) ArrayError![]T {
-            const out = try allocator.alloc(T, self.data.len);
-            @memcpy(out, self.data);
+            const out = try allocator.alloc(T, self.numel());
+            errdefer allocator.free(out);
+            try self.copyToSlice(out);
             return out;
         }
 
@@ -14492,8 +14623,28 @@ pub fn Array(comptime T: type) type {
         }
 
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
+            if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
+            if (self.device.isCuda()) {
+                if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
+                if (comptime T != f32) return error.TypeUnsupported;
+                const maybe_op: ?axiom_cuda_backend.BinaryOp = if (comptime op == opAdd)
+                    axiom_cuda_backend.BinaryOp.add
+                else if (comptime op == opSub)
+                    axiom_cuda_backend.BinaryOp.sub
+                else if (comptime op == opMul)
+                    axiom_cuda_backend.BinaryOp.mul
+                else if (comptime op == opDiv)
+                    axiom_cuda_backend.BinaryOp.div
+                else
+                    null;
+                if (maybe_op) |op_value| {
+                    if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, other)) |out| return out;
+                    return error.BackendFailure;
+                }
+                return error.TypeUnsupported;
+            }
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if ((build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) and std.mem.eql(usize, self.shape, other.shape)) {
+                if (std.mem.eql(usize, self.shape, other.shape)) {
                     const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
                         axiom_backend.ElementwiseOp.add
                     else if (comptime op == opSub)
@@ -14504,7 +14655,7 @@ pub fn Array(comptime T: type) type {
                         axiom_backend.ElementwiseOp.div
                     else
                         null;
-                    if (maybe_op) |op_value| return try axiom_backend.elementwise(T, op_value, .prefer_cuda, self, other);
+                    if (maybe_op) |op_value| return try axiom_backend.elementwise(T, op_value, .prefer_axiom_cpu, self, other);
                 }
             }
             if (std.mem.eql(usize, self.shape, other.shape)) {
@@ -14516,7 +14667,7 @@ pub fn Array(comptime T: type) type {
                 return out;
             }
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) {
+                if (true) {
                     const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
                         axiom_backend.ElementwiseOp.add
                     else if (comptime op == opSub)
@@ -14528,7 +14679,7 @@ pub fn Array(comptime T: type) type {
                     else
                         null;
                     const accelerated = if (maybe_op) |op_value|
-                        try axiom_backend.tryElementwiseScalarBroadcast(T, op_value, .prefer_cuda, self, other)
+                        try axiom_backend.tryElementwiseScalarBroadcast(T, op_value, .prefer_axiom_cpu, self, other)
                     else
                         null;
                     if (accelerated) |out| return out;
@@ -14578,6 +14729,26 @@ pub fn Array(comptime T: type) type {
         }
 
         fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Self {
+            if (self.device.isCuda()) {
+                if (comptime T != f32) return error.TypeUnsupported;
+                const maybe_op: ?axiom_cuda_backend.BinaryOp = if (comptime op == opAdd)
+                    axiom_cuda_backend.BinaryOp.add
+                else if (comptime op == opSub)
+                    axiom_cuda_backend.BinaryOp.sub
+                else if (comptime op == opMul)
+                    axiom_cuda_backend.BinaryOp.mul
+                else if (comptime op == opDiv)
+                    axiom_cuda_backend.BinaryOp.div
+                else
+                    null;
+                if (maybe_op) |op_value| {
+                    var scalar_array = try Self.fullOn(self.allocator, self.shape, scalar, self.device);
+                    defer scalar_array.deinit();
+                    if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, scalar_array)) |out| return out;
+                    return error.BackendFailure;
+                }
+                return error.TypeUnsupported;
+            }
             const out = try Self.empty(self.allocator, self.shape);
             if (binaryScalarSimd(out.data, self.data, scalar, op)) return out;
             for (self.data, out.data) |v, *slot| slot.* = op(v, scalar);
@@ -15275,32 +15446,36 @@ pub fn Array(comptime T: type) type {
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (self.device.isCuda()) return self.binaryScalar(scalar, opAdd);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .add, .prefer_cuda, self, scalar, .rhs);
+                return axiom_backend.elementwiseScalar(T, .add, .prefer_axiom_cpu, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opAdd);
         }
 
         pub fn subScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (self.device.isCuda()) return self.binaryScalar(scalar, opSub);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .sub, .prefer_cuda, self, scalar, .rhs);
+                return axiom_backend.elementwiseScalar(T, .sub, .prefer_axiom_cpu, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opSub);
         }
 
         pub fn mulScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (self.device.isCuda()) return self.binaryScalar(scalar, opMul);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .mul, .prefer_cuda, self, scalar, .rhs);
+                return axiom_backend.elementwiseScalar(T, .mul, .prefer_axiom_cpu, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opMul);
         }
 
         pub fn divScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (self.device.isCuda()) return self.binaryScalar(scalar, opDiv);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch) return axiom_backend.elementwiseScalar(T, .div, .prefer_cuda, self, scalar, .rhs);
+                return axiom_backend.elementwiseScalar(T, .div, .prefer_axiom_cpu, self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opDiv);
         }
@@ -19611,11 +19786,18 @@ pub fn Array(comptime T: type) type {
             const lhs_k = self.shape[self.shape.len - 1];
             const rhs_k = if (rhs_vec) other.shape[0] else other.shape[other.shape.len - 2];
             if (lhs_k != rhs_k) return error.ShapeMismatch;
+            if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
+            if (self.device.isCuda()) {
+                if (comptime T != f32) return error.TypeUnsupported;
+                if (lhs_vec or rhs_vec) return error.TypeUnsupported;
+                if (try axiom_cuda_backend.tryDeviceMatmulF32(self, other)) |out| return out;
+                return error.BackendFailure;
+            }
 
             if (lhs_vec and rhs_vec) return self.dot(other);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (!lhs_vec and !rhs_vec and (build_options.enable_axiom_cuda_dispatch or build_options.enable_axiom_cpu_dispatch)) {
-                    const report = axiom_backend.selectMatmul(T, .prefer_cuda, self, other);
+                if (!lhs_vec and !rhs_vec) {
+                    const report = axiom_backend.selectMatmul(T, .prefer_axiom_cpu, self, other);
                     switch (report.selected) {
                         .axiom_cuda => if (comptime T == f32) {
                             const accelerated = try axiom_cuda_backend.tryMatmulF32(self, other);
@@ -23291,7 +23473,17 @@ test "array pytorch numpy shape indexing and layout helpers" {
     defer cpu_clone.deinit();
     try std.testing.expect(a.sameDevice(cpu_clone));
     try std.testing.expect(a.same_device(cpu_clone));
-    try std.testing.expectError(error.InvalidDevice, a.cuda(0));
+    if (Device.cuda(0).isAvailable()) {
+        var cuda_clone = try a.cuda(0);
+        defer cuda_clone.deinit();
+        try std.testing.expect(cuda_clone.isCuda());
+        try std.testing.expect(cuda_clone.device_storage != null);
+        var cuda_back = try cuda_clone.cpu();
+        defer cuda_back.deinit();
+        try std.testing.expectEqualSlices(f64, a.data, cuda_back.data);
+    } else {
+        try std.testing.expectError(error.InvalidDevice, a.cuda(0));
+    }
     try std.testing.expectEqual(@as(f64, 5), try a.at(&.{ 1, 1 }));
     var empty_meta = try Array(f64).zeros(gpa, &.{ 0, 3 });
     defer empty_meta.deinit();
@@ -28546,8 +28738,17 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqual(Backend.cpu, cpu_copy.device.backend);
     try std.testing.expectEqualSlices(f64, cpu_source.data, cpu_copy.data);
     try std.testing.expect(Device.cpu.isAvailable());
-    try std.testing.expect(!Device.cuda(0).isAvailable());
-    try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
+    if (Device.cuda(0).isAvailable()) {
+        var cuda_copy = try cpu_source.cuda(0);
+        defer cuda_copy.deinit();
+        try std.testing.expectEqual(Backend.cuda, cuda_copy.device.backend);
+        try std.testing.expect(cuda_copy.device_storage != null);
+        var host_roundtrip = try cuda_copy.cpu();
+        defer host_roundtrip.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, host_roundtrip.data);
+    } else {
+        try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
+    }
 
     var cpu_view = try cpu_source.sliceAxisView(1, .{ .start = 0, .stop = 2, .step = 1 });
     defer cpu_view.deinit();

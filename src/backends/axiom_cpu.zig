@@ -1,4 +1,4 @@
-//! Optional Axiom CPU bridge for Vectra.
+//! Axiom CPU bridge for Vectra.
 //!
 //! This routes Vectra host arrays through Axiom's CPU lowering entry points,
 //! which currently delegate dense GEMM to the sibling Veyra backend.
@@ -116,7 +116,7 @@ fn supportedMatmul2dContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: a
         lhs.isContiguous() and rhs.isContiguous();
 }
 
-test "Axiom CPU bridge is disabled by default or dispatches GEMM" {
+test "Axiom CPU bridge dispatches GEMM by default" {
     const gpa = std.testing.allocator;
     var a = try array_mod.Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
@@ -133,7 +133,7 @@ test "Axiom CPU bridge is disabled by default or dispatches GEMM" {
     }
 }
 
-test "Axiom CPU bridge is disabled by default or dispatches elementwise" {
+test "Axiom CPU bridge dispatches elementwise by default" {
     const gpa = std.testing.allocator;
     var lhs32 = try array_mod.Array(f32).fromSlice(gpa, &.{ 8, 6, 4, 2 }, &.{4});
     defer lhs32.deinit();

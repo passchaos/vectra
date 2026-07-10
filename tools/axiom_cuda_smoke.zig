@@ -1,4 +1,4 @@
-//! CLI smoke gate for the optional Vectra -> Axiom CUDA bridge.
+//! CLI smoke gate for the Vectra -> Axiom CUDA bridge.
 
 const std = @import("std");
 const vx = @import("vectra");

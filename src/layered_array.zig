@@ -5,9 +5,10 @@
 //! - `Array(T)`: existing Vectra typed array with runtime shape/strides layout.
 //! - `AnyArray`: dtype and layout are runtime metadata.
 //!
-//! `Device` remains runtime metadata in every layer.  CUDA devices can be named
-//! in APIs today, but persistent CUDA-resident array storage is still a future
-//! backend and therefore returns `error.InvalidDevice` through constructors.
+//! `Device` remains runtime metadata in every layer.  When a CUDA device is
+//! available through Axiom, deterministic creation options allocate runtime
+//! `Array` payloads directly in device storage. Random CUDA creation is left
+//! explicit until a device RNG kernel exists.
 
 const std = @import("std");
 const array_mod = @import("array.zig");
@@ -434,8 +435,7 @@ pub const Context = struct {
         dims: []const usize,
     ) ArrayError!Array(optionDType(@TypeOf(opts))) {
         const T = optionDType(@TypeOf(opts));
-        const out = try Array(T).fromSlice(self.allocator, values, dims);
-        return finishDevice(T, out, opts.device);
+        return Array(T).fromSliceOn(self.allocator, values, dims, opts.device);
     }
 
     pub fn zeros(self: Context, comptime T: type, dims: []const usize) ArrayError!Array(T) {
@@ -444,8 +444,7 @@ pub const Context = struct {
 
     pub fn zerosWith(self: Context, opts: anytype, dims: []const usize) ArrayError!Array(optionDType(@TypeOf(opts))) {
         const T = optionDType(@TypeOf(opts));
-        const out = try Array(T).zeros(self.allocator, dims);
-        return finishDevice(T, out, opts.device);
+        return Array(T).zerosOn(self.allocator, dims, opts.device);
     }
 
     pub fn ones(self: Context, comptime T: type, dims: []const usize) ArrayError!Array(T) {
@@ -454,8 +453,7 @@ pub const Context = struct {
 
     pub fn onesWith(self: Context, opts: anytype, dims: []const usize) ArrayError!Array(optionDType(@TypeOf(opts))) {
         const T = optionDType(@TypeOf(opts));
-        const out = try Array(T).ones(self.allocator, dims);
-        return finishDevice(T, out, opts.device);
+        return Array(T).onesOn(self.allocator, dims, opts.device);
     }
 
     pub fn rand(self: *Context, comptime T: type, dims: []const usize) ArrayError!Array(T) {
@@ -464,8 +462,9 @@ pub const Context = struct {
 
     pub fn randWith(self: *Context, opts: anytype, dims: []const usize) ArrayError!Array(optionDType(@TypeOf(opts))) {
         const T = optionDType(@TypeOf(opts));
+        if (!opts.device.isCpu()) return error.TypeUnsupported;
         const out = try Array(T).rand(self.allocator, dims, opts.seed orelse self.nextSeed());
-        return finishDevice(T, out, opts.device);
+        return out;
     }
 
     pub fn randSeeded(self: Context, comptime T: type, dims: []const usize, seed: u64) ArrayError!Array(T) {
@@ -489,16 +488,6 @@ pub fn withAllocator(allocator: std.mem.Allocator) Context {
 
 pub fn withSeed(allocator: std.mem.Allocator, seed: u64) Context {
     return .{ .allocator = allocator, .next_seed = seed };
-}
-
-fn finishDevice(comptime T: type, input: Array(T), device: Device) ArrayError!Array(T) {
-    var out = input;
-    if (!device.isAvailable()) {
-        out.deinit();
-        return error.InvalidDevice;
-    }
-    out.device = device;
-    return out;
 }
 
 fn optionDType(comptime Options: type) type {

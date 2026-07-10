@@ -1,9 +1,7 @@
 //! Explicit Axiom CUDA bridge example.
 //!
-//! Default builds show the bridge as disabled. CUDA-enabled builds also print
-//! Axiom's smoke report and buffer-plan metadata:
+//! Prints Axiom's smoke report and buffer-plan metadata:
 //!   zig build example-axiom-cuda-bridge
-//!   zig build -Daxiom-cuda=true example-axiom-cuda-bridge
 
 const std = @import("std");
 const vx = @import("vectra");

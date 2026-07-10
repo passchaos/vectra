@@ -1,7 +1,7 @@
 # CUDA dtype support matrix
 
 This matrix records CUDA dtype names visible in the local CUDA headers and how
-Vectra currently maps them through the optional Axiom accelerator bridge.  It is
+Vectra maps supported entries through the default Axiom accelerator backend.  It is
 an integration status document, not a claim that native CUDA kernels exist for
 all listed dtypes.
 
@@ -14,7 +14,7 @@ Local CUDA evidence: `/usr/local/cuda/include/library_types.h` declares
 | `CUDA_C_16F` | complex half pair | Not exposed | Planned. |
 | `CUDA_R_16BF` | real bfloat16 | `BFloat16` | Same-shape add/sub/mul/div now try Axiom's native BF16 CUDA runtime seed first, with widened-to-f32 fallback. Contiguous 2D matmul calls Axiom's typed SIMT GEMM runtime seed, which reports typed launch-plan readiness and the explicit `widened_f32_cuda_compute` route while using widened f32 compute underneath today; CUTILE tensor-core lowering remains future work. |
 | `CUDA_C_16BF` | complex bfloat16 pair | Not exposed | Planned. |
-| `CUDA_R_32F` | real float | `f32` | Native Axiom CUDA seed for add/sub/mul/div, SAXPY, scalar materialization, and CUDA Tile IR matmul. |
+| `CUDA_R_32F` | real float | `f32` | Native Axiom CUDA seed for add/sub/mul/div and SAXPY; owning CUDA Array matmul/matmulAdd use Axiom cached cuBLAS SGEMM for production throughput with the CUDA Tile IR seed retained as fallback/provenance. |
 | `CUDA_C_32F` | complex float pair | `Complex64` | CPU Vectra support exists; Axiom CUDA bridge planned. |
 | `CUDA_R_64F` | real double | `f64` | Axiom CPU→Veyra path for supported ops; CUDA bridge planned. |
 | `CUDA_C_64F` | complex double pair | `Complex128` | CPU Vectra support exists; Axiom CUDA bridge planned. |
@@ -75,12 +75,12 @@ Current registry summary:
 ## Validation commands
 
 ```sh
-zig build -Daxiom-cuda=true -Daxiom-cuda-expect=ran axiom-cuda-smoke
-zig build -Daxiom-cuda-dispatch=true axiom-cuda-dispatch-smoke
+zig build -Daxiom-cuda-expect=ran axiom-cuda-smoke
+zig build axiom-cuda-dispatch-smoke
 ```
 
 The CUDA smoke JSON includes `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`, and
-`bf16_matmul_ok` fields when the optional bridge is enabled. It also includes
+`bf16_matmul_ok` fields when the CUDA smoke runs. It also includes
 `f16_native_execution_fingerprint` and `bf16_native_execution_fingerprint` when
 the native typed elementwise seeds run,
 `dtype_support_count`, `dtype_bridge_count`, `dtype_native_seed_count`,
