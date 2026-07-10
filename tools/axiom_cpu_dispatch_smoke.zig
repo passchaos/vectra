@@ -15,7 +15,9 @@ pub fn main(init: std.process.Init) !void {
     defer matmul_add32.deinit();
     var auto_add32 = try out32.add(c32);
     defer auto_add32.deinit();
-    const cpu_fusion_status32_ok = out32.fusionStatus() == .cpu_matmul and auto_add32.fusionStatus() == .none;
+    var auto_add_sqrt32 = try auto_add32.sqrt();
+    defer auto_add_sqrt32.deinit();
+    const cpu_fusion_status32_ok = out32.fusionStatus() == .cpu_matmul and auto_add32.fusionStatus() == .cpu_matmul_add and auto_add_sqrt32.fusionStatus() == .cpu_matmul_add_sqrt;
     var add32 = try a32.add(a32);
     defer add32.deinit();
     var sub32 = try a32.sub(a32);
@@ -57,7 +59,9 @@ pub fn main(init: std.process.Init) !void {
     defer matmul_add64.deinit();
     var auto_add64 = try out64.add(c64);
     defer auto_add64.deinit();
-    const cpu_fusion_status64_ok = out64.fusionStatus() == .cpu_matmul and auto_add64.fusionStatus() == .none;
+    var auto_add_exp64 = try auto_add64.exp();
+    defer auto_add_exp64.deinit();
+    const cpu_fusion_status64_ok = out64.fusionStatus() == .cpu_matmul and auto_add64.fusionStatus() == .cpu_matmul_add and auto_add_exp64.fusionStatus() == .cpu_matmul_add_exp;
     var add64 = try a64.add(a64);
     defer add64.deinit();
     var sub64 = try a64.sub(a64);

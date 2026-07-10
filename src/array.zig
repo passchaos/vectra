@@ -8798,6 +8798,12 @@ pub fn Array(comptime T: type) type {
             cuda_matmul_sub_sqrt,
             cuda_matmul_sub_exp,
             cpu_matmul,
+            cpu_matmul_add,
+            cpu_matmul_sub,
+            cpu_matmul_add_sqrt,
+            cpu_matmul_add_exp,
+            cpu_matmul_sub_sqrt,
+            cpu_matmul_sub_exp,
         };
 
         const CpuMatmulFusion = struct {
@@ -8805,6 +8811,8 @@ pub fn Array(comptime T: type) type {
             rhs_data: []T,
             lhs_shape: [2]usize,
             rhs_shape: [2]usize,
+            beta: f32 = 0.0,
+            unary: ?PendingUnary = null,
         };
 
         pub const Scalar = T;
@@ -8828,7 +8836,17 @@ pub fn Array(comptime T: type) type {
                 }
                 return if (is_sub) .cuda_matmul_sub else .cuda_matmul_add;
             }
-            if (self.cpu_matmul != null) return .cpu_matmul;
+            if (self.cpu_matmul) |cpu_fusion| {
+                if (cpu_fusion.beta == 0.0) return .cpu_matmul;
+                const is_sub = cpu_fusion.beta < 0.0;
+                if (cpu_fusion.unary) |unary_op| {
+                    return switch (unary_op) {
+                        .sqrt => if (is_sub) .cpu_matmul_sub_sqrt else .cpu_matmul_add_sqrt,
+                        .exp => if (is_sub) .cpu_matmul_sub_exp else .cpu_matmul_add_exp,
+                    };
+                }
+                return if (is_sub) .cpu_matmul_sub else .cpu_matmul_add;
+            }
             return .none;
         }
 
@@ -14847,6 +14865,21 @@ pub fn Array(comptime T: type) type {
             };
         }
 
+        fn attachCpuMatmulDerived(out: *Self, pending: CpuMatmulFusion, beta_value: f32) void {
+            if (comptime T != f32 and T != f64) return;
+            if (!out.device.isCpu()) return;
+            out.cpu_matmul = pending;
+            out.cpu_matmul.?.beta = beta_value;
+            out.cpu_matmul.?.unary = null;
+        }
+
+        fn attachCpuUnaryDerived(out: *Self, pending: CpuMatmulFusion, unary_op: PendingUnary) void {
+            if (comptime T != f32 and T != f64) return;
+            if (!out.device.isCpu()) return;
+            out.cpu_matmul = pending;
+            out.cpu_matmul.?.unary = unary_op;
+        }
+
         fn tryFuseCpuMatmulAdd(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!?Self {
             if (comptime T != f32 and T != f64) return null;
             const pending = self.cpu_matmul orelse return null;
@@ -14874,17 +14907,33 @@ pub fn Array(comptime T: type) type {
             };
             if (comptime op == opAdd) {
                 if (comptime T == f32) {
-                    if (try axiom_cpu_backend.tryMatmulAddF32(lhs_array, rhs_array, other)) |out| return out;
+                    if (try axiom_cpu_backend.tryMatmulAddF32(lhs_array, rhs_array, other)) |out_value| {
+                        var out = out_value;
+                        out.attachCpuMatmulDerived(pending, 1.0);
+                        return out;
+                    }
                 } else {
-                    if (try axiom_cpu_backend.tryMatmulAddF64(lhs_array, rhs_array, other)) |out| return out;
+                    if (try axiom_cpu_backend.tryMatmulAddF64(lhs_array, rhs_array, other)) |out_value| {
+                        var out = out_value;
+                        out.attachCpuMatmulDerived(pending, 1.0);
+                        return out;
+                    }
                 }
             } else {
                 var neg_addend = try other.neg();
                 defer neg_addend.deinit();
                 if (comptime T == f32) {
-                    if (try axiom_cpu_backend.tryMatmulAddF32(lhs_array, rhs_array, neg_addend)) |out| return out;
+                    if (try axiom_cpu_backend.tryMatmulAddF32(lhs_array, rhs_array, neg_addend)) |out_value| {
+                        var out = out_value;
+                        out.attachCpuMatmulDerived(pending, -1.0);
+                        return out;
+                    }
                 } else {
-                    if (try axiom_cpu_backend.tryMatmulAddF64(lhs_array, rhs_array, neg_addend)) |out| return out;
+                    if (try axiom_cpu_backend.tryMatmulAddF64(lhs_array, rhs_array, neg_addend)) |out_value| {
+                        var out = out_value;
+                        out.attachCpuMatmulDerived(pending, -1.0);
+                        return out;
+                    }
                 }
             }
             return null;
@@ -16018,10 +16067,22 @@ pub fn Array(comptime T: type) type {
                 return self.runCudaUnaryExp();
             }
             if (self.device.isCpu() and comptime T == f32) {
-                if (try axiom_cpu_backend.tryExpF32(self)) |out| return out;
+                if (try axiom_cpu_backend.tryExpF32(self)) |out_value| {
+                    var out = out_value;
+                    if (self.cpu_matmul) |pending| {
+                        if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .exp);
+                    }
+                    return out;
+                }
             }
             if (self.device.isCpu() and comptime T == f64) {
-                if (try axiom_cpu_backend.tryExpF64(self)) |out| return out;
+                if (try axiom_cpu_backend.tryExpF64(self)) |out_value| {
+                    var out = out_value;
+                    if (self.cpu_matmul) |pending| {
+                        if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .exp);
+                    }
+                    return out;
+                }
             }
             return self.unary(opExp);
         }
@@ -16084,10 +16145,22 @@ pub fn Array(comptime T: type) type {
                 return self.runCudaUnarySqrt();
             }
             if (self.device.isCpu() and comptime T == f32) {
-                if (try axiom_cpu_backend.trySqrtF32(self)) |out| return out;
+                if (try axiom_cpu_backend.trySqrtF32(self)) |out_value| {
+                    var out = out_value;
+                    if (self.cpu_matmul) |pending| {
+                        if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .sqrt);
+                    }
+                    return out;
+                }
             }
             if (self.device.isCpu() and comptime T == f64) {
-                if (try axiom_cpu_backend.trySqrtF64(self)) |out| return out;
+                if (try axiom_cpu_backend.trySqrtF64(self)) |out_value| {
+                    var out = out_value;
+                    if (self.cpu_matmul) |pending| {
+                        if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .sqrt);
+                    }
+                    return out;
+                }
             }
             return self.unary(opSqrt);
         }
