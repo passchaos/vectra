@@ -1,13 +1,14 @@
 //! PyTorch-like random GEMM + add example.
 //!
-//! Production shape: M = 4096 * 4, N = 4096, K = 4096.
+//! Execute shape defaults to a modest M = 40 * 4, N = 40, K = 40 so the
+//! example stays interactive; edit `production` for larger stress runs.
 //! Default mode is a dry-run plan; pass `--smoke` for a tiny execution or
 //! `--execute` for the production shape.
 
 const std = @import("std");
 const vx = @import("vectra");
 
-const production: Shape = .{ .m = 4096 * 4, .n = 4096, .k = 4096 };
+const production: Shape = .{ .m = 40 * 4, .n = 40, .k = 40 };
 const smoke: Shape = .{ .m = 8, .n = 4, .k = 6 };
 
 const Shape = struct { m: usize, n: usize, k: usize };
@@ -23,14 +24,14 @@ pub fn main(init: std.process.Init) !void {
     try printPlan(&stdout.interface, args.mode, shape);
     if (args.mode == .dry_run) return stdout.interface.flush();
 
-    const np = vx.withAllocator(std.heap.smp_allocator);
+    var np = vx.withAllocator(std.heap.smp_allocator);
 
     // CPU tensors run the CPU path.
-    var a = try np.randWith(vx.seeded(f32, 0x4096_0001), &.{ shape.m, shape.k });
+    var a = try np.rand(f32, &.{ shape.m, shape.k });
     defer a.deinit();
-    var b = try np.randWith(vx.seeded(f32, 0x4096_0002), &.{ shape.k, shape.n });
+    var b = try np.rand(f32, &.{ shape.k, shape.n });
     defer b.deinit();
-    var c = try np.randWith(vx.seeded(f32, 0x4096_0003), &.{ shape.m, shape.n });
+    var c = try np.rand(f32, &.{ shape.m, shape.n });
     defer c.deinit();
     var y = try vx.matmulAdd(a, b, c);
     defer y.deinit();
@@ -39,14 +40,16 @@ pub fn main(init: std.process.Init) !void {
     // CUDA tensors use the same operation and dispatch through CUDA when enabled.
     if (vx.axiom_cuda.enabled()) {
         const gpu = vx.cuda(0);
-        var a_cuda = try np.randWith(vx.seededOn(f32, gpu, 0x4096_0001), &.{ shape.m, shape.k });
+        var a_cuda = try np.randWith(vx.onDevice(f32, gpu), &.{ shape.m, shape.k });
         defer a_cuda.deinit();
-        var b_cuda = try np.randWith(vx.seededOn(f32, gpu, 0x4096_0002), &.{ shape.k, shape.n });
+        var b_cuda = try np.randWith(vx.onDevice(f32, gpu), &.{ shape.k, shape.n });
         defer b_cuda.deinit();
-        var c_cuda = try np.randWith(vx.seededOn(f32, gpu, 0x4096_0003), &.{ shape.m, shape.n });
+        var c_cuda = try np.randWith(vx.onDevice(f32, gpu), &.{ shape.m, shape.n });
         defer c_cuda.deinit();
+
         var y_cuda = try vx.matmulAdd(a_cuda, b_cuda, c_cuda);
         defer y_cuda.deinit();
+
         try printResult(&stdout.interface, "cuda", "axiom_cuda", y_cuda);
     } else if (args.require_cuda) {
         return error.CudaDisabled;

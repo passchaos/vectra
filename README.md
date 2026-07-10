@@ -125,11 +125,13 @@ same examples with `-Daxiom-cpu-dispatch=true`, `-Daxiom-cuda-dispatch=true`, or
 `-Daxiom-cuda=true` to inspect the corresponding Axiom bridge paths.
 `example-large-matmul-add` now keeps the user-facing body close to PyTorch:
 seedless `rand` / device-aware `randWith` followed by the same `vx.matmulAdd` call for CPU and CUDA tensors.
-It documents the random `Y = A[M,K] * B[K,N] + C[M,N]` workload with
-`M = 4096 * 4`, `N = 4096`, and `K = 4096`. It dry-runs by default so normal
-example runs are safe; pass `-- --smoke` for a tiny executable check,
-`-- --execute` for the full CPU path, or build with `-Daxiom-cuda=true` to let
-CUDA-device tensors dispatch through the CUDA path.
+It documents the random `Y = A[M,K] * B[K,N] + C[M,N]` workload. The checked-in
+execute size is intentionally modest (`M = 40 * 4`, `N = 40`, `K = 40`) so the
+example stays interactive; edit the example's `production` constant for larger
+stress runs such as `4096 * 4 x 4096 x 4096`. It dry-runs by default; pass
+`-- --smoke` for a tiny executable check, `-- --execute` for the execute path,
+or build with `-Daxiom-cuda=true` to let CUDA-device tensors dispatch through the
+CUDA path.
 
 
 ## Optional Axiom accelerator bridge
