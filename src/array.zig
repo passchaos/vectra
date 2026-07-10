@@ -10184,7 +10184,14 @@ pub fn Array(comptime T: type) type {
         pub fn svd(self: Self, tolerance: T) ArrayError!SvdResult(T) {
             if (comptime @typeInfo(T) != .float) @compileError("svd requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
-            if (comptime T != f64) return error.BackendFailure;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.trySvdF32(self, tolerance)) |out| return .{ .u = out.u, .s = out.s, .vt = out.vt };
+                return error.BackendFailure;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.trySvdF64(self, tolerance)) |out| return .{ .u = out.u, .s = out.s, .vt = out.vt };
+            } else {
+                return error.BackendFailure;
+            }
 
             var matrix = try self.toVeyraMatrixF64();
             defer matrix.deinit();
@@ -26098,7 +26105,11 @@ test "array object advanced linalg methods" {
     var f32_qr_reconstructed = try f32_qr.q.matmul(f32_qr.r);
     defer f32_qr_reconstructed.deinit();
     try std.testing.expect(try f32_qr_reconstructed.allclose(f32_rect, 1e-4, 1e-4));
-    try std.testing.expectError(error.BackendFailure, f32_rect.svd(1e-5));
+    var f32_svd = try f32_rect.svd(1e-5);
+    defer f32_svd.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, f32_svd.u.shape);
+    try std.testing.expectEqualSlices(usize, &.{2}, f32_svd.s.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, f32_svd.vt.shape);
 }
 
 test "array view object advanced linalg wrappers" {

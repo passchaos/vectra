@@ -192,6 +192,29 @@ pub fn tryLuF64(matrix: array_mod.Array(f64)) array_mod.ArrayError!?LuResult(f64
     return tryLuTyped(f64, matrix);
 }
 
+pub fn SvdResult(comptime T: type) type {
+    return struct {
+        u: array_mod.Array(T),
+        s: array_mod.Array(T),
+        vt: array_mod.Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.u.deinit();
+            self.s.deinit();
+            self.vt.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
+pub fn trySvdF32(matrix: array_mod.Array(f32), tolerance: f32) array_mod.ArrayError!?SvdResult(f32) {
+    return trySvdTyped(f32, matrix, tolerance);
+}
+
+pub fn trySvdF64(matrix: array_mod.Array(f64), tolerance: f64) array_mod.ArrayError!?SvdResult(f64) {
+    return trySvdTyped(f64, matrix, tolerance);
+}
+
 pub fn trySolveTriangularF32(
     matrix: array_mod.Array(f32),
     rhs: array_mod.Array(f32),
@@ -517,6 +540,59 @@ fn tryLuTyped(comptime T: type, matrix: array_mod.Array(T)) array_mod.ArrayError
         return null;
     }
     return .{ .p = p, .l = l, .u = u };
+}
+
+fn trySvdTyped(comptime T: type, matrix: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?SvdResult(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedMatrix(T, matrix)) return null;
+    const factor_dim = @min(matrix.shape[0], matrix.shape[1]);
+    if (factor_dim == 0) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var u = try array_mod.Array(T).empty(matrix.allocator, &.{ matrix.shape[0], factor_dim });
+    errdefer u.deinit();
+    var s = try array_mod.Array(T).empty(matrix.allocator, &.{factor_dim});
+    errdefer s.deinit();
+    var vt = try array_mod.Array(T).empty(matrix.allocator, &.{ factor_dim, matrix.shape[1] });
+    errdefer vt.deinit();
+    const u_view = (try matrixView(T, u, "u")) orelse {
+        u.deinit();
+        s.deinit();
+        vt.deinit();
+        return null;
+    };
+    const s_view = (try bufferView(T, s, "s")) orelse {
+        u.deinit();
+        s.deinit();
+        vt.deinit();
+        return null;
+    };
+    const vt_view = (try matrixView(T, vt, "vt")) orelse {
+        u.deinit();
+        s.deinit();
+        vt.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runSvdF32(matrix_view, u_view, s_view, vt_view, matrix.data, u.data, s.data, vt.data, tolerance) catch {
+            u.deinit();
+            s.deinit();
+            vt.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runSvdF64(matrix_view, u_view, s_view, vt_view, matrix.data, u.data, s.data, vt.data, tolerance) catch {
+            u.deinit();
+            s.deinit();
+            vt.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        u.deinit();
+        s.deinit();
+        vt.deinit();
+        return null;
+    }
+    return .{ .u = u, .s = s, .vt = vt };
 }
 
 fn trySolveTriangularTyped(
@@ -870,6 +946,23 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         var lu_reconstructed = try lu_out.p.matmul(lu_product);
         defer lu_reconstructed.deinit();
         try std.testing.expect(try lu_reconstructed.allclose(solve_matrix, 1e-12, 1e-12));
+
+        const svd = try trySvdF64(rect, 1e-12);
+        try std.testing.expect(svd != null);
+        var svd_out = svd.?;
+        defer svd_out.deinit();
+        try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, svd_out.u.shape);
+        try std.testing.expectEqualSlices(usize, &.{2}, svd_out.s.shape);
+        try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, svd_out.vt.shape);
+        var sigma = try array_mod.Array(f64).zeros(gpa, &.{ 2, 2 });
+        defer sigma.deinit();
+        sigma.data[0] = svd_out.s.data[0];
+        sigma.data[3] = svd_out.s.data[1];
+        var us = try svd_out.u.matmul(sigma);
+        defer us.deinit();
+        var svd_reconstructed = try us.matmul(svd_out.vt);
+        defer svd_reconstructed.deinit();
+        try std.testing.expect(try svd_reconstructed.allclose(rect, 1e-10, 1e-10));
 
         var triangular = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
         defer triangular.deinit();
