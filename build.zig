@@ -267,6 +267,21 @@ pub fn build(b: *std.Build) void {
     const matmul_add_compare_production_step = b.step("bench-matmul-add-compare-production", "Run production Vectra/Axiom vs PyTorch CUDA matmul+add ratio gate");
     matmul_add_compare_production_step.dependOn(&matmul_add_compare_production_cmd.step);
 
+    const matmul_add_compare_compile_cmd = b.addSystemCommand(&.{
+        "python3",
+        "tools/bench_matmul_add_compare.py",
+        "--execute",
+        "--m=16384",
+        "--n=4096",
+        "--k=4096",
+        "--warmup=3",
+        "--iters=5",
+        "--baseline=torch_compile",
+        "--max-ratio=1.10",
+    });
+    const matmul_add_compare_compile_step = b.step("bench-matmul-add-compare-production-compile", "Run production Vectra/Axiom vs torch.compile CUDA matmul+add ratio gate");
+    matmul_add_compare_compile_step.dependOn(&matmul_add_compare_compile_cmd.step);
+
     const matmul_add_compare_cmd = b.addSystemCommand(&.{
         "python3",
         "tools/bench_matmul_add_compare.py",
