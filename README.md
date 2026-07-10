@@ -71,6 +71,28 @@ pub fn demo(allocator: std.mem.Allocator) !void {
 }
 ```
 
+More runnable examples live under [`examples/`](examples):
+
+```sh
+zig build examples
+zig build example-basic-array
+zig build example-axiom-backend-policy
+zig build example-axiom-cuda-bridge
+zig build example-large-matmul-add
+zig build example-large-matmul-add-smoke
+```
+
+`example-basic-array` is a pure Vectra CPU example.  The Axiom examples run in
+the default build and report direct CPU / disabled CUDA routes; opt into the
+same examples with `-Daxiom-cpu-dispatch=true`, `-Daxiom-cuda-dispatch=true`, or
+`-Daxiom-cuda=true` to inspect the corresponding Axiom bridge paths.
+`example-large-matmul-add` documents a random `Y = A[M,K] * B[K,N] + C[M,N]`
+workload with `M = 4096 * 4`, `N = 4096`, and `K = 4096`. It dry-runs by
+default so it is safe in normal example runs; pass `-- --smoke --backend=both`
+for a tiny executable check, `-- --execute --backend=cpu` for the full CPU path,
+or `-Daxiom-cuda=true -- --execute --backend=cuda --require-cuda` for the full
+explicit Axiom CUDA path on CUDA-capable hosts.
+
 
 ## Optional Axiom accelerator bridge
 

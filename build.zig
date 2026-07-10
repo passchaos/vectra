@@ -163,6 +163,80 @@ pub fn build(b: *std.Build) void {
     const bench_step = b.step("bench", "Run Array performance smoke benchmark");
     bench_step.dependOn(&bench_cmd.step);
 
+    const examples_step = b.step("examples", "Run Vectra usage examples");
+
+    const basic_array_example_exe = b.addExecutable(.{
+        .name = "vectra-example-basic-array",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/basic_array.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const basic_array_example_cmd = b.addRunArtifact(basic_array_example_exe);
+    const basic_array_example_step = b.step("example-basic-array", "Run basic Array/broadcast/reduction usage example");
+    basic_array_example_step.dependOn(&basic_array_example_cmd.step);
+    examples_step.dependOn(&basic_array_example_cmd.step);
+
+    const axiom_backend_policy_example_exe = b.addExecutable(.{
+        .name = "vectra-example-axiom-backend-policy",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/axiom_backend_policy.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_backend_policy_example_cmd = b.addRunArtifact(axiom_backend_policy_example_exe);
+    const axiom_backend_policy_example_step = b.step("example-axiom-backend-policy", "Run unified Axiom backend policy usage example");
+    axiom_backend_policy_example_step.dependOn(&axiom_backend_policy_example_cmd.step);
+    examples_step.dependOn(&axiom_backend_policy_example_cmd.step);
+
+    const axiom_cuda_bridge_example_exe = b.addExecutable(.{
+        .name = "vectra-example-axiom-cuda-bridge",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/axiom_cuda_bridge.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_cuda_bridge_example_cmd = b.addRunArtifact(axiom_cuda_bridge_example_exe);
+    const axiom_cuda_bridge_example_step = b.step("example-axiom-cuda-bridge", "Run explicit Axiom CUDA bridge usage example");
+    axiom_cuda_bridge_example_step.dependOn(&axiom_cuda_bridge_example_cmd.step);
+    examples_step.dependOn(&axiom_cuda_bridge_example_cmd.step);
+
+    const large_matmul_add_example_exe = b.addExecutable(.{
+        .name = "vectra-example-large-matmul-add",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/large_matmul_add.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const large_matmul_add_example_cmd = b.addRunArtifact(large_matmul_add_example_exe);
+    if (b.args) |args| {
+        large_matmul_add_example_cmd.addArgs(args);
+    }
+    const large_matmul_add_example_step = b.step("example-large-matmul-add", "Run large random GEMM-plus-add CPU/CUDA usage example (dry-run by default)");
+    large_matmul_add_example_step.dependOn(&large_matmul_add_example_cmd.step);
+    examples_step.dependOn(&large_matmul_add_example_cmd.step);
+
+    const large_matmul_add_smoke_cmd = b.addRunArtifact(large_matmul_add_example_exe);
+    large_matmul_add_smoke_cmd.addArgs(&.{ "--smoke", "--backend=both" });
+    const large_matmul_add_smoke_step = b.step("example-large-matmul-add-smoke", "Run tiny executable smoke for the large GEMM-plus-add example");
+    large_matmul_add_smoke_step.dependOn(&large_matmul_add_smoke_cmd.step);
+
     const axiom_cuda_smoke_exe = b.addExecutable(.{
         .name = "vectra-axiom-cuda-smoke",
         .root_module = b.createModule(.{

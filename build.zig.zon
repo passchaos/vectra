@@ -84,6 +84,7 @@
         "build.zig",
         "build.zig.zon",
         "src",
+        "examples",
         "tools",
         "README.md",
         "docs",
