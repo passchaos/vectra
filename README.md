@@ -132,10 +132,11 @@ stress run (`M = 4096 * 4`, `N = 4096`, `K = 4096`) and dry-runs by default;
 pass `-- --smoke` for a tiny executable check, `-- --dtype=all --backend=both`
 to compare f32/f64/f16/BFloat16 CPU paths plus supported CUDA paths, or
 `-- --execute --backend=cuda --dtype=f32 --require-cuda` for the production CUDA
-benchmark. CUDA owning arrays currently benchmark f32 matmul/matmulAdd and emit
-explicit skipped records for other dtypes; `--retain-outputs` intentionally keeps
-each iteration output alive to expose allocation/reuse effects versus the default
-PyTorch-like single-output reuse loop.
+benchmark. CUDA owning arrays benchmark f32 matmul/matmulAdd, while CUDA f16/BFloat16
+records exercise the current Axiom CUDA typed host-slice matmul plus add path;
+f64 CUDA emits explicit skipped records until an f64 CUDA matmul is exposed.
+`--retain-outputs` intentionally keeps each iteration output alive to expose
+allocation/reuse effects versus the default PyTorch-like single-output reuse loop.
 
 
 ## Axiom accelerator backend

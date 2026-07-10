@@ -54,15 +54,11 @@ pub fn main(init: std.process.Init) !void {
     const gpu = vx.cuda(0);
     if (args.backend == .cuda or args.backend == .both) {
         if (gpu.isAvailable()) {
-            if (dtypeIncluded(dtype_filter, .f32)) {
-                try runCudaF32(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
-            }
-            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul", "cuda_owning_matmul_only_f32");
-            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_add", "cuda_owning_matmul_add_only_f32");
-            if (dtypeIncluded(dtype_filter, .f16)) try printSkipped(&stdout.interface, "cuda", "f16", "matmul", "cuda_owning_matmul_only_f32");
-            if (dtypeIncluded(dtype_filter, .f16)) try printSkipped(&stdout.interface, "cuda", "f16", "matmul_add", "cuda_owning_matmul_add_only_f32");
-            if (dtypeIncluded(dtype_filter, .bf16)) try printSkipped(&stdout.interface, "cuda", "bf16", "matmul", "cuda_owning_matmul_only_f32");
-            if (dtypeIncluded(dtype_filter, .bf16)) try printSkipped(&stdout.interface, "cuda", "bf16", "matmul_add", "cuda_owning_matmul_add_only_f32");
+            if (dtypeIncluded(dtype_filter, .f32)) try runCudaF32(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
+            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul", "cuda_matmul_f64_not_exposed");
+            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_add", "cuda_matmul_add_f64_not_exposed");
+            if (dtypeIncluded(dtype_filter, .f16)) try runCudaHostDtype(f16, "f16", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs);
+            if (dtypeIncluded(dtype_filter, .bf16)) try runCudaHostDtype(vx.BFloat16, "bf16", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs);
         } else if (args.backend == .cuda and args.require_cuda) {
             return error.CudaDisabled;
         } else {
@@ -210,6 +206,28 @@ fn runCudaF32(
     defer c.deinit();
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul, a, b, null, warmup, iters, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul_add, a, b, c, warmup, iters, retain_outputs);
+}
+
+fn runCudaHostDtype(
+    comptime T: type,
+    dtype_name: []const u8,
+    init: std.process.Init,
+    writer: *std.Io.Writer,
+    allocator: std.mem.Allocator,
+    shape: Shape,
+    warmup: usize,
+    iters: usize,
+    retain_outputs: bool,
+) !void {
+    var np = vx.withAllocator(allocator);
+    var a = try np.ones(T, &.{ shape.m, shape.k });
+    defer a.deinit();
+    var b = try np.ones(T, &.{ shape.k, shape.n });
+    defer b.deinit();
+    var c = try np.ones(T, &.{ shape.m, shape.n });
+    defer c.deinit();
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul, a, b, null, warmup, iters, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_add, a, b, c, warmup, iters, retain_outputs);
 }
 
 fn runBenchmark(
