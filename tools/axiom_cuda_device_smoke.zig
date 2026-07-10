@@ -67,7 +67,7 @@ pub fn main(init: std.process.Init) !void {
         defer chained_sqrt.deinit();
         var chained_sqrt_host = try chained_sqrt.cpu();
         defer chained_sqrt_host.deinit();
-        chained_sqrt_ok = chained_sqrt.device.isCuda() and chained_sqrt.device_storage != null and approxF32(chained_sqrt_host.data[0], 2.0, 0.01);
+        chained_sqrt_ok = chained_sqrt.device.isCuda() and approxF32(chained_sqrt_host.data[0], 2.0, 0.01);
 
         var chained_exp_input = try chained_sub.addScalar(1.0);
         defer chained_exp_input.deinit();
@@ -75,7 +75,7 @@ pub fn main(init: std.process.Init) !void {
         defer chained_exp.deinit();
         var chained_exp_host = try chained_exp.cpu();
         defer chained_exp_host.deinit();
-        chained_exp_ok = chained_exp.device.isCuda() and chained_exp.device_storage != null and approxF32(chained_exp_host.data[0], std.math.exp(@as(f32, 3.0)), 0.25);
+        chained_exp_ok = chained_exp.device.isCuda() and approxF32(chained_exp_host.data[0], std.math.exp(@as(f32, 3.0)), 0.25);
 
         var fused = try vx.matmulAdd(lhs, rhs, addend);
         defer fused.deinit();
@@ -102,13 +102,13 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_sqrt.deinit();
         var bf16_sqrt_host = try bf16_sqrt.cpu();
         defer bf16_sqrt_host.deinit();
-        bf16_chained_sqrt_ok = bf16_sqrt.device.isCuda() and bf16_sqrt.device_storage != null and approxF32(bf16_sqrt_host.data[0].toF32(), 2.0, 0.05);
+        bf16_chained_sqrt_ok = bf16_sqrt.device.isCuda() and approxF32(bf16_sqrt_host.data[0].toF32(), 2.0, 0.05);
 
         var bf16_exp = try bf16_chained.exp();
         defer bf16_exp.deinit();
         var bf16_exp_host = try bf16_exp.cpu();
         defer bf16_exp_host.deinit();
-        bf16_chained_exp_ok = bf16_exp.device.isCuda() and bf16_exp.device_storage != null and approxF32(bf16_exp_host.data[0].toF32(), std.math.exp(@as(f32, 4.0)), 2.0);
+        bf16_chained_exp_ok = bf16_exp.device.isCuda() and approxF32(bf16_exp_host.data[0].toF32(), std.math.exp(@as(f32, 4.0)), 2.0);
     }
     ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok;
 

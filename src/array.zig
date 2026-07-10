@@ -8779,6 +8779,12 @@ pub fn Array(comptime T: type) type {
             lhs_shape: [2]usize,
             rhs_shape: [2]usize,
             beta: f32 = 0.0,
+            unary: ?PendingUnary = null,
+        };
+
+        const PendingUnary = enum {
+            sqrt,
+            exp,
         };
 
         pub const Scalar = T;
@@ -14672,6 +14678,17 @@ pub fn Array(comptime T: type) type {
 
         fn materializePendingMatmul(self: Self) ArrayError!Self {
             const pending = self.pending_matmul orelse return self.clone();
+            if (pending.unary) |unary_op| {
+                var without_unary = self;
+                without_unary.pending_matmul = pending;
+                without_unary.pending_matmul.?.unary = null;
+                var materialized = try without_unary.materializePendingMatmul();
+                defer materialized.deinit();
+                return switch (unary_op) {
+                    .sqrt => try materialized.runCudaUnarySqrt(),
+                    .exp => try materialized.runCudaUnaryExp(),
+                };
+            }
             var out = try Self.emptyOn(self.allocator, self.shape, self.device);
             errdefer out.deinit();
             const out_storage = out.device_storage orelse return error.InvalidDevice;
@@ -14728,6 +14745,52 @@ pub fn Array(comptime T: type) type {
                     .beta = beta_value,
                 },
             };
+        }
+
+        fn tryPendingUnary(self: Self, unary_op: PendingUnary) ArrayError!?Self {
+            if (comptime T != f32 and T != BFloat16) return null;
+            if (!self.device.isCuda() or self.pending_matmul == null) return null;
+            var pending = self.pending_matmul.?;
+            if (pending.unary != null) return null;
+            const shape = try self.allocator.dupe(usize, self.shape);
+            errdefer self.allocator.free(shape);
+            const strides = try stridesFor(self.allocator, shape);
+            errdefer self.allocator.free(strides);
+            const values = try self.allocator.alloc(T, 0);
+            pending.unary = unary_op;
+            return .{
+                .allocator = self.allocator,
+                .data = values,
+                .shape = shape,
+                .strides = strides,
+                .device = self.device,
+                .device_storage = null,
+                .pending_matmul = pending,
+            };
+        }
+
+        fn runCudaUnarySqrt(self: Self) ArrayError!Self {
+            if (comptime T == f32) {
+                if (try axiom_cuda_backend.trySqrtF32(self)) |out| return out;
+                return error.BackendFailure;
+            }
+            if (comptime T == BFloat16) {
+                if (try axiom_cuda_backend.trySqrtBF16(self)) |out| return out;
+                return error.BackendFailure;
+            }
+            return error.TypeUnsupported;
+        }
+
+        fn runCudaUnaryExp(self: Self) ArrayError!Self {
+            if (comptime T == f32) {
+                if (try axiom_cuda_backend.tryExpF32(self)) |out| return out;
+                return error.BackendFailure;
+            }
+            if (comptime T == BFloat16) {
+                if (try axiom_cuda_backend.tryExpBF16(self)) |out| return out;
+                return error.BackendFailure;
+            }
+            return error.TypeUnsupported;
         }
 
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
@@ -15841,24 +15904,12 @@ pub fn Array(comptime T: type) type {
         pub fn exp(self: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.device.isCuda() and comptime T == f32) {
-                if (self.pending_matmul != null) {
-                    var materialized = try self.materializePendingMatmul();
-                    defer materialized.deinit();
-                    if (try axiom_cuda_backend.tryExpF32(materialized)) |out| return out;
-                    return error.BackendFailure;
-                }
-                if (try axiom_cuda_backend.tryExpF32(self)) |out| return out;
-                return error.BackendFailure;
+                if (try self.tryPendingUnary(.exp)) |out| return out;
+                return self.runCudaUnaryExp();
             }
             if (self.device.isCuda() and comptime T == BFloat16) {
-                if (self.pending_matmul != null) {
-                    var materialized = try self.materializePendingMatmul();
-                    defer materialized.deinit();
-                    if (try axiom_cuda_backend.tryExpBF16(materialized)) |out| return out;
-                    return error.BackendFailure;
-                }
-                if (try axiom_cuda_backend.tryExpBF16(self)) |out| return out;
-                return error.BackendFailure;
+                if (try self.tryPendingUnary(.exp)) |out| return out;
+                return self.runCudaUnaryExp();
             }
             return self.unary(opExp);
         }
@@ -15913,24 +15964,12 @@ pub fn Array(comptime T: type) type {
         pub fn sqrt(self: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.device.isCuda() and comptime T == f32) {
-                if (self.pending_matmul != null) {
-                    var materialized = try self.materializePendingMatmul();
-                    defer materialized.deinit();
-                    if (try axiom_cuda_backend.trySqrtF32(materialized)) |out| return out;
-                    return error.BackendFailure;
-                }
-                if (try axiom_cuda_backend.trySqrtF32(self)) |out| return out;
-                return error.BackendFailure;
+                if (try self.tryPendingUnary(.sqrt)) |out| return out;
+                return self.runCudaUnarySqrt();
             }
             if (self.device.isCuda() and comptime T == BFloat16) {
-                if (self.pending_matmul != null) {
-                    var materialized = try self.materializePendingMatmul();
-                    defer materialized.deinit();
-                    if (try axiom_cuda_backend.trySqrtBF16(materialized)) |out| return out;
-                    return error.BackendFailure;
-                }
-                if (try axiom_cuda_backend.trySqrtBF16(self)) |out| return out;
-                return error.BackendFailure;
+                if (try self.tryPendingUnary(.sqrt)) |out| return out;
+                return self.runCudaUnarySqrt();
             }
             return self.unary(opSqrt);
         }
