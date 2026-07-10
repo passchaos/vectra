@@ -338,13 +338,9 @@ fn runBenchmark(
 }
 
 fn computeOp(comptime T: type, op: BenchOp, a: vx.Array(T), b: vx.Array(T), c: ?vx.Array(T)) vx.ArrayError!vx.Array(T) {
-    return switch (op) {
+    var out = try switch (op) {
         .matmul => blk: {
-            var product = try vx.matmul(a, b);
-            if (product.device.isCuda()) {
-                var host = try product.cpu();
-                host.deinit();
-            }
+            const product = try vx.matmul(a, b);
             break :blk product;
         },
         .matmul_add => vx.matmulAdd(a, b, c orelse return error.InvalidShape),
@@ -379,6 +375,12 @@ fn computeOp(comptime T: type, op: BenchOp, a: vx.Array(T), b: vx.Array(T), c: ?
             break :blk try normalized.exp();
         },
     };
+    if (out.device.isCuda() and out.device_storage == null) {
+        const materialized = try out.materialize();
+        out.deinit();
+        out = materialized;
+    }
+    return out;
 }
 
 fn printPlan(writer: *std.Io.Writer, mode: Mode, backend: Backend, dtype_filter: DTypeFilter, shape: Shape, warmup: usize, iters: usize, retain_outputs: bool) !void {

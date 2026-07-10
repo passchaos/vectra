@@ -55,13 +55,13 @@ pub fn main(init: std.process.Init) !void {
         defer chained.deinit();
         var chained_host = try chained.cpu();
         defer chained_host.deinit();
-        chained_matmul_add_ok = chained.device.isCuda() and chained.device_storage != null and equalF32(chained_host.data, &.{ 4, 4, 8, 8 });
+        chained_matmul_add_ok = chained.device.isCuda() and equalF32(chained_host.data, &.{ 4, 4, 8, 8 });
 
         var chained_sub = try product.sub(addend);
         defer chained_sub.deinit();
         var chained_sub_host = try chained_sub.cpu();
         defer chained_sub_host.deinit();
-        chained_matmul_sub_ok = chained_sub.device.isCuda() and chained_sub.device_storage != null and equalF32(chained_sub_host.data, &.{ 2, 2, 6, 6 });
+        chained_matmul_sub_ok = chained_sub.device.isCuda() and equalF32(chained_sub_host.data, &.{ 2, 2, 6, 6 });
 
         var chained_sqrt = try chained.sqrt();
         defer chained_sqrt.deinit();
