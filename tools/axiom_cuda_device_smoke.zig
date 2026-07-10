@@ -73,6 +73,11 @@ pub fn main(init: std.process.Init) !void {
         var reversed_sub_chained_host = try reversed_sub_chained.cpu();
         defer reversed_sub_chained_host.deinit();
         reversed_sub_fusion_ok = reversed_sub_chained.fusionStatus() == .cuda_matmul_rsub and equalF32(reversed_sub_chained_host.data, &.{ -2, -2, -6, -6 });
+        var reversed_sub_exp = try reversed_sub_chained.exp();
+        defer reversed_sub_exp.deinit();
+        var reversed_sub_exp_host = try reversed_sub_exp.cpu();
+        defer reversed_sub_exp_host.deinit();
+        reversed_sub_fusion_ok = reversed_sub_fusion_ok and reversed_sub_exp.fusionStatus() == .cuda_matmul_rsub_exp and approxF32(reversed_sub_exp_host.data[0], std.math.exp(@as(f32, -2.0)), 0.01);
 
         var chained_sub = try product.sub(addend);
         defer chained_sub.deinit();

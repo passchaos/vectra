@@ -8799,6 +8799,8 @@ pub fn Array(comptime T: type) type {
             cuda_matmul_add_exp,
             cuda_matmul_sub_sqrt,
             cuda_matmul_sub_exp,
+            cuda_matmul_rsub_sqrt,
+            cuda_matmul_rsub_exp,
             cpu_matmul,
             cpu_matmul_add,
             cpu_matmul_sub,
@@ -8807,6 +8809,8 @@ pub fn Array(comptime T: type) type {
             cpu_matmul_add_exp,
             cpu_matmul_sub_sqrt,
             cpu_matmul_sub_exp,
+            cpu_matmul_rsub_sqrt,
+            cpu_matmul_rsub_exp,
         };
 
         const CpuMatmulFusion = struct {
@@ -8835,8 +8839,8 @@ pub fn Array(comptime T: type) type {
                 const is_sub = pending.beta < 0.0;
                 if (pending.unary) |unary_op| {
                     return switch (unary_op) {
-                        .sqrt => if (is_sub) .cuda_matmul_sub_sqrt else .cuda_matmul_add_sqrt,
-                        .exp => if (is_sub) .cuda_matmul_sub_exp else .cuda_matmul_add_exp,
+                        .sqrt => if (is_rsub) .cuda_matmul_rsub_sqrt else if (is_sub) .cuda_matmul_sub_sqrt else .cuda_matmul_add_sqrt,
+                        .exp => if (is_rsub) .cuda_matmul_rsub_exp else if (is_sub) .cuda_matmul_sub_exp else .cuda_matmul_add_exp,
                     };
                 }
                 if (is_rsub) return .cuda_matmul_rsub;
@@ -8848,8 +8852,8 @@ pub fn Array(comptime T: type) type {
                 const is_sub = cpu_fusion.beta < 0.0;
                 if (cpu_fusion.unary) |unary_op| {
                     return switch (unary_op) {
-                        .sqrt => if (is_sub) .cpu_matmul_sub_sqrt else .cpu_matmul_add_sqrt,
-                        .exp => if (is_sub) .cpu_matmul_sub_exp else .cpu_matmul_add_exp,
+                        .sqrt => if (is_rsub) .cpu_matmul_rsub_sqrt else if (is_sub) .cpu_matmul_sub_sqrt else .cpu_matmul_add_sqrt,
+                        .exp => if (is_rsub) .cpu_matmul_rsub_exp else if (is_sub) .cpu_matmul_sub_exp else .cpu_matmul_add_exp,
                     };
                 }
                 if (is_rsub) return .cpu_matmul_rsub;

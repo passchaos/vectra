@@ -19,9 +19,11 @@ pub fn main(init: std.process.Init) !void {
     defer reversed_auto_add32.deinit();
     var reversed_auto_sub32 = try c32.sub(out32);
     defer reversed_auto_sub32.deinit();
+    var reversed_auto_sub_exp32 = try reversed_auto_sub32.exp();
+    defer reversed_auto_sub_exp32.deinit();
     var auto_add_sqrt32 = try auto_add32.sqrt();
     defer auto_add_sqrt32.deinit();
-    const cpu_fusion_status32_ok = out32.fusionStatus() == .cpu_matmul and auto_add32.fusionStatus() == .cpu_matmul_add and reversed_auto_add32.fusionStatus() == .cpu_matmul_add and reversed_auto_sub32.fusionStatus() == .cpu_matmul_rsub and auto_add_sqrt32.fusionStatus() == .cpu_matmul_add_sqrt;
+    const cpu_fusion_status32_ok = out32.fusionStatus() == .cpu_matmul and auto_add32.fusionStatus() == .cpu_matmul_add and reversed_auto_add32.fusionStatus() == .cpu_matmul_add and reversed_auto_sub32.fusionStatus() == .cpu_matmul_rsub and reversed_auto_sub_exp32.fusionStatus() == .cpu_matmul_rsub_exp and auto_add_sqrt32.fusionStatus() == .cpu_matmul_add_sqrt;
     var add32 = try a32.add(a32);
     defer add32.deinit();
     var sub32 = try a32.sub(a32);
@@ -67,9 +69,11 @@ pub fn main(init: std.process.Init) !void {
     defer reversed_auto_add64.deinit();
     var reversed_auto_sub64 = try c64.sub(out64);
     defer reversed_auto_sub64.deinit();
+    var reversed_auto_sub_exp64 = try reversed_auto_sub64.exp();
+    defer reversed_auto_sub_exp64.deinit();
     var auto_add_exp64 = try auto_add64.exp();
     defer auto_add_exp64.deinit();
-    const cpu_fusion_status64_ok = out64.fusionStatus() == .cpu_matmul and auto_add64.fusionStatus() == .cpu_matmul_add and reversed_auto_add64.fusionStatus() == .cpu_matmul_add and reversed_auto_sub64.fusionStatus() == .cpu_matmul_rsub and auto_add_exp64.fusionStatus() == .cpu_matmul_add_exp;
+    const cpu_fusion_status64_ok = out64.fusionStatus() == .cpu_matmul and auto_add64.fusionStatus() == .cpu_matmul_add and reversed_auto_add64.fusionStatus() == .cpu_matmul_add and reversed_auto_sub64.fusionStatus() == .cpu_matmul_rsub and reversed_auto_sub_exp64.fusionStatus() == .cpu_matmul_rsub_exp and auto_add_exp64.fusionStatus() == .cpu_matmul_add_exp;
     var add64 = try a64.add(a64);
     defer add64.deinit();
     var sub64 = try a64.sub(a64);
