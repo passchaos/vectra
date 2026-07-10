@@ -119,12 +119,12 @@ zig build example-large-matmul-add-smoke
 the default build and report direct CPU / disabled CUDA routes; opt into the
 same examples with `-Daxiom-cpu-dispatch=true`, `-Daxiom-cuda-dispatch=true`, or
 `-Daxiom-cuda=true` to inspect the corresponding Axiom bridge paths.
-`example-large-matmul-add` documents a random `Y = A[M,K] * B[K,N] + C[M,N]`
-workload with `M = 4096 * 4`, `N = 4096`, and `K = 4096`. It dry-runs by
-default so it is safe in normal example runs; pass `-- --smoke --backend=both`
-for a tiny executable check, `-- --execute --backend=cpu` for the full CPU path,
-or `-Daxiom-cuda=true -- --execute --backend=cuda --require-cuda` for the full
-explicit Axiom CUDA path on CUDA-capable hosts.
+`example-large-matmul-add` now keeps the user-facing body close to PyTorch:
+`randWith`, `matmulAdd`, and an optional `tryCudaMatmulAddF32`. It documents the
+random `Y = A[M,K] * B[K,N] + C[M,N]` workload with `M = 4096 * 4`, `N = 4096`,
+and `K = 4096`. It dry-runs by default so normal example runs are safe; pass
+`-- --smoke` for a tiny executable check, `-- --execute` for the full CPU path,
+or build with `-Daxiom-cuda=true` to let the same example also try CUDA.
 
 
 ## Optional Axiom accelerator bridge

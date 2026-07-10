@@ -99,6 +99,19 @@ pub fn matmul(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     return lhs.matmul(rhs);
 }
 
+pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
+    var product = try matmul(lhs, rhs);
+    defer product.deinit();
+    return add(product, addend);
+}
+
+pub fn tryCudaMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32)) ArrayError!?Array(f32) {
+    const maybe_product = try axiom_cuda.tryMatmulF32(lhs, rhs);
+    var product = maybe_product orelse return null;
+    defer product.deinit();
+    return try axiom_cuda.tryAddF32(product, addend);
+}
+
 pub fn sum(input: anytype, axis_opt: ?isize, keepdims: bool) ArrayError!@TypeOf(input) {
     return input.sum(axis_opt, keepdims);
 }
