@@ -19794,6 +19794,24 @@ pub fn Array(comptime T: type) type {
                 return error.BackendFailure;
             }
 
+            if (comptime T == f32) {
+                if (lhs_vec and rhs_vec) {
+                    if (try axiom_cpu_backend.tryDotF32(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
+                } else if (!lhs_vec and rhs_vec) {
+                    if (try axiom_cpu_backend.tryMatvecF32(self, other)) |out| return out;
+                } else if (lhs_vec and !rhs_vec) {
+                    if (try axiom_cpu_backend.tryVecmatF32(self, other)) |out| return out;
+                }
+            } else if (comptime T == f64) {
+                if (lhs_vec and rhs_vec) {
+                    if (try axiom_cpu_backend.tryDotF64(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
+                } else if (!lhs_vec and rhs_vec) {
+                    if (try axiom_cpu_backend.tryMatvecF64(self, other)) |out| return out;
+                } else if (lhs_vec and !rhs_vec) {
+                    if (try axiom_cpu_backend.tryVecmatF64(self, other)) |out| return out;
+                }
+            }
+
             if (lhs_vec and rhs_vec) return self.dot(other);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (!lhs_vec and !rhs_vec) {
@@ -19959,7 +19977,10 @@ pub fn Array(comptime T: type) type {
             if (self.shape.len != 2) return error.NonMatrixArray;
             if (vector.shape.len != 1) return error.NonVectorArray;
             if (self.shape[1] != vector.shape[0]) return error.ShapeMismatch;
-            if (comptime T == f64) {
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryMatvecF32(self, vector)) |out| return out;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryMatvecF64(self, vector)) |out| return out;
                 if (self.isContiguous() and vector.isContiguous()) return self.matvecF64(vector);
             }
             const rows = self.shape[0];
@@ -19983,7 +20004,10 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
             if (self.shape[0] != other.shape[0]) return error.ShapeMismatch;
-            if (comptime T == f64) {
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryDotF32(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryDotF64(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
                 if (self.isContiguous() and other.isContiguous()) return self.dotF64(other);
             }
             var acc = zero(T);
@@ -19994,6 +20018,11 @@ pub fn Array(comptime T: type) type {
         pub fn vdot(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.data.len != other.data.len) return error.ShapeMismatch;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryDotF32(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryDotF64(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
+            }
             var acc = zero(T);
             for (self.data, other.data) |a, b| acc = addValue(T, acc, mulValue(T, a, b));
             return Self.fromSlice(self.allocator, &.{acc}, &.{});
@@ -20367,6 +20396,11 @@ pub fn Array(comptime T: type) type {
         pub fn traceOffset(self: Self, offset: isize) ArrayError!T {
             ensureNumeric(T);
             if (self.shape.len != 2) return error.NonMatrixArray;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryTraceF32(self, offset)) |value| return value;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryTraceF64(self, offset)) |value| return value;
+            }
             const rows = self.shape[0];
             const cols = self.shape[1];
             const start_row: usize = if (offset < 0) blk: {

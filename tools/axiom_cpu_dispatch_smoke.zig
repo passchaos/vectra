@@ -25,6 +25,14 @@ pub fn main(init: std.process.Init) !void {
     defer mul_scalar32.deinit();
     var div_scalar32 = try a32.divScalar(2);
     defer div_scalar32.deinit();
+    var matvec32_rhs = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3 }, &.{3});
+    defer matvec32_rhs.deinit();
+    var matvec32 = try a32.matvec(matvec32_rhs);
+    defer matvec32.deinit();
+    var dot32 = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3 }, &.{3});
+    defer dot32.deinit();
+    var dot32_out = try dot32.dot(dot32);
+    defer dot32_out.deinit();
 
     var a64 = try vx.Array(f64).fromSlice(allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a64.deinit();
@@ -54,6 +62,15 @@ pub fn main(init: std.process.Init) !void {
     defer broadcast_sub64.deinit();
     var broadcast_div64 = try a64.div(broadcast_scalar64);
     defer broadcast_div64.deinit();
+    var matvec64_rhs = try vx.Array(f64).fromSlice(allocator, &.{ 1, 2, 3 }, &.{3});
+    defer matvec64_rhs.deinit();
+    var matvec64 = try vx.linalg.matvec(f64, a64, matvec64_rhs);
+    defer matvec64.deinit();
+    var vec64 = try vx.Array(f64).fromSlice(allocator, &.{ 1, 2 }, &.{2});
+    defer vec64.deinit();
+    var vecmat64 = try vec64.matmul(a64);
+    defer vecmat64.deinit();
+    const trace64 = try vx.linalg.trace(f64, out64);
 
     const matmul_ok = out32.data[0] == 58 and out32.data[3] == 154 and out64.data[0] == 58 and out64.data[3] == 154;
     const elementwise_ok = equalF32(add32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
@@ -74,10 +91,15 @@ pub fn main(init: std.process.Init) !void {
         equalF64(div_scalar64.data, &.{ 0.5, 1, 1.5, 2, 2.5, 3 }) and
         equalF64(broadcast_sub64.data, &.{ 1, 0, -1, -2, -3, -4 }) and
         equalF64(broadcast_div64.data, &.{ 0.5, 1, 1.5, 2, 2.5, 3 });
-    const ok = matmul_ok and elementwise_ok and scalar_ok;
-    var stdout_buffer: [1024]u8 = undefined;
+    const vector_ok = equalF32(matvec32.data, &.{ 14, 32 }) and
+        dot32_out.data[0] == 14 and
+        equalF64(matvec64.data, &.{ 14, 32 }) and
+        equalF64(vecmat64.data, &.{ 9, 12, 15 }) and
+        trace64 == 212;
+    const ok = matmul_ok and elementwise_ok and scalar_ok and vector_ok;
+    var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
-    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0] });
+    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0], matvec32.data[1], vecmat64.data[2], trace64 });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
 }

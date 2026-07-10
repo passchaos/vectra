@@ -137,12 +137,12 @@ be compared directly with a PyTorch CUDA tensor reuse benchmark.
 ## Axiom accelerator backend
 
 Vectra imports the sibling [`../axiom`](../axiom) package by default. Supported
-CPU-backed contiguous same-shape and scalar/broadcast `Array(f32/f64)`
-add/sub/mul/div plus contiguous 2D matmul flow through Axiom CPU lowering to
-Veyra. Supported CUDA owning-array f32 add/sub/mul/div, matmul, and fused
-matmul+add use existing device pointers through Axiom CUDA. Large f32 GEMM and
-GEMM+add use Axiom's cached cuBLAS-backed SGEMM wrapper; the Axiom PTX/CUDA Tile
-IR seeds remain as fallback/provenance paths.
+CPU-backed `Array(f32/f64)` same-shape and scalar/broadcast add/sub/mul/div,
+2D matmul, matrix-vector, vector-matrix, dot/vdot, and trace flow through Axiom
+CPU lowering to Veyra. Supported CUDA owning-array f32 add/sub/mul/div, matmul,
+and fused matmul+add use existing device pointers through Axiom CUDA. Large f32
+GEMM and GEMM+add use Axiom's cached cuBLAS-backed SGEMM wrapper; the Axiom
+PTX/CUDA Tile IR seeds remain as fallback/provenance paths.
 
 Validation commands:
 
@@ -171,7 +171,7 @@ Vectra uses the sibling [`../alea`](../alea) Zig package as a local path depende
 
 ## Veyra backend
 
-Vectra uses the sibling [`../veyra`](../veyra) Zig package as a local path dependency for foundational math and linear algebra. Current f64 `linalg` paths delegate matrix multiplication, matrix-vector products, trace, determinant, solve, inverse, LU, triangular solve, Cholesky, QR, SVD, least-squares, rank/condition helpers, pseudo-inverse, matrix norms, and symmetric eigen decomposition to Veyra-compatible dense matrix APIs. Object-style `Array(f64).matmul()`/`mm()` now also uses Veyra for 2D contiguous matrix-matrix multiplication, while non-f64 and non-contiguous/batched Array methods keep generic in-core fallbacks where implemented. Future SciPy-like and high-performance BLAS/LAPACK-style work should prefer Veyra where it already provides tested kernels or decompositions.
+Vectra uses the sibling [`../veyra`](../veyra) Zig package as a local path dependency for foundational math and linear algebra, but supported CPU tensor paths should enter through Axiom first. Current f64 `linalg` paths for matrix multiplication, matrix-vector products, and trace route through Axiom CPU→Veyra; determinant, solve, inverse, LU, triangular solve, Cholesky, QR, SVD, least-squares, rank/condition helpers, pseudo-inverse, matrix norms, and symmetric eigen decomposition still call Veyra-compatible dense matrix APIs directly until Axiom exposes matching front-door wrappers. Object-style `Array(f32/f64).matmul()`/`mm()` vector/matrix combinations, `Array(f32/f64).dot()`/`vdot()`, and trace use Axiom for supported CPU cases, while non-covered dtypes and non-contiguous/batched Array methods keep generic in-core fallbacks where implemented.
 
 ## Development priorities
 

@@ -1,6 +1,5 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
-const veyra = @import("veyra");
 
 pub const LinalgError = array_mod.ArrayError || error{ SingularMatrix, NotPositiveDefinite, BackendFailure } || std.mem.Allocator.Error;
 
@@ -12,24 +11,6 @@ pub const SvdResult = array_mod.SvdResult;
 pub const EighResult = array_mod.EighResult;
 pub const LuResult = array_mod.LuResult;
 
-fn toVeyraMatrix(a: array_mod.Array(f64)) LinalgError!veyra.Matrix(f64) {
-    if (a.shape.len != 2) return error.NonMatrixArray;
-    return veyra.Matrix(f64).fromSlice(a.allocator, a.shape[0], a.shape[1], .row_major, a.data) catch return error.BackendFailure;
-}
-
-fn fromVeyraMatrix(allocator: std.mem.Allocator, matrix: *const veyra.Matrix(f64)) LinalgError!array_mod.Array(f64) {
-    return array_mod.Array(f64).fromSlice(allocator, matrix.data, &.{ matrix.rows, matrix.cols });
-}
-
-fn toVeyraVector(x: array_mod.Array(f64)) LinalgError!veyra.Vector(f64) {
-    if (x.shape.len != 1) return error.NonVectorArray;
-    return veyra.Vector(f64).fromSlice(x.allocator, x.data) catch return error.BackendFailure;
-}
-
-fn fromVeyraVector(allocator: std.mem.Allocator, vector: *const veyra.Vector(f64)) LinalgError!array_mod.Array(f64) {
-    return array_mod.Array(f64).fromSlice(allocator, vector.data, &.{vector.len()});
-}
-
 pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) LinalgError!array_mod.Array(T) {
     var out = try array_mod.Array(T).zeros(allocator, &.{ n, n });
     for (0..n) |i| out.data[i * n + i] = 1;
@@ -38,59 +19,18 @@ pub fn eye(comptime T: type, allocator: std.mem.Allocator, n: usize) LinalgError
 
 pub fn trace(comptime T: type, a: array_mod.Array(T)) LinalgError!T {
     if (a.shape.len != 2) return error.NonMatrixArray;
-    if (T == f64 and a.shape[0] == a.shape[1]) {
-        var matrix = try toVeyraMatrix(@as(array_mod.Array(f64), a));
-        defer matrix.deinit();
-        return veyra.trace(f64, matrix.asView()) catch return error.BackendFailure;
-    }
-    const n = @min(a.shape[0], a.shape[1]);
-    var total: T = 0;
-    for (0..n) |i| total += a.data[i * a.shape[1] + i];
-    return total;
+    return a.trace();
 }
 
 pub fn matmul(comptime T: type, a: array_mod.Array(T), b: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
-    if (T == f64) return matmulF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), b));
     return a.matmul(b);
-}
-
-fn matmulF64(a: array_mod.Array(f64), b: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
-    if (a.shape.len != 2 or b.shape.len != 2) return error.NonMatrixArray;
-    if (a.shape[1] != b.shape[0]) return error.ShapeMismatch;
-    var lhs = try toVeyraMatrix(a);
-    defer lhs.deinit();
-    var rhs = try toVeyraMatrix(b);
-    defer rhs.deinit();
-    var out_matrix = veyra.Matrix(f64).zeros(a.allocator, a.shape[0], b.shape[1], .row_major) catch return error.BackendFailure;
-    defer out_matrix.deinit();
-    veyra.matmul(f64, lhs.asView(), rhs.asView(), out_matrix.asMut()) catch return error.BackendFailure;
-    return fromVeyraMatrix(a.allocator, &out_matrix);
 }
 
 pub fn matvec(comptime T: type, a: array_mod.Array(T), x: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
     if (a.shape.len != 2) return error.NonMatrixArray;
     if (x.shape.len != 1) return error.NonVectorArray;
     if (a.shape[1] != x.shape[0]) return error.ShapeMismatch;
-    if (T == f64) return matvecF64(@as(array_mod.Array(f64), a), @as(array_mod.Array(f64), x));
-
-    const out = try array_mod.Array(T).zeros(a.allocator, &.{a.shape[0]});
-    for (0..a.shape[0]) |r| {
-        var acc: T = 0;
-        for (0..a.shape[1]) |c| acc += a.data[r * a.shape[1] + c] * x.data[c];
-        out.data[r] = acc;
-    }
-    return out;
-}
-
-fn matvecF64(a: array_mod.Array(f64), x: array_mod.Array(f64)) LinalgError!array_mod.Array(f64) {
-    var matrix = try toVeyraMatrix(a);
-    defer matrix.deinit();
-    var vector = try toVeyraVector(x);
-    defer vector.deinit();
-    var out_vector = veyra.Vector(f64).zeros(a.allocator, a.shape[0]) catch return error.BackendFailure;
-    defer out_vector.deinit();
-    veyra.matvec(f64, matrix.asView(), vector.asView(), out_vector.asMut()) catch return error.BackendFailure;
-    return fromVeyraVector(a.allocator, &out_vector);
+    return a.matvec(x);
 }
 
 pub fn cholesky(comptime T: type, a: array_mod.Array(T)) LinalgError!array_mod.Array(T) {
