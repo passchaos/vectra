@@ -1489,6 +1489,30 @@ pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(
     return null;
 }
 
+pub fn runPendingMatmulF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const report = runtime.runCudaDeviceSgemm(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr) catch return error.BackendFailure;
+    return report.valid();
+}
+
+pub fn runPendingMatmulBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const report = runtime.runCudaDeviceBf16Gemm(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr) catch return error.BackendFailure;
+    return report.valid();
+}
+
+pub fn runPendingMatmulAddF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const report = runtime.runCudaDeviceSgemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    return report.valid();
+}
+
+pub fn runPendingMatmulAddBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const report = runtime.runCudaDeviceBf16GemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    return report.valid();
+}
+
 pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16), addend: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !addend.device.isCuda()) return null;

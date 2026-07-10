@@ -24,6 +24,7 @@ pub fn main(init: std.process.Init) !void {
     var direct_add_ok = !vx.axiom_cuda.enabled();
     var direct_matmul_ok = !vx.axiom_cuda.enabled();
     var direct_matmul_add_ok = !vx.axiom_cuda.enabled();
+    var chained_matmul_add_ok = !vx.axiom_cuda.enabled();
     if (vx.Device.cuda(0).isAvailable()) {
         var lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 }, vx.cuda(0));
         defer lhs.deinit();
@@ -43,7 +44,13 @@ pub fn main(init: std.process.Init) !void {
         defer product.deinit();
         var product_host = try product.cpu();
         defer product_host.deinit();
-        direct_matmul_ok = product.device.isCuda() and product.device_storage != null and equalF32(product_host.data, &.{ 3, 3, 7, 7 });
+        direct_matmul_ok = product.device.isCuda() and equalF32(product_host.data, &.{ 3, 3, 7, 7 });
+
+        var chained = try product.add(addend);
+        defer chained.deinit();
+        var chained_host = try chained.cpu();
+        defer chained_host.deinit();
+        chained_matmul_add_ok = chained.device.isCuda() and chained.device_storage != null and equalF32(chained_host.data, &.{ 4, 4, 8, 8 });
 
         var fused = try vx.matmulAdd(lhs, rhs, addend);
         defer fused.deinit();
@@ -51,13 +58,13 @@ pub fn main(init: std.process.Init) !void {
         defer fused_host.deinit();
         direct_matmul_add_ok = fused.device.isCuda() and fused.device_storage != null and equalF32(fused_host.data, &.{ 4, 4, 8, 8 });
     }
-    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok;
+    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok;
 
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{}}}\n",
-        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok },
+        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"chained_matmul_add_ok\":{}}}\n",
+        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, chained_matmul_add_ok },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

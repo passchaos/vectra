@@ -8770,6 +8770,14 @@ pub fn Array(comptime T: type) type {
         strides: []usize,
         device: Device = .cpu,
         device_storage: ?DeviceStorage = null,
+        pending_matmul: ?MatmulFusion = null,
+
+        const MatmulFusion = struct {
+            lhs_storage: DeviceStorage,
+            rhs_storage: DeviceStorage,
+            lhs_shape: [2]usize,
+            rhs_shape: [2]usize,
+        };
 
         pub const Scalar = T;
         pub const dtype = DType.of(T);
@@ -9586,6 +9594,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn deinit(self: *Self) void {
             if (self.device_storage) |storage| axiom_cuda_backend.freeStorage(storage);
+            self.pending_matmul = null;
             self.allocator.free(self.data);
             self.allocator.free(self.shape);
             self.allocator.free(self.strides);
@@ -9593,6 +9602,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn clone(self: Self) ArrayError!Self {
+            if (self.pending_matmul != null) return self.materializePendingMatmul();
             var out = try Self.emptyOn(self.allocator, self.shape, self.device);
             errdefer out.deinit();
             if (self.device.isCpu()) {
@@ -10778,6 +10788,11 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn to(self: Self, device: Device) ArrayError!Self {
+            if (self.pending_matmul != null) {
+                var materialized = try self.materializePendingMatmul();
+                defer materialized.deinit();
+                return materialized.to(device);
+            }
             if (!device.isAvailable()) return error.InvalidDevice;
             if (self.device.sameDevice(device)) return self.clone();
 
@@ -11927,6 +11942,11 @@ pub fn Array(comptime T: type) type {
 
         pub fn copyToSlice(self: Self, out: []T) ArrayError!void {
             if (out.len != self.numel()) return error.ShapeMismatch;
+            if (self.pending_matmul != null) {
+                var materialized = try self.materializePendingMatmul();
+                defer materialized.deinit();
+                return materialized.copyToSlice(out);
+            }
             if (!self.device.isCpu()) {
                 if (self.device_storage) |storage| return axiom_cuda_backend.downloadStorage(storage, std.mem.sliceAsBytes(out));
                 return error.InvalidDevice;
@@ -14618,8 +14638,88 @@ pub fn Array(comptime T: type) type {
             }
         }
 
+        fn pendingCudaMatmul(lhs: Self, rhs: Self, out_shape: []const usize) ArrayError!Self {
+            if (comptime T != f32 and T != BFloat16) return error.TypeUnsupported;
+            const lhs_storage = lhs.device_storage orelse return error.InvalidDevice;
+            const rhs_storage = rhs.device_storage orelse return error.InvalidDevice;
+            const shape = try lhs.allocator.dupe(usize, out_shape);
+            errdefer lhs.allocator.free(shape);
+            const strides = try stridesFor(lhs.allocator, shape);
+            errdefer lhs.allocator.free(strides);
+            const values = try lhs.allocator.alloc(T, 0);
+            return .{
+                .allocator = lhs.allocator,
+                .data = values,
+                .shape = shape,
+                .strides = strides,
+                .device = lhs.device,
+                .device_storage = null,
+                .pending_matmul = .{
+                    .lhs_storage = lhs_storage,
+                    .rhs_storage = rhs_storage,
+                    .lhs_shape = .{ lhs.shape[0], lhs.shape[1] },
+                    .rhs_shape = .{ rhs.shape[0], rhs.shape[1] },
+                },
+            };
+        }
+
+        fn materializePendingMatmul(self: Self) ArrayError!Self {
+            const pending = self.pending_matmul orelse return self.clone();
+            var out = try Self.emptyOn(self.allocator, self.shape, self.device);
+            errdefer out.deinit();
+            const out_storage = out.device_storage orelse return error.InvalidDevice;
+            const m = pending.lhs_shape[0];
+            const k = pending.lhs_shape[1];
+            const n = pending.rhs_shape[1];
+            const ok = if (comptime T == f32)
+                try axiom_cuda_backend.runPendingMatmulF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
+            else if (comptime T == BFloat16)
+                try axiom_cuda_backend.runPendingMatmulBF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
+            else
+                return error.TypeUnsupported;
+            if (!ok) return error.BackendFailure;
+            return out;
+        }
+
+        fn tryFusePendingMatmulAdd(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!?Self {
+            if (comptime T != f32 and T != BFloat16) return null;
+            if (self.pending_matmul == null) return null;
+            if (comptime op != opAdd and op != opSub) return null;
+            if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
+            if (!self.device.isCuda() or !other.device.isCuda() or !self.device.sameDevice(other.device)) return null;
+            const pending = self.pending_matmul.?;
+            const add_storage = other.device_storage orelse return null;
+            var out = try Self.emptyOn(self.allocator, self.shape, self.device);
+            errdefer out.deinit();
+            const out_storage = out.device_storage orelse return error.InvalidDevice;
+            const beta_value: f32 = if (comptime op == opSub) -1.0 else 1.0;
+            const m = pending.lhs_shape[0];
+            const k = pending.lhs_shape[1];
+            const n = pending.rhs_shape[1];
+            const ok = if (comptime T == f32)
+                try axiom_cuda_backend.runPendingMatmulAddF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, 1.0, beta_value)
+            else
+                try axiom_cuda_backend.runPendingMatmulAddBF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, 1.0, beta_value);
+            if (!ok) {
+                out.deinit();
+                return null;
+            }
+            return out;
+        }
+
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
+            if (try self.tryFusePendingMatmulAdd(other, op)) |out| return out;
+            if (self.pending_matmul != null) {
+                var materialized = try self.materializePendingMatmul();
+                defer materialized.deinit();
+                return materialized.binaryArray(other, op);
+            }
+            if (other.pending_matmul != null) {
+                var materialized_other = try other.materializePendingMatmul();
+                defer materialized_other.deinit();
+                return self.binaryArray(materialized_other, op);
+            }
             if (self.device.isCuda()) {
                 if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
                 if (comptime T != f32) return error.TypeUnsupported;
@@ -19785,15 +19885,10 @@ pub fn Array(comptime T: type) type {
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             if (self.device.isCuda()) {
                 if (lhs_vec or rhs_vec) return error.TypeUnsupported;
-                if (comptime T == f32) {
-                    if (try axiom_cuda_backend.tryDeviceMatmulF32(self, other)) |out| return out;
-                    return error.BackendFailure;
-                } else if (comptime T == BFloat16) {
-                    if (try axiom_cuda_backend.tryDeviceMatmulBF16(self, other)) |out| return out;
-                    return error.BackendFailure;
-                } else {
-                    return error.TypeUnsupported;
+                if (comptime T == f32 or T == BFloat16) {
+                    return try Self.pendingCudaMatmul(self, other, &.{ self.shape[0], other.shape[1] });
                 }
+                return error.TypeUnsupported;
             }
 
             if (comptime T == f32) {
