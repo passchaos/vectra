@@ -57,8 +57,8 @@ pub fn main(init: std.process.Init) !void {
             if (dtypeIncluded(dtype_filter, .f32)) try runCudaF32(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
             if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul", "cuda_matmul_f64_not_exposed");
             if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_add", "cuda_matmul_add_f64_not_exposed");
-            if (dtypeIncluded(dtype_filter, .f16)) try runCudaHostDtype(f16, "f16", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs);
-            if (dtypeIncluded(dtype_filter, .bf16)) try runCudaHostDtype(vx.BFloat16, "bf16", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs);
+            if (dtypeIncluded(dtype_filter, .f16)) try runCudaHostDtype(f16, "f16", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs, args.allow_slow_typed_cuda);
+            if (dtypeIncluded(dtype_filter, .bf16)) try runCudaBf16(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
         } else if (args.backend == .cuda and args.require_cuda) {
             return error.CudaDisabled;
         } else {
@@ -75,6 +75,7 @@ const Args = struct {
     dtype: ?DTypeFilter = null,
     require_cuda: bool = false,
     retain_outputs: bool = false,
+    allow_slow_typed_cuda: bool = false,
     warmup: ?usize = null,
     iters: ?usize = null,
     m: ?usize = null,
@@ -97,6 +98,8 @@ fn parseArgs(init: std.process.Init) !Args {
             parsed.require_cuda = true;
         } else if (std.mem.eql(u8, arg, "--retain-outputs")) {
             parsed.retain_outputs = true;
+        } else if (std.mem.eql(u8, arg, "--allow-slow-typed-cuda")) {
+            parsed.allow_slow_typed_cuda = true;
         } else if (std.mem.startsWith(u8, arg, "--warmup=")) {
             parsed.warmup = try parsePositiveOrZero(arg["--warmup=".len..]);
         } else if (std.mem.eql(u8, arg, "--warmup")) {
@@ -208,6 +211,27 @@ fn runCudaF32(
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul_add, a, b, c, warmup, iters, retain_outputs);
 }
 
+fn runCudaBf16(
+    init: std.process.Init,
+    writer: *std.Io.Writer,
+    allocator: std.mem.Allocator,
+    gpu: vx.Device,
+    shape: Shape,
+    warmup: usize,
+    iters: usize,
+    retain_outputs: bool,
+) !void {
+    var np = vx.withAllocator(allocator);
+    var a = try np.onesWith(vx.onDevice(vx.BFloat16, gpu), &.{ shape.m, shape.k });
+    defer a.deinit();
+    var b = try np.onesWith(vx.onDevice(vx.BFloat16, gpu), &.{ shape.k, shape.n });
+    defer b.deinit();
+    var c = try np.onesWith(vx.onDevice(vx.BFloat16, gpu), &.{ shape.m, shape.n });
+    defer c.deinit();
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul, a, b, null, warmup, iters, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul_add, a, b, c, warmup, iters, retain_outputs);
+}
+
 fn runCudaHostDtype(
     comptime T: type,
     dtype_name: []const u8,
@@ -218,7 +242,13 @@ fn runCudaHostDtype(
     warmup: usize,
     iters: usize,
     retain_outputs: bool,
+    allow_slow_typed_cuda: bool,
 ) !void {
+    if (!allow_slow_typed_cuda and slowTypedCudaShape(shape)) {
+        try printSkipped(writer, "cuda", dtype_name, "matmul", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        try printSkipped(writer, "cuda", dtype_name, "matmul_add", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        return;
+    }
     var np = vx.withAllocator(allocator);
     var a = try np.ones(T, &.{ shape.m, shape.k });
     defer a.deinit();
@@ -288,6 +318,11 @@ fn printPlan(writer: *std.Io.Writer, mode: Mode, backend: Backend, dtype_filter:
         "{{\"example\":\"large_matmul_add\",\"mode\":\"{s}\",\"backend\":\"{s}\",\"dtype\":\"{s}\",\"m\":{d},\"n\":{d},\"k\":{d},\"expressions\":[\"Y=A@B\",\"Y=A@B+C\"],\"axiom_enabled\":{},\"cuda_available\":{},\"warmup\":{d},\"iters\":{d},\"retain_outputs\":{},\"dry_run\":{}}}\n",
         .{ @tagName(mode), @tagName(backend), @tagName(dtype_filter), shape.m, shape.n, shape.k, vx.axiom_cuda.enabled(), vx.cuda(0).isAvailable(), warmup, iters, retain_outputs, mode == .dry_run },
     );
+}
+
+fn slowTypedCudaShape(shape: Shape) bool {
+    const ops = shape.m * shape.n * shape.k;
+    return ops > 256 * 256 * 256;
 }
 
 fn printSkipped(writer: *std.Io.Writer, backend: []const u8, dtype_name: []const u8, op: []const u8, reason: []const u8) !void {

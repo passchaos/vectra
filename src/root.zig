@@ -119,6 +119,10 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
         if (try tryCudaMatmulAddF32(@as(Array(f32), lhs), @as(Array(f32), rhs), @as(Array(f32), addend))) |out| {
             return @as(@TypeOf(lhs), out);
         }
+    } else if (comptime @TypeOf(lhs) == Array(BFloat16)) {
+        if (try tryCudaMatmulAddBF16(@as(Array(BFloat16), lhs), @as(Array(BFloat16), rhs), @as(Array(BFloat16), addend))) |out| {
+            return @as(@TypeOf(lhs), out);
+        }
     }
     var product = try matmul(lhs, rhs);
     defer product.deinit();
@@ -130,6 +134,14 @@ pub fn tryCudaMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32))
     try requireSameDevice(lhs, addend);
     if (!lhs.device.isCuda()) return null;
     if (try axiom_cuda.tryDeviceMatmulAddF32(lhs, rhs, addend)) |out| return out;
+    return null;
+}
+
+pub fn tryCudaMatmulAddBF16(lhs: Array(BFloat16), rhs: Array(BFloat16), addend: Array(BFloat16)) ArrayError!?Array(BFloat16) {
+    try requireSameDevice(lhs, rhs);
+    try requireSameDevice(lhs, addend);
+    if (!lhs.device.isCuda()) return null;
+    if (try axiom_cuda.tryDeviceMatmulAddBF16(lhs, rhs, addend)) |out| return out;
     return null;
 }
 

@@ -19784,10 +19784,16 @@ pub fn Array(comptime T: type) type {
             if (lhs_k != rhs_k) return error.ShapeMismatch;
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             if (self.device.isCuda()) {
-                if (comptime T != f32) return error.TypeUnsupported;
                 if (lhs_vec or rhs_vec) return error.TypeUnsupported;
-                if (try axiom_cuda_backend.tryDeviceMatmulF32(self, other)) |out| return out;
-                return error.BackendFailure;
+                if (comptime T == f32) {
+                    if (try axiom_cuda_backend.tryDeviceMatmulF32(self, other)) |out| return out;
+                    return error.BackendFailure;
+                } else if (comptime T == BFloat16) {
+                    if (try axiom_cuda_backend.tryDeviceMatmulBF16(self, other)) |out| return out;
+                    return error.BackendFailure;
+                } else {
+                    return error.TypeUnsupported;
+                }
             }
 
             if (comptime T == f32) {

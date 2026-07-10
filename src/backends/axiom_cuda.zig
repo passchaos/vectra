@@ -1464,7 +1464,65 @@ pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32
     return null;
 }
 
+pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0 or lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0] or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    var out = try array_mod.Array(BFloat16).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const report = runtime.runCudaDeviceBf16Gemm(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch null;
+    if (report) |value| {
+        if (value.valid()) return out;
+    }
+    return null;
+}
+
+pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16), addend: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !addend.device.isCuda()) return null;
+    if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(addend.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0 or addend.data.len != 0) return null;
+    if (lhs.shape.len != 2 or rhs.shape.len != 2 or addend.shape.len != 2) return null;
+    if (lhs.shape[1] != rhs.shape[0] or addend.shape[0] != lhs.shape[0] or addend.shape[1] != rhs.shape[1]) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous() or !addend.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    const add_storage = addend.device_storage orelse return null;
+    if (lhs_storage.len == 0 or rhs_storage.len == 0 or add_storage.len == 0) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+
+    var out = try addend.clone();
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const report = runtime.runCudaDeviceBf16GemmEx(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, 1.0, 1.0) catch null;
+    if (report) |value| {
+        if (value.valid()) return out;
+    }
+    out.deinit();
+    return null;
+}
+
 pub fn tryMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    if (try tryDeviceMatmulBF16(lhs, rhs)) |out| return out;
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return null;
     if (try tryMatmulBF16AxiomTypedSimtSeed(lhs, rhs)) |out| return out;

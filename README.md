@@ -132,11 +132,12 @@ stress run (`M = 4096 * 4`, `N = 4096`, `K = 4096`) and dry-runs by default;
 pass `-- --smoke` for a tiny executable check, `-- --dtype=all --backend=both`
 to compare f32/f64/f16/BFloat16 CPU paths plus supported CUDA paths, or
 `-- --execute --backend=cuda --dtype=f32 --require-cuda` for the production CUDA
-benchmark. CUDA owning arrays benchmark f32 matmul/matmulAdd, while CUDA f16/BFloat16
-records exercise the current Axiom CUDA typed host-slice matmul plus add path;
-f64 CUDA emits explicit skipped records until an f64 CUDA matmul is exposed.
-`--retain-outputs` intentionally keeps each iteration output alive to expose
-allocation/reuse effects versus the default PyTorch-like single-output reuse loop.
+benchmark. CUDA owning arrays benchmark f32 matmul/matmulAdd plus BFloat16 matmul/matmulAdd
+through Axiom cuBLAS-backed device GEMM; CUDA f16 records exercise the current
+Axiom CUDA typed host-slice matmul plus add path, and f64 CUDA emits explicit
+skipped records until an f64 CUDA matmul is exposed. `--retain-outputs`
+intentionally keeps each iteration output alive to expose allocation/reuse effects
+versus the default PyTorch-like single-output reuse loop.
 
 
 ## Axiom accelerator backend
@@ -145,10 +146,11 @@ Vectra imports the sibling [`../axiom`](../axiom) package by default. Supported
 CPU-backed `Array(f32/f64)` same-shape and scalar/broadcast add/sub/mul/div,
 2D matmul, matrix-vector, vector-matrix, dot/vdot, trace, determinant, inverse,
 solve, Cholesky, QR, LU, triangular solve, Frobenius/one/inf/two/nuclear matrix norms, SVD, singular values, matrix rank, condition number, pseudo-inverse, and least-squares flow through Axiom CPU lowering to Veyra. Supported CUDA owning-array
-f32 add/sub/mul/div, matmul, and fused matmul+add use existing device pointers
-through Axiom CUDA. Large f32 GEMM and GEMM+add use Axiom's cached
-cuBLAS-backed SGEMM wrapper; the Axiom PTX/CUDA Tile IR seeds remain as
-fallback/provenance paths.
+f32 add/sub/mul/div, f32 matmul/fused matmul+add, and BFloat16 matmul/fused
+matmul+add use existing device pointers through Axiom CUDA. Large f32 GEMM and
+GEMM+add use Axiom's cached cuBLAS-backed SGEMM wrapper; BFloat16 GEMM/GEMM+add
+uses Axiom's cuBLAS `cublasGemmEx` BF16 device wrapper. The Axiom PTX/CUDA Tile
+IR seeds remain as fallback/provenance paths.
 
 Validation commands:
 
