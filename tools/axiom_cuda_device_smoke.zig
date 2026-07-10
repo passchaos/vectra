@@ -74,6 +74,13 @@ pub fn main(init: std.process.Init) !void {
         defer chained_sqrt_host.deinit();
         chained_sqrt_ok = chained_sqrt.device.isCuda() and approxF32(chained_sqrt_host.data[0], 2.0, 0.01);
 
+        var chained_add_exp = try chained.exp();
+        defer chained_add_exp.deinit();
+        const chained_add_exp_status_ok = chained_add_exp.fusionStatus() == .cuda_matmul_add_exp;
+        var chained_add_exp_host = try chained_add_exp.cpu();
+        defer chained_add_exp_host.deinit();
+        const chained_add_exp_ok = chained_add_exp.device.isCuda() and approxF32(chained_add_exp_host.data[0], std.math.exp(@as(f32, 4.0)), 2.0);
+
         var chained_exp_input = try chained_sub.addScalar(1.0);
         defer chained_exp_input.deinit();
         var chained_exp = try chained_exp_input.exp();
@@ -81,7 +88,7 @@ pub fn main(init: std.process.Init) !void {
         var chained_exp_host = try chained_exp.cpu();
         defer chained_exp_host.deinit();
         chained_exp_ok = chained_exp.device.isCuda() and approxF32(chained_exp_host.data[0], std.math.exp(@as(f32, 3.0)), 0.25);
-        pending_fusion_status_ok = chained_status_ok and chained_sub_status_ok and chained_sqrt_status_ok;
+        pending_fusion_status_ok = chained_status_ok and chained_sub_status_ok and chained_sqrt_status_ok and chained_add_exp_status_ok and chained_add_exp_ok;
 
         var fused = try vx.matmulAdd(lhs, rhs, addend);
         defer fused.deinit();
