@@ -354,6 +354,17 @@ pub fn build(b: *std.Build) void {
     const axiom_cpu_dispatch_smoke_step = b.step("axiom-cpu-dispatch-smoke", "Run ordinary Array(f32/f64).matmul through Axiom CPU-to-Veyra dispatch");
     axiom_cpu_dispatch_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
 
+    const fusion_smoke_step = b.step("fusion-smoke", "Run CPU/CUDA fusion correctness, status, and quick performance smoke gates");
+    fusion_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
+    fusion_smoke_step.dependOn(&axiom_cuda_dispatch_smoke_cmd.step);
+    fusion_smoke_step.dependOn(&axiom_cuda_device_smoke_cmd.step);
+    fusion_smoke_step.dependOn(&large_matmul_add_smoke_cmd.step);
+    fusion_smoke_step.dependOn(&matmul_add_compare_smoke_cmd.step);
+
+    const fusion_production_gate_step = b.step("fusion-production-gate", "Run production matmul+add PyTorch and torch.compile performance gates");
+    fusion_production_gate_step.dependOn(&matmul_add_compare_production_cmd.step);
+    fusion_production_gate_step.dependOn(&matmul_add_compare_compile_cmd.step);
+
     const axiom_backend_policy_smoke_exe = b.addExecutable(.{
         .name = "vectra-axiom-backend-policy-smoke",
         .root_module = b.createModule(.{

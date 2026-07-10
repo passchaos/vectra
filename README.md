@@ -214,6 +214,8 @@ python3 tools/bench_matmul_add_compare.py --execute --m 16384 --n 4096 --k 4096 
 zig build bench-matmul-add-compare-smoke
 zig build bench-matmul-add-compare-production
 zig build bench-matmul-add-compare-production-compile
+zig build fusion-smoke
+zig build fusion-production-gate
 zig build bench-matmul-add-compare -- --execute --m 16384 --n 4096 --k 4096 --warmup 3 --iters 5 --max-ratio 1.05
 ```
 
