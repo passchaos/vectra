@@ -133,7 +133,7 @@ pass `-- --smoke` for a tiny executable check, `-- --dtype=all --backend=both`
 to compare f32/f64/f16/BFloat16 CPU paths plus supported CUDA paths, or
 `-- --execute --backend=cuda --dtype=f32 --require-cuda` for the production CUDA
 benchmark. CUDA owning arrays benchmark f32 matmul/matmulAdd plus BFloat16 matmul/matmulAdd
-through Axiom cuBLAS-backed device GEMM; CUDA f16 records exercise the current
+through Axiom cuBLAS-backed device GEMM and cuBLASLt fused addmm; CUDA f16 records exercise the current
 Axiom CUDA typed host-slice matmul plus add path, and f64 CUDA emits explicit
 skipped records until an f64 CUDA matmul is exposed. `--retain-outputs`
 intentionally keeps each iteration output alive to expose allocation/reuse effects
@@ -148,8 +148,7 @@ CPU-backed `Array(f32/f64)` same-shape and scalar/broadcast add/sub/mul/div,
 solve, Cholesky, QR, LU, triangular solve, Frobenius/one/inf/two/nuclear matrix norms, SVD, singular values, matrix rank, condition number, pseudo-inverse, and least-squares flow through Axiom CPU lowering to Veyra. Supported CUDA owning-array
 f32 add/sub/mul/div, f32 matmul/fused matmul+add, and BFloat16 matmul/fused
 matmul+add use existing device pointers through Axiom CUDA. Large f32 GEMM and
-GEMM+add use Axiom's cached cuBLAS-backed SGEMM wrapper; BFloat16 GEMM/GEMM+add
-uses Axiom's cuBLAS `cublasGemmEx` BF16 device wrapper. The Axiom PTX/CUDA Tile
+GEMM+add use Axiom's cached cuBLAS-backed SGEMM wrapper; BFloat16 GEMM uses Axiom's cuBLAS `cublasGemmEx` BF16 device wrapper and BFloat16 GEMM+add uses cuBLASLt with separate C/D pointers to avoid pre-copying the addend. The Axiom PTX/CUDA Tile
 IR seeds remain as fallback/provenance paths.
 
 Validation commands:

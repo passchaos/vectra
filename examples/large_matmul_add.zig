@@ -281,8 +281,8 @@ fn runBenchmark(
         warm.deinit();
     }
 
-    const begin = std.Io.Timestamp.now(init.io, .real);
     if (retain_outputs) {
+        const begin = std.Io.Timestamp.now(init.io, .real);
         var retained = try allocator.alloc(?vx.Array(T), iters);
         defer allocator.free(retained);
         @memset(retained, null);
@@ -295,12 +295,15 @@ fn runBenchmark(
         const elapsed_us = begin.untilNow(init.io, .real).toMicroseconds();
         try printResult(T, writer, backend, route, dtype_name, op.label(), retained[iters - 1].?, elapsed_us, iters, retain_outputs);
     } else {
+        const begin = std.Io.Timestamp.now(init.io, .real);
+
         var y: ?vx.Array(T) = null;
         defer if (y) |*out| out.deinit();
         for (0..iters) |_| {
-            if (y) |*out| out.deinit();
+            // if (y) |*out| out.deinit();
             y = try computeOp(T, op, a, b, c);
         }
+
         const elapsed_us = begin.untilNow(init.io, .real).toMicroseconds();
         try printResult(T, writer, backend, route, dtype_name, op.label(), y.?, elapsed_us, iters, retain_outputs);
     }

@@ -1441,7 +1441,7 @@ pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32
     const n = rhs.shape[1];
 
     {
-        var out = try addend.clone();
+        var out = try array_mod.Array(f32).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
         errdefer out.deinit();
         const out_storage = out.device_storage orelse {
             out.deinit();
@@ -1449,7 +1449,7 @@ pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32
         };
 
         var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-        const report = runtime.runCudaDeviceSgemmEx(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, 1.0, 1.0) catch null;
+        const report = runtime.runCudaDeviceSgemmLtMatmulAdd(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr) catch null;
         if (report) |value| {
             if (value.valid()) return out;
         }
@@ -1505,7 +1505,7 @@ pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Arr
     const k = lhs.shape[1];
     const n = rhs.shape[1];
 
-    var out = try addend.clone();
+    var out = try array_mod.Array(BFloat16).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
         out.deinit();
@@ -1513,7 +1513,7 @@ pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Arr
     };
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceBf16GemmEx(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, 1.0, 1.0) catch null;
+    const report = runtime.runCudaDeviceBf16GemmLtMatmulAdd(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr) catch null;
     if (report) |value| {
         if (value.valid()) return out;
     }
