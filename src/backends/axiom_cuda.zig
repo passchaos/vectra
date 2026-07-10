@@ -1257,6 +1257,7 @@ pub fn trySaxpyF32(alpha: f32, x: array_mod.Array(f32), y: array_mod.Array(f32))
         .alpha = alpha,
         .len = x.data.len,
         .kernel_symbol = "vectra_axiom_saxpy",
+        .prefer_cached_device = true,
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => return null,
