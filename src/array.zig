@@ -22374,6 +22374,28 @@ test "array object generalized matmul semantics" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, mm_out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 58, 64, 139, 154 }, mm_out.data);
 
+    var bf16_lhs = try Array(BFloat16).fromSlice(gpa, &.{
+        BFloat16.fromF32(1),
+        BFloat16.fromF32(2),
+        BFloat16.fromF32(3),
+        BFloat16.fromF32(4),
+    }, &.{ 2, 2 });
+    defer bf16_lhs.deinit();
+    var bf16_rhs = try Array(BFloat16).fromSlice(gpa, &.{
+        BFloat16.fromF32(10),
+        BFloat16.fromF32(20),
+        BFloat16.fromF32(30),
+        BFloat16.fromF32(40),
+    }, &.{ 2, 2 });
+    defer bf16_rhs.deinit();
+    var bf16_mm = try bf16_lhs.matmul(bf16_rhs);
+    defer bf16_mm.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, bf16_mm.shape);
+    try std.testing.expectApproxEqAbs(@as(f32, 70), bf16_mm.data[0].toF32(), 0.5);
+    try std.testing.expectApproxEqAbs(@as(f32, 100), bf16_mm.data[1].toF32(), 0.5);
+    try std.testing.expectApproxEqAbs(@as(f32, 150), bf16_mm.data[2].toF32(), 0.5);
+    try std.testing.expectApproxEqAbs(@as(f32, 220), bf16_mm.data[3].toF32(), 0.5);
+
     var empty_lhs = try Array(f64).empty(gpa, &.{ 2, 0 });
     defer empty_lhs.deinit();
     var empty_rhs = try Array(f64).empty(gpa, &.{ 0, 3 });
