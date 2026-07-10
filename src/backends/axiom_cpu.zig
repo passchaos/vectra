@@ -148,6 +148,27 @@ pub fn tryCholeskyF64(matrix: array_mod.Array(f64)) array_mod.ArrayError!?array_
     return tryCholeskyTyped(f64, matrix);
 }
 
+pub fn QrResult(comptime T: type) type {
+    return struct {
+        q: array_mod.Array(T),
+        r: array_mod.Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.q.deinit();
+            self.r.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
+pub fn tryQrF32(matrix: array_mod.Array(f32)) array_mod.ArrayError!?QrResult(f32) {
+    return tryQrTyped(f32, matrix);
+}
+
+pub fn tryQrF64(matrix: array_mod.Array(f64)) array_mod.ArrayError!?QrResult(f64) {
+    return tryQrTyped(f64, matrix);
+}
+
 fn tryMatmulTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cpu_dispatch) return null;
     if (!supportedMatmul2dContiguous(T, lhs, rhs)) return null;
@@ -360,6 +381,44 @@ fn tryCholeskyTyped(comptime T: type, matrix: array_mod.Array(T)) array_mod.Arra
     return out;
 }
 
+fn tryQrTyped(comptime T: type, matrix: array_mod.Array(T)) array_mod.ArrayError!?QrResult(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedMatrix(T, matrix)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var q = try array_mod.Array(T).empty(matrix.allocator, &.{ matrix.shape[0], matrix.shape[0] });
+    errdefer q.deinit();
+    var r = try array_mod.Array(T).empty(matrix.allocator, &.{ matrix.shape[0], matrix.shape[1] });
+    errdefer r.deinit();
+    const q_view = (try matrixView(T, q, "q")) orelse {
+        q.deinit();
+        r.deinit();
+        return null;
+    };
+    const r_view = (try matrixView(T, r, "r")) orelse {
+        q.deinit();
+        r.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runQrF32(matrix_view, q_view, r_view, matrix.data, q.data, r.data) catch {
+            q.deinit();
+            r.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runQrF64(matrix_view, q_view, r_view, matrix.data, q.data, r.data) catch {
+            q.deinit();
+            r.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        q.deinit();
+        r.deinit();
+        return null;
+    }
+    return .{ .q = q, .r = r };
+}
+
 fn supportedSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     return lhs.device.isCpu() and
         rhs.device.isCpu() and
@@ -402,6 +461,10 @@ fn supportedDot(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(
 }
 
 fn supportedTrace(comptime T: type, matrix: array_mod.Array(T)) bool {
+    return supportedMatrix(T, matrix);
+}
+
+fn supportedMatrix(comptime T: type, matrix: array_mod.Array(T)) bool {
     return matrix.device.isCpu() and
         matrix.shape.len == 2 and
         matrix.data.len != 0 and
@@ -409,11 +472,7 @@ fn supportedTrace(comptime T: type, matrix: array_mod.Array(T)) bool {
 }
 
 fn supportedSquareMatrix(comptime T: type, matrix: array_mod.Array(T)) bool {
-    return matrix.device.isCpu() and
-        matrix.shape.len == 2 and
-        matrix.shape[0] == matrix.shape[1] and
-        matrix.data.len != 0 and
-        matrix.strides.len == 2;
+    return supportedMatrix(T, matrix) and matrix.shape[0] == matrix.shape[1];
 }
 
 fn supportedSolve(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
@@ -599,6 +658,18 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         try std.testing.expectApproxEqAbs(@as(f64, 5), chol_out.data[0], 1e-12);
         try std.testing.expectApproxEqAbs(@as(f64, 3), chol_out.data[3], 1e-12);
         try std.testing.expectApproxEqAbs(@as(f64, -1), chol_out.data[6], 1e-12);
+
+        var rect = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 1, 1, 2, 1, 3 }, &.{ 3, 2 });
+        defer rect.deinit();
+        const qr = try tryQrF64(rect);
+        try std.testing.expect(qr != null);
+        var qr_out = qr.?;
+        defer qr_out.deinit();
+        try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, qr_out.q.shape);
+        try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, qr_out.r.shape);
+        var qr_reconstructed = try qr_out.q.matmul(qr_out.r);
+        defer qr_reconstructed.deinit();
+        try std.testing.expect(try qr_reconstructed.allclose(rect, 1e-10, 1e-10));
     } else {
         try std.testing.expect(mv32 == null);
         try std.testing.expect(vt64 == null);

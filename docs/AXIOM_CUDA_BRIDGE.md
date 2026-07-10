@@ -3,7 +3,7 @@
 Vectra imports the sibling Axiom compiler/runtime package by default for the
 supported CPU and CUDA tensor paths. CPU-backed `Array(f32/f64)`
 elementwise/scalar/matmul, matrix-vector, vector-matrix, dot/vdot, trace,
-determinant, inverse, solve, and Cholesky operations route through Axiom CPU
+determinant, inverse, solve, Cholesky, and QR operations route through Axiom CPU
 lowering to Veyra. CUDA-owning `Array(f32)` values allocate real device storage
 when the CUDA driver can retain the requested primary context, and supported
 kernels consume existing device pointers rather than staging through host
@@ -54,9 +54,9 @@ CUDA validation requires a CUDA/libnvvm/PTXAS-capable host.
 
 Supported CPU routes currently cover f32/f64 same-shape add/sub/mul/div, scalar
 and one-element scalar-broadcast add/sub/mul/div, 2D matmul, matrix-vector,
-vector-matrix, dot/vdot, trace, determinant, inverse, solve, and Cholesky through
-Axiom CPU→Veyra. Unsupported shapes or dtypes return explicit errors or fall
-back only where Vectra still has a non-Axiom generic implementation.
+vector-matrix, dot/vdot, trace, determinant, inverse, solve, Cholesky, and QR
+through Axiom CPU→Veyra. Unsupported shapes or dtypes return explicit errors or
+fall back only where Vectra still has a non-Axiom generic implementation.
 
 ## `vx.axiom_cuda` API surface
 
@@ -74,9 +74,9 @@ back only where Vectra still has a non-Axiom generic implementation.
   `tryMatmulBF16(lhs, rhs)`
 - `vx.axiom_cpu.tryMatvecF32/F64`, `tryVecmatF32/F64`, `tryDotF32/F64`,
   `tryTraceF32/F64`, `tryDetF32/F64`, `tryInverseF32/F64`, and
-  `trySolveF32/F64`, `tryCholeskyF32/F64` for CPU matrix-vector, vector-matrix,
-  dot/vdot, trace, determinant, inverse, solve, and Cholesky lowering through
-  Axiom CPU→Veyra
+  `trySolveF32/F64`, `tryCholeskyF32/F64`, `tryQrF32/F64` for CPU
+  matrix-vector, vector-matrix, dot/vdot, trace, determinant, inverse, solve,
+  Cholesky, and QR lowering through Axiom CPU→Veyra
 - `tryDeviceBinaryF32(op, lhs, rhs)`
 - `tryDeviceMatmulF32(lhs, rhs)`
 - `tryDeviceMatmulAddF32(lhs, rhs, addend)`
