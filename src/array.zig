@@ -10379,55 +10379,17 @@ pub fn Array(comptime T: type) type {
         pub fn lstsq(self: Self, rhs: Self, tolerance: T) ArrayError!Self {
             if (comptime @typeInfo(T) != .float) @compileError("lstsq requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
-            if (comptime T == f64) return self.lstsqF64(rhs, tolerance);
-
-            if (rhs.shape.len != 1) return error.NonVectorArray;
-            var factors = try self.qr();
-            defer factors.deinit();
-            var qt = try factors.q.transpose();
-            defer qt.deinit();
-            var y_full = try qt.matvec(rhs);
-            defer y_full.deinit();
-            const n = self.shape[1];
-            var x = try Self.zeros(self.allocator, &.{n});
-            var i = n;
-            while (i > 0) {
-                i -= 1;
-                var acc = y_full.data[i];
-                for (i + 1..n) |j| acc -= factors.r.data[i * self.shape[1] + j] * x.data[j];
-                const diagonal_value = factors.r.data[i * self.shape[1] + i];
-                if (@abs(diagonal_value) <= tolerance) return error.SingularMatrix;
-                x.data[i] = acc / diagonal_value;
+            if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
+            if (rhs.shape[0] != self.shape[0]) return error.ShapeMismatch;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryLstsqF32(self, rhs, tolerance)) |out| return out;
+                return error.BackendFailure;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryLstsqF64(self, rhs, tolerance)) |out| return out;
+                return error.BackendFailure;
+            } else {
+                return error.BackendFailure;
             }
-            return x;
-        }
-
-        fn lstsqF64(self: Self, rhs: Self, tolerance: T) ArrayError!Self {
-            var matrix = try self.toVeyraMatrixF64();
-            defer matrix.deinit();
-            var decomposition = veyra.svdViaEigen(f64, self.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraArrayError(err);
-            defer decomposition.deinit();
-
-            if (rhs.shape.len == 1) {
-                var rhs_vector = try rhs.toVeyraVectorF64();
-                defer rhs_vector.deinit();
-                var dst_vector = veyra.Vector(f64).zeros(self.allocator, self.shape[1]) catch |err| return mapVeyraArrayError(err);
-                defer dst_vector.deinit();
-                decomposition.solveLeastSquares(rhs_vector.asView(), dst_vector.asMut(), tolerance) catch |err| return mapVeyraArrayError(err);
-                return Self.fromVeyraVectorF64(self.allocator, &dst_vector);
-            }
-
-            if (rhs.shape.len == 2) {
-                if (rhs.shape[0] != self.shape[0]) return error.ShapeMismatch;
-                var rhs_matrix = try rhs.toVeyraMatrixF64();
-                defer rhs_matrix.deinit();
-                var dst_matrix = veyra.Matrix(f64).zeros(self.allocator, self.shape[1], rhs.shape[1], .row_major) catch |err| return mapVeyraArrayError(err);
-                defer dst_matrix.deinit();
-                decomposition.solveLeastSquaresMatrix(rhs_matrix.asView(), dst_matrix.asMut(), tolerance) catch |err| return mapVeyraArrayError(err);
-                return Self.fromVeyraMatrixF64(self.allocator, &dst_matrix);
-            }
-
-            return error.InvalidShape;
         }
 
         pub fn real(self: Self) ArrayError!Array(complexRealType(T)) {

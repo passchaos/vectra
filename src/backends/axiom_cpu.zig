@@ -247,6 +247,14 @@ pub fn tryPinvF64(matrix: array_mod.Array(f64), tolerance: f64) array_mod.ArrayE
     return tryPinvTyped(f64, matrix, tolerance);
 }
 
+pub fn tryLstsqF32(matrix: array_mod.Array(f32), rhs: array_mod.Array(f32), tolerance: f32) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryLstsqTyped(f32, matrix, rhs, tolerance);
+}
+
+pub fn tryLstsqF64(matrix: array_mod.Array(f64), rhs: array_mod.Array(f64), tolerance: f64) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryLstsqTyped(f64, matrix, rhs, tolerance);
+}
+
 pub fn trySolveTriangularF32(
     matrix: array_mod.Array(f32),
     rhs: array_mod.Array(f32),
@@ -715,6 +723,35 @@ fn tryPinvTyped(comptime T: type, matrix: array_mod.Array(T), tolerance: T) arra
     return out;
 }
 
+fn tryLstsqTyped(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedLstsq(T, matrix, rhs)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    const rhs_view = (try matrixOrVectorColumnView(T, rhs, "rhs")) orelse return null;
+    const out_shape: []const usize = if (rhs.shape.len == 1) &.{matrix.shape[1]} else &.{ matrix.shape[1], rhs.shape[1] };
+    var out = try array_mod.Array(T).empty(matrix.allocator, out_shape);
+    errdefer out.deinit();
+    const out_view = (try matrixOrVectorColumnView(T, out, "out")) orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runLstsqF32(matrix_view, rhs_view, out_view, matrix.data, rhs.data, out.data, tolerance) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runLstsqF64(matrix_view, rhs_view, out_view, matrix.data, rhs.data, out.data, tolerance) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 fn trySolveTriangularTyped(
     comptime T: type,
     matrix: array_mod.Array(T),
@@ -841,6 +878,16 @@ fn supportedSquareMatrix(comptime T: type, matrix: array_mod.Array(T)) bool {
 fn supportedSolve(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     const rhs_rank_ok = rhs.shape.len == 1 or rhs.shape.len == 2;
     return supportedSquareMatrix(T, matrix) and
+        rhs.device.isCpu() and
+        rhs_rank_ok and
+        rhs.shape[0] == matrix.shape[0] and
+        rhs.data.len != 0 and
+        (rhs.strides.len == 1 or rhs.strides.len == 2);
+}
+
+fn supportedLstsq(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
+    const rhs_rank_ok = rhs.shape.len == 1 or rhs.shape.len == 2;
+    return supportedMatrix(T, matrix) and
         rhs.device.isCpu() and
         rhs_rank_ok and
         rhs.shape[0] == matrix.shape[0] and

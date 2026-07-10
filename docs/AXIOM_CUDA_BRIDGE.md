@@ -4,7 +4,7 @@ Vectra imports the sibling Axiom compiler/runtime package by default for the
 supported CPU and CUDA tensor paths. CPU-backed `Array(f32/f64)`
 elementwise/scalar/matmul, matrix-vector, vector-matrix, dot/vdot, trace,
 determinant, inverse, solve, Cholesky, QR, LU, and triangular-solve operations
-plus Frobenius/one/inf/two/nuclear matrix norms, SVD, singular values, matrix rank, condition number, and pseudo-inverse route through Axiom CPU lowering to
+plus Frobenius/one/inf/two/nuclear matrix norms, SVD, singular values, matrix rank, condition number, pseudo-inverse, and least-squares route through Axiom CPU lowering to
 Veyra. CUDA-owning `Array(f32)` values allocate real device storage when the CUDA
 driver can retain the requested primary context, and supported kernels consume
 existing device pointers rather than staging through host arrays.
@@ -55,7 +55,7 @@ CUDA validation requires a CUDA/libnvvm/PTXAS-capable host.
 Supported CPU routes currently cover f32/f64 same-shape add/sub/mul/div, scalar
 and one-element scalar-broadcast add/sub/mul/div, 2D matmul, matrix-vector,
 vector-matrix, dot/vdot, trace, determinant, inverse, solve, Cholesky, QR, LU,
-triangular solve, Frobenius/one/inf/two/nuclear matrix norms, SVD, singular values, matrix rank, condition number, and pseudo-inverse through Axiom
+triangular solve, Frobenius/one/inf/two/nuclear matrix norms, SVD, singular values, matrix rank, condition number, pseudo-inverse, and least-squares through Axiom
 CPU→Veyra. Unsupported shapes or dtypes return explicit errors or fall back only
 where Vectra still has a non-Axiom generic implementation.
 
@@ -77,9 +77,9 @@ where Vectra still has a non-Axiom generic implementation.
   `tryTraceF32/F64`, `tryDetF32/F64`, `tryInverseF32/F64`, and
   `trySolveF32/F64`, `tryCholeskyF32/F64`, `tryQrF32/F64`, `tryLuF32/F64`,
   `trySolveTriangularF32/F64`, `tryMatrixNormF32/F64`, `trySvdF32/F64`,
-  `trySingularValuesF32/F64`, `tryMatrixRankF32/F64`, `tryCondF32/F64`, `tryPinvF32/F64` for CPU
+  `trySingularValuesF32/F64`, `tryMatrixRankF32/F64`, `tryCondF32/F64`, `tryPinvF32/F64`, `tryLstsqF32/F64` for CPU
   matrix-vector, vector-matrix, dot/vdot, trace, determinant, inverse, solve,
-  Cholesky, QR, LU, triangular-solve, Frobenius/one/inf/two/nuclear matrix-norm, SVD, singular-value, matrix-rank, condition-number, and pseudo-inverse
+  Cholesky, QR, LU, triangular-solve, Frobenius/one/inf/two/nuclear matrix-norm, SVD, singular-value, matrix-rank, condition-number, pseudo-inverse, and least-squares
   lowering through Axiom CPU→Veyra
 - `tryDeviceBinaryF32(op, lhs, rhs)`
 - `tryDeviceMatmulF32(lhs, rhs)`
