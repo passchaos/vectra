@@ -10230,21 +10230,15 @@ pub fn Array(comptime T: type) type {
         pub fn matrixRank(self: Self, tolerance: T) ArrayError!usize {
             if (comptime @typeInfo(T) != .float) @compileError("matrixRank requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
-            if (comptime T == f64) {
-                var matrix = try self.toVeyraMatrixF64();
-                defer matrix.deinit();
-                var decomposition = veyra.svdViaEigen(f64, self.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraArrayError(err);
-                defer decomposition.deinit();
-                return decomposition.rank(tolerance);
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryMatrixRankF32(self, tolerance)) |value| return value;
+                return error.BackendFailure;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryMatrixRankF64(self, tolerance)) |value| return value;
+                return error.BackendFailure;
+            } else {
+                return error.BackendFailure;
             }
-
-            var values = try self.singularValues(tolerance);
-            defer values.deinit();
-            var rank_value: usize = 0;
-            for (values.data) |sigma| {
-                if (sigma > tolerance) rank_value += 1;
-            }
-            return rank_value;
         }
 
         pub fn matrix_rank(self: Self, tolerance: T) ArrayError!usize {
@@ -10254,25 +10248,15 @@ pub fn Array(comptime T: type) type {
         pub fn cond(self: Self, tolerance: T) ArrayError!T {
             if (comptime @typeInfo(T) != .float) @compileError("cond requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
-            if (comptime T == f64) {
-                var matrix = try self.toVeyraMatrixF64();
-                defer matrix.deinit();
-                var decomposition = veyra.svdViaEigen(f64, self.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraArrayError(err);
-                defer decomposition.deinit();
-                return decomposition.conditionNumber(tolerance) catch |err| return mapVeyraArrayError(err);
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryCondF32(self, tolerance)) |value| return value;
+                return error.BackendFailure;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryCondF64(self, tolerance)) |value| return value;
+                return error.BackendFailure;
+            } else {
+                return error.BackendFailure;
             }
-
-            var values = try self.singularValues(tolerance);
-            defer values.deinit();
-            if (values.data.len == 0) return error.InvalidShape;
-            var max_sigma = values.data[0];
-            var min_sigma: ?T = null;
-            for (values.data) |sigma| {
-                if (sigma > max_sigma) max_sigma = sigma;
-                if (sigma > tolerance) min_sigma = if (min_sigma) |current| @min(current, sigma) else sigma;
-            }
-            const min_resolved = min_sigma orelse return error.SingularMatrix;
-            return max_sigma / min_resolved;
         }
 
         pub fn pinv(self: Self, tolerance: T) ArrayError!Self {

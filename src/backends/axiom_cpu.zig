@@ -223,6 +223,22 @@ pub fn trySingularValuesF64(matrix: array_mod.Array(f64), tolerance: f64) array_
     return trySingularValuesTyped(f64, matrix, tolerance);
 }
 
+pub fn tryMatrixRankF32(matrix: array_mod.Array(f32), tolerance: f32) array_mod.ArrayError!?usize {
+    return tryMatrixRankTyped(f32, matrix, tolerance);
+}
+
+pub fn tryMatrixRankF64(matrix: array_mod.Array(f64), tolerance: f64) array_mod.ArrayError!?usize {
+    return tryMatrixRankTyped(f64, matrix, tolerance);
+}
+
+pub fn tryCondF32(matrix: array_mod.Array(f32), tolerance: f32) array_mod.ArrayError!?f32 {
+    return tryCondTyped(f32, matrix, tolerance);
+}
+
+pub fn tryCondF64(matrix: array_mod.Array(f64), tolerance: f64) array_mod.ArrayError!?f64 {
+    return tryCondTyped(f64, matrix, tolerance);
+}
+
 pub fn trySolveTriangularF32(
     matrix: array_mod.Array(f32),
     rhs: array_mod.Array(f32),
@@ -632,6 +648,38 @@ fn trySingularValuesTyped(comptime T: type, matrix: array_mod.Array(T), toleranc
     return s;
 }
 
+fn tryMatrixRankTyped(comptime T: type, matrix: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?usize {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedMatrix(T, matrix)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var out: usize = 0;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runMatrixRankF32(matrix_view, matrix.data, tolerance, &out) catch return null
+    else
+        axiom.accelerator.cpu_veyra.runMatrixRankF64(matrix_view, matrix.data, tolerance, &out) catch return null;
+    if (!report.ok()) return null;
+    return out;
+}
+
+fn tryCondTyped(comptime T: type, matrix: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?T {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedMatrix(T, matrix)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var out: T = 0;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runConditionNumberF32(matrix_view, matrix.data, tolerance, &out) catch |err| return switch (err) {
+            error.SingularMatrix => error.SingularMatrix,
+            else => null,
+        }
+    else
+        axiom.accelerator.cpu_veyra.runConditionNumberF64(matrix_view, matrix.data, tolerance, &out) catch |err| return switch (err) {
+            error.SingularMatrix => error.SingularMatrix,
+            else => null,
+        };
+    if (!report.ok()) return null;
+    return out;
+}
+
 fn trySolveTriangularTyped(
     comptime T: type,
     matrix: array_mod.Array(T),
@@ -1006,6 +1054,12 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         defer singular_values_out.deinit();
         try std.testing.expectEqualSlices(usize, &.{2}, singular_values_out.shape);
         try std.testing.expectApproxEqAbs(svd_out.s.data[0], singular_values_out.data[0], 1e-12);
+        const rank = try tryMatrixRankF64(rect, 1e-12);
+        try std.testing.expect(rank != null);
+        try std.testing.expectEqual(@as(usize, 2), rank.?);
+        const cond = try tryCondF64(rect, 1e-12);
+        try std.testing.expect(cond != null);
+        try std.testing.expectApproxEqAbs(singular_values_out.data[0] / singular_values_out.data[1], cond.?, 1e-12);
 
         var triangular = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
         defer triangular.deinit();

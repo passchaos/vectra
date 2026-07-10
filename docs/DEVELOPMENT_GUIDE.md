@@ -123,7 +123,7 @@ zig build test
 后续策略：
 
 - Array/NDArray API 保持用户友好的 NumPy/CuPy/PyTorch 风格；新文档和新 API 主名统一使用 `Array` / `NDArray`、`array` / `ndarray`。
-- 底层 f64 dense linalg 仍复用 Veyra 能力，但 Vectra 支持路径应优先通过 Axiom 入口；当前对象式 `Array.matmul/mm` f32/f64 2D 矩阵乘/矩阵-向量/向量-矩阵路径、`Array.dot/vdot` f32/f64 路径、`Array.trace/det/inverse/solve/cholesky/qr/lu/solveTriangular/svd/singularValues` 与 `linalg.matmul/matvec/trace/det/inverse/solve/cholesky/qr/lu/solveTriangular/svd/singularValues` 已接入 Axiom CPU→Veyra，`matrixNorm(.fro/.one/.inf)` 也已走 Axiom CPU→Veyra。`Array.lstsq/matrixRank/cond/pinv/matrixNorm(.two/.nuclear)/eigh/eigvalsh` 与对应 `linalg.*` 高级分解仍直接接入 Veyra-compatible 路径或在 Vectra 层组合 Axiom-backed SVD/singular-values，后续应补 Axiom front-door wrappers；非覆盖 dtype/shape 或 Veyra 暂无覆盖时保留 Vectra 泛型回退，暂无回退的高级分解会显式返回错误。
+- 底层 f64 dense linalg 仍复用 Veyra 能力，但 Vectra 支持路径应优先通过 Axiom 入口；当前对象式 `Array.matmul/mm` f32/f64 2D 矩阵乘/矩阵-向量/向量-矩阵路径、`Array.dot/vdot` f32/f64 路径、`Array.trace/det/inverse/solve/cholesky/qr/lu/solveTriangular/svd/singularValues/matrixRank/cond` 与 `linalg.matmul/matvec/trace/det/inverse/solve/cholesky/qr/lu/solveTriangular/svd/singularValues/matrixRank/cond` 已接入 Axiom CPU→Veyra，`matrixNorm(.fro/.one/.inf)` 也已走 Axiom CPU→Veyra。`Array.lstsq/pinv/matrixNorm(.two/.nuclear)/eigh/eigvalsh` 与对应 `linalg.*` 高级分解仍直接接入 Veyra-compatible 路径或在 Vectra 层组合 Axiom-backed SVD/singular-values/rank/condition-number，后续应补 Axiom front-door wrappers；非覆盖 dtype/shape 或 Veyra 暂无覆盖时保留 Vectra 泛型回退，暂无回退的高级分解会显式返回错误。
 - SciPy-like `linalg/sparse/optimize` 扩展应优先检查 Veyra 是否已有对应算法，避免重复实现。
 - 引入 Veyra 时必须保留 Vectra 层 shape/device/dtype 错误语义，并添加端到端测试。
 
