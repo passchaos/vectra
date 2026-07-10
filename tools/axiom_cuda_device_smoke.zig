@@ -26,6 +26,8 @@ pub fn main(init: std.process.Init) !void {
     var direct_matmul_add_ok = !vx.axiom_cuda.enabled();
     var chained_matmul_add_ok = !vx.axiom_cuda.enabled();
     var chained_matmul_sub_ok = !vx.axiom_cuda.enabled();
+    var chained_sqrt_ok = !vx.axiom_cuda.enabled();
+    var chained_exp_ok = !vx.axiom_cuda.enabled();
     if (vx.Device.cuda(0).isAvailable()) {
         var lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 }, vx.cuda(0));
         defer lhs.deinit();
@@ -59,22 +61,40 @@ pub fn main(init: std.process.Init) !void {
         defer chained_sub_host.deinit();
         chained_matmul_sub_ok = chained_sub.device.isCuda() and chained_sub.device_storage != null and equalF32(chained_sub_host.data, &.{ 2, 2, 6, 6 });
 
+        var chained_sqrt = try chained.sqrt();
+        defer chained_sqrt.deinit();
+        var chained_sqrt_host = try chained_sqrt.cpu();
+        defer chained_sqrt_host.deinit();
+        chained_sqrt_ok = chained_sqrt.device.isCuda() and chained_sqrt.device_storage != null and approxF32(chained_sqrt_host.data[0], 2.0, 0.01);
+
+        var chained_exp_input = try chained_sub.addScalar(1.0);
+        defer chained_exp_input.deinit();
+        var chained_exp = try chained_exp_input.exp();
+        defer chained_exp.deinit();
+        var chained_exp_host = try chained_exp.cpu();
+        defer chained_exp_host.deinit();
+        chained_exp_ok = chained_exp.device.isCuda() and chained_exp.device_storage != null and approxF32(chained_exp_host.data[0], std.math.exp(@as(f32, 3.0)), 0.25);
+
         var fused = try vx.matmulAdd(lhs, rhs, addend);
         defer fused.deinit();
         var fused_host = try fused.cpu();
         defer fused_host.deinit();
         direct_matmul_add_ok = fused.device.isCuda() and fused.device_storage != null and equalF32(fused_host.data, &.{ 4, 4, 8, 8 });
     }
-    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok;
+    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok;
 
-    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_buffer: [1536]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{}}}\n",
-        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok },
+        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{}}}\n",
+        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
+}
+
+fn approxF32(actual: f32, expected: f32, tolerance: f32) bool {
+    return @abs(actual - expected) <= tolerance;
 }
 
 fn equalF32(actual: []const f32, expected: []const f32) bool {

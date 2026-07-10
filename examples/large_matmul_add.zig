@@ -21,6 +21,8 @@ const BenchOp = enum {
     matmul_add,
     matmul_then_add,
     matmul_then_sub,
+    matmul_then_add_sqrt,
+    matmul_then_add_exp,
 
     fn label(op: BenchOp) []const u8 {
         return @tagName(op);
@@ -59,6 +61,10 @@ pub fn main(init: std.process.Init) !void {
             if (dtypeIncluded(dtype_filter, .f32)) try runCudaF32(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
             if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul", "cuda_matmul_f64_not_exposed");
             if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_add", "cuda_matmul_add_f64_not_exposed");
+            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_then_add", "cuda_matmul_f64_not_exposed");
+            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_then_sub", "cuda_matmul_f64_not_exposed");
+            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_then_add_sqrt", "cuda_matmul_f64_not_exposed");
+            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_then_add_exp", "cuda_matmul_f64_not_exposed");
             if (dtypeIncluded(dtype_filter, .f16)) try runCudaHostDtype(f16, "f16", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs, args.allow_slow_typed_cuda);
             if (dtypeIncluded(dtype_filter, .bf16)) try runCudaBf16(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
         } else if (args.backend == .cuda and args.require_cuda) {
@@ -192,6 +198,8 @@ fn runCpuDtype(
     try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
 }
 
 fn runCudaF32(
@@ -215,6 +223,8 @@ fn runCudaF32(
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_plus_unary", "f32", .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_plus_unary", "f32", .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
 }
 
 fn runCudaBf16(
@@ -238,6 +248,8 @@ fn runCudaBf16(
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
+    try printSkipped(writer, "cuda", "bf16", "matmul_then_add_sqrt", "bf16_cuda_unary_sqrt_not_exposed");
+    try printSkipped(writer, "cuda", "bf16", "matmul_then_add_exp", "bf16_cuda_unary_exp_not_exposed");
 }
 
 fn runCudaHostDtype(
@@ -255,6 +267,10 @@ fn runCudaHostDtype(
     if (!allow_slow_typed_cuda and slowTypedCudaShape(shape)) {
         try printSkipped(writer, "cuda", dtype_name, "matmul", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
         try printSkipped(writer, "cuda", dtype_name, "matmul_add", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        try printSkipped(writer, "cuda", dtype_name, "matmul_then_add", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        try printSkipped(writer, "cuda", dtype_name, "matmul_then_sub", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        try printSkipped(writer, "cuda", dtype_name, "matmul_then_add_sqrt", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        try printSkipped(writer, "cuda", dtype_name, "matmul_then_add_exp", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
         return;
     }
     var np = vx.withAllocator(allocator);
@@ -268,6 +284,8 @@ fn runCudaHostDtype(
     try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
 }
 
 fn runBenchmark(
@@ -340,12 +358,29 @@ fn computeOp(comptime T: type, op: BenchOp, a: vx.Array(T), b: vx.Array(T), c: ?
             defer product.deinit();
             break :blk try product.sub(c orelse return error.InvalidShape);
         },
+        .matmul_then_add_sqrt => blk: {
+            var product = try vx.matmul(a, b);
+            defer product.deinit();
+            var added = try product.add(c orelse return error.InvalidShape);
+            defer added.deinit();
+            break :blk try added.sqrt();
+        },
+        .matmul_then_add_exp => blk: {
+            var product = try vx.matmul(a, b);
+            defer product.deinit();
+            var added = try product.add(c orelse return error.InvalidShape);
+            defer added.deinit();
+            const k = if (a.shape.len == 0) return error.NonMatrixArray else a.shape[a.shape.len - 1];
+            var normalized = try added.mulScalar(valueFromF64(T, 1.0 / @as(f64, @floatFromInt(k + 1))));
+            defer normalized.deinit();
+            break :blk try normalized.exp();
+        },
     };
 }
 
 fn printPlan(writer: *std.Io.Writer, mode: Mode, backend: Backend, dtype_filter: DTypeFilter, shape: Shape, warmup: usize, iters: usize, retain_outputs: bool) !void {
     try writer.print(
-        "{{\"example\":\"large_matmul_add\",\"mode\":\"{s}\",\"backend\":\"{s}\",\"dtype\":\"{s}\",\"m\":{d},\"n\":{d},\"k\":{d},\"expressions\":[\"Y=A@B\",\"Y=A@B+C\",\"tmp=A@B;Y=tmp+C\",\"tmp=A@B;Y=tmp-C\"],\"axiom_enabled\":{},\"cuda_available\":{},\"warmup\":{d},\"iters\":{d},\"retain_outputs\":{},\"dry_run\":{}}}\n",
+        "{{\"example\":\"large_matmul_add\",\"mode\":\"{s}\",\"backend\":\"{s}\",\"dtype\":\"{s}\",\"m\":{d},\"n\":{d},\"k\":{d},\"expressions\":[\"Y=A@B\",\"Y=A@B+C\",\"tmp=A@B;Y=tmp+C\",\"tmp=A@B;Y=tmp-C\",\"tmp=A@B;Y=sqrt(tmp+C)\",\"tmp=A@B;Y=exp((tmp+C)/(K+1))\"],\"axiom_enabled\":{},\"cuda_available\":{},\"warmup\":{d},\"iters\":{d},\"retain_outputs\":{},\"dry_run\":{}}}\n",
         .{ @tagName(mode), @tagName(backend), @tagName(dtype_filter), shape.m, shape.n, shape.k, vx.axiom_cuda.enabled(), vx.cuda(0).isAvailable(), warmup, iters, retain_outputs, mode == .dry_run },
     );
 }
@@ -377,6 +412,11 @@ fn avgUs(elapsed_us: i64, iters: usize) f64 {
 
 fn valueAsF64(comptime T: type, value: T) f64 {
     if (T == vx.BFloat16) return value.toF64();
+    return @floatCast(value);
+}
+
+fn valueFromF64(comptime T: type, value: f64) T {
+    if (T == vx.BFloat16) return vx.BFloat16.fromF64(value);
     return @floatCast(value);
 }
 

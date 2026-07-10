@@ -15812,6 +15812,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn exp(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (self.device.isCuda() and comptime T == f32) {
+                if (self.pending_matmul != null) {
+                    var materialized = try self.materializePendingMatmul();
+                    defer materialized.deinit();
+                    if (try axiom_cuda_backend.tryExpF32(materialized)) |out| return out;
+                    return error.BackendFailure;
+                }
+                if (try axiom_cuda_backend.tryExpF32(self)) |out| return out;
+                return error.BackendFailure;
+            }
             return self.unary(opExp);
         }
 
@@ -15864,6 +15874,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn sqrt(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (self.device.isCuda() and comptime T == f32) {
+                if (self.pending_matmul != null) {
+                    var materialized = try self.materializePendingMatmul();
+                    defer materialized.deinit();
+                    if (try axiom_cuda_backend.trySqrtF32(materialized)) |out| return out;
+                    return error.BackendFailure;
+                }
+                if (try axiom_cuda_backend.trySqrtF32(self)) |out| return out;
+                return error.BackendFailure;
+            }
             return self.unary(opSqrt);
         }
 
