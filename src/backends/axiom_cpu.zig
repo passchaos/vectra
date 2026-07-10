@@ -239,6 +239,14 @@ pub fn tryCondF64(matrix: array_mod.Array(f64), tolerance: f64) array_mod.ArrayE
     return tryCondTyped(f64, matrix, tolerance);
 }
 
+pub fn tryPinvF32(matrix: array_mod.Array(f32), tolerance: f32) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryPinvTyped(f32, matrix, tolerance);
+}
+
+pub fn tryPinvF64(matrix: array_mod.Array(f64), tolerance: f64) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryPinvTyped(f64, matrix, tolerance);
+}
+
 pub fn trySolveTriangularF32(
     matrix: array_mod.Array(f32),
     rhs: array_mod.Array(f32),
@@ -680,6 +688,33 @@ fn tryCondTyped(comptime T: type, matrix: array_mod.Array(T), tolerance: T) arra
     return out;
 }
 
+fn tryPinvTyped(comptime T: type, matrix: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedMatrix(T, matrix)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var out = try array_mod.Array(T).empty(matrix.allocator, &.{ matrix.shape[1], matrix.shape[0] });
+    errdefer out.deinit();
+    const out_view = (try matrixView(T, out, "pinv")) orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runPinvF32(matrix_view, out_view, matrix.data, out.data, tolerance) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runPinvF64(matrix_view, out_view, matrix.data, out.data, tolerance) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 fn trySolveTriangularTyped(
     comptime T: type,
     matrix: array_mod.Array(T),
@@ -1065,6 +1100,16 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         const cond = try tryCondF64(rect, 1e-12);
         try std.testing.expect(cond != null);
         try std.testing.expectApproxEqAbs(singular_values_out.data[0] / singular_values_out.data[1], cond.?, 1e-12);
+        const pinv = try tryPinvF64(rect, 1e-12);
+        try std.testing.expect(pinv != null);
+        var pinv_out = pinv.?;
+        defer pinv_out.deinit();
+        try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, pinv_out.shape);
+        var rect_pinv = try rect.matmul(pinv_out);
+        defer rect_pinv.deinit();
+        var rect_pinv_rect = try rect_pinv.matmul(rect);
+        defer rect_pinv_rect.deinit();
+        try std.testing.expect(try rect_pinv_rect.allclose(rect, 1e-10, 1e-10));
 
         var triangular = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
         defer triangular.deinit();

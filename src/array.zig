@@ -10262,22 +10262,15 @@ pub fn Array(comptime T: type) type {
         pub fn pinv(self: Self, tolerance: T) ArrayError!Self {
             if (comptime @typeInfo(T) != .float) @compileError("pinv requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
-            var factors = try self.svd(tolerance);
-            defer factors.deinit();
-
-            const k = factors.s.data.len;
-            var sigma_inv = try Self.zeros(self.allocator, &.{ k, k });
-            defer sigma_inv.deinit();
-            for (factors.s.data, 0..) |sigma, i| {
-                if (sigma > tolerance) sigma_inv.data[i * k + i] = one(T) / sigma;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryPinvF32(self, tolerance)) |out| return out;
+                return error.BackendFailure;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryPinvF64(self, tolerance)) |out| return out;
+                return error.BackendFailure;
+            } else {
+                return error.BackendFailure;
             }
-            var vt_t = try factors.vt.transpose();
-            defer vt_t.deinit();
-            var left = try vt_t.matmul(sigma_inv);
-            defer left.deinit();
-            var u_t = try factors.u.transpose();
-            defer u_t.deinit();
-            return left.matmul(u_t);
         }
 
         pub fn matrixNorm(self: Self, order: MatrixNormOrder, tolerance: T) ArrayError!T {
