@@ -91,6 +91,10 @@ pub fn withAllocator(allocator: @import("std").mem.Allocator) Context {
     return layered_array_mod.withAllocator(allocator);
 }
 
+pub fn withSeed(allocator: @import("std").mem.Allocator, seed: u64) Context {
+    return layered_array_mod.withSeed(allocator, seed);
+}
+
 pub fn add(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     return switch (lhs.device.backend) {

@@ -78,11 +78,13 @@ pub fn demo(allocator: std.mem.Allocator) !void {
 The fully explicit `vx.Array(T).fromSlice(allocator, ...)` and method surface is
 still available when you need fine-grained control; the `vx.withAllocator(...)`
 context and top-level `vx.add/vx.matmul/vx.sum/...` helpers are the intended
-short-form front door for examples and application code. Creation options keep
-`dtype` as a Zig type parameter and `device` as runtime metadata, e.g.
-`try np.randWith(vx.seeded(f32, 42), &.{ m, k })` or
-`try np.zerosWith(vx.onDevice(f64, vx.cuda(0)), &.{ rows, cols })`.
-Device is optional and defaults to `vx.cpu` through `vx.options(T)` / `vx.seeded(T, seed)`.
+short-form front door for examples and application code. Ordinary array creation
+and random creation do not require a seed: `try np.rand(f32, &.{ m, k })` uses the
+context RNG stream. Creation options keep `dtype` as a Zig type parameter and
+`device` as runtime metadata, e.g. `try np.randWith(vx.onDevice(f32, vx.cuda(0)),
+&.{ m, k })` or `try np.zerosWith(vx.onDevice(f64, vx.cuda(0)), &.{ rows, cols })`.
+Use `vx.withSeed(...)` or `vx.seeded(...)` only when reproducible random values
+are required; device is optional and defaults to `vx.cpu`.
 
 Vectra also exposes layered Array abstractions for code that needs more or less
 static information:
@@ -122,7 +124,7 @@ the default build and report direct CPU / disabled CUDA routes; opt into the
 same examples with `-Daxiom-cpu-dispatch=true`, `-Daxiom-cuda-dispatch=true`, or
 `-Daxiom-cuda=true` to inspect the corresponding Axiom bridge paths.
 `example-large-matmul-add` now keeps the user-facing body close to PyTorch:
-`randWith` followed by the same `vx.matmulAdd` call for CPU and CUDA tensors.
+seedless `rand` / device-aware `randWith` followed by the same `vx.matmulAdd` call for CPU and CUDA tensors.
 It documents the random `Y = A[M,K] * B[K,N] + C[M,N]` workload with
 `M = 4096 * 4`, `N = 4096`, and `K = 4096`. It dry-runs by default so normal
 example runs are safe; pass `-- --smoke` for a tiny executable check,

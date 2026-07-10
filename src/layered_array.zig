@@ -18,6 +18,8 @@ pub const Device = array_mod.Device;
 pub const DType = array_mod.DType;
 
 pub const default_dtype = f32;
+pub const default_rng_seed: u64 = 0x0abc_7aaa_51eed001;
+pub const rng_seed_stride: u64 = 0x9e37_79b9_7f4a_7c15;
 
 /// Runtime creation options whose type carries the dtype.
 ///
@@ -27,14 +29,14 @@ pub const default_dtype = f32;
 /// ```
 /// const opts = vx.options(f32);              // type is CreationOptions(f32), device defaults to CPU
 /// const gpu = vx.onDevice(f32, vx.cuda(0));  // dtype in type, device in value
-/// const seeded = vx.seeded(f32, 42);         // dtype in type, CPU device, seed in value
+/// const seeded = vx.seeded(f32, 42);         // optional per-call reproducibility
 /// ```
 pub fn CreationOptions(comptime T: type) type {
     return struct {
         pub const dtype = T;
 
         device: Device = .cpu,
-        seed: u64 = 0,
+        seed: ?u64 = null,
     };
 }
 
@@ -419,6 +421,7 @@ pub const AnyArray = struct {
 
 pub const Context = struct {
     allocator: std.mem.Allocator,
+    next_seed: u64 = default_rng_seed,
 
     pub fn array(self: Context, comptime T: type, values: []const T, dims: []const usize) ArrayError!Array(T) {
         return Array(T).fromSlice(self.allocator, values, dims);
@@ -455,14 +458,24 @@ pub const Context = struct {
         return finishDevice(T, out, opts.device);
     }
 
-    pub fn rand(self: Context, comptime T: type, dims: []const usize, seed: u64) ArrayError!Array(T) {
+    pub fn rand(self: *Context, comptime T: type, dims: []const usize) ArrayError!Array(T) {
+        return Array(T).rand(self.allocator, dims, self.nextSeed());
+    }
+
+    pub fn randWith(self: *Context, opts: anytype, dims: []const usize) ArrayError!Array(optionDType(@TypeOf(opts))) {
+        const T = optionDType(@TypeOf(opts));
+        const out = try Array(T).rand(self.allocator, dims, opts.seed orelse self.nextSeed());
+        return finishDevice(T, out, opts.device);
+    }
+
+    pub fn randSeeded(self: Context, comptime T: type, dims: []const usize, seed: u64) ArrayError!Array(T) {
         return Array(T).rand(self.allocator, dims, seed);
     }
 
-    pub fn randWith(self: Context, opts: anytype, dims: []const usize) ArrayError!Array(optionDType(@TypeOf(opts))) {
-        const T = optionDType(@TypeOf(opts));
-        const out = try Array(T).rand(self.allocator, dims, opts.seed);
-        return finishDevice(T, out, opts.device);
+    fn nextSeed(self: *Context) u64 {
+        const seed = self.next_seed;
+        self.next_seed +%= rng_seed_stride;
+        return seed;
     }
 
     pub fn anyFromTyped(self: Context, comptime T: type, input: Array(T)) ArrayError!AnyArray {
@@ -472,6 +485,10 @@ pub const Context = struct {
 
 pub fn withAllocator(allocator: std.mem.Allocator) Context {
     return .{ .allocator = allocator };
+}
+
+pub fn withSeed(allocator: std.mem.Allocator, seed: u64) Context {
+    return .{ .allocator = allocator, .next_seed = seed };
 }
 
 fn finishDevice(comptime T: type, input: Array(T), device: Device) ArrayError!Array(T) {
