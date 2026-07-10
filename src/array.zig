@@ -14943,6 +14943,10 @@ pub fn Array(comptime T: type) type {
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             if (try self.tryFusePendingMatmulAdd(other, op)) |out| return out;
             if (try self.tryFuseCpuMatmulAdd(other, op)) |out| return out;
+            if (comptime op == opAdd) {
+                if (try other.tryFusePendingMatmulAdd(self, op)) |out| return out;
+                if (try other.tryFuseCpuMatmulAdd(self, op)) |out| return out;
+            }
             if (self.pending_matmul != null) {
                 var materialized = try self.materializePendingMatmul();
                 defer materialized.deinit();
