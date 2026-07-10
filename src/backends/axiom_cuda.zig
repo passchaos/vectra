@@ -862,7 +862,7 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
 pub fn tryMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return null;
-    if (try tryMatmulBF16AxiomWidened(lhs, rhs)) |out| return out;
+    if (try tryMatmulBF16AxiomTypedSimtSeed(lhs, rhs)) |out| return out;
 
     var lhs32 = try bf16ArrayToF32(lhs);
     defer lhs32.deinit();
@@ -876,7 +876,7 @@ pub fn tryMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat
 pub fn tryMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedMatmul2dContiguousF16(lhs, rhs)) return null;
-    if (try tryMatmulF16AxiomWidened(lhs, rhs)) |out| return out;
+    if (try tryMatmulF16AxiomTypedSimtSeed(lhs, rhs)) |out| return out;
 
     var lhs32 = try f16ArrayToF32(lhs);
     defer lhs32.deinit();
@@ -887,7 +887,7 @@ pub fn tryMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_
     return try f32ArrayToF16(out32);
 }
 
-fn tryMatmulF16AxiomWidened(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+fn tryMatmulF16AxiomTypedSimtSeed(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
     if (!supportedMatmul2dContiguousF16(lhs, rhs)) return null;
     const m = lhs.shape[0];
     const k = lhs.shape[1];
@@ -898,13 +898,13 @@ fn tryMatmulF16AxiomWidened(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)
     defer lhs.allocator.free(c);
     @memset(c, @as(f16, 0.0));
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const result = runtime.runTensorGemmF16Widened(lhs.data, rhs.data, c, out.data, .{
+    const result = runtime.runTensorGemmF16TypedSimtSeed(lhs.data, rhs.data, c, out.data, .{
         .m = m,
         .n = n,
         .k = k,
         .tile_x = @intCast(@min(n, @as(usize, 16))),
         .tile_y = @intCast(@min(m, @as(usize, 16))),
-        .kernel_symbol = "vectra_axiom_widened_f16_gemm",
+        .kernel_symbol = "vectra_axiom_typed_f16_gemm_seed",
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => return null,
@@ -913,7 +913,7 @@ fn tryMatmulF16AxiomWidened(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)
     return out;
 }
 
-fn tryMatmulBF16AxiomWidened(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+fn tryMatmulBF16AxiomTypedSimtSeed(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return null;
     const m = lhs.shape[0];
     const k = lhs.shape[1];
@@ -932,13 +932,13 @@ fn tryMatmulBF16AxiomWidened(lhs: array_mod.Array(BFloat16), rhs: array_mod.Arra
     for (rhs.data, rhs_bits) |value, *slot| slot.* = value.bits;
     @memset(c_bits, @as(u16, 0));
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const result = runtime.runTensorGemmBF16Widened(lhs_bits, rhs_bits, c_bits, out_bits, .{
+    const result = runtime.runTensorGemmBF16TypedSimtSeed(lhs_bits, rhs_bits, c_bits, out_bits, .{
         .m = m,
         .n = n,
         .k = k,
         .tile_x = @intCast(@min(n, @as(usize, 16))),
         .tile_y = @intCast(@min(m, @as(usize, 16))),
-        .kernel_symbol = "vectra_axiom_widened_bf16_gemm",
+        .kernel_symbol = "vectra_axiom_typed_bf16_gemm_seed",
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => return null,
@@ -1084,7 +1084,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             nativeF16BinaryExecutionFingerprint(allocator, .add, f16_lhs, f16_rhs) catch 0;
         report.f16_widened_execution_fingerprint =
             (widenedF16BinaryProvenanceFingerprint(allocator, "add", .add, f16_lhs, f16_rhs) catch return failedReport()) ^
-            (widenedF16MatmulProvenanceFingerprint(allocator, "matmul", f16_lhs, f16_rhs) catch return failedReport());
+            (typedF16MatmulRuntimeFingerprint(allocator, f16_lhs, f16_rhs) catch return failedReport());
     }
 
     var bf16_lhs = array_mod.Array(BFloat16).fromSlice(allocator, &.{
@@ -1119,7 +1119,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             nativeBF16BinaryExecutionFingerprint(allocator, .add, bf16_lhs, bf16_rhs) catch 0;
         report.bf16_widened_execution_fingerprint =
             (widenedBF16BinaryProvenanceFingerprint(allocator, "add", .add, bf16_lhs, bf16_rhs) catch return failedReport()) ^
-            (widenedBF16MatmulProvenanceFingerprint(allocator, "matmul", bf16_lhs, bf16_rhs) catch return failedReport());
+            (typedBF16MatmulRuntimeFingerprint(allocator, bf16_lhs, bf16_rhs) catch return failedReport());
     }
 
     if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
@@ -1534,8 +1534,7 @@ fn nativeF16BinaryExecutionFingerprint(allocator: std.mem.Allocator, op: BinaryO
     return result.fingerprint();
 }
 
-fn widenedF16MatmulProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!u64 {
-    _ = operation;
+fn typedF16MatmulRuntimeFingerprint(allocator: std.mem.Allocator, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!u64 {
     if (!supportedMatmul2dContiguousF16(lhs, rhs)) return error.ShapeMismatch;
     const m = lhs.shape[0];
     const k = lhs.shape[1];
@@ -1546,13 +1545,13 @@ fn widenedF16MatmulProvenanceFingerprint(allocator: std.mem.Allocator, operation
     defer allocator.free(out);
     @memset(c, @as(f16, 0.0));
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const result = runtime.runTensorGemmF16Widened(lhs.data, rhs.data, c, out, .{
+    const result = runtime.runTensorGemmF16TypedSimtSeed(lhs.data, rhs.data, c, out, .{
         .m = m,
         .n = n,
         .k = k,
         .tile_x = @intCast(@min(n, @as(usize, 16))),
         .tile_y = @intCast(@min(m, @as(usize, 16))),
-        .kernel_symbol = "vectra_axiom_widened_f16_gemm_probe",
+        .kernel_symbol = "vectra_axiom_typed_f16_gemm_probe",
     }) catch |err| return mapTensorAdapterError(err);
     if (!result.ok()) return error.BackendFailure;
     return result.fingerprint();
@@ -1598,8 +1597,7 @@ fn nativeBF16BinaryExecutionFingerprint(allocator: std.mem.Allocator, op: Binary
     return result.fingerprint();
 }
 
-fn widenedBF16MatmulProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!u64 {
-    _ = operation;
+fn typedBF16MatmulRuntimeFingerprint(allocator: std.mem.Allocator, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!u64 {
     if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return error.ShapeMismatch;
     const m = lhs.shape[0];
     const k = lhs.shape[1];
@@ -1616,13 +1614,13 @@ fn widenedBF16MatmulProvenanceFingerprint(allocator: std.mem.Allocator, operatio
     for (rhs.data, rhs_bits) |value, *slot| slot.* = value.bits;
     @memset(c_bits, @as(u16, 0));
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const result = runtime.runTensorGemmBF16Widened(lhs_bits, rhs_bits, c_bits, out_bits, .{
+    const result = runtime.runTensorGemmBF16TypedSimtSeed(lhs_bits, rhs_bits, c_bits, out_bits, .{
         .m = m,
         .n = n,
         .k = k,
         .tile_x = @intCast(@min(n, @as(usize, 16))),
         .tile_y = @intCast(@min(m, @as(usize, 16))),
-        .kernel_symbol = "vectra_axiom_widened_bf16_gemm_probe",
+        .kernel_symbol = "vectra_axiom_typed_bf16_gemm_probe",
     }) catch |err| return mapTensorAdapterError(err);
     if (!result.ok()) return error.BackendFailure;
     return result.fingerprint();

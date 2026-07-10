@@ -64,7 +64,8 @@ The current automatic dispatch covers contiguous same-shape `add/sub/mul/div`,
 scalar `addScalar/subScalar/mulScalar/divScalar`, scalar-array broadcast
 `add/sub/mul/div`, and contiguous 2D `matmul`.  CUDA native seed routes cover
 f32 and same-shape f16/BFloat16 elementwise operations; f16/BFloat16 matmul
-currently uses Axiom's widened GEMM runtime bridge before narrowing back.
+now uses Axiom's typed SIMT GEMM runtime seed, which still delegates compute to
+the widened f32 GEMM path before narrowing back.
 For elementwise provenance, Vectra consumes Axiom's
 `runTensorElementwiseBinaryF16Widened` and
 `runTensorElementwiseBinaryBF16Widened` runtime reports instead of rebuilding
@@ -139,8 +140,9 @@ should fall back to Vectra's CPU/Veyra paths in that case.
   routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path. f16 and
   BFloat16 elementwise provenance uses Axiom widened runtime reports, including
   f32 CUDA compute evidence when that runtime route is available; f16 and
-  BFloat16 matmul use Axiom-owned widened GEMM runtime reports today, with typed SIMT GEMM
-  launch-plan readiness metadata reported separately. f64 matmul routes through Axiom
+  BFloat16 matmul now call Axiom's typed SIMT GEMM runtime seed, which reports
+  typed launch-plan/readiness metadata while still using widened f32 compute
+  underneath. f64 matmul routes through Axiom
   CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
 - The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.
 - f64 CUDA tensor runtime support is not exposed yet.
