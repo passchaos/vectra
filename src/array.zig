@@ -10208,6 +10208,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn singularValues(self: Self, tolerance: T) ArrayError!Self {
             if (comptime @typeInfo(T) != .float) @compileError("singularValues requires floating-point arrays");
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.trySingularValuesF32(self, tolerance)) |out| return out;
+                return error.BackendFailure;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.trySingularValuesF64(self, tolerance)) |out| return out;
+            } else {
+                return error.BackendFailure;
+            }
+
             var factors = try self.svd(tolerance);
             defer factors.deinit();
             return factors.s.clone();

@@ -215,6 +215,14 @@ pub fn trySvdF64(matrix: array_mod.Array(f64), tolerance: f64) array_mod.ArrayEr
     return trySvdTyped(f64, matrix, tolerance);
 }
 
+pub fn trySingularValuesF32(matrix: array_mod.Array(f32), tolerance: f32) array_mod.ArrayError!?array_mod.Array(f32) {
+    return trySingularValuesTyped(f32, matrix, tolerance);
+}
+
+pub fn trySingularValuesF64(matrix: array_mod.Array(f64), tolerance: f64) array_mod.ArrayError!?array_mod.Array(f64) {
+    return trySingularValuesTyped(f64, matrix, tolerance);
+}
+
 pub fn trySolveTriangularF32(
     matrix: array_mod.Array(f32),
     rhs: array_mod.Array(f32),
@@ -595,6 +603,35 @@ fn trySvdTyped(comptime T: type, matrix: array_mod.Array(T), tolerance: T) array
     return .{ .u = u, .s = s, .vt = vt };
 }
 
+fn trySingularValuesTyped(comptime T: type, matrix: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedMatrix(T, matrix)) return null;
+    const factor_dim = @min(matrix.shape[0], matrix.shape[1]);
+    if (factor_dim == 0) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var s = try array_mod.Array(T).empty(matrix.allocator, &.{factor_dim});
+    errdefer s.deinit();
+    const s_view = (try bufferView(T, s, "s")) orelse {
+        s.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runSingularValuesF32(matrix_view, s_view, matrix.data, s.data, tolerance) catch {
+            s.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runSingularValuesF64(matrix_view, s_view, matrix.data, s.data, tolerance) catch {
+            s.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        s.deinit();
+        return null;
+    }
+    return s;
+}
+
 fn trySolveTriangularTyped(
     comptime T: type,
     matrix: array_mod.Array(T),
@@ -963,6 +1000,12 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         var svd_reconstructed = try us.matmul(svd_out.vt);
         defer svd_reconstructed.deinit();
         try std.testing.expect(try svd_reconstructed.allclose(rect, 1e-10, 1e-10));
+        const singular_values = try trySingularValuesF64(rect, 1e-12);
+        try std.testing.expect(singular_values != null);
+        var singular_values_out = singular_values.?;
+        defer singular_values_out.deinit();
+        try std.testing.expectEqualSlices(usize, &.{2}, singular_values_out.shape);
+        try std.testing.expectApproxEqAbs(svd_out.s.data[0], singular_values_out.data[0], 1e-12);
 
         var triangular = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
         defer triangular.deinit();
