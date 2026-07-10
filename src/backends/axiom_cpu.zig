@@ -192,6 +192,24 @@ pub fn tryLuF64(matrix: array_mod.Array(f64)) array_mod.ArrayError!?LuResult(f64
     return tryLuTyped(f64, matrix);
 }
 
+pub fn trySolveTriangularF32(
+    matrix: array_mod.Array(f32),
+    rhs: array_mod.Array(f32),
+    triangle: array_mod.Triangle,
+    diagonal: array_mod.Diagonal,
+) array_mod.ArrayError!?array_mod.Array(f32) {
+    return trySolveTriangularTyped(f32, matrix, rhs, triangle, diagonal);
+}
+
+pub fn trySolveTriangularF64(
+    matrix: array_mod.Array(f64),
+    rhs: array_mod.Array(f64),
+    triangle: array_mod.Triangle,
+    diagonal: array_mod.Diagonal,
+) array_mod.ArrayError!?array_mod.Array(f64) {
+    return trySolveTriangularTyped(f64, matrix, rhs, triangle, diagonal);
+}
+
 fn tryMatmulTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cpu_dispatch) return null;
     if (!supportedMatmul2dContiguous(T, lhs, rhs)) return null;
@@ -493,6 +511,59 @@ fn tryLuTyped(comptime T: type, matrix: array_mod.Array(T)) array_mod.ArrayError
     return .{ .p = p, .l = l, .u = u };
 }
 
+fn trySolveTriangularTyped(
+    comptime T: type,
+    matrix: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    triangle: array_mod.Triangle,
+    diagonal: array_mod.Diagonal,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedSolve(T, matrix, rhs)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    const rhs_view = (try matrixOrVectorColumnView(T, rhs, "rhs")) orelse return null;
+    const out_shape: []const usize = if (rhs.shape.len == 1) &.{matrix.shape[0]} else &.{ matrix.shape[0], rhs.shape[1] };
+    var out = try array_mod.Array(T).empty(matrix.allocator, out_shape);
+    errdefer out.deinit();
+    const out_view = (try matrixOrVectorColumnView(T, out, "out")) orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runSolveTriangularF32(
+            matrix_view,
+            rhs_view,
+            out_view,
+            matrix.data,
+            rhs.data,
+            out.data,
+            cpuTriangle(triangle),
+            cpuDiagonal(diagonal),
+        ) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runSolveTriangularF64(
+            matrix_view,
+            rhs_view,
+            out_view,
+            matrix.data,
+            rhs.data,
+            out.data,
+            cpuTriangle(triangle),
+            cpuDiagonal(diagonal),
+        ) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 fn supportedSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     return lhs.device.isCpu() and
         rhs.device.isCpu() and
@@ -561,6 +632,20 @@ fn supportedSolve(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.A
 
 fn tensorElementType(comptime T: type) axiom.accelerator.TensorElementType {
     return if (T == f32) .f32 else .f64;
+}
+
+fn cpuTriangle(triangle: array_mod.Triangle) axiom.accelerator.cpu_veyra.CpuVeyraTriangle {
+    return switch (triangle) {
+        .lower => .lower,
+        .upper => .upper,
+    };
+}
+
+fn cpuDiagonal(diagonal: array_mod.Diagonal) axiom.accelerator.cpu_veyra.CpuVeyraDiagonal {
+    return switch (diagonal) {
+        .non_unit => .non_unit,
+        .unit => .unit,
+    };
 }
 
 fn matrixView(comptime T: type, matrix: array_mod.Array(T), name: []const u8) array_mod.ArrayError!?axiom.accelerator.TensorMatrixView {
@@ -754,6 +839,16 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         var lu_reconstructed = try lu_out.p.matmul(lu_product);
         defer lu_reconstructed.deinit();
         try std.testing.expect(try lu_reconstructed.allclose(solve_matrix, 1e-12, 1e-12));
+
+        var triangular = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
+        defer triangular.deinit();
+        var triangular_rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 2, 2, 25 }, &.{3});
+        defer triangular_rhs.deinit();
+        const triangular_solution = try trySolveTriangularF64(triangular, triangular_rhs, .lower, .non_unit);
+        try std.testing.expect(triangular_solution != null);
+        var triangular_out = triangular_solution.?;
+        defer triangular_out.deinit();
+        try std.testing.expectApproxEqAbs(@as(f64, 3.8), triangular_out.data[2], 1e-12);
     } else {
         try std.testing.expect(mv32 == null);
         try std.testing.expect(vt64 == null);

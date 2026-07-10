@@ -96,6 +96,12 @@ pub fn main(init: std.process.Init) !void {
     defer lu_product64.deinit();
     var lu_reconstructed64 = try lu64.p.matmul(lu_product64);
     defer lu_reconstructed64.deinit();
+    var triangular64 = try vx.Array(f64).fromSlice(allocator, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
+    defer triangular64.deinit();
+    var triangular_rhs64 = try vx.Array(f64).fromSlice(allocator, &.{ 2, 2, 25 }, &.{3});
+    defer triangular_rhs64.deinit();
+    var triangular_solve64 = try triangular64.solveTriangular(triangular_rhs64, .lower, .non_unit);
+    defer triangular_solve64.deinit();
 
     const matmul_ok = out32.data[0] == 58 and out32.data[3] == 154 and out64.data[0] == 58 and out64.data[3] == 154;
     const elementwise_ok = equalF32(add32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
@@ -129,11 +135,12 @@ pub fn main(init: std.process.Init) !void {
         approxF64(cholesky64.data[3], 3, 1e-12) and
         approxF64(cholesky64.data[6], -1, 1e-12) and
         try qr_reconstructed64.allclose(qr_input64, 1e-10, 1e-10) and
-        try lu_reconstructed64.allclose(solve_matrix64, 1e-12, 1e-12);
+        try lu_reconstructed64.allclose(solve_matrix64, 1e-12, 1e-12) and
+        approxF64(triangular_solve64.data[2], 3.8, 1e-12);
     const ok = matmul_ok and elementwise_ok and scalar_ok and vector_ok and dense_linalg_ok;
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
-    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, dense_linalg_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0] });
+    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, dense_linalg_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2] });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
 }
