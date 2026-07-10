@@ -125,13 +125,17 @@ zig build example-large-matmul-add-smoke
 kernels where available. The Axiom examples run in the default build; CUDA routes
 run when a CUDA device is available and otherwise report a skipped CUDA backend.
 `example-large-matmul-add` keeps the user-facing body close to PyTorch:
-device-aware creation followed by the same `vx.matmulAdd` call for CPU and CUDA
-tensors. It documents the `Y = A[M,K] * B[K,N] + C[M,N]` workload. The checked-in
-execute size is a CUDA stress run (`M = 4096 * 4`, `N = 4096`, `K = 4096`) and
-dry-runs by default; pass `-- --smoke` for a tiny executable check or
-`-- --execute --backend=cuda --require-cuda` for the production CUDA benchmark.
-The execute mode warms up and averages repeated `matmulAdd` iterations so it can
-be compared directly with a PyTorch CUDA tensor reuse benchmark.
+device-aware creation followed by `vx.matmul` and `vx.matmulAdd` calls. It
+documents both `Y = A[M,K] * B[K,N]` and `Y = A[M,K] * B[K,N] + C[M,N]`, emitting
+one JSON result per backend/dtype/op. The checked-in execute size is a CUDA
+stress run (`M = 4096 * 4`, `N = 4096`, `K = 4096`) and dry-runs by default;
+pass `-- --smoke` for a tiny executable check, `-- --dtype=all --backend=both`
+to compare f32/f64/f16/BFloat16 CPU paths plus supported CUDA paths, or
+`-- --execute --backend=cuda --dtype=f32 --require-cuda` for the production CUDA
+benchmark. CUDA owning arrays currently benchmark f32 matmul/matmulAdd and emit
+explicit skipped records for other dtypes; `--retain-outputs` intentionally keeps
+each iteration output alive to expose allocation/reuse effects versus the default
+PyTorch-like single-output reuse loop.
 
 
 ## Axiom accelerator backend
