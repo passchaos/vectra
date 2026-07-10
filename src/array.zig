@@ -9760,6 +9760,11 @@ pub fn Array(comptime T: type) type {
         pub fn det(self: Self) ArrayError!T {
             if (comptime @typeInfo(T) != .float) @compileError("det requires floating-point arrays");
             if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryDetF32(self)) |value| return value;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryDetF64(self)) |value| return value;
+            }
             if (comptime T == f64) {
                 var matrix = try self.toVeyraMatrixF64();
                 defer matrix.deinit();
@@ -9801,6 +9806,11 @@ pub fn Array(comptime T: type) type {
         pub fn inverse(self: Self) ArrayError!Self {
             if (comptime @typeInfo(T) != .float) @compileError("inverse requires floating-point arrays");
             if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryInverseF32(self)) |out| return out;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.tryInverseF64(self)) |out| return out;
+            }
             if (comptime T == f64) {
                 var matrix = try self.toVeyraMatrixF64();
                 defer matrix.deinit();
@@ -9858,6 +9868,11 @@ pub fn Array(comptime T: type) type {
             if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
             if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
             if (rhs.shape[0] != self.shape[0]) return error.ShapeMismatch;
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.trySolveF32(self, rhs)) |out| return out;
+            } else if (comptime T == f64) {
+                if (try axiom_cpu_backend.trySolveF64(self, rhs)) |out| return out;
+            }
             if (comptime T == f64) {
                 var matrix = try self.toVeyraMatrixF64();
                 defer matrix.deinit();

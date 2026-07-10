@@ -2,11 +2,11 @@
 
 Vectra imports the sibling Axiom compiler/runtime package by default for the
 supported CPU and CUDA tensor paths. CPU-backed `Array(f32/f64)`
-elementwise/scalar/matmul, matrix-vector, vector-matrix, dot/vdot, and trace
-operations route through Axiom CPU lowering to Veyra. CUDA-owning `Array(f32)`
-values allocate real device storage when the CUDA driver can retain the
-requested primary context, and supported kernels consume existing device
-pointers rather than staging through host arrays.
+elementwise/scalar/matmul, matrix-vector, vector-matrix, dot/vdot, trace,
+determinant, inverse, and solve operations route through Axiom CPU lowering to
+Veyra. CUDA-owning `Array(f32)` values allocate real device storage when the
+CUDA driver can retain the requested primary context, and supported kernels
+consume existing device pointers rather than staging through host arrays.
 
 ## Validation
 
@@ -51,9 +51,9 @@ CUDA validation requires a CUDA/libnvvm/PTXAS-capable host.
 - `tryElementwiseScalarBroadcast(T, op, policy, lhs, rhs)`
 - `selectMatmul(T, policy, lhs, rhs)` / `matmul(...)`
 
-Supported CPU routes currently cover contiguous f32/f64 same-shape
-add/sub/mul/div, scalar and one-element scalar-broadcast add/sub/mul/div, and
-2D matmul, matrix-vector, vector-matrix, dot/vdot, and trace through Axiom
+Supported CPU routes currently cover f32/f64 same-shape add/sub/mul/div, scalar
+and one-element scalar-broadcast add/sub/mul/div, 2D matmul, matrix-vector,
+vector-matrix, dot/vdot, trace, determinant, inverse, and solve through Axiom
 CPU→Veyra. Unsupported shapes or dtypes return explicit errors or fall back only
 where Vectra still has a non-Axiom generic implementation.
 
@@ -71,9 +71,10 @@ where Vectra still has a non-Axiom generic implementation.
 - `trySaxpyScalarF32(alpha, scalar_x, y)`
 - `tryMatmulF32(lhs, rhs)` / `tryMatmulF16(lhs, rhs)` /
   `tryMatmulBF16(lhs, rhs)`
-- `vx.axiom_cpu.tryMatvecF32/F64`, `tryVecmatF32/F64`, `tryDotF32/F64`, and
-  `tryTraceF32/F64` for CPU matrix-vector, vector-matrix, dot/vdot, and trace
-  lowering through Axiom CPU→Veyra
+- `vx.axiom_cpu.tryMatvecF32/F64`, `tryVecmatF32/F64`, `tryDotF32/F64`,
+  `tryTraceF32/F64`, `tryDetF32/F64`, `tryInverseF32/F64`, and
+  `trySolveF32/F64` for CPU matrix-vector, vector-matrix, dot/vdot, trace,
+  determinant, inverse, and solve lowering through Axiom CPU→Veyra
 - `tryDeviceBinaryF32(op, lhs, rhs)`
 - `tryDeviceMatmulF32(lhs, rhs)`
 - `tryDeviceMatmulAddF32(lhs, rhs, addend)`

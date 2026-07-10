@@ -57,10 +57,19 @@ fn tryElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), 
             .div => .div,
         };
         const report = if (T == f32)
-            axiom.accelerator.cpu_veyra.runElementwiseF32(axiom_op, lhs.data, rhs.data, out.data) catch return null
+            axiom.accelerator.cpu_veyra.runElementwiseF32(axiom_op, lhs.data, rhs.data, out.data) catch {
+                out.deinit();
+                return null;
+            }
         else
-            axiom.accelerator.cpu_veyra.runElementwiseF64(axiom_op, lhs.data, rhs.data, out.data) catch return null;
-        if (!report.ok()) return null;
+            axiom.accelerator.cpu_veyra.runElementwiseF64(axiom_op, lhs.data, rhs.data, out.data) catch {
+                out.deinit();
+                return null;
+            };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
         return out;
     } else {
         return null;
@@ -107,6 +116,30 @@ pub fn tryTraceF64(matrix: array_mod.Array(f64), offset: isize) array_mod.ArrayE
     return tryTraceTyped(f64, matrix, offset);
 }
 
+pub fn tryDetF32(matrix: array_mod.Array(f32)) array_mod.ArrayError!?f32 {
+    return tryDetTyped(f32, matrix);
+}
+
+pub fn tryDetF64(matrix: array_mod.Array(f64)) array_mod.ArrayError!?f64 {
+    return tryDetTyped(f64, matrix);
+}
+
+pub fn tryInverseF32(matrix: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryInverseTyped(f32, matrix);
+}
+
+pub fn tryInverseF64(matrix: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryInverseTyped(f64, matrix);
+}
+
+pub fn trySolveF32(matrix: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return trySolveTyped(f32, matrix, rhs);
+}
+
+pub fn trySolveF64(matrix: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return trySolveTyped(f64, matrix, rhs);
+}
+
 fn tryMatmulTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cpu_dispatch) return null;
     if (!supportedMatmul2dContiguous(T, lhs, rhs)) return null;
@@ -124,42 +157,75 @@ fn tryMatmulTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Arra
         .rowMajor("out", @intCast(@intFromPtr(out.data.ptr)), m, n),
     );
     const report = if (T == f32)
-        axiom.accelerator.cpu_veyra.runGemmF32(spec, lhs.data, rhs.data, c.data, out.data) catch return null
+        axiom.accelerator.cpu_veyra.runGemmF32(spec, lhs.data, rhs.data, c.data, out.data) catch {
+            out.deinit();
+            return null;
+        }
     else
-        axiom.accelerator.cpu_veyra.runGemmF64(spec, lhs.data, rhs.data, c.data, out.data) catch return null;
-    if (!report.ok()) return null;
+        axiom.accelerator.cpu_veyra.runGemmF64(spec, lhs.data, rhs.data, c.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
 fn tryMatvecTyped(comptime T: type, matrix: array_mod.Array(T), vector: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cpu_dispatch) return null;
     if (!supportedMatvec(T, matrix, vector)) return null;
-    var out = try array_mod.Array(T).empty(matrix.allocator, &.{matrix.shape[0]});
-    errdefer out.deinit();
     const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
     const vector_view = (try bufferView(T, vector, "vector")) orelse return null;
-    const out_view = (try bufferView(T, out, "out")) orelse return null;
+    var out = try array_mod.Array(T).empty(matrix.allocator, &.{matrix.shape[0]});
+    errdefer out.deinit();
+    const out_view = (try bufferView(T, out, "out")) orelse {
+        out.deinit();
+        return null;
+    };
     const report = if (T == f32)
-        axiom.accelerator.cpu_veyra.runMatvecF32(matrix_view, vector_view, out_view, matrix.data, vector.data, out.data) catch return null
+        axiom.accelerator.cpu_veyra.runMatvecF32(matrix_view, vector_view, out_view, matrix.data, vector.data, out.data) catch {
+            out.deinit();
+            return null;
+        }
     else
-        axiom.accelerator.cpu_veyra.runMatvecF64(matrix_view, vector_view, out_view, matrix.data, vector.data, out.data) catch return null;
-    if (!report.ok()) return null;
+        axiom.accelerator.cpu_veyra.runMatvecF64(matrix_view, vector_view, out_view, matrix.data, vector.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
 fn tryVecmatTyped(comptime T: type, vector: array_mod.Array(T), matrix: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cpu_dispatch) return null;
     if (!supportedVecmat(T, vector, matrix)) return null;
-    var out = try array_mod.Array(T).empty(vector.allocator, &.{matrix.shape[1]});
-    errdefer out.deinit();
     const vector_view = (try bufferView(T, vector, "vector")) orelse return null;
     const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
-    const out_view = (try bufferView(T, out, "out")) orelse return null;
+    var out = try array_mod.Array(T).empty(vector.allocator, &.{matrix.shape[1]});
+    errdefer out.deinit();
+    const out_view = (try bufferView(T, out, "out")) orelse {
+        out.deinit();
+        return null;
+    };
     const report = if (T == f32)
-        axiom.accelerator.cpu_veyra.runVecmatF32(vector_view, matrix_view, out_view, vector.data, matrix.data, out.data) catch return null
+        axiom.accelerator.cpu_veyra.runVecmatF32(vector_view, matrix_view, out_view, vector.data, matrix.data, out.data) catch {
+            out.deinit();
+            return null;
+        }
     else
-        axiom.accelerator.cpu_veyra.runVecmatF64(vector_view, matrix_view, out_view, vector.data, matrix.data, out.data) catch return null;
-    if (!report.ok()) return null;
+        axiom.accelerator.cpu_veyra.runVecmatF64(vector_view, matrix_view, out_view, vector.data, matrix.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
@@ -187,6 +253,75 @@ fn tryTraceTyped(comptime T: type, matrix: array_mod.Array(T), offset: isize) ar
     else
         axiom.accelerator.cpu_veyra.runTraceF64(view, offset, matrix.data, &out) catch return null;
     if (!report.ok()) return null;
+    return out;
+}
+
+fn tryDetTyped(comptime T: type, matrix: array_mod.Array(T)) array_mod.ArrayError!?T {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedSquareMatrix(T, matrix)) return null;
+    const view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var out: T = 0;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runDetF32(view, matrix.data, &out) catch return null
+    else
+        axiom.accelerator.cpu_veyra.runDetF64(view, matrix.data, &out) catch return null;
+    if (!report.ok()) return null;
+    return out;
+}
+
+fn tryInverseTyped(comptime T: type, matrix: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedSquareMatrix(T, matrix)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var out = try array_mod.Array(T).empty(matrix.allocator, matrix.shape);
+    errdefer out.deinit();
+    const out_view = (try matrixView(T, out, "out")) orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runInverseF32(matrix_view, out_view, matrix.data, out.data) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runInverseF64(matrix_view, out_view, matrix.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
+fn trySolveTyped(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedSolve(T, matrix, rhs)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    const rhs_view = (try matrixOrVectorColumnView(T, rhs, "rhs")) orelse return null;
+    const out_shape: []const usize = if (rhs.shape.len == 1) &.{matrix.shape[1]} else &.{ matrix.shape[1], rhs.shape[1] };
+    var out = try array_mod.Array(T).empty(matrix.allocator, out_shape);
+    errdefer out.deinit();
+    const out_view = (try matrixOrVectorColumnView(T, out, "out")) orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runSolveF32(matrix_view, rhs_view, out_view, matrix.data, rhs.data, out.data) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runSolveF64(matrix_view, rhs_view, out_view, matrix.data, rhs.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
@@ -238,6 +373,24 @@ fn supportedTrace(comptime T: type, matrix: array_mod.Array(T)) bool {
         matrix.strides.len == 2;
 }
 
+fn supportedSquareMatrix(comptime T: type, matrix: array_mod.Array(T)) bool {
+    return matrix.device.isCpu() and
+        matrix.shape.len == 2 and
+        matrix.shape[0] == matrix.shape[1] and
+        matrix.data.len != 0 and
+        matrix.strides.len == 2;
+}
+
+fn supportedSolve(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
+    const rhs_rank_ok = rhs.shape.len == 1 or rhs.shape.len == 2;
+    return supportedSquareMatrix(T, matrix) and
+        rhs.device.isCpu() and
+        rhs_rank_ok and
+        rhs.shape[0] == matrix.shape[0] and
+        rhs.data.len != 0 and
+        (rhs.strides.len == 1 or rhs.strides.len == 2);
+}
+
 fn tensorElementType(comptime T: type) axiom.accelerator.TensorElementType {
     return if (T == f32) .f32 else .f64;
 }
@@ -252,6 +405,22 @@ fn matrixView(comptime T: type, matrix: array_mod.Array(T), name: []const u8) ar
         matrix.shape[1],
         row_stride,
         col_stride,
+    );
+    view.element_type = tensorElementType(T);
+    return view;
+}
+
+fn matrixOrVectorColumnView(comptime T: type, value: array_mod.Array(T), name: []const u8) array_mod.ArrayError!?axiom.accelerator.TensorMatrixView {
+    if (value.shape.len == 2) return matrixView(T, value, name);
+    if (value.shape.len != 1) return null;
+    const row_stride = std.math.cast(isize, value.strides[0]) orelse return null;
+    var view = axiom.accelerator.TensorMatrixView.strided(
+        name,
+        @intCast(@intFromPtr(value.data.ptr)),
+        value.shape[0],
+        1,
+        row_stride,
+        1,
     );
     view.element_type = tensorElementType(T);
     return view;
@@ -366,6 +535,25 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         var vt32_out = vt32.?;
         defer vt32_out.deinit();
         try std.testing.expectEqualSlices(f32, &.{ 9, 12, 15 }, vt32_out.data);
+
+        var solve_matrix = try array_mod.Array(f64).fromSlice(gpa, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
+        defer solve_matrix.deinit();
+        var solve_rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 18, 16 }, &.{2});
+        defer solve_rhs.deinit();
+        const det = try tryDetF64(solve_matrix);
+        try std.testing.expect(det != null);
+        try std.testing.expectApproxEqAbs(@as(f64, 10), det.?, 1e-12);
+        const inv = try tryInverseF64(solve_matrix);
+        try std.testing.expect(inv != null);
+        var inv_out = inv.?;
+        defer inv_out.deinit();
+        try std.testing.expectApproxEqAbs(@as(f64, 0.6), inv_out.data[0], 1e-12);
+        const solved = try trySolveF64(solve_matrix, solve_rhs);
+        try std.testing.expect(solved != null);
+        var solved_out = solved.?;
+        defer solved_out.deinit();
+        try std.testing.expectApproxEqAbs(@as(f64, -0.4), solved_out.data[0], 1e-12);
+        try std.testing.expectApproxEqAbs(@as(f64, 2.8), solved_out.data[1], 1e-12);
     } else {
         try std.testing.expect(mv32 == null);
         try std.testing.expect(vt64 == null);

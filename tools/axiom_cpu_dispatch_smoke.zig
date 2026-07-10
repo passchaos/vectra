@@ -71,6 +71,15 @@ pub fn main(init: std.process.Init) !void {
     var vecmat64 = try vec64.matmul(a64);
     defer vecmat64.deinit();
     const trace64 = try vx.linalg.trace(f64, out64);
+    var solve_matrix64 = try vx.Array(f64).fromSlice(allocator, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
+    defer solve_matrix64.deinit();
+    var solve_rhs64 = try vx.Array(f64).fromSlice(allocator, &.{ 18, 16 }, &.{2});
+    defer solve_rhs64.deinit();
+    const det64 = try solve_matrix64.det();
+    var inverse64 = try solve_matrix64.inverse();
+    defer inverse64.deinit();
+    var solve64 = try solve_matrix64.solve(solve_rhs64);
+    defer solve64.deinit();
 
     const matmul_ok = out32.data[0] == 58 and out32.data[3] == 154 and out64.data[0] == 58 and out64.data[3] == 154;
     const elementwise_ok = equalF32(add32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
@@ -96,10 +105,14 @@ pub fn main(init: std.process.Init) !void {
         equalF64(matvec64.data, &.{ 14, 32 }) and
         equalF64(vecmat64.data, &.{ 9, 12, 15 }) and
         trace64 == 212;
-    const ok = matmul_ok and elementwise_ok and scalar_ok and vector_ok;
+    const dense_linalg_ok = det64 == 10 and
+        approxF64(inverse64.data[0], 0.6, 1e-12) and
+        approxF64(inverse64.data[3], 0.4, 1e-12) and
+        equalF64Approx(solve64.data, &.{ -0.4, 2.8 }, 1e-12);
+    const ok = matmul_ok and elementwise_ok and scalar_ok and vector_ok and dense_linalg_ok;
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
-    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0], matvec32.data[1], vecmat64.data[2], trace64 });
+    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, dense_linalg_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1] });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
 }
@@ -116,6 +129,18 @@ fn equalF64(actual: []const f64, expected: []const f64) bool {
     if (actual.len != expected.len) return false;
     for (actual, expected) |a, e| {
         if (a != e) return false;
+    }
+    return true;
+}
+
+fn approxF64(actual: f64, expected: f64, tolerance: f64) bool {
+    return @abs(actual - expected) <= tolerance;
+}
+
+fn equalF64Approx(actual: []const f64, expected: []const f64, tolerance: f64) bool {
+    if (actual.len != expected.len) return false;
+    for (actual, expected) |a, e| {
+        if (!approxF64(a, e, tolerance)) return false;
     }
     return true;
 }
