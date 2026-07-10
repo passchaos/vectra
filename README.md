@@ -209,9 +209,15 @@ Array performance should be compared against local NumPy/PyTorch before and afte
 zig build bench --release=fast
 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 \
 python3 tools/bench_numpy_torch.py
+python3 tools/bench_matmul_add_compare.py --smoke
+python3 tools/bench_matmul_add_compare.py --execute --m 16384 --n 4096 --k 4096 --warmup 3 --iters 5
 ```
 
 The current high-value benchmark set covers large f64 elementwise/scalar ops, flat reductions, promoted i32+f64 arithmetic, strided scalar/array ops, f64 dot/matvec/vecmat, and 256x256 f64 matmul.
+`tools/bench_matmul_add_compare.py` emits JSONL rows for the same CUDA f32
+shape through Vectra/Axiom `large_matmul_add`, PyTorch `torch.addmm`, eager
+`a @ b + c`, and `torch.compile`, so matmul+add performance work has a
+repeatable local PyTorch/torch.compile baseline.
 
 ## Roadmap
 
