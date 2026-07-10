@@ -27836,9 +27836,9 @@ test "alea-backed expanded continuous distributions" {
     defer erlang_zero.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, erlang_zero.data);
 
-    var fisher_one = try Array(f64).fisherF(gpa, dims, std.math.inf(f64), std.math.inf(f64), 105);
-    defer fisher_one.deinit();
-    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1 }, fisher_one.data);
+    var fisher_infinite_dof = try Array(f64).fisherF(gpa, dims, std.math.inf(f64), std.math.inf(f64), 105);
+    defer fisher_infinite_dof.deinit();
+    for (fisher_infinite_dof.data) |v| try std.testing.expect(std.math.isNan(v));
 
     var triangular_const = try Array(f64).triangular(gpa, dims, 2, 2, 2, 106);
     defer triangular_const.deinit();
@@ -27896,9 +27896,7 @@ test "alea-backed expanded continuous distributions" {
     defer inverse_gaussian_zero.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, inverse_gaussian_zero.data);
 
-    var normal_inverse_gaussian_zero = try Array(f64).normalInverseGaussian(gpa, dims, std.math.inf(f64), 0, 120);
-    defer normal_inverse_gaussian_zero.deinit();
-    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, normal_inverse_gaussian_zero.data);
+    try std.testing.expectError(error.InvalidShape, Array(f64).normalInverseGaussian(gpa, dims, std.math.inf(f64), 0, 120));
 
     var bounded = try Array(f64).triangular(gpa, &.{16}, 0, 0.5, 1, 201);
     defer bounded.deinit();

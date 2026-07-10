@@ -8,27 +8,24 @@ const vx = @import("vectra");
 
 pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.smp_allocator;
+    const np = vx.withAllocator(allocator);
 
-    var x = try vx.Array(f32).fromSlice(
-        allocator,
-        &.{ 1, 2, 3, 4, 5, 6 },
-        &.{ 2, 3 },
-    );
+    var x = try np.array(f32, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer x.deinit();
 
-    var bias = try vx.Array(f32).fromSlice(allocator, &.{ 10, 20, 30 }, &.{3});
+    var bias = try np.array(f32, &.{ 10, 20, 30 }, &.{3});
     defer bias.deinit();
 
     const broadcast_shape = try x.broadcastShape(bias);
     defer allocator.free(broadcast_shape);
 
-    var y = try x.add(bias);
+    var y = try vx.add(x, bias);
     defer y.deinit();
 
-    var row_sums = try y.sum(1, false);
+    var row_sums = try vx.sum(y, 1, false);
     defer row_sums.deinit();
 
-    var scaled = try y.mulScalar(0.5);
+    var scaled = try vx.mulScalar(y, 0.5);
     defer scaled.deinit();
 
     try expectSlice(f32, y.data, &.{ 11, 22, 33, 14, 25, 36 });

@@ -38,24 +38,28 @@ const std = @import("std");
 const vx = @import("vectra");
 
 pub fn demo(allocator: std.mem.Allocator) !void {
-    var a = try vx.Array(f64).fromSlice(allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    // Zig still makes allocation explicit, but Vectra's `Context` keeps the
+    // everyday array surface close to NumPy/PyTorch.
+    const np = vx.withAllocator(allocator);
+
+    var a = try np.array(f64, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
 
-    var bias = try vx.Array(f64).ones(allocator, &.{3});
+    var bias = try np.ones(f64, &.{3});
     defer bias.deinit();
 
-    var y = try a.add(bias);      // NumPy/PyTorch-like broadcasting
+    var y = try vx.add(a, bias);  // NumPy/PyTorch-like broadcasting
     defer y.deinit();
 
     var probs = try y.softmax(1); // PyTorch-like method API
     defer probs.deinit();
 
-    var picked_idx = try vx.Array(usize).fromSlice(allocator, &.{ 2, 0 }, &.{2});
+    var picked_idx = try np.array(usize, &.{ 2, 0 }, &.{2});
     defer picked_idx.deinit();
     var picked = try y.indexSelect(1, picked_idx); // torch.index_select / np.take style
     defer picked.deinit();
 
-    var labels = try vx.Array(i32).fromSlice(allocator, &.{ 2, 1, 2, 3 }, &.{4});
+    var labels = try np.array(i32, &.{ 2, 1, 2, 3 }, &.{4});
     defer labels.deinit();
     var counts = try labels.bincount(5);
     defer counts.deinit();
@@ -70,6 +74,35 @@ pub fn demo(allocator: std.mem.Allocator) !void {
     defer grouped.deinit();
 }
 ```
+
+The fully explicit `vx.Array(T).fromSlice(allocator, ...)` and method surface is
+still available when you need fine-grained control; the `vx.withAllocator(...)`
+context and top-level `vx.add/vx.matmul/vx.sum/...` helpers are the intended
+short-form front door for examples and application code. Creation options keep
+`dtype` as a Zig type parameter and `device` as runtime metadata, e.g.
+`try np.randWith(vx.seeded(f32, 42), &.{ m, k })` or
+`try np.zerosWith(vx.onDevice(f64, vx.cuda(0)), &.{ rows, cols })`.
+Device is optional and defaults to `vx.cpu` through `vx.options(T)` / `vx.seeded(T, seed)`.
+
+Vectra also exposes layered Array abstractions for code that needs more or less
+static information:
+
+- `vx.StaticArray(T, vx.StaticLayout(...))`: dtype, shape, strides, and layout
+  order are all comptime-known, CUTE-style metadata; use this for tile/kernel
+  planning and fixed-shape kernels.
+- `vx.SymbolicArray(T, vx.SymbolicLayout(...))`: dtype and layout expression are
+  comptime-known, while selected extents are runtime-bound symbolic dimensions.
+  Symbolic dimension expressions support `vx.symbol("M")`, `vx.dim(16)`, and
+  `vx.dimAdd` / `vx.dimSub` / `vx.dimMul` so layouts can encode values such as
+  `2 * M`, `K + 1`, or `N - tile`.
+- `vx.Array(T)`: dtype is static, shape/strides layout and device are runtime
+  metadata; this remains the main NumPy/PyTorch-like user array.
+- `vx.AnyArray`: dtype and layout are runtime metadata for dynamic dispatch,
+  serialization, and heterogeneous containers.
+
+`device` is runtime metadata in every layer. Persistent CUDA-resident Array
+storage is still future work; optional Axiom CUDA paths remain exposed through
+`vx.axiom_cuda` / `vx.axiom_backend`.
 
 More runnable examples live under [`examples/`](examples):
 

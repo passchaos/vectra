@@ -222,15 +222,16 @@ fn writePlan(writer: *std.Io.Writer, args: Args, dims: Dimensions) !void {
 }
 
 fn randomMatrices(allocator: std.mem.Allocator, dims: Dimensions) !Matrices {
+    const np = vx.withAllocator(allocator);
     const a_shape = [_]usize{ dims.m, dims.k };
     const b_shape = [_]usize{ dims.k, dims.n };
     const c_shape = [_]usize{ dims.m, dims.n };
 
-    var a = try vx.Array(f32).rand(allocator, a_shape[0..], 0x4096_0001);
+    var a = try np.rand(f32, a_shape[0..], 0x4096_0001);
     errdefer a.deinit();
-    var b = try vx.Array(f32).rand(allocator, b_shape[0..], 0x4096_0002);
+    var b = try np.rand(f32, b_shape[0..], 0x4096_0002);
     errdefer b.deinit();
-    var c = try vx.Array(f32).rand(allocator, c_shape[0..], 0x4096_0003);
+    var c = try np.rand(f32, c_shape[0..], 0x4096_0003);
     errdefer c.deinit();
 
     return .{ .a = a, .b = b, .c = c };
@@ -240,10 +241,10 @@ fn runCpu(allocator: std.mem.Allocator, dims: Dimensions) !Summary {
     var matrices = try randomMatrices(allocator, dims);
     defer matrices.deinit();
 
-    var product = try vx.axiom_backend.matmul(f32, .force_direct_cpu, matrices.a, matrices.b);
+    var product = try vx.matmul(matrices.a, matrices.b);
     defer product.deinit();
 
-    var output = try vx.axiom_backend.elementwise(f32, .add, .force_direct_cpu, product, matrices.c);
+    var output = try vx.add(product, matrices.c);
     defer output.deinit();
 
     return summarize("cpu", vx.axiom_backend.BackendRoute.direct_cpu.label(), dims, output);

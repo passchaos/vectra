@@ -11,6 +11,7 @@
 const array_mod = @import("array.zig");
 const series_mod = @import("series.zig");
 const dataframe_mod = @import("dataframe.zig");
+const layered_array_mod = @import("layered_array.zig");
 pub const linalg = @import("linalg.zig");
 pub const stats = @import("stats.zig");
 pub const sparse = @import("sparse.zig");
@@ -60,12 +61,59 @@ pub const SvdResult = array_mod.SvdResult;
 pub const EighResult = array_mod.EighResult;
 pub const LuResult = array_mod.LuResult;
 
+pub const LayoutOrder = layered_array_mod.LayoutOrder;
+pub const RuntimeLayout = layered_array_mod.RuntimeLayout;
+pub const StaticLayout = layered_array_mod.StaticLayout;
+pub const StaticArray = layered_array_mod.StaticArray;
+pub const SymbolicLayout = layered_array_mod.SymbolicLayout;
+pub const SymbolicArray = layered_array_mod.SymbolicArray;
+pub const DimExpr = layered_array_mod.DimExpr;
+pub const DimBinding = layered_array_mod.DimBinding;
+pub const dim = layered_array_mod.dim;
+pub const symbol = layered_array_mod.symbol;
+pub const dimAdd = layered_array_mod.dimAdd;
+pub const dimSub = layered_array_mod.dimSub;
+pub const dimMul = layered_array_mod.dimMul;
+pub const AnyArray = layered_array_mod.AnyArray;
+pub const CreationOptions = layered_array_mod.CreationOptions;
+pub const Context = layered_array_mod.Context;
+pub const cpu = Device.cpu;
+pub const options = layered_array_mod.options;
+pub const onDevice = layered_array_mod.onDevice;
+pub const seeded = layered_array_mod.seeded;
+pub const seededOn = layered_array_mod.seededOn;
+
+pub fn cuda(index: usize) Device {
+    return Device.cuda(index);
+}
+
+pub fn withAllocator(allocator: @import("std").mem.Allocator) Context {
+    return layered_array_mod.withAllocator(allocator);
+}
+
+pub fn add(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
+    return lhs.add(rhs);
+}
+
+pub fn matmul(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
+    return lhs.matmul(rhs);
+}
+
+pub fn sum(input: anytype, axis_opt: ?isize, keepdims: bool) ArrayError!@TypeOf(input) {
+    return input.sum(axis_opt, keepdims);
+}
+
+pub fn mulScalar(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
+    return input.mulScalar(scalar);
+}
+
 test {
     _ = array_mod;
     _ = axiom_cpu;
     _ = axiom_backend;
     _ = series_mod;
     _ = dataframe_mod;
+    _ = layered_array_mod;
     _ = linalg;
     _ = stats;
     _ = sparse;
