@@ -339,6 +339,10 @@ pub const SmokeReport = struct {
     bf16_native_execution_fingerprint: u64 = 0,
     f16_widened_execution_fingerprint: u64 = 0,
     bf16_widened_execution_fingerprint: u64 = 0,
+    typed_f16_gemm_route_fingerprint: u64 = 0,
+    typed_bf16_gemm_route_fingerprint: u64 = 0,
+    typed_f16_gemm_route: []const u8 = "",
+    typed_bf16_gemm_route: []const u8 = "",
     output_fingerprint: u64 = 0,
     issue_count: u8 = 0,
 
@@ -346,7 +350,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
             .failed => false,
         };
     }
@@ -394,6 +398,10 @@ pub const SmokeReport = struct {
         hashU64(&hasher, report.bf16_native_execution_fingerprint);
         hashU64(&hasher, report.f16_widened_execution_fingerprint);
         hashU64(&hasher, report.bf16_widened_execution_fingerprint);
+        hashU64(&hasher, report.typed_f16_gemm_route_fingerprint);
+        hashU64(&hasher, report.typed_bf16_gemm_route_fingerprint);
+        hashBytes(&hasher, report.typed_f16_gemm_route);
+        hashBytes(&hasher, report.typed_bf16_gemm_route);
         hashU64(&hasher, report.output_fingerprint);
         hashU64(&hasher, report.issue_count);
         return hasher.final();
@@ -437,7 +445,7 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_dtype_support count={d} bridge={d} native_seed={d} widened_seed={d} fingerprint={x} f16_native_execution={x} bf16_native_execution={x} f16_widened_execution={x} bf16_widened_execution={x} typed_f16_gemm={x} typed_bf16_gemm={x}\n",
+            "vectra_axiom_cuda_dtype_support count={d} bridge={d} native_seed={d} widened_seed={d} fingerprint={x} f16_native_execution={x} bf16_native_execution={x} f16_widened_execution={x} bf16_widened_execution={x} typed_f16_gemm={x} typed_bf16_gemm={x} typed_f16_route={s} typed_bf16_route={s}\n",
             .{
                 report.dtype_support_count,
                 report.dtype_bridge_count,
@@ -450,6 +458,8 @@ pub const SmokeReport = struct {
                 report.bf16_widened_execution_fingerprint,
                 report.typed_f16_gemm_plan.fingerprint(),
                 report.typed_bf16_gemm_plan.fingerprint(),
+                report.typed_f16_gemm_route,
+                report.typed_bf16_gemm_route,
             },
         );
     }
@@ -508,7 +518,9 @@ pub const SmokeReport = struct {
                 "  \"typed_f16_gemm_grid_n\": {d},\n" ++
                 "  \"typed_f16_gemm_total_ctas\": {d},\n" ++
                 "  \"typed_f16_gemm_threads_per_cta\": {d},\n" ++
-                "  \"typed_f16_gemm_argument_bytes\": {d},\n",
+                "  \"typed_f16_gemm_argument_bytes\": {d},\n" ++
+                "  \"typed_f16_gemm_runtime_route\": \"{s}\",\n" ++
+                "  \"typed_f16_gemm_runtime_route_fingerprint\": {d},\n",
             .{
                 report.typed_f16_gemm_plan.element_name,
                 report.typed_f16_gemm_plan.readiness_status,
@@ -523,6 +535,8 @@ pub const SmokeReport = struct {
                 report.typed_f16_gemm_plan.total_ctas,
                 report.typed_f16_gemm_plan.threads_per_cta,
                 report.typed_f16_gemm_plan.argument_bytes,
+                report.typed_f16_gemm_route,
+                report.typed_f16_gemm_route_fingerprint,
             },
         );
         try writer.print(
@@ -538,7 +552,9 @@ pub const SmokeReport = struct {
                 "  \"typed_bf16_gemm_grid_n\": {d},\n" ++
                 "  \"typed_bf16_gemm_total_ctas\": {d},\n" ++
                 "  \"typed_bf16_gemm_threads_per_cta\": {d},\n" ++
-                "  \"typed_bf16_gemm_argument_bytes\": {d},\n",
+                "  \"typed_bf16_gemm_argument_bytes\": {d},\n" ++
+                "  \"typed_bf16_gemm_runtime_route\": \"{s}\",\n" ++
+                "  \"typed_bf16_gemm_runtime_route_fingerprint\": {d},\n",
             .{
                 report.typed_bf16_gemm_plan.element_name,
                 report.typed_bf16_gemm_plan.readiness_status,
@@ -553,6 +569,8 @@ pub const SmokeReport = struct {
                 report.typed_bf16_gemm_plan.total_ctas,
                 report.typed_bf16_gemm_plan.threads_per_cta,
                 report.typed_bf16_gemm_plan.argument_bytes,
+                report.typed_bf16_gemm_route,
+                report.typed_bf16_gemm_route_fingerprint,
             },
         );
         try writer.print(
@@ -1082,9 +1100,12 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     if (f16_add_out != null and f16_matmul_out != null) {
         report.f16_native_execution_fingerprint =
             nativeF16BinaryExecutionFingerprint(allocator, .add, f16_lhs, f16_rhs) catch 0;
+        const typed_f16_runtime = typedF16MatmulRuntimeEvidence(allocator, f16_lhs, f16_rhs) catch return failedReport();
         report.f16_widened_execution_fingerprint =
             (widenedF16BinaryProvenanceFingerprint(allocator, "add", .add, f16_lhs, f16_rhs) catch return failedReport()) ^
-            (typedF16MatmulRuntimeFingerprint(allocator, f16_lhs, f16_rhs) catch return failedReport());
+            typed_f16_runtime.fingerprint;
+        report.typed_f16_gemm_route_fingerprint = typed_f16_runtime.route_fingerprint;
+        report.typed_f16_gemm_route = typed_f16_runtime.route;
     }
 
     var bf16_lhs = array_mod.Array(BFloat16).fromSlice(allocator, &.{
@@ -1117,12 +1138,15 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     if (bf16_add_out != null and bf16_matmul_out != null) {
         report.bf16_native_execution_fingerprint =
             nativeBF16BinaryExecutionFingerprint(allocator, .add, bf16_lhs, bf16_rhs) catch 0;
+        const typed_bf16_runtime = typedBF16MatmulRuntimeEvidence(allocator, bf16_lhs, bf16_rhs) catch return failedReport();
         report.bf16_widened_execution_fingerprint =
             (widenedBF16BinaryProvenanceFingerprint(allocator, "add", .add, bf16_lhs, bf16_rhs) catch return failedReport()) ^
-            (typedBF16MatmulRuntimeFingerprint(allocator, bf16_lhs, bf16_rhs) catch return failedReport());
+            typed_bf16_runtime.fingerprint;
+        report.typed_bf16_gemm_route_fingerprint = typed_bf16_runtime.route_fingerprint;
+        report.typed_bf16_gemm_route = typed_bf16_runtime.route;
     }
 
-    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
+    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
@@ -1148,6 +1172,10 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!report.typed_bf16_gemm_plan.ok)) +
             @as(u8, @intFromBool(report.f16_widened_execution_fingerprint == 0)) +
             @as(u8, @intFromBool(report.bf16_widened_execution_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.typed_f16_gemm_route_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.typed_bf16_gemm_route_fingerprint == 0)) +
+            @as(u8, @intFromBool(!std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute"))) +
+            @as(u8, @intFromBool(!std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute"))) +
             @as(u8, @intFromBool(!report.scalar_add_ok)) +
             @as(u8, @intFromBool(!report.scalar_mul_ok)) +
             @as(u8, @intFromBool(!report.scalar_saxpy_ok));
@@ -1534,7 +1562,17 @@ fn nativeF16BinaryExecutionFingerprint(allocator: std.mem.Allocator, op: BinaryO
     return result.fingerprint();
 }
 
-fn typedF16MatmulRuntimeFingerprint(allocator: std.mem.Allocator, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!u64 {
+const TypedGemmRuntimeEvidence = struct {
+    fingerprint: u64 = 0,
+    route_fingerprint: u64 = 0,
+    route: []const u8 = "",
+
+    fn ok(evidence: TypedGemmRuntimeEvidence) bool {
+        return evidence.fingerprint != 0 and evidence.route_fingerprint != 0 and std.mem.eql(u8, evidence.route, "widened_f32_cuda_compute");
+    }
+};
+
+fn typedF16MatmulRuntimeEvidence(allocator: std.mem.Allocator, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!TypedGemmRuntimeEvidence {
     if (!supportedMatmul2dContiguousF16(lhs, rhs)) return error.ShapeMismatch;
     const m = lhs.shape[0];
     const k = lhs.shape[1];
@@ -1554,7 +1592,11 @@ fn typedF16MatmulRuntimeFingerprint(allocator: std.mem.Allocator, lhs: array_mod
         .kernel_symbol = "vectra_axiom_typed_f16_gemm_probe",
     }) catch |err| return mapTensorAdapterError(err);
     if (!result.ok()) return error.BackendFailure;
-    return result.fingerprint();
+    return .{
+        .fingerprint = result.fingerprint(),
+        .route_fingerprint = result.runtime_route_fingerprint,
+        .route = result.compute_route.label(),
+    };
 }
 
 fn widenedBF16BinaryProvenanceFingerprint(allocator: std.mem.Allocator, operation: []const u8, op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!u64 {
@@ -1597,7 +1639,7 @@ fn nativeBF16BinaryExecutionFingerprint(allocator: std.mem.Allocator, op: Binary
     return result.fingerprint();
 }
 
-fn typedBF16MatmulRuntimeFingerprint(allocator: std.mem.Allocator, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!u64 {
+fn typedBF16MatmulRuntimeEvidence(allocator: std.mem.Allocator, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!TypedGemmRuntimeEvidence {
     if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return error.ShapeMismatch;
     const m = lhs.shape[0];
     const k = lhs.shape[1];
@@ -1623,7 +1665,11 @@ fn typedBF16MatmulRuntimeFingerprint(allocator: std.mem.Allocator, lhs: array_mo
         .kernel_symbol = "vectra_axiom_typed_bf16_gemm_probe",
     }) catch |err| return mapTensorAdapterError(err);
     if (!result.ok()) return error.BackendFailure;
-    return result.fingerprint();
+    return .{
+        .fingerprint = result.fingerprint(),
+        .route_fingerprint = result.runtime_route_fingerprint,
+        .route = result.compute_route.label(),
+    };
 }
 
 fn mapTensorAdapterError(err: anyerror) array_mod.ArrayError {
