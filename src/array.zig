@@ -14750,6 +14750,38 @@ pub fn Array(comptime T: type) type {
         fn materializePendingMatmul(self: Self) ArrayError!Self {
             const pending = self.pending_matmul orelse return self.clone();
             if (pending.unary) |unary_op| {
+                if (comptime T == f32) {
+                    if (pending.add_storage) |add_storage| {
+                        const m = pending.lhs_shape[0];
+                        const k = pending.lhs_shape[1];
+                        const n = pending.rhs_shape[1];
+                        const ops = std.math.mul(usize, std.math.mul(usize, m, n) catch return error.InvalidShape, k) catch return error.InvalidShape;
+                        if (self.device.isCuda() and ops <= 4 * 1024 * 1024) {
+                            var out = try Self.emptyOn(self.allocator, self.shape, self.device);
+                            errdefer out.deinit();
+                            const out_storage = out.device_storage orelse return error.InvalidDevice;
+                            const ok = try axiom_cuda_backend.runPendingMatmulAddUnaryF32(
+                                self.allocator,
+                                self.device,
+                                switch (unary_op) {
+                                    .sqrt => axiom_cuda_backend.UnaryOp.sqrt,
+                                    .exp => axiom_cuda_backend.UnaryOp.exp,
+                                },
+                                m,
+                                n,
+                                k,
+                                pending.lhs_storage.ptr,
+                                pending.rhs_storage.ptr,
+                                add_storage.ptr,
+                                out_storage.ptr,
+                                pending.alpha,
+                                pending.beta,
+                            );
+                            if (!ok) return error.BackendFailure;
+                            return out;
+                        }
+                    }
+                }
                 var without_unary = self;
                 without_unary.pending_matmul = pending;
                 without_unary.pending_matmul.?.unary = null;

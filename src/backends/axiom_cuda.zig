@@ -1634,6 +1634,40 @@ pub fn runPendingMatmulAddBF16(allocator: std.mem.Allocator, device: array_mod.D
     return report.valid();
 }
 
+pub fn runPendingMatmulAddUnaryF32(
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    op: UnaryOp,
+    m: usize,
+    n: usize,
+    k: usize,
+    lhs_ptr: u64,
+    rhs_ptr: u64,
+    add_ptr: u64,
+    out_ptr: u64,
+    alpha: f32,
+    beta: f32,
+) array_mod.ArrayError!bool {
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const report = runtime.runCudaDeviceF32MatmulAddUnary(
+        device.index,
+        switch (op) {
+            .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
+            .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
+        },
+        m,
+        n,
+        k,
+        lhs_ptr,
+        rhs_ptr,
+        add_ptr,
+        out_ptr,
+        alpha,
+        beta,
+    ) catch return error.BackendFailure;
+    return report.valid();
+}
+
 pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16), addend: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !addend.device.isCuda()) return null;
