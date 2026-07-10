@@ -14808,7 +14808,7 @@ pub fn Array(comptime T: type) type {
             }
             if (self.device.isCuda()) {
                 if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
-                if (comptime T != f32) return error.TypeUnsupported;
+                if (comptime T != f32 and T != BFloat16) return error.TypeUnsupported;
                 const maybe_op: ?axiom_cuda_backend.BinaryOp = if (comptime op == opAdd)
                     axiom_cuda_backend.BinaryOp.add
                 else if (comptime op == opSub)
@@ -14820,7 +14820,11 @@ pub fn Array(comptime T: type) type {
                 else
                     null;
                 if (maybe_op) |op_value| {
-                    if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, other)) |out| return out;
+                    if (comptime T == f32) {
+                        if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, other)) |out| return out;
+                    } else if (comptime T == BFloat16) {
+                        if (try axiom_cuda_backend.tryDeviceBinaryBF16(op_value, self, other)) |out| return out;
+                    }
                     return error.BackendFailure;
                 }
                 return error.TypeUnsupported;
@@ -14917,7 +14921,7 @@ pub fn Array(comptime T: type) type {
                     defer materialized.deinit();
                     return materialized.binaryScalar(scalar, op);
                 }
-                if (comptime T != f32) return error.TypeUnsupported;
+                if (comptime T != f32 and T != BFloat16) return error.TypeUnsupported;
                 const maybe_op: ?axiom_cuda_backend.BinaryOp = if (comptime op == opAdd)
                     axiom_cuda_backend.BinaryOp.add
                 else if (comptime op == opSub)
@@ -14931,7 +14935,11 @@ pub fn Array(comptime T: type) type {
                 if (maybe_op) |op_value| {
                     var scalar_array = try Self.fullOn(self.allocator, self.shape, scalar, self.device);
                     defer scalar_array.deinit();
-                    if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, scalar_array)) |out| return out;
+                    if (comptime T == f32) {
+                        if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, scalar_array)) |out| return out;
+                    } else if (comptime T == BFloat16) {
+                        if (try axiom_cuda_backend.tryDeviceBinaryBF16(op_value, self, scalar_array)) |out| return out;
+                    }
                     return error.BackendFailure;
                 }
                 return error.TypeUnsupported;

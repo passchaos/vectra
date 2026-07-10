@@ -366,9 +366,6 @@ fn computeOp(comptime T: type, op: BenchOp, a: vx.Array(T), b: vx.Array(T), c: ?
             defer product.deinit();
             var added = try product.add(c orelse return error.InvalidShape);
             defer added.deinit();
-            if (comptime T == vx.BFloat16) {
-                if (added.device.isCuda()) break :blk try added.exp();
-            }
             const k = if (a.shape.len == 0) return error.NonMatrixArray else a.shape[a.shape.len - 1];
             var normalized = try added.mulScalar(valueFromF64(T, 1.0 / @as(f64, @floatFromInt(k + 1))));
             defer normalized.deinit();
