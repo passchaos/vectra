@@ -128,7 +128,7 @@ run when a CUDA device is available and otherwise report a skipped CUDA backend.
 device-aware creation followed by `vx.matmul` and `vx.matmulAdd` calls. It
 documents `Y = A[M,K] * B[K,N]`, explicit `vx.matmulAdd`, the user-written
 `tmp = A.matmul(B); Y = tmp.add(C)` / `tmp.sub(C)` forms, and follow-on
-`sqrt(tmp + C)` / `exp((tmp + C)/(K+1))` unary chains, emitting
+`sqrt(tmp + C)` / `exp(chain)` unary chains, emitting
 one JSON result per backend/dtype/op. The checked-in execute size is a CUDA
 stress run (`M = 4096 * 4`, `N = 4096`, `K = 4096`) and dry-runs by default;
 pass `-- --smoke` for a tiny executable check, `-- --dtype=all --backend=both`
