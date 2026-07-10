@@ -124,10 +124,11 @@ pub const Device = struct {
     pub fn isAvailable(self: Device) bool {
         return switch (self.backend) {
             .cpu => true,
-            // CUDA is represented in the public API so users can write PyTorch-like
-            // code today. A future backend can make this true without changing array
-            // call sites.
-            .cuda => false,
+            // CUDA arrays are available only when the optional Axiom CUDA bridge
+            // is compiled in.  This keeps PyTorch-like device semantics honest:
+            // CPU arrays run CPU paths, CUDA arrays run CUDA paths, and creation
+            // on CUDA fails instead of silently becoming a CPU array otherwise.
+            .cuda => build_options.enable_axiom_cuda,
         };
     }
 

@@ -92,24 +92,79 @@ pub fn withAllocator(allocator: @import("std").mem.Allocator) Context {
 }
 
 pub fn add(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
-    return lhs.add(rhs);
+    try requireSameDevice(lhs, rhs);
+    return switch (lhs.device.backend) {
+        .cpu => lhs.add(rhs),
+        .cuda => addCuda(lhs, rhs),
+    };
 }
 
 pub fn matmul(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
-    return lhs.matmul(rhs);
+    try requireSameDevice(lhs, rhs);
+    return switch (lhs.device.backend) {
+        .cpu => lhs.matmul(rhs),
+        .cuda => matmulCuda(lhs, rhs),
+    };
 }
 
 pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
+    try requireSameDevice(lhs, rhs);
+    try requireSameDevice(lhs, addend);
     var product = try matmul(lhs, rhs);
     defer product.deinit();
     return add(product, addend);
 }
 
 pub fn tryCudaMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32)) ArrayError!?Array(f32) {
-    const maybe_product = try axiom_cuda.tryMatmulF32(lhs, rhs);
-    var product = maybe_product orelse return null;
+    try requireSameDevice(lhs, rhs);
+    try requireSameDevice(lhs, addend);
+    if (!lhs.device.isCuda()) return null;
+    var product = try matmulCuda(lhs, rhs);
     defer product.deinit();
-    return try axiom_cuda.tryAddF32(product, addend);
+    return try addCuda(product, addend);
+}
+
+fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {
+    if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
+    if (!lhs.device.isAvailable()) return error.InvalidDevice;
+}
+
+fn addCuda(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
+    const T = @TypeOf(lhs).Scalar;
+    var host_lhs = lhs;
+    var host_rhs = rhs;
+    host_lhs.device = .cpu;
+    host_rhs.device = .cpu;
+    const out = if (T == f32)
+        try axiom_cuda.tryAddF32(@as(Array(f32), host_lhs), @as(Array(f32), host_rhs))
+    else if (T == f16)
+        try axiom_cuda.tryAddF16(@as(Array(f16), host_lhs), @as(Array(f16), host_rhs))
+    else if (T == BFloat16)
+        try axiom_cuda.tryAddBF16(@as(Array(BFloat16), host_lhs), @as(Array(BFloat16), host_rhs))
+    else
+        return error.TypeUnsupported;
+    var value = out orelse return error.BackendFailure;
+    value.device = lhs.device;
+    return @as(@TypeOf(lhs), value);
+}
+
+fn matmulCuda(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
+    const T = @TypeOf(lhs).Scalar;
+    var host_lhs = lhs;
+    var host_rhs = rhs;
+    host_lhs.device = .cpu;
+    host_rhs.device = .cpu;
+    const out = if (T == f32)
+        try axiom_cuda.tryMatmulF32(@as(Array(f32), host_lhs), @as(Array(f32), host_rhs))
+    else if (T == f16)
+        try axiom_cuda.tryMatmulF16(@as(Array(f16), host_lhs), @as(Array(f16), host_rhs))
+    else if (T == BFloat16)
+        try axiom_cuda.tryMatmulBF16(@as(Array(BFloat16), host_lhs), @as(Array(BFloat16), host_rhs))
+    else
+        return error.TypeUnsupported;
+    var value = out orelse return error.BackendFailure;
+    value.device = lhs.device;
+    return @as(@TypeOf(lhs), value);
 }
 
 pub fn sum(input: anytype, axis_opt: ?isize, keepdims: bool) ArrayError!@TypeOf(input) {
@@ -118,6 +173,24 @@ pub fn sum(input: anytype, axis_opt: ?isize, keepdims: bool) ArrayError!@TypeOf(
 
 pub fn mulScalar(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
     return input.mulScalar(scalar);
+}
+
+test "top-level ops respect device dispatch" {
+    const gpa = @import("std").testing.allocator;
+    var lhs = try Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer lhs.deinit();
+    var rhs = try Array(f32).fromSlice(gpa, &.{ 10, 20, 30, 40 }, &.{ 2, 2 });
+    defer rhs.deinit();
+
+    var sum_cpu = try add(lhs, rhs);
+    defer sum_cpu.deinit();
+    try @import("std").testing.expect(sum_cpu.device.isCpu());
+    try @import("std").testing.expectEqualSlices(f32, &.{ 11, 22, 33, 44 }, sum_cpu.data);
+
+    var cuda_rhs = try rhs.clone();
+    defer cuda_rhs.deinit();
+    cuda_rhs.device = Device.cuda(0);
+    try @import("std").testing.expectError(error.InvalidDevice, add(lhs, cuda_rhs));
 }
 
 test {

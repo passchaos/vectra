@@ -25,24 +25,31 @@ pub fn main(init: std.process.Init) !void {
 
     const np = vx.withAllocator(std.heap.smp_allocator);
 
-    // The actual math mirrors PyTorch: rand, matmul, add.
+    // CPU tensors run the CPU path.
     var a = try np.randWith(vx.seeded(f32, 0x4096_0001), &.{ shape.m, shape.k });
     defer a.deinit();
     var b = try np.randWith(vx.seeded(f32, 0x4096_0002), &.{ shape.k, shape.n });
     defer b.deinit();
     var c = try np.randWith(vx.seeded(f32, 0x4096_0003), &.{ shape.m, shape.n });
     defer c.deinit();
-
     var y = try vx.matmulAdd(a, b, c);
     defer y.deinit();
     try printResult(&stdout.interface, "cpu", "direct_cpu", y);
 
-    var y_cuda = try vx.tryCudaMatmulAddF32(a, b, c);
-    if (y_cuda) |*cuda_result| {
-        defer cuda_result.deinit();
-        try printResult(&stdout.interface, "cuda", "axiom_cuda", cuda_result.*);
+    // CUDA tensors use the same operation and dispatch through CUDA when enabled.
+    if (vx.axiom_cuda.enabled()) {
+        const gpu = vx.cuda(0);
+        var a_cuda = try np.randWith(vx.seededOn(f32, gpu, 0x4096_0001), &.{ shape.m, shape.k });
+        defer a_cuda.deinit();
+        var b_cuda = try np.randWith(vx.seededOn(f32, gpu, 0x4096_0002), &.{ shape.k, shape.n });
+        defer b_cuda.deinit();
+        var c_cuda = try np.randWith(vx.seededOn(f32, gpu, 0x4096_0003), &.{ shape.m, shape.n });
+        defer c_cuda.deinit();
+        var y_cuda = try vx.matmulAdd(a_cuda, b_cuda, c_cuda);
+        defer y_cuda.deinit();
+        try printResult(&stdout.interface, "cuda", "axiom_cuda", y_cuda);
     } else if (args.require_cuda) {
-        return error.CudaExecutionUnavailable;
+        return error.CudaDisabled;
     } else {
         try stdout.interface.print("{{\"backend\":\"cuda\",\"skipped\":true,\"ok\":true}}\n", .{});
     }

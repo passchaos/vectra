@@ -645,5 +645,11 @@ test "creation options carry dtype and runtime device" {
     try std.testing.expect(@TypeOf(x) == Array(f64));
     try std.testing.expectEqual(DType.f64, DType.of(@TypeOf(x).Scalar));
     try std.testing.expect(x.device.isCpu());
-    try std.testing.expectError(error.InvalidDevice, np.zerosWith(onDevice(f32, Device.cuda(0)), &.{ 2, 2 }));
+    if (Device.cuda(0).isAvailable()) {
+        var gpu = try np.zerosWith(onDevice(f32, Device.cuda(0)), &.{ 2, 2 });
+        defer gpu.deinit();
+        try std.testing.expect(gpu.device.isCuda());
+    } else {
+        try std.testing.expectError(error.InvalidDevice, np.zerosWith(onDevice(f32, Device.cuda(0)), &.{ 2, 2 }));
+    }
 }

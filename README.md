@@ -100,9 +100,11 @@ static information:
 - `vx.AnyArray`: dtype and layout are runtime metadata for dynamic dispatch,
   serialization, and heterogeneous containers.
 
-`device` is runtime metadata in every layer. Persistent CUDA-resident Array
-storage is still future work; optional Axiom CUDA paths remain exposed through
-`vx.axiom_cuda` / `vx.axiom_backend`.
+`device` is runtime metadata in every layer and follows PyTorch-like dispatch:
+CPU arrays run CPU kernels, CUDA arrays run CUDA kernels when the optional bridge
+is enabled, and mixed-device operations fail with `InvalidDevice`. Persistent
+CUDA-resident Array storage is still future work; optional Axiom CUDA paths
+remain exposed through `vx.axiom_cuda` / `vx.axiom_backend`.
 
 More runnable examples live under [`examples/`](examples):
 
@@ -120,11 +122,12 @@ the default build and report direct CPU / disabled CUDA routes; opt into the
 same examples with `-Daxiom-cpu-dispatch=true`, `-Daxiom-cuda-dispatch=true`, or
 `-Daxiom-cuda=true` to inspect the corresponding Axiom bridge paths.
 `example-large-matmul-add` now keeps the user-facing body close to PyTorch:
-`randWith`, `matmulAdd`, and an optional `tryCudaMatmulAddF32`. It documents the
-random `Y = A[M,K] * B[K,N] + C[M,N]` workload with `M = 4096 * 4`, `N = 4096`,
-and `K = 4096`. It dry-runs by default so normal example runs are safe; pass
-`-- --smoke` for a tiny executable check, `-- --execute` for the full CPU path,
-or build with `-Daxiom-cuda=true` to let the same example also try CUDA.
+`randWith` followed by the same `vx.matmulAdd` call for CPU and CUDA tensors.
+It documents the random `Y = A[M,K] * B[K,N] + C[M,N]` workload with
+`M = 4096 * 4`, `N = 4096`, and `K = 4096`. It dry-runs by default so normal
+example runs are safe; pass `-- --smoke` for a tiny executable check,
+`-- --execute` for the full CPU path, or build with `-Daxiom-cuda=true` to let
+CUDA-device tensors dispatch through the CUDA path.
 
 
 ## Optional Axiom accelerator bridge
