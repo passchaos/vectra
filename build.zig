@@ -237,6 +237,31 @@ pub fn build(b: *std.Build) void {
     const large_matmul_add_smoke_step = b.step("example-large-matmul-add-smoke", "Run tiny executable smoke for the large GEMM-plus-add example");
     large_matmul_add_smoke_step.dependOn(&large_matmul_add_smoke_cmd.step);
 
+    const matmul_add_compare_smoke_cmd = b.addSystemCommand(&.{
+        "python3",
+        "tools/bench_matmul_add_compare.py",
+        "--smoke",
+        "--m=64",
+        "--n=64",
+        "--k=64",
+        "--warmup=1",
+        "--iters=1",
+        "--skip-torch-compile",
+        "--max-ratio=2.0",
+    });
+    const matmul_add_compare_smoke_step = b.step("bench-matmul-add-compare-smoke", "Run quick Vectra/Axiom vs PyTorch CUDA matmul+add ratio gate");
+    matmul_add_compare_smoke_step.dependOn(&matmul_add_compare_smoke_cmd.step);
+
+    const matmul_add_compare_cmd = b.addSystemCommand(&.{
+        "python3",
+        "tools/bench_matmul_add_compare.py",
+    });
+    if (b.args) |args| {
+        matmul_add_compare_cmd.addArgs(args);
+    }
+    const matmul_add_compare_step = b.step("bench-matmul-add-compare", "Run Vectra/Axiom vs PyTorch/torch.compile CUDA matmul+add comparison; pass args after --");
+    matmul_add_compare_step.dependOn(&matmul_add_compare_cmd.step);
+
     const axiom_cuda_smoke_exe = b.addExecutable(.{
         .name = "vectra-axiom-cuda-smoke",
         .root_module = b.createModule(.{
