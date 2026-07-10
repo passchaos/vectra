@@ -134,6 +134,14 @@ pub fn tryMatmulF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_
     return tryMatmulTyped(f64, lhs, rhs);
 }
 
+pub fn tryMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryMatmulAddTyped(f32, lhs, rhs, addend);
+}
+
+pub fn tryMatmulAddF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64), addend: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryMatmulAddTyped(f64, lhs, rhs, addend);
+}
+
 pub fn tryMatvecF32(matrix: array_mod.Array(f32), vector: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryMatvecTyped(f32, matrix, vector);
 }
@@ -354,6 +362,39 @@ fn tryMatmulTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Arra
         }
     else
         axiom.accelerator.cpu_veyra.runGemmF64(spec, lhs.data, rhs.data, c.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
+fn tryMatmulAddTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedMatmul2dContiguous(T, lhs, rhs)) return null;
+    if (!addend.device.isCpu() or !addend.isContiguous() or addend.shape.len != 2 or addend.shape[0] != lhs.shape[0] or addend.shape[1] != rhs.shape[1]) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
+    errdefer out.deinit();
+
+    var spec = axiom.accelerator.TensorGemmSpec.rowMajor(
+        .rowMajor("lhs", @intCast(@intFromPtr(lhs.data.ptr)), m, k),
+        .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
+        .rowMajor("out", @intCast(@intFromPtr(out.data.ptr)), m, n),
+    );
+    spec.beta = 1.0;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runGemmF32(spec, lhs.data, rhs.data, addend.data, out.data) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runGemmF64(spec, lhs.data, rhs.data, addend.data, out.data) catch {
             out.deinit();
             return null;
         };

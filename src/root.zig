@@ -116,7 +116,14 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
     if (comptime @TypeOf(lhs) == Array(f32)) {
+        if (try tryCpuMatmulAddF32(@as(Array(f32), lhs), @as(Array(f32), rhs), @as(Array(f32), addend))) |out| {
+            return @as(@TypeOf(lhs), out);
+        }
         if (try tryCudaMatmulAddF32(@as(Array(f32), lhs), @as(Array(f32), rhs), @as(Array(f32), addend))) |out| {
+            return @as(@TypeOf(lhs), out);
+        }
+    } else if (comptime @TypeOf(lhs) == Array(f64)) {
+        if (try tryCpuMatmulAddF64(@as(Array(f64), lhs), @as(Array(f64), rhs), @as(Array(f64), addend))) |out| {
             return @as(@TypeOf(lhs), out);
         }
     } else if (comptime @TypeOf(lhs) == Array(BFloat16)) {
@@ -127,6 +134,22 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
     var product = try matmul(lhs, rhs);
     defer product.deinit();
     return add(product, addend);
+}
+
+pub fn tryCpuMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32)) ArrayError!?Array(f32) {
+    try requireSameDevice(lhs, rhs);
+    try requireSameDevice(lhs, addend);
+    if (!lhs.device.isCpu()) return null;
+    if (try axiom_cpu.tryMatmulAddF32(lhs, rhs, addend)) |out| return out;
+    return null;
+}
+
+pub fn tryCpuMatmulAddF64(lhs: Array(f64), rhs: Array(f64), addend: Array(f64)) ArrayError!?Array(f64) {
+    try requireSameDevice(lhs, rhs);
+    try requireSameDevice(lhs, addend);
+    if (!lhs.device.isCpu()) return null;
+    if (try axiom_cpu.tryMatmulAddF64(lhs, rhs, addend)) |out| return out;
+    return null;
 }
 
 pub fn tryCudaMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32)) ArrayError!?Array(f32) {

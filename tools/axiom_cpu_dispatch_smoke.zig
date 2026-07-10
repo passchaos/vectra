@@ -9,6 +9,10 @@ pub fn main(init: std.process.Init) !void {
     defer b32.deinit();
     var out32 = try a32.matmul(b32);
     defer out32.deinit();
+    var c32 = try vx.Array(f32).ones(allocator, &.{ 2, 2 });
+    defer c32.deinit();
+    var matmul_add32 = try vx.matmulAdd(a32, b32, c32);
+    defer matmul_add32.deinit();
     var add32 = try a32.add(a32);
     defer add32.deinit();
     var sub32 = try a32.sub(a32);
@@ -44,6 +48,10 @@ pub fn main(init: std.process.Init) !void {
     defer b64.deinit();
     var out64 = try a64.matmul(b64);
     defer out64.deinit();
+    var c64 = try vx.Array(f64).ones(allocator, &.{ 2, 2 });
+    defer c64.deinit();
+    var matmul_add64 = try vx.matmulAdd(a64, b64, c64);
+    defer matmul_add64.deinit();
     var add64 = try a64.add(a64);
     defer add64.deinit();
     var sub64 = try a64.sub(a64);
@@ -142,7 +150,10 @@ pub fn main(init: std.process.Init) !void {
     var lstsq64 = try qr_input64.lstsq(lstsq_rhs64, 1e-12);
     defer lstsq64.deinit();
 
-    const matmul_ok = out32.data[0] == 58 and out32.data[3] == 154 and out64.data[0] == 58 and out64.data[3] == 154;
+    const matmul_ok = out32.data[0] == 58 and out32.data[3] == 154 and
+        matmul_add32.data[0] == 59 and matmul_add32.data[3] == 155 and
+        out64.data[0] == 58 and out64.data[3] == 154 and
+        matmul_add64.data[0] == 59 and matmul_add64.data[3] == 155;
     const elementwise_ok = equalF32(add32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
         equalF32(sub32.data, &.{ 0, 0, 0, 0, 0, 0 }) and
         equalF32(mul32.data, &.{ 1, 4, 9, 16, 25, 36 }) and
