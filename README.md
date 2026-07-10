@@ -126,14 +126,14 @@ kernels where available. The Axiom examples run in the default build; CUDA route
 run when a CUDA device is available and otherwise report a skipped CUDA backend.
 `example-large-matmul-add` keeps the user-facing body close to PyTorch:
 device-aware creation followed by `vx.matmul` and `vx.matmulAdd` calls. It
-documents both `Y = A[M,K] * B[K,N]` and `Y = A[M,K] * B[K,N] + C[M,N]`, emitting
+documents `Y = A[M,K] * B[K,N]`, explicit `vx.matmulAdd`, and the user-written `tmp = A.matmul(B); Y = tmp.add(C)` form, emitting
 one JSON result per backend/dtype/op. The checked-in execute size is a CUDA
 stress run (`M = 4096 * 4`, `N = 4096`, `K = 4096`) and dry-runs by default;
 pass `-- --smoke` for a tiny executable check, `-- --dtype=all --backend=both`
 to compare f32/f64/f16/BFloat16 CPU paths plus supported CUDA paths, or
 `-- --execute --backend=cuda --dtype=f32 --require-cuda` for the production CUDA
 benchmark. CUDA owning arrays benchmark f32 matmul/matmulAdd plus BFloat16 matmul/matmulAdd
-through Axiom cuBLAS-backed device GEMM and cuBLASLt fused addmm; CUDA f16 records exercise the current
+through Axiom cuBLAS-backed device GEMM, cuBLASLt fused addmm, and automatic matmul-then-add fusion; CUDA f16 records exercise the current
 Axiom CUDA typed host-slice matmul plus add path, and f64 CUDA emits explicit
 skipped records until an f64 CUDA matmul is exposed. `--retain-outputs`
 intentionally keeps each iteration output alive to expose allocation/reuse effects
