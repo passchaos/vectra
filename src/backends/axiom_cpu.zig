@@ -140,6 +140,14 @@ pub fn trySolveF64(matrix: array_mod.Array(f64), rhs: array_mod.Array(f64)) arra
     return trySolveTyped(f64, matrix, rhs);
 }
 
+pub fn tryCholeskyF32(matrix: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryCholeskyTyped(f32, matrix);
+}
+
+pub fn tryCholeskyF64(matrix: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryCholeskyTyped(f64, matrix);
+}
+
 fn tryMatmulTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cpu_dispatch) return null;
     if (!supportedMatmul2dContiguous(T, lhs, rhs)) return null;
@@ -315,6 +323,33 @@ fn trySolveTyped(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Ar
         }
     else
         axiom.accelerator.cpu_veyra.runSolveF64(matrix_view, rhs_view, out_view, matrix.data, rhs.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
+fn tryCholeskyTyped(comptime T: type, matrix: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedSquareMatrix(T, matrix)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var out = try array_mod.Array(T).zeros(matrix.allocator, matrix.shape);
+    errdefer out.deinit();
+    const out_view = (try matrixView(T, out, "out")) orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runCholeskyF32(matrix_view, out_view, matrix.data, out.data) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runCholeskyF64(matrix_view, out_view, matrix.data, out.data) catch {
             out.deinit();
             return null;
         };
@@ -554,6 +589,16 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         defer solved_out.deinit();
         try std.testing.expectApproxEqAbs(@as(f64, -0.4), solved_out.data[0], 1e-12);
         try std.testing.expectApproxEqAbs(@as(f64, 2.8), solved_out.data[1], 1e-12);
+
+        var spd = try array_mod.Array(f64).fromSlice(gpa, &.{ 25, 15, -5, 15, 18, 0, -5, 0, 11 }, &.{ 3, 3 });
+        defer spd.deinit();
+        const chol = try tryCholeskyF64(spd);
+        try std.testing.expect(chol != null);
+        var chol_out = chol.?;
+        defer chol_out.deinit();
+        try std.testing.expectApproxEqAbs(@as(f64, 5), chol_out.data[0], 1e-12);
+        try std.testing.expectApproxEqAbs(@as(f64, 3), chol_out.data[3], 1e-12);
+        try std.testing.expectApproxEqAbs(@as(f64, -1), chol_out.data[6], 1e-12);
     } else {
         try std.testing.expect(mv32 == null);
         try std.testing.expect(vt64 == null);
