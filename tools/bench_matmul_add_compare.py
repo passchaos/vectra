@@ -37,6 +37,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--torch-compile-mode", default="reduce-overhead", help="Mode passed to torch.compile.")
     parser.add_argument("--skip-torch-compile", action="store_true")
     parser.add_argument("--skip-vectra", action="store_true")
+    parser.add_argument("--baseline", choices=("torch_addmm", "torch_eager_matmul_add", "torch_compile"), default="torch_addmm")
+    parser.add_argument("--max-ratio", type=float, default=None, help="Fail if Vectra matmul_add avg_us / baseline avg_us exceeds this value.")
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     return parser.parse_args()
 
@@ -57,9 +59,15 @@ def shape_from_args(args: argparse.Namespace) -> tuple[int, int, int]:
     return tuple(shape)  # type: ignore[return-value]
 
 
-def run_vectra(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, iters: int) -> None:
+def emit(row: dict[str, Any]) -> dict[str, Any]:
+    print(json.dumps(row, separators=(",", ":")))
+    return row
+
+
+def run_vectra(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, iters: int) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     if args.skip_vectra:
-        return
+        return rows
     cmd = [
         "zig",
         "build",
@@ -79,27 +87,28 @@ def run_vectra(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, it
     started = time.perf_counter()
     proc = subprocess.run(cmd, cwd=args.repo, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elapsed_ms = (time.perf_counter() - started) * 1000.0
-    print(json.dumps({
+    rows.append(emit({
         "kind": "compare_invocation",
         "runner": "vectra",
         "cmd": cmd,
         "elapsed_ms": elapsed_ms,
         "returncode": proc.returncode,
-    }, separators=(",", ":")))
+    }))
     for line in proc.stdout.splitlines():
         if not line.startswith("{"):
-            print(json.dumps({"kind": "vectra_output", "line": line}, separators=(",", ":")))
+            rows.append(emit({"kind": "vectra_output", "line": line}))
             continue
         try:
             row = json.loads(line)
         except json.JSONDecodeError:
-            print(json.dumps({"kind": "vectra_output", "line": line}, separators=(",", ":")))
+            rows.append(emit({"kind": "vectra_output", "line": line}))
             continue
         row.setdefault("kind", "vectra_large_matmul_add")
         row["source"] = "vectra"
-        print(json.dumps(row, separators=(",", ":")))
+        rows.append(emit(row))
     if proc.returncode != 0:
         raise SystemExit(proc.returncode)
+    return rows
 
 
 def bench_torch_case(name: str, func: Callable[[], Any], sync: Callable[[], None], warmup: int, iters: int) -> tuple[float, Any]:
@@ -115,7 +124,8 @@ def bench_torch_case(name: str, func: Callable[[], Any], sync: Callable[[], None
     return elapsed_us, result
 
 
-def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, iters: int) -> None:
+def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, iters: int) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     import torch
 
     row_base: dict[str, Any] = {
@@ -129,14 +139,14 @@ def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, ite
         "iters": iters,
     }
     if not torch.cuda.is_available():
-        print(json.dumps({**row_base, "skipped": True, "reason": "torch_cuda_unavailable"}, separators=(",", ":")))
-        return
+        rows.append(emit({**row_base, "skipped": True, "reason": "torch_cuda_unavailable"}))
+        return rows
 
     torch.set_grad_enabled(False)
     try:
         torch.set_float32_matmul_precision("high")
     except Exception as exc:  # pragma: no cover - version dependent
-        print(json.dumps({**row_base, "kind": "torch_warning", "warning": f"set_float32_matmul_precision failed: {exc}"}, separators=(",", ":")))
+        rows.append(emit({**row_base, "kind": "torch_warning", "warning": f"set_float32_matmul_precision failed: {exc}"}))
 
     device = torch.device("cuda")
     dtype = torch.float32
@@ -158,22 +168,65 @@ def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, ite
             compiled = torch.compile(matmul_add, mode=args.torch_compile_mode)
             cases.append((f"torch_compile_{args.torch_compile_mode}", lambda: compiled(a, b, c)))
         except Exception as exc:
-            print(json.dumps({**row_base, "op": "torch_compile", "skipped": True, "reason": f"compile_create_failed:{exc}"}, separators=(",", ":")))
+            rows.append(emit({**row_base, "op": "torch_compile", "skipped": True, "reason": f"compile_create_failed:{exc}"}))
 
     for name, func in cases:
         try:
             elapsed_us, result = bench_torch_case(name, func, torch.cuda.synchronize, warmup, iters)
             first = float(result.reshape(-1)[0].item()) if result is not None and result.numel() else 0.0
-            print(json.dumps({
+            rows.append(emit({
                 **row_base,
                 "op": name,
                 "elapsed_us": int(elapsed_us),
                 "avg_us": elapsed_us / iters,
                 "first": first,
                 "ok": True,
-            }, separators=(",", ":")))
+            }))
         except Exception as exc:
-            print(json.dumps({**row_base, "op": name, "ok": False, "error": repr(exc)}, separators=(",", ":")))
+            rows.append(emit({**row_base, "op": name, "ok": False, "error": repr(exc)}))
+    return rows
+
+
+def summarize(args: argparse.Namespace, vectra_rows: list[dict[str, Any]], torch_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    vectra_by_op = {row.get("op"): row for row in vectra_rows if row.get("source") == "vectra" and row.get("ok") is True}
+    torch_by_op = {row.get("op"): row for row in torch_rows if row.get("source") == "torch" and row.get("ok") is True}
+    baseline_key = args.baseline
+    if baseline_key == "torch_compile":
+        prefix = f"torch_compile_{args.torch_compile_mode}"
+        baseline_row = next((row for op, row in torch_by_op.items() if isinstance(op, str) and op.startswith(prefix)), None)
+        baseline_key = prefix
+    else:
+        baseline_row = torch_by_op.get(baseline_key)
+    vectra_matmul_add = vectra_by_op.get("matmul_add")
+    vectra_then_add = vectra_by_op.get("matmul_then_add")
+    result: dict[str, Any] = {
+        "kind": "matmul_add_compare_summary",
+        "baseline": baseline_key,
+        "max_ratio": args.max_ratio,
+        "ok": False,
+    }
+    if baseline_row is None:
+        result["reason"] = "missing_baseline"
+        return result
+    baseline_avg = float(baseline_row["avg_us"])
+    result["baseline_avg_us"] = baseline_avg
+    for label, row in (("vectra_matmul_add", vectra_matmul_add), ("vectra_matmul_then_add", vectra_then_add)):
+        if row is None:
+            result[f"{label}_missing"] = True
+            continue
+        avg = float(row["avg_us"])
+        result[f"{label}_avg_us"] = avg
+        result[f"{label}_ratio"] = avg / baseline_avg if baseline_avg else None
+    ratios = [value for key, value in result.items() if key.startswith("vectra_") and key.endswith("_ratio") and isinstance(value, float)]
+    if not ratios:
+        result["reason"] = "missing_vectra_rows"
+        return result
+    result["best_ratio"] = min(ratios)
+    result["worst_ratio"] = max(ratios)
+    result["ok"] = args.max_ratio is None or result["worst_ratio"] <= args.max_ratio
+    if not result["ok"]:
+        result["reason"] = "ratio_exceeds_threshold"
+    return result
 
 
 def main() -> None:
@@ -181,7 +234,7 @@ def main() -> None:
     m, n, k = shape_from_args(args)
     warmup = args.warmup if args.warmup is not None else (3 if args.execute else 1)
     iters = args.iters if args.iters is not None else (5 if args.execute else 2)
-    print(json.dumps({
+    emit({
         "kind": "matmul_add_compare_plan",
         "m": m,
         "n": n,
@@ -190,9 +243,15 @@ def main() -> None:
         "iters": iters,
         "dtype": args.dtype,
         "repo": str(args.repo),
-    }, separators=(",", ":")))
-    run_vectra(args, m, n, k, warmup, iters)
-    run_torch(args, m, n, k, warmup, iters)
+        "baseline": args.baseline,
+        "max_ratio": args.max_ratio,
+    })
+    vectra_rows = run_vectra(args, m, n, k, warmup, iters)
+    torch_rows = run_torch(args, m, n, k, warmup, iters)
+    summary = summarize(args, vectra_rows, torch_rows)
+    emit(summary)
+    if args.max_ratio is not None and not summary.get("ok", False):
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":
