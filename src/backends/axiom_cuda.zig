@@ -195,6 +195,50 @@ pub const BufferPlanEvidence = struct {
     copy_fingerprint: u64 = 0,
 };
 
+pub const TypedGemmPlanEvidence = struct {
+    ok: bool = false,
+    element_name: []const u8 = "",
+    readiness_status: []const u8 = "",
+    m: usize = 0,
+    n: usize = 0,
+    k: usize = 0,
+    tile_m: usize = 0,
+    tile_n: usize = 0,
+    tile_k: usize = 0,
+    grid_m: usize = 0,
+    grid_n: usize = 0,
+    total_ctas: usize = 0,
+    threads_per_cta: usize = 0,
+    argument_bytes: usize = 0,
+    plan_fingerprint: u64 = 0,
+    seed_fingerprint: u64 = 0,
+    readiness_fingerprint: u64 = 0,
+
+    pub fn fingerprint(evidence: TypedGemmPlanEvidence) u64 {
+        var hasher = std.hash.Wyhash.init(0x0abc_7aaa_9e00_719e);
+        hashBool(&hasher, evidence.ok);
+        hashBytes(&hasher, evidence.element_name);
+        hashBytes(&hasher, evidence.readiness_status);
+        hashU64(&hasher, evidence.m);
+        hashU64(&hasher, evidence.n);
+        hashU64(&hasher, evidence.k);
+        hashU64(&hasher, evidence.tile_m);
+        hashU64(&hasher, evidence.tile_n);
+        hashU64(&hasher, evidence.tile_k);
+        hashU64(&hasher, evidence.grid_m);
+        hashU64(&hasher, evidence.grid_n);
+        hashU64(&hasher, evidence.total_ctas);
+        hashU64(&hasher, evidence.threads_per_cta);
+        hashU64(&hasher, evidence.argument_bytes);
+        hashU64(&hasher, evidence.plan_fingerprint);
+        hashU64(&hasher, evidence.seed_fingerprint);
+        hashU64(&hasher, evidence.readiness_fingerprint);
+        return hasher.final();
+    }
+};
+
+const TypedGemmElement = enum { f16, bf16 };
+
 pub const DeviceArrayF32 = struct {
     allocator: std.mem.Allocator,
     shape: []usize,
@@ -276,6 +320,8 @@ pub const SmokeReport = struct {
     f16_matmul_ok: bool = false,
     bf16_add_ok: bool = false,
     bf16_matmul_ok: bool = false,
+    typed_f16_gemm_plan: TypedGemmPlanEvidence = .{},
+    typed_bf16_gemm_plan: TypedGemmPlanEvidence = .{},
     scalar_add_ok: bool = false,
     scalar_mul_ok: bool = false,
     scalar_saxpy_ok: bool = false,
@@ -300,7 +346,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
             .failed => false,
         };
     }
@@ -320,6 +366,8 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.f16_matmul_ok);
         hashBool(&hasher, report.bf16_add_ok);
         hashBool(&hasher, report.bf16_matmul_ok);
+        hashU64(&hasher, report.typed_f16_gemm_plan.fingerprint());
+        hashU64(&hasher, report.typed_bf16_gemm_plan.fingerprint());
         hashBool(&hasher, report.scalar_add_ok);
         hashBool(&hasher, report.scalar_mul_ok);
         hashBool(&hasher, report.scalar_saxpy_ok);
@@ -353,7 +401,7 @@ pub const SmokeReport = struct {
 
     pub fn writeText(report: SmokeReport, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} matmul_tile_ir={} f16_add={} f16_matmul={} bf16_add={} bf16_matmul={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} device_array={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} matmul_tile_ir={} f16_add={} f16_matmul={} bf16_add={} bf16_matmul={} typed_f16_gemm={} typed_bf16_gemm={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} device_array={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
             .{
                 report.enabled,
                 report.status.label(),
@@ -370,6 +418,8 @@ pub const SmokeReport = struct {
                 report.f16_matmul_ok,
                 report.bf16_add_ok,
                 report.bf16_matmul_ok,
+                report.typed_f16_gemm_plan.ok,
+                report.typed_bf16_gemm_plan.ok,
                 report.scalar_add_ok,
                 report.scalar_mul_ok,
                 report.scalar_saxpy_ok,
@@ -387,7 +437,7 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_dtype_support count={d} bridge={d} native_seed={d} widened_seed={d} fingerprint={x} f16_native_execution={x} bf16_native_execution={x} f16_widened_execution={x} bf16_widened_execution={x}\n",
+            "vectra_axiom_cuda_dtype_support count={d} bridge={d} native_seed={d} widened_seed={d} fingerprint={x} f16_native_execution={x} bf16_native_execution={x} f16_widened_execution={x} bf16_widened_execution={x} typed_f16_gemm={x} typed_bf16_gemm={x}\n",
             .{
                 report.dtype_support_count,
                 report.dtype_bridge_count,
@@ -398,6 +448,8 @@ pub const SmokeReport = struct {
                 report.bf16_native_execution_fingerprint,
                 report.f16_widened_execution_fingerprint,
                 report.bf16_widened_execution_fingerprint,
+                report.typed_f16_gemm_plan.fingerprint(),
+                report.typed_bf16_gemm_plan.fingerprint(),
             },
         );
     }
@@ -420,7 +472,9 @@ pub const SmokeReport = struct {
                 "  \"f16_add_ok\": {},\n" ++
                 "  \"f16_matmul_ok\": {},\n" ++
                 "  \"bf16_add_ok\": {},\n" ++
-                "  \"bf16_matmul_ok\": {},\n",
+                "  \"bf16_matmul_ok\": {},\n" ++
+                "  \"typed_f16_gemm_plan_ok\": {},\n" ++
+                "  \"typed_bf16_gemm_plan_ok\": {},\n",
             .{
                 report.enabled,
                 report.status.label(),
@@ -437,6 +491,68 @@ pub const SmokeReport = struct {
                 report.f16_matmul_ok,
                 report.bf16_add_ok,
                 report.bf16_matmul_ok,
+                report.typed_f16_gemm_plan.ok,
+                report.typed_bf16_gemm_plan.ok,
+            },
+        );
+        try writer.print(
+            "  \"typed_f16_gemm_element\": \"{s}\",\n" ++
+                "  \"typed_f16_gemm_readiness\": \"{s}\",\n" ++
+                "  \"typed_f16_gemm_m\": {d},\n" ++
+                "  \"typed_f16_gemm_n\": {d},\n" ++
+                "  \"typed_f16_gemm_k\": {d},\n" ++
+                "  \"typed_f16_gemm_tile_m\": {d},\n" ++
+                "  \"typed_f16_gemm_tile_n\": {d},\n" ++
+                "  \"typed_f16_gemm_tile_k\": {d},\n" ++
+                "  \"typed_f16_gemm_grid_m\": {d},\n" ++
+                "  \"typed_f16_gemm_grid_n\": {d},\n" ++
+                "  \"typed_f16_gemm_total_ctas\": {d},\n" ++
+                "  \"typed_f16_gemm_threads_per_cta\": {d},\n" ++
+                "  \"typed_f16_gemm_argument_bytes\": {d},\n",
+            .{
+                report.typed_f16_gemm_plan.element_name,
+                report.typed_f16_gemm_plan.readiness_status,
+                report.typed_f16_gemm_plan.m,
+                report.typed_f16_gemm_plan.n,
+                report.typed_f16_gemm_plan.k,
+                report.typed_f16_gemm_plan.tile_m,
+                report.typed_f16_gemm_plan.tile_n,
+                report.typed_f16_gemm_plan.tile_k,
+                report.typed_f16_gemm_plan.grid_m,
+                report.typed_f16_gemm_plan.grid_n,
+                report.typed_f16_gemm_plan.total_ctas,
+                report.typed_f16_gemm_plan.threads_per_cta,
+                report.typed_f16_gemm_plan.argument_bytes,
+            },
+        );
+        try writer.print(
+            "  \"typed_bf16_gemm_element\": \"{s}\",\n" ++
+                "  \"typed_bf16_gemm_readiness\": \"{s}\",\n" ++
+                "  \"typed_bf16_gemm_m\": {d},\n" ++
+                "  \"typed_bf16_gemm_n\": {d},\n" ++
+                "  \"typed_bf16_gemm_k\": {d},\n" ++
+                "  \"typed_bf16_gemm_tile_m\": {d},\n" ++
+                "  \"typed_bf16_gemm_tile_n\": {d},\n" ++
+                "  \"typed_bf16_gemm_tile_k\": {d},\n" ++
+                "  \"typed_bf16_gemm_grid_m\": {d},\n" ++
+                "  \"typed_bf16_gemm_grid_n\": {d},\n" ++
+                "  \"typed_bf16_gemm_total_ctas\": {d},\n" ++
+                "  \"typed_bf16_gemm_threads_per_cta\": {d},\n" ++
+                "  \"typed_bf16_gemm_argument_bytes\": {d},\n",
+            .{
+                report.typed_bf16_gemm_plan.element_name,
+                report.typed_bf16_gemm_plan.readiness_status,
+                report.typed_bf16_gemm_plan.m,
+                report.typed_bf16_gemm_plan.n,
+                report.typed_bf16_gemm_plan.k,
+                report.typed_bf16_gemm_plan.tile_m,
+                report.typed_bf16_gemm_plan.tile_n,
+                report.typed_bf16_gemm_plan.tile_k,
+                report.typed_bf16_gemm_plan.grid_m,
+                report.typed_bf16_gemm_plan.grid_n,
+                report.typed_bf16_gemm_plan.total_ctas,
+                report.typed_bf16_gemm_plan.threads_per_cta,
+                report.typed_bf16_gemm_plan.argument_bytes,
             },
         );
         try writer.print(
@@ -465,10 +581,7 @@ pub const SmokeReport = struct {
                 "  \"f16_native_execution_fingerprint\": {d},\n" ++
                 "  \"bf16_native_execution_fingerprint\": {d},\n" ++
                 "  \"f16_widened_execution_fingerprint\": {d},\n" ++
-                "  \"bf16_widened_execution_fingerprint\": {d},\n" ++
-                "  \"output_fingerprint\": {d},\n" ++
-                "  \"fingerprint\": {d}\n" ++
-                "}}\n",
+                "  \"bf16_widened_execution_fingerprint\": {d},\n",
             .{
                 report.scalar_add_ok,
                 report.scalar_mul_ok,
@@ -496,6 +609,25 @@ pub const SmokeReport = struct {
                 report.bf16_native_execution_fingerprint,
                 report.f16_widened_execution_fingerprint,
                 report.bf16_widened_execution_fingerprint,
+            },
+        );
+        try writer.print(
+            "  \"typed_f16_gemm_plan_fingerprint\": {d},\n" ++
+                "  \"typed_bf16_gemm_plan_fingerprint\": {d},\n" ++
+                "  \"typed_f16_gemm_seed_fingerprint\": {d},\n" ++
+                "  \"typed_bf16_gemm_seed_fingerprint\": {d},\n" ++
+                "  \"typed_f16_gemm_readiness_fingerprint\": {d},\n" ++
+                "  \"typed_bf16_gemm_readiness_fingerprint\": {d},\n" ++
+                "  \"output_fingerprint\": {d},\n" ++
+                "  \"fingerprint\": {d}\n" ++
+                "}}\n",
+            .{
+                report.typed_f16_gemm_plan.plan_fingerprint,
+                report.typed_bf16_gemm_plan.plan_fingerprint,
+                report.typed_f16_gemm_plan.seed_fingerprint,
+                report.typed_bf16_gemm_plan.seed_fingerprint,
+                report.typed_f16_gemm_plan.readiness_fingerprint,
+                report.typed_bf16_gemm_plan.readiness_fingerprint,
                 report.output_fingerprint,
                 report.fingerprint(),
             },
@@ -527,6 +659,34 @@ pub fn planArrayF32(input: array_mod.Array(f32), name: []const u8) BufferPlanEvi
         .copy_requires_strided = copy_plan.requires_strided_copy,
         .copy_fingerprint = copy_plan.fingerprint(),
     };
+}
+
+pub fn planTypedGemmF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!TypedGemmPlanEvidence {
+    if (!build_options.enable_axiom_cuda) return .{};
+    if (!supportedMatmul2dContiguousF16(lhs, rhs)) return error.ShapeMismatch;
+    const program = buildTypedMatmulTileIr(
+        lhs.shape[0],
+        rhs.shape[1],
+        lhs.shape[1],
+        .f16,
+        "vectra_axiom_f16_typed_gemm_plan",
+    );
+    const plan = axiom.accelerator.TensorTypedGemmLaunchPlan.fromCudaTileProgram(program, 1.0, 0.0) catch |err| return mapTensorAdapterError(err);
+    return typedGemmPlanEvidenceFromAxiom(plan);
+}
+
+pub fn planTypedGemmBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!TypedGemmPlanEvidence {
+    if (!build_options.enable_axiom_cuda) return .{};
+    if (!supportedMatmul2dContiguousBF16(lhs, rhs)) return error.ShapeMismatch;
+    const program = buildTypedMatmulTileIr(
+        lhs.shape[0],
+        rhs.shape[1],
+        lhs.shape[1],
+        .bf16,
+        "vectra_axiom_bf16_typed_gemm_plan",
+    );
+    const plan = axiom.accelerator.TensorTypedGemmLaunchPlan.fromCudaTileProgram(program, 1.0, 0.0) catch |err| return mapTensorAdapterError(err);
+    return typedGemmPlanEvidenceFromAxiom(plan);
 }
 
 fn baseSmokeReport() SmokeReport {
@@ -918,6 +1078,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.f16_matmul_ok = f16Close(out.data, &.{ 70, 100, 150, 220 }, 0.25);
         report.output_fingerprint ^= hashF16Slice(out.data);
     }
+    report.typed_f16_gemm_plan = planTypedGemmF16(f16_lhs, f16_rhs) catch return failedReport();
     if (f16_add_out != null and f16_matmul_out != null) {
         report.f16_native_execution_fingerprint =
             nativeF16BinaryExecutionFingerprint(allocator, .add, f16_lhs, f16_rhs) catch 0;
@@ -952,6 +1113,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.bf16_matmul_ok = bf16Close(out.data, &.{ 70, 100, 150, 220 }, 0.5);
         report.output_fingerprint ^= hashBF16Slice(out.data);
     }
+    report.typed_bf16_gemm_plan = planTypedGemmBF16(bf16_lhs, bf16_rhs) catch return failedReport();
     if (bf16_add_out != null and bf16_matmul_out != null) {
         report.bf16_native_execution_fingerprint =
             nativeBF16BinaryExecutionFingerprint(allocator, .add, bf16_lhs, bf16_rhs) catch 0;
@@ -960,7 +1122,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             (widenedBF16MatmulProvenanceFingerprint(allocator, "matmul", bf16_lhs, bf16_rhs) catch return failedReport());
     }
 
-    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
+    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
@@ -982,6 +1144,8 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!report.f16_matmul_ok)) +
             @as(u8, @intFromBool(!report.bf16_add_ok)) +
             @as(u8, @intFromBool(!report.bf16_matmul_ok)) +
+            @as(u8, @intFromBool(!report.typed_f16_gemm_plan.ok)) +
+            @as(u8, @intFromBool(!report.typed_bf16_gemm_plan.ok)) +
             @as(u8, @intFromBool(report.f16_widened_execution_fingerprint == 0)) +
             @as(u8, @intFromBool(report.bf16_widened_execution_fingerprint == 0)) +
             @as(u8, @intFromBool(!report.scalar_add_ok)) +
@@ -1221,6 +1385,72 @@ fn buildMatmulTileIr(m: usize, n: usize, k: usize, kernel_symbol: []const u8) ax
         .mma("acc", "lhs_tile", "rhs_tile")
         .store("out", "acc")
         .build();
+}
+
+fn buildTypedMatmulTileIr(
+    m: usize,
+    n: usize,
+    k: usize,
+    element: TypedGemmElement,
+    kernel_symbol: []const u8,
+) axiom.accelerator.CudaTileProgram {
+    const tile_m: usize = @min(m, @as(usize, 16));
+    const tile_n: usize = @min(n, @as(usize, 16));
+    const tile_k: usize = @min(k, @as(usize, 16));
+    return switch (element) {
+        .f16 => axiom.accelerator.cuda_tile_ir.builder(kernel_symbol)
+            .tensor(.init("lhs", .f16, .rowMajor2d(m, k), .global))
+            .tensor(.init("rhs", .f16, .rowMajor2d(k, n), .global))
+            .tensor(.init("out", .f16, .rowMajor2d(m, n), .global))
+            .fragment(.init("lhs_tile", .f16, .rowMajor2d(tile_m, tile_k), .shared))
+            .fragment(.init("rhs_tile", .f16, .rowMajor2d(tile_k, tile_n), .shared))
+            .fragment(.init("acc", .f16, .rowMajor2d(tile_m, tile_n), .accumulator))
+            .cta(tile_m, tile_n, tile_k)
+            .warp(tile_m, @min(tile_n, @as(usize, 8)), tile_k)
+            .mmaTile(@min(tile_m, @as(usize, 16)), @min(tile_n, @as(usize, 8)), @min(tile_k, @as(usize, 8)))
+            .load("lhs_tile", "lhs")
+            .load("rhs_tile", "rhs")
+            .mma("acc", "lhs_tile", "rhs_tile")
+            .store("out", "acc")
+            .build(),
+        .bf16 => axiom.accelerator.cuda_tile_ir.builder(kernel_symbol)
+            .tensor(.init("lhs", .bf16, .rowMajor2d(m, k), .global))
+            .tensor(.init("rhs", .bf16, .rowMajor2d(k, n), .global))
+            .tensor(.init("out", .bf16, .rowMajor2d(m, n), .global))
+            .fragment(.init("lhs_tile", .bf16, .rowMajor2d(tile_m, tile_k), .shared))
+            .fragment(.init("rhs_tile", .bf16, .rowMajor2d(tile_k, tile_n), .shared))
+            .fragment(.init("acc", .bf16, .rowMajor2d(tile_m, tile_n), .accumulator))
+            .cta(tile_m, tile_n, tile_k)
+            .warp(tile_m, @min(tile_n, @as(usize, 8)), tile_k)
+            .mmaTile(@min(tile_m, @as(usize, 16)), @min(tile_n, @as(usize, 8)), @min(tile_k, @as(usize, 8)))
+            .load("lhs_tile", "lhs")
+            .load("rhs_tile", "rhs")
+            .mma("acc", "lhs_tile", "rhs_tile")
+            .store("out", "acc")
+            .build(),
+    };
+}
+
+fn typedGemmPlanEvidenceFromAxiom(plan: axiom.accelerator.TensorTypedGemmLaunchPlan) TypedGemmPlanEvidence {
+    return .{
+        .ok = plan.ok(),
+        .element_name = @tagName(plan.element_type),
+        .readiness_status = plan.readiness_status.label(),
+        .m = plan.m,
+        .n = plan.n,
+        .k = plan.k,
+        .tile_m = plan.tile_m,
+        .tile_n = plan.tile_n,
+        .tile_k = plan.tile_k,
+        .grid_m = plan.grid_m,
+        .grid_n = plan.grid_n,
+        .total_ctas = plan.total_ctas,
+        .threads_per_cta = plan.threads_per_cta,
+        .argument_bytes = plan.argument_bytes,
+        .plan_fingerprint = plan.fingerprint(),
+        .seed_fingerprint = plan.seed_fingerprint,
+        .readiness_fingerprint = plan.readiness_fingerprint,
+    };
 }
 
 fn supportedOneDimensionalView(view: array_mod.ArrayView(f32)) bool {

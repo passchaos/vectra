@@ -10,9 +10,9 @@ Local CUDA evidence: `/usr/local/cuda/include/library_types.h` declares
 
 | CUDA dtype | Meaning in CUDA headers | Vectra dtype | Axiom bridge status |
 | --- | --- | --- | --- |
-| `CUDA_R_16F` | real half | `f16` | Same-shape add/sub/mul/div now try Axiom's native f16 CUDA runtime seed first, with widened-to-f32 fallback. Contiguous 2D matmul uses Axiom's widened GEMM runtime bridge today. |
+| `CUDA_R_16F` | real half | `f16` | Same-shape add/sub/mul/div now try Axiom's native f16 CUDA runtime seed first, with widened-to-f32 fallback. Contiguous 2D matmul uses Axiom's widened GEMM runtime bridge today and reports Axiom typed SIMT GEMM launch-plan readiness metadata. |
 | `CUDA_C_16F` | complex half pair | Not exposed | Planned. |
-| `CUDA_R_16BF` | real bfloat16 | `BFloat16` | Same-shape add/sub/mul/div now try Axiom's native BF16 CUDA runtime seed first, with widened-to-f32 fallback. Contiguous 2D matmul uses Axiom's widened GEMM runtime bridge today; CUTILE tensor-core lowering remains future work. |
+| `CUDA_R_16BF` | real bfloat16 | `BFloat16` | Same-shape add/sub/mul/div now try Axiom's native BF16 CUDA runtime seed first, with widened-to-f32 fallback. Contiguous 2D matmul uses Axiom's widened GEMM runtime bridge today and reports Axiom typed SIMT GEMM launch-plan readiness metadata; CUTILE tensor-core lowering remains future work. |
 | `CUDA_C_16BF` | complex bfloat16 pair | Not exposed | Planned. |
 | `CUDA_R_32F` | real float | `f32` | Native Axiom CUDA seed for add/sub/mul/div, SAXPY, scalar materialization, and CUDA Tile IR matmul. |
 | `CUDA_C_32F` | complex float pair | `Complex64` | CPU Vectra support exists; Axiom CUDA bridge planned. |

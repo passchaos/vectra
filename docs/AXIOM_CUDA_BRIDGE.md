@@ -139,7 +139,8 @@ should fall back to Vectra's CPU/Veyra paths in that case.
   routes through Axiom CUDA Tile IR before the CUTILE/GEMM runtime path. f16 and
   BFloat16 elementwise provenance uses Axiom widened runtime reports, including
   f32 CUDA compute evidence when that runtime route is available; f16 and
-  BFloat16 matmul use Axiom-owned widened GEMM runtime reports today. f64 matmul routes through Axiom
+  BFloat16 matmul use Axiom-owned widened GEMM runtime reports today, with typed SIMT GEMM
+  launch-plan readiness metadata reported separately. f64 matmul routes through Axiom
   CPU→Veyra when `-Daxiom-cpu-dispatch=true`.
 - The explicit ArrayView bridge is currently fallback-safe: it may return `null` on hosts where the strided CUDA runtime path reports `CudaError`, and is not part of the strict `ran` smoke gate yet.
 - f64 CUDA tensor runtime support is not exposed yet.
