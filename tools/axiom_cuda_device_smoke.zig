@@ -29,6 +29,7 @@ pub fn main(init: std.process.Init) !void {
     var chained_sqrt_ok = !vx.axiom_cuda.enabled();
     var chained_exp_ok = !vx.axiom_cuda.enabled();
     var reversed_add_fusion_ok = !vx.axiom_cuda.enabled();
+    var reversed_sub_fusion_ok = !vx.axiom_cuda.enabled();
     var pending_fusion_status_ok = !vx.axiom_cuda.enabled();
     var bf16_chained_sqrt_ok = !vx.axiom_cuda.enabled();
     var bf16_chained_exp_ok = !vx.axiom_cuda.enabled();
@@ -66,6 +67,12 @@ pub fn main(init: std.process.Init) !void {
         var reversed_chained_host = try reversed_chained.cpu();
         defer reversed_chained_host.deinit();
         reversed_add_fusion_ok = reversed_chained.fusionStatus() == .cuda_matmul_add and equalF32(reversed_chained_host.data, &.{ 4, 4, 8, 8 });
+
+        var reversed_sub_chained = try addend.sub(product);
+        defer reversed_sub_chained.deinit();
+        var reversed_sub_chained_host = try reversed_sub_chained.cpu();
+        defer reversed_sub_chained_host.deinit();
+        reversed_sub_fusion_ok = reversed_sub_chained.fusionStatus() == .cuda_matmul_rsub and equalF32(reversed_sub_chained_host.data, &.{ -2, -2, -6, -6 });
 
         var chained_sub = try product.sub(addend);
         defer chained_sub.deinit();
@@ -140,13 +147,13 @@ pub fn main(init: std.process.Init) !void {
         bf16_scalar_mul_ok = bf16_scaled.device.isCuda() and bf16_scaled.device_storage != null and approxF32(bf16_scaled_host.data[0].toF32(), 1.0, 0.05);
         pending_fusion_status_ok = pending_fusion_status_ok and bf16_chained_status_ok and bf16_sqrt_status_ok and bf16_exp_status_ok;
     }
-    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok;
+    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"reversed_add_fusion_ok\":{},\"pending_fusion_status_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{}}}\n",
-        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok },
+        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"reversed_add_fusion_ok\":{},\"reversed_sub_fusion_ok\":{},\"pending_fusion_status_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{}}}\n",
+        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

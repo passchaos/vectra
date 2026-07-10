@@ -17,9 +17,11 @@ pub fn main(init: std.process.Init) !void {
     defer auto_add32.deinit();
     var reversed_auto_add32 = try c32.add(out32);
     defer reversed_auto_add32.deinit();
+    var reversed_auto_sub32 = try c32.sub(out32);
+    defer reversed_auto_sub32.deinit();
     var auto_add_sqrt32 = try auto_add32.sqrt();
     defer auto_add_sqrt32.deinit();
-    const cpu_fusion_status32_ok = out32.fusionStatus() == .cpu_matmul and auto_add32.fusionStatus() == .cpu_matmul_add and reversed_auto_add32.fusionStatus() == .cpu_matmul_add and auto_add_sqrt32.fusionStatus() == .cpu_matmul_add_sqrt;
+    const cpu_fusion_status32_ok = out32.fusionStatus() == .cpu_matmul and auto_add32.fusionStatus() == .cpu_matmul_add and reversed_auto_add32.fusionStatus() == .cpu_matmul_add and reversed_auto_sub32.fusionStatus() == .cpu_matmul_rsub and auto_add_sqrt32.fusionStatus() == .cpu_matmul_add_sqrt;
     var add32 = try a32.add(a32);
     defer add32.deinit();
     var sub32 = try a32.sub(a32);
@@ -63,9 +65,11 @@ pub fn main(init: std.process.Init) !void {
     defer auto_add64.deinit();
     var reversed_auto_add64 = try c64.add(out64);
     defer reversed_auto_add64.deinit();
+    var reversed_auto_sub64 = try c64.sub(out64);
+    defer reversed_auto_sub64.deinit();
     var auto_add_exp64 = try auto_add64.exp();
     defer auto_add_exp64.deinit();
-    const cpu_fusion_status64_ok = out64.fusionStatus() == .cpu_matmul and auto_add64.fusionStatus() == .cpu_matmul_add and reversed_auto_add64.fusionStatus() == .cpu_matmul_add and auto_add_exp64.fusionStatus() == .cpu_matmul_add_exp;
+    const cpu_fusion_status64_ok = out64.fusionStatus() == .cpu_matmul and auto_add64.fusionStatus() == .cpu_matmul_add and reversed_auto_add64.fusionStatus() == .cpu_matmul_add and reversed_auto_sub64.fusionStatus() == .cpu_matmul_rsub and auto_add_exp64.fusionStatus() == .cpu_matmul_add_exp;
     var add64 = try a64.add(a64);
     defer add64.deinit();
     var sub64 = try a64.sub(a64);
@@ -168,10 +172,12 @@ pub fn main(init: std.process.Init) !void {
         matmul_add32.data[0] == 59 and matmul_add32.data[3] == 155 and
         auto_add32.data[0] == 59 and auto_add32.data[3] == 155 and
         reversed_auto_add32.data[0] == 59 and reversed_auto_add32.data[3] == 155 and
+        reversed_auto_sub32.data[0] == -57 and reversed_auto_sub32.data[3] == -153 and
         out64.data[0] == 58 and out64.data[3] == 154 and
         matmul_add64.data[0] == 59 and matmul_add64.data[3] == 155 and
         auto_add64.data[0] == 59 and auto_add64.data[3] == 155 and
         reversed_auto_add64.data[0] == 59 and reversed_auto_add64.data[3] == 155 and
+        reversed_auto_sub64.data[0] == -57 and reversed_auto_sub64.data[3] == -153 and
         cpu_fusion_status32_ok and cpu_fusion_status64_ok;
     const elementwise_ok = equalF32(add32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
         equalF32(sub32.data, &.{ 0, 0, 0, 0, 0, 0 }) and

@@ -8779,6 +8779,7 @@ pub fn Array(comptime T: type) type {
             add_storage: ?DeviceStorage = null,
             lhs_shape: [2]usize,
             rhs_shape: [2]usize,
+            alpha: f32 = 1.0,
             beta: f32 = 0.0,
             unary: ?PendingUnary = null,
         };
@@ -8793,6 +8794,7 @@ pub fn Array(comptime T: type) type {
             cuda_matmul,
             cuda_matmul_add,
             cuda_matmul_sub,
+            cuda_matmul_rsub,
             cuda_matmul_add_sqrt,
             cuda_matmul_add_exp,
             cuda_matmul_sub_sqrt,
@@ -8800,6 +8802,7 @@ pub fn Array(comptime T: type) type {
             cpu_matmul,
             cpu_matmul_add,
             cpu_matmul_sub,
+            cpu_matmul_rsub,
             cpu_matmul_add_sqrt,
             cpu_matmul_add_exp,
             cpu_matmul_sub_sqrt,
@@ -8811,6 +8814,7 @@ pub fn Array(comptime T: type) type {
             rhs_data: []T,
             lhs_shape: [2]usize,
             rhs_shape: [2]usize,
+            alpha: f32 = 1.0,
             beta: f32 = 0.0,
             unary: ?PendingUnary = null,
         };
@@ -8827,6 +8831,7 @@ pub fn Array(comptime T: type) type {
         pub fn fusionStatus(self: Self) FusionKind {
             if (self.pending_matmul) |pending| {
                 if (pending.add_storage == null) return .cuda_matmul;
+                const is_rsub = pending.alpha < 0.0;
                 const is_sub = pending.beta < 0.0;
                 if (pending.unary) |unary_op| {
                     return switch (unary_op) {
@@ -8834,10 +8839,12 @@ pub fn Array(comptime T: type) type {
                         .exp => if (is_sub) .cuda_matmul_sub_exp else .cuda_matmul_add_exp,
                     };
                 }
+                if (is_rsub) return .cuda_matmul_rsub;
                 return if (is_sub) .cuda_matmul_sub else .cuda_matmul_add;
             }
             if (self.cpu_matmul) |cpu_fusion| {
                 if (cpu_fusion.beta == 0.0) return .cpu_matmul;
+                const is_rsub = cpu_fusion.alpha < 0.0;
                 const is_sub = cpu_fusion.beta < 0.0;
                 if (cpu_fusion.unary) |unary_op| {
                     return switch (unary_op) {
@@ -8845,6 +8852,7 @@ pub fn Array(comptime T: type) type {
                         .exp => if (is_sub) .cpu_matmul_sub_exp else .cpu_matmul_add_exp,
                     };
                 }
+                if (is_rsub) return .cpu_matmul_rsub;
                 return if (is_sub) .cpu_matmul_sub else .cpu_matmul_add;
             }
             return .none;
@@ -14756,9 +14764,9 @@ pub fn Array(comptime T: type) type {
             const n = pending.rhs_shape[1];
             const ok = if (pending.add_storage) |add_storage| blk: {
                 break :blk if (comptime T == f32)
-                    try axiom_cuda_backend.runPendingMatmulAddF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, 1.0, pending.beta)
+                    try axiom_cuda_backend.runPendingMatmulAddF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
                 else if (comptime T == BFloat16)
-                    try axiom_cuda_backend.runPendingMatmulAddBF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, 1.0, pending.beta)
+                    try axiom_cuda_backend.runPendingMatmulAddBF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
                 else
                     return error.TypeUnsupported;
             } else blk: {
@@ -14802,6 +14810,38 @@ pub fn Array(comptime T: type) type {
                     .lhs_shape = pending.lhs_shape,
                     .rhs_shape = pending.rhs_shape,
                     .beta = beta_value,
+                },
+            };
+        }
+
+        fn tryFusePendingMatmulRSub(self: Self, other: Self) ArrayError!?Self {
+            if (comptime T != f32 and T != BFloat16) return null;
+            if (self.pending_matmul == null) return null;
+            if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
+            if (!self.device.isCuda() or !other.device.isCuda() or !self.device.sameDevice(other.device)) return null;
+            const pending = self.pending_matmul.?;
+            if (pending.add_storage != null) return null;
+            const add_storage = other.device_storage orelse return null;
+            const shape = try self.allocator.dupe(usize, self.shape);
+            errdefer self.allocator.free(shape);
+            const strides = try stridesFor(self.allocator, shape);
+            errdefer self.allocator.free(strides);
+            const values = try self.allocator.alloc(T, 0);
+            return .{
+                .allocator = self.allocator,
+                .data = values,
+                .shape = shape,
+                .strides = strides,
+                .device = self.device,
+                .device_storage = null,
+                .pending_matmul = .{
+                    .lhs_storage = pending.lhs_storage,
+                    .rhs_storage = pending.rhs_storage,
+                    .add_storage = add_storage,
+                    .lhs_shape = pending.lhs_shape,
+                    .rhs_shape = pending.rhs_shape,
+                    .alpha = -1.0,
+                    .beta = 1.0,
                 },
             };
         }
@@ -14865,10 +14905,11 @@ pub fn Array(comptime T: type) type {
             };
         }
 
-        fn attachCpuMatmulDerived(out: *Self, pending: CpuMatmulFusion, beta_value: f32) void {
+        fn attachCpuMatmulDerived(out: *Self, pending: CpuMatmulFusion, alpha_value: f32, beta_value: f32) void {
             if (comptime T != f32 and T != f64) return;
             if (!out.device.isCpu()) return;
             out.cpu_matmul = pending;
+            out.cpu_matmul.?.alpha = alpha_value;
             out.cpu_matmul.?.beta = beta_value;
             out.cpu_matmul.?.unary = null;
         }
@@ -14909,13 +14950,13 @@ pub fn Array(comptime T: type) type {
                 if (comptime T == f32) {
                     if (try axiom_cpu_backend.tryMatmulAddF32(lhs_array, rhs_array, other)) |out_value| {
                         var out = out_value;
-                        out.attachCpuMatmulDerived(pending, 1.0);
+                        out.attachCpuMatmulDerived(pending, 1.0, 1.0);
                         return out;
                     }
                 } else {
                     if (try axiom_cpu_backend.tryMatmulAddF64(lhs_array, rhs_array, other)) |out_value| {
                         var out = out_value;
-                        out.attachCpuMatmulDerived(pending, 1.0);
+                        out.attachCpuMatmulDerived(pending, 1.0, 1.0);
                         return out;
                     }
                 }
@@ -14925,15 +14966,55 @@ pub fn Array(comptime T: type) type {
                 if (comptime T == f32) {
                     if (try axiom_cpu_backend.tryMatmulAddF32(lhs_array, rhs_array, neg_addend)) |out_value| {
                         var out = out_value;
-                        out.attachCpuMatmulDerived(pending, -1.0);
+                        out.attachCpuMatmulDerived(pending, 1.0, -1.0);
                         return out;
                     }
                 } else {
                     if (try axiom_cpu_backend.tryMatmulAddF64(lhs_array, rhs_array, neg_addend)) |out_value| {
                         var out = out_value;
-                        out.attachCpuMatmulDerived(pending, -1.0);
+                        out.attachCpuMatmulDerived(pending, 1.0, -1.0);
                         return out;
                     }
+                }
+            }
+            return null;
+        }
+
+        fn tryFuseCpuMatmulRSub(self: Self, other: Self) ArrayError!?Self {
+            if (comptime T != f32 and T != f64) return null;
+            const pending = self.cpu_matmul orelse return null;
+            if (!self.device.isCpu() or !other.device.isCpu()) return null;
+            if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
+            if (!other.isContiguous()) return null;
+            var lhs_shape = [_]usize{ pending.lhs_shape[0], pending.lhs_shape[1] };
+            var lhs_strides = [_]usize{ pending.lhs_shape[1], 1 };
+            var rhs_shape = [_]usize{ pending.rhs_shape[0], pending.rhs_shape[1] };
+            var rhs_strides = [_]usize{ pending.rhs_shape[1], 1 };
+            const lhs_array = Self{
+                .allocator = self.allocator,
+                .data = pending.lhs_data,
+                .shape = &lhs_shape,
+                .strides = &lhs_strides,
+                .device = .cpu,
+            };
+            const rhs_array = Self{
+                .allocator = self.allocator,
+                .data = pending.rhs_data,
+                .shape = &rhs_shape,
+                .strides = &rhs_strides,
+                .device = .cpu,
+            };
+            if (comptime T == f32) {
+                if (try axiom_cpu_backend.tryMatmulAddScaledF32(lhs_array, rhs_array, other, -1.0, 1.0)) |out_value| {
+                    var out = out_value;
+                    out.attachCpuMatmulDerived(pending, -1.0, 1.0);
+                    return out;
+                }
+            } else {
+                if (try axiom_cpu_backend.tryMatmulAddScaledF64(lhs_array, rhs_array, other, -1.0, 1.0)) |out_value| {
+                    var out = out_value;
+                    out.attachCpuMatmulDerived(pending, -1.0, 1.0);
+                    return out;
                 }
             }
             return null;
@@ -14946,6 +15027,9 @@ pub fn Array(comptime T: type) type {
             if (comptime op == opAdd) {
                 if (try other.tryFusePendingMatmulAdd(self, op)) |out| return out;
                 if (try other.tryFuseCpuMatmulAdd(self, op)) |out| return out;
+            } else if (comptime op == opSub) {
+                if (try other.tryFusePendingMatmulRSub(self)) |out| return out;
+                if (try other.tryFuseCpuMatmulRSub(self)) |out| return out;
             }
             if (self.pending_matmul != null) {
                 var materialized = try self.materializePendingMatmul();

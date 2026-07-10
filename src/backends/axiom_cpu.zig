@@ -142,6 +142,14 @@ pub fn tryMatmulAddF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64), add
     return tryMatmulAddTyped(f64, lhs, rhs, addend);
 }
 
+pub fn tryMatmulAddScaledF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryMatmulAddScaledTyped(f32, lhs, rhs, addend, alpha, beta);
+}
+
+pub fn tryMatmulAddScaledF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64), addend: array_mod.Array(f64), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryMatmulAddScaledTyped(f64, lhs, rhs, addend, alpha, beta);
+}
+
 pub fn tryMatvecF32(matrix: array_mod.Array(f32), vector: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryMatvecTyped(f32, matrix, vector);
 }
@@ -373,6 +381,10 @@ fn tryMatmulTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Arra
 }
 
 fn tryMatmulAddTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return tryMatmulAddScaledTyped(T, lhs, rhs, addend, 1.0, 1.0);
+}
+
+fn tryMatmulAddScaledTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cpu_dispatch) return null;
     if (!supportedMatmul2dContiguous(T, lhs, rhs)) return null;
     if (!addend.device.isCpu() or !addend.isContiguous() or addend.shape.len != 2 or addend.shape[0] != lhs.shape[0] or addend.shape[1] != rhs.shape[1]) return null;
@@ -387,7 +399,8 @@ fn tryMatmulAddTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
         .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
         .rowMajor("out", @intCast(@intFromPtr(out.data.ptr)), m, n),
     );
-    spec.beta = 1.0;
+    spec.alpha = alpha;
+    spec.beta = beta;
     const report = if (T == f32)
         axiom.accelerator.cpu_veyra.runGemmF32(spec, lhs.data, rhs.data, addend.data, out.data) catch {
             out.deinit();
