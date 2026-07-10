@@ -126,7 +126,7 @@ kernels where available. The Axiom examples run in the default build; CUDA route
 run when a CUDA device is available and otherwise report a skipped CUDA backend.
 `example-large-matmul-add` keeps the user-facing body close to PyTorch:
 device-aware creation followed by `vx.matmul` and `vx.matmulAdd` calls. It
-documents `Y = A[M,K] * B[K,N]`, explicit `vx.matmulAdd`, and the user-written `tmp = A.matmul(B); Y = tmp.add(C)` form, emitting
+documents `Y = A[M,K] * B[K,N]`, explicit `vx.matmulAdd`, and the user-written `tmp = A.matmul(B); Y = tmp.add(C)` / `tmp.sub(C)` forms, emitting
 one JSON result per backend/dtype/op. The checked-in execute size is a CUDA
 stress run (`M = 4096 * 4`, `N = 4096`, `K = 4096`) and dry-runs by default;
 pass `-- --smoke` for a tiny executable check, `-- --dtype=all --backend=both`

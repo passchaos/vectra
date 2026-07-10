@@ -20,6 +20,7 @@ const BenchOp = enum {
     matmul,
     matmul_add,
     matmul_then_add,
+    matmul_then_sub,
 
     fn label(op: BenchOp) []const u8 {
         return @tagName(op);
@@ -190,6 +191,7 @@ fn runCpuDtype(
     try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul, a, b, null, warmup, iters, retain_outputs);
     try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
 }
 
 fn runCudaF32(
@@ -212,6 +214,7 @@ fn runCudaF32(
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul, a, b, null, warmup, iters, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
 }
 
 fn runCudaBf16(
@@ -234,6 +237,7 @@ fn runCudaBf16(
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul, a, b, null, warmup, iters, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
 }
 
 fn runCudaHostDtype(
@@ -263,6 +267,7 @@ fn runCudaHostDtype(
     try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul, a, b, null, warmup, iters, retain_outputs);
     try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
 }
 
 fn runBenchmark(
@@ -330,12 +335,17 @@ fn computeOp(comptime T: type, op: BenchOp, a: vx.Array(T), b: vx.Array(T), c: ?
             defer product.deinit();
             break :blk try product.add(c orelse return error.InvalidShape);
         },
+        .matmul_then_sub => blk: {
+            var product = try vx.matmul(a, b);
+            defer product.deinit();
+            break :blk try product.sub(c orelse return error.InvalidShape);
+        },
     };
 }
 
 fn printPlan(writer: *std.Io.Writer, mode: Mode, backend: Backend, dtype_filter: DTypeFilter, shape: Shape, warmup: usize, iters: usize, retain_outputs: bool) !void {
     try writer.print(
-        "{{\"example\":\"large_matmul_add\",\"mode\":\"{s}\",\"backend\":\"{s}\",\"dtype\":\"{s}\",\"m\":{d},\"n\":{d},\"k\":{d},\"expressions\":[\"Y=A@B\",\"Y=A@B+C\",\"tmp=A@B;Y=tmp+C\"],\"axiom_enabled\":{},\"cuda_available\":{},\"warmup\":{d},\"iters\":{d},\"retain_outputs\":{},\"dry_run\":{}}}\n",
+        "{{\"example\":\"large_matmul_add\",\"mode\":\"{s}\",\"backend\":\"{s}\",\"dtype\":\"{s}\",\"m\":{d},\"n\":{d},\"k\":{d},\"expressions\":[\"Y=A@B\",\"Y=A@B+C\",\"tmp=A@B;Y=tmp+C\",\"tmp=A@B;Y=tmp-C\"],\"axiom_enabled\":{},\"cuda_available\":{},\"warmup\":{d},\"iters\":{d},\"retain_outputs\":{},\"dry_run\":{}}}\n",
         .{ @tagName(mode), @tagName(backend), @tagName(dtype_filter), shape.m, shape.n, shape.k, vx.axiom_cuda.enabled(), vx.cuda(0).isAvailable(), warmup, iters, retain_outputs, mode == .dry_run },
     );
 }
