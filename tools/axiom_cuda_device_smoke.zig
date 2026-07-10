@@ -28,6 +28,8 @@ pub fn main(init: std.process.Init) !void {
     var chained_matmul_sub_ok = !vx.axiom_cuda.enabled();
     var chained_sqrt_ok = !vx.axiom_cuda.enabled();
     var chained_exp_ok = !vx.axiom_cuda.enabled();
+    var bf16_chained_sqrt_ok = !vx.axiom_cuda.enabled();
+    var bf16_chained_exp_ok = !vx.axiom_cuda.enabled();
     if (vx.Device.cuda(0).isAvailable()) {
         var lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 }, vx.cuda(0));
         defer lhs.deinit();
@@ -80,14 +82,41 @@ pub fn main(init: std.process.Init) !void {
         var fused_host = try fused.cpu();
         defer fused_host.deinit();
         direct_matmul_add_ok = fused.device.isCuda() and fused.device_storage != null and equalF32(fused_host.data, &.{ 4, 4, 8, 8 });
-    }
-    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok;
 
-    var stdout_buffer: [1536]u8 = undefined;
+        var bf16_lhs = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{
+            vx.BFloat16.fromF32(1),
+            vx.BFloat16.fromF32(2),
+            vx.BFloat16.fromF32(3),
+            vx.BFloat16.fromF32(4),
+        }, &.{ 2, 2 }, vx.cuda(0));
+        defer bf16_lhs.deinit();
+        var bf16_rhs = try vx.Array(vx.BFloat16).onesOn(allocator, &.{ 2, 2 }, vx.cuda(0));
+        defer bf16_rhs.deinit();
+        var bf16_addend = try vx.Array(vx.BFloat16).onesOn(allocator, &.{ 2, 2 }, vx.cuda(0));
+        defer bf16_addend.deinit();
+        var bf16_product = try bf16_lhs.matmul(bf16_rhs);
+        defer bf16_product.deinit();
+        var bf16_chained = try bf16_product.add(bf16_addend);
+        defer bf16_chained.deinit();
+        var bf16_sqrt = try bf16_chained.sqrt();
+        defer bf16_sqrt.deinit();
+        var bf16_sqrt_host = try bf16_sqrt.cpu();
+        defer bf16_sqrt_host.deinit();
+        bf16_chained_sqrt_ok = bf16_sqrt.device.isCuda() and bf16_sqrt.device_storage != null and approxF32(bf16_sqrt_host.data[0].toF32(), 2.0, 0.05);
+
+        var bf16_exp = try bf16_chained.exp();
+        defer bf16_exp.deinit();
+        var bf16_exp_host = try bf16_exp.cpu();
+        defer bf16_exp_host.deinit();
+        bf16_chained_exp_ok = bf16_exp.device.isCuda() and bf16_exp.device_storage != null and approxF32(bf16_exp_host.data[0].toF32(), std.math.exp(@as(f32, 4.0)), 2.0);
+    }
+    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok;
+
+    var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{}}}\n",
-        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok },
+        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{}}}\n",
+        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

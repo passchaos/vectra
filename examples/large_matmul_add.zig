@@ -237,19 +237,19 @@ fn runCudaBf16(
     iters: usize,
     retain_outputs: bool,
 ) !void {
-    var np = vx.withAllocator(allocator);
-    var a = try np.onesWith(vx.onDevice(vx.BFloat16, gpu), &.{ shape.m, shape.k });
+    const value = vx.BFloat16.fromF32(0.01);
+    var a = try vx.Array(vx.BFloat16).fullOn(allocator, &.{ shape.m, shape.k }, value, gpu);
     defer a.deinit();
-    var b = try np.onesWith(vx.onDevice(vx.BFloat16, gpu), &.{ shape.k, shape.n });
+    var b = try vx.Array(vx.BFloat16).fullOn(allocator, &.{ shape.k, shape.n }, value, gpu);
     defer b.deinit();
-    var c = try np.onesWith(vx.onDevice(vx.BFloat16, gpu), &.{ shape.m, shape.n });
+    var c = try vx.Array(vx.BFloat16).fullOn(allocator, &.{ shape.m, shape.n }, value, gpu);
     defer c.deinit();
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul, a, b, null, warmup, iters, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
-    try printSkipped(writer, "cuda", "bf16", "matmul_then_add_sqrt", "bf16_cuda_unary_sqrt_not_exposed");
-    try printSkipped(writer, "cuda", "bf16", "matmul_then_add_exp", "bf16_cuda_unary_exp_not_exposed");
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused_plus_unary", "bf16", .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused_plus_unary", "bf16", .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
 }
 
 fn runCudaHostDtype(
@@ -370,6 +370,9 @@ fn computeOp(comptime T: type, op: BenchOp, a: vx.Array(T), b: vx.Array(T), c: ?
             defer product.deinit();
             var added = try product.add(c orelse return error.InvalidShape);
             defer added.deinit();
+            if (comptime T == vx.BFloat16) {
+                if (added.device.isCuda()) break :blk try added.exp();
+            }
             const k = if (a.shape.len == 0) return error.NonMatrixArray else a.shape[a.shape.len - 1];
             var normalized = try added.mulScalar(valueFromF64(T, 1.0 / @as(f64, @floatFromInt(k + 1))));
             defer normalized.deinit();
