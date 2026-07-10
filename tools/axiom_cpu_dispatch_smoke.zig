@@ -121,6 +121,8 @@ pub fn main(init: std.process.Init) !void {
     defer singular_values64.deinit();
     const rank64 = try qr_input64.matrixRank(1e-12);
     const cond64 = try qr_input64.cond(1e-12);
+    const two_norm64 = try qr_input64.matrixNorm(.two, 1e-12);
+    const nuclear_norm64 = try qr_input64.matrixNorm(.nuclear, 1e-12);
 
     const matmul_ok = out32.data[0] == 58 and out32.data[3] == 154 and out64.data[0] == 58 and out64.data[3] == 154;
     const elementwise_ok = equalF32(add32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
@@ -162,11 +164,13 @@ pub fn main(init: std.process.Init) !void {
         try svd_reconstructed64.allclose(qr_input64, 1e-10, 1e-10) and
         equalF64Approx(singular_values64.data, svd64.s.data, 1e-12) and
         rank64 == 2 and
-        approxF64(cond64, singular_values64.data[0] / singular_values64.data[1], 1e-12);
+        approxF64(cond64, singular_values64.data[0] / singular_values64.data[1], 1e-12) and
+        approxF64(two_norm64, singular_values64.data[0], 1e-12) and
+        approxF64(nuclear_norm64, singular_values64.data[0] + singular_values64.data[1], 1e-12);
     const ok = matmul_ok and elementwise_ok and scalar_ok and vector_ok and dense_linalg_ok;
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
-    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d},\"fro64\":{d},\"svd64_s0\":{d},\"singular64_s0\":{d},\"rank64\":{},\"cond64\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, dense_linalg_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2], fro64, svd64.s.data[0], singular_values64.data[0], rank64, cond64 });
+    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"div64_0\":{d},\"sub_scalar64_0\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d},\"fro64\":{d},\"svd64_s0\":{d},\"singular64_s0\":{d},\"rank64\":{},\"cond64\":{d},\"two_norm64\":{d},\"nuclear64\":{d}}}\n", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, dense_linalg_ok, out32.data[0], out64.data[3], add32.data[5], div64.data[0], sub_scalar64.data[0], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2], fro64, svd64.s.data[0], singular_values64.data[0], rank64, cond64, two_norm64, nuclear_norm64 });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
 }

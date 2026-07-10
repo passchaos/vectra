@@ -740,9 +740,9 @@ fn tryMatrixNormTyped(comptime T: type, matrix: array_mod.Array(T), order: array
     const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
     var out: T = 0;
     const report = if (T == f32)
-        axiom.accelerator.cpu_veyra.runMatrixNormF32(matrix_view, matrix.data, axiom_order, &out) catch return null
+        axiom.accelerator.cpu_veyra.runMatrixNormF32(matrix_view, matrix.data, axiom_order, &out, normTolerance(T)) catch return null
     else
-        axiom.accelerator.cpu_veyra.runMatrixNormF64(matrix_view, matrix.data, axiom_order, &out) catch return null;
+        axiom.accelerator.cpu_veyra.runMatrixNormF64(matrix_view, matrix.data, axiom_order, &out, normTolerance(T)) catch return null;
     if (!report.ok()) return null;
     return out;
 }
@@ -836,8 +836,13 @@ fn cpuMatrixNormOrder(order: array_mod.MatrixNormOrder) ?axiom.accelerator.cpu_v
         .fro => .fro,
         .one => .one,
         .inf => .inf,
-        .two, .nuclear => null,
+        .two => .two,
+        .nuclear => .nuclear,
     };
+}
+
+fn normTolerance(comptime T: type) T {
+    return if (T == f32) 1e-5 else 1e-12;
 }
 
 fn matrixView(comptime T: type, matrix: array_mod.Array(T), name: []const u8) array_mod.ArrayError!?axiom.accelerator.TensorMatrixView {
@@ -1082,8 +1087,12 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         const inf_norm = try tryMatrixNormF64(norm_source, .inf);
         try std.testing.expect(inf_norm != null);
         try std.testing.expectApproxEqAbs(@as(f64, 15), inf_norm.?, 1e-12);
-        const unsupported_two = try tryMatrixNormF64(norm_source, .two);
-        try std.testing.expect(unsupported_two == null);
+        const two_norm = try tryMatrixNormF64(rect, .two);
+        try std.testing.expect(two_norm != null);
+        try std.testing.expectApproxEqAbs(singular_values_out.data[0], two_norm.?, 1e-12);
+        const nuclear_norm = try tryMatrixNormF64(rect, .nuclear);
+        try std.testing.expect(nuclear_norm != null);
+        try std.testing.expectApproxEqAbs(singular_values_out.data[0] + singular_values_out.data[1], nuclear_norm.?, 1e-12);
     } else {
         try std.testing.expect(mv32 == null);
         try std.testing.expect(vt64 == null);
