@@ -169,6 +169,29 @@ pub fn tryQrF64(matrix: array_mod.Array(f64)) array_mod.ArrayError!?QrResult(f64
     return tryQrTyped(f64, matrix);
 }
 
+pub fn LuResult(comptime T: type) type {
+    return struct {
+        p: array_mod.Array(T),
+        l: array_mod.Array(T),
+        u: array_mod.Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.p.deinit();
+            self.l.deinit();
+            self.u.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
+pub fn tryLuF32(matrix: array_mod.Array(f32)) array_mod.ArrayError!?LuResult(f32) {
+    return tryLuTyped(f32, matrix);
+}
+
+pub fn tryLuF64(matrix: array_mod.Array(f64)) array_mod.ArrayError!?LuResult(f64) {
+    return tryLuTyped(f64, matrix);
+}
+
 fn tryMatmulTyped(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cpu_dispatch) return null;
     if (!supportedMatmul2dContiguous(T, lhs, rhs)) return null;
@@ -417,6 +440,57 @@ fn tryQrTyped(comptime T: type, matrix: array_mod.Array(T)) array_mod.ArrayError
         return null;
     }
     return .{ .q = q, .r = r };
+}
+
+fn tryLuTyped(comptime T: type, matrix: array_mod.Array(T)) array_mod.ArrayError!?LuResult(T) {
+    if (!build_options.enable_axiom_cpu_dispatch) return null;
+    if (!supportedSquareMatrix(T, matrix)) return null;
+    const matrix_view = (try matrixView(T, matrix, "matrix")) orelse return null;
+    var p = try array_mod.Array(T).empty(matrix.allocator, matrix.shape);
+    errdefer p.deinit();
+    var l = try array_mod.Array(T).empty(matrix.allocator, matrix.shape);
+    errdefer l.deinit();
+    var u = try array_mod.Array(T).empty(matrix.allocator, matrix.shape);
+    errdefer u.deinit();
+    const p_view = (try matrixView(T, p, "p")) orelse {
+        p.deinit();
+        l.deinit();
+        u.deinit();
+        return null;
+    };
+    const l_view = (try matrixView(T, l, "l")) orelse {
+        p.deinit();
+        l.deinit();
+        u.deinit();
+        return null;
+    };
+    const u_view = (try matrixView(T, u, "u")) orelse {
+        p.deinit();
+        l.deinit();
+        u.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runLuF32(matrix_view, p_view, l_view, u_view, matrix.data, p.data, l.data, u.data) catch {
+            p.deinit();
+            l.deinit();
+            u.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runLuF64(matrix_view, p_view, l_view, u_view, matrix.data, p.data, l.data, u.data) catch {
+            p.deinit();
+            l.deinit();
+            u.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        p.deinit();
+        l.deinit();
+        u.deinit();
+        return null;
+    }
+    return .{ .p = p, .l = l, .u = u };
 }
 
 fn supportedSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
@@ -670,6 +744,16 @@ test "Axiom CPU bridge dispatches vector ops and trace" {
         var qr_reconstructed = try qr_out.q.matmul(qr_out.r);
         defer qr_reconstructed.deinit();
         try std.testing.expect(try qr_reconstructed.allclose(rect, 1e-10, 1e-10));
+
+        const lu = try tryLuF64(solve_matrix);
+        try std.testing.expect(lu != null);
+        var lu_out = lu.?;
+        defer lu_out.deinit();
+        var lu_product = try lu_out.l.matmul(lu_out.u);
+        defer lu_product.deinit();
+        var lu_reconstructed = try lu_out.p.matmul(lu_product);
+        defer lu_reconstructed.deinit();
+        try std.testing.expect(try lu_reconstructed.allclose(solve_matrix, 1e-12, 1e-12));
     } else {
         try std.testing.expect(mv32 == null);
         try std.testing.expect(vt64 == null);
