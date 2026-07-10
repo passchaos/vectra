@@ -28,6 +28,7 @@ pub fn main(init: std.process.Init) !void {
     var chained_matmul_sub_ok = !vx.axiom_cuda.enabled();
     var chained_sqrt_ok = !vx.axiom_cuda.enabled();
     var chained_exp_ok = !vx.axiom_cuda.enabled();
+    var pending_fusion_status_ok = !vx.axiom_cuda.enabled();
     var bf16_chained_sqrt_ok = !vx.axiom_cuda.enabled();
     var bf16_chained_exp_ok = !vx.axiom_cuda.enabled();
     var bf16_scalar_mul_ok = !vx.axiom_cuda.enabled();
@@ -54,18 +55,21 @@ pub fn main(init: std.process.Init) !void {
 
         var chained = try product.add(addend);
         defer chained.deinit();
+        const chained_status_ok = chained.fusionStatus() == .cuda_matmul_add;
         var chained_host = try chained.cpu();
         defer chained_host.deinit();
         chained_matmul_add_ok = chained.device.isCuda() and equalF32(chained_host.data, &.{ 4, 4, 8, 8 });
 
         var chained_sub = try product.sub(addend);
         defer chained_sub.deinit();
+        const chained_sub_status_ok = chained_sub.fusionStatus() == .cuda_matmul_sub;
         var chained_sub_host = try chained_sub.cpu();
         defer chained_sub_host.deinit();
         chained_matmul_sub_ok = chained_sub.device.isCuda() and equalF32(chained_sub_host.data, &.{ 2, 2, 6, 6 });
 
         var chained_sqrt = try chained.sqrt();
         defer chained_sqrt.deinit();
+        const chained_sqrt_status_ok = chained_sqrt.fusionStatus() == .cuda_matmul_add_sqrt;
         var chained_sqrt_host = try chained_sqrt.cpu();
         defer chained_sqrt_host.deinit();
         chained_sqrt_ok = chained_sqrt.device.isCuda() and approxF32(chained_sqrt_host.data[0], 2.0, 0.01);
@@ -77,6 +81,7 @@ pub fn main(init: std.process.Init) !void {
         var chained_exp_host = try chained_exp.cpu();
         defer chained_exp_host.deinit();
         chained_exp_ok = chained_exp.device.isCuda() and approxF32(chained_exp_host.data[0], std.math.exp(@as(f32, 3.0)), 0.25);
+        pending_fusion_status_ok = chained_status_ok and chained_sub_status_ok and chained_sqrt_status_ok;
 
         var fused = try vx.matmulAdd(lhs, rhs, addend);
         defer fused.deinit();
@@ -99,14 +104,17 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_product.deinit();
         var bf16_chained = try bf16_product.add(bf16_addend);
         defer bf16_chained.deinit();
+        const bf16_chained_status_ok = bf16_chained.fusionStatus() == .cuda_matmul_add;
         var bf16_sqrt = try bf16_chained.sqrt();
         defer bf16_sqrt.deinit();
+        const bf16_sqrt_status_ok = bf16_sqrt.fusionStatus() == .cuda_matmul_add_sqrt;
         var bf16_sqrt_host = try bf16_sqrt.cpu();
         defer bf16_sqrt_host.deinit();
         bf16_chained_sqrt_ok = bf16_sqrt.device.isCuda() and approxF32(bf16_sqrt_host.data[0].toF32(), 2.0, 0.05);
 
         var bf16_exp = try bf16_chained.exp();
         defer bf16_exp.deinit();
+        const bf16_exp_status_ok = bf16_exp.fusionStatus() == .cuda_matmul_add_exp;
         var bf16_exp_host = try bf16_exp.cpu();
         defer bf16_exp_host.deinit();
         bf16_chained_exp_ok = bf16_exp.device.isCuda() and approxF32(bf16_exp_host.data[0].toF32(), std.math.exp(@as(f32, 4.0)), 2.0);
@@ -116,14 +124,15 @@ pub fn main(init: std.process.Init) !void {
         var bf16_scaled_host = try bf16_scaled.cpu();
         defer bf16_scaled_host.deinit();
         bf16_scalar_mul_ok = bf16_scaled.device.isCuda() and bf16_scaled.device_storage != null and approxF32(bf16_scaled_host.data[0].toF32(), 1.0, 0.05);
+        pending_fusion_status_ok = pending_fusion_status_ok and bf16_chained_status_ok and bf16_sqrt_status_ok and bf16_exp_status_ok;
     }
-    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok;
+    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{}}}\n",
-        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok },
+        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"pending_fusion_status_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{}}}\n",
+        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

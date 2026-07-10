@@ -13,6 +13,9 @@ pub fn main(init: std.process.Init) !void {
     defer c32.deinit();
     var matmul_add32 = try vx.matmulAdd(a32, b32, c32);
     defer matmul_add32.deinit();
+    var auto_add32 = try out32.add(c32);
+    defer auto_add32.deinit();
+    const cpu_fusion_status32_ok = out32.fusionStatus() == .cpu_matmul and auto_add32.fusionStatus() == .none;
     var add32 = try a32.add(a32);
     defer add32.deinit();
     var sub32 = try a32.sub(a32);
@@ -52,6 +55,9 @@ pub fn main(init: std.process.Init) !void {
     defer c64.deinit();
     var matmul_add64 = try vx.matmulAdd(a64, b64, c64);
     defer matmul_add64.deinit();
+    var auto_add64 = try out64.add(c64);
+    defer auto_add64.deinit();
+    const cpu_fusion_status64_ok = out64.fusionStatus() == .cpu_matmul and auto_add64.fusionStatus() == .none;
     var add64 = try a64.add(a64);
     defer add64.deinit();
     var sub64 = try a64.sub(a64);
@@ -152,8 +158,11 @@ pub fn main(init: std.process.Init) !void {
 
     const matmul_ok = out32.data[0] == 58 and out32.data[3] == 154 and
         matmul_add32.data[0] == 59 and matmul_add32.data[3] == 155 and
+        auto_add32.data[0] == 59 and auto_add32.data[3] == 155 and
         out64.data[0] == 58 and out64.data[3] == 154 and
-        matmul_add64.data[0] == 59 and matmul_add64.data[3] == 155;
+        matmul_add64.data[0] == 59 and matmul_add64.data[3] == 155 and
+        auto_add64.data[0] == 59 and auto_add64.data[3] == 155 and
+        cpu_fusion_status32_ok and cpu_fusion_status64_ok;
     const elementwise_ok = equalF32(add32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
         equalF32(sub32.data, &.{ 0, 0, 0, 0, 0, 0 }) and
         equalF32(mul32.data, &.{ 1, 4, 9, 16, 25, 36 }) and
@@ -205,7 +214,7 @@ pub fn main(init: std.process.Init) !void {
     const ok = matmul_ok and elementwise_ok and scalar_ok and vector_ok and dense_linalg_ok;
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
-    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"sqrt32_3\":{d},\"exp32_0\":{d},\"div64_0\":{d},\"sqrt64_3\":{d},\"exp64_0\":{d},\"sub_scalar64_0\":{d},", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, dense_linalg_ok, out32.data[0], out64.data[3], add32.data[5], sqrt32.data[3], exp32.data[0], div64.data[0], sqrt64.data[3], exp64.data[0], sub_scalar64.data[0] });
+    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"cpu_fusion_status32_ok\":{},\"cpu_fusion_status64_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"sqrt32_3\":{d},\"exp32_0\":{d},\"div64_0\":{d},\"sqrt64_3\":{d},\"exp64_0\":{d},\"sub_scalar64_0\":{d},", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, vector_ok, dense_linalg_ok, cpu_fusion_status32_ok, cpu_fusion_status64_ok, out32.data[0], out64.data[3], add32.data[5], sqrt32.data[3], exp32.data[0], div64.data[0], sqrt64.data[3], exp64.data[0], sub_scalar64.data[0] });
     try stdout.interface.print("\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d},\"fro64\":{d},\"svd64_s0\":{d},\"singular64_s0\":{d},\"rank64\":{},\"cond64\":{d},\"two_norm64\":{d},\"nuclear64\":{d},\"pinv64_0\":{d},\"lstsq64_0\":{d}}}\n", .{ matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2], fro64, svd64.s.data[0], singular_values64.data[0], rank64, cond64, two_norm64, nuclear_norm64, pinv64.data[0], lstsq64.data[0] });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

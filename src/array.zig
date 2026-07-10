@@ -8788,6 +8788,18 @@ pub fn Array(comptime T: type) type {
             exp,
         };
 
+        pub const FusionKind = enum {
+            none,
+            cuda_matmul,
+            cuda_matmul_add,
+            cuda_matmul_sub,
+            cuda_matmul_add_sqrt,
+            cuda_matmul_add_exp,
+            cuda_matmul_sub_sqrt,
+            cuda_matmul_sub_exp,
+            cpu_matmul,
+        };
+
         const CpuMatmulFusion = struct {
             lhs_data: []T,
             rhs_data: []T,
@@ -8802,6 +8814,26 @@ pub fn Array(comptime T: type) type {
         pub fn dtypeName(self: Self) []const u8 {
             _ = self;
             return dtype.name();
+        }
+
+        pub fn fusionStatus(self: Self) FusionKind {
+            if (self.pending_matmul) |pending| {
+                if (pending.add_storage == null) return .cuda_matmul;
+                const is_sub = pending.beta < 0.0;
+                if (pending.unary) |unary_op| {
+                    return switch (unary_op) {
+                        .sqrt => if (is_sub) .cuda_matmul_sub_sqrt else .cuda_matmul_add_sqrt,
+                        .exp => if (is_sub) .cuda_matmul_sub_exp else .cuda_matmul_add_exp,
+                    };
+                }
+                return if (is_sub) .cuda_matmul_sub else .cuda_matmul_add;
+            }
+            if (self.cpu_matmul != null) return .cpu_matmul;
+            return .none;
+        }
+
+        pub fn fusion_status(self: Self) FusionKind {
+            return self.fusionStatus();
         }
 
         pub fn dtype_name(self: Self) []const u8 {
