@@ -30,8 +30,9 @@ CUDA validation requires a CUDA/libnvvm/PTXAS-capable host.
 - `.cpu()` explicitly downloads CUDA storage.
 - `ArrayView.cuda()` remains unsupported until view/device storage semantics are
   implemented.
-- CUDA `Array(f32).add/sub/mul/div` launch Axiom elementwise kernels with
-  existing device pointers.
+- CUDA `Array(f32).add/sub/mul/div` launch Axiom cached device-pointer
+  elementwise kernels with existing device pointers, avoiding repeated
+  compile/module-load overhead after the first operation per op.
 - CUDA `Array(f32).matmul` uses Axiom's cached cuBLAS-backed SGEMM wrapper first
   for PyTorch-class throughput and falls back to the Axiom PTX/CUDA Tile IR seed
   if cuBLAS is unavailable.

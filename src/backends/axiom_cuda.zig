@@ -1120,6 +1120,19 @@ pub fn tryDeviceBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mo
         return null;
     };
 
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const cached_report = runtime.runCudaDeviceElementwiseF32(
+        lhs.device.index,
+        axiomBinaryOp(op),
+        lhs_storage.len,
+        lhs_storage.ptr,
+        rhs_storage.ptr,
+        out_storage.ptr,
+    ) catch null;
+    if (cached_report) |report| {
+        if (report.valid()) return out;
+    }
+
     var session = withCudaContext(lhs.device.index) catch return error.InvalidDevice;
     defer session.driver.close();
     defer session.context.release(&session.driver);
