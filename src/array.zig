@@ -4244,6 +4244,29 @@ pub fn ArrayView(comptime T: type) type {
             return self.hardswish();
         }
 
+        pub fn logsigmoid(self: Self) ArrayError!Array(T) {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        const softplus_neg = @max(-value, @as(f32, 0)) + std.math.log1p(std.math.exp(-@abs(value)));
+                        return BFloat16.fromF32(-softplus_neg);
+                    }
+                    const softplus_neg = @max(negValue(T, a), zero(T)) + std.math.log1p(std.math.exp(-@abs(a)));
+                    return negValue(T, softplus_neg);
+                }
+            }.f);
+        }
+
+        pub fn logSigmoid(self: Self) ArrayError!Array(T) {
+            return self.logsigmoid();
+        }
+
+        pub fn log_sigmoid(self: Self) ArrayError!Array(T) {
+            return self.logsigmoid();
+        }
+
         pub fn elu(self: Self, alpha: T) ArrayError!Array(T) {
             ensureFloat(T);
             var out = try Array(T).empty(self.allocator, self.shape);
@@ -16838,6 +16861,29 @@ pub fn Array(comptime T: type) type {
             return self.hardswish();
         }
 
+        pub fn logsigmoid(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        const softplus_neg = @max(-value, @as(f32, 0)) + std.math.log1p(std.math.exp(-@abs(value)));
+                        return BFloat16.fromF32(-softplus_neg);
+                    }
+                    const softplus_neg = @max(negValue(T, a), zero(T)) + std.math.log1p(std.math.exp(-@abs(a)));
+                    return negValue(T, softplus_neg);
+                }
+            }.f);
+        }
+
+        pub fn logSigmoid(self: Self) ArrayError!Self {
+            return self.logsigmoid();
+        }
+
+        pub fn log_sigmoid(self: Self) ArrayError!Self {
+            return self.logsigmoid();
+        }
+
         pub fn elu(self: Self, alpha: T) ArrayError!Self {
             ensureFloat(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -25906,6 +25952,9 @@ test "array view transcendental unary math is view aware" {
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).hardSigmoid, Array(f64).hardSigmoid, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).hardswish, Array(f64).hardswish, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).hardSwish, Array(f64).hardSwish, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).logsigmoid, Array(f64).logsigmoid, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).logSigmoid, Array(f64).logSigmoid, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).log_sigmoid, Array(f64).log_sigmoid, 1e-12);
 
     var activation_owned = try activation.toArray();
     defer activation_owned.deinit();
@@ -27862,6 +27911,18 @@ test "array take mask stack cat and neural helpers" {
     }
     try expectApproxEqualSlices(f64, hardsigmoid_out.data, hard_sigmoid_alias.data, 1e-12);
     try expectApproxEqualSlices(f64, hardswish_out.data, hard_swish_alias.data, 1e-12);
+    var logsigmoid_out = try shifted.logsigmoid();
+    defer logsigmoid_out.deinit();
+    var log_sigmoid_alias = try shifted.log_sigmoid();
+    defer log_sigmoid_alias.deinit();
+    var log_sigmoid_camel = try shifted.logSigmoid();
+    defer log_sigmoid_camel.deinit();
+    for (shifted.data, logsigmoid_out.data) |input, actual| {
+        const expected = -(@max(-input, @as(f64, 0)) + std.math.log1p(std.math.exp(-@abs(input))));
+        try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+    }
+    try expectApproxEqualSlices(f64, logsigmoid_out.data, log_sigmoid_alias.data, 1e-12);
+    try expectApproxEqualSlices(f64, logsigmoid_out.data, log_sigmoid_camel.data, 1e-12);
     var sigmoid_out = try shifted.sigmoid();
     defer sigmoid_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1) / (@as(f64, 1) + @exp(@as(f64, 2))), sigmoid_out.data[0], 1e-12);
