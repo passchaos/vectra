@@ -4169,6 +4169,73 @@ pub fn ArrayView(comptime T: type) type {
             return self.hardtanh(zero(T), castValue(T, 6));
         }
 
+        pub fn hardshrink(self: Self, lambd: T) ArrayError!Array(T) {
+            ensureFloat(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const value = self.data[self.offset + ravelIndex(multi, self.strides)];
+                if (comptime T == BFloat16) {
+                    const v = value.toF32();
+                    const l = lambd.toF32();
+                    slot.* = if (v > l or v < -l) value else zero(T);
+                } else {
+                    slot.* = if (value > lambd or value < negValue(T, lambd)) value else zero(T);
+                }
+            }
+            return out;
+        }
+
+        pub fn hardShrink(self: Self, lambd: T) ArrayError!Array(T) {
+            return self.hardshrink(lambd);
+        }
+
+        pub fn softshrink(self: Self, lambd: T) ArrayError!Array(T) {
+            ensureFloat(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const value = self.data[self.offset + ravelIndex(multi, self.strides)];
+                if (comptime T == BFloat16) {
+                    const v = value.toF32();
+                    const l = lambd.toF32();
+                    slot.* = if (v > l) BFloat16.fromF32(v - l) else if (v < -l) BFloat16.fromF32(v + l) else zero(T);
+                } else {
+                    slot.* = if (value > lambd) value - lambd else if (value < negValue(T, lambd)) value + lambd else zero(T);
+                }
+            }
+            return out;
+        }
+
+        pub fn softShrink(self: Self, lambd: T) ArrayError!Array(T) {
+            return self.softshrink(lambd);
+        }
+
+        pub fn tanhshrink(self: Self) ArrayError!Array(T) {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        return BFloat16.fromF32(value - std.math.tanh(value));
+                    }
+                    return a - std.math.tanh(a);
+                }
+            }.f);
+        }
+
+        pub fn tanhShrink(self: Self) ArrayError!Array(T) {
+            return self.tanhshrink();
+        }
+
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Array(T) {
             ensureNumeric(T);
             var out = try Array(T).empty(self.allocator, self.shape);
@@ -16836,6 +16903,61 @@ pub fn Array(comptime T: type) type {
             return self.hardtanh(zero(T), castValue(T, 6));
         }
 
+        pub fn hardshrink(self: Self, lambd: T) ArrayError!Self {
+            ensureFloat(T);
+            const out = try Self.empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| {
+                if (comptime T == BFloat16) {
+                    const v = value.toF32();
+                    const l = lambd.toF32();
+                    slot.* = if (v > l or v < -l) value else zero(T);
+                } else {
+                    slot.* = if (value > lambd or value < negValue(T, lambd)) value else zero(T);
+                }
+            }
+            return out;
+        }
+
+        pub fn hardShrink(self: Self, lambd: T) ArrayError!Self {
+            return self.hardshrink(lambd);
+        }
+
+        pub fn softshrink(self: Self, lambd: T) ArrayError!Self {
+            ensureFloat(T);
+            const out = try Self.empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| {
+                if (comptime T == BFloat16) {
+                    const v = value.toF32();
+                    const l = lambd.toF32();
+                    slot.* = if (v > l) BFloat16.fromF32(v - l) else if (v < -l) BFloat16.fromF32(v + l) else zero(T);
+                } else {
+                    slot.* = if (value > lambd) value - lambd else if (value < negValue(T, lambd)) value + lambd else zero(T);
+                }
+            }
+            return out;
+        }
+
+        pub fn softShrink(self: Self, lambd: T) ArrayError!Self {
+            return self.softshrink(lambd);
+        }
+
+        pub fn tanhshrink(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        return BFloat16.fromF32(value - std.math.tanh(value));
+                    }
+                    return a - std.math.tanh(a);
+                }
+            }.f);
+        }
+
+        pub fn tanhShrink(self: Self) ArrayError!Self {
+            return self.tanhshrink();
+        }
+
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -26069,6 +26191,21 @@ test "array view transcendental unary math is view aware" {
     var actual_hardtanh = try activation.hardTanh(-0.75, 1.25);
     defer actual_hardtanh.deinit();
     try expectApproxEqualSlices(f64, expected_hardtanh.data, actual_hardtanh.data, 1e-12);
+    var expected_hardshrink = try activation_owned.hardshrink(0.75);
+    defer expected_hardshrink.deinit();
+    var actual_hardshrink = try activation.hardShrink(0.75);
+    defer actual_hardshrink.deinit();
+    try expectApproxEqualSlices(f64, expected_hardshrink.data, actual_hardshrink.data, 1e-12);
+    var expected_softshrink = try activation_owned.softshrink(0.75);
+    defer expected_softshrink.deinit();
+    var actual_softshrink = try activation.softShrink(0.75);
+    defer actual_softshrink.deinit();
+    try expectApproxEqualSlices(f64, expected_softshrink.data, actual_softshrink.data, 1e-12);
+    var expected_tanhshrink = try activation_owned.tanhshrink();
+    defer expected_tanhshrink.deinit();
+    var actual_tanhshrink = try activation.tanhShrink();
+    defer actual_tanhshrink.deinit();
+    try expectApproxEqualSlices(f64, expected_tanhshrink.data, actual_tanhshrink.data, 1e-12);
 
     var expected_clip = try activation_owned.clip(-0.25, 1.0);
     defer expected_clip.deinit();
@@ -27959,6 +28096,26 @@ test "array take mask stack cat and neural helpers" {
     var relu6_out = try shifted_plus.relu6();
     defer relu6_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 4, 5, 6, 6 }, relu6_out.data);
+    var hardshrink_out = try shifted.hardshrink(1.5);
+    defer hardshrink_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, 0, 0, 0, 2, 3 }, hardshrink_out.data);
+    var hard_shrink_alias = try shifted.hardShrink(1.5);
+    defer hard_shrink_alias.deinit();
+    try expectApproxEqualSlices(f64, hardshrink_out.data, hard_shrink_alias.data, 1e-12);
+    var softshrink_out = try shifted.softshrink(1.5);
+    defer softshrink_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -0.5, 0, 0, 0, 0.5, 1.5 }, softshrink_out.data);
+    var soft_shrink_alias = try shifted.softShrink(1.5);
+    defer soft_shrink_alias.deinit();
+    try expectApproxEqualSlices(f64, softshrink_out.data, soft_shrink_alias.data, 1e-12);
+    var tanhshrink_out = try shifted.tanhshrink();
+    defer tanhshrink_out.deinit();
+    var tanh_shrink_alias = try shifted.tanhShrink();
+    defer tanh_shrink_alias.deinit();
+    for (shifted.data, tanhshrink_out.data) |input, actual| {
+        try std.testing.expectApproxEqAbs(input - std.math.tanh(input), actual, 1e-12);
+    }
+    try expectApproxEqualSlices(f64, tanhshrink_out.data, tanh_shrink_alias.data, 1e-12);
     var leaky_out = try shifted.leakyRelu(0.1);
     defer leaky_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -0.2, -0.1, 0, 1, 2, 3 }, leaky_out.data);
