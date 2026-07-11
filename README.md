@@ -209,7 +209,7 @@ Array performance should be compared against local NumPy/PyTorch before and afte
 zig build bench --release=fast
 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 \
 python3 tools/bench_numpy_torch.py
-python3 tools/bench_matmul_add_compare.py --smoke
+python3 tools/bench_matmul_add_compare.py --smoke --op matmul_add --repeat 2
 python3 tools/bench_matmul_add_compare.py --smoke --op matmul_add --dtype f16
 python3 tools/bench_matmul_add_compare.py --execute --m 16384 --n 4096 --k 4096 --warmup 3 --iters 5 --max-ratio 1.05
 zig build bench-matmul-add-compare-smoke
@@ -228,7 +228,8 @@ shape through Vectra/Axiom `large_matmul_add`, PyTorch `torch.addmm`, eager
 repeatable local PyTorch/torch.compile baseline. Pass `--op` to isolate one
 Vectra expression when tuning kernel launch/algorithm effects; the default
 `--baseline=auto` selects the matching PyTorch expression for matmul, add, sub,
-sqrt, or exp variants. Pass `--baseline` and
+sqrt, or exp variants. Pass `--repeat` to run the full comparison multiple
+times and gate on the worst observed ratio, then pass `--baseline` and
 `--max-ratio` to turn the comparison into a failing performance gate based on
 the selected Vectra op's average time divided by the selected PyTorch baseline.
 

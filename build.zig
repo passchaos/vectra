@@ -245,8 +245,10 @@ pub fn build(b: *std.Build) void {
         "--n=64",
         "--k=64",
         "--warmup=1",
-        "--iters=1",
+        "--iters=2",
+        "--op=matmul_add",
         "--skip-torch-compile",
+        "--repeat=2",
         "--max-ratio=2.0",
     });
     const matmul_add_compare_smoke_step = b.step("bench-matmul-add-compare-smoke", "Run quick Vectra/Axiom vs PyTorch CUDA matmul+add ratio gate");

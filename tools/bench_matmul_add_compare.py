@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup", type=int, default=None)
     parser.add_argument("--iters", type=int, default=None)
     parser.add_argument("--dtype", choices=("f32", "f64", "f16", "bf16"), default="f32")
+    parser.add_argument("--repeat", type=int, default=1, help="Run the full Vectra+PyTorch comparison N times and aggregate ratios with median/worst summaries.")
     parser.add_argument(
         "--op",
         choices=("all", "matmul", "matmul_add", "matmul_then_add", "matmul_then_sub", "matmul_then_add_sqrt", "matmul_then_add_exp"),
@@ -361,8 +362,45 @@ def summarize(args: argparse.Namespace, vectra_rows: list[dict[str, Any]], torch
     return result
 
 
+def aggregate_summaries(args: argparse.Namespace, summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    def median(values: list[float]) -> float | None:
+        if not values:
+            return None
+        ordered = sorted(values)
+        mid = len(ordered) // 2
+        if len(ordered) % 2:
+            return ordered[mid]
+        return (ordered[mid - 1] + ordered[mid]) / 2.0
+
+    ratios = [float(row["worst_ratio"]) for row in summaries if isinstance(row.get("worst_ratio"), (float, int))]
+    best_ratios = [float(row["best_ratio"]) for row in summaries if isinstance(row.get("best_ratio"), (float, int))]
+    result: dict[str, Any] = {
+        "kind": "matmul_add_compare_repeat_summary",
+        "repeat": args.repeat,
+        "requested_op": args.op,
+        "baseline": summaries[-1].get("baseline") if summaries else (default_baseline_for_op(args.op) if args.baseline == "auto" else args.baseline),
+        "max_ratio": args.max_ratio,
+        "ok": False,
+        "runs": len(summaries),
+        "successful_ratio_runs": len(ratios),
+    }
+    if not ratios:
+        result["reason"] = "missing_repeat_ratios"
+        return result
+    result["median_worst_ratio"] = median(ratios)
+    result["worst_ratio"] = max(ratios)
+    result["best_ratio"] = min(best_ratios) if best_ratios else min(ratios)
+    result["all_worst_ratios"] = ratios
+    result["ok"] = args.max_ratio is None or result["worst_ratio"] <= args.max_ratio
+    if not result["ok"]:
+        result["reason"] = "repeat_ratio_exceeds_threshold"
+    return result
+
+
 def main() -> None:
     args = parse_args()
+    if args.repeat <= 0:
+        raise SystemExit("repeat must be positive")
     m, n, k = shape_from_args(args)
     warmup = args.warmup if args.warmup is not None else (3 if args.execute else 1)
     iters = args.iters if args.iters is not None else (5 if args.execute else 2)
@@ -375,15 +413,25 @@ def main() -> None:
         "iters": iters,
         "dtype": args.dtype,
         "op": args.op,
+        "repeat": args.repeat,
         "repo": str(args.repo),
         "baseline": args.baseline,
         "max_ratio": args.max_ratio,
     })
-    vectra_rows = run_vectra(args, m, n, k, warmup, iters)
-    torch_rows = run_torch(args, m, n, k, warmup, iters)
-    summary = summarize(args, vectra_rows, torch_rows)
-    emit(summary)
-    if args.max_ratio is not None and not summary.get("ok", False):
+    summaries: list[dict[str, Any]] = []
+    for repeat_index in range(args.repeat):
+        if args.repeat > 1:
+            emit({"kind": "matmul_add_compare_repeat", "index": repeat_index + 1, "repeat": args.repeat})
+        vectra_rows = run_vectra(args, m, n, k, warmup, iters)
+        torch_rows = run_torch(args, m, n, k, warmup, iters)
+        summary = summarize(args, vectra_rows, torch_rows)
+        summary["repeat_index"] = repeat_index + 1
+        summaries.append(summary)
+        emit(summary)
+    final_summary = aggregate_summaries(args, summaries) if args.repeat > 1 else summaries[-1]
+    if args.repeat > 1:
+        emit(final_summary)
+    if args.max_ratio is not None and not final_summary.get("ok", False):
         raise SystemExit(2)
 
 
