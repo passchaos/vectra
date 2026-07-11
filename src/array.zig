@@ -14912,6 +14912,31 @@ pub fn Array(comptime T: type) type {
             };
         }
 
+        fn tryScalePendingMatmul(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!?Self {
+            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
+            if (!self.device.isCuda() or self.pending_matmul == null) return null;
+            if (comptime op != opMul) return null;
+            const scale: f32 = if (comptime T == BFloat16) scalar.toF32() else @floatCast(scalar);
+            var pending = self.pending_matmul.?;
+            if (pending.unary != null) return null;
+            pending.alpha *= scale;
+            pending.beta *= scale;
+            const shape = try self.allocator.dupe(usize, self.shape);
+            errdefer self.allocator.free(shape);
+            const strides = try stridesFor(self.allocator, shape);
+            errdefer self.allocator.free(strides);
+            const values = try self.allocator.alloc(T, 0);
+            return .{
+                .allocator = self.allocator,
+                .data = values,
+                .shape = shape,
+                .strides = strides,
+                .device = self.device,
+                .device_storage = null,
+                .pending_matmul = pending,
+            };
+        }
+
         fn runCudaUnarySqrt(self: Self) ArrayError!Self {
             if (comptime T == f32) {
                 if (try axiom_cuda_backend.trySqrtF32(self)) |out| return out;
@@ -15212,6 +15237,7 @@ pub fn Array(comptime T: type) type {
         fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Self {
             if (self.device.isCuda()) {
                 if (self.pending_matmul != null) {
+                    if (try self.tryScalePendingMatmul(scalar, op)) |out| return out;
                     var materialized = try self.materializePendingMatmul();
                     defer materialized.deinit();
                     return materialized.binaryScalar(scalar, op);
