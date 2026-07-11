@@ -7041,6 +7041,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.softMarginLoss(targets, reduction);
         }
 
+        pub fn hingeEmbeddingLoss(self: Self, targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.hingeEmbeddingLoss(targets, margin, reduction);
+        }
+
+        pub fn hinge_embedding_loss(self: Self, targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
+            return self.hingeEmbeddingLoss(targets, margin, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17839,6 +17849,25 @@ pub fn Array(comptime T: type) type {
 
         pub fn soft_margin_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             return self.softMarginLoss(targets, reduction);
+        }
+
+        pub fn hingeEmbeddingLoss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var negative_loss = try self.mulScalar(negValue(T, one(T)));
+            defer negative_loss.deinit();
+            try negative_loss.addScalarAssign(margin);
+            var negative_clamped = try negative_loss.maximumScalar(zero(T));
+            defer negative_clamped.deinit();
+            var positive_targets = try targets.greaterScalar(zero(T));
+            defer positive_targets.deinit();
+            var losses = try self.where(positive_targets, negative_clamped);
+            errdefer losses.deinit();
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn hinge_embedding_loss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
+            return self.hingeEmbeddingLoss(targets, margin, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29562,6 +29591,23 @@ test "array logsoftmax norm and matrix helpers" {
     var soft_margin_view_loss = try soft_margin_view.soft_margin_loss(margin_targets, .none);
     defer soft_margin_view_loss.deinit();
     try expectApproxEqualSlices(f64, soft_margin_none.data, soft_margin_view_loss.data, 1e-12);
+    var hinge_inputs = try Array(f64).fromSlice(gpa, &.{ 0.25, 2.0, 1.25, 0.5 }, &.{ 2, 2 });
+    defer hinge_inputs.deinit();
+    var hinge_targets = try Array(f64).fromSlice(gpa, &.{ 1, -1 }, &.{ 2, 1 });
+    defer hinge_targets.deinit();
+    var hinge_none = try hinge_inputs.hingeEmbeddingLoss(hinge_targets, 1.0, .none);
+    defer hinge_none.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0.25, 2.0, 0.0, 0.5 }, hinge_none.data);
+    var hinge_sum = try hinge_inputs.hinge_embedding_loss(hinge_targets, 1.0, .sum);
+    defer hinge_sum.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.75), hinge_sum.data[0], 1e-12);
+    var hinge_view_source = try Array(f64).fromSlice(gpa, &.{ 0.25, 90, 2.0, 80, 1.25, 70, 0.5, 60 }, &.{ 2, 4 });
+    defer hinge_view_source.deinit();
+    var hinge_view = try hinge_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer hinge_view.deinit();
+    var hinge_view_loss = try hinge_view.hinge_embedding_loss(hinge_targets, 1.0, .none);
+    defer hinge_view_loss.deinit();
+    try expectApproxEqualSlices(f64, hinge_none.data, hinge_view_loss.data, 1e-12);
     var robust_predictions = try Array(f64).fromSlice(gpa, &.{ -2, -0.5, 0.5, 3 }, &.{4});
     defer robust_predictions.deinit();
     var robust_targets = try Array(f64).zeros(gpa, &.{4});
