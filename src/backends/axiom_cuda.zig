@@ -1403,6 +1403,40 @@ pub fn tryDeviceBinaryF16(op: BinaryOp, lhs: array_mod.Array(f16), rhs: array_mo
     return out;
 }
 
+pub fn tryDeviceBinaryF64(op: BinaryOp, lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (!lhs.sameShape(rhs) or lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    if (lhs_storage.len == 0 or lhs_storage.len != rhs_storage.len) return null;
+
+    var out = try array_mod.Array(f64).emptyOn(lhs.allocator, lhs.shape, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const report = runtime.runCudaDeviceElementwiseF64(
+        lhs.device.index,
+        axiomBinaryOp(op),
+        lhs_storage.len,
+        lhs_storage.ptr,
+        rhs_storage.ptr,
+        out_storage.ptr,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    if (!report.valid()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 pub fn tryDeviceBinaryBF16(op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;

@@ -15113,6 +15113,8 @@ pub fn Array(comptime T: type) type {
                 if (maybe_op) |op_value| {
                     if (comptime T == f32) {
                         if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, other)) |out| return out;
+                    } else if (comptime T == f64) {
+                        if (try axiom_cuda_backend.tryDeviceBinaryF64(op_value, self, other)) |out| return out;
                     } else if (comptime T == f16) {
                         if (try axiom_cuda_backend.tryDeviceBinaryF16(op_value, self, other)) |out| return out;
                     } else if (comptime T == BFloat16) {
@@ -15214,7 +15216,7 @@ pub fn Array(comptime T: type) type {
                     defer materialized.deinit();
                     return materialized.binaryScalar(scalar, op);
                 }
-                if (comptime T != f32 and T != f16 and T != BFloat16) return error.TypeUnsupported;
+                if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return error.TypeUnsupported;
                 const maybe_op: ?axiom_cuda_backend.BinaryOp = if (comptime op == opAdd)
                     axiom_cuda_backend.BinaryOp.add
                 else if (comptime op == opSub)
@@ -15230,6 +15232,8 @@ pub fn Array(comptime T: type) type {
                     defer scalar_array.deinit();
                     if (comptime T == f32) {
                         if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, scalar_array)) |out| return out;
+                    } else if (comptime T == f64) {
+                        if (try axiom_cuda_backend.tryDeviceBinaryF64(op_value, self, scalar_array)) |out| return out;
                     } else if (comptime T == f16) {
                         if (try axiom_cuda_backend.tryDeviceBinaryF16(op_value, self, scalar_array)) |out| return out;
                     } else if (comptime T == BFloat16) {
@@ -29370,6 +29374,11 @@ test "array dtype metadata and casts cover common numeric types" {
         var host_roundtrip = try cuda_copy.cpu();
         defer host_roundtrip.deinit();
         try std.testing.expectEqualSlices(f64, cpu_source.data, host_roundtrip.data);
+        var cuda_scaled = try cuda_copy.mulScalar(2.0);
+        defer cuda_scaled.deinit();
+        var scaled_host = try cuda_scaled.cpu();
+        defer scaled_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 2, 4, 6, 8 }, scaled_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
