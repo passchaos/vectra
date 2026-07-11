@@ -6797,6 +6797,42 @@ pub fn ArrayView(comptime T: type) type {
             return self.normDims(p, dims, keepdim);
         }
 
+        pub fn cosineSimilarity(self: Self, other: Array(T), axis_index: isize, eps: T, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cosineSimilarity(other, axis_index, eps, keepdims);
+        }
+
+        pub fn cosine_similarity(self: Self, other: Array(T), axis_index: isize, eps: T, keepdims: bool) ArrayError!Array(T) {
+            return self.cosineSimilarity(other, axis_index, eps, keepdims);
+        }
+
+        pub fn cosineSimilarityDim(self: Self, other: Array(T), dim_index: isize, eps: T, keepdim: bool) ArrayError!Array(T) {
+            return self.cosineSimilarity(other, dim_index, eps, keepdim);
+        }
+
+        pub fn cosine_similarity_dim(self: Self, other: Array(T), dim_index: isize, eps: T, keepdim: bool) ArrayError!Array(T) {
+            return self.cosineSimilarityDim(other, dim_index, eps, keepdim);
+        }
+
+        pub fn pairwiseDistance(self: Self, other: Array(T), p: T, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.pairwiseDistance(other, p, axis_index, keepdims);
+        }
+
+        pub fn pairwise_distance(self: Self, other: Array(T), p: T, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
+            return self.pairwiseDistance(other, p, axis_index, keepdims);
+        }
+
+        pub fn pairwiseDistanceDim(self: Self, other: Array(T), p: T, dim_index: isize, keepdim: bool) ArrayError!Array(T) {
+            return self.pairwiseDistance(other, p, dim_index, keepdim);
+        }
+
+        pub fn pairwise_distance_dim(self: Self, other: Array(T), p: T, dim_index: isize, keepdim: bool) ArrayError!Array(T) {
+            return self.pairwiseDistanceDim(other, p, dim_index, keepdim);
+        }
+
         pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -20500,6 +20536,59 @@ pub fn Array(comptime T: type) type {
             return self.normDims(p, dims, keepdim);
         }
 
+        pub fn cosineSimilarity(self: Self, other: Self, axis_index: isize, eps: T, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
+            if (!(eps >= zero(T))) return error.InvalidShape;
+            var product_values = try self.mul(other);
+            defer product_values.deinit();
+            var dot_values = try product_values.sum(axis_index, keepdims);
+            errdefer dot_values.deinit();
+            var lhs_norm = try self.norm(castValue(T, 2), axis_index, keepdims);
+            defer lhs_norm.deinit();
+            var rhs_norm = try other.norm(castValue(T, 2), axis_index, keepdims);
+            defer rhs_norm.deinit();
+            var denom = try lhs_norm.mul(rhs_norm);
+            defer denom.deinit();
+            var safe_denom = try denom.maximumScalar(eps);
+            defer safe_denom.deinit();
+            const result = try dot_values.div(safe_denom);
+            dot_values.deinit();
+            return result;
+        }
+
+        pub fn cosine_similarity(self: Self, other: Self, axis_index: isize, eps: T, keepdims: bool) ArrayError!Self {
+            return self.cosineSimilarity(other, axis_index, eps, keepdims);
+        }
+
+        pub fn cosineSimilarityDim(self: Self, other: Self, dim_index: isize, eps: T, keepdim: bool) ArrayError!Self {
+            return self.cosineSimilarity(other, dim_index, eps, keepdim);
+        }
+
+        pub fn cosine_similarity_dim(self: Self, other: Self, dim_index: isize, eps: T, keepdim: bool) ArrayError!Self {
+            return self.cosineSimilarityDim(other, dim_index, eps, keepdim);
+        }
+
+        pub fn pairwiseDistance(self: Self, other: Self, p: T, axis_index: isize, keepdims: bool) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
+            var diff_values = try self.sub(other);
+            defer diff_values.deinit();
+            return diff_values.norm(p, axis_index, keepdims);
+        }
+
+        pub fn pairwise_distance(self: Self, other: Self, p: T, axis_index: isize, keepdims: bool) ArrayError!Self {
+            return self.pairwiseDistance(other, p, axis_index, keepdims);
+        }
+
+        pub fn pairwiseDistanceDim(self: Self, other: Self, p: T, dim_index: isize, keepdim: bool) ArrayError!Self {
+            return self.pairwiseDistance(other, p, dim_index, keepdim);
+        }
+
+        pub fn pairwise_distance_dim(self: Self, other: Self, p: T, dim_index: isize, keepdim: bool) ArrayError!Self {
+            return self.pairwiseDistanceDim(other, p, dim_index, keepdim);
+        }
+
         pub fn cumsum(self: Self) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -29300,6 +29389,48 @@ test "array logsoftmax norm and matrix helpers" {
     var n = try v.norm(2, null, false);
     defer n.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 5), n.data[0], 1e-12);
+
+    var cos_a = try Array(f64).fromSlice(gpa, &.{ 1, 0, 1, 1, 0, 2 }, &.{ 2, 3 });
+    defer cos_a.deinit();
+    var cos_b = try Array(f64).fromSlice(gpa, &.{ 1, 0, 0, 1, 1, 2 }, &.{ 2, 3 });
+    defer cos_b.deinit();
+    var cosine_rows = try cos_a.cosineSimilarity(cos_b, 1, 1e-12, false);
+    defer cosine_rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, cosine_rows.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 1) / std.math.sqrt(@as(f64, 2)), cosine_rows.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5) / (std.math.sqrt(@as(f64, 5)) * std.math.sqrt(@as(f64, 6))), cosine_rows.data[1], 1e-12);
+    var cosine_keep = try cos_a.cosine_similarity_dim(cos_b, -1, 1e-12, true);
+    defer cosine_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, cosine_keep.shape);
+    try std.testing.expectApproxEqAbs(cosine_rows.data[0], cosine_keep.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(cosine_rows.data[1], cosine_keep.data[1], 1e-12);
+    var distance_rows = try cos_a.pairwiseDistance(cos_b, 2, 1, false);
+    defer distance_rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, distance_rows.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), distance_rows.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1)), distance_rows.data[1], 1e-12);
+    var distance_l1 = try cos_a.pairwise_distance_dim(cos_b, 1, 1, true);
+    defer distance_l1.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, distance_l1.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), distance_l1.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), distance_l1.data[1], 1e-12);
+    var metric_view_source = try Array(f64).fromSlice(gpa, &.{ 1, 90, 0, 80, 1, 70, 1, 60 }, &.{ 2, 4 });
+    defer metric_view_source.deinit();
+    var metric_view = try metric_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer metric_view.deinit();
+    var metric_target = try Array(f64).fromSlice(gpa, &.{ 1, 0, 0, 1 }, &.{ 2, 2 });
+    defer metric_target.deinit();
+    var view_cosine = try metric_view.cosine_similarity(metric_target, 1, 1e-12, false);
+    defer view_cosine.deinit();
+    var metric_view_owned = try metric_view.toArray();
+    defer metric_view_owned.deinit();
+    var expected_view_cosine = try metric_view_owned.cosineSimilarity(metric_target, 1, 1e-12, false);
+    defer expected_view_cosine.deinit();
+    try expectApproxEqualSlices(f64, expected_view_cosine.data, view_cosine.data, 1e-12);
+    var bad_metric = try Array(f64).zeros(gpa, &.{5});
+    defer bad_metric.deinit();
+    try std.testing.expectError(error.ShapeMismatch, cos_a.cosineSimilarity(bad_metric, 1, 1e-12, false));
+    try std.testing.expectError(error.InvalidShape, cos_a.cosineSimilarity(cos_b, 1, -1e-12, false));
 
     var w = try Array(f64).fromSlice(gpa, &.{ 2, 5, 7 }, &.{3});
     defer w.deinit();
