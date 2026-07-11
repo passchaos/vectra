@@ -233,7 +233,7 @@ fn runCudaF32(
     var c = try np.onesWith(vx.onDevice(f32, gpu), &.{ shape.m, shape.n });
     defer c.deinit();
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
-    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_direct", "f32", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_plus_unary", "f32", .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
@@ -259,7 +259,7 @@ fn runCudaF64(
     var c = try np.onesWith(vx.onDevice(f64, gpu), &.{ shape.m, shape.n });
     defer c.deinit();
     try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublas", "f64", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
-    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublaslt", "f64", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused_direct", "f64", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused_plus_unary", "f64", .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
@@ -285,7 +285,7 @@ fn runCudaF16(
     var c = try np.onesWith(vx.onDevice(f16, gpu), &.{ shape.m, shape.n });
     defer c.deinit();
     try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_cublas", "f16", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
-    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_cublaslt", "f16", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused_direct", "f16", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused", "f16", .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused", "f16", .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused_plus_unary", "f16", .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
@@ -311,7 +311,7 @@ fn runCudaBf16(
     var c = try vx.Array(vx.BFloat16).fullOn(allocator, &.{ shape.m, shape.n }, value, gpu);
     defer c.deinit();
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
-    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused_direct", "bf16", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused_plus_unary", "bf16", .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
