@@ -1411,6 +1411,14 @@ pub fn tryExpF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Ar
     return tryDeviceUnaryF32(.exp, input);
 }
 
+pub fn trySqrtF16(input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceUnaryF16(.sqrt, input);
+}
+
+pub fn tryExpF16(input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceUnaryF16(.exp, input);
+}
+
 pub fn trySqrtBF16(input: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     return tryDeviceUnaryBF16(.sqrt, input);
 }
@@ -1437,6 +1445,39 @@ pub fn tryDeviceUnaryF32(op: UnaryOp, input: array_mod.Array(f32)) array_mod.Arr
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
     const report = runtime.runCudaDeviceUnaryElementwiseF32(
+        input.device.index,
+        switch (op) {
+            .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
+            .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
+        },
+        in_storage.len,
+        in_storage.ptr,
+        out_storage.ptr,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    if (!report.valid()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
+pub fn tryDeviceUnaryF16(op: UnaryOp, input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
+    const in_storage = input.device_storage orelse return null;
+    if (in_storage.len == 0) return null;
+    var out = try array_mod.Array(f16).emptyOn(input.allocator, input.shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
+    const report = runtime.runCudaDeviceUnaryElementwiseF16(
         input.device.index,
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,

@@ -268,8 +268,8 @@ fn runCudaF16(
     try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_cublaslt", "f16", .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused", "f16", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused", "f16", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
-    try printSkipped(writer, "cuda", "f16", "matmul_then_add_sqrt", "cuda_f16_unary_postop_not_exposed");
-    try printSkipped(writer, "cuda", "f16", "matmul_then_add_exp", "cuda_f16_unary_postop_not_exposed");
+    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused_plus_unary", "f16", .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
+    try printSkipped(writer, "cuda", "f16", "matmul_then_add_exp", "cuda_f16_scalar_postop_not_exposed");
 }
 
 fn runCudaBf16(

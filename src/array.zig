@@ -14891,7 +14891,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn tryPendingUnary(self: Self, unary_op: PendingUnary) ArrayError!?Self {
-            if (comptime T != f32 and T != f64 and T != BFloat16) return null;
+            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
             if (!self.device.isCuda() or self.pending_matmul == null) return null;
             var pending = self.pending_matmul.?;
             if (pending.unary != null) return null;
@@ -14917,6 +14917,10 @@ pub fn Array(comptime T: type) type {
                 if (try axiom_cuda_backend.trySqrtF32(self)) |out| return out;
                 return error.BackendFailure;
             }
+            if (comptime T == f16) {
+                if (try axiom_cuda_backend.trySqrtF16(self)) |out| return out;
+                return error.BackendFailure;
+            }
             if (comptime T == f64) {
                 if (try axiom_cuda_backend.trySqrtF64(self)) |out| return out;
                 return error.BackendFailure;
@@ -14931,6 +14935,10 @@ pub fn Array(comptime T: type) type {
         fn runCudaUnaryExp(self: Self) ArrayError!Self {
             if (comptime T == f32) {
                 if (try axiom_cuda_backend.tryExpF32(self)) |out| return out;
+                return error.BackendFailure;
+            }
+            if (comptime T == f16) {
+                if (try axiom_cuda_backend.tryExpF16(self)) |out| return out;
                 return error.BackendFailure;
             }
             if (comptime T == BFloat16) {
@@ -16198,6 +16206,10 @@ pub fn Array(comptime T: type) type {
                 if (try self.tryPendingUnary(.exp)) |out| return out;
                 return self.runCudaUnaryExp();
             }
+            if (self.device.isCuda() and comptime T == f16) {
+                if (try self.tryPendingUnary(.exp)) |out| return out;
+                return self.runCudaUnaryExp();
+            }
             if (self.device.isCuda() and comptime T == BFloat16) {
                 if (try self.tryPendingUnary(.exp)) |out| return out;
                 return self.runCudaUnaryExp();
@@ -16276,6 +16288,10 @@ pub fn Array(comptime T: type) type {
         pub fn sqrt(self: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.device.isCuda() and comptime T == f32) {
+                if (try self.tryPendingUnary(.sqrt)) |out| return out;
+                return self.runCudaUnarySqrt();
+            }
+            if (self.device.isCuda() and comptime T == f16) {
                 if (try self.tryPendingUnary(.sqrt)) |out| return out;
                 return self.runCudaUnarySqrt();
             }
