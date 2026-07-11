@@ -4176,6 +4176,23 @@ pub fn ArrayView(comptime T: type) type {
             return self.expit();
         }
 
+        pub fn silu(self: Self) ArrayError!Array(T) {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    return mulValue(T, a, Array(T).opExpit(a));
+                }
+            }.f);
+        }
+
+        pub fn SiLU(self: Self) ArrayError!Array(T) {
+            return self.silu();
+        }
+
+        pub fn swish(self: Self) ArrayError!Array(T) {
+            return self.silu();
+        }
+
         pub fn expit(self: Self) ArrayError!Array(T) {
             ensureFloat(T);
             return self.unary(Array(T).opExpit);
@@ -16661,6 +16678,23 @@ pub fn Array(comptime T: type) type {
             return self.expit();
         }
 
+        pub fn silu(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    return mulValue(T, a, opExpit(a));
+                }
+            }.f);
+        }
+
+        pub fn SiLU(self: Self) ArrayError!Self {
+            return self.silu();
+        }
+
+        pub fn swish(self: Self) ArrayError!Self {
+            return self.silu();
+        }
+
         pub fn expit(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opExpit);
@@ -25692,6 +25726,9 @@ test "array view transcendental unary math is view aware" {
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).softplus, Array(f64).softplus, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).softsign, Array(f64).softsign, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).gelu, Array(f64).gelu, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).silu, Array(f64).silu, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).SiLU, Array(f64).SiLU, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).swish, Array(f64).swish, 1e-12);
 
     var activation_owned = try activation.toArray();
     defer activation_owned.deinit();
@@ -27594,6 +27631,18 @@ test "array take mask stack cat and neural helpers" {
     defer gelu_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, -0.04540230591222494), gelu_out.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.996362607918227), gelu_out.data[5], 1e-12);
+    var silu_out = try shifted.silu();
+    defer silu_out.deinit();
+    for (shifted.data, silu_out.data) |input, actual| {
+        const expected = input / (1.0 + std.math.exp(-input));
+        try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+    }
+    var silu_alias = try shifted.SiLU();
+    defer silu_alias.deinit();
+    var swish_alias = try shifted.swish();
+    defer swish_alias.deinit();
+    try expectApproxEqualSlices(f64, silu_out.data, silu_alias.data, 1e-12);
+    try expectApproxEqualSlices(f64, silu_out.data, swish_alias.data, 1e-12);
     var sigmoid_out = try shifted.sigmoid();
     defer sigmoid_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1) / (@as(f64, 1) + @exp(@as(f64, 2))), sigmoid_out.data[0], 1e-12);
