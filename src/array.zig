@@ -4387,6 +4387,25 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
+        pub fn selu(self: Self) ArrayError!Array(T) {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    const scale = 1.0507009873554805;
+                    const alpha = 1.6732632423543772;
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        return BFloat16.fromF32(@as(f32, @floatCast(scale)) * if (value > 0) value else @as(f32, @floatCast(alpha)) * std.math.expm1(value));
+                    }
+                    return castValue(T, scale) * if (a > zero(T)) a else castValue(T, alpha) * std.math.expm1(a);
+                }
+            }.f);
+        }
+
+        pub fn SELU(self: Self) ArrayError!Array(T) {
+            return self.selu();
+        }
+
         pub fn expit(self: Self) ArrayError!Array(T) {
             ensureFloat(T);
             return self.unary(Array(T).opExpit);
@@ -17091,6 +17110,25 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn selu(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    const scale = 1.0507009873554805;
+                    const alpha = 1.6732632423543772;
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        return BFloat16.fromF32(@as(f32, @floatCast(scale)) * if (value > 0) value else @as(f32, @floatCast(alpha)) * std.math.expm1(value));
+                    }
+                    return castValue(T, scale) * if (a > zero(T)) a else castValue(T, alpha) * std.math.expm1(a);
+                }
+            }.f);
+        }
+
+        pub fn SELU(self: Self) ArrayError!Self {
+            return self.selu();
+        }
+
         pub fn expit(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opExpit);
@@ -26186,6 +26224,11 @@ test "array view transcendental unary math is view aware" {
     var actual_celu = try activation.celu(1.25);
     defer actual_celu.deinit();
     try expectApproxEqualSlices(f64, expected_celu.data, actual_celu.data, 1e-12);
+    var expected_selu = try activation_owned.selu();
+    defer expected_selu.deinit();
+    var actual_selu = try activation.SELU();
+    defer actual_selu.deinit();
+    try expectApproxEqualSlices(f64, expected_selu.data, actual_selu.data, 1e-12);
     var expected_hardtanh = try activation_owned.hardtanh(-0.75, 1.25);
     defer expected_hardtanh.deinit();
     var actual_hardtanh = try activation.hardTanh(-0.75, 1.25);
@@ -28129,6 +28172,15 @@ test "array take mask stack cat and neural helpers" {
         try std.testing.expectApproxEqAbs(expected_elu, actual_elu, 1e-12);
         try std.testing.expectApproxEqAbs(expected_celu, actual_celu, 1e-12);
     }
+    var selu_out = try shifted.selu();
+    defer selu_out.deinit();
+    var selu_alias = try shifted.SELU();
+    defer selu_alias.deinit();
+    for (shifted.data, selu_out.data) |input, actual| {
+        const expected_inner = if (input > 0) input else 1.6732632423543772 * std.math.expm1(input);
+        try std.testing.expectApproxEqAbs(1.0507009873554805 * expected_inner, actual, 1e-12);
+    }
+    try expectApproxEqualSlices(f64, selu_out.data, selu_alias.data, 1e-12);
     var softplus_out = try shifted.softplus();
     defer softplus_out.deinit();
     try std.testing.expectApproxEqAbs(std.math.log1p(@exp(@as(f64, -2))), softplus_out.data[0], 1e-12);
