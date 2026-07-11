@@ -7011,6 +7011,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.klDiv(targets, reduction);
         }
 
+        pub fn marginRankingLoss(self: Self, other: Array(T), targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.marginRankingLoss(other, targets, margin, reduction);
+        }
+
+        pub fn margin_ranking_loss(self: Self, other: Array(T), targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
+            return self.marginRankingLoss(other, targets, margin, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17770,6 +17780,26 @@ pub fn Array(comptime T: type) type {
 
         pub fn kl_div(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             return self.klDiv(targets, reduction);
+        }
+
+        pub fn marginRankingLoss(self: Self, other: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(other.device) or !self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var diff_values = try self.sub(other);
+            defer diff_values.deinit();
+            var signed_diff = try targets.mul(diff_values);
+            defer signed_diff.deinit();
+            var losses = try signed_diff.mulScalar(negValue(T, one(T)));
+            errdefer losses.deinit();
+            try losses.addScalarAssign(margin);
+            var clamped = try losses.maximumScalar(zero(T));
+            losses.deinit();
+            errdefer clamped.deinit();
+            return self.reducedLoss(clamped, reduction);
+        }
+
+        pub fn margin_ranking_loss(self: Self, other: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
+            return self.marginRankingLoss(other, targets, margin, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29426,6 +29456,26 @@ test "array logsoftmax norm and matrix helpers" {
     var view_kl_none = try log_probs_view.kl_div(target_probs, .none);
     defer view_kl_none.deinit();
     try expectApproxEqualSlices(f64, kl_none.data, view_kl_none.data, 1e-12);
+    var rank_a = try Array(f64).fromSlice(gpa, &.{ 2, 1, 0, 4 }, &.{ 2, 2 });
+    defer rank_a.deinit();
+    var rank_b = try Array(f64).fromSlice(gpa, &.{ 1, 2, 1, 1 }, &.{ 2, 2 });
+    defer rank_b.deinit();
+    var rank_targets = try Array(f64).fromSlice(gpa, &.{ 1, -1 }, &.{ 2, 1 });
+    defer rank_targets.deinit();
+    var rank_loss = try rank_a.marginRankingLoss(rank_b, rank_targets, 0.5, .none);
+    defer rank_loss.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, rank_loss.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 1.5, 0, 3.5 }, rank_loss.data);
+    var rank_loss_mean = try rank_a.margin_ranking_loss(rank_b, rank_targets, 0.5, .mean);
+    defer rank_loss_mean.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), rank_loss_mean.data[0], 1e-12);
+    var rank_view_source = try Array(f64).fromSlice(gpa, &.{ 2, 99, 1, 88, 0, 77, 4, 66 }, &.{ 2, 4 });
+    defer rank_view_source.deinit();
+    var rank_view = try rank_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer rank_view.deinit();
+    var rank_view_loss = try rank_view.margin_ranking_loss(rank_b, rank_targets, 0.5, .none);
+    defer rank_view_loss.deinit();
+    try expectApproxEqualSlices(f64, rank_loss.data, rank_view_loss.data, 1e-12);
     var robust_predictions = try Array(f64).fromSlice(gpa, &.{ -2, -0.5, 0.5, 3 }, &.{4});
     defer robust_predictions.deinit();
     var robust_targets = try Array(f64).zeros(gpa, &.{4});
