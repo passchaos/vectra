@@ -304,7 +304,8 @@ def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, ite
 
 
 def summarize(args: argparse.Namespace, vectra_rows: list[dict[str, Any]], torch_rows: list[dict[str, Any]]) -> dict[str, Any]:
-    vectra_by_op = {row.get("op"): row for row in vectra_rows if row.get("source") == "vectra" and row.get("ok") is True}
+    vectra_by_op = {row.get("op"): row for row in vectra_rows if row.get("source") == "vectra" and row.get("ok") is True and "avg_us" in row}
+    vectra_skipped_by_op = {row.get("op"): row for row in vectra_rows if row.get("source") == "vectra" and row.get("skipped") is True}
     torch_by_op = {row.get("op"): row for row in torch_rows if row.get("source") == "torch" and row.get("ok") is True}
     baseline_key = default_baseline_for_op(args.op) if args.baseline == "auto" else args.baseline
     if baseline_key == "torch_compile":
@@ -337,7 +338,13 @@ def summarize(args: argparse.Namespace, vectra_rows: list[dict[str, Any]], torch
 
     for label, row in vectra_targets:
         if row is None:
-            result[f"{label}_missing"] = True
+            op_name = label[len("vectra_"):] if label.startswith("vectra_") else label
+            skipped = vectra_skipped_by_op.get(op_name)
+            if skipped is not None:
+                result[f"{label}_skipped"] = True
+                result[f"{label}_skip_reason"] = skipped.get("reason", "unknown")
+            else:
+                result[f"{label}_missing"] = True
             continue
         avg = float(row["avg_us"])
         result[f"{label}_avg_us"] = avg
