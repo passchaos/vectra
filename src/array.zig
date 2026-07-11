@@ -6833,6 +6833,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.pairwiseDistanceDim(other, p, dim_index, keepdim);
         }
 
+        pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.normalize(p, axis_index, eps);
+        }
+
+        pub fn normalize_dim(self: Self, p: T, dim_index: isize, eps: T) ArrayError!Array(T) {
+            return self.normalize(p, dim_index, eps);
+        }
+
         pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -20615,6 +20625,20 @@ pub fn Array(comptime T: type) type {
             return self.pairwiseDistanceDim(other, p, dim_index, keepdim);
         }
 
+        pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) ArrayError!Self {
+            ensureFloat(T);
+            if (!(eps >= zero(T))) return error.InvalidShape;
+            var denom = try self.norm(p, axis_index, true);
+            defer denom.deinit();
+            var safe_denom = try denom.maximumScalar(eps);
+            defer safe_denom.deinit();
+            return self.div(safe_denom);
+        }
+
+        pub fn normalize_dim(self: Self, p: T, dim_index: isize, eps: T) ArrayError!Self {
+            return self.normalize(p, dim_index, eps);
+        }
+
         pub fn cumsum(self: Self) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -29486,6 +29510,26 @@ test "array logsoftmax norm and matrix helpers" {
     defer bad_metric.deinit();
     try std.testing.expectError(error.ShapeMismatch, cos_a.cosineSimilarity(bad_metric, 1, 1e-12, false));
     try std.testing.expectError(error.InvalidShape, cos_a.cosineSimilarity(cos_b, 1, -1e-12, false));
+    var normalized_rows = try cos_a.normalize(2, 1, 1e-12);
+    defer normalized_rows.deinit();
+    var normalized_norms = try normalized_rows.normDim(2, 1, false);
+    defer normalized_norms.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), normalized_norms.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), normalized_norms.data[1], 1e-12);
+    var normalized_alias = try cos_a.normalize_dim(2, -1, 1e-12);
+    defer normalized_alias.deinit();
+    try expectApproxEqualSlices(f64, normalized_rows.data, normalized_alias.data, 1e-12);
+    var zeros_for_normalize = try Array(f64).zeros(gpa, &.{ 1, 3 });
+    defer zeros_for_normalize.deinit();
+    var normalized_zero = try zeros_for_normalize.normalize(2, 1, 1e-6);
+    defer normalized_zero.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0 }, normalized_zero.data);
+    var view_normalized = try metric_view.normalize(2, 1, 1e-12);
+    defer view_normalized.deinit();
+    var expected_view_normalized = try metric_view_owned.normalize(2, 1, 1e-12);
+    defer expected_view_normalized.deinit();
+    try expectApproxEqualSlices(f64, expected_view_normalized.data, view_normalized.data, 1e-12);
+    try std.testing.expectError(error.InvalidShape, cos_a.normalize(2, 1, -1e-12));
 
     var w = try Array(f64).fromSlice(gpa, &.{ 2, 5, 7 }, &.{3});
     defer w.deinit();
