@@ -602,10 +602,112 @@ fn withCudaContext(index: usize) !struct { driver: CudaDriver, context: CudaPrim
     return .{ .driver = driver, .context = context };
 }
 
+const cuda_storage_cache_capacity = 8;
+const cuda_storage_cache_max_bytes: usize = @as(usize, 2) * 1024 * 1024 * 1024;
+
+const CachedCudaStorage = struct {
+    device: array_mod.Device = .cpu,
+    ptr: u64 = 0,
+    len: usize = 0,
+    bytes: usize = 0,
+    age: u64 = 0,
+
+    fn live(entry: CachedCudaStorage) bool {
+        return entry.ptr != 0 and entry.bytes != 0;
+    }
+
+    fn toStorage(entry: CachedCudaStorage) array_mod.DeviceStorage {
+        return .{ .device = entry.device, .ptr = entry.ptr, .len = entry.len, .bytes = entry.bytes };
+    }
+};
+
+threadlocal var cuda_storage_cache: [cuda_storage_cache_capacity]CachedCudaStorage = [_]CachedCudaStorage{.{}} ** cuda_storage_cache_capacity;
+threadlocal var cuda_storage_cache_clock: u64 = 0;
+
+fn takeCachedStorage(device: array_mod.Device, len: usize, bytes: usize) ?array_mod.DeviceStorage {
+    for (&cuda_storage_cache) |*entry| {
+        if (entry.live() and entry.device.sameDevice(device) and entry.len == len and entry.bytes == bytes) {
+            const storage = entry.toStorage();
+            entry.* = .{};
+            return storage;
+        }
+    }
+    return null;
+}
+
+fn cachedStorageBytes() usize {
+    var total: usize = 0;
+    for (cuda_storage_cache) |entry| {
+        if (entry.live()) total += entry.bytes;
+    }
+    return total;
+}
+
+fn oldestCachedStorageSlot() ?usize {
+    var found: ?usize = null;
+    for (cuda_storage_cache, 0..) |entry, index| {
+        if (!entry.live()) continue;
+        if (found == null or entry.age < cuda_storage_cache[found.?].age) found = index;
+    }
+    return found;
+}
+
+fn emptyCachedStorageSlot() ?usize {
+    for (cuda_storage_cache, 0..) |entry, index| {
+        if (!entry.live()) return index;
+    }
+    return null;
+}
+
+fn freeStorageDriver(storage: array_mod.DeviceStorage) void {
+    if (!build_options.enable_axiom_cuda or !storage.device.isCuda() or storage.ptr == 0 or !storage.owns) return;
+    var session = withCudaContext(storage.device.index) catch return;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    session.driver.memFree(storage.ptr);
+    _ = session.driver.cuDevicePrimaryCtxRelease(session.context.device);
+}
+
+fn evictCachedStorageSlot(index: usize) void {
+    const entry = cuda_storage_cache[index];
+    cuda_storage_cache[index] = .{};
+    if (entry.live()) freeStorageDriver(entry.toStorage());
+}
+
+fn cacheStorage(storage: array_mod.DeviceStorage) bool {
+    if (!build_options.enable_axiom_cuda or !storage.device.isCuda() or storage.ptr == 0 or !storage.owns) return false;
+    if (storage.bytes == 0 or storage.bytes > cuda_storage_cache_max_bytes) return false;
+
+    while (cachedStorageBytes() + storage.bytes > cuda_storage_cache_max_bytes) {
+        const slot = oldestCachedStorageSlot() orelse return false;
+        evictCachedStorageSlot(slot);
+    }
+
+    const slot = emptyCachedStorageSlot() orelse blk: {
+        const oldest = oldestCachedStorageSlot() orelse return false;
+        evictCachedStorageSlot(oldest);
+        break :blk oldest;
+    };
+    cuda_storage_cache_clock +%= 1;
+    cuda_storage_cache[slot] = .{
+        .device = storage.device,
+        .ptr = storage.ptr,
+        .len = storage.len,
+        .bytes = storage.bytes,
+        .age = cuda_storage_cache_clock,
+    };
+    return true;
+}
+
+pub fn flushStorageCache() void {
+    for (0..cuda_storage_cache.len) |index| evictCachedStorageSlot(index);
+}
+
 pub fn allocateStorage(device: array_mod.Device, len: usize, element_size: usize) array_mod.ArrayError!?array_mod.DeviceStorage {
     if (!build_options.enable_axiom_cuda or !device.isCuda()) return null;
     const bytes = std.math.mul(usize, len, element_size) catch return error.InvalidShape;
     if (bytes == 0) return .{ .device = device, .ptr = 0, .len = len, .bytes = 0 };
+    if (takeCachedStorage(device, len, bytes)) |storage| return storage;
     var session = withCudaContext(device.index) catch return error.InvalidDevice;
     // Keep one primary-context retain alive for the lifetime of the device
     // allocation; otherwise the driver may destroy the primary context and make
@@ -620,11 +722,8 @@ pub fn allocateStorage(device: array_mod.Device, len: usize, element_size: usize
 
 pub fn freeStorage(storage: array_mod.DeviceStorage) void {
     if (!build_options.enable_axiom_cuda or !storage.device.isCuda() or storage.ptr == 0 or !storage.owns) return;
-    var session = withCudaContext(storage.device.index) catch return;
-    defer session.driver.close();
-    defer session.context.release(&session.driver);
-    session.driver.memFree(storage.ptr);
-    _ = session.driver.cuDevicePrimaryCtxRelease(session.context.device);
+    if (cacheStorage(storage)) return;
+    freeStorageDriver(storage);
 }
 
 pub fn uploadStorage(storage: array_mod.DeviceStorage, bytes: []const u8) array_mod.ArrayError!void {

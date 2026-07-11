@@ -332,7 +332,10 @@ fn runBenchmark(
         var y: ?vx.Array(T) = null;
         defer if (y) |*out| out.deinit();
         for (0..iters) |_| {
-            // if (y) |*out| out.deinit();
+            if (y) |*out| {
+                out.deinit();
+                y = null;
+            }
             vx.axiom_cuda.resetLastCudaDeviceGemmReport();
             y = try computeOp(T, op, a, b, c);
         }
