@@ -51,6 +51,7 @@ pub const CudaDeviceGemmReportSnapshot = struct {
     beta: f32 = 0.0,
     cache_hit: bool = false,
     lt_plan_cache_hit: bool = false,
+    lt_algo_cache_hit: bool = false,
     fingerprint: u64 = 0,
 
     pub fn valid(report: CudaDeviceGemmReportSnapshot) bool {
@@ -83,6 +84,7 @@ fn recordCudaDeviceGemmReport(report: anytype) void {
         .beta = report.beta,
         .cache_hit = report.cache_hit,
         .lt_plan_cache_hit = report.lt_plan_cache_hit,
+        .lt_algo_cache_hit = report.lt_algo_cache_hit,
         .fingerprint = report.fingerprint(),
     };
 }
@@ -2809,9 +2811,10 @@ test "Axiom CUDA bridge snapshots last GEMM plan-cache evidence" {
         beta: f32 = 1.0,
         cache_hit: bool = true,
         lt_plan_cache_hit: bool = true,
+        lt_algo_cache_hit: bool = true,
 
         fn fingerprint(report: @This()) u64 {
-            return if (report.lt_plan_cache_hit) 0xa11c_acc1_c061_a501 else 0;
+            return if (report.lt_plan_cache_hit and report.lt_algo_cache_hit) 0xa11c_acc1_c061_a501 else 0;
         }
     };
     recordCudaDeviceGemmReport(StubReport{});
@@ -2825,6 +2828,7 @@ test "Axiom CUDA bridge snapshots last GEMM plan-cache evidence" {
     try std.testing.expectEqual(@as(usize, 6), snapshot.k);
     try std.testing.expect(snapshot.cache_hit);
     try std.testing.expect(snapshot.lt_plan_cache_hit);
+    try std.testing.expect(snapshot.lt_algo_cache_hit);
     try std.testing.expectEqual(@as(u64, 0xa11c_acc1_c061_a501), snapshot.fingerprint);
 
     resetLastCudaDeviceGemmReport();

@@ -412,7 +412,7 @@ fn printResult(comptime T: type, writer: *std.Io.Writer, backend: []const u8, ro
     defer y.allocator.free(sample);
     const gemm_report: vx.axiom_cuda.CudaDeviceGemmReportSnapshot = if (std.mem.eql(u8, backend, "cuda")) vx.axiom_cuda.lastCudaDeviceGemmReport() else .{};
     try writer.print(
-        "{{\"backend\":\"{s}\",\"route\":\"{s}\",\"dtype\":\"{s}\",\"op\":\"{s}\",\"shape\":[{d},{d}],\"iters\":{d},\"elapsed_us\":{d},\"avg_us\":{d:.3},\"retain_outputs\":{},\"axiom_gemm_report_valid\":{},\"axiom_gemm_backend\":\"{s}\",\"axiom_cache_hit\":{},\"lt_plan_cache_hit\":{},\"axiom_gemm_report_fingerprint\":{d},\"first\":{d:.6},\"sample_checksum\":{d:.6},\"ok\":true}}\n",
+        "{{\"backend\":\"{s}\",\"route\":\"{s}\",\"dtype\":\"{s}\",\"op\":\"{s}\",\"shape\":[{d},{d}],\"iters\":{d},\"elapsed_us\":{d},\"avg_us\":{d:.3},\"retain_outputs\":{},\"axiom_gemm_report_valid\":{},\"axiom_gemm_backend\":\"{s}\",\"axiom_cache_hit\":{},\"lt_plan_cache_hit\":{},\"lt_algo_cache_hit\":{},\"axiom_gemm_report_fingerprint\":{d},\"first\":{d:.6},\"sample_checksum\":{d:.6},\"ok\":true}}\n",
         .{
             backend,
             route,
@@ -428,6 +428,7 @@ fn printResult(comptime T: type, writer: *std.Io.Writer, backend: []const u8, ro
             gemm_report.backend,
             gemm_report.cache_hit,
             gemm_report.lt_plan_cache_hit,
+            gemm_report.lt_algo_cache_hit,
             gemm_report.fingerprint,
             valueAsF64(T, sample[0]),
             sampleChecksum(T, sample),
