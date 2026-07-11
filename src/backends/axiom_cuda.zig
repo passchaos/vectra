@@ -1762,6 +1762,33 @@ pub fn tryDeviceMatmulF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) 
     return null;
 }
 
+pub fn tryDeviceMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    resetLastCudaDeviceGemmReport();
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0 or lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0] or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const report = runtime.runCudaDeviceF16Gemm(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch null;
+    if (report) |value| {
+        recordCudaDeviceGemmReport(value);
+        if (value.valid()) return out;
+    }
+    return null;
+}
+
 pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     resetLastCudaDeviceGemmReport();
     if (!build_options.enable_axiom_cuda) return null;
@@ -1838,6 +1865,40 @@ pub fn tryDeviceMatmulAddF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64
     return null;
 }
 
+pub fn tryDeviceMatmulAddF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16), addend: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    resetLastCudaDeviceGemmReport();
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !addend.device.isCuda()) return null;
+    if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(addend.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0 or addend.data.len != 0) return null;
+    if (lhs.shape.len != 2 or rhs.shape.len != 2 or addend.shape.len != 2) return null;
+    if (lhs.shape[1] != rhs.shape[0] or addend.shape[0] != lhs.shape[0] or addend.shape[1] != rhs.shape[1]) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous() or !addend.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    const add_storage = addend.device_storage orelse return null;
+    if (lhs_storage.len == 0 or rhs_storage.len == 0 or add_storage.len == 0) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+
+    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const report = runtime.runCudaDeviceF16GemmLtMatmulAdd(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr) catch null;
+    if (report) |value| {
+        recordCudaDeviceGemmReport(value);
+        if (value.valid()) return out;
+    }
+    out.deinit();
+    return null;
+}
+
 pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     resetLastCudaDeviceGemmReport();
     if (!build_options.enable_axiom_cuda) return null;
@@ -1881,6 +1942,14 @@ pub fn runPendingMatmulBF16(allocator: std.mem.Allocator, device: array_mod.Devi
     return report.valid();
 }
 
+pub fn runPendingMatmulF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
+    resetLastCudaDeviceGemmReport();
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const report = runtime.runCudaDeviceF16Gemm(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr) catch return error.BackendFailure;
+    recordCudaDeviceGemmReport(report);
+    return report.valid();
+}
+
 pub fn runPendingMatmulF64(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
@@ -1901,6 +1970,14 @@ pub fn runPendingMatmulAddBF16(allocator: std.mem.Allocator, device: array_mod.D
     resetLastCudaDeviceGemmReport();
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
     const report = runtime.runCudaDeviceBf16GemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    recordCudaDeviceGemmReport(report);
+    return report.valid();
+}
+
+pub fn runPendingMatmulAddF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
+    resetLastCudaDeviceGemmReport();
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const report = runtime.runCudaDeviceF16GemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }
@@ -1999,6 +2076,7 @@ pub fn tryMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat
 }
 
 pub fn tryMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (try tryDeviceMatmulF16(lhs, rhs)) |out| return out;
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedMatmul2dContiguousF16(lhs, rhs)) return null;
     if (try tryMatmulF16AxiomTypedSimtSeed(lhs, rhs)) |out| return out;

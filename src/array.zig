@@ -14723,7 +14723,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn pendingCudaMatmul(lhs: Self, rhs: Self, out_shape: []const usize) ArrayError!Self {
-            if (comptime T != f32 and T != f64 and T != BFloat16) return error.TypeUnsupported;
+            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return error.TypeUnsupported;
             const lhs_storage = lhs.device_storage orelse return error.InvalidDevice;
             const rhs_storage = rhs.device_storage orelse return error.InvalidDevice;
             const shape = try lhs.allocator.dupe(usize, out_shape);
@@ -14803,6 +14803,8 @@ pub fn Array(comptime T: type) type {
                     try axiom_cuda_backend.runPendingMatmulAddF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
                 else if (comptime T == f64)
                     try axiom_cuda_backend.runPendingMatmulAddF64(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
+                else if (comptime T == f16)
+                    try axiom_cuda_backend.runPendingMatmulAddF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
                 else if (comptime T == BFloat16)
                     try axiom_cuda_backend.runPendingMatmulAddBF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
                 else
@@ -14812,6 +14814,8 @@ pub fn Array(comptime T: type) type {
                     try axiom_cuda_backend.runPendingMatmulF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
                 else if (comptime T == f64)
                     try axiom_cuda_backend.runPendingMatmulF64(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
+                else if (comptime T == f16)
+                    try axiom_cuda_backend.runPendingMatmulF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
                 else if (comptime T == BFloat16)
                     try axiom_cuda_backend.runPendingMatmulBF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
                 else
@@ -14822,7 +14826,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn tryFusePendingMatmulAdd(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!?Self {
-            if (comptime T != f32 and T != f64 and T != BFloat16) return null;
+            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
             if (self.pending_matmul == null) return null;
             if (comptime op != opAdd and op != opSub) return null;
             if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
@@ -14855,7 +14859,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn tryFusePendingMatmulRSub(self: Self, other: Self) ArrayError!?Self {
-            if (comptime T != f32 and T != BFloat16) return null;
+            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
             if (self.pending_matmul == null) return null;
             if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
             if (!self.device.isCuda() or !other.device.isCuda() or !self.device.sameDevice(other.device)) return null;
@@ -15087,7 +15091,7 @@ pub fn Array(comptime T: type) type {
             }
             if (self.device.isCuda()) {
                 if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
-                if (comptime T != f32 and T != f64 and T != BFloat16) return error.TypeUnsupported;
+                if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return error.TypeUnsupported;
                 const maybe_op: ?axiom_cuda_backend.BinaryOp = if (comptime op == opAdd)
                     axiom_cuda_backend.BinaryOp.add
                 else if (comptime op == opSub)
@@ -20322,7 +20326,7 @@ pub fn Array(comptime T: type) type {
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             if (self.device.isCuda()) {
                 if (lhs_vec or rhs_vec) return error.TypeUnsupported;
-                if (comptime T == f32 or T == f64 or T == BFloat16) {
+                if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                     return try Self.pendingCudaMatmul(self, other, &.{ self.shape[0], other.shape[1] });
                 }
                 return error.TypeUnsupported;
