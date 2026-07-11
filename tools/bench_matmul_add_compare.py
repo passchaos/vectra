@@ -35,6 +35,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup", type=int, default=None)
     parser.add_argument("--iters", type=int, default=None)
     parser.add_argument("--dtype", choices=("f32", "f64", "f16", "bf16"), default="f32")
+    parser.add_argument(
+        "--op",
+        choices=("all", "matmul", "matmul_add", "matmul_then_add", "matmul_then_sub", "matmul_then_add_sqrt", "matmul_then_add_exp"),
+        default="all",
+        help="Optionally isolate one Vectra large_matmul_add op; default runs all Vectra ops.",
+    )
     parser.add_argument("--backend", choices=("cuda",), default="cuda")
     parser.add_argument("--torch-compile-mode", default="reduce-overhead", help="Mode passed to torch.compile.")
     parser.add_argument("--skip-torch-compile", action="store_true")
@@ -86,6 +92,8 @@ def run_vectra(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, it
         f"--iters={iters}",
         "--require-cuda",
     ]
+    if args.op != "all":
+        cmd.append(f"--op={args.op}")
     started = time.perf_counter()
     proc = subprocess.run(cmd, cwd=args.repo, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elapsed_ms = (time.perf_counter() - started) * 1000.0
@@ -256,6 +264,7 @@ def main() -> None:
         "warmup": warmup,
         "iters": iters,
         "dtype": args.dtype,
+        "op": args.op,
         "repo": str(args.repo),
         "baseline": args.baseline,
         "max_ratio": args.max_ratio,

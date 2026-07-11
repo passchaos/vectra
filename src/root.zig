@@ -115,6 +115,11 @@ pub fn matmul(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
 pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
+    if (lhs.device.isCuda()) {
+        var product = try matmul(lhs, rhs);
+        defer product.deinit();
+        return add(product, addend);
+    }
     if (comptime @TypeOf(lhs) == Array(f32)) {
         if (try tryCpuMatmulAddF32(@as(Array(f32), lhs), @as(Array(f32), rhs), @as(Array(f32), addend))) |out| {
             return @as(@TypeOf(lhs), out);

@@ -210,6 +210,7 @@ zig build bench --release=fast
 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 \
 python3 tools/bench_numpy_torch.py
 python3 tools/bench_matmul_add_compare.py --smoke
+python3 tools/bench_matmul_add_compare.py --smoke --op matmul_add --dtype f16
 python3 tools/bench_matmul_add_compare.py --execute --m 16384 --n 4096 --k 4096 --warmup 3 --iters 5 --max-ratio 1.05
 zig build bench-matmul-add-compare-smoke
 zig build bench-matmul-add-compare-production
@@ -224,7 +225,8 @@ The current high-value benchmark set covers large f64 elementwise/scalar ops, fl
 (`--dtype=f32/f64/f16/bf16`) and
 shape through Vectra/Axiom `large_matmul_add`, PyTorch `torch.addmm`, eager
 `a @ b + c`, and `torch.compile`, so matmul+add performance work has a
-repeatable local PyTorch/torch.compile baseline.  Pass `--baseline` and
+repeatable local PyTorch/torch.compile baseline. Pass `--op` to isolate one
+Vectra expression when tuning kernel launch/algorithm effects. Pass `--baseline` and
 `--max-ratio` to turn the comparison into a failing performance gate based on
 Vectra `matmul_add` / `matmul_then_add` average time divided by the selected
 PyTorch baseline.

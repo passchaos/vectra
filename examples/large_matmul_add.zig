@@ -44,24 +44,24 @@ pub fn main(init: std.process.Init) !void {
     var stdout_buffer: [8192]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
 
-    try printPlan(&stdout.interface, args.mode, args.backend, dtype_filter, shape, warmup, iters, args.retain_outputs);
+    try printPlan(&stdout.interface, args.mode, args.backend, dtype_filter, args.op, shape, warmup, iters, args.retain_outputs);
     if (args.mode == .dry_run) return stdout.interface.flush();
 
     const allocator = std.heap.smp_allocator;
     if (args.backend == .cpu or args.backend == .both) {
-        if (dtypeIncluded(dtype_filter, .f32)) try runCpuDtype(f32, "f32", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs);
-        if (dtypeIncluded(dtype_filter, .f64)) try runCpuDtype(f64, "f64", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs);
-        if (dtypeIncluded(dtype_filter, .f16)) try runCpuDtype(f16, "f16", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs);
-        if (dtypeIncluded(dtype_filter, .bf16)) try runCpuDtype(vx.BFloat16, "bf16", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs);
+        if (dtypeIncluded(dtype_filter, .f32)) try runCpuDtype(f32, "f32", init, &stdout.interface, allocator, shape, warmup, iters, args.op, args.retain_outputs);
+        if (dtypeIncluded(dtype_filter, .f64)) try runCpuDtype(f64, "f64", init, &stdout.interface, allocator, shape, warmup, iters, args.op, args.retain_outputs);
+        if (dtypeIncluded(dtype_filter, .f16)) try runCpuDtype(f16, "f16", init, &stdout.interface, allocator, shape, warmup, iters, args.op, args.retain_outputs);
+        if (dtypeIncluded(dtype_filter, .bf16)) try runCpuDtype(vx.BFloat16, "bf16", init, &stdout.interface, allocator, shape, warmup, iters, args.op, args.retain_outputs);
     }
 
     const gpu = vx.cuda(0);
     if (args.backend == .cuda or args.backend == .both) {
         if (gpu.isAvailable()) {
-            if (dtypeIncluded(dtype_filter, .f32)) try runCudaF32(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
-            if (dtypeIncluded(dtype_filter, .f64)) try runCudaF64(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
-            if (dtypeIncluded(dtype_filter, .f16)) try runCudaF16(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
-            if (dtypeIncluded(dtype_filter, .bf16)) try runCudaBf16(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
+            if (dtypeIncluded(dtype_filter, .f32)) try runCudaF32(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.op, args.retain_outputs);
+            if (dtypeIncluded(dtype_filter, .f64)) try runCudaF64(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.op, args.retain_outputs);
+            if (dtypeIncluded(dtype_filter, .f16)) try runCudaF16(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.op, args.retain_outputs);
+            if (dtypeIncluded(dtype_filter, .bf16)) try runCudaBf16(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.op, args.retain_outputs);
         } else if (args.backend == .cuda and args.require_cuda) {
             return error.CudaDisabled;
         } else {
@@ -79,6 +79,7 @@ const Args = struct {
     require_cuda: bool = false,
     retain_outputs: bool = false,
     allow_slow_typed_cuda: bool = false,
+    op: ?BenchOp = null,
     warmup: ?usize = null,
     iters: ?usize = null,
     m: ?usize = null,
@@ -103,6 +104,10 @@ fn parseArgs(init: std.process.Init) !Args {
             parsed.retain_outputs = true;
         } else if (std.mem.eql(u8, arg, "--allow-slow-typed-cuda")) {
             parsed.allow_slow_typed_cuda = true;
+        } else if (std.mem.startsWith(u8, arg, "--op=")) {
+            parsed.op = parseBenchOp(arg["--op=".len..]) orelse return error.InvalidOp;
+        } else if (std.mem.eql(u8, arg, "--op")) {
+            parsed.op = parseBenchOp(it.next() orelse return error.MissingOp) orelse return error.InvalidOp;
         } else if (std.mem.startsWith(u8, arg, "--warmup=")) {
             parsed.warmup = try parsePositiveOrZero(arg["--warmup=".len..]);
         } else if (std.mem.eql(u8, arg, "--warmup")) {
@@ -170,6 +175,17 @@ fn dtypeIncluded(filter: DTypeFilter, dtype: DTypeFilter) bool {
     return filter == .all or filter == dtype;
 }
 
+fn parseBenchOp(value: []const u8) ?BenchOp {
+    inline for (.{ BenchOp.matmul, BenchOp.matmul_add, BenchOp.matmul_then_add, BenchOp.matmul_then_sub, BenchOp.matmul_then_add_sqrt, BenchOp.matmul_then_add_exp }) |op| {
+        if (std.mem.eql(u8, value, op.label())) return op;
+    }
+    return null;
+}
+
+fn opIncluded(filter: ?BenchOp, op: BenchOp) bool {
+    return filter == null or filter.? == op;
+}
+
 fn runCpuDtype(
     comptime T: type,
     dtype_name: []const u8,
@@ -179,6 +195,7 @@ fn runCpuDtype(
     shape: Shape,
     warmup: usize,
     iters: usize,
+    op_filter: ?BenchOp,
     retain_outputs: bool,
 ) !void {
     var np = vx.withAllocator(allocator);
@@ -189,12 +206,12 @@ fn runCpuDtype(
     var c = try np.ones(T, &.{ shape.m, shape.n });
     defer c.deinit();
     const route = vx.axiom_backend.selectMatmul(T, .prefer_axiom_cpu, a, b).selected.label();
-    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul, a, b, null, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cpu", route, dtype_name, .matmul_then_add_exp, a, b, c, warmup, iters, op_filter, retain_outputs);
 }
 
 fn runCudaF32(
@@ -205,6 +222,7 @@ fn runCudaF32(
     shape: Shape,
     warmup: usize,
     iters: usize,
+    op_filter: ?BenchOp,
     retain_outputs: bool,
 ) !void {
     var np = vx.withAllocator(allocator);
@@ -214,12 +232,12 @@ fn runCudaF32(
     defer b.deinit();
     var c = try np.onesWith(vx.onDevice(f32, gpu), &.{ shape.m, shape.n });
     defer c.deinit();
-    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul, a, b, null, warmup, iters, retain_outputs);
-    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_plus_unary", "f32", .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_plus_unary", "f32", .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_plus_unary", "f32", .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_plus_unary", "f32", .matmul_then_add_exp, a, b, c, warmup, iters, op_filter, retain_outputs);
 }
 
 fn runCudaF64(
@@ -230,6 +248,7 @@ fn runCudaF64(
     shape: Shape,
     warmup: usize,
     iters: usize,
+    op_filter: ?BenchOp,
     retain_outputs: bool,
 ) !void {
     var np = vx.withAllocator(allocator);
@@ -239,12 +258,12 @@ fn runCudaF64(
     defer b.deinit();
     var c = try np.onesWith(vx.onDevice(f64, gpu), &.{ shape.m, shape.n });
     defer c.deinit();
-    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublas", "f64", .matmul, a, b, null, warmup, iters, retain_outputs);
-    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublaslt", "f64", .matmul_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused_plus_unary", "f64", .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
-    try printSkipped(writer, "cuda", "f64", "matmul_then_add_exp", "cuda_f64_unary_postop_not_exposed");
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublas", "f64", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublaslt", "f64", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused_plus_unary", "f64", .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
+    if (opIncluded(op_filter, .matmul_then_add_exp)) try printSkipped(writer, "cuda", "f64", "matmul_then_add_exp", "cuda_f64_unary_postop_not_exposed");
 }
 
 fn runCudaF16(
@@ -255,6 +274,7 @@ fn runCudaF16(
     shape: Shape,
     warmup: usize,
     iters: usize,
+    op_filter: ?BenchOp,
     retain_outputs: bool,
 ) !void {
     var np = vx.withAllocator(allocator);
@@ -264,12 +284,12 @@ fn runCudaF16(
     defer b.deinit();
     var c = try np.onesWith(vx.onDevice(f16, gpu), &.{ shape.m, shape.n });
     defer c.deinit();
-    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_cublas", "f16", .matmul, a, b, null, warmup, iters, retain_outputs);
-    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_cublaslt", "f16", .matmul_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused", "f16", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused", "f16", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused_plus_unary", "f16", .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused_plus_unary", "f16", .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_cublas", "f16", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_cublaslt", "f16", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused", "f16", .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused", "f16", .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused_plus_unary", "f16", .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused_plus_unary", "f16", .matmul_then_add_exp, a, b, c, warmup, iters, op_filter, retain_outputs);
 }
 
 fn runCudaBf16(
@@ -280,6 +300,7 @@ fn runCudaBf16(
     shape: Shape,
     warmup: usize,
     iters: usize,
+    op_filter: ?BenchOp,
     retain_outputs: bool,
 ) !void {
     const value = vx.BFloat16.fromF32(0.01);
@@ -289,12 +310,12 @@ fn runCudaBf16(
     defer b.deinit();
     var c = try vx.Array(vx.BFloat16).fullOn(allocator, &.{ shape.m, shape.n }, value, gpu);
     defer c.deinit();
-    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul, a, b, null, warmup, iters, retain_outputs);
-    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused_plus_unary", "bf16", .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused_plus_unary", "bf16", .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_cublas", "bf16", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused", "bf16", .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused_plus_unary", "bf16", .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(vx.BFloat16, init, writer, allocator, "cuda", "axiom_cuda_device_bf16_auto_fused_plus_unary", "bf16", .matmul_then_add_exp, a, b, c, warmup, iters, op_filter, retain_outputs);
 }
 
 fn runCudaHostDtype(
@@ -306,16 +327,17 @@ fn runCudaHostDtype(
     shape: Shape,
     warmup: usize,
     iters: usize,
+    op_filter: ?BenchOp,
     retain_outputs: bool,
     allow_slow_typed_cuda: bool,
 ) !void {
     if (!allow_slow_typed_cuda and slowTypedCudaShape(shape)) {
-        try printSkipped(writer, "cuda", dtype_name, "matmul", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
-        try printSkipped(writer, "cuda", dtype_name, "matmul_add", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
-        try printSkipped(writer, "cuda", dtype_name, "matmul_then_add", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
-        try printSkipped(writer, "cuda", dtype_name, "matmul_then_sub", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
-        try printSkipped(writer, "cuda", dtype_name, "matmul_then_add_sqrt", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
-        try printSkipped(writer, "cuda", dtype_name, "matmul_then_add_exp", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        if (opIncluded(op_filter, .matmul)) try printSkipped(writer, "cuda", dtype_name, "matmul", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        if (opIncluded(op_filter, .matmul_add)) try printSkipped(writer, "cuda", dtype_name, "matmul_add", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        if (opIncluded(op_filter, .matmul_then_add)) try printSkipped(writer, "cuda", dtype_name, "matmul_then_add", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        if (opIncluded(op_filter, .matmul_then_sub)) try printSkipped(writer, "cuda", dtype_name, "matmul_then_sub", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        if (opIncluded(op_filter, .matmul_then_add_sqrt)) try printSkipped(writer, "cuda", dtype_name, "matmul_then_add_sqrt", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
+        if (opIncluded(op_filter, .matmul_then_add_exp)) try printSkipped(writer, "cuda", dtype_name, "matmul_then_add_exp", "typed_host_cuda_path_slow_for_shape_use_smaller_shape_or_allow_slow_typed_cuda");
         return;
     }
     var np = vx.withAllocator(allocator);
@@ -325,12 +347,12 @@ fn runCudaHostDtype(
     defer b.deinit();
     var c = try np.ones(T, &.{ shape.m, shape.n });
     defer c.deinit();
-    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul, a, b, null, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
-    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_sub, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add_sqrt, a, b, c, warmup, iters, op_filter, retain_outputs);
+    try runBenchmark(T, init, writer, allocator, "cuda", "axiom_cuda_host_typed", dtype_name, .matmul_then_add_exp, a, b, c, warmup, iters, op_filter, retain_outputs);
 }
 
 fn runBenchmark(
@@ -347,8 +369,10 @@ fn runBenchmark(
     c: ?vx.Array(T),
     warmup: usize,
     iters: usize,
+    op_filter: ?BenchOp,
     retain_outputs: bool,
 ) !void {
+    if (!opIncluded(op_filter, op)) return;
     for (0..warmup) |_| {
         vx.axiom_cuda.resetLastCudaDeviceGemmReport();
         var warm = try computeOp(T, op, a, b, c);
@@ -436,10 +460,11 @@ fn computeOp(comptime T: type, op: BenchOp, a: vx.Array(T), b: vx.Array(T), c: ?
     return out;
 }
 
-fn printPlan(writer: *std.Io.Writer, mode: Mode, backend: Backend, dtype_filter: DTypeFilter, shape: Shape, warmup: usize, iters: usize, retain_outputs: bool) !void {
+fn printPlan(writer: *std.Io.Writer, mode: Mode, backend: Backend, dtype_filter: DTypeFilter, op_filter: ?BenchOp, shape: Shape, warmup: usize, iters: usize, retain_outputs: bool) !void {
+    const op_name = if (op_filter) |op| op.label() else "all";
     try writer.print(
-        "{{\"example\":\"large_matmul_add\",\"mode\":\"{s}\",\"backend\":\"{s}\",\"dtype\":\"{s}\",\"m\":{d},\"n\":{d},\"k\":{d},\"expressions\":[\"Y=A@B\",\"Y=A@B+C\",\"tmp=A@B;Y=tmp+C\",\"tmp=A@B;Y=tmp-C\",\"tmp=A@B;Y=sqrt(tmp+C)\",\"tmp=A@B;Y=exp(chain)\"],\"axiom_enabled\":{},\"cuda_available\":{},\"warmup\":{d},\"iters\":{d},\"retain_outputs\":{},\"dry_run\":{}}}\n",
-        .{ @tagName(mode), @tagName(backend), @tagName(dtype_filter), shape.m, shape.n, shape.k, vx.axiom_cuda.enabled(), vx.cuda(0).isAvailable(), warmup, iters, retain_outputs, mode == .dry_run },
+        "{{\"example\":\"large_matmul_add\",\"mode\":\"{s}\",\"backend\":\"{s}\",\"dtype\":\"{s}\",\"op_filter\":\"{s}\",\"m\":{d},\"n\":{d},\"k\":{d},\"expressions\":[\"Y=A@B\",\"Y=A@B+C\",\"tmp=A@B;Y=tmp+C\",\"tmp=A@B;Y=tmp-C\",\"tmp=A@B;Y=sqrt(tmp+C)\",\"tmp=A@B;Y=exp(chain)\"],\"axiom_enabled\":{},\"cuda_available\":{},\"warmup\":{d},\"iters\":{d},\"retain_outputs\":{},\"dry_run\":{}}}\n",
+        .{ @tagName(mode), @tagName(backend), @tagName(dtype_filter), op_name, shape.m, shape.n, shape.k, vx.axiom_cuda.enabled(), vx.cuda(0).isAvailable(), warmup, iters, retain_outputs, mode == .dry_run },
     );
 }
 
