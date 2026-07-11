@@ -354,6 +354,7 @@ fn runBenchmark(
         var warm = try computeOp(T, op, a, b, c);
         warm.deinit();
     }
+    if (a.device.isCuda()) try vx.axiom_cuda.synchronizeDevice(allocator, a.device);
 
     if (retain_outputs) {
         const begin = std.Io.Timestamp.now(init.io, .real);
@@ -369,6 +370,7 @@ fn runBenchmark(
             vx.axiom_cuda.resetLastCudaDeviceGemmReport();
             retained[i] = try computeOp(T, op, a, b, c);
         }
+        if (a.device.isCuda()) try vx.axiom_cuda.synchronizeDevice(allocator, a.device);
         const elapsed_us = begin.untilNow(init.io, .real).toMicroseconds();
         try printResult(T, writer, backend, route, dtype_name, op.label(), retained[iters - 1].?, elapsed_us, iters, retain_outputs);
     } else {
@@ -384,6 +386,7 @@ fn runBenchmark(
             vx.axiom_cuda.resetLastCudaDeviceGemmReport();
             y = try computeOp(T, op, a, b, c);
         }
+        if (a.device.isCuda()) try vx.axiom_cuda.synchronizeDevice(allocator, a.device);
 
         const elapsed_us = begin.untilNow(init.io, .real).toMicroseconds();
         try printResult(T, writer, backend, route, dtype_name, op.label(), y.?, elapsed_us, iters, retain_outputs);

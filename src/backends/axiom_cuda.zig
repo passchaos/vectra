@@ -69,6 +69,12 @@ pub fn lastCudaDeviceGemmReport() CudaDeviceGemmReportSnapshot {
     return last_cuda_device_gemm_report;
 }
 
+pub fn synchronizeDevice(allocator: std.mem.Allocator, device: array_mod.Device) array_mod.ArrayError!void {
+    if (!build_options.enable_axiom_cuda or !device.isCuda()) return error.InvalidDevice;
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    runtime.synchronizeCudaDevice(device.index) catch return error.BackendFailure;
+}
+
 fn recordCudaDeviceGemmReport(report: anytype) void {
     last_cuda_device_gemm_report = .{
         .ok = report.ok,
