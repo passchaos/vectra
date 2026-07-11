@@ -6630,6 +6630,20 @@ pub fn ArrayView(comptime T: type) type {
             return self.softmaxDim(dim_index);
         }
 
+        pub fn softmin(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.softmin(axis_index);
+        }
+
+        pub fn softminDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.softmin(dim_index);
+        }
+
+        pub fn softmin_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.softminDim(dim_index);
+        }
+
         pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -6710,6 +6724,24 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn log_softmax_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
             return self.logSoftmaxDim(dim_index);
+        }
+
+        pub fn logSoftmin(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.logSoftmin(axis_index);
+        }
+
+        pub fn log_softmin(self: Self, axis_index: isize) ArrayError!Array(T) {
+            return self.logSoftmin(axis_index);
+        }
+
+        pub fn logSoftminDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.logSoftmin(dim_index);
+        }
+
+        pub fn log_softmin_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.logSoftminDim(dim_index);
         }
 
         pub fn nllLoss(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
@@ -17153,6 +17185,25 @@ pub fn Array(comptime T: type) type {
             return self.logSoftmaxDim(dim_index);
         }
 
+        pub fn logSoftmin(self: Self, axis_index: isize) ArrayError!Self {
+            ensureFloat(T);
+            var negated = try self.neg();
+            defer negated.deinit();
+            return negated.logSoftmax(axis_index);
+        }
+
+        pub fn log_softmin(self: Self, axis_index: isize) ArrayError!Self {
+            return self.logSoftmin(axis_index);
+        }
+
+        pub fn logSoftminDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.logSoftmin(dim_index);
+        }
+
+        pub fn log_softmin_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.logSoftminDim(dim_index);
+        }
+
         fn nllLossValue(self: Self, targets: Array(usize), axis: usize, flat_index: usize, target_multi: []usize, input_multi: []usize) ArrayError!T {
             const class_count = self.shape[axis];
             const target_class = targets.data[flat_index];
@@ -21691,6 +21742,21 @@ pub fn Array(comptime T: type) type {
 
         pub fn softmax_dim(self: Self, dim_index: isize) ArrayError!Self {
             return self.softmaxDim(dim_index);
+        }
+
+        pub fn softmin(self: Self, axis_index: isize) ArrayError!Self {
+            ensureFloat(T);
+            var negated = try self.neg();
+            defer negated.deinit();
+            return negated.softmax(axis_index);
+        }
+
+        pub fn softminDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.softmin(dim_index);
+        }
+
+        pub fn softmin_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.softminDim(dim_index);
         }
 
         pub const SortResult = struct {
@@ -28629,6 +28695,26 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[1], 1e-12);
 
+    var softmin_probs = try logits.softmin(1);
+    defer softmin_probs.deinit();
+    var softmin_row_sums = try softmin_probs.sumDim(1, false);
+    defer softmin_row_sums.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), softmin_row_sums.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), softmin_row_sums.data[1], 1e-12);
+    var neg_logits = try logits.neg();
+    defer neg_logits.deinit();
+    var expected_softmin = try neg_logits.softmax(1);
+    defer expected_softmin.deinit();
+    try expectApproxEqualSlices(f64, expected_softmin.data, softmin_probs.data, 1e-12);
+    var log_softmin = try logits.logSoftmin(1);
+    defer log_softmin.deinit();
+    var expected_log_softmin = try neg_logits.logSoftmax(1);
+    defer expected_log_softmin.deinit();
+    try expectApproxEqualSlices(f64, expected_log_softmin.data, log_softmin.data, 1e-12);
+    var log_softmin_alias = try logits.log_softmin_dim(-1);
+    defer log_softmin_alias.deinit();
+    try expectApproxEqualSlices(f64, log_softmin.data, log_softmin_alias.data, 1e-12);
+
     var class_targets = try Array(usize).fromSlice(gpa, &.{ 2, 0 }, &.{2});
     defer class_targets.deinit();
     var nll_none = try log_probs.nllLoss(class_targets, 1, .none);
@@ -28660,6 +28746,18 @@ test "array logsoftmax norm and matrix helpers" {
     var view_ce = try logits_view.cross_entropy(class_targets, 0, .mean);
     defer view_ce.deinit();
     try std.testing.expectApproxEqAbs(ce_mean.data[0], view_ce.data[0], 1e-12);
+    var view_softmin = try logits_view.softminDim(0);
+    defer view_softmin.deinit();
+    var logits_view_owned = try logits_view.toArray();
+    defer logits_view_owned.deinit();
+    var expected_view_softmin = try logits_view_owned.softmin(0);
+    defer expected_view_softmin.deinit();
+    try expectApproxEqualSlices(f64, expected_view_softmin.data, view_softmin.data, 1e-12);
+    var view_log_softmin = try logits_view.log_softmin(0);
+    defer view_log_softmin.deinit();
+    var expected_view_log_softmin = try logits_view_owned.logSoftmin(0);
+    defer expected_view_log_softmin.deinit();
+    try expectApproxEqualSlices(f64, expected_view_log_softmin.data, view_log_softmin.data, 1e-12);
 
     var bad_targets = try Array(usize).fromSlice(gpa, &.{ 2, 3 }, &.{2});
     defer bad_targets.deinit();
