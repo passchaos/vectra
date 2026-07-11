@@ -6604,6 +6604,26 @@ pub fn ArrayView(comptime T: type) type {
             return self.crossEntropyDim(targets, dim_index, reduction);
         }
 
+        pub fn binaryCrossEntropy(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.binaryCrossEntropy(targets, reduction);
+        }
+
+        pub fn binary_cross_entropy(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            return self.binaryCrossEntropy(targets, reduction);
+        }
+
+        pub fn binaryCrossEntropyWithLogits(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.binaryCrossEntropyWithLogits(targets, reduction);
+        }
+
+        pub fn binary_cross_entropy_with_logits(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            return self.binaryCrossEntropyWithLogits(targets, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -16943,6 +16963,82 @@ pub fn Array(comptime T: type) type {
 
         pub fn cross_entropy_dim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Self {
             return self.crossEntropyDim(targets, dim_index, reduction);
+        }
+
+        fn reducedLoss(self: Self, losses: Self, reduction: LossReduction) ArrayError!Self {
+            _ = self;
+            var owned_losses = losses;
+            return switch (reduction) {
+                .none => owned_losses,
+                .sum => blk: {
+                    defer owned_losses.deinit();
+                    const out = try owned_losses.sum(null, false);
+                    break :blk out;
+                },
+                .mean => blk: {
+                    defer owned_losses.deinit();
+                    const out = try owned_losses.mean(null, false);
+                    break :blk out;
+                },
+            };
+        }
+
+        pub fn binaryCrossEntropy(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var log_probs = try self.log();
+            defer log_probs.deinit();
+            var positive_term = try targets.mul(log_probs);
+            defer positive_term.deinit();
+
+            var one_minus_probs = try self.mulScalar(negValue(T, one(T)));
+            defer one_minus_probs.deinit();
+            try one_minus_probs.addScalarAssign(one(T));
+            var log_one_minus_probs = try one_minus_probs.log();
+            defer log_one_minus_probs.deinit();
+
+            var one_minus_targets = try targets.mulScalar(negValue(T, one(T)));
+            defer one_minus_targets.deinit();
+            try one_minus_targets.addScalarAssign(one(T));
+            var negative_term = try one_minus_targets.mul(log_one_minus_probs);
+            defer negative_term.deinit();
+
+            var total = try positive_term.add(negative_term);
+            defer total.deinit();
+            var losses = try total.neg();
+            errdefer losses.deinit();
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn binary_cross_entropy(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            return self.binaryCrossEntropy(targets, reduction);
+        }
+
+        pub fn binaryCrossEntropyWithLogits(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var max_logits = try self.maximumScalar(zero(T));
+            defer max_logits.deinit();
+            var logits_times_targets = try self.mul(targets);
+            defer logits_times_targets.deinit();
+            var abs_logits = try self.abs();
+            defer abs_logits.deinit();
+            var neg_abs_logits = try abs_logits.neg();
+            defer neg_abs_logits.deinit();
+            var exp_term = try neg_abs_logits.exp();
+            defer exp_term.deinit();
+            try exp_term.addScalarAssign(one(T));
+            var softplus_abs = try exp_term.log();
+            defer softplus_abs.deinit();
+            var partial = try max_logits.sub(logits_times_targets);
+            defer partial.deinit();
+            var losses = try partial.add(softplus_abs);
+            errdefer losses.deinit();
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn binary_cross_entropy_with_logits(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            return self.binaryCrossEntropyWithLogits(targets, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -28206,6 +28302,51 @@ test "array logsoftmax norm and matrix helpers" {
     var empty_targets = try Array(usize).empty(gpa, &.{0});
     defer empty_targets.deinit();
     try std.testing.expectError(error.EmptyArray, empty_logits.crossEntropy(empty_targets, 1, .mean));
+
+    var probabilities = try Array(f64).fromSlice(gpa, &.{ 0.9, 0.2, 0.7, 0.4 }, &.{ 2, 2 });
+    defer probabilities.deinit();
+    var binary_targets = try Array(f64).fromSlice(gpa, &.{ 1, 0, 1, 0 }, &.{ 2, 2 });
+    defer binary_targets.deinit();
+    var bce_none = try probabilities.binaryCrossEntropy(binary_targets, .none);
+    defer bce_none.deinit();
+    try std.testing.expectEqualSlices(usize, probabilities.shape, bce_none.shape);
+    try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 0.9)), bce_none.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 0.8)), bce_none.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 0.7)), bce_none.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 0.6)), bce_none.data[3], 1e-12);
+    var bce_mean = try probabilities.binary_cross_entropy(binary_targets, .mean);
+    defer bce_mean.deinit();
+    try std.testing.expectEqual(@as(usize, 0), bce_mean.shape.len);
+    const expected_bce_mean = (-std.math.log(f64, std.math.e, @as(f64, 0.9)) - std.math.log(f64, std.math.e, @as(f64, 0.8)) - std.math.log(f64, std.math.e, @as(f64, 0.7)) - std.math.log(f64, std.math.e, @as(f64, 0.6))) / 4.0;
+    try std.testing.expectApproxEqAbs(expected_bce_mean, bce_mean.data[0], 1e-12);
+
+    var binary_logits = try Array(f64).fromSlice(gpa, &.{ 2, -1, 0.5, -0.25 }, &.{ 2, 2 });
+    defer binary_logits.deinit();
+    var bce_logits = try binary_logits.binaryCrossEntropyWithLogits(binary_targets, .none);
+    defer bce_logits.deinit();
+    for (binary_logits.data, binary_targets.data, bce_logits.data) |logit, target, actual| {
+        const expected = @max(logit, @as(f64, 0)) - logit * target + std.math.log1p(std.math.exp(-@abs(logit)));
+        try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+    }
+    var bce_logits_sum = try binary_logits.binary_cross_entropy_with_logits(binary_targets, .sum);
+    defer bce_logits_sum.deinit();
+    var expected_logits_sum: f64 = 0;
+    for (bce_logits.data) |value| expected_logits_sum += value;
+    try std.testing.expectApproxEqAbs(expected_logits_sum, bce_logits_sum.data[0], 1e-12);
+    var bce_view_source = try Array(f64).fromSlice(gpa, &.{ 2, 99, -1, 88, 0.5, 77, -0.25, 66 }, &.{ 2, 4 });
+    defer bce_view_source.deinit();
+    var bce_view = try bce_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer bce_view.deinit();
+    var logits_view_bce = try bce_view.binaryCrossEntropyWithLogits(binary_targets, .mean);
+    defer logits_view_bce.deinit();
+    var bce_view_owned = try bce_view.toArray();
+    defer bce_view_owned.deinit();
+    var expected_view_bce = try bce_view_owned.binaryCrossEntropyWithLogits(binary_targets, .mean);
+    defer expected_view_bce.deinit();
+    try std.testing.expectApproxEqAbs(expected_view_bce.data[0], logits_view_bce.data[0], 1e-12);
+    var bad_binary_targets = try Array(f64).fromSlice(gpa, &.{ 1, 0, 1 }, &.{3});
+    defer bad_binary_targets.deinit();
+    try std.testing.expectError(error.ShapeMismatch, probabilities.binaryCrossEntropy(bad_binary_targets, .none));
 
     var v = try Array(f64).fromSlice(gpa, &.{ 3, 4 }, &.{2});
     defer v.deinit();
