@@ -7091,6 +7091,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.multiLabelSoftMarginLoss(targets, reduction);
         }
 
+        pub fn poissonNllLoss(self: Self, targets: Array(T), log_input: bool, full_loss: bool, eps: T, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.poissonNllLoss(targets, log_input, full_loss, eps, reduction);
+        }
+
+        pub fn poisson_nll_loss(self: Self, targets: Array(T), log_input: bool, full_loss: bool, eps: T, reduction: LossReduction) ArrayError!Array(T) {
+            return self.poissonNllLoss(targets, log_input, full_loss, eps, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17992,6 +18002,48 @@ pub fn Array(comptime T: type) type {
 
         pub fn multi_label_soft_margin_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             return self.multiLabelSoftMarginLoss(targets, reduction);
+        }
+
+        pub fn poissonNllLoss(self: Self, targets: Self, log_input: bool, full_loss: bool, eps: T, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            if (!(eps >= zero(T))) return error.InvalidShape;
+            var losses = if (log_input) blk: {
+                var exp_values = try self.exp();
+                defer exp_values.deinit();
+                var target_times_input = try targets.mul(self);
+                defer target_times_input.deinit();
+                break :blk try exp_values.sub(target_times_input);
+            } else blk: {
+                var shifted = try self.addScalar(eps);
+                defer shifted.deinit();
+                var log_values = try shifted.log();
+                defer log_values.deinit();
+                var target_log_values = try targets.mul(log_values);
+                defer target_log_values.deinit();
+                break :blk try self.sub(target_log_values);
+            };
+            errdefer losses.deinit();
+            if (full_loss) {
+                const out_shape = try computeBroadcastShape(self.allocator, losses.shape, targets.shape);
+                defer self.allocator.free(out_shape);
+                if (!std.mem.eql(usize, losses.shape, out_shape)) return error.ShapeMismatch;
+                const multi = try self.allocator.alloc(usize, out_shape.len);
+                defer self.allocator.free(multi);
+                for (losses.data, 0..) |*slot, flat| {
+                    unravelIndexInto(flat, out_shape, multi);
+                    const target_index = broadcastOffset(multi, out_shape.len, targets.shape, targets.strides);
+                    const target_value = targets.data[target_index];
+                    if (target_value > one(T)) {
+                        slot.* += target_value * std.math.log(T, std.math.e, target_value) - target_value + castValue(T, 0.5) * std.math.log(T, std.math.e, castValue(T, 2.0 * std.math.pi) * target_value);
+                    }
+                }
+            }
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn poisson_nll_loss(self: Self, targets: Self, log_input: bool, full_loss: bool, eps: T, reduction: LossReduction) ArrayError!Self {
+            return self.poissonNllLoss(targets, log_input, full_loss, eps, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29824,6 +29876,37 @@ test "array logsoftmax norm and matrix helpers" {
     var bad_multilabel_targets = try Array(f64).zeros(gpa, &.{ 2, 2 });
     defer bad_multilabel_targets.deinit();
     try std.testing.expectError(error.ShapeMismatch, multilabel_logits.multiLabelSoftMarginLoss(bad_multilabel_targets, .none));
+    var poisson_log_input = try Array(f64).fromSlice(gpa, &.{ std.math.log(f64, std.math.e, @as(f64, 2)), std.math.log(f64, std.math.e, @as(f64, 4)) }, &.{2});
+    defer poisson_log_input.deinit();
+    var poisson_targets = try Array(f64).fromSlice(gpa, &.{ 1, 3 }, &.{2});
+    defer poisson_targets.deinit();
+    var poisson_log_loss = try poisson_log_input.poissonNllLoss(poisson_targets, true, false, 1e-8, .none);
+    defer poisson_log_loss.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2) - std.math.log(f64, std.math.e, @as(f64, 2)), poisson_log_loss.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4) - @as(f64, 3) * std.math.log(f64, std.math.e, @as(f64, 4)), poisson_log_loss.data[1], 1e-12);
+    var poisson_rate = try Array(f64).fromSlice(gpa, &.{ 2, 4 }, &.{2});
+    defer poisson_rate.deinit();
+    var poisson_rate_loss = try poisson_rate.poisson_nll_loss(poisson_targets, false, false, 1e-8, .none);
+    defer poisson_rate_loss.deinit();
+    try expectApproxEqualSlices(f64, poisson_log_loss.data, poisson_rate_loss.data, 1e-7);
+    var poisson_full = try poisson_rate.poissonNllLoss(poisson_targets, false, true, 1e-8, .sum);
+    defer poisson_full.deinit();
+    const stirling_three = @as(f64, 3) * std.math.log(f64, std.math.e, @as(f64, 3)) - @as(f64, 3) + @as(f64, 0.5) * std.math.log(f64, std.math.e, @as(f64, 2.0 * std.math.pi * 3.0));
+    try std.testing.expectApproxEqAbs(poisson_rate_loss.data[0] + poisson_rate_loss.data[1] + stirling_three, poisson_full.data[0], 1e-7);
+    var poisson_view_source = try Array(f64).fromSlice(gpa, &.{ 2, 99, 4, 88 }, &.{ 1, 4 });
+    defer poisson_view_source.deinit();
+    var poisson_view = try poisson_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer poisson_view.deinit();
+    var poisson_view_targets = try Array(f64).fromSlice(gpa, &.{ 1, 3 }, &.{ 1, 2 });
+    defer poisson_view_targets.deinit();
+    var poisson_view_loss = try poisson_view.poisson_nll_loss(poisson_view_targets, false, false, 1e-8, .none);
+    defer poisson_view_loss.deinit();
+    var poisson_view_owned = try poisson_view.toArray();
+    defer poisson_view_owned.deinit();
+    var expected_poisson_view = try poisson_view_owned.poissonNllLoss(poisson_view_targets, false, false, 1e-8, .none);
+    defer expected_poisson_view.deinit();
+    try expectApproxEqualSlices(f64, expected_poisson_view.data, poisson_view_loss.data, 1e-12);
+    try std.testing.expectError(error.InvalidShape, poisson_rate.poissonNllLoss(poisson_targets, false, false, -1e-8, .mean));
     var robust_predictions = try Array(f64).fromSlice(gpa, &.{ -2, -0.5, 0.5, 3 }, &.{4});
     defer robust_predictions.deinit();
     var robust_targets = try Array(f64).zeros(gpa, &.{4});
