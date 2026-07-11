@@ -4236,6 +4236,20 @@ pub fn ArrayView(comptime T: type) type {
             return self.tanhshrink();
         }
 
+        pub fn glu(self: Self, axis_index: isize) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.glu(axis_index);
+        }
+
+        pub fn gluDim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.glu(dim_index);
+        }
+
+        pub fn glu_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
+            return self.gluDim(dim_index);
+        }
+
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Array(T) {
             ensureNumeric(T);
             var out = try Array(T).empty(self.allocator, self.shape);
@@ -16977,6 +16991,28 @@ pub fn Array(comptime T: type) type {
             return self.tanhshrink();
         }
 
+        pub fn glu(self: Self, axis_index: isize) ArrayError!Self {
+            ensureFloat(T);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (self.shape[axis] == 0 or self.shape[axis] % 2 != 0) return error.InvalidShape;
+            const half = self.shape[axis] / 2;
+            var first = try self.narrow(@intCast(axis), 0, half);
+            defer first.deinit();
+            var second = try self.narrow(@intCast(axis), half, half);
+            defer second.deinit();
+            var gate = try second.sigmoid();
+            defer gate.deinit();
+            return first.mul(gate);
+        }
+
+        pub fn gluDim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.glu(dim_index);
+        }
+
+        pub fn glu_dim(self: Self, dim_index: isize) ArrayError!Self {
+            return self.gluDim(dim_index);
+        }
+
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -26249,6 +26285,17 @@ test "array view transcendental unary math is view aware" {
     var actual_tanhshrink = try activation.tanhShrink();
     defer actual_tanhshrink.deinit();
     try expectApproxEqualSlices(f64, expected_tanhshrink.data, actual_tanhshrink.data, 1e-12);
+    var glu_source = try Array(f64).fromSlice(gpa, &.{ -2, 90, -0.5, 80, 0, 70, 3, 60, 1, 50, 2, 40, 3, 30, 4, 20 }, &.{ 2, 8 });
+    defer glu_source.deinit();
+    var glu_view = try glu_source.sliceAxisView(1, .{ .start = 0, .stop = 8, .step = 2 });
+    defer glu_view.deinit();
+    var glu_view_owned = try glu_view.toArray();
+    defer glu_view_owned.deinit();
+    var expected_glu_view = try glu_view_owned.glu(1);
+    defer expected_glu_view.deinit();
+    var actual_glu_view = try glu_view.glu_dim(1);
+    defer actual_glu_view.deinit();
+    try expectApproxEqualSlices(f64, expected_glu_view.data, actual_glu_view.data, 1e-12);
 
     var expected_clip = try activation_owned.clip(-0.25, 1.0);
     defer expected_clip.deinit();
@@ -28159,6 +28206,21 @@ test "array take mask stack cat and neural helpers" {
         try std.testing.expectApproxEqAbs(input - std.math.tanh(input), actual, 1e-12);
     }
     try expectApproxEqualSlices(f64, tanhshrink_out.data, tanh_shrink_alias.data, 1e-12);
+    var glu_input = try Array(f64).fromSlice(gpa, &.{ 1, 2, 0, 1, 3, 4, -1, 2 }, &.{ 2, 4 });
+    defer glu_input.deinit();
+    var glu_out = try glu_input.glu(1);
+    defer glu_out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, glu_out.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), glu_out.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2) / (@as(f64, 1) + std.math.exp(@as(f64, -1))), glu_out.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3) / (@as(f64, 1) + std.math.exp(@as(f64, 1))), glu_out.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4) / (@as(f64, 1) + std.math.exp(@as(f64, -2))), glu_out.data[3], 1e-12);
+    var glu_alias = try glu_input.gluDim(-1);
+    defer glu_alias.deinit();
+    try expectApproxEqualSlices(f64, glu_out.data, glu_alias.data, 1e-12);
+    var odd_glu = try Array(f64).zeros(gpa, &.{ 2, 3 });
+    defer odd_glu.deinit();
+    try std.testing.expectError(error.InvalidShape, odd_glu.glu(1));
     var leaky_out = try shifted.leakyRelu(0.1);
     defer leaky_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -0.2, -0.1, 0, 1, 2, 3 }, leaky_out.data);
