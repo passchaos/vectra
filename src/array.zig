@@ -6991,6 +6991,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.huberLoss(targets, delta, reduction);
         }
 
+        pub fn klDiv(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.klDiv(targets, reduction);
+        }
+
+        pub fn kl_div(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            return self.klDiv(targets, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17734,6 +17744,22 @@ pub fn Array(comptime T: type) type {
 
         pub fn huber_loss(self: Self, targets: Self, delta: T, reduction: LossReduction) ArrayError!Self {
             return self.huberLoss(targets, delta, reduction);
+        }
+
+        pub fn klDiv(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var target_log_target = try targets.xlogy(targets);
+            defer target_log_target.deinit();
+            var target_log_input = try targets.mul(self);
+            defer target_log_input.deinit();
+            var losses = try target_log_target.sub(target_log_input);
+            errdefer losses.deinit();
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn kl_div(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            return self.klDiv(targets, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29347,6 +29373,35 @@ test "array logsoftmax norm and matrix helpers" {
     var bad_regression_targets = try Array(f64).zeros(gpa, &.{3});
     defer bad_regression_targets.deinit();
     try std.testing.expectError(error.ShapeMismatch, predictions.mseLoss(bad_regression_targets, .none));
+    var target_probs = try Array(f64).fromSlice(gpa, &.{ 0, 0, 1, 1, 0, 0 }, &.{ 2, 3 });
+    defer target_probs.deinit();
+    var kl_none = try log_probs.klDiv(target_probs, .none);
+    defer kl_none.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, kl_none.shape);
+    try std.testing.expectApproxEqAbs(nll_none.data[0], kl_none.data[0] + kl_none.data[1] + kl_none.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(nll_none.data[1], kl_none.data[3] + kl_none.data[4] + kl_none.data[5], 1e-12);
+    var kl_mean = try log_probs.kl_div(target_probs, .mean);
+    defer kl_mean.deinit();
+    try std.testing.expectApproxEqAbs((nll_none.data[0] + nll_none.data[1]) / 6.0, kl_mean.data[0], 1e-12);
+    var view_kl = try logits_view.log_softmax(0);
+    defer view_kl.deinit();
+    var view_target_probs = try target_probs.transpose();
+    defer view_target_probs.deinit();
+    var kl_view_loss = try view_kl.klDiv(view_target_probs, .sum);
+    defer kl_view_loss.deinit();
+    var expected_kl_view_loss = try view_kl.klDiv(view_target_probs, .sum);
+    defer expected_kl_view_loss.deinit();
+    try std.testing.expectApproxEqAbs(expected_kl_view_loss.data[0], kl_view_loss.data[0], 1e-12);
+    var log_probs_view_source = try Array(f64).fromSlice(gpa, &.{
+        log_probs.data[0], 99, log_probs.data[1], 88, log_probs.data[2], 77,
+        log_probs.data[3], 66, log_probs.data[4], 55, log_probs.data[5], 44,
+    }, &.{ 2, 6 });
+    defer log_probs_view_source.deinit();
+    var log_probs_view = try log_probs_view_source.sliceAxisView(1, .{ .start = 0, .stop = 6, .step = 2 });
+    defer log_probs_view.deinit();
+    var view_kl_none = try log_probs_view.kl_div(target_probs, .none);
+    defer view_kl_none.deinit();
+    try expectApproxEqualSlices(f64, kl_none.data, view_kl_none.data, 1e-12);
     var robust_predictions = try Array(f64).fromSlice(gpa, &.{ -2, -0.5, 0.5, 3 }, &.{4});
     defer robust_predictions.deinit();
     var robust_targets = try Array(f64).zeros(gpa, &.{4});
