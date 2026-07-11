@@ -4208,6 +4208,42 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
+        pub fn hardsigmoid(self: Self) ArrayError!Array(T) {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        return BFloat16.fromF32(@min(@max((value + @as(f32, 3)) / @as(f32, 6), @as(f32, 0)), @as(f32, 1)));
+                    }
+                    return @min(@max((a + castValue(T, 3)) / castValue(T, 6), zero(T)), one(T));
+                }
+            }.f);
+        }
+
+        pub fn hardSigmoid(self: Self) ArrayError!Array(T) {
+            return self.hardsigmoid();
+        }
+
+        pub fn hardswish(self: Self) ArrayError!Array(T) {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        const gate = @min(@max((value + @as(f32, 3)) / @as(f32, 6), @as(f32, 0)), @as(f32, 1));
+                        return BFloat16.fromF32(value * gate);
+                    }
+                    const gate = @min(@max((a + castValue(T, 3)) / castValue(T, 6), zero(T)), one(T));
+                    return a * gate;
+                }
+            }.f);
+        }
+
+        pub fn hardSwish(self: Self) ArrayError!Array(T) {
+            return self.hardswish();
+        }
+
         pub fn expit(self: Self) ArrayError!Array(T) {
             ensureFloat(T);
             return self.unary(Array(T).opExpit);
@@ -16725,6 +16761,42 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn hardsigmoid(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        return BFloat16.fromF32(@min(@max((value + @as(f32, 3)) / @as(f32, 6), @as(f32, 0)), @as(f32, 1)));
+                    }
+                    return @min(@max((a + castValue(T, 3)) / castValue(T, 6), zero(T)), one(T));
+                }
+            }.f);
+        }
+
+        pub fn hardSigmoid(self: Self) ArrayError!Self {
+            return self.hardsigmoid();
+        }
+
+        pub fn hardswish(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        const gate = @min(@max((value + @as(f32, 3)) / @as(f32, 6), @as(f32, 0)), @as(f32, 1));
+                        return BFloat16.fromF32(value * gate);
+                    }
+                    const gate = @min(@max((a + castValue(T, 3)) / castValue(T, 6), zero(T)), one(T));
+                    return a * gate;
+                }
+            }.f);
+        }
+
+        pub fn hardSwish(self: Self) ArrayError!Self {
+            return self.hardswish();
+        }
+
         pub fn expit(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opExpit);
@@ -25760,6 +25832,10 @@ test "array view transcendental unary math is view aware" {
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).SiLU, Array(f64).SiLU, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).swish, Array(f64).swish, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).mish, Array(f64).mish, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).hardsigmoid, Array(f64).hardsigmoid, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).hardSigmoid, Array(f64).hardSigmoid, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).hardswish, Array(f64).hardswish, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).hardSwish, Array(f64).hardSwish, 1e-12);
 
     var activation_owned = try activation.toArray();
     defer activation_owned.deinit();
@@ -27681,6 +27757,21 @@ test "array take mask stack cat and neural helpers" {
         const expected = input * std.math.tanh(softplus_value);
         try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
     }
+    var hardsigmoid_out = try shifted.hardsigmoid();
+    defer hardsigmoid_out.deinit();
+    var hard_sigmoid_alias = try shifted.hardSigmoid();
+    defer hard_sigmoid_alias.deinit();
+    var hardswish_out = try shifted.hardswish();
+    defer hardswish_out.deinit();
+    var hard_swish_alias = try shifted.hardSwish();
+    defer hard_swish_alias.deinit();
+    for (shifted.data, hardsigmoid_out.data, hardswish_out.data) |input, actual_sigmoid, actual_swish| {
+        const expected_sigmoid = @min(@max((input + 3.0) / 6.0, 0.0), 1.0);
+        try std.testing.expectApproxEqAbs(expected_sigmoid, actual_sigmoid, 1e-12);
+        try std.testing.expectApproxEqAbs(input * expected_sigmoid, actual_swish, 1e-12);
+    }
+    try expectApproxEqualSlices(f64, hardsigmoid_out.data, hard_sigmoid_alias.data, 1e-12);
+    try expectApproxEqualSlices(f64, hardswish_out.data, hard_swish_alias.data, 1e-12);
     var sigmoid_out = try shifted.sigmoid();
     defer sigmoid_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1) / (@as(f64, 1) + @exp(@as(f64, 2))), sigmoid_out.data[0], 1e-12);
