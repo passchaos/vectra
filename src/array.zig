@@ -906,6 +906,12 @@ pub const ConvMode = enum {
     valid,
 };
 
+pub const LossReduction = enum {
+    none,
+    sum,
+    mean,
+};
+
 pub const MatrixNormOrder = enum {
     fro,
     one,
@@ -6560,6 +6566,42 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn log_softmax_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
             return self.logSoftmaxDim(dim_index);
+        }
+
+        pub fn nllLoss(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.nllLoss(targets, axis_index, reduction);
+        }
+
+        pub fn nll_loss(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            return self.nllLoss(targets, axis_index, reduction);
+        }
+
+        pub fn nllLossDim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            return self.nllLoss(targets, dim_index, reduction);
+        }
+
+        pub fn nll_loss_dim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            return self.nllLossDim(targets, dim_index, reduction);
+        }
+
+        pub fn crossEntropy(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.crossEntropy(targets, axis_index, reduction);
+        }
+
+        pub fn cross_entropy(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            return self.crossEntropy(targets, axis_index, reduction);
+        }
+
+        pub fn crossEntropyDim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            return self.crossEntropy(targets, dim_index, reduction);
+        }
+
+        pub fn cross_entropy_dim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            return self.crossEntropyDim(targets, dim_index, reduction);
         }
 
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
@@ -16813,6 +16855,94 @@ pub fn Array(comptime T: type) type {
 
         pub fn log_softmax_dim(self: Self, dim_index: isize) ArrayError!Self {
             return self.logSoftmaxDim(dim_index);
+        }
+
+        fn nllLossValue(self: Self, targets: Array(usize), axis: usize, flat_index: usize, target_multi: []usize, input_multi: []usize) ArrayError!T {
+            const class_count = self.shape[axis];
+            const target_class = targets.data[flat_index];
+            if (target_class >= class_count) return error.IndexOutOfBounds;
+            unravelIndexInto(flat_index, targets.shape, target_multi);
+            for (input_multi, 0..) |*coord, input_axis| {
+                coord.* = if (input_axis < axis)
+                    target_multi[input_axis]
+                else if (input_axis == axis)
+                    target_class
+                else
+                    target_multi[input_axis - 1];
+            }
+            return negValue(T, self.data[ravelIndex(input_multi, self.strides)]);
+        }
+
+        pub fn nllLoss(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.isCpu() or !targets.device.isCpu()) return error.InvalidDevice;
+            if (self.shape.len == 0) return error.InvalidShape;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (self.shape[axis] == 0) return error.InvalidShape;
+            if (targets.shape.len + 1 != self.shape.len) return error.ShapeMismatch;
+            for (self.shape, 0..) |input_extent, input_axis| {
+                if (input_axis == axis) continue;
+                const target_axis = if (input_axis < axis) input_axis else input_axis - 1;
+                if (targets.shape[target_axis] != input_extent) return error.ShapeMismatch;
+            }
+
+            const target_multi = try self.allocator.alloc(usize, targets.shape.len);
+            defer self.allocator.free(target_multi);
+            const input_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(input_multi);
+
+            switch (reduction) {
+                .none => {
+                    var out = try Self.empty(self.allocator, targets.shape);
+                    errdefer out.deinit();
+                    for (out.data, 0..) |*slot, flat| {
+                        slot.* = try self.nllLossValue(targets, axis, flat, target_multi, input_multi);
+                    }
+                    return out;
+                },
+                .sum, .mean => {
+                    var total = zero(T);
+                    for (targets.data, 0..) |_, flat| {
+                        total = addValue(T, total, try self.nllLossValue(targets, axis, flat, target_multi, input_multi));
+                    }
+                    if (reduction == .mean) {
+                        if (targets.data.len == 0) return error.EmptyArray;
+                        total = divValue(T, total, castValue(T, targets.data.len));
+                    }
+                    return self.scalarReductionResult(total, false);
+                },
+            }
+        }
+
+        pub fn nll_loss(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Self {
+            return self.nllLoss(targets, axis_index, reduction);
+        }
+
+        pub fn nllLossDim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Self {
+            return self.nllLoss(targets, dim_index, reduction);
+        }
+
+        pub fn nll_loss_dim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Self {
+            return self.nllLossDim(targets, dim_index, reduction);
+        }
+
+        pub fn crossEntropy(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            var log_probs = try self.logSoftmax(axis_index);
+            defer log_probs.deinit();
+            return log_probs.nllLoss(targets, axis_index, reduction);
+        }
+
+        pub fn cross_entropy(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Self {
+            return self.crossEntropy(targets, axis_index, reduction);
+        }
+
+        pub fn crossEntropyDim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Self {
+            return self.crossEntropy(targets, dim_index, reduction);
+        }
+
+        pub fn cross_entropy_dim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Self {
+            return self.crossEntropyDim(targets, dim_index, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -28032,6 +28162,50 @@ test "array logsoftmax norm and matrix helpers" {
     defer row_sums.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_sums.data[1], 1e-12);
+
+    var class_targets = try Array(usize).fromSlice(gpa, &.{ 2, 0 }, &.{2});
+    defer class_targets.deinit();
+    var nll_none = try log_probs.nllLoss(class_targets, 1, .none);
+    defer nll_none.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, nll_none.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.40760596444438035), nll_none.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.4076059644443806), nll_none.data[1], 1e-12);
+    var ce_none = try logits.crossEntropy(class_targets, 1, .none);
+    defer ce_none.deinit();
+    try std.testing.expectEqualSlices(usize, nll_none.shape, ce_none.shape);
+    try std.testing.expectApproxEqAbs(nll_none.data[0], ce_none.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(nll_none.data[1], ce_none.data[1], 1e-12);
+    var ce_mean = try logits.cross_entropy_dim(class_targets, -1, .mean);
+    defer ce_mean.deinit();
+    try std.testing.expectEqual(@as(usize, 0), ce_mean.shape.len);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.4076059644443806), ce_mean.data[0], 1e-12);
+    var ce_sum = try logits.crossEntropyDim(class_targets, 1, .sum);
+    defer ce_sum.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 2.815211928888761), ce_sum.data[0], 1e-12);
+
+    var logits_classes_first = try logits.transpose();
+    defer logits_classes_first.deinit();
+    var ce_axis0 = try logits_classes_first.crossEntropy(class_targets, 0, .none);
+    defer ce_axis0.deinit();
+    try std.testing.expectApproxEqAbs(nll_none.data[0], ce_axis0.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(nll_none.data[1], ce_axis0.data[1], 1e-12);
+    var logits_view = try logits.transposeView();
+    defer logits_view.deinit();
+    var view_ce = try logits_view.cross_entropy(class_targets, 0, .mean);
+    defer view_ce.deinit();
+    try std.testing.expectApproxEqAbs(ce_mean.data[0], view_ce.data[0], 1e-12);
+
+    var bad_targets = try Array(usize).fromSlice(gpa, &.{ 2, 3 }, &.{2});
+    defer bad_targets.deinit();
+    try std.testing.expectError(error.IndexOutOfBounds, logits.crossEntropy(bad_targets, 1, .none));
+    var wrong_target_shape = try Array(usize).fromSlice(gpa, &.{ 1, 2, 0 }, &.{3});
+    defer wrong_target_shape.deinit();
+    try std.testing.expectError(error.ShapeMismatch, logits.nllLoss(wrong_target_shape, 1, .none));
+    var empty_logits = try Array(f64).empty(gpa, &.{ 0, 3 });
+    defer empty_logits.deinit();
+    var empty_targets = try Array(usize).empty(gpa, &.{0});
+    defer empty_targets.deinit();
+    try std.testing.expectError(error.EmptyArray, empty_logits.crossEntropy(empty_targets, 1, .mean));
 
     var v = try Array(f64).fromSlice(gpa, &.{ 3, 4 }, &.{2});
     defer v.deinit();

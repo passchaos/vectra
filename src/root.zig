@@ -42,6 +42,7 @@ pub const SearchSide = array_mod.SearchSide;
 pub const IndexMode = array_mod.IndexMode;
 pub const MeshGridIndexing = array_mod.MeshGridIndexing;
 pub const ConvMode = array_mod.ConvMode;
+pub const LossReduction = array_mod.LossReduction;
 pub const ArrayError = array_mod.ArrayError;
 pub const axiom_cpu = @import("backends/axiom_cpu.zig");
 pub const axiom_backend = @import("backends/axiom_backend.zig");
