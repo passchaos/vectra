@@ -7061,6 +7061,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.multiMarginLoss(targets, margin, p, reduction);
         }
 
+        pub fn tripletMarginLoss(self: Self, positive_values: Array(T), negative_values: Array(T), margin: T, p: T, axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.tripletMarginLoss(positive_values, negative_values, margin, p, axis_index, reduction);
+        }
+
+        pub fn triplet_margin_loss(self: Self, positive_values: Array(T), negative_values: Array(T), margin: T, p: T, axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
+            return self.tripletMarginLoss(positive_values, negative_values, margin, p, axis_index, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17909,6 +17919,26 @@ pub fn Array(comptime T: type) type {
 
         pub fn multi_margin_loss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Self {
             return self.multiMarginLoss(targets, margin, p, reduction);
+        }
+
+        pub fn tripletMarginLoss(self: Self, positive_values: Self, negative_values: Self, margin: T, p: T, axis_index: isize, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(positive_values.device) or !self.device.sameDevice(negative_values.device)) return error.InvalidDevice;
+            var positive_distance = try self.pairwiseDistance(positive_values, p, axis_index, false);
+            defer positive_distance.deinit();
+            var negative_distance = try self.pairwiseDistance(negative_values, p, axis_index, false);
+            defer negative_distance.deinit();
+            var losses = try positive_distance.sub(negative_distance);
+            errdefer losses.deinit();
+            try losses.addScalarAssign(margin);
+            var clamped = try losses.maximumScalar(zero(T));
+            losses.deinit();
+            errdefer clamped.deinit();
+            return self.reducedLoss(clamped, reduction);
+        }
+
+        pub fn triplet_margin_loss(self: Self, positive_values: Self, negative_values: Self, margin: T, p: T, axis_index: isize, reduction: LossReduction) ArrayError!Self {
+            return self.tripletMarginLoss(positive_values, negative_values, margin, p, axis_index, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29678,6 +29708,27 @@ test "array logsoftmax norm and matrix helpers" {
     defer bad_multi_margin_targets.deinit();
     try std.testing.expectError(error.IndexOutOfBounds, multi_margin_logits.multiMarginLoss(bad_multi_margin_targets, 1.0, 1, .none));
     try std.testing.expectError(error.InvalidShape, multi_margin_logits.multiMarginLoss(multi_margin_targets, 1.0, 3, .none));
+    var triplet_anchor = try Array(f64).fromSlice(gpa, &.{ 0, 0, 2, 0 }, &.{ 2, 2 });
+    defer triplet_anchor.deinit();
+    var triplet_positive = try Array(f64).fromSlice(gpa, &.{ 0, 0.5, 2, 0.25 }, &.{ 2, 2 });
+    defer triplet_positive.deinit();
+    var triplet_negative = try Array(f64).fromSlice(gpa, &.{ 2, 0, 2.25, 0 }, &.{ 2, 2 });
+    defer triplet_negative.deinit();
+    var triplet_none = try triplet_anchor.tripletMarginLoss(triplet_positive, triplet_negative, 1.0, 2.0, 1, .none);
+    defer triplet_none.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, triplet_none.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), triplet_none.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), triplet_none.data[1], 1e-12);
+    var triplet_mean = try triplet_anchor.triplet_margin_loss(triplet_positive, triplet_negative, 1.0, 2.0, 1, .mean);
+    defer triplet_mean.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), triplet_mean.data[0], 1e-12);
+    var triplet_view_source = try Array(f64).fromSlice(gpa, &.{ 0, 90, 0, 80, 2, 70, 0, 60 }, &.{ 2, 4 });
+    defer triplet_view_source.deinit();
+    var triplet_view = try triplet_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer triplet_view.deinit();
+    var triplet_view_loss = try triplet_view.triplet_margin_loss(triplet_positive, triplet_negative, 1.0, 2.0, 1, .none);
+    defer triplet_view_loss.deinit();
+    try expectApproxEqualSlices(f64, triplet_none.data, triplet_view_loss.data, 1e-12);
     var robust_predictions = try Array(f64).fromSlice(gpa, &.{ -2, -0.5, 0.5, 3 }, &.{4});
     defer robust_predictions.deinit();
     var robust_targets = try Array(f64).zeros(gpa, &.{4});
