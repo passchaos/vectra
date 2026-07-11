@@ -284,6 +284,42 @@ pub fn build(b: *std.Build) void {
     const matmul_add_compare_compile_step = b.step("bench-matmul-add-compare-production-compile", "Run production Vectra/Axiom vs torch.compile CUDA matmul+add ratio gate");
     matmul_add_compare_compile_step.dependOn(&matmul_add_compare_compile_cmd.step);
 
+    const matmul_add_compare_bf16_large_cmd = b.addSystemCommand(&.{
+        "python3",
+        "tools/bench_matmul_add_compare.py",
+        "--smoke",
+        "--m=2048",
+        "--n=2048",
+        "--k=2048",
+        "--warmup=2",
+        "--iters=3",
+        "--dtype=bf16",
+        "--op=matmul_add",
+        "--skip-torch-compile",
+        "--repeat=2",
+        "--max-ratio=1.10",
+    });
+    const matmul_add_compare_bf16_large_step = b.step("bench-matmul-add-compare-bf16-large", "Run repeated BF16 CUDA matmulAdd vs PyTorch ratio gate");
+    matmul_add_compare_bf16_large_step.dependOn(&matmul_add_compare_bf16_large_cmd.step);
+
+    const matmul_add_compare_f64_exp_large_cmd = b.addSystemCommand(&.{
+        "python3",
+        "tools/bench_matmul_add_compare.py",
+        "--smoke",
+        "--m=2048",
+        "--n=2048",
+        "--k=2048",
+        "--warmup=2",
+        "--iters=3",
+        "--dtype=f64",
+        "--op=matmul_then_add_exp",
+        "--skip-torch-compile",
+        "--repeat=2",
+        "--max-ratio=1.20",
+    });
+    const matmul_add_compare_f64_exp_large_step = b.step("bench-matmul-add-compare-f64-exp-large", "Run repeated f64 CUDA matmul+add+exp vs PyTorch ratio gate");
+    matmul_add_compare_f64_exp_large_step.dependOn(&matmul_add_compare_f64_exp_large_cmd.step);
+
     const matmul_add_compare_cmd = b.addSystemCommand(&.{
         "python3",
         "tools/bench_matmul_add_compare.py",
