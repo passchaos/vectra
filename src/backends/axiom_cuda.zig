@@ -1505,6 +1505,10 @@ pub fn trySqrtF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.A
     return tryDeviceUnaryF64(.sqrt, input);
 }
 
+pub fn tryExpF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceUnaryF64(.exp, input);
+}
+
 pub fn tryDeviceUnaryF32(op: UnaryOp, input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
@@ -2100,18 +2104,13 @@ pub fn runPendingMatmulAddF16(allocator: std.mem.Allocator, device: array_mod.De
 pub fn runPendingMatmulAddF64(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    if (beta == 1.0 or beta == -1.0) {
-        const byte_count = std.math.mul(usize, m, n) catch return error.InvalidShape;
-        const bytes = std.math.mul(usize, byte_count, @sizeOf(f64)) catch return error.InvalidShape;
-        try copyStorage(
-            .{ .device = device, .ptr = out_ptr, .len = byte_count, .bytes = bytes, .owns = false },
-            .{ .device = device, .ptr = add_ptr, .len = byte_count, .bytes = bytes, .owns = false },
-        );
-        const report = runtime.runCudaDeviceDgemmEx(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
-        recordCudaDeviceGemmReport(report);
-        return report.valid();
-    }
-    const report = runtime.runCudaDeviceDgemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    const byte_count = std.math.mul(usize, m, n) catch return error.InvalidShape;
+    const bytes = std.math.mul(usize, byte_count, @sizeOf(f64)) catch return error.InvalidShape;
+    try copyStorage(
+        .{ .device = device, .ptr = out_ptr, .len = byte_count, .bytes = bytes, .owns = false },
+        .{ .device = device, .ptr = add_ptr, .len = byte_count, .bytes = bytes, .owns = false },
+    );
+    const report = runtime.runCudaDeviceDgemmEx(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }

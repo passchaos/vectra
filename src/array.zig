@@ -14970,6 +14970,10 @@ pub fn Array(comptime T: type) type {
                 if (try axiom_cuda_backend.tryExpBF16(self)) |out| return out;
                 return error.BackendFailure;
             }
+            if (comptime T == f64) {
+                if (try axiom_cuda_backend.tryExpF64(self)) |out| return out;
+                return error.BackendFailure;
+            }
             return error.TypeUnsupported;
         }
 
@@ -16249,7 +16253,8 @@ pub fn Array(comptime T: type) type {
                 return self.runCudaUnaryExp();
             }
             if (self.device.isCuda() and comptime T == f64) {
-                return error.TypeUnsupported;
+                if (try self.tryPendingUnary(.exp)) |out| return out;
+                return self.runCudaUnaryExp();
             }
             if (self.device.isCpu() and comptime T == f32) {
                 if (try axiom_cpu_backend.tryExpF32(self)) |out_value| {

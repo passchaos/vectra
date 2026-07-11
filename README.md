@@ -134,12 +134,10 @@ stress run (`M = 4096 * 4`, `N = 4096`, `K = 4096`) and dry-runs by default;
 pass `-- --smoke` for a tiny executable check, `-- --dtype=all --backend=both`
 to compare f32/f64/f16/BFloat16 CPU paths plus supported CUDA paths, or
 `-- --execute --backend=cuda --dtype=f32 --require-cuda` for the production CUDA
-benchmark. CUDA owning arrays benchmark f32 matmul/matmulAdd plus BFloat16 matmul/matmulAdd
-through Axiom cuBLAS-backed device GEMM, cuBLASLt fused addmm, automatic
-matmul-then-add/sub fusion, and f32 CUDA `sqrt`/`exp` unary execution through
-Axiom's cached CUDA unary elementwise route; CUDA f16 records exercise the current
-Axiom CUDA typed host-slice matmul plus add path, and f64 CUDA emits explicit
-skipped records until an f64 CUDA matmul is exposed. `--retain-outputs`
+benchmark. CUDA owning arrays benchmark f32/f64/f16/BFloat16 matmul,
+matmulAdd, automatic matmul-then-add/sub fusion, and supported sqrt/exp unary
+chains through Axiom cuBLAS/cuBLASLt-backed device GEMM plus cached CUDA unary
+post-op routes. `--retain-outputs`
 intentionally keeps each iteration output alive to expose allocation/reuse effects
 versus the default PyTorch-like single-output reuse loop.
 
