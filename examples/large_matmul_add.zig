@@ -303,7 +303,7 @@ fn runCudaBf16(
     op_filter: ?BenchOp,
     retain_outputs: bool,
 ) !void {
-    const value = vx.BFloat16.fromF32(0.01);
+    const value = vx.BFloat16.fromF32(1.0);
     var a = try vx.Array(vx.BFloat16).fullOn(allocator, &.{ shape.m, shape.k }, value, gpu);
     defer a.deinit();
     var b = try vx.Array(vx.BFloat16).fullOn(allocator, &.{ shape.k, shape.n }, value, gpu);
