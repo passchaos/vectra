@@ -7071,6 +7071,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.tripletMarginLoss(positive_values, negative_values, margin, p, axis_index, reduction);
         }
 
+        pub fn multiLabelSoftMarginLoss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.multiLabelSoftMarginLoss(targets, reduction);
+        }
+
+        pub fn multi_label_soft_margin_loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            return self.multiLabelSoftMarginLoss(targets, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17939,6 +17949,21 @@ pub fn Array(comptime T: type) type {
 
         pub fn triplet_margin_loss(self: Self, positive_values: Self, negative_values: Self, margin: T, p: T, axis_index: isize, reduction: LossReduction) ArrayError!Self {
             return self.tripletMarginLoss(positive_values, negative_values, margin, p, axis_index, reduction);
+        }
+
+        pub fn multiLabelSoftMarginLoss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            if (self.shape.len != 2 or targets.shape.len != 2 or !std.mem.eql(usize, self.shape, targets.shape)) return error.ShapeMismatch;
+            var element_losses = try self.binaryCrossEntropyWithLogits(targets, .none);
+            defer element_losses.deinit();
+            var per_sample = try element_losses.mean(1, false);
+            errdefer per_sample.deinit();
+            return self.reducedLoss(per_sample, reduction);
+        }
+
+        pub fn multi_label_soft_margin_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            return self.multiLabelSoftMarginLoss(targets, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29729,6 +29754,39 @@ test "array logsoftmax norm and matrix helpers" {
     var triplet_view_loss = try triplet_view.triplet_margin_loss(triplet_positive, triplet_negative, 1.0, 2.0, 1, .none);
     defer triplet_view_loss.deinit();
     try expectApproxEqualSlices(f64, triplet_none.data, triplet_view_loss.data, 1e-12);
+    var multilabel_logits = try Array(f64).fromSlice(gpa, &.{
+        1.0, -1.0, 0.5,
+        0.0, 2.0,  -0.5,
+    }, &.{ 2, 3 });
+    defer multilabel_logits.deinit();
+    var multilabel_targets = try Array(f64).fromSlice(gpa, &.{
+        1, 0, 1,
+        0, 1, 0,
+    }, &.{ 2, 3 });
+    defer multilabel_targets.deinit();
+    var multilabel_none = try multilabel_logits.multiLabelSoftMarginLoss(multilabel_targets, .none);
+    defer multilabel_none.deinit();
+    var multilabel_element = try multilabel_logits.binaryCrossEntropyWithLogits(multilabel_targets, .none);
+    defer multilabel_element.deinit();
+    var expected_multilabel = try multilabel_element.mean(1, false);
+    defer expected_multilabel.deinit();
+    try expectApproxEqualSlices(f64, expected_multilabel.data, multilabel_none.data, 1e-12);
+    var multilabel_mean = try multilabel_logits.multi_label_soft_margin_loss(multilabel_targets, .mean);
+    defer multilabel_mean.deinit();
+    try std.testing.expectApproxEqAbs((multilabel_none.data[0] + multilabel_none.data[1]) / 2.0, multilabel_mean.data[0], 1e-12);
+    var multilabel_view_source = try Array(f64).fromSlice(gpa, &.{
+        1.0, 90, -1.0, 80, 0.5,  70,
+        0.0, 60, 2.0,  50, -0.5, 40,
+    }, &.{ 2, 6 });
+    defer multilabel_view_source.deinit();
+    var multilabel_view = try multilabel_view_source.sliceAxisView(1, .{ .start = 0, .stop = 6, .step = 2 });
+    defer multilabel_view.deinit();
+    var multilabel_view_loss = try multilabel_view.multi_label_soft_margin_loss(multilabel_targets, .none);
+    defer multilabel_view_loss.deinit();
+    try expectApproxEqualSlices(f64, multilabel_none.data, multilabel_view_loss.data, 1e-12);
+    var bad_multilabel_targets = try Array(f64).zeros(gpa, &.{ 2, 2 });
+    defer bad_multilabel_targets.deinit();
+    try std.testing.expectError(error.ShapeMismatch, multilabel_logits.multiLabelSoftMarginLoss(bad_multilabel_targets, .none));
     var robust_predictions = try Array(f64).fromSlice(gpa, &.{ -2, -0.5, 0.5, 3 }, &.{4});
     defer robust_predictions.deinit();
     var robust_targets = try Array(f64).zeros(gpa, &.{4});
