@@ -420,29 +420,29 @@ fn runBenchmark(
 fn computeOp(comptime T: type, op: BenchOp, a: vx.Array(T), b: vx.Array(T), c: ?vx.Array(T)) vx.ArrayError!vx.Array(T) {
     var out = try switch (op) {
         .matmul => blk: {
-            const product = try vx.matmul(a, b);
+            const product = try a.matmul(b);
             break :blk product;
         },
-        .matmul_add => vx.matmulAdd(a, b, c orelse return error.InvalidShape),
+        .matmul_add => a.matmulAdd(b, c orelse return error.InvalidShape),
         .matmul_then_add => blk: {
-            var product = try vx.matmul(a, b);
+            var product = try a.matmul(b);
             defer product.deinit();
             break :blk try product.add(c orelse return error.InvalidShape);
         },
         .matmul_then_sub => blk: {
-            var product = try vx.matmul(a, b);
+            var product = try a.matmul(b);
             defer product.deinit();
             break :blk try product.sub(c orelse return error.InvalidShape);
         },
         .matmul_then_add_sqrt => blk: {
-            var product = try vx.matmul(a, b);
+            var product = try a.matmul(b);
             defer product.deinit();
             var added = try product.add(c orelse return error.InvalidShape);
             defer added.deinit();
             break :blk try added.sqrt();
         },
         .matmul_then_add_exp => blk: {
-            var product = try vx.matmul(a, b);
+            var product = try a.matmul(b);
             defer product.deinit();
             var added = try product.add(c orelse return error.InvalidShape);
             defer added.deinit();

@@ -7549,10 +7549,34 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.matmul(rhs);
         }
 
+        pub fn matmulAdd(self: Self, other: Self, addend: Self) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            var addend_array = try addend.toArray();
+            defer addend_array.deinit();
+            return lhs.matmulAdd(rhs, addend_array);
+        }
+
+        pub fn matmul_add(self: Self, other: Self, addend: Self) ArrayError!Array(T) {
+            return self.matmulAdd(other, addend);
+        }
+
         pub fn matmulArray(self: Self, other: Array(T)) ArrayError!Array(T) {
             var lhs = try self.toArray();
             defer lhs.deinit();
             return lhs.matmul(other);
+        }
+
+        pub fn matmulAddArray(self: Self, other: Array(T), addend: Array(T)) ArrayError!Array(T) {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            return lhs.matmulAdd(other, addend);
+        }
+
+        pub fn matmul_add_array(self: Self, other: Array(T), addend: Array(T)) ArrayError!Array(T) {
+            return self.matmulAddArray(other, addend);
         }
 
         pub fn mm(self: Self, other: Self) ArrayError!Array(T) {
@@ -20546,6 +20570,35 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        pub fn matmulAdd(self: Self, other: Self, addend: Self) ArrayError!Self {
+            ensureNumeric(T);
+            if (!self.device.sameDevice(other.device) or !self.device.sameDevice(addend.device)) return error.InvalidDevice;
+            if (self.device.isCpu()) {
+                if (comptime T == f32) {
+                    if (try axiom_cpu_backend.tryMatmulAddF32(self, other, addend)) |out| return out;
+                } else if (comptime T == f64) {
+                    if (try axiom_cpu_backend.tryMatmulAddF64(self, other, addend)) |out| return out;
+                }
+            } else if (self.device.isCuda()) {
+                if (comptime T == f32) {
+                    if (try axiom_cuda_backend.tryDeviceMatmulAddF32(self, other, addend)) |out| return out;
+                } else if (comptime T == f64) {
+                    if (try axiom_cuda_backend.tryDeviceMatmulAddF64(self, other, addend)) |out| return out;
+                } else if (comptime T == f16) {
+                    if (try axiom_cuda_backend.tryDeviceMatmulAddF16(self, other, addend)) |out| return out;
+                } else if (comptime T == BFloat16) {
+                    if (try axiom_cuda_backend.tryDeviceMatmulAddBF16(self, other, addend)) |out| return out;
+                }
+            }
+            var product_value = try self.matmul(other);
+            defer product_value.deinit();
+            return product_value.add(addend);
+        }
+
+        pub fn matmul_add(self: Self, other: Self, addend: Self) ArrayError!Self {
+            return self.matmulAdd(other, addend);
+        }
+
         pub fn mm(self: Self, other: Self) ArrayError!Self {
             return self.matmul(other);
         }
@@ -22976,6 +23029,15 @@ test "array object generalized matmul semantics" {
     defer mm_out.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, mm_out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 58, 64, 139, 154 }, mm_out.data);
+    var addend2 = try Array(f64).fromSlice(gpa, &.{ 1, 10, 100, 1000 }, &.{ 2, 2 });
+    defer addend2.deinit();
+    var mm_add = try lhs2.matmulAdd(rhs2, addend2);
+    defer mm_add.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, mm_add.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 59, 74, 239, 1154 }, mm_add.data);
+    var mm_add_snake = try lhs2.matmul_add(rhs2, addend2);
+    defer mm_add_snake.deinit();
+    try std.testing.expectEqualSlices(f64, mm_add.data, mm_add_snake.data);
 
     var bf16_lhs = try Array(BFloat16).fromSlice(gpa, &.{
         BFloat16.fromF32(1),
