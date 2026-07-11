@@ -243,7 +243,7 @@ fn runCudaF64(
     try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublaslt", "f64", .matmul_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
-    try printSkipped(writer, "cuda", "f64", "matmul_then_add_sqrt", "cuda_f64_unary_postop_not_exposed");
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused_plus_unary", "f64", .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
     try printSkipped(writer, "cuda", "f64", "matmul_then_add_exp", "cuda_f64_unary_postop_not_exposed");
 }
 

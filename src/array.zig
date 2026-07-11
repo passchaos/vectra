@@ -14887,7 +14887,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn tryPendingUnary(self: Self, unary_op: PendingUnary) ArrayError!?Self {
-            if (comptime T != f32 and T != BFloat16) return null;
+            if (comptime T != f32 and T != f64 and T != BFloat16) return null;
             if (!self.device.isCuda() or self.pending_matmul == null) return null;
             var pending = self.pending_matmul.?;
             if (pending.unary != null) return null;
@@ -14911,6 +14911,10 @@ pub fn Array(comptime T: type) type {
         fn runCudaUnarySqrt(self: Self) ArrayError!Self {
             if (comptime T == f32) {
                 if (try axiom_cuda_backend.trySqrtF32(self)) |out| return out;
+                return error.BackendFailure;
+            }
+            if (comptime T == f64) {
+                if (try axiom_cuda_backend.trySqrtF64(self)) |out| return out;
                 return error.BackendFailure;
             }
             if (comptime T == BFloat16) {
@@ -16194,6 +16198,9 @@ pub fn Array(comptime T: type) type {
                 if (try self.tryPendingUnary(.exp)) |out| return out;
                 return self.runCudaUnaryExp();
             }
+            if (self.device.isCuda() and comptime T == f64) {
+                return error.TypeUnsupported;
+            }
             if (self.device.isCpu() and comptime T == f32) {
                 if (try axiom_cpu_backend.tryExpF32(self)) |out_value| {
                     var out = out_value;
@@ -16269,6 +16276,10 @@ pub fn Array(comptime T: type) type {
                 return self.runCudaUnarySqrt();
             }
             if (self.device.isCuda() and comptime T == BFloat16) {
+                if (try self.tryPendingUnary(.sqrt)) |out| return out;
+                return self.runCudaUnarySqrt();
+            }
+            if (self.device.isCuda() and comptime T == f64) {
                 if (try self.tryPendingUnary(.sqrt)) |out| return out;
                 return self.runCudaUnarySqrt();
             }
