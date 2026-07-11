@@ -220,7 +220,8 @@ zig build bench-matmul-add-compare -- --execute --m 16384 --n 4096 --k 4096 --wa
 ```
 
 The current high-value benchmark set covers large f64 elementwise/scalar ops, flat reductions, promoted i32+f64 arithmetic, strided scalar/array ops, f64 dot/matvec/vecmat, and 256x256 f64 matmul.
-`tools/bench_matmul_add_compare.py` emits JSONL rows for the same CUDA f32
+`tools/bench_matmul_add_compare.py` emits JSONL rows for the same CUDA dtype
+(`--dtype=f32/f64/f16/bf16`) and
 shape through Vectra/Axiom `large_matmul_add`, PyTorch `torch.addmm`, eager
 `a @ b + c`, and `torch.compile`, so matmul+add performance work has a
 repeatable local PyTorch/torch.compile baseline.  Pass `--baseline` and

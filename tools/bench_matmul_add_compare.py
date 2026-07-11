@@ -4,6 +4,8 @@
 Examples:
     python3 tools/bench_matmul_add_compare.py --smoke
     python3 tools/bench_matmul_add_compare.py --execute --m 16384 --n 4096 --k 4096 --warmup 3 --iters 5
+    python3 tools/bench_matmul_add_compare.py --smoke --dtype f16
+    python3 tools/bench_matmul_add_compare.py --smoke --dtype bf16
 
 The script emits JSON lines. Vectra rows are forwarded from
 `example-large-matmul-add`; PyTorch rows use the same shape/dtype/device and
@@ -32,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--k", type=int, default=None)
     parser.add_argument("--warmup", type=int, default=None)
     parser.add_argument("--iters", type=int, default=None)
-    parser.add_argument("--dtype", choices=("f32",), default="f32")
+    parser.add_argument("--dtype", choices=("f32", "f64", "f16", "bf16"), default="f32")
     parser.add_argument("--backend", choices=("cuda",), default="cuda")
     parser.add_argument("--torch-compile-mode", default="reduce-overhead", help="Mode passed to torch.compile.")
     parser.add_argument("--skip-torch-compile", action="store_true")
@@ -76,7 +78,7 @@ def run_vectra(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, it
         "--",
         "--execute",
         "--backend=cuda",
-        "--dtype=f32",
+        f"--dtype={args.dtype}",
         f"--m={m}",
         f"--n={n}",
         f"--k={k}",
@@ -124,6 +126,18 @@ def bench_torch_case(name: str, func: Callable[[], Any], sync: Callable[[], None
     return elapsed_us, result
 
 
+def torch_dtype_from_name(torch: Any, dtype_name: str) -> Any:
+    if dtype_name == "f32":
+        return torch.float32
+    if dtype_name == "f64":
+        return torch.float64
+    if dtype_name == "f16":
+        return torch.float16
+    if dtype_name == "bf16":
+        return torch.bfloat16
+    raise ValueError(f"unsupported dtype: {dtype_name}")
+
+
 def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, iters: int) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     import torch
@@ -149,7 +163,7 @@ def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, ite
         rows.append(emit({**row_base, "kind": "torch_warning", "warning": f"set_float32_matmul_precision failed: {exc}"}))
 
     device = torch.device("cuda")
-    dtype = torch.float32
+    dtype = torch_dtype_from_name(torch, args.dtype)
     a = torch.ones((m, k), device=device, dtype=dtype)
     b = torch.ones((k, n), device=device, dtype=dtype)
     c = torch.ones((m, n), device=device, dtype=dtype)
