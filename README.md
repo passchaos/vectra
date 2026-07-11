@@ -214,6 +214,7 @@ zig build bench-matmul-add-compare-smoke
 zig build bench-matmul-add-compare-production
 zig build bench-matmul-add-compare-production-compile
 zig build bench-matmul-add-compare-bf16-large
+zig build bench-matmul-add-compare-bf16-stability
 zig build bench-matmul-add-compare-f64-exp-large
 zig build fusion-smoke
 zig build fusion-production-gate
