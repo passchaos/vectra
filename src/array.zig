@@ -4193,6 +4193,21 @@ pub fn ArrayView(comptime T: type) type {
             return self.silu();
         }
 
+        pub fn mish(self: Self) ArrayError!Array(T) {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        const softplus_value = @max(value, @as(f32, 0)) + std.math.log1p(std.math.exp(-@abs(value)));
+                        return BFloat16.fromF32(value * std.math.tanh(softplus_value));
+                    }
+                    const softplus_value = @max(a, zero(T)) + std.math.log1p(std.math.exp(-@abs(a)));
+                    return a * std.math.tanh(softplus_value);
+                }
+            }.f);
+        }
+
         pub fn expit(self: Self) ArrayError!Array(T) {
             ensureFloat(T);
             return self.unary(Array(T).opExpit);
@@ -16695,6 +16710,21 @@ pub fn Array(comptime T: type) type {
             return self.silu();
         }
 
+        pub fn mish(self: Self) ArrayError!Self {
+            ensureFloat(T);
+            return self.unary(struct {
+                fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        const softplus_value = @max(value, @as(f32, 0)) + std.math.log1p(std.math.exp(-@abs(value)));
+                        return BFloat16.fromF32(value * std.math.tanh(softplus_value));
+                    }
+                    const softplus_value = @max(a, zero(T)) + std.math.log1p(std.math.exp(-@abs(a)));
+                    return a * std.math.tanh(softplus_value);
+                }
+            }.f);
+        }
+
         pub fn expit(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opExpit);
@@ -25729,6 +25759,7 @@ test "array view transcendental unary math is view aware" {
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).silu, Array(f64).silu, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).SiLU, Array(f64).SiLU, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).swish, Array(f64).swish, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).mish, Array(f64).mish, 1e-12);
 
     var activation_owned = try activation.toArray();
     defer activation_owned.deinit();
@@ -27643,6 +27674,13 @@ test "array take mask stack cat and neural helpers" {
     defer swish_alias.deinit();
     try expectApproxEqualSlices(f64, silu_out.data, silu_alias.data, 1e-12);
     try expectApproxEqualSlices(f64, silu_out.data, swish_alias.data, 1e-12);
+    var mish_out = try shifted.mish();
+    defer mish_out.deinit();
+    for (shifted.data, mish_out.data) |input, actual| {
+        const softplus_value = @max(input, @as(f64, 0)) + std.math.log1p(std.math.exp(-@abs(input)));
+        const expected = input * std.math.tanh(softplus_value);
+        try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+    }
     var sigmoid_out = try shifted.sigmoid();
     defer sigmoid_out.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1) / (@as(f64, 1) + @exp(@as(f64, 2))), sigmoid_out.data[0], 1e-12);
