@@ -298,6 +298,8 @@ pub fn build(b: *std.Build) void {
         "--skip-torch-compile",
         "--repeat=2",
         "--max-ratio=1.10",
+        "--max-first-error=0.01",
+        "--max-checksum-error=64.0",
     });
     const matmul_add_compare_bf16_large_step = b.step("bench-matmul-add-compare-bf16-large", "Run repeated BF16 CUDA matmulAdd vs PyTorch ratio gate");
     matmul_add_compare_bf16_large_step.dependOn(&matmul_add_compare_bf16_large_cmd.step);
@@ -317,6 +319,8 @@ pub fn build(b: *std.Build) void {
         "--skip-torch-compile",
         "--repeat=2",
         "--max-ratio=1.10",
+        "--max-first-error=0.01",
+        "--max-checksum-error=64.0",
     });
     const matmul_add_compare_bf16_stability_step = b.step("bench-matmul-add-compare-bf16-stability", "Run repeated BF16 CUDA exp-chain stability and ratio gate");
     matmul_add_compare_bf16_stability_step.dependOn(&matmul_add_compare_bf16_stability_cmd.step);
@@ -335,6 +339,8 @@ pub fn build(b: *std.Build) void {
         "--skip-torch-compile",
         "--repeat=2",
         "--max-ratio=1.20",
+        "--max-first-error=0.001",
+        "--max-checksum-error=0.01",
     });
     const matmul_add_compare_f64_exp_large_step = b.step("bench-matmul-add-compare-f64-exp-large", "Run repeated f64 CUDA matmul+add+exp vs PyTorch ratio gate");
     matmul_add_compare_f64_exp_large_step.dependOn(&matmul_add_compare_f64_exp_large_cmd.step);

@@ -234,6 +234,8 @@ PyTorch eager/addmm/compile row for that op. Pass `--repeat` to run the full com
 times and gate on the worst observed ratio, then pass `--baseline` and
 `--max-ratio` to turn the comparison into a failing performance gate based on
 the selected Vectra op's average time divided by the selected PyTorch baseline.
+Use `--max-first-error` and `--max-checksum-error` to make correctness drift fail
+alongside performance regressions.
 
 ## Roadmap
 

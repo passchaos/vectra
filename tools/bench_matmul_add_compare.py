@@ -65,6 +65,8 @@ def parse_args() -> argparse.Namespace:
         default="auto",
     )
     parser.add_argument("--max-ratio", type=float, default=None, help="Fail if selected Vectra op avg_us / baseline avg_us exceeds this value.")
+    parser.add_argument("--max-first-error", type=float, default=None, help="Fail if |Vectra first - baseline first| exceeds this value.")
+    parser.add_argument("--max-checksum-error", type=float, default=None, help="Fail if |Vectra sample_checksum - baseline sample_checksum| exceeds this value.")
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     return parser.parse_args()
 
@@ -216,6 +218,17 @@ def torch_dtype_from_name(torch: Any, dtype_name: str) -> Any:
     raise ValueError(f"unsupported dtype: {dtype_name}")
 
 
+def torch_sample_checksum(result: Any) -> float:
+    if result is None or result.numel() == 0:
+        return 0.0
+    flat = result.reshape(-1)
+    sample_count = min(int(flat.numel()), 1024)
+    total = flat[:sample_count].to(dtype=flat.dtype).sum().item()
+    if int(flat.numel()) > sample_count:
+        total += flat[-sample_count:].to(dtype=flat.dtype).sum().item()
+    return float(total)
+
+
 def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, iters: int) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     import torch
@@ -298,6 +311,7 @@ def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, ite
                 "elapsed_us": int(elapsed_us),
                 "avg_us": elapsed_us / iters,
                 "first": first,
+                "sample_checksum": torch_sample_checksum(result),
                 "ok": True,
             }))
         except Exception as exc:
@@ -326,6 +340,8 @@ def summarize(args: argparse.Namespace, vectra_rows: list[dict[str, Any]], torch
         "requested_op": args.op,
         "baseline": baseline_key,
         "max_ratio": args.max_ratio,
+        "max_first_error": args.max_first_error,
+        "max_checksum_error": args.max_checksum_error,
         "ok": False,
     }
     if baseline_row is None:
@@ -355,15 +371,32 @@ def summarize(args: argparse.Namespace, vectra_rows: list[dict[str, Any]], torch
         avg = float(row["avg_us"])
         result[f"{label}_avg_us"] = avg
         result[f"{label}_ratio"] = avg / baseline_avg if baseline_avg else None
+        if "first" in row and "first" in baseline_row:
+            result[f"{label}_first_abs_error"] = abs(float(row["first"]) - float(baseline_row["first"]))
+        if "sample_checksum" in row and "sample_checksum" in baseline_row:
+            result[f"{label}_checksum_abs_error"] = abs(float(row["sample_checksum"]) - float(baseline_row["sample_checksum"]))
     ratios = [value for key, value in result.items() if key.startswith("vectra_") and key.endswith("_ratio") and isinstance(value, float)]
     if not ratios:
         result["reason"] = "missing_vectra_rows"
         return result
     result["best_ratio"] = min(ratios)
     result["worst_ratio"] = max(ratios)
-    result["ok"] = args.max_ratio is None or result["worst_ratio"] <= args.max_ratio
-    if not result["ok"]:
+    ratio_ok = args.max_ratio is None or result["worst_ratio"] <= args.max_ratio
+    first_errors = [value for key, value in result.items() if key.endswith("_first_abs_error") and isinstance(value, float)]
+    checksum_errors = [value for key, value in result.items() if key.endswith("_checksum_abs_error") and isinstance(value, float)]
+    if first_errors:
+        result["worst_first_abs_error"] = max(first_errors)
+    if checksum_errors:
+        result["worst_checksum_abs_error"] = max(checksum_errors)
+    first_ok = args.max_first_error is None or not first_errors or result["worst_first_abs_error"] <= args.max_first_error
+    checksum_ok = args.max_checksum_error is None or not checksum_errors or result["worst_checksum_abs_error"] <= args.max_checksum_error
+    result["ok"] = ratio_ok and first_ok and checksum_ok
+    if not ratio_ok:
         result["reason"] = "ratio_exceeds_threshold"
+    elif not first_ok:
+        result["reason"] = "first_error_exceeds_threshold"
+    elif not checksum_ok:
+        result["reason"] = "checksum_error_exceeds_threshold"
     return result
 
 
@@ -379,6 +412,8 @@ def aggregate_summaries(args: argparse.Namespace, summaries: list[dict[str, Any]
 
     ratios = [float(row["worst_ratio"]) for row in summaries if isinstance(row.get("worst_ratio"), (float, int))]
     best_ratios = [float(row["best_ratio"]) for row in summaries if isinstance(row.get("best_ratio"), (float, int))]
+    first_errors = [float(row["worst_first_abs_error"]) for row in summaries if isinstance(row.get("worst_first_abs_error"), (float, int))]
+    checksum_errors = [float(row["worst_checksum_abs_error"]) for row in summaries if isinstance(row.get("worst_checksum_abs_error"), (float, int))]
     result: dict[str, Any] = {
         "kind": "matmul_add_compare_repeat_summary",
         "repeat": args.repeat,
@@ -386,6 +421,8 @@ def aggregate_summaries(args: argparse.Namespace, summaries: list[dict[str, Any]
         "baseline": summaries[-1].get("baseline") if summaries else (default_baseline_for_op(args.op) if args.baseline == "auto" else args.baseline),
         "baseline_request": args.baseline,
         "max_ratio": args.max_ratio,
+        "max_first_error": args.max_first_error,
+        "max_checksum_error": args.max_checksum_error,
         "ok": False,
         "runs": len(summaries),
         "successful_ratio_runs": len(ratios),
@@ -397,9 +434,22 @@ def aggregate_summaries(args: argparse.Namespace, summaries: list[dict[str, Any]
     result["worst_ratio"] = max(ratios)
     result["best_ratio"] = min(best_ratios) if best_ratios else min(ratios)
     result["all_worst_ratios"] = ratios
-    result["ok"] = args.max_ratio is None or result["worst_ratio"] <= args.max_ratio
-    if not result["ok"]:
+    if first_errors:
+        result["worst_first_abs_error"] = max(first_errors)
+        result["all_worst_first_abs_errors"] = first_errors
+    if checksum_errors:
+        result["worst_checksum_abs_error"] = max(checksum_errors)
+        result["all_worst_checksum_abs_errors"] = checksum_errors
+    ratio_ok = args.max_ratio is None or result["worst_ratio"] <= args.max_ratio
+    first_ok = args.max_first_error is None or not first_errors or result["worst_first_abs_error"] <= args.max_first_error
+    checksum_ok = args.max_checksum_error is None or not checksum_errors or result["worst_checksum_abs_error"] <= args.max_checksum_error
+    result["ok"] = ratio_ok and first_ok and checksum_ok
+    if not ratio_ok:
         result["reason"] = "repeat_ratio_exceeds_threshold"
+    elif not first_ok:
+        result["reason"] = "repeat_first_error_exceeds_threshold"
+    elif not checksum_ok:
+        result["reason"] = "repeat_checksum_error_exceeds_threshold"
     return result
 
 
@@ -423,6 +473,8 @@ def main() -> None:
         "repo": str(args.repo),
         "baseline": args.baseline,
         "max_ratio": args.max_ratio,
+        "max_first_error": args.max_first_error,
+        "max_checksum_error": args.max_checksum_error,
     })
     summaries: list[dict[str, Any]] = []
     for repeat_index in range(args.repeat):
