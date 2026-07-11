@@ -7031,6 +7031,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.marginRankingLoss(other, targets, margin, reduction);
         }
 
+        pub fn softMarginLoss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.softMarginLoss(targets, reduction);
+        }
+
+        pub fn soft_margin_loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            return self.softMarginLoss(targets, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17810,6 +17820,25 @@ pub fn Array(comptime T: type) type {
 
         pub fn margin_ranking_loss(self: Self, other: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
             return self.marginRankingLoss(other, targets, margin, reduction);
+        }
+
+        pub fn softMarginLoss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var signed_values = try targets.mul(self);
+            defer signed_values.deinit();
+            var neg_signed = try signed_values.neg();
+            defer neg_signed.deinit();
+            var exp_values = try neg_signed.exp();
+            defer exp_values.deinit();
+            try exp_values.addScalarAssign(one(T));
+            var losses = try exp_values.log();
+            errdefer losses.deinit();
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn soft_margin_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            return self.softMarginLoss(targets, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29509,6 +29538,30 @@ test "array logsoftmax norm and matrix helpers" {
     var rank_view_loss = try rank_view.margin_ranking_loss(rank_b, rank_targets, 0.5, .none);
     defer rank_view_loss.deinit();
     try expectApproxEqualSlices(f64, rank_loss.data, rank_view_loss.data, 1e-12);
+    var margin_inputs = try Array(f64).fromSlice(gpa, &.{ 1, -2, 0.5, -0.25 }, &.{ 2, 2 });
+    defer margin_inputs.deinit();
+    var margin_targets = try Array(f64).fromSlice(gpa, &.{ 1, -1 }, &.{ 2, 1 });
+    defer margin_targets.deinit();
+    var soft_margin_none = try margin_inputs.softMarginLoss(margin_targets, .none);
+    defer soft_margin_none.deinit();
+    for (margin_inputs.data, 0..) |input, i| {
+        const target = margin_targets.data[i / 2];
+        const expected = std.math.log1p(std.math.exp(-target * input));
+        try std.testing.expectApproxEqAbs(expected, soft_margin_none.data[i], 1e-12);
+    }
+    var soft_margin_mean = try margin_inputs.soft_margin_loss(margin_targets, .mean);
+    defer soft_margin_mean.deinit();
+    var expected_soft_margin_mean: f64 = 0;
+    for (soft_margin_none.data) |value| expected_soft_margin_mean += value;
+    expected_soft_margin_mean /= 4.0;
+    try std.testing.expectApproxEqAbs(expected_soft_margin_mean, soft_margin_mean.data[0], 1e-12);
+    var soft_margin_view_source = try Array(f64).fromSlice(gpa, &.{ 1, 90, -2, 80, 0.5, 70, -0.25, 60 }, &.{ 2, 4 });
+    defer soft_margin_view_source.deinit();
+    var soft_margin_view = try soft_margin_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer soft_margin_view.deinit();
+    var soft_margin_view_loss = try soft_margin_view.soft_margin_loss(margin_targets, .none);
+    defer soft_margin_view_loss.deinit();
+    try expectApproxEqualSlices(f64, soft_margin_none.data, soft_margin_view_loss.data, 1e-12);
     var robust_predictions = try Array(f64).fromSlice(gpa, &.{ -2, -0.5, 0.5, 3 }, &.{4});
     defer robust_predictions.deinit();
     var robust_targets = try Array(f64).zeros(gpa, &.{4});
