@@ -6935,6 +6935,26 @@ pub fn ArrayView(comptime T: type) type {
             return self.l1Loss(targets, reduction);
         }
 
+        pub fn smoothL1Loss(self: Self, targets: Array(T), beta_value: T, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.smoothL1Loss(targets, beta_value, reduction);
+        }
+
+        pub fn smooth_l1_loss(self: Self, targets: Array(T), beta_value: T, reduction: LossReduction) ArrayError!Array(T) {
+            return self.smoothL1Loss(targets, beta_value, reduction);
+        }
+
+        pub fn huberLoss(self: Self, targets: Array(T), delta: T, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.huberLoss(targets, delta, reduction);
+        }
+
+        pub fn huber_loss(self: Self, targets: Array(T), delta: T, reduction: LossReduction) ArrayError!Array(T) {
+            return self.huberLoss(targets, delta, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17634,6 +17654,50 @@ pub fn Array(comptime T: type) type {
 
         pub fn l1_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             return self.l1Loss(targets, reduction);
+        }
+
+        pub fn smoothL1Loss(self: Self, targets: Self, beta_value: T, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!(beta_value >= zero(T))) return error.InvalidShape;
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var diff_values = try self.sub(targets);
+            defer diff_values.deinit();
+            var abs_values = try diff_values.abs();
+            defer abs_values.deinit();
+            var losses = try Self.empty(self.allocator, abs_values.shape);
+            errdefer losses.deinit();
+            if (beta_value == zero(T)) {
+                @memcpy(losses.data, abs_values.data);
+            } else {
+                for (abs_values.data, losses.data) |abs_diff, *slot| {
+                    slot.* = if (abs_diff < beta_value) (abs_diff * abs_diff) / (castValue(T, 2) * beta_value) else abs_diff - castValue(T, 0.5) * beta_value;
+                }
+            }
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn smooth_l1_loss(self: Self, targets: Self, beta_value: T, reduction: LossReduction) ArrayError!Self {
+            return self.smoothL1Loss(targets, beta_value, reduction);
+        }
+
+        pub fn huberLoss(self: Self, targets: Self, delta: T, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!(delta > zero(T))) return error.InvalidShape;
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var diff_values = try self.sub(targets);
+            defer diff_values.deinit();
+            var abs_values = try diff_values.abs();
+            defer abs_values.deinit();
+            var losses = try Self.empty(self.allocator, abs_values.shape);
+            errdefer losses.deinit();
+            for (abs_values.data, losses.data) |abs_diff, *slot| {
+                slot.* = if (abs_diff <= delta) castValue(T, 0.5) * abs_diff * abs_diff else delta * (abs_diff - castValue(T, 0.5) * delta);
+            }
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn huber_loss(self: Self, targets: Self, delta: T, reduction: LossReduction) ArrayError!Self {
+            return self.huberLoss(targets, delta, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29194,6 +29258,42 @@ test "array logsoftmax norm and matrix helpers" {
     var bad_regression_targets = try Array(f64).zeros(gpa, &.{3});
     defer bad_regression_targets.deinit();
     try std.testing.expectError(error.ShapeMismatch, predictions.mseLoss(bad_regression_targets, .none));
+    var robust_predictions = try Array(f64).fromSlice(gpa, &.{ -2, -0.5, 0.5, 3 }, &.{4});
+    defer robust_predictions.deinit();
+    var robust_targets = try Array(f64).zeros(gpa, &.{4});
+    defer robust_targets.deinit();
+    var smooth_none = try robust_predictions.smoothL1Loss(robust_targets, 1.0, .none);
+    defer smooth_none.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 0.125, 0.125, 2.5 }, smooth_none.data);
+    var smooth_mean = try robust_predictions.smooth_l1_loss(robust_targets, 1.0, .mean);
+    defer smooth_mean.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0625), smooth_mean.data[0], 1e-12);
+    var smooth_l1_l1 = try robust_predictions.smoothL1Loss(robust_targets, 0.0, .none);
+    defer smooth_l1_l1.deinit();
+    var expected_l1_none = try robust_predictions.l1Loss(robust_targets, .none);
+    defer expected_l1_none.deinit();
+    try expectApproxEqualSlices(f64, expected_l1_none.data, smooth_l1_l1.data, 1e-12);
+    var huber_none = try robust_predictions.huberLoss(robust_targets, 1.0, .none);
+    defer huber_none.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 0.125, 0.125, 2.5 }, huber_none.data);
+    var huber_sum = try robust_predictions.huber_loss(robust_targets, 2.0, .sum);
+    defer huber_sum.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5 * 4 + 0.5 * 0.25 + 0.5 * 0.25 + 2.0 * (3.0 - 1.0)), huber_sum.data[0], 1e-12);
+    var robust_view_source = try Array(f64).fromSlice(gpa, &.{ -2, 90, -0.5, 80, 0.5, 70, 3, 60 }, &.{ 2, 4 });
+    defer robust_view_source.deinit();
+    var robust_view = try robust_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer robust_view.deinit();
+    var robust_view_targets = try Array(f64).zeros(gpa, &.{ 2, 2 });
+    defer robust_view_targets.deinit();
+    var view_smooth = try robust_view.smooth_l1_loss(robust_view_targets, 1.0, .none);
+    defer view_smooth.deinit();
+    var robust_view_owned = try robust_view.toArray();
+    defer robust_view_owned.deinit();
+    var expected_view_smooth = try robust_view_owned.smoothL1Loss(robust_view_targets, 1.0, .none);
+    defer expected_view_smooth.deinit();
+    try expectApproxEqualSlices(f64, expected_view_smooth.data, view_smooth.data, 1e-12);
+    try std.testing.expectError(error.InvalidShape, robust_predictions.smoothL1Loss(robust_targets, -1.0, .mean));
+    try std.testing.expectError(error.InvalidShape, robust_predictions.huberLoss(robust_targets, 0.0, .mean));
 
     var v = try Array(f64).fromSlice(gpa, &.{ 3, 4 }, &.{2});
     defer v.deinit();
