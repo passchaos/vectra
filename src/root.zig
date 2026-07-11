@@ -6,7 +6,7 @@
 //! broadcasting arithmetic, reductions, linalg/stat helpers, typed Series,
 //! heterogeneous DataFrame operations, sparse matrices, and CSV IO. CUDA/GPU is
 //! available through the default Axiom backend when a CUDA device is
-//! present; CUDA arrays own device-resident storage and dispatch supported f32
+//! present; CUDA arrays own device-resident storage and dispatch supported f32/f64
 //! operations without staging through host arrays.
 
 const array_mod = @import("array.zig");
@@ -126,6 +126,9 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
         if (try tryCpuMatmulAddF64(@as(Array(f64), lhs), @as(Array(f64), rhs), @as(Array(f64), addend))) |out| {
             return @as(@TypeOf(lhs), out);
         }
+        if (try tryCudaMatmulAddF64(@as(Array(f64), lhs), @as(Array(f64), rhs), @as(Array(f64), addend))) |out| {
+            return @as(@TypeOf(lhs), out);
+        }
     } else if (comptime @TypeOf(lhs) == Array(BFloat16)) {
         if (try tryCudaMatmulAddBF16(@as(Array(BFloat16), lhs), @as(Array(BFloat16), rhs), @as(Array(BFloat16), addend))) |out| {
             return @as(@TypeOf(lhs), out);
@@ -157,6 +160,14 @@ pub fn tryCudaMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32))
     try requireSameDevice(lhs, addend);
     if (!lhs.device.isCuda()) return null;
     if (try axiom_cuda.tryDeviceMatmulAddF32(lhs, rhs, addend)) |out| return out;
+    return null;
+}
+
+pub fn tryCudaMatmulAddF64(lhs: Array(f64), rhs: Array(f64), addend: Array(f64)) ArrayError!?Array(f64) {
+    try requireSameDevice(lhs, rhs);
+    try requireSameDevice(lhs, addend);
+    if (!lhs.device.isCuda()) return null;
+    if (try axiom_cuda.tryDeviceMatmulAddF64(lhs, rhs, addend)) |out| return out;
     return null;
 }
 

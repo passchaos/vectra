@@ -59,12 +59,7 @@ pub fn main(init: std.process.Init) !void {
     if (args.backend == .cuda or args.backend == .both) {
         if (gpu.isAvailable()) {
             if (dtypeIncluded(dtype_filter, .f32)) try runCudaF32(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
-            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul", "cuda_matmul_f64_not_exposed");
-            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_add", "cuda_matmul_add_f64_not_exposed");
-            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_then_add", "cuda_matmul_f64_not_exposed");
-            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_then_sub", "cuda_matmul_f64_not_exposed");
-            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_then_add_sqrt", "cuda_matmul_f64_not_exposed");
-            if (dtypeIncluded(dtype_filter, .f64)) try printSkipped(&stdout.interface, "cuda", "f64", "matmul_then_add_exp", "cuda_matmul_f64_not_exposed");
+            if (dtypeIncluded(dtype_filter, .f64)) try runCudaF64(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
             if (dtypeIncluded(dtype_filter, .f16)) try runCudaHostDtype(f16, "f16", init, &stdout.interface, allocator, shape, warmup, iters, args.retain_outputs, args.allow_slow_typed_cuda);
             if (dtypeIncluded(dtype_filter, .bf16)) try runCudaBf16(init, &stdout.interface, allocator, gpu, shape, warmup, iters, args.retain_outputs);
         } else if (args.backend == .cuda and args.require_cuda) {
@@ -225,6 +220,31 @@ fn runCudaF32(
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused", "f32", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_plus_unary", "f32", .matmul_then_add_sqrt, a, b, c, warmup, iters, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_plus_unary", "f32", .matmul_then_add_exp, a, b, c, warmup, iters, retain_outputs);
+}
+
+fn runCudaF64(
+    init: std.process.Init,
+    writer: *std.Io.Writer,
+    allocator: std.mem.Allocator,
+    gpu: vx.Device,
+    shape: Shape,
+    warmup: usize,
+    iters: usize,
+    retain_outputs: bool,
+) !void {
+    var np = vx.withAllocator(allocator);
+    var a = try np.onesWith(vx.onDevice(f64, gpu), &.{ shape.m, shape.k });
+    defer a.deinit();
+    var b = try np.onesWith(vx.onDevice(f64, gpu), &.{ shape.k, shape.n });
+    defer b.deinit();
+    var c = try np.onesWith(vx.onDevice(f64, gpu), &.{ shape.m, shape.n });
+    defer c.deinit();
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublas", "f64", .matmul, a, b, null, warmup, iters, retain_outputs);
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublaslt", "f64", .matmul_add, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_add, a, b, c, warmup, iters, retain_outputs);
+    try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused", "f64", .matmul_then_sub, a, b, c, warmup, iters, retain_outputs);
+    try printSkipped(writer, "cuda", "f64", "matmul_then_add_sqrt", "cuda_f64_unary_postop_not_exposed");
+    try printSkipped(writer, "cuda", "f64", "matmul_then_add_exp", "cuda_f64_unary_postop_not_exposed");
 }
 
 fn runCudaBf16(
