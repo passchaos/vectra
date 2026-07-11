@@ -226,10 +226,11 @@ The current high-value benchmark set covers large f64 elementwise/scalar ops, fl
 shape through Vectra/Axiom `large_matmul_add`, PyTorch `torch.addmm`, eager
 `a @ b + c`, and `torch.compile`, so matmul+add performance work has a
 repeatable local PyTorch/torch.compile baseline. Pass `--op` to isolate one
-Vectra expression when tuning kernel launch/algorithm effects. Pass `--baseline` and
+Vectra expression when tuning kernel launch/algorithm effects; the default
+`--baseline=auto` selects the matching PyTorch expression for matmul, add, sub,
+sqrt, or exp variants. Pass `--baseline` and
 `--max-ratio` to turn the comparison into a failing performance gate based on
-Vectra `matmul_add` / `matmul_then_add` average time divided by the selected
-PyTorch baseline.
+the selected Vectra op's average time divided by the selected PyTorch baseline.
 
 ## Roadmap
 

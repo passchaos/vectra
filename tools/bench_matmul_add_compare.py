@@ -45,8 +45,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--torch-compile-mode", default="reduce-overhead", help="Mode passed to torch.compile.")
     parser.add_argument("--skip-torch-compile", action="store_true")
     parser.add_argument("--skip-vectra", action="store_true")
-    parser.add_argument("--baseline", choices=("torch_addmm", "torch_eager_matmul_add", "torch_compile"), default="torch_addmm")
-    parser.add_argument("--max-ratio", type=float, default=None, help="Fail if Vectra matmul_add avg_us / baseline avg_us exceeds this value.")
+    parser.add_argument(
+        "--baseline",
+        choices=(
+            "auto",
+            "torch_matmul",
+            "torch_addmm",
+            "torch_eager_matmul_add",
+            "torch_addmm_sub",
+            "torch_eager_matmul_sub",
+            "torch_addmm_sqrt",
+            "torch_eager_matmul_add_sqrt",
+            "torch_addmm_exp",
+            "torch_eager_matmul_add_exp",
+            "torch_compile",
+        ),
+        default="auto",
+    )
+    parser.add_argument("--max-ratio", type=float, default=None, help="Fail if selected Vectra op avg_us / baseline avg_us exceeds this value.")
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     return parser.parse_args()
 
@@ -134,6 +150,58 @@ def bench_torch_case(name: str, func: Callable[[], Any], sync: Callable[[], None
     return elapsed_us, result
 
 
+def default_baseline_for_op(op_name: str) -> str:
+    if op_name == "matmul":
+        return "torch_matmul"
+    if op_name in ("matmul_add", "matmul_then_add", "all"):
+        return "torch_addmm"
+    if op_name == "matmul_then_sub":
+        return "torch_addmm_sub"
+    if op_name == "matmul_then_add_sqrt":
+        return "torch_addmm_sqrt"
+    if op_name == "matmul_then_add_exp":
+        return "torch_addmm_exp"
+    raise ValueError(f"unsupported op for baseline selection: {op_name}")
+
+
+def torch_expression(op_name: str, a: Any, b: Any, c: Any, k: int) -> Any:
+    if op_name == "matmul":
+        return a @ b
+    if op_name in ("matmul_add", "matmul_then_add", "all"):
+        return torch_addmm_expr(a, b, c)
+    if op_name == "matmul_then_sub":
+        return torch_addmm_sub_expr(a, b, c)
+    if op_name == "matmul_then_add_sqrt":
+        return torch_addmm_sqrt_expr(a, b, c)
+    if op_name == "matmul_then_add_exp":
+        return torch_addmm_exp_expr(a, b, c, k)
+    raise ValueError(f"unsupported torch expression op: {op_name}")
+
+
+def torch_addmm_expr(a: Any, b: Any, c: Any) -> Any:
+    import torch
+
+    return torch.addmm(c, a, b)
+
+
+def torch_addmm_sub_expr(a: Any, b: Any, c: Any) -> Any:
+    import torch
+
+    return torch.addmm(c, a, b, beta=-1.0, alpha=1.0)
+
+
+def torch_addmm_sqrt_expr(a: Any, b: Any, c: Any) -> Any:
+    import torch
+
+    return torch.sqrt(torch.addmm(c, a, b))
+
+
+def torch_addmm_exp_expr(a: Any, b: Any, c: Any, k: int) -> Any:
+    import torch
+
+    return torch.exp(torch.addmm(c, a, b) * (1.0 / float(k + 1)))
+
+
 def torch_dtype_from_name(torch: Any, dtype_name: str) -> Any:
     if dtype_name == "f32":
         return torch.float32
@@ -177,17 +245,43 @@ def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, ite
     c = torch.ones((m, n), device=device, dtype=dtype)
     torch.cuda.synchronize()
 
-    cases: list[tuple[str, Callable[[], Any]]] = [
-        ("torch_addmm", lambda: torch.addmm(c, a, b)),
-        ("torch_eager_matmul_add", lambda: a @ b + c),
-    ]
+    if args.op == "all":
+        cases: list[tuple[str, Callable[[], Any]]] = [
+            ("torch_addmm", lambda: torch.addmm(c, a, b)),
+            ("torch_eager_matmul_add", lambda: a @ b + c),
+        ]
+    elif args.op == "matmul":
+        cases = [("torch_matmul", lambda: a @ b)]
+    elif args.op in ("matmul_add", "matmul_then_add"):
+        cases = [
+            ("torch_addmm", lambda: torch.addmm(c, a, b)),
+            ("torch_eager_matmul_add", lambda: a @ b + c),
+        ]
+    elif args.op == "matmul_then_sub":
+        cases = [
+            ("torch_addmm_sub", lambda: torch.addmm(c, a, b, beta=-1.0, alpha=1.0)),
+            ("torch_eager_matmul_sub", lambda: a @ b - c),
+        ]
+    elif args.op == "matmul_then_add_sqrt":
+        cases = [
+            ("torch_addmm_sqrt", lambda: torch.sqrt(torch.addmm(c, a, b))),
+            ("torch_eager_matmul_add_sqrt", lambda: torch.sqrt(a @ b + c)),
+        ]
+    elif args.op == "matmul_then_add_exp":
+        scale = 1.0 / float(k + 1)
+        cases = [
+            ("torch_addmm_exp", lambda: torch.exp(torch.addmm(c, a, b) * scale)),
+            ("torch_eager_matmul_add_exp", lambda: torch.exp((a @ b + c) * scale)),
+        ]
+    else:
+        raise ValueError(f"unsupported op: {args.op}")
 
     if not args.skip_torch_compile and hasattr(torch, "compile"):
-        def matmul_add(x: Any, y: Any, z: Any) -> Any:
-            return x @ y + z
+        def selected_expression(x: Any, y: Any, z: Any) -> Any:
+            return torch_expression(args.op, x, y, z, k)
 
         try:
-            compiled = torch.compile(matmul_add, mode=args.torch_compile_mode)
+            compiled = torch.compile(selected_expression, mode=args.torch_compile_mode)
             cases.append((f"torch_compile_{args.torch_compile_mode}", lambda: compiled(a, b, c)))
         except Exception as exc:
             rows.append(emit({**row_base, "op": "torch_compile", "skipped": True, "reason": f"compile_create_failed:{exc}"}))
@@ -212,17 +306,17 @@ def run_torch(args: argparse.Namespace, m: int, n: int, k: int, warmup: int, ite
 def summarize(args: argparse.Namespace, vectra_rows: list[dict[str, Any]], torch_rows: list[dict[str, Any]]) -> dict[str, Any]:
     vectra_by_op = {row.get("op"): row for row in vectra_rows if row.get("source") == "vectra" and row.get("ok") is True}
     torch_by_op = {row.get("op"): row for row in torch_rows if row.get("source") == "torch" and row.get("ok") is True}
-    baseline_key = args.baseline
+    baseline_key = default_baseline_for_op(args.op) if args.baseline == "auto" else args.baseline
     if baseline_key == "torch_compile":
         prefix = f"torch_compile_{args.torch_compile_mode}"
         baseline_row = next((row for op, row in torch_by_op.items() if isinstance(op, str) and op.startswith(prefix)), None)
         baseline_key = prefix
     else:
         baseline_row = torch_by_op.get(baseline_key)
-    vectra_matmul_add = vectra_by_op.get("matmul_add")
-    vectra_then_add = vectra_by_op.get("matmul_then_add")
+
     result: dict[str, Any] = {
         "kind": "matmul_add_compare_summary",
+        "requested_op": args.op,
         "baseline": baseline_key,
         "max_ratio": args.max_ratio,
         "ok": False,
@@ -232,7 +326,16 @@ def summarize(args: argparse.Namespace, vectra_rows: list[dict[str, Any]], torch
         return result
     baseline_avg = float(baseline_row["avg_us"])
     result["baseline_avg_us"] = baseline_avg
-    for label, row in (("vectra_matmul_add", vectra_matmul_add), ("vectra_matmul_then_add", vectra_then_add)):
+
+    if args.op == "all":
+        vectra_targets = [
+            ("vectra_matmul_add", vectra_by_op.get("matmul_add")),
+            ("vectra_matmul_then_add", vectra_by_op.get("matmul_then_add")),
+        ]
+    else:
+        vectra_targets = [(f"vectra_{args.op}", vectra_by_op.get(args.op))]
+
+    for label, row in vectra_targets:
         if row is None:
             result[f"{label}_missing"] = True
             continue
