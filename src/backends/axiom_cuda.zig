@@ -2100,14 +2100,14 @@ pub fn runPendingMatmulAddF16(allocator: std.mem.Allocator, device: array_mod.De
 pub fn runPendingMatmulAddF64(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    if (beta == 1.0) {
+    if (beta == 1.0 or beta == -1.0) {
         const byte_count = std.math.mul(usize, m, n) catch return error.InvalidShape;
         const bytes = std.math.mul(usize, byte_count, @sizeOf(f64)) catch return error.InvalidShape;
         try copyStorage(
             .{ .device = device, .ptr = out_ptr, .len = byte_count, .bytes = bytes, .owns = false },
             .{ .device = device, .ptr = add_ptr, .len = byte_count, .bytes = bytes, .owns = false },
         );
-        const report = runtime.runCudaDeviceDgemmEx(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr, alpha, 1.0) catch return error.BackendFailure;
+        const report = runtime.runCudaDeviceDgemmEx(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
         recordCudaDeviceGemmReport(report);
         return report.valid();
     }
