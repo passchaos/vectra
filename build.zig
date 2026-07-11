@@ -163,6 +163,10 @@ pub fn build(b: *std.Build) void {
     const bench_step = b.step("bench", "Run Array performance smoke benchmark");
     bench_step.dependOn(&bench_cmd.step);
 
+    const api_boundary_audit_cmd = b.addSystemCommand(&.{ "python3", "tools/api_boundary_audit.py" });
+    const api_boundary_audit_step = b.step("api-boundary-audit", "Check that Vectra keeps Array API boundaries and leaves Tensor/autograd to Forge");
+    api_boundary_audit_step.dependOn(&api_boundary_audit_cmd.step);
+
     const examples_step = b.step("examples", "Run Vectra usage examples");
 
     const basic_array_example_exe = b.addExecutable(.{
