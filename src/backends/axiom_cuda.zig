@@ -37,6 +37,56 @@ pub const UnaryOp = enum {
     exp,
 };
 
+pub const CudaDeviceGemmReportSnapshot = struct {
+    ok: bool = false,
+    backend: []const u8 = "",
+    device_ordinal: usize = 0,
+    m: usize = 0,
+    n: usize = 0,
+    k: usize = 0,
+    lhs_device_ptr: u64 = 0,
+    rhs_device_ptr: u64 = 0,
+    out_device_ptr: u64 = 0,
+    alpha: f32 = 1.0,
+    beta: f32 = 0.0,
+    cache_hit: bool = false,
+    lt_plan_cache_hit: bool = false,
+    fingerprint: u64 = 0,
+
+    pub fn valid(report: CudaDeviceGemmReportSnapshot) bool {
+        return report.ok and report.m != 0 and report.n != 0 and report.k != 0 and report.lhs_device_ptr != 0 and report.rhs_device_ptr != 0 and report.out_device_ptr != 0;
+    }
+};
+
+threadlocal var last_cuda_device_gemm_report: CudaDeviceGemmReportSnapshot = .{};
+
+pub fn resetLastCudaDeviceGemmReport() void {
+    last_cuda_device_gemm_report = .{};
+}
+
+pub fn lastCudaDeviceGemmReport() CudaDeviceGemmReportSnapshot {
+    return last_cuda_device_gemm_report;
+}
+
+fn recordCudaDeviceGemmReport(report: anytype) void {
+    last_cuda_device_gemm_report = .{
+        .ok = report.ok,
+        .backend = report.backend,
+        .device_ordinal = report.device_ordinal,
+        .m = report.m,
+        .n = report.n,
+        .k = report.k,
+        .lhs_device_ptr = report.lhs_device_ptr,
+        .rhs_device_ptr = report.rhs_device_ptr,
+        .out_device_ptr = report.out_device_ptr,
+        .alpha = report.alpha,
+        .beta = report.beta,
+        .cache_hit = report.cache_hit,
+        .lt_plan_cache_hit = report.lt_plan_cache_hit,
+        .fingerprint = report.fingerprint(),
+    };
+}
+
 pub const CudaDTypeBridgeStatus = enum(u8) {
     native_cuda_seed,
     widened_f32_seed,
@@ -1479,6 +1529,7 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
 }
 
 pub fn tryDeviceMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    resetLastCudaDeviceGemmReport();
     if (!build_options.enable_axiom_cuda) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
     if (lhs.data.len != 0 or rhs.data.len != 0 or lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0] or !lhs.isContiguous() or !rhs.isContiguous()) return null;
@@ -1498,6 +1549,7 @@ pub fn tryDeviceMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
     const cublas_report = runtime.runCudaDeviceSgemm(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch null;
     if (cublas_report) |report| {
+        recordCudaDeviceGemmReport(report);
         if (report.valid()) return out;
     }
 
@@ -1546,6 +1598,7 @@ pub fn tryDeviceMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) 
 }
 
 pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    resetLastCudaDeviceGemmReport();
     if (!build_options.enable_axiom_cuda) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !addend.device.isCuda()) return null;
     if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(addend.device)) return null;
@@ -1572,6 +1625,7 @@ pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32
         var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
         const report = runtime.runCudaDeviceSgemmLtMatmulAdd(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr) catch null;
         if (report) |value| {
+            recordCudaDeviceGemmReport(value);
             if (value.valid()) return out;
         }
         out.deinit();
@@ -1586,6 +1640,7 @@ pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32
 }
 
 pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    resetLastCudaDeviceGemmReport();
     if (!build_options.enable_axiom_cuda) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
     if (lhs.data.len != 0 or rhs.data.len != 0 or lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0] or !lhs.isContiguous() or !rhs.isContiguous()) return null;
@@ -1605,32 +1660,41 @@ pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
     const report = runtime.runCudaDeviceBf16Gemm(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch null;
     if (report) |value| {
+        recordCudaDeviceGemmReport(value);
         if (value.valid()) return out;
     }
     return null;
 }
 
 pub fn runPendingMatmulF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
+    resetLastCudaDeviceGemmReport();
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
     const report = runtime.runCudaDeviceSgemm(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr) catch return error.BackendFailure;
+    recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
 pub fn runPendingMatmulBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
+    resetLastCudaDeviceGemmReport();
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
     const report = runtime.runCudaDeviceBf16Gemm(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr) catch return error.BackendFailure;
+    recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
 pub fn runPendingMatmulAddF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
+    resetLastCudaDeviceGemmReport();
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
     const report = runtime.runCudaDeviceSgemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
 pub fn runPendingMatmulAddBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
+    resetLastCudaDeviceGemmReport();
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
     const report = runtime.runCudaDeviceBf16GemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
@@ -1648,6 +1712,7 @@ pub fn runPendingMatmulAddUnaryF32(
     alpha: f32,
     beta: f32,
 ) array_mod.ArrayError!bool {
+    resetLastCudaDeviceGemmReport();
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
     const report = runtime.runCudaDeviceF32MatmulAddUnary(
         device.index,
@@ -1665,10 +1730,12 @@ pub fn runPendingMatmulAddUnaryF32(
         alpha,
         beta,
     ) catch return error.BackendFailure;
+    recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
 pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16), addend: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    resetLastCudaDeviceGemmReport();
     if (!build_options.enable_axiom_cuda) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !addend.device.isCuda()) return null;
     if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(addend.device)) return null;
@@ -1694,6 +1761,7 @@ pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Arr
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
     const report = runtime.runCudaDeviceBf16GemmLtMatmulAdd(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr) catch null;
     if (report) |value| {
+        recordCudaDeviceGemmReport(value);
         if (value.valid()) return out;
     }
     out.deinit();
@@ -2622,4 +2690,44 @@ test "Axiom CUDA bridge reports dtype metadata deterministically" {
         try std.testing.expectEqual(Status.disabled, report.status);
         try std.testing.expectEqual(@as(u8, 0), report.issue_count);
     }
+}
+
+test "Axiom CUDA bridge snapshots last GEMM plan-cache evidence" {
+    resetLastCudaDeviceGemmReport();
+    try std.testing.expect(!lastCudaDeviceGemmReport().valid());
+
+    const StubReport = struct {
+        ok: bool = true,
+        backend: []const u8 = "cublaslt_f32",
+        device_ordinal: usize = 7,
+        m: usize = 8,
+        n: usize = 4,
+        k: usize = 6,
+        lhs_device_ptr: u64 = 0x1000,
+        rhs_device_ptr: u64 = 0x2000,
+        out_device_ptr: u64 = 0x3000,
+        alpha: f32 = 1.0,
+        beta: f32 = 1.0,
+        cache_hit: bool = true,
+        lt_plan_cache_hit: bool = true,
+
+        fn fingerprint(report: @This()) u64 {
+            return if (report.lt_plan_cache_hit) 0xa11c_acc1_c061_a501 else 0;
+        }
+    };
+    recordCudaDeviceGemmReport(StubReport{});
+
+    const snapshot = lastCudaDeviceGemmReport();
+    try std.testing.expect(snapshot.valid());
+    try std.testing.expectEqualStrings("cublaslt_f32", snapshot.backend);
+    try std.testing.expectEqual(@as(usize, 7), snapshot.device_ordinal);
+    try std.testing.expectEqual(@as(usize, 8), snapshot.m);
+    try std.testing.expectEqual(@as(usize, 4), snapshot.n);
+    try std.testing.expectEqual(@as(usize, 6), snapshot.k);
+    try std.testing.expect(snapshot.cache_hit);
+    try std.testing.expect(snapshot.lt_plan_cache_hit);
+    try std.testing.expectEqual(@as(u64, 0xa11c_acc1_c061_a501), snapshot.fingerprint);
+
+    resetLastCudaDeviceGemmReport();
+    try std.testing.expect(!lastCudaDeviceGemmReport().valid());
 }
