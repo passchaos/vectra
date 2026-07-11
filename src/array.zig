@@ -7051,6 +7051,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.hingeEmbeddingLoss(targets, margin, reduction);
         }
 
+        pub fn multiMarginLoss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.multiMarginLoss(targets, margin, p, reduction);
+        }
+
+        pub fn multi_margin_loss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Array(T) {
+            return self.multiMarginLoss(targets, margin, p, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17868,6 +17878,37 @@ pub fn Array(comptime T: type) type {
 
         pub fn hinge_embedding_loss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
             return self.hingeEmbeddingLoss(targets, margin, reduction);
+        }
+
+        pub fn multiMarginLoss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.isCpu() or !targets.device.isCpu()) return error.InvalidDevice;
+            if (self.shape.len != 2 or targets.shape.len != 1 or targets.shape[0] != self.shape[0]) return error.ShapeMismatch;
+            if (p != 1 and p != 2) return error.InvalidShape;
+            const rows = self.shape[0];
+            const classes = self.shape[1];
+            if (classes == 0) return error.InvalidShape;
+            var losses = try Self.empty(self.allocator, &.{rows});
+            errdefer losses.deinit();
+            for (0..rows) |row| {
+                const target_class = targets.data[row];
+                if (target_class >= classes) return error.IndexOutOfBounds;
+                const target_value = self.data[row * classes + target_class];
+                var total = zero(T);
+                for (0..classes) |class| {
+                    if (class == target_class) continue;
+                    var margin_value = margin - target_value + self.data[row * classes + class];
+                    if (margin_value <= zero(T)) continue;
+                    if (p == 2) margin_value *= margin_value;
+                    total += margin_value;
+                }
+                losses.data[row] = total / castValue(T, classes);
+            }
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn multi_margin_loss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Self {
+            return self.multiMarginLoss(targets, margin, p, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29608,6 +29649,35 @@ test "array logsoftmax norm and matrix helpers" {
     var hinge_view_loss = try hinge_view.hinge_embedding_loss(hinge_targets, 1.0, .none);
     defer hinge_view_loss.deinit();
     try expectApproxEqualSlices(f64, hinge_none.data, hinge_view_loss.data, 1e-12);
+    var multi_margin_logits = try Array(f64).fromSlice(gpa, &.{
+        2.0, 0.5, 1.0,
+        0.5, 2.0, 1.0,
+    }, &.{ 2, 3 });
+    defer multi_margin_logits.deinit();
+    var multi_margin_targets = try Array(usize).fromSlice(gpa, &.{ 0, 2 }, &.{2});
+    defer multi_margin_targets.deinit();
+    var multi_margin_none = try multi_margin_logits.multiMarginLoss(multi_margin_targets, 1.0, 1, .none);
+    defer multi_margin_none.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, multi_margin_none.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), multi_margin_none.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5) / 3.0, multi_margin_none.data[1], 1e-12);
+    var multi_margin_square = try multi_margin_logits.multi_margin_loss(multi_margin_targets, 1.0, 2, .sum);
+    defer multi_margin_square.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 4.25) / 3.0, multi_margin_square.data[0], 1e-12);
+    var multi_margin_view_source = try Array(f64).fromSlice(gpa, &.{
+        2.0, 99, 0.5, 88, 1.0, 77,
+        0.5, 66, 2.0, 55, 1.0, 44,
+    }, &.{ 2, 6 });
+    defer multi_margin_view_source.deinit();
+    var multi_margin_view = try multi_margin_view_source.sliceAxisView(1, .{ .start = 0, .stop = 6, .step = 2 });
+    defer multi_margin_view.deinit();
+    var multi_margin_view_loss = try multi_margin_view.multiMarginLoss(multi_margin_targets, 1.0, 1, .none);
+    defer multi_margin_view_loss.deinit();
+    try expectApproxEqualSlices(f64, multi_margin_none.data, multi_margin_view_loss.data, 1e-12);
+    var bad_multi_margin_targets = try Array(usize).fromSlice(gpa, &.{ 3, 0 }, &.{2});
+    defer bad_multi_margin_targets.deinit();
+    try std.testing.expectError(error.IndexOutOfBounds, multi_margin_logits.multiMarginLoss(bad_multi_margin_targets, 1.0, 1, .none));
+    try std.testing.expectError(error.InvalidShape, multi_margin_logits.multiMarginLoss(multi_margin_targets, 1.0, 3, .none));
     var robust_predictions = try Array(f64).fromSlice(gpa, &.{ -2, -0.5, 0.5, 3 }, &.{4});
     defer robust_predictions.deinit();
     var robust_targets = try Array(f64).zeros(gpa, &.{4});
