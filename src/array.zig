@@ -7041,6 +7041,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.softMarginLoss(targets, reduction);
         }
 
+        pub fn hingeLoss(self: Self, targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.hingeLoss(targets, margin, reduction);
+        }
+
+        pub fn hinge_loss(self: Self, targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
+            return self.hingeLoss(targets, margin, reduction);
+        }
+
         pub fn hingeEmbeddingLoss(self: Self, targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17879,6 +17889,24 @@ pub fn Array(comptime T: type) type {
 
         pub fn soft_margin_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             return self.softMarginLoss(targets, reduction);
+        }
+
+        pub fn hingeLoss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var signed_values = try targets.mul(self);
+            defer signed_values.deinit();
+            var losses = try signed_values.mulScalar(negValue(T, one(T)));
+            errdefer losses.deinit();
+            try losses.addScalarAssign(margin);
+            var clamped = try losses.maximumScalar(zero(T));
+            losses.deinit();
+            errdefer clamped.deinit();
+            return self.reducedLoss(clamped, reduction);
+        }
+
+        pub fn hinge_loss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
+            return self.hingeLoss(targets, margin, reduction);
         }
 
         pub fn hingeEmbeddingLoss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
@@ -29687,6 +29715,15 @@ test "array logsoftmax norm and matrix helpers" {
     var soft_margin_view_loss = try soft_margin_view.soft_margin_loss(margin_targets, .none);
     defer soft_margin_view_loss.deinit();
     try expectApproxEqualSlices(f64, soft_margin_none.data, soft_margin_view_loss.data, 1e-12);
+    var hinge_binary = try margin_inputs.hingeLoss(margin_targets, 1.0, .none);
+    defer hinge_binary.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 3, 1.5, 0.75 }, hinge_binary.data);
+    var hinge_binary_mean = try margin_inputs.hinge_loss(margin_targets, 1.0, .mean);
+    defer hinge_binary_mean.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1.3125), hinge_binary_mean.data[0], 1e-12);
+    var hinge_binary_view = try soft_margin_view.hinge_loss(margin_targets, 1.0, .none);
+    defer hinge_binary_view.deinit();
+    try expectApproxEqualSlices(f64, hinge_binary.data, hinge_binary_view.data, 1e-12);
     var hinge_inputs = try Array(f64).fromSlice(gpa, &.{ 0.25, 2.0, 1.25, 0.5 }, &.{ 2, 2 });
     defer hinge_inputs.deinit();
     var hinge_targets = try Array(f64).fromSlice(gpa, &.{ 1, -1 }, &.{ 2, 1 });
