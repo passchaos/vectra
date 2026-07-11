@@ -4244,6 +4244,47 @@ pub fn ArrayView(comptime T: type) type {
             return self.hardswish();
         }
 
+        pub fn elu(self: Self, alpha: T) ArrayError!Array(T) {
+            ensureFloat(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const value = self.data[self.offset + ravelIndex(multi, self.strides)];
+                if (comptime T == BFloat16) {
+                    const v = value.toF32();
+                    slot.* = if (v > 0) value else BFloat16.fromF32(alpha.toF32() * std.math.expm1(v));
+                } else {
+                    slot.* = if (value > zero(T)) value else alpha * std.math.expm1(value);
+                }
+            }
+            return out;
+        }
+
+        pub fn celu(self: Self, alpha: T) ArrayError!Array(T) {
+            ensureFloat(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const value = self.data[self.offset + ravelIndex(multi, self.strides)];
+                if (comptime T == BFloat16) {
+                    const alpha_f32 = alpha.toF32();
+                    const v = value.toF32();
+                    slot.* = if (v > 0) value else BFloat16.fromF32(alpha_f32 * std.math.expm1(v / alpha_f32));
+                } else {
+                    slot.* = if (value > zero(T)) value else alpha * std.math.expm1(value / alpha);
+                }
+            }
+            return out;
+        }
+
         pub fn expit(self: Self) ArrayError!Array(T) {
             ensureFloat(T);
             return self.unary(Array(T).opExpit);
@@ -16797,6 +16838,35 @@ pub fn Array(comptime T: type) type {
             return self.hardswish();
         }
 
+        pub fn elu(self: Self, alpha: T) ArrayError!Self {
+            ensureFloat(T);
+            const out = try Self.empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| {
+                if (comptime T == BFloat16) {
+                    const v = value.toF32();
+                    slot.* = if (v > 0) value else BFloat16.fromF32(alpha.toF32() * std.math.expm1(v));
+                } else {
+                    slot.* = if (value > zero(T)) value else alpha * std.math.expm1(value);
+                }
+            }
+            return out;
+        }
+
+        pub fn celu(self: Self, alpha: T) ArrayError!Self {
+            ensureFloat(T);
+            const out = try Self.empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| {
+                if (comptime T == BFloat16) {
+                    const alpha_f32 = alpha.toF32();
+                    const v = value.toF32();
+                    slot.* = if (v > 0) value else BFloat16.fromF32(alpha_f32 * std.math.expm1(v / alpha_f32));
+                } else {
+                    slot.* = if (value > zero(T)) value else alpha * std.math.expm1(value / alpha);
+                }
+            }
+            return out;
+        }
+
         pub fn expit(self: Self) ArrayError!Self {
             ensureFloat(T);
             return self.unary(opExpit);
@@ -25844,6 +25914,16 @@ test "array view transcendental unary math is view aware" {
     var actual_leaky = try activation.leakyRelu(0.1);
     defer actual_leaky.deinit();
     try expectApproxEqualSlices(f64, expected_leaky.data, actual_leaky.data, 1e-12);
+    var expected_elu = try activation_owned.elu(1.25);
+    defer expected_elu.deinit();
+    var actual_elu = try activation.elu(1.25);
+    defer actual_elu.deinit();
+    try expectApproxEqualSlices(f64, expected_elu.data, actual_elu.data, 1e-12);
+    var expected_celu = try activation_owned.celu(1.25);
+    defer expected_celu.deinit();
+    var actual_celu = try activation.celu(1.25);
+    defer actual_celu.deinit();
+    try expectApproxEqualSlices(f64, expected_celu.data, actual_celu.data, 1e-12);
 
     var expected_clip = try activation_owned.clip(-0.25, 1.0);
     defer expected_clip.deinit();
@@ -27726,6 +27806,16 @@ test "array take mask stack cat and neural helpers" {
     var leaky_out = try shifted.leakyRelu(0.1);
     defer leaky_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -0.2, -0.1, 0, 1, 2, 3 }, leaky_out.data);
+    var elu_out = try shifted.elu(1.5);
+    defer elu_out.deinit();
+    var celu_out = try shifted.celu(1.5);
+    defer celu_out.deinit();
+    for (shifted.data, elu_out.data, celu_out.data) |input, actual_elu, actual_celu| {
+        const expected_elu = if (input > 0) input else 1.5 * std.math.expm1(input);
+        const expected_celu = if (input > 0) input else 1.5 * std.math.expm1(input / 1.5);
+        try std.testing.expectApproxEqAbs(expected_elu, actual_elu, 1e-12);
+        try std.testing.expectApproxEqAbs(expected_celu, actual_celu, 1e-12);
+    }
     var softplus_out = try shifted.softplus();
     defer softplus_out.deinit();
     try std.testing.expectApproxEqAbs(std.math.log1p(@exp(@as(f64, -2))), softplus_out.data[0], 1e-12);
