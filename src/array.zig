@@ -6815,6 +6815,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.cosineSimilarityDim(other, dim_index, eps, keepdim);
         }
 
+        pub fn cosineEmbeddingLoss(self: Self, other: Array(T), targets: Array(T), axis_index: isize, margin: T, eps: T, reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.cosineEmbeddingLoss(other, targets, axis_index, margin, eps, reduction);
+        }
+
+        pub fn cosine_embedding_loss(self: Self, other: Array(T), targets: Array(T), axis_index: isize, margin: T, eps: T, reduction: LossReduction) ArrayError!Array(T) {
+            return self.cosineEmbeddingLoss(other, targets, axis_index, margin, eps, reduction);
+        }
+
         pub fn pairwiseDistance(self: Self, other: Array(T), p: T, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -20635,6 +20645,29 @@ pub fn Array(comptime T: type) type {
             return self.cosineSimilarityDim(other, dim_index, eps, keepdim);
         }
 
+        pub fn cosineEmbeddingLoss(self: Self, other: Self, targets: Self, axis_index: isize, margin: T, eps: T, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(other.device) or !self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var similarity = try self.cosineSimilarity(other, axis_index, eps, false);
+            defer similarity.deinit();
+            var positive_loss = try similarity.mulScalar(negValue(T, one(T)));
+            defer positive_loss.deinit();
+            try positive_loss.addScalarAssign(one(T));
+            var negative_loss = try similarity.subScalar(margin);
+            defer negative_loss.deinit();
+            var negative_clamped = try negative_loss.maximumScalar(zero(T));
+            defer negative_clamped.deinit();
+            var positive_targets = try targets.greaterScalar(zero(T));
+            defer positive_targets.deinit();
+            var losses = try positive_loss.where(positive_targets, negative_clamped);
+            errdefer losses.deinit();
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn cosine_embedding_loss(self: Self, other: Self, targets: Self, axis_index: isize, margin: T, eps: T, reduction: LossReduction) ArrayError!Self {
+            return self.cosineEmbeddingLoss(other, targets, axis_index, margin, eps, reduction);
+        }
+
         pub fn pairwiseDistance(self: Self, other: Self, p: T, axis_index: isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
@@ -29533,6 +29566,16 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, cosine_keep.shape);
     try std.testing.expectApproxEqAbs(cosine_rows.data[0], cosine_keep.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(cosine_rows.data[1], cosine_keep.data[1], 1e-12);
+    var embedding_targets = try Array(f64).fromSlice(gpa, &.{ 1, -1 }, &.{2});
+    defer embedding_targets.deinit();
+    var embedding_loss = try cos_a.cosineEmbeddingLoss(cos_b, embedding_targets, 1, 0.5, 1e-12, .none);
+    defer embedding_loss.deinit();
+    try std.testing.expectEqualSlices(usize, &.{2}, embedding_loss.shape);
+    try std.testing.expectApproxEqAbs(@as(f64, 1) - cosine_rows.data[0], embedding_loss.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@max(@as(f64, 0), cosine_rows.data[1] - 0.5), embedding_loss.data[1], 1e-12);
+    var embedding_mean = try cos_a.cosine_embedding_loss(cos_b, embedding_targets, 1, 0.5, 1e-12, .mean);
+    defer embedding_mean.deinit();
+    try std.testing.expectApproxEqAbs((embedding_loss.data[0] + embedding_loss.data[1]) / 2.0, embedding_mean.data[0], 1e-12);
     var distance_rows = try cos_a.pairwiseDistance(cos_b, 2, 1, false);
     defer distance_rows.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, distance_rows.shape);
@@ -29556,6 +29599,11 @@ test "array logsoftmax norm and matrix helpers" {
     var expected_view_cosine = try metric_view_owned.cosineSimilarity(metric_target, 1, 1e-12, false);
     defer expected_view_cosine.deinit();
     try expectApproxEqualSlices(f64, expected_view_cosine.data, view_cosine.data, 1e-12);
+    var view_embedding_loss = try metric_view.cosine_embedding_loss(metric_target, embedding_targets, 1, 0.25, 1e-12, .none);
+    defer view_embedding_loss.deinit();
+    var expected_view_embedding_loss = try metric_view_owned.cosineEmbeddingLoss(metric_target, embedding_targets, 1, 0.25, 1e-12, .none);
+    defer expected_view_embedding_loss.deinit();
+    try expectApproxEqualSlices(f64, expected_view_embedding_loss.data, view_embedding_loss.data, 1e-12);
     var bad_metric = try Array(f64).zeros(gpa, &.{5});
     defer bad_metric.deinit();
     try std.testing.expectError(error.ShapeMismatch, cos_a.cosineSimilarity(bad_metric, 1, 1e-12, false));
