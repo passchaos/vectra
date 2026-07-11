@@ -4169,6 +4169,21 @@ pub fn ArrayView(comptime T: type) type {
             return self.hardtanh(zero(T), castValue(T, 6));
         }
 
+        pub fn threshold(self: Self, threshold_value: T, replacement_value: T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const value = self.data[self.offset + ravelIndex(multi, self.strides)];
+                slot.* = if (value > threshold_value) value else replacement_value;
+            }
+            return out;
+        }
+
         pub fn hardshrink(self: Self, lambd: T) ArrayError!Array(T) {
             ensureFloat(T);
             var out = try Array(T).empty(self.allocator, self.shape);
@@ -16936,6 +16951,15 @@ pub fn Array(comptime T: type) type {
             return self.hardtanh(zero(T), castValue(T, 6));
         }
 
+        pub fn threshold(self: Self, threshold_value: T, replacement_value: T) ArrayError!Self {
+            ensureNumeric(T);
+            const out = try Self.empty(self.allocator, self.shape);
+            for (self.data, out.data) |value, *slot| {
+                slot.* = if (value > threshold_value) value else replacement_value;
+            }
+            return out;
+        }
+
         pub fn hardshrink(self: Self, lambd: T) ArrayError!Self {
             ensureFloat(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -19782,11 +19806,11 @@ pub fn Array(comptime T: type) type {
                 }
             };
             std.sort.insertion(usize, order, Ctx{ .values = values[0..count] }, Ctx.lessThan);
-            const threshold = q * total_weight;
+            const quantile_threshold = q * total_weight;
             var cumulative = zero(T);
             for (order) |idx| {
                 cumulative += weights[idx];
-                if (cumulative >= threshold) return values[idx];
+                if (cumulative >= quantile_threshold) return values[idx];
             }
             return values[order[count - 1]];
         }
@@ -26270,6 +26294,11 @@ test "array view transcendental unary math is view aware" {
     var actual_hardtanh = try activation.hardTanh(-0.75, 1.25);
     defer actual_hardtanh.deinit();
     try expectApproxEqualSlices(f64, expected_hardtanh.data, actual_hardtanh.data, 1e-12);
+    var expected_threshold = try activation_owned.threshold(0.5, -9);
+    defer expected_threshold.deinit();
+    var actual_threshold = try activation.threshold(0.5, -9);
+    defer actual_threshold.deinit();
+    try expectApproxEqualSlices(f64, expected_threshold.data, actual_threshold.data, 1e-12);
     var expected_hardshrink = try activation_owned.hardshrink(0.75);
     defer expected_hardshrink.deinit();
     var actual_hardshrink = try activation.hardShrink(0.75);
@@ -28186,6 +28215,9 @@ test "array take mask stack cat and neural helpers" {
     var relu6_out = try shifted_plus.relu6();
     defer relu6_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 4, 5, 6, 6 }, relu6_out.data);
+    var threshold_out = try shifted.threshold(0.5, -7);
+    defer threshold_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -7, -7, -7, 1, 2, 3 }, threshold_out.data);
     var hardshrink_out = try shifted.hardshrink(1.5);
     defer hardshrink_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -2, 0, 0, 0, 2, 3 }, hardshrink_out.data);
