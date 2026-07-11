@@ -6915,6 +6915,26 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryCrossEntropyWithLogits(targets, reduction);
         }
 
+        pub fn mseLoss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.mseLoss(targets, reduction);
+        }
+
+        pub fn mse_loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            return self.mseLoss(targets, reduction);
+        }
+
+        pub fn l1Loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            var owned = try self.toArray();
+            defer owned.deinit();
+            return owned.l1Loss(targets, reduction);
+        }
+
+        pub fn l1_loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
+            return self.l1Loss(targets, reduction);
+        }
+
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -17586,6 +17606,34 @@ pub fn Array(comptime T: type) type {
 
         pub fn binary_cross_entropy_with_logits(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             return self.binaryCrossEntropyWithLogits(targets, reduction);
+        }
+
+        pub fn mseLoss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var diff_values = try self.sub(targets);
+            defer diff_values.deinit();
+            var losses = try diff_values.square();
+            errdefer losses.deinit();
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn mse_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            return self.mseLoss(targets, reduction);
+        }
+
+        pub fn l1Loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            ensureFloat(T);
+            if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
+            var diff_values = try self.sub(targets);
+            defer diff_values.deinit();
+            var losses = try diff_values.abs();
+            errdefer losses.deinit();
+            return self.reducedLoss(losses, reduction);
+        }
+
+        pub fn l1_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
+            return self.l1Loss(targets, reduction);
         }
 
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
@@ -29118,6 +29166,34 @@ test "array logsoftmax norm and matrix helpers" {
     var bad_binary_targets = try Array(f64).fromSlice(gpa, &.{ 1, 0, 1 }, &.{3});
     defer bad_binary_targets.deinit();
     try std.testing.expectError(error.ShapeMismatch, probabilities.binaryCrossEntropy(bad_binary_targets, .none));
+
+    var predictions = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer predictions.deinit();
+    var regression_targets = try Array(f64).fromSlice(gpa, &.{ 0, 3 }, &.{ 1, 2 });
+    defer regression_targets.deinit();
+    var mse_none = try predictions.mseLoss(regression_targets, .none);
+    defer mse_none.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, mse_none.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 9, 1 }, mse_none.data);
+    var mse_mean = try predictions.mse_loss(regression_targets, .mean);
+    defer mse_mean.deinit();
+    try std.testing.expectEqual(@as(usize, 0), mse_mean.shape.len);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), mse_mean.data[0], 1e-12);
+    var l1_sum = try predictions.l1Loss(regression_targets, .sum);
+    defer l1_sum.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 6), l1_sum.data[0], 1e-12);
+    var regression_view_source = try Array(f64).fromSlice(gpa, &.{ 1, 90, 2, 80, 3, 70, 4, 60 }, &.{ 2, 4 });
+    defer regression_view_source.deinit();
+    var regression_view = try regression_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
+    defer regression_view.deinit();
+    var view_l1 = try regression_view.l1_loss(regression_targets, .none);
+    defer view_l1.deinit();
+    var expected_view_l1 = try predictions.l1Loss(regression_targets, .none);
+    defer expected_view_l1.deinit();
+    try expectApproxEqualSlices(f64, expected_view_l1.data, view_l1.data, 1e-12);
+    var bad_regression_targets = try Array(f64).zeros(gpa, &.{3});
+    defer bad_regression_targets.deinit();
+    try std.testing.expectError(error.ShapeMismatch, predictions.mseLoss(bad_regression_targets, .none));
 
     var v = try Array(f64).fromSlice(gpa, &.{ 3, 4 }, &.{2});
     defer v.deinit();
