@@ -4157,6 +4157,18 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
+        pub fn hardtanh(self: Self, min_value: T, max_value: T) ArrayError!Array(T) {
+            return self.clip(min_value, max_value);
+        }
+
+        pub fn hardTanh(self: Self, min_value: T, max_value: T) ArrayError!Array(T) {
+            return self.hardtanh(min_value, max_value);
+        }
+
+        pub fn relu6(self: Self) ArrayError!Array(T) {
+            return self.hardtanh(zero(T), castValue(T, 6));
+        }
+
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Array(T) {
             ensureNumeric(T);
             var out = try Array(T).empty(self.allocator, self.shape);
@@ -16780,6 +16792,18 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
+        pub fn hardtanh(self: Self, min_value: T, max_value: T) ArrayError!Self {
+            return self.clip(min_value, max_value);
+        }
+
+        pub fn hardTanh(self: Self, min_value: T, max_value: T) ArrayError!Self {
+            return self.hardtanh(min_value, max_value);
+        }
+
+        pub fn relu6(self: Self) ArrayError!Self {
+            return self.hardtanh(zero(T), castValue(T, 6));
+        }
+
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Self {
             ensureNumeric(T);
             const out = try Self.empty(self.allocator, self.shape);
@@ -25955,6 +25979,7 @@ test "array view transcendental unary math is view aware" {
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).logsigmoid, Array(f64).logsigmoid, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).logSigmoid, Array(f64).logSigmoid, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).log_sigmoid, Array(f64).log_sigmoid, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).relu6, Array(f64).relu6, 1e-12);
 
     var activation_owned = try activation.toArray();
     defer activation_owned.deinit();
@@ -25973,6 +25998,11 @@ test "array view transcendental unary math is view aware" {
     var actual_celu = try activation.celu(1.25);
     defer actual_celu.deinit();
     try expectApproxEqualSlices(f64, expected_celu.data, actual_celu.data, 1e-12);
+    var expected_hardtanh = try activation_owned.hardtanh(-0.75, 1.25);
+    defer expected_hardtanh.deinit();
+    var actual_hardtanh = try activation.hardTanh(-0.75, 1.25);
+    defer actual_hardtanh.deinit();
+    try expectApproxEqualSlices(f64, expected_hardtanh.data, actual_hardtanh.data, 1e-12);
 
     var expected_clip = try activation_owned.clip(-0.25, 1.0);
     defer expected_clip.deinit();
@@ -27852,6 +27882,17 @@ test "array take mask stack cat and neural helpers" {
     var relu_out = try shifted.relu();
     defer relu_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 1, 2, 3 }, relu_out.data);
+    var hardtanh_out = try shifted.hardtanh(-1.5, 2.5);
+    defer hardtanh_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1.5, -1, 0, 1, 2, 2.5 }, hardtanh_out.data);
+    var hard_tanh_alias = try shifted.hardTanh(-1.5, 2.5);
+    defer hard_tanh_alias.deinit();
+    try expectApproxEqualSlices(f64, hardtanh_out.data, hard_tanh_alias.data, 1e-12);
+    var shifted_plus = try shifted.addScalar(4);
+    defer shifted_plus.deinit();
+    var relu6_out = try shifted_plus.relu6();
+    defer relu6_out.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3, 4, 5, 6, 6 }, relu6_out.data);
     var leaky_out = try shifted.leakyRelu(0.1);
     defer leaky_out.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -0.2, -0.1, 0, 1, 2, 3 }, leaky_out.data);
