@@ -60,6 +60,7 @@ def parse_args() -> argparse.Namespace:
             "torch_addmm_exp",
             "torch_eager_matmul_add_exp",
             "torch_compile",
+            "torch_best",
         ),
         default="auto",
     )
@@ -313,6 +314,10 @@ def summarize(args: argparse.Namespace, vectra_rows: list[dict[str, Any]], torch
         prefix = f"torch_compile_{args.torch_compile_mode}"
         baseline_row = next((row for op, row in torch_by_op.items() if isinstance(op, str) and op.startswith(prefix)), None)
         baseline_key = prefix
+    elif baseline_key == "torch_best":
+        baseline_row = min(torch_by_op.values(), key=lambda row: float(row["avg_us"])) if torch_by_op else None
+        if baseline_row is not None:
+            baseline_key = f"torch_best:{baseline_row.get('op')}"
     else:
         baseline_row = torch_by_op.get(baseline_key)
 
@@ -379,6 +384,7 @@ def aggregate_summaries(args: argparse.Namespace, summaries: list[dict[str, Any]
         "repeat": args.repeat,
         "requested_op": args.op,
         "baseline": summaries[-1].get("baseline") if summaries else (default_baseline_for_op(args.op) if args.baseline == "auto" else args.baseline),
+        "baseline_request": args.baseline,
         "max_ratio": args.max_ratio,
         "ok": False,
         "runs": len(summaries),

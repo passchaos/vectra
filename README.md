@@ -228,7 +228,8 @@ shape through Vectra/Axiom `large_matmul_add`, PyTorch `torch.addmm`, eager
 repeatable local PyTorch/torch.compile baseline. Pass `--op` to isolate one
 Vectra expression when tuning kernel launch/algorithm effects; the default
 `--baseline=auto` selects the matching PyTorch expression for matmul, add, sub,
-sqrt, or exp variants. Pass `--repeat` to run the full comparison multiple
+sqrt, or exp variants; `--baseline=torch_best` gates against the fastest emitted
+PyTorch eager/addmm/compile row for that op. Pass `--repeat` to run the full comparison multiple
 times and gate on the worst observed ratio, then pass `--baseline` and
 `--max-ratio` to turn the comparison into a failing performance gate based on
 the selected Vectra op's average time divided by the selected PyTorch baseline.
