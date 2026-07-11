@@ -182,6 +182,16 @@ Vectra uses the sibling [`../alea`](../alea) Zig package as a local path depende
 
 Vectra uses the sibling [`../veyra`](../veyra) Zig package as a local path dependency for foundational math and linear algebra, but supported CPU tensor paths should enter through Axiom first. Current f32/f64 `Array`/`linalg` paths for matrix multiplication, matrix-vector products, dot/vdot, trace, determinant, inverse, solve, Cholesky, QR, LU, triangular solve, Frobenius/one/inf/two/nuclear matrix norms, SVD, singular values, matrix rank, condition number, pseudo-inverse, and least-squares route through Axiom CPU→Veyra; symmetric eigen decomposition still calls Veyra-compatible dense matrix APIs directly until Axiom exposes matching front-door wrappers. Non-covered dtypes and non-contiguous/batched Array methods keep generic in-core fallbacks where implemented.
 
+## Forge interop boundary
+
+Vectra remains an Array/NDArray data and numerical interop layer rather than a
+training framework. It exposes `vx.forge_interop` /
+`vx.forgeArrayInteropBoundary` as a data-only manifest describing how Forge may
+wrap Vectra Array metadata without Vectra importing or depending on Forge. Core
+Forge operation lowering should flow through `Forge IR -> Axial/Axiom`; Vectra
+should not become the lowering path for Forge Tensor, autograd, module, optimizer,
+or training/inference semantics.
+
 ## Development priorities
 
 Future work should follow the documented order in [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md):

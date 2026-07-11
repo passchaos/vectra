@@ -13,10 +13,15 @@ const array_mod = @import("array.zig");
 const series_mod = @import("series.zig");
 const dataframe_mod = @import("dataframe.zig");
 const layered_array_mod = @import("layered_array.zig");
+const forge_interop_mod = @import("forge_interop.zig");
 pub const linalg = @import("linalg.zig");
 pub const stats = @import("stats.zig");
 pub const sparse = @import("sparse.zig");
 pub const axiom_cuda = @import("backends/axiom_cuda.zig");
+pub const forge_interop = forge_interop_mod;
+pub const ForgeInteropBoundary = forge_interop_mod.InteropBoundary;
+pub const forgeArrayInteropBoundary = forge_interop_mod.forge_array_interop_boundary;
+pub const forgeInteropBoundary = forge_interop_mod.forgeInteropBoundary;
 
 pub const Array = array_mod.Array;
 pub const NDArray = array_mod.NDArray;
@@ -234,6 +239,7 @@ test {
     _ = series_mod;
     _ = dataframe_mod;
     _ = layered_array_mod;
+    _ = forge_interop_mod;
     _ = linalg;
     _ = stats;
     _ = sparse;

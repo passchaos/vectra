@@ -28,6 +28,19 @@ sibling projects own higher and lower layers of the stack.
   computing, such as `a.matmul(b)` or `a.matmulAdd(b, c)`, as long as they remain
   Array operations without autograd ownership.
 
+## Forge interop metadata
+
+Vectra exposes a small data-only boundary manifest from `src/forge_interop.zig`
+through `vx.forge_interop`, `vx.ForgeInteropBoundary`,
+`vx.forgeArrayInteropBoundary`, and `vx.forgeInteropBoundary()`. The manifest is
+made only of string and boolean literals, states that Vectra has no Forge
+dependency, and identifies Vectra's role as the Array/NDArray data interop layer.
+
+Forge may inspect or mirror this metadata when wrapping Vectra `Array` values,
+but core Forge operation lowering should remain in Forge's graph pipeline and
+flow through `Forge IR -> Axial/Axiom`. Do not route Forge op semantics through
+Vectra merely because an Array value is used for storage or data exchange.
+
 ## Intended dependency direction
 
 ```text
