@@ -11,7 +11,7 @@ pub fn main(init: std.process.Init) !void {
     const typed_slice = try vx.CudaDeviceSlice(f64).external(0x3000, 4, 0);
     const config = try vx.cudaLaunchConfig(.{ .x = 2, .y = 1, .z = 1 }, .{ .x = 64, .y = 1, .z = 1 }, 0, 0);
     const args = try (try (try (try vx.CudaArgumentList.init().slice("x", x_slice)).slice("y", y_slice)).scalar("n", @as(i32, 64))).scalar("alpha", @as(f32, 2.0));
-    const wrapped_launch = try vx.CudaKernel(vx.axial_cuda.axial.cuda.SaxpyKernel).launchListWith(config, args);
+    const wrapped_launch = try registry.launchWith("axial_saxpy", config, args);
     var cuda_attempted = false;
     var cuda_launched = false;
     var route = vx.axial_cuda.lastReport();
