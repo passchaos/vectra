@@ -59,6 +59,10 @@ pub const cudaDim3 = axial_cuda.axial.cuda.dim3;
 pub const cudaCall = axial_cuda.axial.cuda.launch;
 pub const cudaCallWith = axial_cuda.axial.cuda.launchWith;
 pub const cudaCall1D = axial_cuda.axial.cuda.launch1D;
+pub const CudaDeviceOperation = axial_cuda.axial.device_operation.DeviceOperation;
+pub const CudaDeviceOperationChain = axial_cuda.axial.device_operation.DeviceOperationChain;
+pub const CudaSchedulingPolicy = axial_cuda.axial.device_operation.SchedulingPolicy;
+pub const CudaDeviceStream = axial_cuda.axial.device_operation.DeviceStream;
 
 pub const Series = series_mod.Series;
 pub const DataFrame = dataframe_mod.DataFrame;

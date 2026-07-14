@@ -30,9 +30,10 @@ Vectra CUDA Array storage into Axial `cuda.TensorView` / `cuda.MatrixView`
 records and launches through Axial's Axiom-backed CUDA C++-style facade.  Existing
 `vx.axiom_cuda` functions remain the lower fallback/runtime bridge.
 Vectra re-exports the Axial call helpers (`vx.CudaKernel`, `vx.cudaCallWith`,
-`vx.cudaCall1D`, and launch-dimension helpers) only as adapter conveniences; the
-host+kernel facade remains owned by Axial and the runtime ABI remains owned by
-Axiom.
+`vx.cudaCall1D`, and launch-dimension helpers) and lazy operation adapters
+(`vx.CudaDeviceOperation`, `vx.CudaSchedulingPolicy`) only as adapter
+conveniences; the host+kernel facade remains owned by Axial and the runtime ABI
+remains owned by Axiom.
 
 ## CUDA owning-array behavior
 
