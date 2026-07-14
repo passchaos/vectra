@@ -21,6 +21,8 @@ ROOT = REPO / "src" / "root.zig"
 ARRAY = REPO / "src" / "array.zig"
 README = REPO / "README.md"
 BOUNDARY_DOC = REPO / "docs" / "API_BOUNDARY.md"
+BUILD = REPO / "build.zig"
+ZON = REPO / "build.zig.zon"
 
 PUBLIC_SOURCE_FILES = (ROOT, ARRAY)
 
@@ -37,17 +39,21 @@ REQUIRED_ROOT_SNIPPETS = (
     "pub const NDArray = array_mod.NDArray;",
     "pub const ArrayView = array_mod.ArrayView;",
     "pub const NDArrayView = array_mod.NDArrayView;",
+    'pub const axial_cuda = @import("backends/axial_cuda.zig");',
 )
 
 REQUIRED_README_SNIPPETS = (
     "Vectra intentionally uses `Array`/`NDArray`",
     "automatic differentiation, training, and inference belong in the sibling `../forge` deep-learning framework",
+    "Vectra -> Axial -> Axiom",
 )
 
 REQUIRED_BOUNDARY_SNIPPETS = (
     "Vectra owns Array",
     "Forge owns Tensor",
     "Axiom owns backend and kernel lowering",
+    "Axial owns reusable compute abstractions",
+    "Vectra may depend on Axial",
     "Do not add a `Tensor` alias to Vectra",
     "Do not add autograd to Vectra",
 )
@@ -91,6 +97,16 @@ def main() -> int:
         if snippet not in boundary_text:
             issues.append({"kind": "missing_boundary_doc_snippet", "path": "docs/API_BOUNDARY.md", "snippet": snippet})
 
+    build_text = read(BUILD)
+    for snippet in ('b.dependency("axial"', 'axial-accelerator-smoke'):
+        if snippet not in build_text:
+            issues.append({"kind": "missing_axial_build_snippet", "path": "build.zig", "snippet": snippet})
+
+    zon_text = read(ZON)
+    for snippet in (".axial", '.path = "../axial"'):
+        if snippet not in zon_text:
+            issues.append({"kind": "missing_axial_zon_snippet", "path": "build.zig.zon", "snippet": snippet})
+
     row = {
         "kind": "vectra_api_boundary_audit",
         "ok": not issues,
@@ -101,6 +117,7 @@ def main() -> int:
         "policy": {
             "vectra": "Array/NDArray numerical library",
             "forge": "Tensor/autograd/module/optimizer training framework over Vectra Array",
+            "axial": "CUDA/CUTILE/SIMT compute facades consumed by Vectra",
             "axiom": "backend, compiler, kernel, CUDA/CUTILE/SIMT lowering",
         },
     }

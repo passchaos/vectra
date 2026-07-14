@@ -23,6 +23,13 @@ zig build -Doptimize=ReleaseFast example-large-matmul-add -- --execute --backend
 
 CUDA validation requires a CUDA/libnvvm/PTXAS-capable host.
 
+## Axial facade route
+
+`vx.axial_cuda` is the preferred high-level CUDA acceleration bridge.  It turns
+Vectra CUDA Array storage into Axial `cuda.TensorView` / `cuda.MatrixView`
+records and launches through Axial's Axiom-backed CUDA C++-style facade.  Existing
+`vx.axiom_cuda` functions remain the lower fallback/runtime bridge.
+
 ## CUDA owning-array behavior
 
 - `Device.cuda(index).isAvailable()` is true when Axiom can load the CUDA driver

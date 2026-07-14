@@ -18,6 +18,7 @@ pub const linalg = @import("linalg.zig");
 pub const stats = @import("stats.zig");
 pub const sparse = @import("sparse.zig");
 pub const axiom_cuda = @import("backends/axiom_cuda.zig");
+pub const axial_cuda = @import("backends/axial_cuda.zig");
 pub const forge_interop = forge_interop_mod;
 pub const ForgeInteropBoundary = forge_interop_mod.InteropBoundary;
 pub const forgeArrayInteropBoundary = forge_interop_mod.forge_array_interop_boundary;
@@ -46,6 +47,7 @@ pub const LossReduction = array_mod.LossReduction;
 pub const ArrayError = array_mod.ArrayError;
 pub const axiom_cpu = @import("backends/axiom_cpu.zig");
 pub const axiom_backend = @import("backends/axiom_backend.zig");
+pub const axial_acceleration = axial_cuda;
 
 pub const Series = series_mod.Series;
 pub const DataFrame = dataframe_mod.DataFrame;
@@ -245,4 +247,6 @@ test {
     _ = stats;
     _ = sparse;
     _ = axiom_cuda;
+    _ = axial_cuda;
+    _ = axial_acceleration;
 }

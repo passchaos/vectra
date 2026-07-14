@@ -11,9 +11,12 @@ sibling projects own higher and lower layers of the stack.
 - **Forge owns Tensor**: a future Forge `Tensor` should wrap Vectra `Array`
   storage and own autograd, parameters, modules, losses, optimizers, training
   loops, inference ergonomics, graph capture, and in-place policy decisions.
+- **Axial owns reusable compute abstractions**: CUDA C++-style host+kernel
+  facades, CUTILE/CuteDSL/CUDA SIMT metadata, tile/layout policy, and compute
+  routes that Vectra may consume for acceleration.
 - **Axiom owns backend and kernel lowering**: CPU/CUDA/native runtime dispatch,
-  fusion, CUTILE/CuteDSL/CUDA SIMT abstractions, kernel IR, lowering, runtime
-  launch, autotune/cache, and compiler evidence gates.
+  concrete compiler IR, runtime launch, autotune/cache, and compiler evidence
+  gates below Axial's facade.
 
 ## Guardrails
 
@@ -22,8 +25,7 @@ sibling projects own higher and lower layers of the stack.
 - Do not add `Parameter`, `Module`, `Optimizer`, `requires_grad`, `backward`, or
   training-loop semantics to Vectra.
 - Do not place CUTILE/CuteDSL/SIMT kernel DSL APIs in Forge or Vectra; keep them
-  in Axiom until they are stable enough to become a standalone lower-level
-  dependency consumed by Axiom.
+  in Axial, and have Vectra consume Axial through adapter records.
 - It is OK for Vectra to expose Array methods that are convenient for numerical
   computing, such as `a.matmul(b)` or `a.matmulAdd(b, c)`, as long as they remain
   Array operations without autograd ownership.
@@ -44,12 +46,18 @@ Vectra merely because an Array value is used for storage or data exchange.
 ## Intended dependency direction
 
 ```text
-Axiom backend/compiler/runtime  <-  Vectra Array  <-  Forge Tensor/autograd
+Axiom backend/compiler/runtime  <-  Axial compute facade  <-  Vectra Array  <-  Forge Tensor/autograd
 ```
 
 If a future standalone CUTILE-style package is introduced, it should sit below
 Axiom rather than above Vectra or Forge:
 
 ```text
-cutile-like kernel DSL  <-  Axiom  <-  Vectra  <-  Forge
+Axiom backend/compiler/runtime  <-  Axial CUTILE/CUDA facade  <-  Vectra  <-  Forge
 ```
+
+## Axial acceleration boundary
+
+Vectra may depend on Axial for tensor/array compute acceleration.  Axial must not
+depend on Vectra, and Axiom must not depend on Axial.  The intended data flow is
+`Vectra Array storage -> Axial CUDA/CUTILE compute records -> Axiom runtime ABI`.

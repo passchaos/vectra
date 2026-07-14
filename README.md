@@ -142,6 +142,23 @@ intentionally keeps each iteration output alive to expose allocation/reuse effec
 versus the default PyTorch-like single-output reuse loop.
 
 
+## Axial acceleration layer
+
+Vectra now depends on the sibling [`../axial`](../axial) package for reusable
+CUDA-like compute abstractions.  The dependency direction is
+`Vectra -> Axial -> Axiom`: Vectra keeps Array/NDArray ownership, Axial owns the
+CUDA C++-style host+kernel facade and CUTILE/CUDA-like compute policy, and Axiom
+owns compiler/runtime execution contracts.  The `vx.axial_cuda` bridge converts
+CUDA-owning Vectra `Array(f32)` storage into Axial device views, so elementwise,
+SAXPY, GEMM, and GEMM+add can route through Axial before falling back to the
+existing Axiom CUDA bridge when CUDA is unavailable.
+
+Validation:
+
+```sh
+zig build axial-accelerator-smoke
+```
+
 ## Axiom accelerator backend
 
 Vectra imports the sibling [`../axiom`](../axiom) package by default. Supported

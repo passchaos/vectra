@@ -3,6 +3,7 @@ const build_options = @import("vectra_build_options");
 const alea = @import("alea");
 const veyra = @import("veyra");
 const axiom_cuda_backend = @import("backends/axiom_cuda.zig");
+const axial_cuda_backend = @import("backends/axial_cuda.zig");
 const axiom_cpu_backend = @import("backends/axiom_cpu.zig");
 const axiom_backend = @import("backends/axiom_backend.zig");
 
@@ -15363,7 +15364,7 @@ pub fn Array(comptime T: type) type {
             const n = pending.rhs_shape[1];
             const ok = if (pending.add_storage) |add_storage| blk: {
                 break :blk if (comptime T == f32)
-                    try axiom_cuda_backend.runPendingMatmulAddF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
+                    if (try axial_cuda_backend.runPendingMatmulAddF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)) true else try axiom_cuda_backend.runPendingMatmulAddF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
                 else if (comptime T == f64)
                     try axiom_cuda_backend.runPendingMatmulAddF64(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
                 else if (comptime T == f16)
@@ -15374,7 +15375,7 @@ pub fn Array(comptime T: type) type {
                     return error.TypeUnsupported;
             } else blk: {
                 break :blk if (comptime T == f32)
-                    try axiom_cuda_backend.runPendingMatmulF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
+                    if (try axial_cuda_backend.runPendingMatmulF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr, 1.0, 0.0)) true else try axiom_cuda_backend.runPendingMatmulF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
                 else if (comptime T == f64)
                     try axiom_cuda_backend.runPendingMatmulF64(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
                 else if (comptime T == f16)
@@ -15704,6 +15705,12 @@ pub fn Array(comptime T: type) type {
                     null;
                 if (maybe_op) |op_value| {
                     if (comptime T == f32) {
+                        if (try axial_cuda_backend.tryDeviceBinaryF32(switch (op_value) {
+                            .add => .add,
+                            .sub => .sub,
+                            .mul => .mul,
+                            .div => .div,
+                        }, self, other)) |out| return out;
                         if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, other)) |out| return out;
                     } else if (comptime T == f64) {
                         if (try axiom_cuda_backend.tryDeviceBinaryF64(op_value, self, other)) |out| return out;
@@ -15824,6 +15831,12 @@ pub fn Array(comptime T: type) type {
                     var scalar_array = try Self.fullOn(self.allocator, self.shape, scalar, self.device);
                     defer scalar_array.deinit();
                     if (comptime T == f32) {
+                        if (try axial_cuda_backend.tryDeviceBinaryF32(switch (op_value) {
+                            .add => .add,
+                            .sub => .sub,
+                            .mul => .mul,
+                            .div => .div,
+                        }, self, scalar_array)) |out| return out;
                         if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, scalar_array)) |out| return out;
                     } else if (comptime T == f64) {
                         if (try axiom_cuda_backend.tryDeviceBinaryF64(op_value, self, scalar_array)) |out| return out;
@@ -21902,6 +21915,7 @@ pub fn Array(comptime T: type) type {
                 }
             } else if (self.device.isCuda()) {
                 if (comptime T == f32) {
+                    if (try axial_cuda_backend.tryDeviceMatmulAddF32(self, other, addend)) |out| return out;
                     if (try axiom_cuda_backend.tryDeviceMatmulAddF32(self, other, addend)) |out| return out;
                 } else if (comptime T == f64) {
                     if (try axiom_cuda_backend.tryDeviceMatmulAddF64(self, other, addend)) |out| return out;
