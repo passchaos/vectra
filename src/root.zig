@@ -54,6 +54,7 @@ pub const CudaDeviceSlice = axial_cuda.axial.cuda.DeviceSlice;
 pub const CudaTensor = axial_cuda.axial.cuda_tensor.CudaTensor;
 pub const cudaTensorFromSlice = axial_cuda.axial.cuda_tensor.tensorFromSlice;
 pub const CudaPartitionedDeviceSlice = axial_cuda.axial.cuda.PartitionedDeviceSlice;
+pub const CudaMappedPartitionedDeviceSlice = axial_cuda.axial.cuda.MappedPartitionedDeviceSlice;
 pub const CudaPartitionArgumentMetadata = axial_cuda.axial.cuda.PartitionArgumentMetadata;
 pub const CudaKernel = axial_cuda.axial.cuda.Kernel;
 pub const CudaKernelFamilyLaunch = axial_cuda.axial.cuda.KernelFamilyLaunch;
