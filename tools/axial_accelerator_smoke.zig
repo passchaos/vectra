@@ -6,14 +6,16 @@ pub fn main(init: std.process.Init) !void {
     const kernel = vx.axial_cuda.saxpyKernelFingerprint();
     const launch = vx.axial_cuda.saxpyLaunchFingerprint(0x1000, 0x2000, 64, 2.0);
     const registry = try vx.CudaKernelRegistry.init().addDecl(vx.axial_cuda.axial.cuda.SaxpyKernel);
+    const x_slice = try vx.CudaDeviceSlice(f32).external(0x1000, 64, 0);
+    const y_slice = try vx.CudaDeviceSlice(f32).external(0x2000, 64, 0);
+    const typed_slice = try vx.CudaDeviceSlice(f64).external(0x3000, 4, 0);
     const config = try vx.cudaLaunchConfig(.{ .x = 2, .y = 1, .z = 1 }, .{ .x = 64, .y = 1, .z = 1 }, 0, 0);
     const wrapped_launch = try vx.CudaKernel(vx.axial_cuda.axial.cuda.SaxpyKernel).launchWith(config, &.{
-        .pointer("x", 0x1000),
-        .pointer("y", 0x2000),
+        x_slice.arg("x"),
+        y_slice.arg("y"),
         .scalar("n", @as(i32, 64)),
         .scalar("alpha", @as(f32, 2.0)),
     });
-    const typed_slice = try vx.CudaDeviceSlice(f64).external(0x3000, 4, 0);
     var cuda_attempted = false;
     var cuda_launched = false;
     var route = vx.axial_cuda.lastReport();
