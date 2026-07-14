@@ -53,6 +53,12 @@ pub const CudaArgumentList = axial_cuda.axial.cuda.ArgumentList;
 pub const CudaDeviceSlice = axial_cuda.axial.cuda.DeviceSlice;
 pub const CudaKernel = axial_cuda.axial.cuda.Kernel;
 pub const cudaLaunchConfig = axial_cuda.axial.cuda.launchConfig;
+pub const cudaLaunchConfig1D = axial_cuda.axial.cuda.launchConfig1D;
+pub const cudaDim1 = axial_cuda.axial.cuda.dim1;
+pub const cudaDim3 = axial_cuda.axial.cuda.dim3;
+pub const cudaCall = axial_cuda.axial.cuda.launch;
+pub const cudaCallWith = axial_cuda.axial.cuda.launchWith;
+pub const cudaCall1D = axial_cuda.axial.cuda.launch1D;
 
 pub const Series = series_mod.Series;
 pub const DataFrame = dataframe_mod.DataFrame;

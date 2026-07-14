@@ -152,6 +152,10 @@ owns compiler/runtime execution contracts.  The `vx.axial_cuda` bridge converts
 CUDA-owning Vectra `Array(f32)` storage into Axial device views, so elementwise,
 SAXPY, GEMM, and GEMM+add can route through Axial before falling back to the
 existing Axiom CUDA bridge when CUDA is unavailable.
+The public Vectra re-exports also expose Axial's CUDA-like comptime kernel calls,
+so a Vectra smoke or downstream array backend can build host+kernel launch
+metadata with `vx.CudaKernel(Decl).call1D(...)` / `vx.cudaCallWith(...)` without
+owning the kernel facade itself.
 
 Validation:
 
