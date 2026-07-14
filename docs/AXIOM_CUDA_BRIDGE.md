@@ -35,8 +35,8 @@ Vectra re-exports the Axial call helpers (`vx.CudaKernel`, `vx.cudaCallWith`,
 adapters (`vx.CudaPartitionedDeviceSlice`, `vx.cudaInferPartitionLaunchGrid`),
 kernel-family selection adapters (`vx.KernelFamily`, `vx.CudaKernelFamilyLaunch`),
 module bundle adapters (`vx.CudaModuleBundle`, `vx.LoadedCudaModule`), and device-model
-contract adapters (`vx.CudaKernelDeviceContract`), and CUDA graph adapters
-(`vx.CudaGraphCapture`, `vx.CudaGraphExecutable`) only as adapter conveniences; the host+kernel facade remains owned by Axial and
+contract adapters (`vx.CudaKernelDeviceContract`), CUDA graph adapters (`vx.CudaGraphCapture`, `vx.CudaGraphExecutable`), and memory-copy
+adapters (`vx.CudaMemoryCopyOperation`) only as adapter conveniences; the host+kernel facade remains owned by Axial and
 the runtime ABI remains owned by Axiom.
 
 ## CUDA owning-array behavior
