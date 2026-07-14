@@ -156,7 +156,7 @@ The public Vectra re-exports also expose Axial's CUDA-like comptime kernel calls
 lazy device-operation records, and CUTILE-style partition metadata, so a Vectra
 smoke or downstream array backend can build host+kernel launch metadata with
 `vx.CudaKernel(Decl).call1D(...)` / `vx.cudaCallWith(...)`, schedule lazy work
-with `vx.CudaDeviceOperation`, infer partition launch grids, drive family-selected CUDA launches, model loaded CUDA module bundles, carry CUDA device-model contracts, and model CUDA graph capture/replay, schedule lazy CUDA memory copies, and carry host-side CUDA tensor metadata without owning
+with `vx.CudaDeviceOperation`, infer partition launch grids, drive family-selected CUDA launches, model loaded CUDA module bundles, carry CUDA device-model contracts, and model CUDA graph capture/replay, schedule lazy CUDA memory copies, carry host-side CUDA tensor metadata, and preserve CUDA device-intrinsic contracts without owning
 the kernel facade itself.
 
 Validation:
