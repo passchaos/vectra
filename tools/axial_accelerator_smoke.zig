@@ -26,6 +26,30 @@ pub fn main(init: std.process.Init) !void {
     const args = try (try (try (try vx.CudaArgumentList.init().slice("x", x_slice)).slice("y", y_slice)).scalar("n", @as(i32, 64))).scalar("alpha", @as(f32, 2.0));
     const wrapped_launch = try registry.launchWith("axial_saxpy", config, args);
     const call_launch = try vx.CudaKernel(vx.axial_cuda.axial.cuda.SaxpyKernel).call1D(64, 128, .{ x_slice, y_slice, @as(i32, 64), @as(f32, 2.0) });
+    const GeneratedSaxpy = vx.CudaKernelDecl(.{
+        .symbol = "vectra_generated_saxpy",
+        .module_name = "vectra_generated_saxpy_module",
+        .target_arch = "sm_89",
+        .block = vx.cudaDim1(128),
+    }, struct {
+        pub fn params(b: vx.CudaKernelBuilder) vx.CudaKernelBuilder {
+            return b.globalPtrTyped("x", f32, .input)
+                .globalPtrTyped("y", f32, .input_output)
+                .scalarTyped("n", i32)
+                .scalarTyped("alpha", f32);
+        }
+
+        pub fn body(b: vx.CudaKernelBodyBuilder) vx.CudaKernelBodyBuilder {
+            return b.threadIndex1D("i")
+                .boundsGuard1D("in_bounds", "i", "n")
+                .load("x_i", "x", "i", .f32)
+                .load("y_i", "y", "i", .f32)
+                .fma("out", "alpha", "x_i", "y_i", .f32)
+                .store("y", "i", "out", .f32)
+                .returnVoid();
+        }
+    });
+    const generated_call = try vx.CudaKernel(GeneratedSaxpy).call1D(64, 128, .{ x_slice, y_slice, @as(i32, 64), @as(f32, 2.0) });
     const top_level_call = try vx.cudaCallWith(vx.axial_cuda.axial.cuda.SaxpyKernel, config, .{ x_slice, y_slice, @as(i32, 64), @as(f32, 2.0) });
     var schedule = try vx.CudaSchedulingPolicy.roundRobin(0, 13, 2);
     const lazy_op = try vx.CudaDeviceOperation.fromCall1D(vx.axial_cuda.axial.cuda.SaxpyKernel, 64, 128, .{ x_slice, y_slice, @as(i32, 64), @as(f32, 2.0) });
@@ -99,13 +123,13 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and context.valid() and allocation.ok() and registry.ok() and args.ok() and wrapped_launch.ok() and call_launch.ok() and top_level_call.ok() and scheduled_op.ok() and scheduled_op.scheduled() and graph_capture.ok() and graph_exec.ok() and graph_update.ok() and graph_launch.ok() and graph_scoped_capture.ok() and cuda_unit.ok() and cuda_unit.launchesSymbol("axial_saxpy") and cuda_unit.host.containsKind(.graph_launch) and tensor.valid() and tensor_view.valid() and tensor_partition.valid() and tensor_mapped.valid() and tensor_creation.ok() and tensor_grid.x == 4 and tensor_grid.y == 4 and tensor_mapped_grid.x == 8 and partition.valid() and partition_metadata.valid() and partition_grid.x == 4 and family_launch.ok() and loaded_module.ok() and module_launch.ok() and module_family_launch.ok() and disjoint.accepts(index_witness) and intrinsics.supportedOn(70) and device_contract.valid() and typed_slice.valid();
+    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and context.valid() and allocation.ok() and registry.ok() and args.ok() and wrapped_launch.ok() and call_launch.ok() and generated_call.ok() and std.mem.eql(u8, generated_call.spec.program.module.symbol, "vectra_generated_saxpy") and top_level_call.ok() and scheduled_op.ok() and scheduled_op.scheduled() and graph_capture.ok() and graph_exec.ok() and graph_update.ok() and graph_launch.ok() and graph_scoped_capture.ok() and cuda_unit.ok() and cuda_unit.launchesSymbol("axial_saxpy") and cuda_unit.host.containsKind(.graph_launch) and tensor.valid() and tensor_view.valid() and tensor_partition.valid() and tensor_mapped.valid() and tensor_creation.ok() and tensor_grid.x == 4 and tensor_grid.y == 4 and tensor_mapped_grid.x == 8 and partition.valid() and partition_metadata.valid() and partition_grid.x == 4 and family_launch.ok() and loaded_module.ok() and module_launch.ok() and module_family_launch.ok() and disjoint.accepts(index_witness) and intrinsics.supportedOn(70) and device_contract.valid() and typed_slice.valid();
     const ok = metadata_ok and (!cuda_attempted or cuda_launched or route.status == .planned or route.status == .unavailable);
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"context\":{d},\"allocation\":{d},\"registry\":{d},\"wrapped_launch\":{d},\"call_launch\":{d},\"lazy_op\":{d},\"lazy_stream\":{d},\"graph\":{d},\"graph_update\":{d},\"graph_scope\":{d},\"graph_ops\":{d},",
-        .{ ok, metadata_ok, cuda_attempted, cuda_launched, context.fingerprint(), allocation.fingerprint(), registry.fingerprint(), wrapped_launch.fingerprint(), call_launch.fingerprint(), scheduled_op.fingerprint(), scheduled_op.stream.stream_id, graph_launch.fingerprint(), graph_update.fingerprint(), graph_scoped_capture.fingerprint(), graph_capture.operation_count },
+        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"context\":{d},\"allocation\":{d},\"registry\":{d},\"wrapped_launch\":{d},\"call_launch\":{d},\"generated_call\":{d},\"lazy_op\":{d},\"lazy_stream\":{d},\"graph\":{d},\"graph_update\":{d},\"graph_scope\":{d},\"graph_ops\":{d},",
+        .{ ok, metadata_ok, cuda_attempted, cuda_launched, context.fingerprint(), allocation.fingerprint(), registry.fingerprint(), wrapped_launch.fingerprint(), call_launch.fingerprint(), generated_call.fingerprint(), scheduled_op.fingerprint(), scheduled_op.stream.stream_id, graph_launch.fingerprint(), graph_update.fingerprint(), graph_scoped_capture.fingerprint(), graph_capture.operation_count },
     );
     try stdout.interface.print(
         "\"cuda_unit\":{d},\"cuda_unit_commands\":{d},\"tensor\":{d},\"tensor_creation\":{d},\"tensor_grid_x\":{d},\"tensor_mapped\":{d},\"tensor_mapped_grid_x\":{d},\"partition\":{d},\"partition_grid_x\":{d},\"family_launch\":{d},\"family_variant\":\"{s}\",\"module\":{d},\"module_launch\":{d},\"module_family\":{d},\"intrinsics\":{d},\"device_contract\":{d},\"typed_slice\":{d},\"route\":\"{s}\",\"status\":\"{s}\"}}\n",
