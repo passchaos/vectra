@@ -13,6 +13,7 @@ pub fn main(init: std.process.Init) !void {
         .scalar("n", @as(i32, 64)),
         .scalar("alpha", @as(f32, 2.0)),
     });
+    const typed_slice = try vx.CudaDeviceSlice(f64).external(0x3000, 4, 0);
     var cuda_attempted = false;
     var cuda_launched = false;
     var route = vx.axial_cuda.lastReport();
@@ -31,13 +32,13 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and registry.ok() and wrapped_launch.ok();
+    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and registry.ok() and wrapped_launch.ok() and typed_slice.valid();
     const ok = metadata_ok and (!cuda_attempted or cuda_launched or route.status == .planned or route.status == .unavailable);
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"kernel\":{d},\"launch\":{d},\"registry\":{d},\"wrapped_launch\":{d},\"route\":\"{s}\",\"status\":\"{s}\",\"route_fingerprint\":{d}}}\n",
-        .{ ok, metadata_ok, cuda_attempted, cuda_launched, kernel, launch, registry.fingerprint(), wrapped_launch.fingerprint(), route.route.label(), route.status.label(), route.fingerprint() },
+        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"kernel\":{d},\"launch\":{d},\"registry\":{d},\"wrapped_launch\":{d},\"typed_slice\":{d},\"route\":\"{s}\",\"status\":\"{s}\",\"route_fingerprint\":{d}}}\n",
+        .{ ok, metadata_ok, cuda_attempted, cuda_launched, kernel, launch, registry.fingerprint(), wrapped_launch.fingerprint(), typed_slice.fingerprint(), route.route.label(), route.status.label(), route.fingerprint() },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
