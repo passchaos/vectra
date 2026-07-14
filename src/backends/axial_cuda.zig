@@ -8,7 +8,7 @@
 
 const std = @import("std");
 const build_options = @import("vectra_build_options");
-const axial = @import("axial");
+pub const axial = @import("axial");
 const array_mod = @import("../array.zig");
 
 pub const Status = enum(u8) {

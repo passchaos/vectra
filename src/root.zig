@@ -48,6 +48,9 @@ pub const ArrayError = array_mod.ArrayError;
 pub const axiom_cpu = @import("backends/axiom_cpu.zig");
 pub const axiom_backend = @import("backends/axiom_backend.zig");
 pub const axial_acceleration = axial_cuda;
+pub const CudaKernelRegistry = axial_cuda.axial.cuda.KernelRegistry;
+pub const CudaKernel = axial_cuda.axial.cuda.Kernel;
+pub const cudaLaunchConfig = axial_cuda.axial.cuda.launchConfig;
 
 pub const Series = series_mod.Series;
 pub const DataFrame = dataframe_mod.DataFrame;

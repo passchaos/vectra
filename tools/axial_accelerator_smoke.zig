@@ -5,6 +5,14 @@ pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.smp_allocator;
     const kernel = vx.axial_cuda.saxpyKernelFingerprint();
     const launch = vx.axial_cuda.saxpyLaunchFingerprint(0x1000, 0x2000, 64, 2.0);
+    const registry = try vx.CudaKernelRegistry.init().addDecl(vx.axial_cuda.axial.cuda.SaxpyKernel);
+    const config = try vx.cudaLaunchConfig(.{ .x = 2, .y = 1, .z = 1 }, .{ .x = 64, .y = 1, .z = 1 }, 0, 0);
+    const wrapped_launch = try vx.CudaKernel(vx.axial_cuda.axial.cuda.SaxpyKernel).launchWith(config, &.{
+        .pointer("x", 0x1000),
+        .pointer("y", 0x2000),
+        .scalar("n", @as(i32, 64)),
+        .scalar("alpha", @as(f32, 2.0)),
+    });
     var cuda_attempted = false;
     var cuda_launched = false;
     var route = vx.axial_cuda.lastReport();
@@ -23,13 +31,13 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0;
+    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and registry.ok() and wrapped_launch.ok();
     const ok = metadata_ok and (!cuda_attempted or cuda_launched or route.status == .planned or route.status == .unavailable);
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"kernel\":{d},\"launch\":{d},\"route\":\"{s}\",\"status\":\"{s}\",\"route_fingerprint\":{d}}}\n",
-        .{ ok, metadata_ok, cuda_attempted, cuda_launched, kernel, launch, route.route.label(), route.status.label(), route.fingerprint() },
+        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"kernel\":{d},\"launch\":{d},\"registry\":{d},\"wrapped_launch\":{d},\"route\":\"{s}\",\"status\":\"{s}\",\"route_fingerprint\":{d}}}\n",
+        .{ ok, metadata_ok, cuda_attempted, cuda_launched, kernel, launch, registry.fingerprint(), wrapped_launch.fingerprint(), route.route.label(), route.status.label(), route.fingerprint() },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
