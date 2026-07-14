@@ -10,12 +10,8 @@ pub fn main(init: std.process.Init) !void {
     const y_slice = try vx.CudaDeviceSlice(f32).external(0x2000, 64, 0);
     const typed_slice = try vx.CudaDeviceSlice(f64).external(0x3000, 4, 0);
     const config = try vx.cudaLaunchConfig(.{ .x = 2, .y = 1, .z = 1 }, .{ .x = 64, .y = 1, .z = 1 }, 0, 0);
-    const wrapped_launch = try vx.CudaKernel(vx.axial_cuda.axial.cuda.SaxpyKernel).launchWith(config, &.{
-        x_slice.arg("x"),
-        y_slice.arg("y"),
-        .scalar("n", @as(i32, 64)),
-        .scalar("alpha", @as(f32, 2.0)),
-    });
+    const args = try (try (try (try vx.CudaArgumentList.init().slice("x", x_slice)).slice("y", y_slice)).scalar("n", @as(i32, 64))).scalar("alpha", @as(f32, 2.0));
+    const wrapped_launch = try vx.CudaKernel(vx.axial_cuda.axial.cuda.SaxpyKernel).launchListWith(config, args);
     var cuda_attempted = false;
     var cuda_launched = false;
     var route = vx.axial_cuda.lastReport();
@@ -34,13 +30,13 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and registry.ok() and wrapped_launch.ok() and typed_slice.valid();
+    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and registry.ok() and args.ok() and wrapped_launch.ok() and typed_slice.valid();
     const ok = metadata_ok and (!cuda_attempted or cuda_launched or route.status == .planned or route.status == .unavailable);
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"kernel\":{d},\"launch\":{d},\"registry\":{d},\"wrapped_launch\":{d},\"typed_slice\":{d},\"route\":\"{s}\",\"status\":\"{s}\",\"route_fingerprint\":{d}}}\n",
-        .{ ok, metadata_ok, cuda_attempted, cuda_launched, kernel, launch, registry.fingerprint(), wrapped_launch.fingerprint(), typed_slice.fingerprint(), route.route.label(), route.status.label(), route.fingerprint() },
+        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"kernel\":{d},\"launch\":{d},\"registry\":{d},\"wrapped_launch\":{d},\"typed_slice\":{d},\"args\":{d},\"route\":\"{s}\",\"status\":\"{s}\",\"route_fingerprint\":{d}}}\n",
+        .{ ok, metadata_ok, cuda_attempted, cuda_launched, kernel, launch, registry.fingerprint(), wrapped_launch.fingerprint(), typed_slice.fingerprint(), args.fingerprint(), route.route.label(), route.status.label(), route.fingerprint() },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

@@ -49,6 +49,7 @@ pub const axiom_cpu = @import("backends/axiom_cpu.zig");
 pub const axiom_backend = @import("backends/axiom_backend.zig");
 pub const axial_acceleration = axial_cuda;
 pub const CudaKernelRegistry = axial_cuda.axial.cuda.KernelRegistry;
+pub const CudaArgumentList = axial_cuda.axial.cuda.ArgumentList;
 pub const CudaDeviceSlice = axial_cuda.axial.cuda.DeviceSlice;
 pub const CudaKernel = axial_cuda.axial.cuda.Kernel;
 pub const cudaLaunchConfig = axial_cuda.axial.cuda.launchConfig;
