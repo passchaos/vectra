@@ -11,6 +11,10 @@ pub fn main(init: std.process.Init) !void {
     const family_x = try vx.CudaDeviceSlice(f32).external(0x5000, 1024, 0);
     const family_y = try vx.CudaDeviceSlice(f32).external(0x6000, 1024, 0);
     const typed_slice = try vx.CudaDeviceSlice(f64).external(0x3000, 4, 0);
+    const tensor = try vx.CudaTensor(f32, 2).fromSlice(try vx.CudaDeviceSlice(f32).external(0x7000, 32 * 64, 0), .{ 32, 64 });
+    const tensor_view = try tensor.view(1, .{32 * 64});
+    const tensor_partition = try tensor.partition(.{ 8, 16 });
+    const tensor_grid = try tensor_partition.grid();
     const config = try vx.cudaLaunchConfig(.{ .x = 2, .y = 1, .z = 1 }, .{ .x = 64, .y = 1, .z = 1 }, 0, 0);
     const args = try (try (try (try vx.CudaArgumentList.init().slice("x", x_slice)).slice("y", y_slice)).scalar("n", @as(i32, 64))).scalar("alpha", @as(f32, 2.0));
     const wrapped_launch = try registry.launchWith("axial_saxpy", config, args);
@@ -66,13 +70,13 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and registry.ok() and args.ok() and wrapped_launch.ok() and call_launch.ok() and top_level_call.ok() and scheduled_op.ok() and scheduled_op.scheduled() and graph_capture.ok() and graph_exec.ok() and graph_update.ok() and graph_launch.ok() and partition.valid() and partition_metadata.valid() and partition_grid.x == 4 and family_launch.ok() and loaded_module.ok() and module_launch.ok() and module_family_launch.ok() and disjoint.accepts(index_witness) and device_contract.valid() and typed_slice.valid();
+    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and registry.ok() and args.ok() and wrapped_launch.ok() and call_launch.ok() and top_level_call.ok() and scheduled_op.ok() and scheduled_op.scheduled() and graph_capture.ok() and graph_exec.ok() and graph_update.ok() and graph_launch.ok() and tensor.valid() and tensor_view.valid() and tensor_partition.valid() and tensor_grid.x == 4 and tensor_grid.y == 4 and partition.valid() and partition_metadata.valid() and partition_grid.x == 4 and family_launch.ok() and loaded_module.ok() and module_launch.ok() and module_family_launch.ok() and disjoint.accepts(index_witness) and device_contract.valid() and typed_slice.valid();
     const ok = metadata_ok and (!cuda_attempted or cuda_launched or route.status == .planned or route.status == .unavailable);
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"kernel\":{d},\"launch\":{d},\"registry\":{d},\"wrapped_launch\":{d},\"call_launch\":{d},\"top_level_call\":{d},\"lazy_op\":{d},\"lazy_stream\":{d},\"graph\":{d},\"graph_update\":{d},\"graph_ops\":{d},\"partition\":{d},\"partition_grid_x\":{d},\"family_launch\":{d},\"family_variant\":\"{s}\",\"module\":{d},\"module_launch\":{d},\"module_family\":{d},\"device_contract\":{d},\"typed_slice\":{d},\"args\":{d},\"route\":\"{s}\",\"status\":\"{s}\",\"route_fingerprint\":{d}}}\n",
-        .{ ok, metadata_ok, cuda_attempted, cuda_launched, kernel, launch, registry.fingerprint(), wrapped_launch.fingerprint(), call_launch.fingerprint(), top_level_call.fingerprint(), scheduled_op.fingerprint(), scheduled_op.stream.stream_id, graph_launch.fingerprint(), graph_update.fingerprint(), graph_capture.operation_count, partition_metadata.fingerprint(), partition_grid.x, family_launch.fingerprint(), family_launch.selection.variant.id, loaded_module.fingerprint(), module_launch.fingerprint(), module_family_launch.fingerprint(), device_contract.fingerprint(), typed_slice.fingerprint(), args.fingerprint(), route.route.label(), route.status.label(), route.fingerprint() },
+        "{{\"kind\":\"vectra_axial_accelerator_smoke\",\"ok\":{},\"metadata_ok\":{},\"cuda_attempted\":{},\"cuda_launched\":{},\"kernel\":{d},\"launch\":{d},\"registry\":{d},\"wrapped_launch\":{d},\"call_launch\":{d},\"top_level_call\":{d},\"lazy_op\":{d},\"lazy_stream\":{d},\"graph\":{d},\"graph_update\":{d},\"graph_ops\":{d},\"tensor\":{d},\"tensor_grid_x\":{d},\"partition\":{d},\"partition_grid_x\":{d},\"family_launch\":{d},\"family_variant\":\"{s}\",\"module\":{d},\"module_launch\":{d},\"module_family\":{d},\"device_contract\":{d},\"typed_slice\":{d},\"args\":{d},\"route\":\"{s}\",\"status\":\"{s}\",\"route_fingerprint\":{d}}}\n",
+        .{ ok, metadata_ok, cuda_attempted, cuda_launched, kernel, launch, registry.fingerprint(), wrapped_launch.fingerprint(), call_launch.fingerprint(), top_level_call.fingerprint(), scheduled_op.fingerprint(), scheduled_op.stream.stream_id, graph_launch.fingerprint(), graph_update.fingerprint(), graph_capture.operation_count, tensor.fingerprint(), tensor_grid.x, partition_metadata.fingerprint(), partition_grid.x, family_launch.fingerprint(), family_launch.selection.variant.id, loaded_module.fingerprint(), module_launch.fingerprint(), module_family_launch.fingerprint(), device_contract.fingerprint(), typed_slice.fingerprint(), args.fingerprint(), route.route.label(), route.status.label(), route.fingerprint() },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
