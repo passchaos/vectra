@@ -108,6 +108,7 @@ pub const CudaDeviceStream = axial_cuda.axial.device_operation.DeviceStream;
 pub const CudaDevicePipeline = axial_cuda.axial.device_pipeline.DevicePipeline;
 pub const CudaDevicePipelineNode = axial_cuda.axial.device_pipeline.DevicePipelineNode;
 pub const CudaDevicePipelineNodeKind = axial_cuda.axial.device_pipeline.DevicePipelineNodeKind;
+pub const CudaDevicePipelineEvent = axial_cuda.axial.device_pipeline.DevicePipelineEvent;
 pub const CudaDevicePipelineCompletionPlan = axial_cuda.axial.device_pipeline.DevicePipelineCompletionPlan;
 pub const CudaDevicePipelineCompletionMode = axial_cuda.axial.device_pipeline.DevicePipelineCompletionMode;
 pub const CudaMemoryCopyOperation = axial_cuda.axial.memory_operation.MemoryCopyOperation;

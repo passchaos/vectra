@@ -157,7 +157,7 @@ lazy device-operation records, and CUTILE-style partition metadata, so a Vectra
 smoke or downstream array backend can build host+kernel launch metadata with
 `vx.CudaKernelDecl(.{...}, Impl)`, `vx.CudaKernel(Decl).call1D(...)` /
 `vx.cudaCallWith(...)`, schedule lazy work
-with `vx.CudaDeviceOperation`, compose heterogeneous lazy pipelines, async allocation/free nodes, and sync/await/async-on completion plans with `vx.CudaDevicePipeline`, infer partition launch grids, drive family-selected CUDA launches, model loaded CUDA module bundles, build typed CUDA module launch facades with `vx.CudaModule(Decl)`, carry CUDA device-model contracts, model CUDA graph capture/replay/scope nodes, build CUDA C++-style translation-unit metadata with `vx.CudaUnit(Decl)`, schedule lazy CUDA memory copies, carry host-side CUDA tensor metadata, preserve CUDA device-intrinsic contracts, and carry CUDA execution-context metadata without owning
+with `vx.CudaDeviceOperation`, compose heterogeneous lazy pipelines, async allocation/free nodes, stream event record/wait nodes, and sync/await/async-on completion plans with `vx.CudaDevicePipeline`, infer partition launch grids, drive family-selected CUDA launches, model loaded CUDA module bundles, build typed CUDA module launch facades with `vx.CudaModule(Decl)`, carry CUDA device-model contracts, model CUDA graph capture/replay/scope nodes, build CUDA C++-style translation-unit metadata with `vx.CudaUnit(Decl)`, schedule lazy CUDA memory copies, carry host-side CUDA tensor metadata, preserve CUDA device-intrinsic contracts, and carry CUDA execution-context metadata without owning
 the kernel facade itself.
 
 Validation:
