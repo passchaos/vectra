@@ -91,6 +91,14 @@ pub fn main(init: std.process.Init) !void {
     const loaded_module = try module_bundle.load(0x7151);
     const module_launch = try loaded_module.launch("axial_saxpy", args);
     const module_family_launch = try loaded_module.launchFamily(vx.axial_cuda.axial.cuda.saxpyKernelFamily(), family_problem, .auto, null, family_args);
+    const TypedModule = vx.CudaModule(vx.CudaModuleDecl(.{
+        .name = "vectra_typed_saxpy_module",
+        .target_arch = "sm_89",
+        .default_artifact_name = "vectra_typed_saxpy_module.cubin",
+        .default_artifact_bytes = 4096,
+    }, .{ vx.axial_cuda.axial.cuda.SaxpyKernel, vx.axial_cuda.axial.cuda.SaxpyWideKernel }));
+    const typed_module = try TypedModule.loadDefault(0x7151);
+    const typed_module_launch = try typed_module.call1D(vx.axial_cuda.axial.cuda.SaxpyKernel, 64, 128, .{ x_slice, y_slice, @as(i32, 64), @as(f32, 2.0) });
     const index_space = vx.CudaThreadIndexSpace.oneD("thread.index_1d");
     const index_witness = try vx.CudaThreadIndexWitness.fromSpace(index_space, "thread.index_1d()");
     const disjoint = try vx.CudaDisjointDeviceSlice.init("out", "f32", index_space, true);
@@ -123,7 +131,7 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and context.valid() and allocation.ok() and registry.ok() and args.ok() and wrapped_launch.ok() and call_launch.ok() and generated_call.ok() and std.mem.eql(u8, generated_call.spec.program.module.symbol, "vectra_generated_saxpy") and top_level_call.ok() and scheduled_op.ok() and scheduled_op.scheduled() and graph_capture.ok() and graph_exec.ok() and graph_update.ok() and graph_launch.ok() and graph_scoped_capture.ok() and cuda_unit.ok() and cuda_unit.launchesSymbol("axial_saxpy") and cuda_unit.host.containsKind(.graph_launch) and tensor.valid() and tensor_view.valid() and tensor_partition.valid() and tensor_mapped.valid() and tensor_creation.ok() and tensor_grid.x == 4 and tensor_grid.y == 4 and tensor_mapped_grid.x == 8 and partition.valid() and partition_metadata.valid() and partition_grid.x == 4 and family_launch.ok() and loaded_module.ok() and module_launch.ok() and module_family_launch.ok() and disjoint.accepts(index_witness) and intrinsics.supportedOn(70) and device_contract.valid() and typed_slice.valid();
+    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and context.valid() and allocation.ok() and registry.ok() and args.ok() and wrapped_launch.ok() and call_launch.ok() and generated_call.ok() and std.mem.eql(u8, generated_call.spec.program.module.symbol, "vectra_generated_saxpy") and top_level_call.ok() and scheduled_op.ok() and scheduled_op.scheduled() and graph_capture.ok() and graph_exec.ok() and graph_update.ok() and graph_launch.ok() and graph_scoped_capture.ok() and cuda_unit.ok() and cuda_unit.launchesSymbol("axial_saxpy") and cuda_unit.host.containsKind(.graph_launch) and tensor.valid() and tensor_view.valid() and tensor_partition.valid() and tensor_mapped.valid() and tensor_creation.ok() and tensor_grid.x == 4 and tensor_grid.y == 4 and tensor_mapped_grid.x == 8 and partition.valid() and partition_metadata.valid() and partition_grid.x == 4 and family_launch.ok() and loaded_module.ok() and module_launch.ok() and module_family_launch.ok() and typed_module.ok() and typed_module_launch.ok() and disjoint.accepts(index_witness) and intrinsics.supportedOn(70) and device_contract.valid() and typed_slice.valid();
     const ok = metadata_ok and (!cuda_attempted or cuda_launched or route.status == .planned or route.status == .unavailable);
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
@@ -132,8 +140,8 @@ pub fn main(init: std.process.Init) !void {
         .{ ok, metadata_ok, cuda_attempted, cuda_launched, context.fingerprint(), allocation.fingerprint(), registry.fingerprint(), wrapped_launch.fingerprint(), call_launch.fingerprint(), generated_call.fingerprint(), scheduled_op.fingerprint(), scheduled_op.stream.stream_id, graph_launch.fingerprint(), graph_update.fingerprint(), graph_scoped_capture.fingerprint(), graph_capture.operation_count },
     );
     try stdout.interface.print(
-        "\"cuda_unit\":{d},\"cuda_unit_commands\":{d},\"tensor\":{d},\"tensor_creation\":{d},\"tensor_grid_x\":{d},\"tensor_mapped\":{d},\"tensor_mapped_grid_x\":{d},\"partition\":{d},\"partition_grid_x\":{d},\"family_launch\":{d},\"family_variant\":\"{s}\",\"module\":{d},\"module_launch\":{d},\"module_family\":{d},\"intrinsics\":{d},\"device_contract\":{d},\"typed_slice\":{d},\"route\":\"{s}\",\"status\":\"{s}\"}}\n",
-        .{ cuda_unit.fingerprint(), cuda_unit.commandCount(), tensor.fingerprint(), tensor_creation.fingerprint(), tensor_grid.x, tensor_mapped.fingerprint(), tensor_mapped_grid.x, partition_metadata.fingerprint(), partition_grid.x, family_launch.fingerprint(), family_launch.selection.variant.id, loaded_module.fingerprint(), module_launch.fingerprint(), module_family_launch.fingerprint(), intrinsics.fingerprint(), device_contract.fingerprint(), typed_slice.fingerprint(), route.route.label(), route.status.label() },
+        "\"cuda_unit\":{d},\"cuda_unit_commands\":{d},\"tensor\":{d},\"tensor_creation\":{d},\"tensor_grid_x\":{d},\"tensor_mapped\":{d},\"tensor_mapped_grid_x\":{d},\"partition\":{d},\"partition_grid_x\":{d},\"family_launch\":{d},\"family_variant\":\"{s}\",\"module\":{d},\"module_launch\":{d},\"module_family\":{d},\"typed_module\":{d},\"typed_module_launch\":{d},\"intrinsics\":{d},\"device_contract\":{d},\"typed_slice\":{d},\"route\":\"{s}\",\"status\":\"{s}\"}}\n",
+        .{ cuda_unit.fingerprint(), cuda_unit.commandCount(), tensor.fingerprint(), tensor_creation.fingerprint(), tensor_grid.x, tensor_mapped.fingerprint(), tensor_mapped_grid.x, partition_metadata.fingerprint(), partition_grid.x, family_launch.fingerprint(), family_launch.selection.variant.id, loaded_module.fingerprint(), module_launch.fingerprint(), module_family_launch.fingerprint(), typed_module.fingerprint(), typed_module_launch.fingerprint(), intrinsics.fingerprint(), device_contract.fingerprint(), typed_slice.fingerprint(), route.route.label(), route.status.label() },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
