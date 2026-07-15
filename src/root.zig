@@ -126,6 +126,7 @@ pub const CudaThreadIndexWitness = axial_cuda.axial.device_model.ThreadIndexWitn
 pub const CudaDisjointDeviceSlice = axial_cuda.axial.device_model.DisjointDeviceSlice;
 pub const CudaSharedMemoryRegion = axial_cuda.axial.device_model.SharedMemoryRegion;
 pub const CudaBarrierRequirement = axial_cuda.axial.device_model.BarrierRequirement;
+pub const CudaClusterContract = axial_cuda.axial.device_model.ClusterContract;
 pub const CudaDeviceIntrinsicContract = axial_cuda.axial.device_model.DeviceIntrinsicContract;
 pub const CudaDeviceIntrinsicSet = axial_cuda.axial.device_model.DeviceIntrinsicSet;
 pub const CudaDeviceIntrinsicKind = axial_cuda.axial.device_model.DeviceIntrinsicKind;
