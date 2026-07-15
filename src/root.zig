@@ -61,6 +61,7 @@ pub const CudaPartitionArgumentMetadata = axial_cuda.axial.cuda.PartitionArgumen
 pub const CudaKernelBuilder = axial_cuda.axial.CudaKernelBuilder;
 pub const CudaKernelBodyBuilder = axial_cuda.axial.CudaKernelBodyBuilder;
 pub const CudaLaunchBounds = axial_cuda.axial.CudaLaunchBounds;
+pub const CudaLaunchPolicy = axial_cuda.axial.CudaLaunchPolicy;
 pub const CudaKernel = axial_cuda.axial.cuda.Kernel;
 pub const CudaKernelOptions = axial_cuda.axial.cuda.KernelOptions;
 pub const CudaKernelDecl = axial_cuda.axial.cuda.KernelDecl;
