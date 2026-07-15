@@ -46,7 +46,10 @@ contract adapters (`vx.CudaKernelDeviceContract`, `vx.CudaClusterContract`), CUD
 adapters (`vx.CudaExecutionContext`) only as adapter conveniences. Kernel
 template adapters (`vx.CudaKernelTemplate`, `vx.CudaKernelTemplateVariant`)
 preserve Axial's CUDA C++-style typed/const specialization metadata for Vectra
-smokes and downstream array backends; the host+kernel facade remains owned by Axial and
+smokes and downstream array backends. CUDA Tile compile adapters
+(`vx.TileAssemblerInvocation`, `vx.TileAssemblerResult`,
+`vx.TileAssemblerCacheRecord`) preserve Axial's CUTILE/nv_tileas handoff and
+cache evidence for Vectra smokes; the host+kernel facade remains owned by Axial and
 the runtime ABI remains owned by Axiom.
 
 ## CUDA owning-array behavior
