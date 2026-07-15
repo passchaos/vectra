@@ -106,6 +106,7 @@ pub const CudaDeviceOperationChain = axial_cuda.axial.device_operation.DeviceOpe
 pub const CudaSchedulingPolicy = axial_cuda.axial.device_operation.SchedulingPolicy;
 pub const CudaDeviceStream = axial_cuda.axial.device_operation.DeviceStream;
 pub const CudaDevicePipeline = axial_cuda.axial.device_pipeline.DevicePipeline;
+pub const CudaDevicePipelineGroup = axial_cuda.axial.device_pipeline.DevicePipelineGroup;
 pub const CudaDevicePipelineNode = axial_cuda.axial.device_pipeline.DevicePipelineNode;
 pub const CudaDevicePipelineNodeKind = axial_cuda.axial.device_pipeline.DevicePipelineNodeKind;
 pub const CudaDevicePipelineContextAction = axial_cuda.axial.device_pipeline.DevicePipelineContextAction;
