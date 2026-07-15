@@ -30,8 +30,8 @@ Vectra CUDA Array storage into Axial `cuda.TensorView` / `cuda.MatrixView`
 records and launches through Axial's Axiom-backed CUDA C++-style facade.  Existing
 `vx.axiom_cuda` functions remain the lower fallback/runtime bridge.
 Vectra re-exports the Axial declaration/call helpers (`vx.CudaKernelDecl`,
-`vx.CudaKernel`, `vx.cudaCallWith`, `vx.cudaCall1D`, and launch-dimension helpers), lazy operation adapters
-(`vx.CudaDeviceOperation`, `vx.CudaSchedulingPolicy`), and partition metadata
+`vx.CudaKernel`, `vx.cudaCallWith`, `vx.cudaCall1D`, and launch-dimension helpers), lazy operation/pipeline adapters
+(`vx.CudaDeviceOperation`, `vx.CudaDevicePipeline`, `vx.CudaSchedulingPolicy`), and partition metadata
 adapters (`vx.CudaPartitionedDeviceSlice`, `vx.cudaInferPartitionLaunchGrid`),
 kernel-family selection adapters (`vx.KernelFamily`, `vx.CudaKernelFamilyLaunch`),
 module bundle and typed-module adapters (`vx.CudaModule`, `vx.CudaModuleDecl`,
