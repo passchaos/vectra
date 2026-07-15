@@ -82,6 +82,7 @@ pub const CudaModuleLoadPlan = axial_cuda.axial.cuda_module.CudaModuleLoadPlan;
 pub const CudaModuleArtifact = axial_cuda.axial.cuda_module.CudaModuleArtifact;
 pub const CudaModuleBundle = axial_cuda.axial.cuda_module.CudaModuleBundle;
 pub const LoadedCudaModule = axial_cuda.axial.cuda_module.LoadedCudaModule;
+pub const CudaModuleFunction = axial_cuda.axial.cuda_module.CudaModuleFunction;
 pub const CudaModuleLaunch = axial_cuda.axial.cuda_module.CudaModuleLaunch;
 pub const CudaModuleFamilyLaunch = axial_cuda.axial.cuda_module.CudaModuleFamilyLaunch;
 pub const CudaGraphCapture = axial_cuda.axial.cuda_graph.CudaGraphCapture;
