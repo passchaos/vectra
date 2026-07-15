@@ -197,6 +197,62 @@ pub fn main(init: std.process.Init) !void {
     };
     const source_manifest = vx.CudaSourceUnit(Source).manifest();
     const source_unit = try vx.CudaSourceUnit(Source).build();
+    const ScaleTemplate = vx.CudaKernelTemplate(struct {
+        pub fn id(comptime template_args: anytype) []const u8 {
+            return std.fmt.comptimePrint("{s}.block_{d}", .{ @typeName(template_args.T), template_args.block_x });
+        }
+
+        pub fn symbol(comptime template_args: anytype) []const u8 {
+            return std.fmt.comptimePrint("vectra_template_scale_{s}_{d}", .{ @typeName(template_args.T), template_args.block_x });
+        }
+
+        pub fn instantiate(comptime template_args: anytype) type {
+            const T = template_args.T;
+            const element = vx.CudaElementType.fromType(T);
+            const symbol_value = symbol(template_args);
+            return vx.CudaKernelDecl(.{
+                .symbol = symbol_value,
+                .module_name = std.fmt.comptimePrint("{s}_module", .{symbol_value}),
+                .target_arch = template_args.target_arch,
+                .block = vx.cudaDim1(template_args.block_x),
+                .specialization_key = vx.CudaKernelSpecializationKey.init()
+                    .typeArgTyped("T", T)
+                    .constArgValue("BLOCK", template_args.block_x),
+            }, struct {
+                pub fn params(b: vx.CudaKernelBuilder) vx.CudaKernelBuilder {
+                    return b.globalPtrTyped("x", T, .input)
+                        .globalPtrTyped("out", T, .output)
+                        .scalarTyped("n", i32)
+                        .scalarTyped("scale", T);
+                }
+
+                pub fn body(b: vx.CudaKernelBodyBuilder) vx.CudaKernelBodyBuilder {
+                    return b.threadIndex1D("i")
+                        .boundsGuard1D("in_bounds", "i", "n")
+                        .load("x_i", "x", "i", element)
+                        .mul("scaled", "x_i", "scale", element)
+                        .store("out", "i", "scaled", element)
+                        .returnVoid();
+                }
+            });
+        }
+
+        pub fn variant(comptime template_args: anytype) vx.KernelVariant {
+            return .{
+                .id = id(template_args),
+                .symbol = symbol(template_args),
+                .target_arch = template_args.target_arch,
+                .dtype = @typeName(template_args.T),
+                .tile_m = template_args.block_x,
+                .tile_n = 1,
+                .tile_k = 1,
+                .metadata_fingerprint = template_args.block_x,
+            };
+        }
+    });
+    const template_128 = try ScaleTemplate.variant(.{ .T = f32, .block_x = 128, .target_arch = "sm_89" });
+    const template_256 = try ScaleTemplate.variant(.{ .T = f32, .block_x = 256, .target_arch = "sm_89" });
+    const template_direct = try ScaleTemplate.call1D(.{ .T = f32, .block_x = 128, .target_arch = "sm_89" }, 64, 128, .{ x_slice, y_slice, @as(i32, 64), @as(f32, 4.0) });
     const partition = try x_slice.partition1D(64, 16);
     const partition_grid = try vx.cudaInferPartitionLaunchGrid(.{partition});
     const partition_metadata = partition.argMetadata("x");
@@ -272,7 +328,8 @@ pub fn main(init: std.process.Init) !void {
     const bounds_ok = generated_call.spec.program.module.launch_bounds != null and generated_call.spec.program.module.launch_bounds.?.acceptsBlock(generated_call.spec.program.module.launch.block);
     const policy_ok = generated_call.spec.program.module.launch_policy != null and generated_call.spec.program.module.launch_policy.?.validFor(generated_call.spec.program.module.launch, generated_call.spec.program.module.target_arch);
     const specialization_ok = generated_call.spec.program.module.specialization_key != null and generated_call.spec.program.module.specialization_key.?.ok();
-    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and context.valid() and allocation.ok() and free.ok() and allocation_pipeline.ok() and allocation_pipeline.scheduled() and registry.ok() and args.ok() and wrapped_launch.ok() and call_launch.ok() and generated_call.ok() and slice_launch.ok() and slice_args.count == 4 and byval_launch.ok() and byval_args.count == 5 and byval_args.asSlice()[4].kind() == .byval and bounds_ok and policy_ok and specialization_ok and std.mem.eql(u8, generated_call.spec.program.module.symbol, "vectra_generated_saxpy") and top_level_call.ok() and scheduled_op.ok() and scheduled_op.scheduled() and graph_capture.ok() and graph_exec.ok() and graph_update.ok() and graph_launch.ok() and graph_scoped_capture.ok() and scheduled_pipeline.scheduled() and pipeline_capture.ok() and replay_pipeline.ok() and pipeline_sync.ok() and pipeline_await.ok() and pipeline_async_on.ok() and pipeline_event.ok() and event_pipeline.ok() and wait_pipeline.scheduled() and wait_pipeline.nodes[0].kind == .event_wait and scheduled_context_pipeline.scheduled() and scheduled_context_pipeline.nodes[0].kind == .context_action and scheduled_zip.scheduled() and zip_join.scheduled() and zip_split.ok() and zip_left.ok() and zip_right.ok() and shared_output.ok() and shared_left.ok() and shared_right.ok() and pipeline_await.async_wakeup and pipeline_async_on.caller_must_synchronize and cuda_unit.ok() and cuda_unit.launchesSymbol("axial_saxpy") and cuda_unit.host.containsKind(.graph_launch) and source_manifest.ok() and source_manifest.auto_kernel_count == 1 and source_unit.ok() and source_unit.launchesSymbol("vectra_source_scale") and tensor.valid() and tensor_view.valid() and tensor_partition.valid() and tensor_mapped.valid() and tensor_creation.ok() and tensor_grid.x == 4 and tensor_grid.y == 4 and tensor_mapped_grid.x == 8 and partition.valid() and partition_metadata.valid() and partition_grid.x == 4 and family_launch.ok() and loaded_module.ok() and module_launch.ok() and module_family_launch.ok() and typed_module.ok() and typed_module_launch.ok() and typed_module_async.ok() and !typed_module_async.scheduled() and typed_module_pipeline.ok() and typed_module_sync.ok() and typed_module_load.ok() and typed_module_load_pipeline.scheduled() and typed_function.ok() and typed_function_launch.ok() and typed_function_pipeline.ok() and disjoint.accepts(index_witness) and intrinsics.supportedOn(70) and cluster_intrinsics.supportedOn(90) and device_contract.valid() and cluster_contract.valid() and typed_slice.valid();
+    const template_ok = template_128.ok() and template_256.ok() and template_direct.ok() and template_128.fingerprint() != template_256.fingerprint() and template_direct.spec.program.module.specialization_key != null and template_direct.spec.program.module.specialization_key.?.ok();
+    const metadata_ok = vx.axial_cuda.enabled() and kernel != 0 and launch != 0 and context.valid() and allocation.ok() and free.ok() and allocation_pipeline.ok() and allocation_pipeline.scheduled() and registry.ok() and args.ok() and wrapped_launch.ok() and call_launch.ok() and generated_call.ok() and slice_launch.ok() and slice_args.count == 4 and byval_launch.ok() and byval_args.count == 5 and byval_args.asSlice()[4].kind() == .byval and bounds_ok and policy_ok and specialization_ok and std.mem.eql(u8, generated_call.spec.program.module.symbol, "vectra_generated_saxpy") and top_level_call.ok() and scheduled_op.ok() and scheduled_op.scheduled() and graph_capture.ok() and graph_exec.ok() and graph_update.ok() and graph_launch.ok() and graph_scoped_capture.ok() and scheduled_pipeline.scheduled() and pipeline_capture.ok() and replay_pipeline.ok() and pipeline_sync.ok() and pipeline_await.ok() and pipeline_async_on.ok() and pipeline_event.ok() and event_pipeline.ok() and wait_pipeline.scheduled() and wait_pipeline.nodes[0].kind == .event_wait and scheduled_context_pipeline.scheduled() and scheduled_context_pipeline.nodes[0].kind == .context_action and scheduled_zip.scheduled() and zip_join.scheduled() and zip_split.ok() and zip_left.ok() and zip_right.ok() and shared_output.ok() and shared_left.ok() and shared_right.ok() and pipeline_await.async_wakeup and pipeline_async_on.caller_must_synchronize and cuda_unit.ok() and cuda_unit.launchesSymbol("axial_saxpy") and cuda_unit.host.containsKind(.graph_launch) and source_manifest.ok() and source_manifest.auto_kernel_count == 1 and source_unit.ok() and source_unit.launchesSymbol("vectra_source_scale") and template_ok and tensor.valid() and tensor_view.valid() and tensor_partition.valid() and tensor_mapped.valid() and tensor_creation.ok() and tensor_grid.x == 4 and tensor_grid.y == 4 and tensor_mapped_grid.x == 8 and partition.valid() and partition_metadata.valid() and partition_grid.x == 4 and family_launch.ok() and loaded_module.ok() and module_launch.ok() and module_family_launch.ok() and typed_module.ok() and typed_module_launch.ok() and typed_module_async.ok() and !typed_module_async.scheduled() and typed_module_pipeline.ok() and typed_module_sync.ok() and typed_module_load.ok() and typed_module_load_pipeline.scheduled() and typed_function.ok() and typed_function_launch.ok() and typed_function_pipeline.ok() and disjoint.accepts(index_witness) and intrinsics.supportedOn(70) and cluster_intrinsics.supportedOn(90) and device_contract.valid() and cluster_contract.valid() and typed_slice.valid();
     const ok = metadata_ok and (!cuda_attempted or cuda_launched or route.status == .planned or route.status == .unavailable);
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
@@ -285,8 +342,8 @@ pub fn main(init: std.process.Init) !void {
         .{ pipeline_sync.fingerprint(), pipeline_await.fingerprint(), pipeline_async_on.fingerprint(), pipeline_event.fingerprint(), wait_pipeline.fingerprint(), scheduled_context_pipeline.fingerprint(), scheduled_zip.fingerprint(), zip_join.fingerprint(), zip_split.fingerprint(), cuda_unit.fingerprint(), cuda_unit.commandCount(), source_unit.fingerprint(), source_manifest.auto_kernel_count, tensor.fingerprint(), tensor_creation.fingerprint(), tensor_grid.x, tensor_mapped.fingerprint(), tensor_mapped_grid.x, partition_metadata.fingerprint(), partition_grid.x, family_launch.fingerprint(), family_launch.selection.variant.id, loaded_module.fingerprint(), module_launch.fingerprint(), module_family_launch.fingerprint(), typed_module.fingerprint(), typed_module_launch.fingerprint(), typed_module_async.fingerprint(), typed_module_pipeline.fingerprint(), typed_module_sync.fingerprint() },
     );
     try stdout.interface.print(
-        "\"shared_output\":{d},\"shared_left\":{d},\"shared_right\":{d},\"slice_launch\":{d},\"byval_launch\":{d},\"typed_module_load\":{d},\"typed_module_load_pipeline\":{d},\"typed_function\":{d},\"typed_function_launch\":{d},\"typed_function_pipeline\":{d},\"intrinsics\":{d},\"device_contract\":{d},\"cluster_contract\":{d},\"typed_slice\":{d},\"route\":\"{s}\",\"status\":\"{s}\"}}\n",
-        .{ shared_output.fingerprint(), shared_left.fingerprint(), shared_right.fingerprint(), slice_launch.fingerprint(), byval_launch.fingerprint(), typed_module_load.fingerprint(), typed_module_load_pipeline.fingerprint(), typed_function.fingerprint(), typed_function_launch.fingerprint(), typed_function_pipeline.fingerprint(), intrinsics.fingerprint(), device_contract.fingerprint(), cluster_contract.fingerprint(), typed_slice.fingerprint(), route.route.label(), route.status.label() },
+        "\"shared_output\":{d},\"shared_left\":{d},\"shared_right\":{d},\"slice_launch\":{d},\"byval_launch\":{d},\"template_128\":{d},\"template_256\":{d},\"template_direct\":{d},\"typed_module_load\":{d},\"typed_module_load_pipeline\":{d},\"typed_function\":{d},\"typed_function_launch\":{d},\"typed_function_pipeline\":{d},\"intrinsics\":{d},\"device_contract\":{d},\"cluster_contract\":{d},\"typed_slice\":{d},\"route\":\"{s}\",\"status\":\"{s}\"}}\n",
+        .{ shared_output.fingerprint(), shared_left.fingerprint(), shared_right.fingerprint(), slice_launch.fingerprint(), byval_launch.fingerprint(), template_128.fingerprint(), template_256.fingerprint(), template_direct.fingerprint(), typed_module_load.fingerprint(), typed_module_load_pipeline.fingerprint(), typed_function.fingerprint(), typed_function_launch.fingerprint(), typed_function_pipeline.fingerprint(), intrinsics.fingerprint(), device_contract.fingerprint(), cluster_contract.fingerprint(), typed_slice.fingerprint(), route.route.label(), route.status.label() },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
