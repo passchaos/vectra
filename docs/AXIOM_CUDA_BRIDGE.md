@@ -31,7 +31,7 @@ records and launches through Axial's Axiom-backed CUDA C++-style facade.  Existi
 `vx.axiom_cuda` functions remain the lower fallback/runtime bridge.
 Vectra re-exports the Axial declaration/call helpers (`vx.CudaKernelDecl`,
 `vx.CudaKernel`, `vx.CudaLaunchBounds`, `vx.CudaLaunchPolicy`,
-`vx.cudaCallWith`, `vx.cudaCall1D`, and launch-dimension helpers), lazy operation/pipeline adapters
+`vx.CudaKernelSpecializationKey`, `vx.cudaCallWith`, `vx.cudaCall1D`, and launch-dimension helpers), lazy operation/pipeline adapters
 (`vx.CudaDeviceOperation`, `vx.CudaDevicePipeline`,
 `vx.CudaDevicePipelineGroup`, `vx.CudaDevicePipelineSplit`,
 `vx.CudaDevicePipelineSharedOutput`, `vx.CudaDevicePipelineContextAction`, `vx.CudaDevicePipelineEvent`,
