@@ -33,7 +33,7 @@ Vectra re-exports the Axial declaration/call helpers (`vx.CudaKernelDecl`,
 `vx.CudaKernel`, `vx.cudaCallWith`, `vx.cudaCall1D`, and launch-dimension helpers), lazy operation/pipeline adapters
 (`vx.CudaDeviceOperation`, `vx.CudaDevicePipeline`,
 `vx.CudaDevicePipelineGroup`, `vx.CudaDevicePipelineSplit`,
-`vx.CudaDevicePipelineContextAction`, `vx.CudaDevicePipelineEvent`,
+`vx.CudaDevicePipelineSharedOutput`, `vx.CudaDevicePipelineContextAction`, `vx.CudaDevicePipelineEvent`,
 `vx.CudaDevicePipelineCompletionPlan`,
 `vx.CudaAsyncAllocationPlan`, `vx.CudaAsyncFreePlan`, `vx.CudaSchedulingPolicy`), and partition metadata
 adapters (`vx.CudaPartitionedDeviceSlice`, `vx.cudaInferPartitionLaunchGrid`),
