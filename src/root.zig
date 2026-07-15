@@ -69,6 +69,7 @@ pub const CudaStreamPool = axial_cuda.axial.cuda_context.CudaStreamPool;
 pub const CudaMemoryPool = axial_cuda.axial.cuda_context.CudaMemoryPool;
 pub const CudaExecutionContext = axial_cuda.axial.cuda_context.CudaExecutionContext;
 pub const CudaAsyncAllocationPlan = axial_cuda.axial.cuda_context.CudaAsyncAllocationPlan;
+pub const CudaAsyncFreePlan = axial_cuda.axial.cuda_context.CudaAsyncFreePlan;
 pub const CudaModule = axial_cuda.axial.cuda_module.Module;
 pub const CudaModuleDecl = axial_cuda.axial.cuda_module.ModuleDecl;
 pub const CudaModuleOptions = axial_cuda.axial.cuda_module.CudaModuleOptions;
