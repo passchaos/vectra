@@ -19,11 +19,9 @@ pub fn build(b: *std.Build) void {
     _ = b.option(bool, "axiom-cuda", "Compatibility flag: Axiom CUDA wrapping is always compiled in") orelse true;
     _ = b.option(bool, "axiom-cuda-dispatch", "Compatibility flag: supported CUDA dispatch always uses Axiom") orelse true;
     _ = b.option(bool, "axiom-cpu-dispatch", "Compatibility flag: supported CPU dispatch always uses Axiom CPU lowering") orelse true;
-    _ = b.option(bool, "axial-acceleration", "Compatibility flag: Axial tensor acceleration planning is always compiled in") orelse true;
     const enable_axiom_cuda = true;
     const enable_axiom_cuda_dispatch = true;
     const enable_axiom_cpu_dispatch = true;
-    const enable_axial_acceleration = true;
     const axiom_cuda_expect = b.option([]const u8, "axiom-cuda-expect", "Optional Axiom CUDA smoke status expectation: disabled, skipped, ran, or failed");
     // It's also possible to define more custom flags to toggle optional features
     // of this build script using `b.option()`. All defined flags (including
@@ -51,15 +49,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    const axial_dep = b.dependency("axial", .{
-        .target = target,
-        .optimize = optimize,
-    });
     const build_options = b.addOptions();
     build_options.addOption(bool, "enable_axiom_cuda", enable_axiom_cuda);
     build_options.addOption(bool, "enable_axiom_cuda_dispatch", enable_axiom_cuda_dispatch);
     build_options.addOption(bool, "enable_axiom_cpu_dispatch", enable_axiom_cpu_dispatch);
-    build_options.addOption(bool, "enable_axial_acceleration", enable_axial_acceleration);
 
     const mod = b.addModule("vectra", .{
         // The root source file is the "entry point" of this module. Users of
@@ -76,7 +69,6 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "veyra", .module = veyra_mod },
             .{ .name = "alea", .module = alea_mod },
-            .{ .name = "axial", .module = axial_dep.module("axial") },
         },
     });
     mod.addOptions("vectra_build_options", build_options);
@@ -455,10 +447,10 @@ pub fn build(b: *std.Build) void {
     const axiom_backend_policy_smoke_step = b.step("axiom-backend-policy-smoke", "Run unified Axiom CPU/CUDA backend policy smoke");
     axiom_backend_policy_smoke_step.dependOn(&axiom_backend_policy_smoke_cmd.step);
 
-    const axial_accelerator_smoke_exe = b.addExecutable(.{
-        .name = "vectra-axial-accelerator-smoke",
+    const axiom_dialect_lowering_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-dialect-lowering-smoke",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("tools/axial_accelerator_smoke.zig"),
+            .root_source_file = b.path("tools/axiom_dialect_lowering_smoke.zig"),
             .target = target,
             .optimize = optimize,
             .imports = &.{
@@ -466,9 +458,9 @@ pub fn build(b: *std.Build) void {
             },
         }),
     });
-    const axial_accelerator_smoke_cmd = b.addRunArtifact(axial_accelerator_smoke_exe);
-    const axial_accelerator_smoke_step = b.step("axial-accelerator-smoke", "Run Vectra -> Axial -> Axiom tensor acceleration smoke");
-    axial_accelerator_smoke_step.dependOn(&axial_accelerator_smoke_cmd.step);
+    const axiom_dialect_lowering_smoke_cmd = b.addRunArtifact(axiom_dialect_lowering_smoke_exe);
+    const axiom_dialect_lowering_smoke_step = b.step("axiom-dialect-lowering-smoke", "Run Axiom linalg/memref/gpu dialect lowering smoke");
+    axiom_dialect_lowering_smoke_step.dependOn(&axiom_dialect_lowering_smoke_cmd.step);
 
     // Creates an executable that will run `test` blocks from the provided module.
     // Here `mod` needs to define a target, which is why earlier we made sure to

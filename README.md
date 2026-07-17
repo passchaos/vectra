@@ -142,29 +142,16 @@ intentionally keeps each iteration output alive to expose allocation/reuse effec
 versus the default PyTorch-like single-output reuse loop.
 
 
-## Axial acceleration layer
+## Axiom dialect lowering layer
 
-Vectra now depends on the sibling [`../axial`](../axial) package for reusable
-CUDA-like compute abstractions.  The dependency direction is
-`Vectra -> Axial -> Axiom`: Vectra keeps Array/NDArray ownership, Axial owns the
-CUDA C++-style host+kernel facade and CUTILE/CUDA-like compute policy, and Axiom
-owns compiler/runtime execution contracts.  The `vx.axial_cuda` bridge converts
-CUDA-owning Vectra `Array(f32)` storage into Axial device views, so elementwise,
-SAXPY, GEMM, and GEMM+add can route through Axial before falling back to the
-existing Axiom CUDA bridge when CUDA is unavailable.
-The public Vectra re-exports also expose Axial's CUDA-like comptime kernel calls,
-lazy device-operation records, and CUTILE-style partition metadata, so a Vectra
-smoke or downstream array backend can build host+kernel launch metadata with
-`vx.CudaKernelDecl(.{...}, Impl)`, `vx.CudaKernel(Decl).call1D(...)` /
-`vx.cudaCallWith(...)`, schedule lazy work
-with `vx.CudaDeviceOperation`, compose heterogeneous lazy pipelines, `zip!`-style independent pipeline groups, `unzip!`-style split/memoization records, `.arc()`-style shared outputs, stream-dependent context actions, async allocation/free nodes, stream event record/wait nodes, and sync/await/async-on completion plans with `vx.CudaDevicePipeline`, infer partition launch grids, carry cuda-oxide-style launch-bounds occupancy hints plus cooperative/cluster launch policy metadata, preserve generic/const specialization keys, template-specialize kernels with `vx.CudaKernelTemplate(Template)`, flatten device slices through `(ptr, len)` ABI helpers, keep by-value structs/closures as one byval launch slot, drive family-selected CUDA launches, model loaded CUDA module bundles and cached typed function handles, build typed CUDA module launch facades, `load_async`-style module-load plans, and generated-style async launch helpers with `vx.CudaModule(Decl)`, carry CUDA device-model, cooperative-groups collectives, and cluster contracts, model CUDA graph capture/replay/scope nodes, build CUDA C++-style translation-unit metadata with `vx.CudaUnit(Decl)` or auto-discovered same-namespace source units with `vx.CudaSourceUnit(Source)`, plan CUTILE/CUDA Tile `nv_tileas` invocations and cache/result records, schedule lazy CUDA memory copies, carry host-side CUDA tensor metadata, preserve CUDA device-intrinsic contracts, and carry CUDA execution-context metadata without owning
-the kernel facade itself.
-
-Validation:
+Vectra now routes array-compute intent directly into the sibling [`../axiom`](../axiom) package instead of depending on a separate facade package.  The front door follows an MLIR-like progression: Vectra describes Array operations as Axiom `linalg` operations over `memref` storage contracts, Axiom attaches `gpu` launch metadata for accelerator backends, and later Axiom-owned passes lower those records toward CPU, CUDA, or planned MPS runtime paths.  The smoke gate for this route is:
 
 ```sh
-zig build axial-accelerator-smoke
+zig build axiom-dialect-lowering-smoke
 ```
+
+The current public evidence API is `vx.axiom_backend.lowerMatmulDialect(...)`, which reports registered linalg/memref/gpu dialect counts, operation-store fingerprints, schedule fingerprints, CUDA Tile/NVVM handoff fingerprints for CUDA, and an explicit `planned_mps` status for the MPS backend until Axiom grows a Metal/MPS runtime ABI.
+
 
 ## Axiom accelerator backend
 
@@ -212,7 +199,7 @@ Vectra remains an Array/NDArray data and numerical interop layer rather than a
 training framework. It exposes `vx.forge_interop` /
 `vx.forgeArrayInteropBoundary` as a data-only manifest describing how Forge may
 wrap Vectra Array metadata without Vectra importing or depending on Forge. Core
-Forge operation lowering should flow through `Forge IR -> Axial/Axiom`; Vectra
+Forge operation lowering should flow through `Forge IR -> Axiom dialect/runtime`; Vectra
 should not become the lowering path for Forge Tensor, autograd, module, optimizer,
 or training/inference semantics.
 

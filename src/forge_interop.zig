@@ -29,11 +29,11 @@ pub const forge_array_interop_boundary = InteropBoundary{
     .dependency_on_consumer = false,
     .vectra_surface = "Array/NDArray values, dtype/device/layout metadata, host/device storage, and numerical array operations",
     .forge_surface = "Tensor ownership, differentiation, model/training/inference orchestration, and graph capture",
-    .lowering_path = "Forge core op lowering should go through Forge IR -> Axial/Axiom; Vectra remains an Array/data interop layer",
+    .lowering_path = "Forge core op lowering should go through Forge IR -> Axiom dialect/runtime; Vectra remains an Array/data interop layer",
     .notes = &.{
         "No Forge imports are required or permitted for this Vectra manifest.",
         "Vectra Array metadata may be wrapped by higher-level frameworks without transferring training semantics into Vectra.",
-        "Reusable compiler, tiling, and backend execution concerns belong below Forge in Axial/Axiom rather than inside Vectra.",
+        "Reusable compiler, tiling, and backend execution concerns belong below Forge in Axiom rather than inside Vectra.",
     },
 };
 
@@ -46,6 +46,6 @@ test "Forge interop boundary is data-only and dependency-free" {
     try std.testing.expectEqualStrings("vectra", boundary.producer);
     try std.testing.expectEqualStrings("forge", boundary.consumer);
     try std.testing.expect(!boundary.dependency_on_consumer);
-    try std.testing.expect(std.mem.indexOf(u8, boundary.lowering_path, "Forge IR -> Axial/Axiom") != null);
+    try std.testing.expect(std.mem.indexOf(u8, boundary.lowering_path, "Forge IR -> Axiom dialect/runtime") != null);
     try std.testing.expect(boundary.notes.len >= 3);
 }

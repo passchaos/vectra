@@ -39,21 +39,20 @@ REQUIRED_ROOT_SNIPPETS = (
     "pub const NDArray = array_mod.NDArray;",
     "pub const ArrayView = array_mod.ArrayView;",
     "pub const NDArrayView = array_mod.NDArrayView;",
-    'pub const axial_cuda = @import("backends/axial_cuda.zig");',
+    'pub const axiom_backend = @import("backends/axiom_backend.zig");',
 )
 
 REQUIRED_README_SNIPPETS = (
     "Vectra intentionally uses `Array`/`NDArray`",
     "automatic differentiation, training, and inference belong in the sibling `../forge` deep-learning framework",
-    "Vectra -> Axial -> Axiom",
+    "linalg/memref/gpu dialect counts",
 )
 
 REQUIRED_BOUNDARY_SNIPPETS = (
     "Vectra owns Array",
     "Forge owns Tensor",
     "Axiom owns backend and kernel lowering",
-    "Axial owns reusable compute abstractions",
-    "Vectra may depend on Axial",
+    "Vectra lowers array operations through Axiom dialects",
     "Do not add a `Tensor` alias to Vectra",
     "Do not add autograd to Vectra",
 )
@@ -98,14 +97,14 @@ def main() -> int:
             issues.append({"kind": "missing_boundary_doc_snippet", "path": "docs/API_BOUNDARY.md", "snippet": snippet})
 
     build_text = read(BUILD)
-    for snippet in ('b.dependency("axial"', 'axial-accelerator-smoke'):
+    for snippet in ('b.dependency("axiom"', 'axiom-dialect-lowering-smoke'):
         if snippet not in build_text:
-            issues.append({"kind": "missing_axial_build_snippet", "path": "build.zig", "snippet": snippet})
+            issues.append({"kind": "missing_axiom_build_snippet", "path": "build.zig", "snippet": snippet})
 
     zon_text = read(ZON)
-    for snippet in (".axial", '.path = "../axial"'):
+    for snippet in (".axiom", '.path = "../axiom"'):
         if snippet not in zon_text:
-            issues.append({"kind": "missing_axial_zon_snippet", "path": "build.zig.zon", "snippet": snippet})
+            issues.append({"kind": "missing_axiom_zon_snippet", "path": "build.zig.zon", "snippet": snippet})
 
     row = {
         "kind": "vectra_api_boundary_audit",
@@ -117,8 +116,7 @@ def main() -> int:
         "policy": {
             "vectra": "Array/NDArray numerical library",
             "forge": "Tensor/autograd/module/optimizer training framework over Vectra Array",
-            "axial": "CUDA/CUTILE/SIMT compute facades consumed by Vectra",
-            "axiom": "backend, compiler, kernel, CUDA/CUTILE/SIMT lowering",
+            "axiom": "linalg/memref/gpu dialects plus backend, compiler, kernel, CUDA/MPS/native lowering",
         },
     }
     print(json.dumps(row, ensure_ascii=False, separators=(",", ":")))

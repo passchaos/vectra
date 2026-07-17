@@ -15,6 +15,7 @@ existing device pointers rather than staging through host arrays.
 zig build test
 zig build axiom-cpu-dispatch-smoke
 zig build axiom-backend-policy-smoke
+zig build axiom-dialect-lowering-smoke
 zig build axiom-cuda-dispatch-smoke
 zig build axiom-cuda-device-smoke
 zig build -Daxiom-cuda-expect=ran axiom-cuda-smoke
@@ -23,34 +24,22 @@ zig build -Doptimize=ReleaseFast example-large-matmul-add -- --execute --backend
 
 CUDA validation requires a CUDA/libnvvm/PTXAS-capable host.
 
-## Axial facade route
+## Axiom dialect route
 
-`vx.axial_cuda` is the preferred high-level CUDA acceleration bridge.  It turns
-Vectra CUDA Array storage into Axial `cuda.TensorView` / `cuda.MatrixView`
-records and launches through Axial's Axiom-backed CUDA C++-style facade.  Existing
-`vx.axiom_cuda` functions remain the lower fallback/runtime bridge.
-Vectra re-exports the Axial declaration/call helpers (`vx.CudaKernelDecl`,
-`vx.CudaKernel`, `vx.CudaLaunchBounds`, `vx.CudaLaunchPolicy`,
-`vx.CudaKernelSpecializationKey`, `vx.cudaCallWith`, `vx.cudaCall1D`, and launch-dimension helpers), lazy operation/pipeline adapters
-(`vx.CudaDeviceOperation`, `vx.CudaDevicePipeline`,
-`vx.CudaDevicePipelineGroup`, `vx.CudaDevicePipelineSplit`,
-`vx.CudaDevicePipelineSharedOutput`, `vx.CudaDevicePipelineContextAction`, `vx.CudaDevicePipelineEvent`,
-`vx.CudaDevicePipelineCompletionPlan`,
-`vx.CudaAsyncAllocationPlan`, `vx.CudaAsyncFreePlan`, `vx.CudaSchedulingPolicy`), and partition metadata
-adapters (`vx.CudaPartitionedDeviceSlice`, `vx.cudaInferPartitionLaunchGrid`),
-kernel-family selection adapters (`vx.KernelFamily`, `vx.CudaKernelFamilyLaunch`),
-module bundle and typed-module adapters (`vx.CudaModule`, `vx.CudaModuleDecl`,
-`vx.CudaModuleFunction`, `vx.CudaModuleLoadPlan`, `vx.CudaModuleBundle`,
-`vx.LoadedCudaModule`), and device-model
-contract adapters (`vx.CudaKernelDeviceContract`, `vx.CudaClusterContract`), CUDA cooperative-groups adapters (`vx.CudaCooperativeGroupTopology`, `vx.CudaCollectiveSet`), CUDA graph adapters (`vx.CudaGraphCapture`, `vx.CudaGraphExecutable`, `vx.CudaGraphScope`), CUDA translation-unit adapters (`vx.CudaUnit`, `vx.CudaSourceUnit`, `vx.CudaHostBuilder`), memory-copy adapters (`vx.CudaMemoryCopyOperation`), tensor/mapped-partition/creation metadata adapters (`vx.CudaTensor`, `vx.CudaMappedPartitionedDeviceSlice`, `vx.CudaTensorCreationPlan`), device-intrinsic contract adapters (`vx.CudaDeviceIntrinsicSet`), and execution-context
-adapters (`vx.CudaExecutionContext`) only as adapter conveniences. Kernel
-template adapters (`vx.CudaKernelTemplate`, `vx.CudaKernelTemplateVariant`)
-preserve Axial's CUDA C++-style typed/const specialization metadata for Vectra
-smokes and downstream array backends. CUDA Tile compile adapters
-(`vx.TileAssemblerInvocation`, `vx.TileAssemblerResult`,
-`vx.TileAssemblerCacheRecord`) preserve Axial's CUTILE/nv_tileas handoff and
-cache evidence for Vectra smokes; the host+kernel facade remains owned by Axial and
-the runtime ABI remains owned by Axiom.
+Vectra uses Axiom directly as the compiler/runtime boundary.  Frontends should model array work as linalg/memref/gpu-style records and let Axiom lower them through its structured-linalg, schedule, CUDA Tile/NVVM, and runtime ABI layers.  `vx.axiom_backend.lowerMatmulDialect(...)` is the first public Vectra-facing helper for that route; it returns Axiom's `DialectMatmulLoweringReport` with concrete evidence for:
+
+- linalg/memref/gpu dialect registration and operation counts;
+- operation-store, memref-type, structured-linalg, and schedule fingerprints;
+- CUDA Tile/NVVM handoff fingerprints when the requested backend is CUDA;
+- explicit CPU, CUDA, and planned MPS backend statuses.
+
+Validation:
+
+```sh
+zig build axiom-dialect-lowering-smoke
+```
+
+MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/MPS runtime ABI.  That keeps dynamic backend policy honest without routing through another facade or pretending CUDA execution occurred.
 
 ## CUDA owning-array behavior
 

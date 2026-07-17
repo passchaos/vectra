@@ -7,6 +7,7 @@
 const std = @import("std");
 const build_options = @import("vectra_build_options");
 const array_mod = @import("../array.zig");
+const axiom = @import("axiom");
 const axiom_cpu = @import("axiom_cpu.zig");
 const axiom_cuda = @import("axiom_cuda.zig");
 
@@ -50,6 +51,10 @@ pub const ScalarSide = enum(u8) {
     }
 };
 
+pub const DialectBackend = axiom.accelerator.DialectBackend;
+pub const DialectMatmulLoweringReport = axiom.accelerator.DialectMatmulLoweringReport;
+pub const DialectMatmulLoweringStatus = axiom.accelerator.DialectMatmulLoweringStatus;
+
 pub const BackendReport = struct {
     policy: BackendPolicy = .prefer_cuda,
     selected: BackendRoute = .direct_cpu,
@@ -75,6 +80,39 @@ pub const BackendReport = struct {
         return hasher.final();
     }
 };
+
+pub fn lowerMatmulDialect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), backend: DialectBackend) array_mod.ArrayError!DialectMatmulLoweringReport {
+    if (!supportedMatmul2d(T, lhs, rhs)) return error.ShapeMismatch;
+    const element = dialectElement(T) orelse return error.TypeUnsupported;
+    return axiom.accelerator.lowerDialectMatmul(.{
+        .name = "vectra.matmul",
+        .element = element,
+        .m = lhs.shape[0],
+        .n = rhs.shape[1],
+        .k = lhs.shape[1],
+        .backend = backend,
+    }) catch error.BackendFailure;
+}
+
+pub fn lowerMatmulDialectForRoute(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), route: BackendRoute) array_mod.ArrayError!DialectMatmulLoweringReport {
+    return lowerMatmulDialect(T, lhs, rhs, switch (route) {
+        .direct_cpu, .axiom_cpu_veyra => .cpu,
+        .axiom_cuda => .cuda,
+    });
+}
+
+fn dialectElement(comptime T: type) ?axiom.linalg_dialect.Element {
+    return if (T == f32)
+        .f32
+    else if (T == f16)
+        .f16
+    else if (T == f64)
+        .f64
+    else if (T == array_mod.BFloat16)
+        .bf16
+    else
+        null;
+}
 
 pub fn selectMatmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) BackendReport {
     const supported = supportedMatmul2d(T, lhs, rhs);
@@ -419,6 +457,28 @@ fn elementwiseValue(comptime T: type, op: ElementwiseOp, lhs: T, rhs: T) T {
         .mul => lhs * rhs,
         .div => lhs / rhs,
     };
+}
+
+test "Axiom dialect lowering reports linalg memref gpu route" {
+    const gpa = std.testing.allocator;
+    var a = try array_mod.Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer a.deinit();
+    var b = try array_mod.Array(f32).fromSlice(gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
+    defer b.deinit();
+
+    const cpu_report = try lowerMatmulDialect(f32, a, b, .cpu);
+    try std.testing.expect(cpu_report.ok());
+    try std.testing.expectEqual(DialectMatmulLoweringStatus.lowered_cpu, cpu_report.status);
+    try std.testing.expect(cpu_report.registration.ok());
+
+    const cuda_report = try lowerMatmulDialect(f32, a, b, .cuda);
+    try std.testing.expect(cuda_report.ok());
+    try std.testing.expectEqual(DialectMatmulLoweringStatus.lowered_cuda, cuda_report.status);
+    try std.testing.expect(cuda_report.cuda_tile_projection_fingerprint != 0);
+
+    const mps_report = try lowerMatmulDialect(f32, a, b, .mps);
+    try std.testing.expect(mps_report.ok());
+    try std.testing.expectEqual(DialectMatmulLoweringStatus.planned_mps, mps_report.status);
 }
 
 test "Axiom backend policy reports matmul route" {
