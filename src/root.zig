@@ -130,37 +130,7 @@ pub fn matmul(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
 pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
-    if (lhs.device.isCuda()) {
-        var product = try lhs.matmul(rhs);
-        defer product.deinit();
-        return product.add(addend);
-    }
-    if (comptime @TypeOf(lhs) == Array(f32)) {
-        if (try tryCpuMatmulAddF32(@as(Array(f32), lhs), @as(Array(f32), rhs), @as(Array(f32), addend))) |out| {
-            return @as(@TypeOf(lhs), out);
-        }
-        if (try tryCudaMatmulAddF32(@as(Array(f32), lhs), @as(Array(f32), rhs), @as(Array(f32), addend))) |out| {
-            return @as(@TypeOf(lhs), out);
-        }
-    } else if (comptime @TypeOf(lhs) == Array(f64)) {
-        if (try tryCpuMatmulAddF64(@as(Array(f64), lhs), @as(Array(f64), rhs), @as(Array(f64), addend))) |out| {
-            return @as(@TypeOf(lhs), out);
-        }
-        if (try tryCudaMatmulAddF64(@as(Array(f64), lhs), @as(Array(f64), rhs), @as(Array(f64), addend))) |out| {
-            return @as(@TypeOf(lhs), out);
-        }
-    } else if (comptime @TypeOf(lhs) == Array(f16)) {
-        if (try tryCudaMatmulAddF16(@as(Array(f16), lhs), @as(Array(f16), rhs), @as(Array(f16), addend))) |out| {
-            return @as(@TypeOf(lhs), out);
-        }
-    } else if (comptime @TypeOf(lhs) == Array(BFloat16)) {
-        if (try tryCudaMatmulAddBF16(@as(Array(BFloat16), lhs), @as(Array(BFloat16), rhs), @as(Array(BFloat16), addend))) |out| {
-            return @as(@TypeOf(lhs), out);
-        }
-    }
-    var product = try matmul(lhs, rhs);
-    defer product.deinit();
-    return add(product, addend);
+    return lhs.matmulAdd(rhs, addend);
 }
 
 pub fn tryCpuMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32)) ArrayError!?Array(f32) {

@@ -329,6 +329,47 @@ fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
     return null;
 }
 
+pub fn executeMatmulAdd(
+    comptime T: type,
+    target: DialectBackend,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    addend: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedMatmulAddExecution(T, lhs, rhs, addend)) return null;
+    return switch (target) {
+        .cpu => executeCpuMatmulAdd(T, lhs, rhs, addend),
+        .cuda => executeCudaMatmulAdd(T, lhs, rhs, addend),
+        .mps => null,
+    };
+}
+
+pub fn executeMatmulAddDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeMatmulAdd(T, defaultExecutionTarget(), lhs, rhs, addend);
+}
+
+fn executeCpuMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_cpu.tryMatmulAddF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs), @as(array_mod.Array(f32), addend))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cpu.tryMatmulAddF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs), @as(array_mod.Array(f64), addend))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeCudaMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceMatmulAddF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs), @as(array_mod.Array(f32), addend))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceMatmulAddF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs), @as(array_mod.Array(f64), addend))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_cuda.tryDeviceMatmulAddF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs), @as(array_mod.Array(f16), addend))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_cuda.tryDeviceMatmulAddBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs), @as(array_mod.Array(array_mod.BFloat16), addend))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 pub fn executeUnary(
     comptime T: type,
     op: DialectUnaryOp,
@@ -655,6 +696,15 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
             (rhs.shape.len == 1 or rhs.shape.len == 2);
     }
     return lhs.device.isCuda() and lhs.shape.len == 2 and rhs.shape.len == 2 and (T == f32 or T == f16 or T == array_mod.BFloat16);
+}
+
+fn supportedMatmulAddExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) bool {
+    if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(addend.device)) return false;
+    if (lhs.shape.len != 2 or rhs.shape.len != 2 or addend.shape.len != 2) return false;
+    if (lhs.shape[1] != rhs.shape[0] or addend.shape[0] != lhs.shape[0] or addend.shape[1] != rhs.shape[1]) return false;
+    if (!lhs.isContiguous() or !rhs.isContiguous() or !addend.isContiguous()) return false;
+    if (lhs.device.isCpu()) return T == f32 or T == f64;
+    return lhs.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16);
 }
 
 fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {

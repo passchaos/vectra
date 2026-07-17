@@ -21912,22 +21912,8 @@ pub fn Array(comptime T: type) type {
         pub fn matmulAdd(self: Self, other: Self, addend: Self) ArrayError!Self {
             ensureNumeric(T);
             if (!self.device.sameDevice(other.device) or !self.device.sameDevice(addend.device)) return error.InvalidDevice;
-            if (self.device.isCpu()) {
-                if (comptime T == f32) {
-                    if (try axiom_cpu_backend.tryMatmulAddF32(self, other, addend)) |out| return out;
-                } else if (comptime T == f64) {
-                    if (try axiom_cpu_backend.tryMatmulAddF64(self, other, addend)) |out| return out;
-                }
-            } else if (self.device.isCuda()) {
-                if (comptime T == f32) {
-                    if (try axiom_cuda_backend.tryDeviceMatmulAddF32(self, other, addend)) |out| return out;
-                } else if (comptime T == f64) {
-                    if (try axiom_cuda_backend.tryDeviceMatmulAddF64(self, other, addend)) |out| return out;
-                } else if (comptime T == f16) {
-                    if (try axiom_cuda_backend.tryDeviceMatmulAddF16(self, other, addend)) |out| return out;
-                } else if (comptime T == BFloat16) {
-                    if (try axiom_cuda_backend.tryDeviceMatmulAddBF16(self, other, addend)) |out| return out;
-                }
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (try axiom_backend.executeMatmulAddDefault(T, self, other, addend)) |out| return out;
             }
             var product_value = try self.matmul(other);
             defer product_value.deinit();
