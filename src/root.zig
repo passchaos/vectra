@@ -111,20 +111,12 @@ pub fn withSeed(allocator: @import("std").mem.Allocator, seed: u64) Context {
 
 pub fn add(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
-    return switch (lhs.device.backend) {
-        .cpu => lhs.add(rhs),
-        .cuda => lhs.add(rhs),
-        .mps => error.InvalidDevice,
-    };
+    return lhs.add(rhs);
 }
 
 pub fn matmul(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
-    return switch (lhs.device.backend) {
-        .cpu => lhs.matmul(rhs),
-        .cuda => lhs.matmul(rhs),
-        .mps => error.InvalidDevice,
-    };
+    return lhs.matmul(rhs);
 }
 
 pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
@@ -136,49 +128,37 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
 pub fn tryCpuMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32)) ArrayError!?Array(f32) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
-    if (!lhs.device.isCpu()) return null;
-    if (try axiom_cpu.tryMatmulAddF32(lhs, rhs, addend)) |out| return out;
-    return null;
+    return axiom_backend.executeMatmulAdd(f32, .cpu, lhs, rhs, addend);
 }
 
 pub fn tryCpuMatmulAddF64(lhs: Array(f64), rhs: Array(f64), addend: Array(f64)) ArrayError!?Array(f64) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
-    if (!lhs.device.isCpu()) return null;
-    if (try axiom_cpu.tryMatmulAddF64(lhs, rhs, addend)) |out| return out;
-    return null;
+    return axiom_backend.executeMatmulAdd(f64, .cpu, lhs, rhs, addend);
 }
 
 pub fn tryCudaMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32)) ArrayError!?Array(f32) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
-    if (!lhs.device.isCuda()) return null;
-    if (try axiom_cuda.tryDeviceMatmulAddF32(lhs, rhs, addend)) |out| return out;
-    return null;
+    return axiom_backend.executeMatmulAdd(f32, .cuda, lhs, rhs, addend);
 }
 
 pub fn tryCudaMatmulAddF64(lhs: Array(f64), rhs: Array(f64), addend: Array(f64)) ArrayError!?Array(f64) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
-    if (!lhs.device.isCuda()) return null;
-    if (try axiom_cuda.tryDeviceMatmulAddF64(lhs, rhs, addend)) |out| return out;
-    return null;
+    return axiom_backend.executeMatmulAdd(f64, .cuda, lhs, rhs, addend);
 }
 
 pub fn tryCudaMatmulAddF16(lhs: Array(f16), rhs: Array(f16), addend: Array(f16)) ArrayError!?Array(f16) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
-    if (!lhs.device.isCuda()) return null;
-    if (try axiom_cuda.tryDeviceMatmulAddF16(lhs, rhs, addend)) |out| return out;
-    return null;
+    return axiom_backend.executeMatmulAdd(f16, .cuda, lhs, rhs, addend);
 }
 
 pub fn tryCudaMatmulAddBF16(lhs: Array(BFloat16), rhs: Array(BFloat16), addend: Array(BFloat16)) ArrayError!?Array(BFloat16) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
-    if (!lhs.device.isCuda()) return null;
-    if (try axiom_cuda.tryDeviceMatmulAddBF16(lhs, rhs, addend)) |out| return out;
-    return null;
+    return axiom_backend.executeMatmulAdd(BFloat16, .cuda, lhs, rhs, addend);
 }
 
 fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {

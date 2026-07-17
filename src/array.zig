@@ -3,7 +3,6 @@ const build_options = @import("vectra_build_options");
 const alea = @import("alea");
 const veyra = @import("veyra");
 const axiom_cuda_backend = @import("backends/axiom_cuda.zig");
-const axiom_cpu_backend = @import("backends/axiom_cpu.zig");
 const axiom_backend = @import("backends/axiom_backend.zig");
 
 pub const Complex64 = std.math.Complex(f32);
@@ -15361,8 +15360,8 @@ pub fn Array(comptime T: type) type {
                 var materialized = try without_unary.materializePendingMatmul();
                 defer materialized.deinit();
                 return switch (unary_op) {
-                    .sqrt => try materialized.runCudaUnarySqrt(),
-                    .exp => try materialized.runCudaUnaryExp(),
+                    .sqrt => try materialized.runAxiomUnaryRequired(.sqrt),
+                    .exp => try materialized.runAxiomUnaryRequired(.exp),
                 };
             }
             var out = try Self.emptyOn(self.allocator, self.shape, self.device);
@@ -15510,44 +15509,10 @@ pub fn Array(comptime T: type) type {
             };
         }
 
-        fn runCudaUnarySqrt(self: Self) ArrayError!Self {
-            if (comptime T == f32) {
-                if (try axiom_cuda_backend.trySqrtF32(self)) |out| return out;
-                return error.BackendFailure;
-            }
-            if (comptime T == f16) {
-                if (try axiom_cuda_backend.trySqrtF16(self)) |out| return out;
-                return error.BackendFailure;
-            }
-            if (comptime T == f64) {
-                if (try axiom_cuda_backend.trySqrtF64(self)) |out| return out;
-                return error.BackendFailure;
-            }
-            if (comptime T == BFloat16) {
-                if (try axiom_cuda_backend.trySqrtBF16(self)) |out| return out;
-                return error.BackendFailure;
-            }
-            return error.TypeUnsupported;
-        }
-
-        fn runCudaUnaryExp(self: Self) ArrayError!Self {
-            if (comptime T == f32) {
-                if (try axiom_cuda_backend.tryExpF32(self)) |out| return out;
-                return error.BackendFailure;
-            }
-            if (comptime T == f16) {
-                if (try axiom_cuda_backend.tryExpF16(self)) |out| return out;
-                return error.BackendFailure;
-            }
-            if (comptime T == BFloat16) {
-                if (try axiom_cuda_backend.tryExpBF16(self)) |out| return out;
-                return error.BackendFailure;
-            }
-            if (comptime T == f64) {
-                if (try axiom_cuda_backend.tryExpF64(self)) |out| return out;
-                return error.BackendFailure;
-            }
-            return error.TypeUnsupported;
+        fn runAxiomUnaryRequired(self: Self, op: axiom_backend.ExecutionUnaryOp) ArrayError!Self {
+            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return error.TypeUnsupported;
+            if (try axiom_backend.executeUnaryDefault(T, op, self)) |out| return out;
+            return error.BackendFailure;
         }
 
         fn attachCpuMatmulProvenance(out: *Self, lhs: Self, rhs: Self) void {
@@ -15666,50 +15631,28 @@ pub fn Array(comptime T: type) type {
                 defer materialized_other.deinit();
                 return self.binaryArray(materialized_other, op);
             }
-            if (self.device.isCuda()) {
-                if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
-                if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return error.TypeUnsupported;
-                const maybe_op: ?axiom_cuda_backend.BinaryOp = if (comptime op == opAdd)
-                    axiom_cuda_backend.BinaryOp.add
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
+                    axiom_backend.ElementwiseOp.add
                 else if (comptime op == opSub)
-                    axiom_cuda_backend.BinaryOp.sub
+                    axiom_backend.ElementwiseOp.sub
                 else if (comptime op == opMul)
-                    axiom_cuda_backend.BinaryOp.mul
+                    axiom_backend.ElementwiseOp.mul
                 else if (comptime op == opDiv)
-                    axiom_cuda_backend.BinaryOp.div
+                    axiom_backend.ElementwiseOp.div
                 else
                     null;
                 if (maybe_op) |op_value| {
-                    if (comptime T == f32) {
-                        if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, other)) |out| return out;
-                    } else if (comptime T == f64) {
-                        if (try axiom_cuda_backend.tryDeviceBinaryF64(op_value, self, other)) |out| return out;
-                    } else if (comptime T == f16) {
-                        if (try axiom_cuda_backend.tryDeviceBinaryF16(op_value, self, other)) |out| return out;
-                    } else if (comptime T == BFloat16) {
-                        if (try axiom_cuda_backend.tryDeviceBinaryBF16(op_value, self, other)) |out| return out;
-                    }
-                    return error.BackendFailure;
-                }
-                return error.TypeUnsupported;
-            }
-            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (std.mem.eql(usize, self.shape, other.shape)) {
-                    const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
-                        axiom_backend.ElementwiseOp.add
-                    else if (comptime op == opSub)
-                        axiom_backend.ElementwiseOp.sub
-                    else if (comptime op == opMul)
-                        axiom_backend.ElementwiseOp.mul
-                    else if (comptime op == opDiv)
-                        axiom_backend.ElementwiseOp.div
-                    else
-                        null;
-                    if (maybe_op) |op_value| {
+                    if (std.mem.eql(usize, self.shape, other.shape)) {
                         if (try axiom_backend.executeElementwiseDefault(T, op_value, self, other)) |out| return out;
+                    } else if (try axiom_backend.tryElementwiseScalarBroadcastDefault(T, op_value, self, other)) |out| {
+                        return out;
                     }
+                } else if (!self.device.isCpu()) {
+                    return error.TypeUnsupported;
                 }
             }
+            if (!self.device.isCpu()) return error.BackendFailure;
             if (std.mem.eql(usize, self.shape, other.shape)) {
                 const out = try Self.empty(self.allocator, self.shape);
                 if (binaryArraySimd(out.data, self.data, other.data, op)) return out;
@@ -15717,25 +15660,6 @@ pub fn Array(comptime T: type) type {
                     slot.* = op(lhs, rhs);
                 }
                 return out;
-            }
-            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (true) {
-                    const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
-                        axiom_backend.ElementwiseOp.add
-                    else if (comptime op == opSub)
-                        axiom_backend.ElementwiseOp.sub
-                    else if (comptime op == opMul)
-                        axiom_backend.ElementwiseOp.mul
-                    else if (comptime op == opDiv)
-                        axiom_backend.ElementwiseOp.div
-                    else
-                        null;
-                    const accelerated = if (maybe_op) |op_value|
-                        try axiom_backend.tryElementwiseScalarBroadcastDefault(T, op_value, self, other)
-                    else
-                        null;
-                    if (accelerated) |out| return out;
-                }
             }
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
@@ -15781,40 +15705,30 @@ pub fn Array(comptime T: type) type {
         }
 
         fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Self {
-            if (self.device.isCuda()) {
-                if (self.pending_matmul != null) {
-                    if (try self.tryScalePendingMatmul(scalar, op)) |out| return out;
-                    var materialized = try self.materializePendingMatmul();
-                    defer materialized.deinit();
-                    return materialized.binaryScalar(scalar, op);
-                }
-                if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return error.TypeUnsupported;
-                const maybe_op: ?axiom_cuda_backend.BinaryOp = if (comptime op == opAdd)
-                    axiom_cuda_backend.BinaryOp.add
+            if (self.pending_matmul != null) {
+                if (try self.tryScalePendingMatmul(scalar, op)) |out| return out;
+                var materialized = try self.materializePendingMatmul();
+                defer materialized.deinit();
+                return materialized.binaryScalar(scalar, op);
+            }
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
+                    axiom_backend.ElementwiseOp.add
                 else if (comptime op == opSub)
-                    axiom_cuda_backend.BinaryOp.sub
+                    axiom_backend.ElementwiseOp.sub
                 else if (comptime op == opMul)
-                    axiom_cuda_backend.BinaryOp.mul
+                    axiom_backend.ElementwiseOp.mul
                 else if (comptime op == opDiv)
-                    axiom_cuda_backend.BinaryOp.div
+                    axiom_backend.ElementwiseOp.div
                 else
                     null;
                 if (maybe_op) |op_value| {
-                    var scalar_array = try Self.fullOn(self.allocator, self.shape, scalar, self.device);
-                    defer scalar_array.deinit();
-                    if (comptime T == f32) {
-                        if (try axiom_cuda_backend.tryDeviceBinaryF32(op_value, self, scalar_array)) |out| return out;
-                    } else if (comptime T == f64) {
-                        if (try axiom_cuda_backend.tryDeviceBinaryF64(op_value, self, scalar_array)) |out| return out;
-                    } else if (comptime T == f16) {
-                        if (try axiom_cuda_backend.tryDeviceBinaryF16(op_value, self, scalar_array)) |out| return out;
-                    } else if (comptime T == BFloat16) {
-                        if (try axiom_cuda_backend.tryDeviceBinaryBF16(op_value, self, scalar_array)) |out| return out;
-                    }
-                    return error.BackendFailure;
+                    if (try axiom_backend.executeElementwiseScalarDefault(T, op_value, self, scalar, .rhs)) |out| return out;
+                } else if (!self.device.isCpu()) {
+                    return error.TypeUnsupported;
                 }
-                return error.TypeUnsupported;
             }
+            if (!self.device.isCpu()) return error.BackendFailure;
             const out = try Self.empty(self.allocator, self.shape);
             if (binaryScalarSimd(out.data, self.data, scalar, op)) return out;
             for (self.data, out.data) |v, *slot| slot.* = op(v, scalar);
@@ -16512,7 +16426,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (self.device.isCuda()) return self.binaryScalar(scalar, opAdd);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (try axiom_backend.executeElementwiseScalarDefault(T, .add, self, scalar, .rhs)) |out| return out;
             }
@@ -16521,7 +16434,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn subScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (self.device.isCuda()) return self.binaryScalar(scalar, opSub);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (try axiom_backend.executeElementwiseScalarDefault(T, .sub, self, scalar, .rhs)) |out| return out;
             }
@@ -16530,7 +16442,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn mulScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (self.device.isCuda()) return self.binaryScalar(scalar, opMul);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (try axiom_backend.executeElementwiseScalarDefault(T, .mul, self, scalar, .rhs)) |out| return out;
             }
@@ -16539,7 +16450,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn divScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
-            if (self.device.isCuda()) return self.binaryScalar(scalar, opDiv);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (try axiom_backend.executeElementwiseScalarDefault(T, .div, self, scalar, .rhs)) |out| return out;
             }
@@ -16783,21 +16693,9 @@ pub fn Array(comptime T: type) type {
 
         pub fn exp(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (self.device.isCuda() and comptime T == f32) {
+            if (self.device.isCuda()) {
                 if (try self.tryPendingUnary(.exp)) |out| return out;
-                return self.runCudaUnaryExp();
-            }
-            if (self.device.isCuda() and comptime T == f16) {
-                if (try self.tryPendingUnary(.exp)) |out| return out;
-                return self.runCudaUnaryExp();
-            }
-            if (self.device.isCuda() and comptime T == BFloat16) {
-                if (try self.tryPendingUnary(.exp)) |out| return out;
-                return self.runCudaUnaryExp();
-            }
-            if (self.device.isCuda() and comptime T == f64) {
-                if (try self.tryPendingUnary(.exp)) |out| return out;
-                return self.runCudaUnaryExp();
+                return self.runAxiomUnaryRequired(.exp);
             }
             if (try axiom_backend.executeUnaryDefault(T, .exp, self)) |out_value| {
                 var out = out_value;
@@ -16858,21 +16756,9 @@ pub fn Array(comptime T: type) type {
 
         pub fn sqrt(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (self.device.isCuda() and comptime T == f32) {
+            if (self.device.isCuda()) {
                 if (try self.tryPendingUnary(.sqrt)) |out| return out;
-                return self.runCudaUnarySqrt();
-            }
-            if (self.device.isCuda() and comptime T == f16) {
-                if (try self.tryPendingUnary(.sqrt)) |out| return out;
-                return self.runCudaUnarySqrt();
-            }
-            if (self.device.isCuda() and comptime T == BFloat16) {
-                if (try self.tryPendingUnary(.sqrt)) |out| return out;
-                return self.runCudaUnarySqrt();
-            }
-            if (self.device.isCuda() and comptime T == f64) {
-                if (try self.tryPendingUnary(.sqrt)) |out| return out;
-                return self.runCudaUnarySqrt();
+                return self.runAxiomUnaryRequired(.sqrt);
             }
             if (try axiom_backend.executeUnaryDefault(T, .sqrt, self)) |out_value| {
                 var out = out_value;
@@ -21696,15 +21582,11 @@ pub fn Array(comptime T: type) type {
             const rhs_k = if (rhs_vec) other.shape[0] else other.shape[other.shape.len - 2];
             if (lhs_k != rhs_k) return error.ShapeMismatch;
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
-            if (self.device.isCuda()) {
-                if (lhs_vec or rhs_vec) return error.TypeUnsupported;
-                if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (self.device.isCuda()) {
+                    if (lhs_vec or rhs_vec) return error.TypeUnsupported;
                     return try Self.pendingCudaMatmul(self, other, &.{ self.shape[0], other.shape[1] });
                 }
-                return error.TypeUnsupported;
-            }
-
-            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (try axiom_backend.executeMatmulDefault(T, self, other)) |accelerated_value| {
                     var accelerated = accelerated_value;
                     if (accelerated.device.isCpu() and !lhs_vec and !rhs_vec) accelerated.attachCpuMatmulProvenance(self, other);

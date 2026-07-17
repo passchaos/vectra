@@ -1,8 +1,10 @@
-//! Unified Axiom backend policy for Vectra.
+//! Unified Axiom target facade for Vectra.
 //!
-//! This small policy layer makes CPU-via-Axiom/Veyra and CUDA-via-Axiom visible
-//! as data so callers can audit which route was selected before Vectra grows a
-//! persistent `.cuda()` storage backend.
+//! Vectra should describe array work and call Axiom with a target instead of
+//! open-coding CPU/CUDA/MPS branches in Array methods.  This module is the
+//! intentional seam: high-level code chooses `.cpu`, `.cuda`, or `.mps`, while
+//! the per-target implementation details stay concentrated here until Axiom
+//! grows a fully public execution ABI for every operation.
 
 const std = @import("std");
 const build_options = @import("vectra_build_options");
@@ -170,6 +172,37 @@ pub fn defaultExecutionTarget() DialectBackend {
     };
 }
 
+pub fn executionTargetForDevice(device: array_mod.Device) DialectBackend {
+    return switch (device.backend) {
+        .cpu => .cpu,
+        .cuda => .cuda,
+        // Real MPS arrays cannot be created until Axiom reports a usable
+        // Metal/MPS storage ABI.  If a caller still passes one explicitly, keep
+        // the target honest so execution returns unsupported instead of falling
+        // through a CPU path with the wrong storage semantics.
+        .mps => .mps,
+    };
+}
+
+fn policyExecutionTarget(policy: BackendPolicy) DialectBackend {
+    return switch (policy) {
+        .prefer_cuda => .cuda,
+        .prefer_axiom_cpu, .force_direct_cpu => .cpu,
+    };
+}
+
+fn targetCanAccessDevice(target: DialectBackend, device: array_mod.Device) bool {
+    return switch (device.backend) {
+        .cpu => target == .cpu or target == .cuda,
+        .cuda => target == .cuda,
+        .mps => target == .mps,
+    };
+}
+
+fn defaultTargetForDevice(device: array_mod.Device) DialectBackend {
+    return if (device.isCpu()) defaultExecutionTarget() else executionTargetForDevice(device);
+}
+
 pub const BackendReport = struct {
     policy: BackendPolicy = .prefer_cuda,
     selected: BackendRoute = .direct_cpu,
@@ -333,6 +366,7 @@ pub fn executeMatmul(
     lhs: array_mod.Array(T),
     rhs: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!targetCanAccessDevice(target, lhs.device)) return null;
     if (!supportedMatmulExecution(T, lhs, rhs)) return null;
     return switch (target) {
         .cpu => executeCpuMatmul(T, lhs, rhs),
@@ -342,7 +376,7 @@ pub fn executeMatmul(
 }
 
 pub fn executeMatmulDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeMatmul(T, defaultExecutionTarget(), lhs, rhs);
+    return executeMatmul(T, defaultTargetForDevice(lhs.device), lhs, rhs);
 }
 
 fn bufferView(comptime T: type, input: array_mod.Array(T), name: []const u8) ?axiom.accelerator.TensorBufferView {
@@ -550,6 +584,7 @@ pub fn executeMatmulAdd(
     rhs: array_mod.Array(T),
     addend: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!targetCanAccessDevice(target, lhs.device)) return null;
     if (!supportedMatmulAddExecution(T, lhs, rhs, addend)) return null;
     return switch (target) {
         .cpu => executeCpuMatmulAdd(T, lhs, rhs, addend),
@@ -559,7 +594,7 @@ pub fn executeMatmulAdd(
 }
 
 pub fn executeMatmulAddDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeMatmulAdd(T, defaultExecutionTarget(), lhs, rhs, addend);
+    return executeMatmulAdd(T, defaultTargetForDevice(lhs.device), lhs, rhs, addend);
 }
 
 pub fn executeMatmulAddScaled(
@@ -571,16 +606,17 @@ pub fn executeMatmulAddScaled(
     alpha: f32,
     beta: f32,
 ) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!targetCanAccessDevice(target, lhs.device)) return null;
     if (!supportedMatmulAddExecution(T, lhs, rhs, addend)) return null;
     return switch (target) {
         .cpu => executeCpuGemmScaledTarget(T, lhs, rhs, addend, alpha, beta),
-        .cuda => null,
+        .cuda => executeCudaMatmulAddScaled(T, lhs, rhs, addend, alpha, beta),
         .mps => null,
     };
 }
 
 pub fn executeMatmulAddScaledDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeMatmulAddScaled(T, defaultExecutionTarget(), lhs, rhs, addend, alpha, beta);
+    return executeMatmulAddScaled(T, defaultTargetForDevice(lhs.device), lhs, rhs, addend, alpha, beta);
 }
 
 fn executeCpuMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -605,22 +641,28 @@ fn executeCudaMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     return null;
 }
 
+fn executeCudaMatmulAddScaled(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
+    if (alpha == 1.0 and beta == 1.0) return executeCudaMatmulAdd(T, lhs, rhs, addend);
+    return null;
+}
+
 pub fn executeUnary(
     comptime T: type,
     op: ExecutionUnaryOp,
     target: DialectBackend,
     input: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!targetCanAccessDevice(target, input.device)) return null;
     if (!supportedUnaryExecution(T, input)) return null;
     return switch (target) {
         .cpu => executeCpuUnary(T, op, input),
-        .cuda => null,
+        .cuda => executeCudaUnary(T, op, input),
         .mps => null,
     };
 }
 
 pub fn executeUnaryDefault(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeUnary(T, op, defaultExecutionTarget(), input);
+    return executeUnary(T, op, defaultTargetForDevice(input.device), input);
 }
 
 pub fn executeDialectUnaryDefault(comptime T: type, op: DialectUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -653,7 +695,7 @@ pub fn executeReductionDefault(
     axis: u1,
     keepdims: bool,
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeReduction(T, op, defaultExecutionTarget(), input, axis, keepdims);
+    return executeReduction(T, op, defaultTargetForDevice(input.device), input, axis, keepdims);
 }
 
 pub fn executeTranspose(
@@ -670,7 +712,7 @@ pub fn executeTranspose(
 }
 
 pub fn executeTransposeDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeTranspose(T, defaultExecutionTarget(), input);
+    return executeTranspose(T, defaultTargetForDevice(input.device), input);
 }
 
 pub fn executeTrace(comptime T: type, target: DialectBackend, input: array_mod.Array(T), offset: isize) array_mod.ArrayError!?T {
@@ -683,7 +725,7 @@ pub fn executeTrace(comptime T: type, target: DialectBackend, input: array_mod.A
 }
 
 pub fn executeTraceDefault(comptime T: type, input: array_mod.Array(T), offset: isize) array_mod.ArrayError!?T {
-    return executeTrace(T, defaultExecutionTarget(), input, offset);
+    return executeTrace(T, defaultTargetForDevice(input.device), input, offset);
 }
 
 pub fn executeDet(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?T {
@@ -696,7 +738,7 @@ pub fn executeDet(comptime T: type, target: DialectBackend, input: array_mod.Arr
 }
 
 pub fn executeDetDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?T {
-    return executeDet(T, defaultExecutionTarget(), input);
+    return executeDet(T, defaultTargetForDevice(input.device), input);
 }
 
 pub fn executeInverse(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -709,7 +751,7 @@ pub fn executeInverse(comptime T: type, target: DialectBackend, input: array_mod
 }
 
 pub fn executeInverseDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeInverse(T, defaultExecutionTarget(), input);
+    return executeInverse(T, defaultTargetForDevice(input.device), input);
 }
 
 pub fn executeSolve(comptime T: type, target: DialectBackend, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -722,7 +764,7 @@ pub fn executeSolve(comptime T: type, target: DialectBackend, matrix: array_mod.
 }
 
 pub fn executeSolveDefault(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeSolve(T, defaultExecutionTarget(), matrix, rhs);
+    return executeSolve(T, defaultTargetForDevice(matrix.device), matrix, rhs);
 }
 
 pub fn executeCholesky(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -735,7 +777,7 @@ pub fn executeCholesky(comptime T: type, target: DialectBackend, input: array_mo
 }
 
 pub fn executeCholeskyDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeCholesky(T, defaultExecutionTarget(), input);
+    return executeCholesky(T, defaultTargetForDevice(input.device), input);
 }
 
 pub fn executeQr(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?QrResult(T) {
@@ -748,7 +790,7 @@ pub fn executeQr(comptime T: type, target: DialectBackend, input: array_mod.Arra
 }
 
 pub fn executeQrDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?QrResult(T) {
-    return executeQr(T, defaultExecutionTarget(), input);
+    return executeQr(T, defaultTargetForDevice(input.device), input);
 }
 
 pub fn executeLu(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?LuResult(T) {
@@ -761,7 +803,7 @@ pub fn executeLu(comptime T: type, target: DialectBackend, input: array_mod.Arra
 }
 
 pub fn executeLuDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?LuResult(T) {
-    return executeLu(T, defaultExecutionTarget(), input);
+    return executeLu(T, defaultTargetForDevice(input.device), input);
 }
 
 pub fn executeSolveTriangular(
@@ -781,7 +823,7 @@ pub fn executeSolveTriangular(
 }
 
 pub fn executeSolveTriangularDefault(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T), triangle: array_mod.Triangle, diagonal: array_mod.Diagonal) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeSolveTriangular(T, defaultExecutionTarget(), matrix, rhs, triangle, diagonal);
+    return executeSolveTriangular(T, defaultTargetForDevice(matrix.device), matrix, rhs, triangle, diagonal);
 }
 
 pub fn executeMatrixNorm(comptime T: type, target: DialectBackend, input: array_mod.Array(T), order: array_mod.MatrixNormOrder) array_mod.ArrayError!?T {
@@ -795,7 +837,7 @@ pub fn executeMatrixNorm(comptime T: type, target: DialectBackend, input: array_
 }
 
 pub fn executeMatrixNormDefault(comptime T: type, input: array_mod.Array(T), order: array_mod.MatrixNormOrder) array_mod.ArrayError!?T {
-    return executeMatrixNorm(T, defaultExecutionTarget(), input, order);
+    return executeMatrixNorm(T, defaultTargetForDevice(input.device), input, order);
 }
 
 pub fn executeSingularValues(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
@@ -808,7 +850,7 @@ pub fn executeSingularValues(comptime T: type, target: DialectBackend, input: ar
 }
 
 pub fn executeSingularValuesDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeSingularValues(T, defaultExecutionTarget(), input, tolerance);
+    return executeSingularValues(T, defaultTargetForDevice(input.device), input, tolerance);
 }
 
 pub fn executeSvd(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?SvdResult(T) {
@@ -821,7 +863,7 @@ pub fn executeSvd(comptime T: type, target: DialectBackend, input: array_mod.Arr
 }
 
 pub fn executeSvdDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?SvdResult(T) {
-    return executeSvd(T, defaultExecutionTarget(), input, tolerance);
+    return executeSvd(T, defaultTargetForDevice(input.device), input, tolerance);
 }
 
 pub fn executeMatrixRank(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?usize {
@@ -834,7 +876,7 @@ pub fn executeMatrixRank(comptime T: type, target: DialectBackend, input: array_
 }
 
 pub fn executeMatrixRankDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?usize {
-    return executeMatrixRank(T, defaultExecutionTarget(), input, tolerance);
+    return executeMatrixRank(T, defaultTargetForDevice(input.device), input, tolerance);
 }
 
 pub fn executeCond(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?T {
@@ -847,7 +889,7 @@ pub fn executeCond(comptime T: type, target: DialectBackend, input: array_mod.Ar
 }
 
 pub fn executeCondDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?T {
-    return executeCond(T, defaultExecutionTarget(), input, tolerance);
+    return executeCond(T, defaultTargetForDevice(input.device), input, tolerance);
 }
 
 pub fn executePinv(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
@@ -860,7 +902,7 @@ pub fn executePinv(comptime T: type, target: DialectBackend, input: array_mod.Ar
 }
 
 pub fn executePinvDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
-    return executePinv(T, defaultExecutionTarget(), input, tolerance);
+    return executePinv(T, defaultTargetForDevice(input.device), input, tolerance);
 }
 
 pub fn executeLstsq(comptime T: type, target: DialectBackend, matrix: array_mod.Array(T), rhs: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
@@ -873,7 +915,7 @@ pub fn executeLstsq(comptime T: type, target: DialectBackend, matrix: array_mod.
 }
 
 pub fn executeLstsqDefault(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeLstsq(T, defaultExecutionTarget(), matrix, rhs, tolerance);
+    return executeLstsq(T, defaultTargetForDevice(matrix.device), matrix, rhs, tolerance);
 }
 
 fn executeCpuLstsq(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
@@ -1265,6 +1307,25 @@ fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
     return null;
 }
 
+fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (op == .square) return null;
+    const cuda_op: axiom_cuda.UnaryOp = switch (op) {
+        .sqrt => .sqrt,
+        .exp => .exp,
+        .square => unreachable,
+    };
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceUnaryF32(cuda_op, @as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_cuda.tryDeviceUnaryF16(cuda_op, @as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceUnaryF64(cuda_op, @as(array_mod.Array(f64), input))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_cuda.tryDeviceUnaryBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), input))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 fn matrixView(comptime T: type, input: array_mod.Array(T), name: []const u8) ?axiom.accelerator.TensorMatrixView {
     if (input.shape.len != 2 or input.strides.len != 2) return null;
     const row_stride = std.math.cast(isize, input.strides[0]) orelse return null;
@@ -1448,7 +1509,7 @@ pub fn executeElementwise(
     lhs: array_mod.Array(T),
     rhs: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    if (!supportedElementwiseSameShapeContiguous(T, lhs, rhs)) return null;
+    if (!supportedElementwiseExecution(T, target, lhs, rhs)) return null;
     return switch (target) {
         .cpu => executeCpuElementwiseTarget(T, op, lhs, rhs),
         .cuda => executeCudaElementwise(T, op, lhs, rhs),
@@ -1457,36 +1518,57 @@ pub fn executeElementwise(
 }
 
 pub fn executeElementwiseDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeElementwise(T, op, defaultExecutionTarget(), lhs, rhs);
+    return executeElementwise(T, op, defaultTargetForDevice(lhs.device), lhs, rhs);
 }
 
 fn executeCudaElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    const cuda_op = cudaBinaryOp(op);
     if (T == f32) {
-        const out = switch (op) {
-            .add => try axiom_cuda.tryAddF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
-            .sub => try axiom_cuda.trySubF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
-            .mul => try axiom_cuda.tryMulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
-            .div => try axiom_cuda.tryDivF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
-        };
-        if (out) |value| return @as(array_mod.Array(T), value);
+        if (try axiom_cuda.tryDeviceBinaryF32(cuda_op, @as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+        if (lhs.device.isCpu()) {
+            const out = switch (op) {
+                .add => try axiom_cuda.tryAddF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
+                .sub => try axiom_cuda.trySubF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
+                .mul => try axiom_cuda.tryMulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
+                .div => try axiom_cuda.tryDivF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
+            };
+            if (out) |value| return @as(array_mod.Array(T), value);
+        }
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceBinaryF64(cuda_op, @as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
-        const out = switch (op) {
-            .add => try axiom_cuda.tryAddBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
-            .sub => try axiom_cuda.trySubBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
-            .mul => try axiom_cuda.tryMulBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
-            .div => try axiom_cuda.tryDivBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
-        };
-        if (out) |value| return @as(array_mod.Array(T), value);
+        if (try axiom_cuda.tryDeviceBinaryBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
+        if (lhs.device.isCpu()) {
+            const out = switch (op) {
+                .add => try axiom_cuda.tryAddBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
+                .sub => try axiom_cuda.trySubBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
+                .mul => try axiom_cuda.tryMulBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
+                .div => try axiom_cuda.tryDivBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs)),
+            };
+            if (out) |value| return @as(array_mod.Array(T), value);
+        }
     } else if (T == f16) {
-        const out = switch (op) {
-            .add => try axiom_cuda.tryAddF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
-            .sub => try axiom_cuda.trySubF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
-            .mul => try axiom_cuda.tryMulF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
-            .div => try axiom_cuda.tryDivF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
-        };
-        if (out) |value| return @as(array_mod.Array(T), value);
+        if (try axiom_cuda.tryDeviceBinaryF16(cuda_op, @as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
+        if (lhs.device.isCpu()) {
+            const out = switch (op) {
+                .add => try axiom_cuda.tryAddF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
+                .sub => try axiom_cuda.trySubF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
+                .mul => try axiom_cuda.tryMulF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
+                .div => try axiom_cuda.tryDivF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs)),
+            };
+            if (out) |value| return @as(array_mod.Array(T), value);
+        }
     }
     return null;
+}
+
+fn cudaBinaryOp(op: ElementwiseOp) axiom_cuda.BinaryOp {
+    return switch (op) {
+        .add => .add,
+        .sub => .sub,
+        .mul => .mul,
+        .div => .div,
+    };
 }
 
 pub fn selectMatmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) BackendReport {
@@ -1554,11 +1636,9 @@ pub fn selectScalarElementwise(
 }
 
 pub fn elementwise(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!array_mod.Array(T) {
-    const target: DialectBackend = switch (policy) {
-        .prefer_cuda => .cuda,
-        .prefer_axiom_cpu, .force_direct_cpu => .cpu,
-    };
+    const target = policyExecutionTarget(policy);
     if (try executeElementwise(T, op, target, lhs, rhs)) |out| return out;
+    if (!lhs.device.isCpu()) return error.BackendFailure;
     return directElementwise(T, op, lhs, rhs);
 }
 
@@ -1571,7 +1651,7 @@ pub fn executeElementwiseScalar(
     scalar_side: ScalarSide,
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!supportedScalarElementwise(T, input)) return null;
-    var scalar_array = try array_mod.Array(T).full(input.allocator, input.shape, scalar);
+    var scalar_array = try array_mod.Array(T).fullOn(input.allocator, input.shape, scalar, input.device);
     defer scalar_array.deinit();
     return switch (scalar_side) {
         .lhs => executeElementwise(T, op, target, scalar_array, input),
@@ -1586,7 +1666,7 @@ pub fn executeElementwiseScalarDefault(
     scalar: T,
     scalar_side: ScalarSide,
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    return executeElementwiseScalar(T, op, defaultExecutionTarget(), input, scalar, scalar_side);
+    return executeElementwiseScalar(T, op, defaultTargetForDevice(input.device), input, scalar, scalar_side);
 }
 
 pub fn elementwiseScalar(
@@ -1597,11 +1677,9 @@ pub fn elementwiseScalar(
     scalar: T,
     scalar_side: ScalarSide,
 ) array_mod.ArrayError!array_mod.Array(T) {
-    const target: DialectBackend = switch (policy) {
-        .prefer_cuda => .cuda,
-        .prefer_axiom_cpu, .force_direct_cpu => .cpu,
-    };
+    const target = policyExecutionTarget(policy);
     if (try executeElementwiseScalar(T, op, target, input, scalar, scalar_side)) |out| return out;
+    if (!input.device.isCpu()) return error.BackendFailure;
     return directScalarElementwise(T, op, input, scalar, scalar_side);
 }
 
@@ -1613,10 +1691,7 @@ pub fn tryElementwiseScalarBroadcastDefault(comptime T: type, op: ElementwiseOp,
 }
 
 pub fn tryElementwiseScalarBroadcast(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    const target: DialectBackend = switch (policy) {
-        .prefer_cuda => .cuda,
-        .prefer_axiom_cpu, .force_direct_cpu => .cpu,
-    };
+    const target = policyExecutionTarget(policy);
     if (lhs.data.len == rhs.data.len) return null;
     if (lhs.data.len == 1 and rhs.data.len != 0 and scalarBroadcastPreservesVectorShape(lhs.shape, rhs.shape)) return try executeElementwiseScalar(T, op, target, rhs, lhs.data[0], .lhs);
     if (rhs.data.len == 1 and lhs.data.len != 0 and scalarBroadcastPreservesVectorShape(rhs.shape, lhs.shape)) return try executeElementwiseScalar(T, op, target, lhs, rhs.data[0], .rhs);
@@ -1643,29 +1718,8 @@ fn directScalarElementwise(comptime T: type, op: ElementwiseOp, input: array_mod
 }
 
 pub fn matmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!array_mod.Array(T) {
-    const report = selectMatmul(T, policy, lhs, rhs);
-    switch (report.selected) {
-        .axiom_cuda => if (T == f32) {
-            const out = try axiom_cuda.tryMatmulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs));
-            if (out) |value| return @as(array_mod.Array(T), value);
-        } else if (T == array_mod.BFloat16) {
-            const out = try axiom_cuda.tryMatmulBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs));
-            if (out) |value| return @as(array_mod.Array(T), value);
-        } else if (T == f16) {
-            const out = try axiom_cuda.tryMatmulF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs));
-            if (out) |value| return @as(array_mod.Array(T), value);
-        },
-        .axiom_cpu_veyra => {
-            const out = if (T == f32)
-                try axiom_cpu.tryMatmulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))
-            else if (T == f64)
-                try axiom_cpu.tryMatmulF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs))
-            else
-                null;
-            if (out) |value| return @as(array_mod.Array(T), value);
-        },
-        .direct_cpu => {},
-    }
+    if (try executeMatmul(T, policyExecutionTarget(policy), lhs, rhs)) |out| return out;
+    if (!lhs.device.isCpu()) return error.BackendFailure;
     return directMatmul(T, lhs, rhs);
 }
 
@@ -1753,9 +1807,9 @@ fn supportedLstsqExecution(comptime T: type, matrix: array_mod.Array(T), rhs: ar
 }
 
 fn supportedUnaryExecution(comptime T: type, input: array_mod.Array(T)) bool {
-    return (T == f32 or T == f64) and
-        input.device.isCpu() and
-        input.data.len != 0 and
+    if (!(T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16)) return false;
+    return (input.device.isCpu() or input.device.isCuda()) and
+        nonEmptyAccessibleData(T, input) and
         input.isContiguous();
 }
 
@@ -1770,10 +1824,15 @@ fn supportedBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
 }
 
 fn supportedElementwiseSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
+    return supportedElementwiseExecution(T, defaultTargetForDevice(lhs.device), lhs, rhs);
+}
+
+fn supportedElementwiseExecution(comptime T: type, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     return supportsAxiomElementwise(T) and
-        lhs.device.isCpu() and
-        rhs.device.isCpu() and
-        lhs.data.len != 0 and
+        lhs.device.sameDevice(rhs.device) and
+        targetCanAccessDevice(target, lhs.device) and
+        nonEmptyAccessibleData(T, lhs) and
+        nonEmptyAccessibleData(T, rhs) and
         lhs.sameShape(rhs) and
         lhs.isContiguous() and
         rhs.isContiguous();
@@ -1797,9 +1856,17 @@ fn supportsAxiomCudaMatmul(comptime T: type) bool {
 
 fn supportedScalarElementwise(comptime T: type, input: array_mod.Array(T)) bool {
     return supportsAxiomElementwise(T) and
-        input.device.isCpu() and
-        input.data.len != 0 and
+        (input.device.isCpu() or input.device.isCuda()) and
+        nonEmptyAccessibleData(T, input) and
         input.isContiguous();
+}
+
+fn nonEmptyAccessibleData(comptime T: type, input: array_mod.Array(T)) bool {
+    if (input.device.isCuda()) {
+        const storage = input.device_storage orelse return false;
+        return storage.len != 0;
+    }
+    return input.data.len != 0;
 }
 
 fn scalarBroadcastPreservesVectorShape(scalar_shape: []const usize, vector_shape: []const usize) bool {
