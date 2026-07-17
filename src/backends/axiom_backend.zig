@@ -669,6 +669,26 @@ pub fn executeCholeskyDefault(comptime T: type, input: array_mod.Array(T)) array
     return executeCholesky(T, defaultExecutionTarget(), input);
 }
 
+pub fn executeSolveTriangular(
+    comptime T: type,
+    target: DialectBackend,
+    matrix: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    triangle: array_mod.Triangle,
+    diagonal: array_mod.Diagonal,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedSolveExecution(T, matrix, rhs)) return null;
+    return switch (target) {
+        .cpu => executeCpuSolveTriangular(T, matrix, rhs, triangle, diagonal),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeSolveTriangularDefault(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T), triangle: array_mod.Triangle, diagonal: array_mod.Diagonal) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeSolveTriangular(T, defaultExecutionTarget(), matrix, rhs, triangle, diagonal);
+}
+
 pub fn executeMatrixNorm(comptime T: type, target: DialectBackend, input: array_mod.Array(T), order: array_mod.MatrixNormOrder) array_mod.ArrayError!?T {
     if (!supportedMatrixExecution(T, input)) return null;
     const cpu_order = cpuMatrixNormOrder(order) orelse return null;
@@ -711,6 +731,55 @@ fn cpuMatrixNormOrder(order: array_mod.MatrixNormOrder) ?axiom.accelerator.cpu_v
 
 fn normTolerance(comptime T: type) T {
     return if (T == f32) 1e-5 else 1e-12;
+}
+
+fn executeCpuSolveTriangular(
+    comptime T: type,
+    matrix: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    triangle: array_mod.Triangle,
+    diagonal: array_mod.Diagonal,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    const matrix_view = matrixView(T, matrix, "matrix") orelse return null;
+    const rhs_view = matrixOrVectorColumnView(T, rhs, "rhs") orelse return null;
+    const out_shape = if (rhs.shape.len == 1) rhs.shape else &.{ matrix.shape[1], rhs.shape[1] };
+    var out = try array_mod.Array(T).empty(matrix.allocator, out_shape);
+    errdefer out.deinit();
+    const out_view = matrixOrVectorColumnView(T, out, "out") orelse {
+        out.deinit();
+        return null;
+    };
+    const cpu_triangle = cpuTriangle(triangle);
+    const cpu_diagonal = cpuDiagonal(diagonal);
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetSolveTriangularF32(.cpu, matrix_view, rhs_view, out_view, @as(array_mod.Array(f32), matrix).data, @as(array_mod.Array(f32), rhs).data, @as(array_mod.Array(f32), out).data, cpu_triangle, cpu_diagonal) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetSolveTriangularF64(.cpu, matrix_view, rhs_view, out_view, @as(array_mod.Array(f64), matrix).data, @as(array_mod.Array(f64), rhs).data, @as(array_mod.Array(f64), out).data, cpu_triangle, cpu_diagonal) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
+fn cpuTriangle(triangle: array_mod.Triangle) axiom.accelerator.cpu_veyra.CpuVeyraTriangle {
+    return switch (triangle) {
+        .lower => .lower,
+        .upper => .upper,
+    };
+}
+
+fn cpuDiagonal(diagonal: array_mod.Diagonal) axiom.accelerator.cpu_veyra.CpuVeyraDiagonal {
+    return switch (diagonal) {
+        .non_unit => .non_unit,
+        .unit => .unit,
+    };
 }
 
 fn executeCpuCholesky(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
