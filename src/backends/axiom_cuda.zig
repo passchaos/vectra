@@ -157,7 +157,7 @@ pub const cuda_dtype_support = [_]CudaDTypeSupportRecord{
     .{ .cuda_name = "CUDA_C_16BF", .cuda_value = 15, .meaning = "complex bfloat16 pair", .status = .not_exposed },
     .{ .cuda_name = "CUDA_R_32F", .cuda_value = 0, .meaning = "real float", .vectra_dtype = .f32, .status = .native_cuda_seed, .same_shape_elementwise = true, .scalar_broadcast = true, .matmul = true, .smoke_covered = true },
     .{ .cuda_name = "CUDA_C_32F", .cuda_value = 4, .meaning = "complex float pair", .vectra_dtype = .c64, .status = .planned },
-    .{ .cuda_name = "CUDA_R_64F", .cuda_value = 1, .meaning = "real double", .vectra_dtype = .f64, .status = .cpu_veyra_seed, .same_shape_elementwise = true, .scalar_broadcast = true, .matmul = true },
+    .{ .cuda_name = "CUDA_R_64F", .cuda_value = 1, .meaning = "real double", .vectra_dtype = .f64, .status = .planned, .same_shape_elementwise = true },
     .{ .cuda_name = "CUDA_C_64F", .cuda_value = 5, .meaning = "complex double pair", .vectra_dtype = .c128, .status = .planned },
     .{ .cuda_name = "CUDA_R_4I", .cuda_value = 16, .meaning = "signed 4-bit integer", .status = .not_exposed },
     .{ .cuda_name = "CUDA_C_4I", .cuda_value = 17, .meaning = "signed 4-bit integer pair", .status = .not_exposed },
