@@ -778,6 +778,14 @@ pub fn hostFallbackAllowed(device: array_mod.Device) bool {
     return executionTargetForDevice(device) == .cpu;
 }
 
+pub fn shouldRestoreDeviceAfterHostCast(device: array_mod.Device) bool {
+    return switch (executionTargetForDevice(device)) {
+        .cpu => false,
+        .cuda => true,
+        .mps => false,
+    };
+}
+
 pub fn pendingMatmulDeviceSupported(device: array_mod.Device) bool {
     return executionTargetForDevice(device) == .cuda;
 }

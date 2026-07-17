@@ -10275,7 +10275,7 @@ pub fn Array(comptime T: type) type {
                 var host = try self.to(.cpu);
                 defer host.deinit();
                 var out = try host.astype(U);
-                if (self.device.isCuda()) {
+                if (axiom_backend.shouldRestoreDeviceAfterHostCast(self.device)) {
                     const device_out = try out.to(self.device);
                     out.deinit();
                     return device_out;
