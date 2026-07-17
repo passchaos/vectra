@@ -778,6 +778,14 @@ pub fn hostFallbackAllowed(device: array_mod.Device) bool {
     return executionTargetForDevice(device) == .cpu;
 }
 
+pub fn pendingMatmulDeviceSupported(device: array_mod.Device) bool {
+    return executionTargetForDevice(device) == .cuda;
+}
+
+pub fn pendingMatmulSameDeviceSupported(lhs: array_mod.Device, rhs: array_mod.Device) bool {
+    return lhs.sameDevice(rhs) and pendingMatmulDeviceSupported(lhs);
+}
+
 pub fn executePendingMatmul(
     comptime T: type,
     target: DialectBackend,

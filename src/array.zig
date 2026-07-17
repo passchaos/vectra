@@ -15017,7 +15017,7 @@ pub fn Array(comptime T: type) type {
             if (self.pending_matmul == null) return null;
             if (comptime op != opAdd and op != opSub) return null;
             if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
-            if (!self.device.isCuda() or !other.device.isCuda() or !self.device.sameDevice(other.device)) return null;
+            if (!axiom_backend.pendingMatmulSameDeviceSupported(self.device, other.device)) return null;
             const pending = self.pending_matmul.?;
             if (pending.add_storage != null) return null;
             const add_storage = other.device_storage orelse return null;
@@ -15049,7 +15049,7 @@ pub fn Array(comptime T: type) type {
             if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
             if (self.pending_matmul == null) return null;
             if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
-            if (!self.device.isCuda() or !other.device.isCuda() or !self.device.sameDevice(other.device)) return null;
+            if (!axiom_backend.pendingMatmulSameDeviceSupported(self.device, other.device)) return null;
             const pending = self.pending_matmul.?;
             if (pending.add_storage != null) return null;
             const add_storage = other.device_storage orelse return null;
@@ -15079,7 +15079,7 @@ pub fn Array(comptime T: type) type {
 
         fn tryPendingUnary(self: Self, unary_op: PendingUnary) ArrayError!?Self {
             if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
-            if (!self.device.isCuda() or self.pending_matmul == null) return null;
+            if (!axiom_backend.pendingMatmulDeviceSupported(self.device) or self.pending_matmul == null) return null;
             var pending = self.pending_matmul.?;
             if (pending.unary != null) return null;
             const shape = try self.allocator.dupe(usize, self.shape);
@@ -15101,7 +15101,7 @@ pub fn Array(comptime T: type) type {
 
         fn tryScalePendingMatmul(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!?Self {
             if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
-            if (!self.device.isCuda() or self.pending_matmul == null) return null;
+            if (!axiom_backend.pendingMatmulDeviceSupported(self.device) or self.pending_matmul == null) return null;
             if (comptime op != opMul) return null;
             // Keep BF16 scalar scaling on the ordinary Axiom elementwise target
             // path after materialization.  Folding the scale into GEMM alpha/beta
@@ -16314,7 +16314,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn exp(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (self.device.isCuda()) {
+            if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
                 if (try self.tryPendingUnary(.exp)) |out| return out;
                 return self.runAxiomUnaryRequired(.exp);
             }
@@ -16377,7 +16377,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn sqrt(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (self.device.isCuda()) {
+            if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
                 if (try self.tryPendingUnary(.sqrt)) |out| return out;
                 return self.runAxiomUnaryRequired(.sqrt);
             }

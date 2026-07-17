@@ -78,6 +78,7 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn transferStorage(",
     "pub fn planPendingMatmul(",
     "pub fn hostFallbackAllowed(",
+    "pub fn pendingMatmulDeviceSupported(",
 )
 
 FORBIDDEN_ROOT_TARGET_SPLIT_SNIPPETS = (
