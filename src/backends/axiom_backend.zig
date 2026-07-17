@@ -908,6 +908,33 @@ pub fn elementwise(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, l
     return directElementwise(T, op, lhs, rhs);
 }
 
+pub fn executeElementwiseScalar(
+    comptime T: type,
+    op: ElementwiseOp,
+    target: DialectBackend,
+    input: array_mod.Array(T),
+    scalar: T,
+    scalar_side: ScalarSide,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedScalarElementwise(T, input)) return null;
+    var scalar_array = try array_mod.Array(T).full(input.allocator, input.shape, scalar);
+    defer scalar_array.deinit();
+    return switch (scalar_side) {
+        .lhs => executeElementwise(T, op, target, scalar_array, input),
+        .rhs => executeElementwise(T, op, target, input, scalar_array),
+    };
+}
+
+pub fn executeElementwiseScalarDefault(
+    comptime T: type,
+    op: ElementwiseOp,
+    input: array_mod.Array(T),
+    scalar: T,
+    scalar_side: ScalarSide,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeElementwiseScalar(T, op, defaultExecutionTarget(), input, scalar, scalar_side);
+}
+
 pub fn elementwiseScalar(
     comptime T: type,
     op: ElementwiseOp,
@@ -916,25 +943,29 @@ pub fn elementwiseScalar(
     scalar: T,
     scalar_side: ScalarSide,
 ) array_mod.ArrayError!array_mod.Array(T) {
-    const report = selectScalarElementwise(T, op, policy, input, scalar, scalar_side);
-    switch (report.selected) {
-        .axiom_cuda, .axiom_cpu_veyra => {
-            var scalar_array = try array_mod.Array(T).full(input.allocator, input.shape, scalar);
-            defer scalar_array.deinit();
-            return switch (scalar_side) {
-                .lhs => elementwise(T, op, policy, scalar_array, input),
-                .rhs => elementwise(T, op, policy, input, scalar_array),
-            };
-        },
-        .direct_cpu => {},
-    }
+    const target: DialectBackend = switch (policy) {
+        .prefer_cuda => .cuda,
+        .prefer_axiom_cpu, .force_direct_cpu => .cpu,
+    };
+    if (try executeElementwiseScalar(T, op, target, input, scalar, scalar_side)) |out| return out;
     return directScalarElementwise(T, op, input, scalar, scalar_side);
 }
 
-pub fn tryElementwiseScalarBroadcast(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+pub fn tryElementwiseScalarBroadcastDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (lhs.data.len == rhs.data.len) return null;
-    if (lhs.data.len == 1 and rhs.data.len != 0 and scalarBroadcastPreservesVectorShape(lhs.shape, rhs.shape)) return try elementwiseScalar(T, op, policy, rhs, lhs.data[0], .lhs);
-    if (rhs.data.len == 1 and lhs.data.len != 0 and scalarBroadcastPreservesVectorShape(rhs.shape, lhs.shape)) return try elementwiseScalar(T, op, policy, lhs, rhs.data[0], .rhs);
+    if (lhs.data.len == 1 and rhs.data.len != 0 and scalarBroadcastPreservesVectorShape(lhs.shape, rhs.shape)) return try executeElementwiseScalarDefault(T, op, rhs, lhs.data[0], .lhs);
+    if (rhs.data.len == 1 and lhs.data.len != 0 and scalarBroadcastPreservesVectorShape(rhs.shape, lhs.shape)) return try executeElementwiseScalarDefault(T, op, lhs, rhs.data[0], .rhs);
+    return null;
+}
+
+pub fn tryElementwiseScalarBroadcast(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    const target: DialectBackend = switch (policy) {
+        .prefer_cuda => .cuda,
+        .prefer_axiom_cpu, .force_direct_cpu => .cpu,
+    };
+    if (lhs.data.len == rhs.data.len) return null;
+    if (lhs.data.len == 1 and rhs.data.len != 0 and scalarBroadcastPreservesVectorShape(lhs.shape, rhs.shape)) return try executeElementwiseScalar(T, op, target, rhs, lhs.data[0], .lhs);
+    if (rhs.data.len == 1 and lhs.data.len != 0 and scalarBroadcastPreservesVectorShape(rhs.shape, lhs.shape)) return try executeElementwiseScalar(T, op, target, lhs, rhs.data[0], .rhs);
     return null;
 }
 

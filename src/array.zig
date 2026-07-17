@@ -15797,7 +15797,7 @@ pub fn Array(comptime T: type) type {
                     else
                         null;
                     const accelerated = if (maybe_op) |op_value|
-                        try axiom_backend.tryElementwiseScalarBroadcast(T, op_value, axiom_backend.defaultBackendPolicy(), self, other)
+                        try axiom_backend.tryElementwiseScalarBroadcastDefault(T, op_value, self, other)
                     else
                         null;
                     if (accelerated) |out| return out;
@@ -16580,7 +16580,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.device.isCuda()) return self.binaryScalar(scalar, opAdd);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                return axiom_backend.elementwiseScalar(T, .add, axiom_backend.defaultBackendPolicy(), self, scalar, .rhs);
+                if (try axiom_backend.executeElementwiseScalarDefault(T, .add, self, scalar, .rhs)) |out| return out;
             }
             return self.binaryScalar(scalar, opAdd);
         }
@@ -16589,7 +16589,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.device.isCuda()) return self.binaryScalar(scalar, opSub);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                return axiom_backend.elementwiseScalar(T, .sub, axiom_backend.defaultBackendPolicy(), self, scalar, .rhs);
+                if (try axiom_backend.executeElementwiseScalarDefault(T, .sub, self, scalar, .rhs)) |out| return out;
             }
             return self.binaryScalar(scalar, opSub);
         }
@@ -16598,7 +16598,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.device.isCuda()) return self.binaryScalar(scalar, opMul);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                return axiom_backend.elementwiseScalar(T, .mul, axiom_backend.defaultBackendPolicy(), self, scalar, .rhs);
+                if (try axiom_backend.executeElementwiseScalarDefault(T, .mul, self, scalar, .rhs)) |out| return out;
             }
             return self.binaryScalar(scalar, opMul);
         }
@@ -16607,7 +16607,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.device.isCuda()) return self.binaryScalar(scalar, opDiv);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                return axiom_backend.elementwiseScalar(T, .div, axiom_backend.defaultBackendPolicy(), self, scalar, .rhs);
+                if (try axiom_backend.executeElementwiseScalarDefault(T, .div, self, scalar, .rhs)) |out| return out;
             }
             return self.binaryScalar(scalar, opDiv);
         }
