@@ -66,6 +66,8 @@ pub const DialectBroadcastLoweringStatus = axiom.accelerator.DialectBroadcastLow
 pub const DialectUnaryOp = axiom.accelerator.DialectUnaryOp;
 pub const DialectUnaryLoweringReport = axiom.accelerator.DialectUnaryLoweringReport;
 pub const DialectUnaryLoweringStatus = axiom.accelerator.DialectUnaryLoweringStatus;
+pub const DialectTransposeLoweringReport = axiom.accelerator.DialectTransposeLoweringReport;
+pub const DialectTransposeLoweringStatus = axiom.accelerator.DialectTransposeLoweringStatus;
 pub const MpsRuntimeAbiStatus = axiom.accelerator.MpsRuntimeAbiStatus;
 pub const MpsRuntimeAbiReport = axiom.accelerator.MpsRuntimeAbiReport;
 
@@ -217,6 +219,22 @@ pub fn lowerUnaryDialect(comptime T: type, input: array_mod.Array(T), op: Dialec
 
 pub fn lowerUnaryDialectDefault(comptime T: type, input: array_mod.Array(T), op: DialectUnaryOp) array_mod.ArrayError!DialectUnaryLoweringReport {
     return lowerUnaryDialect(T, input, op, defaultDialectBackend());
+}
+
+pub fn lowerTransposeDialect(comptime T: type, input: array_mod.Array(T), backend: DialectBackend) array_mod.ArrayError!DialectTransposeLoweringReport {
+    if (!supportedUnary2d(T, input)) return error.ShapeMismatch;
+    const element = dialectElement(T) orelse return error.TypeUnsupported;
+    return axiom.accelerator.lowerDialectTranspose(.{
+        .name = "vectra.transpose2d",
+        .element = element,
+        .rows = input.shape[0],
+        .cols = input.shape[1],
+        .backend = backend,
+    }) catch error.BackendFailure;
+}
+
+pub fn lowerTransposeDialectDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!DialectTransposeLoweringReport {
+    return lowerTransposeDialect(T, input, defaultDialectBackend());
 }
 
 fn dialectElement(comptime T: type) ?axiom.linalg_dialect.Element {
@@ -704,6 +722,24 @@ test "Axiom dialect lowering reports unary generic route" {
     const default_mps_report = try lowerUnaryDialectDefault(f32, input, .cube);
     try std.testing.expect(default_mps_report.ok());
     try std.testing.expectEqual(DialectUnaryLoweringStatus.planned_mps, default_mps_report.status);
+    resetDefaultDialectBackend();
+}
+
+test "Axiom dialect lowering reports transpose generic route" {
+    const gpa = std.testing.allocator;
+    var input = try array_mod.Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer input.deinit();
+
+    const cuda_report = try lowerTransposeDialect(f32, input, .cuda);
+    try std.testing.expect(cuda_report.ok());
+    try std.testing.expectEqual(DialectTransposeLoweringStatus.lowered_cuda, cuda_report.status);
+    try std.testing.expect(cuda_report.vector_fragment_fingerprint != 0);
+    try std.testing.expect(cuda_report.gpu_mapping_fingerprint != 0);
+
+    setDefaultDialectBackend(.mps);
+    const default_mps_report = try lowerTransposeDialectDefault(f32, input);
+    try std.testing.expect(default_mps_report.ok());
+    try std.testing.expectEqual(DialectTransposeLoweringStatus.planned_mps, default_mps_report.status);
     resetDefaultDialectBackend();
 }
 
