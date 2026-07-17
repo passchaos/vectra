@@ -15269,11 +15269,11 @@ pub fn Array(comptime T: type) type {
                     } else if (try axiom_backend.tryElementwiseScalarBroadcastDefault(T, op_value, self, other)) |out| {
                         return out;
                     }
-                } else if (!self.device.isCpu()) {
+                } else if (!axiom_backend.hostFallbackAllowed(self.device)) {
                     return error.TypeUnsupported;
                 }
             }
-            if (!self.device.isCpu()) return error.BackendFailure;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             if (std.mem.eql(usize, self.shape, other.shape)) {
                 const out = try Self.empty(self.allocator, self.shape);
                 if (binaryArraySimd(out.data, self.data, other.data, op)) return out;
@@ -15345,11 +15345,11 @@ pub fn Array(comptime T: type) type {
                     null;
                 if (maybe_op) |op_value| {
                     if (try axiom_backend.executeElementwiseScalarDefault(T, op_value, self, scalar, .rhs)) |out| return out;
-                } else if (!self.device.isCpu()) {
+                } else if (!axiom_backend.hostFallbackAllowed(self.device)) {
                     return error.TypeUnsupported;
                 }
             }
-            if (!self.device.isCpu()) return error.BackendFailure;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             const out = try Self.empty(self.allocator, self.shape);
             if (binaryScalarSimd(out.data, self.data, scalar, op)) return out;
             for (self.data, out.data) |v, *slot| slot.* = op(v, scalar);
