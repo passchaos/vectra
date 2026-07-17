@@ -106,6 +106,17 @@ pub fn LuResult(comptime T: type) type {
     };
 }
 
+pub const PendingMatmulSpec = struct {
+    lhs_storage: array_mod.DeviceStorage,
+    rhs_storage: array_mod.DeviceStorage,
+    add_storage: ?array_mod.DeviceStorage = null,
+    lhs_shape: [2]usize,
+    rhs_shape: [2]usize,
+    alpha: f32 = 1.0,
+    beta: f32 = 0.0,
+    unary: ?ExecutionUnaryOp = null,
+};
+
 pub const DialectBackend = axiom.accelerator.DialectBackend;
 pub const DialectMatmulLoweringReport = axiom.accelerator.DialectMatmulLoweringReport;
 pub const DialectMatmulLoweringStatus = axiom.accelerator.DialectMatmulLoweringStatus;
@@ -617,6 +628,131 @@ pub fn executeMatmulAddScaled(
 
 pub fn executeMatmulAddScaledDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
     return executeMatmulAddScaled(T, defaultTargetForDevice(lhs.device), lhs, rhs, addend, alpha, beta);
+}
+
+pub fn executePendingMatmul(
+    comptime T: type,
+    target: DialectBackend,
+    allocator: std.mem.Allocator,
+    shape: []const usize,
+    device: array_mod.Device,
+    pending: PendingMatmulSpec,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .cuda or !device.isCuda()) return null;
+    if (comptime T != f32 and T != f64 and T != f16 and T != array_mod.BFloat16) return null;
+    if (shape.len != 2) return null;
+    const m = pending.lhs_shape[0];
+    const k = pending.lhs_shape[1];
+    const n = pending.rhs_shape[1];
+    if (shape[0] != m or shape[1] != n or pending.rhs_shape[0] != k) return null;
+    var out = try array_mod.Array(T).emptyOn(allocator, shape, device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse return error.InvalidDevice;
+    const ok = try runCudaPendingMatmul(T, allocator, device, m, n, k, pending, out_storage.ptr);
+    if (!ok) return error.BackendFailure;
+    return out;
+}
+
+pub fn executePendingMatmulDefault(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    shape: []const usize,
+    device: array_mod.Device,
+    pending: PendingMatmulSpec,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    return executePendingMatmul(T, executionTargetForDevice(device), allocator, shape, device, pending);
+}
+
+fn runCudaPendingMatmul(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    m: usize,
+    n: usize,
+    k: usize,
+    pending: PendingMatmulSpec,
+    out_ptr: u64,
+) array_mod.ArrayError!bool {
+    if (pending.unary) |unary| {
+        return runCudaPendingMatmulUnary(T, allocator, device, m, n, k, pending, out_ptr, unary);
+    }
+    if (pending.add_storage) |add_storage| {
+        return if (T == f32)
+            axiom_cuda.runPendingMatmulAddF32(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_ptr, pending.alpha, pending.beta)
+        else if (T == f64)
+            axiom_cuda.runPendingMatmulAddF64(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_ptr, pending.alpha, pending.beta)
+        else if (T == f16)
+            axiom_cuda.runPendingMatmulAddF16(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_ptr, pending.alpha, pending.beta)
+        else if (T == array_mod.BFloat16)
+            axiom_cuda.runPendingMatmulAddBF16(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_ptr, pending.alpha, pending.beta)
+        else
+            error.TypeUnsupported;
+    }
+    return if (T == f32)
+        axiom_cuda.runPendingMatmulF32(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_ptr)
+    else if (T == f64)
+        axiom_cuda.runPendingMatmulF64(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_ptr)
+    else if (T == f16)
+        axiom_cuda.runPendingMatmulF16(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_ptr)
+    else if (T == array_mod.BFloat16)
+        axiom_cuda.runPendingMatmulBF16(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_ptr)
+    else
+        error.TypeUnsupported;
+}
+
+fn runCudaPendingMatmulUnary(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    m: usize,
+    n: usize,
+    k: usize,
+    pending: PendingMatmulSpec,
+    out_ptr: u64,
+    unary: ExecutionUnaryOp,
+) array_mod.ArrayError!bool {
+    if (T == f32 and pending.add_storage != null) {
+        const ops = std.math.mul(usize, std.math.mul(usize, m, n) catch return error.InvalidShape, k) catch return error.InvalidShape;
+        if (ops <= 4 * 1024 * 1024) {
+            const cuda_unary: axiom_cuda.UnaryOp = switch (unary) {
+                .sqrt => .sqrt,
+                .exp => .exp,
+                .square => return false,
+            };
+            return axiom_cuda.runPendingMatmulAddUnaryF32(
+                allocator,
+                device,
+                cuda_unary,
+                m,
+                n,
+                k,
+                pending.lhs_storage.ptr,
+                pending.rhs_storage.ptr,
+                pending.add_storage.?.ptr,
+                out_ptr,
+                pending.alpha,
+                pending.beta,
+            );
+        }
+    }
+
+    var without_unary = pending;
+    without_unary.unary = null;
+    var materialized = (try executePendingMatmul(T, .cuda, allocator, &.{ m, n }, device, without_unary)) orelse return false;
+    defer materialized.deinit();
+    if (try executeUnary(T, unary, .cuda, materialized)) |out_value| {
+        var out = out_value;
+        defer out.deinit();
+        const src_storage = out.device_storage orelse return error.InvalidDevice;
+        const byte_count = std.math.mul(usize, m, n) catch return error.InvalidShape;
+        const bytes = std.math.mul(usize, byte_count, @sizeOf(T)) catch return error.InvalidShape;
+        try axiom_cuda.copyStorage(
+            .{ .device = device, .ptr = out_ptr, .len = byte_count, .bytes = bytes, .owns = false },
+            src_storage,
+        );
+        return true;
+    }
+    return false;
 }
 
 fn executeCpuMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {

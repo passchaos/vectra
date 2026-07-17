@@ -15321,80 +15321,21 @@ pub fn Array(comptime T: type) type {
 
         fn materializePendingMatmul(self: Self) ArrayError!Self {
             const pending = self.pending_matmul orelse return self.clone();
-            if (pending.unary) |unary_op| {
-                if (comptime T == f32) {
-                    if (pending.add_storage) |add_storage| {
-                        const m = pending.lhs_shape[0];
-                        const k = pending.lhs_shape[1];
-                        const n = pending.rhs_shape[1];
-                        const ops = std.math.mul(usize, std.math.mul(usize, m, n) catch return error.InvalidShape, k) catch return error.InvalidShape;
-                        if (self.device.isCuda() and ops <= 4 * 1024 * 1024) {
-                            var out = try Self.emptyOn(self.allocator, self.shape, self.device);
-                            errdefer out.deinit();
-                            const out_storage = out.device_storage orelse return error.InvalidDevice;
-                            const ok = try axiom_cuda_backend.runPendingMatmulAddUnaryF32(
-                                self.allocator,
-                                self.device,
-                                switch (unary_op) {
-                                    .sqrt => axiom_cuda_backend.UnaryOp.sqrt,
-                                    .exp => axiom_cuda_backend.UnaryOp.exp,
-                                },
-                                m,
-                                n,
-                                k,
-                                pending.lhs_storage.ptr,
-                                pending.rhs_storage.ptr,
-                                add_storage.ptr,
-                                out_storage.ptr,
-                                pending.alpha,
-                                pending.beta,
-                            );
-                            if (!ok) return error.BackendFailure;
-                            return out;
-                        }
-                    }
-                }
-                var without_unary = self;
-                without_unary.pending_matmul = pending;
-                without_unary.pending_matmul.?.unary = null;
-                var materialized = try without_unary.materializePendingMatmul();
-                defer materialized.deinit();
-                return switch (unary_op) {
-                    .sqrt => try materialized.runAxiomUnaryRequired(.sqrt),
-                    .exp => try materialized.runAxiomUnaryRequired(.exp),
-                };
-            }
-            var out = try Self.emptyOn(self.allocator, self.shape, self.device);
-            errdefer out.deinit();
-            const out_storage = out.device_storage orelse return error.InvalidDevice;
-            const m = pending.lhs_shape[0];
-            const k = pending.lhs_shape[1];
-            const n = pending.rhs_shape[1];
-            const ok = if (pending.add_storage) |add_storage| blk: {
-                break :blk if (comptime T == f32)
-                    try axiom_cuda_backend.runPendingMatmulAddF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
-                else if (comptime T == f64)
-                    try axiom_cuda_backend.runPendingMatmulAddF64(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
-                else if (comptime T == f16)
-                    try axiom_cuda_backend.runPendingMatmulAddF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
-                else if (comptime T == BFloat16)
-                    try axiom_cuda_backend.runPendingMatmulAddBF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_storage.ptr, pending.alpha, pending.beta)
-                else
-                    return error.TypeUnsupported;
-            } else blk: {
-                break :blk if (comptime T == f32)
-                    try axiom_cuda_backend.runPendingMatmulF32(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
-                else if (comptime T == f64)
-                    try axiom_cuda_backend.runPendingMatmulF64(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
-                else if (comptime T == f16)
-                    try axiom_cuda_backend.runPendingMatmulF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
-                else if (comptime T == BFloat16)
-                    try axiom_cuda_backend.runPendingMatmulBF16(self.allocator, self.device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_storage.ptr)
-                else
-                    return error.TypeUnsupported;
+            const spec: axiom_backend.PendingMatmulSpec = .{
+                .lhs_storage = pending.lhs_storage,
+                .rhs_storage = pending.rhs_storage,
+                .add_storage = pending.add_storage,
+                .lhs_shape = pending.lhs_shape,
+                .rhs_shape = pending.rhs_shape,
+                .alpha = pending.alpha,
+                .beta = pending.beta,
+                .unary = if (pending.unary) |pending_unary| switch (pending_unary) {
+                    .sqrt => axiom_backend.ExecutionUnaryOp.sqrt,
+                    .exp => axiom_backend.ExecutionUnaryOp.exp,
+                } else null,
             };
-            if (!ok) return error.BackendFailure;
-            return out;
+            if (try axiom_backend.executePendingMatmulDefault(T, self.allocator, self.shape, self.device, spec)) |out| return out;
+            return error.BackendFailure;
         }
 
         fn tryFusePendingMatmulAdd(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!?Self {
@@ -15488,6 +15429,12 @@ pub fn Array(comptime T: type) type {
             if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
             if (!self.device.isCuda() or self.pending_matmul == null) return null;
             if (comptime op != opMul) return null;
+            // Keep BF16 scalar scaling on the ordinary Axiom elementwise target
+            // path after materialization.  Folding the scale into GEMM alpha/beta
+            // is attractive for f32/f64/f16, but BF16 output rounding differs
+            // enough across cuBLASLt configurations that the explicit
+            // elementwise path is the more stable public Array behavior.
+            if (comptime T == BFloat16) return null;
             const scale: f32 = if (comptime T == BFloat16) scalar.toF32() else @floatCast(scalar);
             var pending = self.pending_matmul.?;
             if (pending.unary != null) return null;
