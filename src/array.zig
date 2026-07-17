@@ -10857,11 +10857,9 @@ pub fn Array(comptime T: type) type {
         pub fn svd(self: Self, tolerance: T) ArrayError!SvdResult(T) {
             if (comptime @typeInfo(T) != .float) @compileError("svd requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.trySvdF32(self, tolerance)) |out| return .{ .u = out.u, .s = out.s, .vt = out.vt };
-                return error.BackendFailure;
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.trySvdF64(self, tolerance)) |out| return .{ .u = out.u, .s = out.s, .vt = out.vt };
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeSvdDefault(T, self, tolerance)) |out| return .{ .u = out.u, .s = out.s, .vt = out.vt };
+                if (comptime T == f32) return error.BackendFailure;
             } else {
                 return error.BackendFailure;
             }

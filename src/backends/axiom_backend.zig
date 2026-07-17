@@ -74,6 +74,21 @@ pub fn QrResult(comptime T: type) type {
     };
 }
 
+pub fn SvdResult(comptime T: type) type {
+    return struct {
+        u: array_mod.Array(T),
+        s: array_mod.Array(T),
+        vt: array_mod.Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.u.deinit();
+            self.s.deinit();
+            self.vt.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
 pub fn LuResult(comptime T: type) type {
     return struct {
         p: array_mod.Array(T),
@@ -770,6 +785,19 @@ pub fn executeSingularValuesDefault(comptime T: type, input: array_mod.Array(T),
     return executeSingularValues(T, defaultExecutionTarget(), input, tolerance);
 }
 
+pub fn executeSvd(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?SvdResult(T) {
+    if (!supportedMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuSvd(T, input, tolerance),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeSvdDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?SvdResult(T) {
+    return executeSvd(T, defaultExecutionTarget(), input, tolerance);
+}
+
 pub fn executeMatrixRank(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?usize {
     if (!supportedMatrixExecution(T, input)) return null;
     return switch (target) {
@@ -899,6 +927,27 @@ fn executeCpuMatrixRank(comptime T: type, input: array_mod.Array(T), tolerance: 
         axiom.accelerator.cpu_veyra.runTargetMatrixRankF64(.cpu, matrix_view, @as(array_mod.Array(f64), input).data, @as(f64, tolerance), &value) catch return null;
     if (!report.ok()) return null;
     return value;
+}
+
+fn executeCpuSvd(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?SvdResult(T) {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    const factor_dim = @min(input.shape[0], input.shape[1]);
+    var u = try array_mod.Array(T).empty(input.allocator, &.{ input.shape[0], factor_dim });
+    errdefer u.deinit();
+    var s = try array_mod.Array(T).empty(input.allocator, &.{factor_dim});
+    errdefer s.deinit();
+    var vt = try array_mod.Array(T).empty(input.allocator, &.{ factor_dim, input.shape[1] });
+    errdefer vt.deinit();
+    const u_view = matrixView(T, u, "u") orelse return null;
+    var s_view = axiom.accelerator.TensorBufferView.contiguous("s", @intCast(@intFromPtr(s.data.ptr)), s.data.len);
+    s_view.element_type = if (T == f32) .f32 else if (T == f64) .f64 else return null;
+    const vt_view = matrixView(T, vt, "vt") orelse return null;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetSvdF32(.cpu, matrix_view, u_view, s_view, vt_view, @as(array_mod.Array(f32), input).data, @as(array_mod.Array(f32), u).data, @as(array_mod.Array(f32), s).data, @as(array_mod.Array(f32), vt).data, @as(f32, tolerance)) catch return null
+    else
+        axiom.accelerator.cpu_veyra.runTargetSvdF64(.cpu, matrix_view, u_view, s_view, vt_view, @as(array_mod.Array(f64), input).data, @as(array_mod.Array(f64), u).data, @as(array_mod.Array(f64), s).data, @as(array_mod.Array(f64), vt).data, @as(f64, tolerance)) catch return null;
+    if (!report.ok()) return null;
+    return .{ .u = u, .s = s, .vt = vt };
 }
 
 fn executeCpuSingularValues(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
