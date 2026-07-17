@@ -9815,16 +9815,18 @@ pub fn Array(comptime T: type) type {
             if (!device.isAvailable()) return error.InvalidDevice;
             const n = try numelFrom(dims);
             if (values.len != n) return error.ShapeMismatch;
-            const data = if (device.isCpu()) try allocator.dupe(T, values) else try allocator.alloc(T, 0);
+            const storage = try axiom_backend.allocateStorage(device, n, @sizeOf(T));
+            errdefer if (storage) |owned_storage| axiom_backend.freeStorage(owned_storage);
+            const data = try allocator.alloc(T, if (storage == null) n else 0);
             errdefer allocator.free(data);
             const shape = try allocator.dupe(usize, dims);
             errdefer allocator.free(shape);
             const strides = try stridesFor(allocator, shape);
             errdefer allocator.free(strides);
-            if (device.isCpu()) return .{ .allocator = allocator, .data = data, .shape = shape, .strides = strides, .device = device };
-            const storage = (try axiom_backend.allocateStorage(device, n, @sizeOf(T))) orelse return error.InvalidDevice;
-            errdefer axiom_backend.freeStorage(storage);
-            try axiom_backend.uploadStorage(storage, std.mem.sliceAsBytes(values));
+            try axiom_backend.transferStorage(
+                .{ .device = device, .host_bytes = std.mem.sliceAsBytes(data), .storage = storage },
+                .{ .device = .cpu, .host_bytes = std.mem.sliceAsBytes(values) },
+            );
             return .{ .allocator = allocator, .data = data, .shape = shape, .strides = strides, .device = device, .device_storage = storage };
         }
 
@@ -10248,13 +10250,10 @@ pub fn Array(comptime T: type) type {
             if (self.pending_matmul != null) return self.materializePendingMatmul();
             var out = try Self.emptyOn(self.allocator, self.shape, self.device);
             errdefer out.deinit();
-            if (self.device.isCpu()) {
-                @memcpy(out.data, self.data);
-            } else if (self.device_storage) |src_storage| {
-                if (out.device_storage) |dst_storage| try axiom_backend.copyStorage(dst_storage, src_storage) else return error.InvalidDevice;
-            } else {
-                return error.InvalidDevice;
-            }
+            try axiom_backend.transferStorage(
+                .{ .device = out.device, .host_bytes = std.mem.sliceAsBytes(out.data), .storage = out.device_storage },
+                .{ .device = self.device, .host_bytes = std.mem.sliceAsBytes(self.data), .storage = self.device_storage },
+            );
             return out;
         }
 
@@ -11122,17 +11121,10 @@ pub fn Array(comptime T: type) type {
 
             var out = try Self.emptyOn(self.allocator, self.shape, device);
             errdefer out.deinit();
-            if (self.device.isCpu() and device.isCuda()) {
-                if (out.device_storage) |storage| try axiom_backend.uploadStorage(storage, std.mem.sliceAsBytes(self.data)) else return error.InvalidDevice;
-            } else if (self.device.isCuda() and device.isCpu()) {
-                if (self.device_storage) |storage| try axiom_backend.downloadStorage(storage, std.mem.sliceAsBytes(out.data)) else return error.InvalidDevice;
-            } else if (self.device.isCuda() and device.isCuda()) {
-                if (self.device_storage) |src_storage| {
-                    if (out.device_storage) |dst_storage| try axiom_backend.copyStorage(dst_storage, src_storage) else return error.InvalidDevice;
-                } else return error.InvalidDevice;
-            } else {
-                return error.InvalidDevice;
-            }
+            try axiom_backend.transferStorage(
+                .{ .device = out.device, .host_bytes = std.mem.sliceAsBytes(out.data), .storage = out.device_storage },
+                .{ .device = self.device, .host_bytes = std.mem.sliceAsBytes(self.data), .storage = self.device_storage },
+            );
             return out;
         }
 
@@ -12283,11 +12275,10 @@ pub fn Array(comptime T: type) type {
                 defer materialized.deinit();
                 return materialized.copyToSlice(out);
             }
-            if (!self.device.isCpu()) {
-                if (self.device_storage) |storage| return axiom_backend.downloadStorage(storage, std.mem.sliceAsBytes(out));
-                return error.InvalidDevice;
-            }
-            @memcpy(out, self.data);
+            try axiom_backend.transferStorage(
+                .{ .device = .cpu, .host_bytes = std.mem.sliceAsBytes(out) },
+                .{ .device = self.device, .host_bytes = std.mem.sliceAsBytes(self.data), .storage = self.device_storage },
+            );
         }
 
         pub fn copy_to_slice(self: Self, out: []T) ArrayError!void {

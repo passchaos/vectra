@@ -75,11 +75,18 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn executeDet(",
     "pub fn executeEigh(",
     "pub fn executeEigvalsh(",
+    "pub fn transferStorage(",
 )
 
 FORBIDDEN_ROOT_TARGET_SPLIT_SNIPPETS = (
     "tryCpuMatmulAdd",
     "tryCudaMatmulAdd",
+)
+
+FORBIDDEN_ARRAY_STORAGE_SPLIT_SNIPPETS = (
+    "axiom_backend.uploadStorage(",
+    "axiom_backend.downloadStorage(",
+    "axiom_backend.copyStorage(",
 )
 
 FORBIDDEN_AXIAL_SNIPPETS = (
@@ -175,6 +182,9 @@ def main() -> int:
         for snippet in FORBIDDEN_DIRECT_ACCELERATOR_SNIPPETS:
             if snippet in text:
                 issues.append({"kind": "direct_accelerator_dispatch_outside_axiom_backend", "path": str(path.relative_to(REPO)), "snippet": snippet})
+        for snippet in FORBIDDEN_ARRAY_STORAGE_SPLIT_SNIPPETS:
+            if snippet in text:
+                issues.append({"kind": "direct_storage_transfer_outside_axiom_backend", "path": str(path.relative_to(REPO)), "snippet": snippet})
 
     row = {
         "kind": "vectra_api_boundary_audit",

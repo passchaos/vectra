@@ -215,6 +215,55 @@ pub fn copyStorage(dst: array_mod.DeviceStorage, src: array_mod.DeviceStorage) a
     };
 }
 
+pub const StorageSource = struct {
+    device: array_mod.Device,
+    host_bytes: []const u8,
+    storage: ?array_mod.DeviceStorage = null,
+};
+
+pub const StorageDestination = struct {
+    device: array_mod.Device,
+    host_bytes: []u8,
+    storage: ?array_mod.DeviceStorage = null,
+};
+
+/// Move array bytes between Vectra host slices and target-owned storage.
+///
+/// `Array` creation/clone/transfer code should hand the desired source and
+/// destination devices to this facade instead of spelling out CPU↔CUDA cases.
+/// That keeps the public array layer target-oriented while this backend module
+/// remains the only place that knows which Axiom runtime ABI currently backs a
+/// target.  MPS deliberately stays unsupported here until Axiom exposes real
+/// Metal/MPS storage semantics.
+pub fn transferStorage(dst: StorageDestination, src: StorageSource) array_mod.ArrayError!void {
+    return switch (executionTargetForDevice(src.device)) {
+        .cpu => switch (executionTargetForDevice(dst.device)) {
+            .cpu => {
+                if (dst.host_bytes.len != src.host_bytes.len) return error.ShapeMismatch;
+                @memcpy(dst.host_bytes, src.host_bytes);
+            },
+            .cuda => {
+                const dst_storage = dst.storage orelse return error.InvalidDevice;
+                try uploadStorage(dst_storage, src.host_bytes);
+            },
+            .mps => error.InvalidDevice,
+        },
+        .cuda => switch (executionTargetForDevice(dst.device)) {
+            .cpu => {
+                const src_storage = src.storage orelse return error.InvalidDevice;
+                try downloadStorage(src_storage, dst.host_bytes);
+            },
+            .cuda => {
+                const src_storage = src.storage orelse return error.InvalidDevice;
+                const dst_storage = dst.storage orelse return error.InvalidDevice;
+                try copyStorage(dst_storage, src_storage);
+            },
+            .mps => error.InvalidDevice,
+        },
+        .mps => error.InvalidDevice,
+    };
+}
+
 threadlocal var default_dialect_backend: DialectBackend = .cpu;
 
 pub fn setDefaultDialectBackend(backend: DialectBackend) void {
