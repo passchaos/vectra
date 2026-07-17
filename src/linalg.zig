@@ -111,7 +111,7 @@ test "linalg inverse det solve" {
     try std.testing.expectApproxEqAbs(@as(f64, 0), ident.data[1], 1e-12);
 }
 
-test "linalg f64 matmul uses Veyra-compatible path" {
+test "linalg f64 matmul uses Axiom-backed path" {
     const gpa = std.testing.allocator;
     var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
@@ -124,7 +124,7 @@ test "linalg f64 matmul uses Veyra-compatible path" {
     try std.testing.expectEqual(@as(f64, 212), try trace(f64, out));
 }
 
-test "linalg matvec and cholesky use Veyra-compatible paths" {
+test "linalg matvec and cholesky use Axiom-backed paths" {
     const gpa = std.testing.allocator;
     var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
@@ -237,7 +237,7 @@ test "linalg singular values rank condition and pinv" {
     try std.testing.expect(try projected.allclose(ident, 1e-10, 1e-10));
 }
 
-test "linalg matrix norms use Veyra-compatible paths" {
+test "linalg matrix norms use Axiom-backed paths" {
     const gpa = std.testing.allocator;
     var a = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, -2, 3, -4, 5, -6 }, &.{ 2, 3 });
     defer a.deinit();

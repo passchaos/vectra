@@ -47,13 +47,13 @@ Current registry summary:
 | Counter | Expected value | Meaning |
 | --- | ---: | --- |
 | `cudaDTypeSupportRecords().len` | 34 | CUDA dtype names mirrored from `cudaDataType_t` in the local CUDA headers |
-| `cudaDTypeNativeSeedCount()` | 1 | `CUDA_R_32F` / `Array(f32)` native Axiom CUDA seed |
+| `cudaDTypeNativeSeedCount()` | 2 | `CUDA_R_32F` / `Array(f32)` and `CUDA_R_64F` / `Array(f64)` native Axiom CUDA seeds |
 | `cudaDTypeWidenedSeedCount()` | 2 | `CUDA_R_16F` / `Array(f16)` and `CUDA_R_16BF` / `Array(BFloat16)` widened-to-f32 CUDA seeds |
-| `cudaDTypeBridgeCount()` | 3 | All current Axiom CUDA-bridged Vectra dtypes |
+| `cudaDTypeBridgeCount()` | 4 | All current Axiom CUDA-bridged Vectra dtypes |
 
 ## Current bridge behavior
 
-- `Array(f32)` is the native CUDA seed path.
+- `Array(f32)` and `Array(f64)` are native CUDA seed paths; f64 currently covers same-shape/scalar elementwise, sqrt/exp, and DGEMM matmul.
 - `Array(f16)` and `Array(BFloat16)` now try Axiom's native typed CUDA
   elementwise runtime seeds for same-shape add/sub/mul/div before falling back to
   widened f32 routes.
@@ -79,8 +79,8 @@ zig build -Daxiom-cuda-expect=ran axiom-cuda-smoke
 zig build axiom-cuda-dispatch-smoke
 ```
 
-The CUDA smoke JSON includes `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`, and
-`bf16_matmul_ok` fields when the CUDA smoke runs. It also includes
+The CUDA smoke JSON includes `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`,
+`bf16_matmul_ok`, `f64_matmul_ok`, and `f64_elementwise_ok` fields when the CUDA smokes run. It also includes
 `f16_native_execution_fingerprint` and `bf16_native_execution_fingerprint` when
 the native typed elementwise seeds run,
 `dtype_support_count`, `dtype_bridge_count`, `dtype_native_seed_count`,
