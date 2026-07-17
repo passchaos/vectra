@@ -21811,31 +21811,10 @@ pub fn Array(comptime T: type) type {
             if (lhs_vec and rhs_vec) return self.dot(other);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (!lhs_vec and !rhs_vec) {
-                    const report = axiom_backend.selectMatmul(T, axiom_backend.defaultBackendPolicy(), self, other);
-                    switch (report.selected) {
-                        .axiom_cuda => if (comptime T == f32) {
-                            const accelerated = try axiom_cuda_backend.tryMatmulF32(self, other);
-                            if (accelerated) |out| return out;
-                        } else if (comptime T == f16 or T == BFloat16) {
-                            const accelerated = try axiom_backend.matmul(T, .prefer_cuda, self, other);
-                            return accelerated;
-                        },
-                        .axiom_cpu_veyra => {
-                            if (comptime T == f32) {
-                                var accelerated = try axiom_cpu_backend.tryMatmulF32(self, other);
-                                if (accelerated) |*out| {
-                                    out.attachCpuMatmulProvenance(self, other);
-                                    return out.*;
-                                }
-                            } else if (comptime T == f64) {
-                                var accelerated = try axiom_cpu_backend.tryMatmulF64(self, other);
-                                if (accelerated) |*out| {
-                                    out.attachCpuMatmulProvenance(self, other);
-                                    return out.*;
-                                }
-                            }
-                        },
-                        .direct_cpu => {},
+                    if (try axiom_backend.executeMatmulDefault(T, self, other)) |accelerated_value| {
+                        var accelerated = accelerated_value;
+                        if (accelerated.device.isCpu()) accelerated.attachCpuMatmulProvenance(self, other);
+                        return accelerated;
                     }
                 }
             }
