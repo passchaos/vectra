@@ -51,6 +51,16 @@ pub const ScalarSide = enum(u8) {
     }
 };
 
+pub const ExecutionUnaryOp = enum(u8) {
+    square,
+    sqrt,
+    exp,
+
+    pub fn label(op: ExecutionUnaryOp) []const u8 {
+        return @tagName(op);
+    }
+};
+
 pub const DialectBackend = axiom.accelerator.DialectBackend;
 pub const DialectMatmulLoweringReport = axiom.accelerator.DialectMatmulLoweringReport;
 pub const DialectMatmulLoweringStatus = axiom.accelerator.DialectMatmulLoweringStatus;
@@ -528,7 +538,7 @@ fn executeCudaMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
 
 pub fn executeUnary(
     comptime T: type,
-    op: DialectUnaryOp,
+    op: ExecutionUnaryOp,
     target: DialectBackend,
     input: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
@@ -540,8 +550,15 @@ pub fn executeUnary(
     };
 }
 
-pub fn executeUnaryDefault(comptime T: type, op: DialectUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+pub fn executeUnaryDefault(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     return executeUnary(T, op, defaultExecutionTarget(), input);
+}
+
+pub fn executeDialectUnaryDefault(comptime T: type, op: DialectUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeUnaryDefault(T, switch (op) {
+        .square => .square,
+        else => return null,
+    }, input);
 }
 
 pub fn executeReduction(
@@ -587,10 +604,11 @@ pub fn executeTransposeDefault(comptime T: type, input: array_mod.Array(T)) arra
     return executeTranspose(T, defaultExecutionTarget(), input);
 }
 
-fn executeCpuUnary(comptime T: type, op: DialectUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     const cpu_op: axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp = switch (op) {
         .square => .square,
-        else => return null,
+        .sqrt => .sqrt,
+        .exp => .exp,
     };
     if (T == f32) {
         var out = try array_mod.Array(f32).empty(input.allocator, input.shape);

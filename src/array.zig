@@ -16865,23 +16865,12 @@ pub fn Array(comptime T: type) type {
                 if (try self.tryPendingUnary(.exp)) |out| return out;
                 return self.runCudaUnaryExp();
             }
-            if (self.device.isCpu() and comptime T == f32) {
-                if (try axiom_cpu_backend.tryExpF32(self)) |out_value| {
-                    var out = out_value;
-                    if (self.cpu_matmul) |pending| {
-                        if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .exp);
-                    }
-                    return out;
+            if (try axiom_backend.executeUnaryDefault(T, .exp, self)) |out_value| {
+                var out = out_value;
+                if (self.cpu_matmul) |pending| {
+                    if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .exp);
                 }
-            }
-            if (self.device.isCpu() and comptime T == f64) {
-                if (try axiom_cpu_backend.tryExpF64(self)) |out_value| {
-                    var out = out_value;
-                    if (self.cpu_matmul) |pending| {
-                        if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .exp);
-                    }
-                    return out;
-                }
+                return out;
             }
             return self.unary(opExp);
         }
@@ -16951,23 +16940,12 @@ pub fn Array(comptime T: type) type {
                 if (try self.tryPendingUnary(.sqrt)) |out| return out;
                 return self.runCudaUnarySqrt();
             }
-            if (self.device.isCpu() and comptime T == f32) {
-                if (try axiom_cpu_backend.trySqrtF32(self)) |out_value| {
-                    var out = out_value;
-                    if (self.cpu_matmul) |pending| {
-                        if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .sqrt);
-                    }
-                    return out;
+            if (try axiom_backend.executeUnaryDefault(T, .sqrt, self)) |out_value| {
+                var out = out_value;
+                if (self.cpu_matmul) |pending| {
+                    if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .sqrt);
                 }
-            }
-            if (self.device.isCpu() and comptime T == f64) {
-                if (try axiom_cpu_backend.trySqrtF64(self)) |out_value| {
-                    var out = out_value;
-                    if (self.cpu_matmul) |pending| {
-                        if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .sqrt);
-                    }
-                    return out;
-                }
+                return out;
             }
             return self.unary(opSqrt);
         }
