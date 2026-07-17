@@ -2122,7 +2122,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn to(self: Self, device: Device) ArrayError!Self {
             if (!device.isAvailable()) return error.InvalidDevice;
-            if (!device.isCpu()) return error.InvalidDevice;
+            if (!axiom_backend.hostFallbackAllowed(device)) return error.InvalidDevice;
             var out = try self.clone();
             out.device = device;
             return out;
