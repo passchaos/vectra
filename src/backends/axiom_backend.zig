@@ -292,26 +292,121 @@ pub fn executeMatmulDefault(comptime T: type, lhs: array_mod.Array(T), rhs: arra
     return executeMatmul(T, defaultExecutionTarget(), lhs, rhs);
 }
 
+fn bufferView(comptime T: type, input: array_mod.Array(T), name: []const u8) ?axiom.accelerator.TensorBufferView {
+    if (input.shape.len != 1 or input.strides.len != 1) return null;
+    const stride = std.math.cast(isize, input.strides[0]) orelse return null;
+    var view = axiom.accelerator.TensorBufferView.strided(name, @intCast(@intFromPtr(input.data.ptr)), input.shape[0], stride);
+    view.element_type = if (T == f32) .f32 else if (T == f64) .f64 else return null;
+    return view;
+}
+
+fn executeCpuDotTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    const lhs_view = bufferView(T, lhs, "lhs") orelse return null;
+    const rhs_view = bufferView(T, rhs, "rhs") orelse return null;
+    if (T == f32) {
+        var value: f32 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetDotF32(.cpu, lhs_view, rhs_view, @as(array_mod.Array(f32), lhs).data, @as(array_mod.Array(f32), rhs).data, &value) catch return null;
+        if (!report.ok()) return null;
+        return @as(array_mod.Array(T), try array_mod.Array(f32).fromSlice(lhs.allocator, &.{value}, &.{}));
+    } else if (T == f64) {
+        var value: f64 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetDotF64(.cpu, lhs_view, rhs_view, @as(array_mod.Array(f64), lhs).data, @as(array_mod.Array(f64), rhs).data, &value) catch return null;
+        if (!report.ok()) return null;
+        return @as(array_mod.Array(T), try array_mod.Array(f64).fromSlice(lhs.allocator, &.{value}, &.{}));
+    }
+    return null;
+}
+
+fn executeCpuMatvecTarget(comptime T: type, matrix: array_mod.Array(T), vector: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    const matrix_view = matrixView(T, matrix, "matrix") orelse return null;
+    const vector_view = bufferView(T, vector, "vector") orelse return null;
+    if (T == f32) {
+        var out = try array_mod.Array(f32).empty(matrix.allocator, &.{matrix.shape[0]});
+        errdefer out.deinit();
+        var out_view = axiom.accelerator.TensorBufferView.contiguous("out", @intCast(@intFromPtr(out.data.ptr)), out.data.len);
+        out_view.element_type = .f32;
+        const report = axiom.accelerator.cpu_veyra.runTargetMatvecF32(.cpu, matrix_view, vector_view, out_view, @as(array_mod.Array(f32), matrix).data, @as(array_mod.Array(f32), vector).data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        var out = try array_mod.Array(f64).empty(matrix.allocator, &.{matrix.shape[0]});
+        errdefer out.deinit();
+        var out_view = axiom.accelerator.TensorBufferView.contiguous("out", @intCast(@intFromPtr(out.data.ptr)), out.data.len);
+        out_view.element_type = .f64;
+        const report = axiom.accelerator.cpu_veyra.runTargetMatvecF64(.cpu, matrix_view, vector_view, out_view, @as(array_mod.Array(f64), matrix).data, @as(array_mod.Array(f64), vector).data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeCpuVecmatTarget(comptime T: type, vector: array_mod.Array(T), matrix: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    const vector_view = bufferView(T, vector, "vector") orelse return null;
+    const matrix_view = matrixView(T, matrix, "matrix") orelse return null;
+    if (T == f32) {
+        var out = try array_mod.Array(f32).empty(vector.allocator, &.{matrix.shape[1]});
+        errdefer out.deinit();
+        var out_view = axiom.accelerator.TensorBufferView.contiguous("out", @intCast(@intFromPtr(out.data.ptr)), out.data.len);
+        out_view.element_type = .f32;
+        const report = axiom.accelerator.cpu_veyra.runTargetVecmatF32(.cpu, vector_view, matrix_view, out_view, @as(array_mod.Array(f32), vector).data, @as(array_mod.Array(f32), matrix).data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        var out = try array_mod.Array(f64).empty(vector.allocator, &.{matrix.shape[1]});
+        errdefer out.deinit();
+        var out_view = axiom.accelerator.TensorBufferView.contiguous("out", @intCast(@intFromPtr(out.data.ptr)), out.data.len);
+        out_view.element_type = .f64;
+        const report = axiom.accelerator.cpu_veyra.runTargetVecmatF64(.cpu, vector_view, matrix_view, out_view, @as(array_mod.Array(f64), vector).data, @as(array_mod.Array(f64), matrix).data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 fn executeCpuMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         const lhs32 = @as(array_mod.Array(f32), lhs);
         const rhs32 = @as(array_mod.Array(f32), rhs);
         if (lhs.shape.len == 1 and rhs.shape.len == 1) {
-            if (try axiom_cpu.tryDotF32(lhs32, rhs32)) |value| return @as(array_mod.Array(T), try array_mod.Array(f32).fromSlice(lhs.allocator, &.{value}, &.{}));
+            if (try executeCpuDotTarget(f32, lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 2 and rhs.shape.len == 1) {
-            if (try axiom_cpu.tryMatvecF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
+            if (try executeCpuMatvecTarget(f32, lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 1 and rhs.shape.len == 2) {
-            if (try axiom_cpu.tryVecmatF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
+            if (try executeCpuVecmatTarget(f32, lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
         } else if (try executeCpuGemmTarget(f32, lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f64) {
         const lhs64 = @as(array_mod.Array(f64), lhs);
         const rhs64 = @as(array_mod.Array(f64), rhs);
         if (lhs.shape.len == 1 and rhs.shape.len == 1) {
-            if (try axiom_cpu.tryDotF64(lhs64, rhs64)) |value| return @as(array_mod.Array(T), try array_mod.Array(f64).fromSlice(lhs.allocator, &.{value}, &.{}));
+            if (try executeCpuDotTarget(f64, lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 2 and rhs.shape.len == 1) {
-            if (try axiom_cpu.tryMatvecF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
+            if (try executeCpuMatvecTarget(f64, lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 1 and rhs.shape.len == 2) {
-            if (try axiom_cpu.tryVecmatF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
+            if (try executeCpuVecmatTarget(f64, lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
         } else if (try executeCpuGemmTarget(f64, lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
