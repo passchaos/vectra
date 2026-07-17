@@ -105,6 +105,18 @@ pub fn defaultBackendPolicy() BackendPolicy {
     };
 }
 
+pub fn defaultExecutionTarget() DialectBackend {
+    return switch (defaultDialectBackend()) {
+        .cpu => .cpu,
+        .cuda => .cuda,
+        // MPS remains a valid dialect-lowering target, but eager execution must
+        // keep a real runtime path until Axiom owns a Metal/MPS storage ABI.
+        // Centralizing the fallback here prevents Array methods from scattering
+        // ad-hoc `.mps -> .cpu` branches.
+        .mps => .cpu,
+    };
+}
+
 pub const BackendReport = struct {
     policy: BackendPolicy = .prefer_cuda,
     selected: BackendRoute = .direct_cpu,
@@ -260,6 +272,113 @@ fn dialectElement(comptime T: type) ?axiom.linalg_dialect.Element {
         .bf16
     else
         null;
+}
+
+pub fn executeUnary(
+    comptime T: type,
+    op: DialectUnaryOp,
+    target: DialectBackend,
+    input: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedUnaryExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuUnary(T, op, input),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeUnaryDefault(comptime T: type, op: DialectUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeUnary(T, op, defaultExecutionTarget(), input);
+}
+
+pub fn executeReduction(
+    comptime T: type,
+    op: DialectReductionOp,
+    target: DialectBackend,
+    input: array_mod.Array(T),
+    axis: u1,
+    keepdims: bool,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedReduction2d(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuReduction(T, op, input, axis, keepdims),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeReductionDefault(
+    comptime T: type,
+    op: DialectReductionOp,
+    input: array_mod.Array(T),
+    axis: u1,
+    keepdims: bool,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeReduction(T, op, defaultExecutionTarget(), input, axis, keepdims);
+}
+
+pub fn executeTranspose(
+    comptime T: type,
+    target: DialectBackend,
+    input: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedUnary2d(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuTranspose(T, input),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeTransposeDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeTranspose(T, defaultExecutionTarget(), input);
+}
+
+fn executeCpuUnary(comptime T: type, op: DialectUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (op != .square) return null;
+    if (T == f32) {
+        if (try axiom_cpu.trySquareF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cpu.trySquareF64(@as(array_mod.Array(f64), input))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeCpuReduction(
+    comptime T: type,
+    op: DialectReductionOp,
+    input: array_mod.Array(T),
+    axis: u1,
+    keepdims: bool,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        const maybe = switch (op) {
+            .sum => try axiom_cpu.trySumF32(@as(array_mod.Array(f32), input), axis, keepdims),
+            .prod => try axiom_cpu.tryProdF32(@as(array_mod.Array(f32), input), axis, keepdims),
+            .min => try axiom_cpu.tryMinF32(@as(array_mod.Array(f32), input), axis, keepdims),
+            .max => try axiom_cpu.tryMaxF32(@as(array_mod.Array(f32), input), axis, keepdims),
+        };
+        if (maybe) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        const maybe = switch (op) {
+            .sum => try axiom_cpu.trySumF64(@as(array_mod.Array(f64), input), axis, keepdims),
+            .prod => try axiom_cpu.tryProdF64(@as(array_mod.Array(f64), input), axis, keepdims),
+            .min => try axiom_cpu.tryMinF64(@as(array_mod.Array(f64), input), axis, keepdims),
+            .max => try axiom_cpu.tryMaxF64(@as(array_mod.Array(f64), input), axis, keepdims),
+        };
+        if (maybe) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_cpu.tryTransposeF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cpu.tryTransposeF64(@as(array_mod.Array(f64), input))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
 }
 
 pub fn selectMatmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) BackendReport {
@@ -475,6 +594,13 @@ fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
 
 fn supportedUnary2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
+}
+
+fn supportedUnaryExecution(comptime T: type, input: array_mod.Array(T)) bool {
+    return (T == f32 or T == f64) and
+        input.device.isCpu() and
+        input.data.len != 0 and
+        input.isContiguous();
 }
 
 fn supportedBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
