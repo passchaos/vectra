@@ -13,10 +13,26 @@ pub fn main(init: std.process.Init) !void {
     const default_cuda_policy = vx.axiom_backend.defaultBackendPolicy();
     vx.setDefaultDialectBackend(.mps);
     const default_mps_policy = vx.axiom_backend.defaultBackendPolicy();
+    const default_mps_execution_target = vx.defaultExecutionTarget();
     vx.resetDefaultDialectBackend();
     const report = vx.axiom_backend.selectMatmul(f32, .prefer_cuda, a, b);
     var out = try vx.axiom_backend.matmul(f32, vx.axiom_backend.defaultBackendPolicy(), a, b);
     defer out.deinit();
+    vx.resetDefaultDialectBackend();
+    var eager_cpu = try a.matmul(b);
+    defer eager_cpu.deinit();
+    vx.setDefaultDialectBackend(.cuda);
+    const default_cuda_execution_target = vx.defaultExecutionTarget();
+    var eager_cuda_default = try a.matmul(b);
+    defer eager_cuda_default.deinit();
+    vx.setDefaultDialectBackend(.mps);
+    const default_mps_fallback_execution_target = vx.defaultExecutionTarget();
+    var eager_mps_default = try a.matmul(b);
+    defer eager_mps_default.deinit();
+    const cpu_device_target = vx.executionTargetForDevice(vx.cpu);
+    const cuda_device_target = vx.executionTargetForDevice(vx.cuda(0));
+    const mps_device_target = vx.executionTargetForDevice(vx.mps(0));
+    vx.resetDefaultDialectBackend();
     var lhs32 = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3, 4 }, &.{4});
     defer lhs32.deinit();
     var rhs32 = try vx.Array(f32).fromSlice(allocator, &.{ 10, 20, 30, 40 }, &.{4});
@@ -44,12 +60,21 @@ pub fn main(init: std.process.Init) !void {
     const default_policy_ok = default_cpu_policy == .prefer_axiom_cpu and
         default_cuda_policy == .prefer_cuda and
         default_mps_policy == .prefer_axiom_cpu;
-    const ok = matmul_ok and elementwise_ok and scalar_ok and default_policy_ok;
+    const dynamic_execution_ok = default_cuda_execution_target == .cuda and
+        default_mps_execution_target == .cpu and
+        default_mps_fallback_execution_target == .cpu and
+        cpu_device_target == .cpu and
+        cuda_device_target == .cuda and
+        mps_device_target == .mps and
+        equalF32(eager_cpu.data, &.{ 58, 64, 139, 154 }) and
+        equalF32(eager_cuda_default.data, eager_cpu.data) and
+        equalF32(eager_mps_default.data, eager_cpu.data);
+    const ok = matmul_ok and elementwise_ok and scalar_ok and default_policy_ok and dynamic_execution_ok;
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"default_policy_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d}}}\n",
-        .{ ok, matmul_ok, elementwise_ok, scalar_ok, default_policy_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), scalar64_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint() },
+        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d}}}\n",
+        .{ ok, matmul_ok, elementwise_ok, scalar_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), scalar64_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint() },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
