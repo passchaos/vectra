@@ -656,6 +656,44 @@ pub fn executeSolveDefault(comptime T: type, matrix: array_mod.Array(T), rhs: ar
     return executeSolve(T, defaultExecutionTarget(), matrix, rhs);
 }
 
+pub fn executeCholesky(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedSquareMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuCholesky(T, input),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeCholeskyDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeCholesky(T, defaultExecutionTarget(), input);
+}
+
+fn executeCpuCholesky(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    const out_view = matrixView(T, out, "out") orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetCholeskyF32(.cpu, matrix_view, out_view, @as(array_mod.Array(f32), input).data, @as(array_mod.Array(f32), out).data) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetCholeskyF64(.cpu, matrix_view, out_view, @as(array_mod.Array(f64), input).data, @as(array_mod.Array(f64), out).data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 fn executeCpuSolve(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     const matrix_view = matrixView(T, matrix, "matrix") orelse return null;
     const rhs_view = matrixOrVectorColumnView(T, rhs, "rhs") orelse return null;
