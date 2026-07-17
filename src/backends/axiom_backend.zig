@@ -1812,6 +1812,9 @@ fn executeCudaElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Ar
         }
     } else if (T == f64) {
         if (try axiom_cuda.tryDeviceBinaryF64(cuda_op, @as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs))) |out| return @as(array_mod.Array(T), out);
+        if (lhs.device.isCpu()) {
+            if (try axiom_cuda.tryBinaryF64(cuda_op, @as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs))) |out| return @as(array_mod.Array(T), out);
+        }
     } else if (T == array_mod.BFloat16) {
         if (try axiom_cuda.tryDeviceBinaryBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
         if (lhs.device.isCpu()) {

@@ -2549,6 +2549,29 @@ fn tryBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f3
     return out;
 }
 
+pub fn tryBinaryF64(op: BinaryOp, lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!supportedSameShapeContiguousF64(lhs, rhs)) return null;
+    var out = try array_mod.Array(f64).empty(lhs.allocator, lhs.shape);
+    errdefer out.deinit();
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const result = runtime.runTensorElementwiseBinaryF64Native(lhs.data, rhs.data, out.data, .{
+        .op = axiomBinaryOp(op),
+        .len = lhs.data.len,
+        .kernel_symbol = switch (op) {
+            .add => "vectra_axiom_f64_add",
+            .sub => "vectra_axiom_f64_sub",
+            .mul => "vectra_axiom_f64_mul",
+            .div => "vectra_axiom_f64_div",
+        },
+    }) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => return null,
+    };
+    if (!result.ok()) return null;
+    return out;
+}
+
 fn axiomBinaryOp(op: BinaryOp) axiom.accelerator.TensorBinaryElementwiseOp {
     return switch (op) {
         .add => .add,
@@ -2647,6 +2670,12 @@ fn supportedSameShapeContiguous(lhs: array_mod.Array(f32), rhs: array_mod.Array(
         lhs.sameShape(rhs);
 }
 
+fn supportedSameShapeContiguousF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) bool {
+    return supportedNonEmptyContiguousF64(lhs) and
+        supportedNonEmptyContiguousF64(rhs) and
+        lhs.sameShape(rhs);
+}
+
 fn supportedSameShapeContiguousF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) bool {
     return supportedNonEmptyContiguousF16(lhs) and
         supportedNonEmptyContiguousF16(rhs) and
@@ -2660,6 +2689,10 @@ fn supportedSameShapeContiguousBF16(lhs: array_mod.Array(BFloat16), rhs: array_m
 }
 
 fn supportedNonEmptyContiguous(input: array_mod.Array(f32)) bool {
+    return input.device.isCpu() and input.data.len != 0 and input.isContiguous();
+}
+
+fn supportedNonEmptyContiguousF64(input: array_mod.Array(f64)) bool {
     return input.device.isCpu() and input.data.len != 0 and input.isContiguous();
 }
 
