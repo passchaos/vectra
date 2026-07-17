@@ -548,9 +548,47 @@ fn executeCpuReduction(
 
 fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
-        if (try axiom_cpu.tryTransposeF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+        const input32 = @as(array_mod.Array(f32), input);
+        var out = try array_mod.Array(f32).empty(input.allocator, &.{ input.shape[1], input.shape[0] });
+        errdefer out.deinit();
+        const matrix_view = matrixView(f32, input32, "input") orelse {
+            out.deinit();
+            return null;
+        };
+        const out_view = matrixView(f32, out, "out") orelse {
+            out.deinit();
+            return null;
+        };
+        const report = axiom.accelerator.cpu_veyra.runTargetTransposeF32(.cpu, matrix_view, out_view, input32.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
     } else if (T == f64) {
-        if (try axiom_cpu.tryTransposeF64(@as(array_mod.Array(f64), input))) |out| return @as(array_mod.Array(T), out);
+        const input64 = @as(array_mod.Array(f64), input);
+        var out = try array_mod.Array(f64).empty(input.allocator, &.{ input.shape[1], input.shape[0] });
+        errdefer out.deinit();
+        const matrix_view = matrixView(f64, input64, "input") orelse {
+            out.deinit();
+            return null;
+        };
+        const out_view = matrixView(f64, out, "out") orelse {
+            out.deinit();
+            return null;
+        };
+        const report = axiom.accelerator.cpu_veyra.runTargetTransposeF64(.cpu, matrix_view, out_view, input64.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
     }
     return null;
 }
