@@ -497,6 +497,10 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
 }
 
 fn executeCpuGemmAddTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeCpuGemmScaledTarget(T, lhs, rhs, addend, 1.0, 1.0);
+}
+
+fn executeCpuGemmScaledTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
     if (lhs.shape.len != 2 or rhs.shape.len != 2 or addend.shape.len != 2) return null;
     const m = lhs.shape[0];
     const k = lhs.shape[1];
@@ -508,7 +512,8 @@ fn executeCpuGemmAddTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array
         .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
         .rowMajor("out", @intCast(@intFromPtr(out.data.ptr)), m, n),
     );
-    spec.beta = 1.0;
+    spec.alpha = alpha;
+    spec.beta = beta;
     const report = if (T == f32)
         axiom.accelerator.cpu_veyra.runTargetGemmF32(.cpu, spec, @as(array_mod.Array(f32), lhs).data, @as(array_mod.Array(f32), rhs).data, @as(array_mod.Array(f32), addend).data, @as(array_mod.Array(f32), out).data) catch {
             out.deinit();
@@ -555,6 +560,27 @@ pub fn executeMatmulAdd(
 
 pub fn executeMatmulAddDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     return executeMatmulAdd(T, defaultExecutionTarget(), lhs, rhs, addend);
+}
+
+pub fn executeMatmulAddScaled(
+    comptime T: type,
+    target: DialectBackend,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    addend: array_mod.Array(T),
+    alpha: f32,
+    beta: f32,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedMatmulAddExecution(T, lhs, rhs, addend)) return null;
+    return switch (target) {
+        .cpu => executeCpuGemmScaledTarget(T, lhs, rhs, addend, alpha, beta),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeMatmulAddScaledDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeMatmulAddScaled(T, defaultExecutionTarget(), lhs, rhs, addend, alpha, beta);
 }
 
 fn executeCpuMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {

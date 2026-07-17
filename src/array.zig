@@ -15604,36 +15604,11 @@ pub fn Array(comptime T: type) type {
                 .strides = &rhs_strides,
                 .device = .cpu,
             };
-            if (comptime op == opAdd) {
-                if (comptime T == f32) {
-                    if (try axiom_cpu_backend.tryMatmulAddF32(lhs_array, rhs_array, other)) |out_value| {
-                        var out = out_value;
-                        out.attachCpuMatmulDerived(pending, 1.0, 1.0);
-                        return out;
-                    }
-                } else {
-                    if (try axiom_cpu_backend.tryMatmulAddF64(lhs_array, rhs_array, other)) |out_value| {
-                        var out = out_value;
-                        out.attachCpuMatmulDerived(pending, 1.0, 1.0);
-                        return out;
-                    }
-                }
-            } else {
-                var neg_addend = try other.neg();
-                defer neg_addend.deinit();
-                if (comptime T == f32) {
-                    if (try axiom_cpu_backend.tryMatmulAddF32(lhs_array, rhs_array, neg_addend)) |out_value| {
-                        var out = out_value;
-                        out.attachCpuMatmulDerived(pending, 1.0, -1.0);
-                        return out;
-                    }
-                } else {
-                    if (try axiom_cpu_backend.tryMatmulAddF64(lhs_array, rhs_array, neg_addend)) |out_value| {
-                        var out = out_value;
-                        out.attachCpuMatmulDerived(pending, 1.0, -1.0);
-                        return out;
-                    }
-                }
+            const beta_value: f32 = if (comptime op == opAdd) 1.0 else -1.0;
+            if (try axiom_backend.executeMatmulAddScaledDefault(T, lhs_array, rhs_array, other, 1.0, beta_value)) |out_value| {
+                var out = out_value;
+                out.attachCpuMatmulDerived(pending, 1.0, beta_value);
+                return out;
             }
             return null;
         }
@@ -15662,18 +15637,10 @@ pub fn Array(comptime T: type) type {
                 .strides = &rhs_strides,
                 .device = .cpu,
             };
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryMatmulAddScaledF32(lhs_array, rhs_array, other, -1.0, 1.0)) |out_value| {
-                    var out = out_value;
-                    out.attachCpuMatmulDerived(pending, -1.0, 1.0);
-                    return out;
-                }
-            } else {
-                if (try axiom_cpu_backend.tryMatmulAddScaledF64(lhs_array, rhs_array, other, -1.0, 1.0)) |out_value| {
-                    var out = out_value;
-                    out.attachCpuMatmulDerived(pending, -1.0, 1.0);
-                    return out;
-                }
+            if (try axiom_backend.executeMatmulAddScaledDefault(T, lhs_array, rhs_array, other, -1.0, 1.0)) |out_value| {
+                var out = out_value;
+                out.attachCpuMatmulDerived(pending, -1.0, 1.0);
+                return out;
             }
             return null;
         }
