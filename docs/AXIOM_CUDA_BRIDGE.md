@@ -117,8 +117,11 @@ where Vectra still has a non-Axiom generic implementation.
   CPU f32/f64 square, scalar/one-element scalar-broadcast, CPU f32/f64 2D axis reductions
   (`sum/prod/min/max`), CPU f32/f64 2D transpose, and contiguous 2D matmul for the dtypes
   listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).
-- General broadcast lowering, CUDA reductions, softmax, random CUDA creation, and
-  CUDA view storage are not exposed yet.
+- General broadcast lowering, CUDA reduction eager execution, softmax, random CUDA creation, and
+  CUDA view storage are not exposed yet. CUDA reduction dialect lowering is visible through
+  `vx.axiom_backend.lowerReductionDialect(...)`, but
+  `vx.axiom_backend.reductionRuntimeCapability(.cuda)` reports `lowering_only` until
+  Axiom exposes an eager reduction runtime ABI.
 - f16 and BFloat16 matmul call Axiom typed SIMT GEMM seed entry points, which
   report typed launch/readiness metadata while using widened f32 compute today.
 - f64 CUDA same-shape/scalar elementwise, sqrt/exp, matmul, and matmulAdd/fusion

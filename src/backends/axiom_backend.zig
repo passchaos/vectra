@@ -150,6 +150,36 @@ pub const DialectTransposeLoweringStatus = axiom.accelerator.DialectTransposeLow
 pub const MpsRuntimeAbiStatus = axiom.accelerator.MpsRuntimeAbiStatus;
 pub const MpsRuntimeAbiReport = axiom.accelerator.MpsRuntimeAbiReport;
 
+pub const RuntimeCapabilityStatus = enum(u8) {
+    unavailable,
+    lowering_only,
+    executable,
+
+    pub fn label(status: RuntimeCapabilityStatus) []const u8 {
+        return @tagName(status);
+    }
+};
+
+pub const RuntimeCapabilityReport = struct {
+    target: DialectBackend,
+    operation: []const u8,
+    status: RuntimeCapabilityStatus,
+    reason: []const u8,
+
+    pub fn executable(report: RuntimeCapabilityReport) bool {
+        return report.status == .executable;
+    }
+
+    pub fn fingerprint(report: RuntimeCapabilityReport) u64 {
+        var hasher = std.hash.Wyhash.init(0x0c0a_b17e_0001);
+        hashBytes(&hasher, @tagName(report.target));
+        hashBytes(&hasher, report.operation);
+        hashBytes(&hasher, report.status.label());
+        hashBytes(&hasher, report.reason);
+        return hasher.final();
+    }
+};
+
 pub fn mpsDeviceReport(index: usize) MpsRuntimeAbiReport {
     return axiom.accelerator.mpsDeviceReport(index);
 }
@@ -445,6 +475,29 @@ pub fn lowerReductionDialect(comptime T: type, input: array_mod.Array(T), op: Di
 
 pub fn lowerReductionDialectDefault(comptime T: type, input: array_mod.Array(T), op: DialectReductionOp, axis: u1) array_mod.ArrayError!DialectReductionLoweringReport {
     return lowerReductionDialect(T, input, op, axis, defaultDialectBackend());
+}
+
+pub fn reductionRuntimeCapability(target: DialectBackend) RuntimeCapabilityReport {
+    return switch (target) {
+        .cpu => .{
+            .target = target,
+            .operation = "reduction",
+            .status = .executable,
+            .reason = "Axiom CPU reduction runtime is routed through Veyra for contiguous f32/f64 2D axis reductions.",
+        },
+        .cuda => .{
+            .target = target,
+            .operation = "reduction",
+            .status = .lowering_only,
+            .reason = "Axiom CUDA linalg/schedule/vector/gpu reduction lowering exists, but no eager CUDA reduction runtime ABI is exposed to Vectra yet.",
+        },
+        .mps => .{
+            .target = target,
+            .operation = "reduction",
+            .status = .unavailable,
+            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
+        },
+    };
 }
 
 pub fn lowerBroadcastAddDialect(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis, backend: DialectBackend) array_mod.ArrayError!DialectBroadcastLoweringReport {
@@ -1011,6 +1064,7 @@ pub fn executeReduction(
     keepdims: bool,
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!supportedReduction2d(T, input)) return null;
+    if (!reductionRuntimeCapability(target).executable()) return null;
     return switch (target) {
         .cpu => executeCpuReduction(T, op, input, axis, keepdims),
         .cuda => null,
