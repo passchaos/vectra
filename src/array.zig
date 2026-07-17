@@ -21790,34 +21790,15 @@ pub fn Array(comptime T: type) type {
                 return error.TypeUnsupported;
             }
 
-            if (comptime T == f32) {
-                if (lhs_vec and rhs_vec) {
-                    if (try axiom_cpu_backend.tryDotF32(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
-                } else if (!lhs_vec and rhs_vec) {
-                    if (try axiom_cpu_backend.tryMatvecF32(self, other)) |out| return out;
-                } else if (lhs_vec and !rhs_vec) {
-                    if (try axiom_cpu_backend.tryVecmatF32(self, other)) |out| return out;
-                }
-            } else if (comptime T == f64) {
-                if (lhs_vec and rhs_vec) {
-                    if (try axiom_cpu_backend.tryDotF64(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
-                } else if (!lhs_vec and rhs_vec) {
-                    if (try axiom_cpu_backend.tryMatvecF64(self, other)) |out| return out;
-                } else if (lhs_vec and !rhs_vec) {
-                    if (try axiom_cpu_backend.tryVecmatF64(self, other)) |out| return out;
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (try axiom_backend.executeMatmulDefault(T, self, other)) |accelerated_value| {
+                    var accelerated = accelerated_value;
+                    if (accelerated.device.isCpu() and !lhs_vec and !rhs_vec) accelerated.attachCpuMatmulProvenance(self, other);
+                    return accelerated;
                 }
             }
 
             if (lhs_vec and rhs_vec) return self.dot(other);
-            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (!lhs_vec and !rhs_vec) {
-                    if (try axiom_backend.executeMatmulDefault(T, self, other)) |accelerated_value| {
-                        var accelerated = accelerated_value;
-                        if (accelerated.device.isCpu()) accelerated.attachCpuMatmulProvenance(self, other);
-                        return accelerated;
-                    }
-                }
-            }
             if (comptime T == f64) {
                 if (!lhs_vec and rhs_vec and
                     self.shape.len == 2 and other.shape.len == 1 and

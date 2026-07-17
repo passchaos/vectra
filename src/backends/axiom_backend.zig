@@ -280,7 +280,7 @@ pub fn executeMatmul(
     lhs: array_mod.Array(T),
     rhs: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    if (!supportedMatmul2d(T, lhs, rhs)) return null;
+    if (!supportedMatmulExecution(T, lhs, rhs)) return null;
     return switch (target) {
         .cpu => executeCpuMatmul(T, lhs, rhs),
         .cuda => executeCudaMatmul(T, lhs, rhs),
@@ -294,14 +294,31 @@ pub fn executeMatmulDefault(comptime T: type, lhs: array_mod.Array(T), rhs: arra
 
 fn executeCpuMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
-        if (try axiom_cpu.tryMatmulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+        const lhs32 = @as(array_mod.Array(f32), lhs);
+        const rhs32 = @as(array_mod.Array(f32), rhs);
+        if (lhs.shape.len == 1 and rhs.shape.len == 1) {
+            if (try axiom_cpu.tryDotF32(lhs32, rhs32)) |value| return @as(array_mod.Array(T), try array_mod.Array(f32).fromSlice(lhs.allocator, &.{value}, &.{}));
+        } else if (lhs.shape.len == 2 and rhs.shape.len == 1) {
+            if (try axiom_cpu.tryMatvecF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
+        } else if (lhs.shape.len == 1 and rhs.shape.len == 2) {
+            if (try axiom_cpu.tryVecmatF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
+        } else if (try axiom_cpu.tryMatmulF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f64) {
-        if (try axiom_cpu.tryMatmulF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs))) |out| return @as(array_mod.Array(T), out);
+        const lhs64 = @as(array_mod.Array(f64), lhs);
+        const rhs64 = @as(array_mod.Array(f64), rhs);
+        if (lhs.shape.len == 1 and rhs.shape.len == 1) {
+            if (try axiom_cpu.tryDotF64(lhs64, rhs64)) |value| return @as(array_mod.Array(T), try array_mod.Array(f64).fromSlice(lhs.allocator, &.{value}, &.{}));
+        } else if (lhs.shape.len == 2 and rhs.shape.len == 1) {
+            if (try axiom_cpu.tryMatvecF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
+        } else if (lhs.shape.len == 1 and rhs.shape.len == 2) {
+            if (try axiom_cpu.tryVecmatF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
+        } else if (try axiom_cpu.tryMatmulF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
 
 fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (lhs.shape.len != 2 or rhs.shape.len != 2) return null;
     if (T == f32) {
         if (try axiom_cuda.tryMatmulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
@@ -624,6 +641,20 @@ fn directMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(
 
 fn supportedMatmul2d(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     return lhs.device.isCpu() and rhs.device.isCpu() and lhs.shape.len == 2 and rhs.shape.len == 2 and lhs.shape[1] == rhs.shape[0] and lhs.isContiguous() and rhs.isContiguous();
+}
+
+fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
+    if (!lhs.device.sameDevice(rhs.device) or !lhs.isContiguous() or !rhs.isContiguous()) return false;
+    if (lhs.shape.len == 0 or rhs.shape.len == 0) return false;
+    const lhs_k = lhs.shape[lhs.shape.len - 1];
+    const rhs_k = if (rhs.shape.len == 1) rhs.shape[0] else rhs.shape[rhs.shape.len - 2];
+    if (lhs_k != rhs_k) return false;
+    if (lhs.device.isCpu()) {
+        return (T == f32 or T == f64) and
+            (lhs.shape.len == 1 or lhs.shape.len == 2) and
+            (rhs.shape.len == 1 or rhs.shape.len == 2);
+    }
+    return lhs.device.isCuda() and lhs.shape.len == 2 and rhs.shape.len == 2 and (T == f32 or T == f16 or T == array_mod.BFloat16);
 }
 
 fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
