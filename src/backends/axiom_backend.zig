@@ -751,6 +751,33 @@ pub fn executeMatmulAddScaledDefault(comptime T: type, lhs: array_mod.Array(T), 
     return executeMatmulAddScaled(T, defaultTargetForDevice(lhs.device), lhs, rhs, addend, alpha, beta);
 }
 
+pub fn planPendingMatmul(
+    comptime T: type,
+    target: DialectBackend,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+) array_mod.ArrayError!?PendingMatmulSpec {
+    if (target != .cuda or executionTargetForDevice(lhs.device) != .cuda) return null;
+    if (!supportedMatmulExecution(T, lhs, rhs)) return null;
+    if (lhs.shape.len != 2 or rhs.shape.len != 2) return null;
+    const lhs_storage = lhs.device_storage orelse return error.InvalidDevice;
+    const rhs_storage = rhs.device_storage orelse return error.InvalidDevice;
+    return .{
+        .lhs_storage = lhs_storage,
+        .rhs_storage = rhs_storage,
+        .lhs_shape = .{ lhs.shape[0], lhs.shape[1] },
+        .rhs_shape = .{ rhs.shape[0], rhs.shape[1] },
+    };
+}
+
+pub fn planPendingMatmulDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?PendingMatmulSpec {
+    return planPendingMatmul(T, defaultTargetForDevice(lhs.device), lhs, rhs);
+}
+
+pub fn hostFallbackAllowed(device: array_mod.Device) bool {
+    return executionTargetForDevice(device) == .cpu;
+}
+
 pub fn executePendingMatmul(
     comptime T: type,
     target: DialectBackend,

@@ -14966,10 +14966,9 @@ pub fn Array(comptime T: type) type {
             }
         }
 
-        fn pendingCudaMatmul(lhs: Self, rhs: Self, out_shape: []const usize) ArrayError!Self {
-            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return error.TypeUnsupported;
-            const lhs_storage = lhs.device_storage orelse return error.InvalidDevice;
-            const rhs_storage = rhs.device_storage orelse return error.InvalidDevice;
+        fn pendingAxiomMatmul(lhs: Self, rhs: Self, out_shape: []const usize) ArrayError!?Self {
+            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
+            const pending = (try axiom_backend.planPendingMatmulDefault(T, lhs, rhs)) orelse return null;
             const shape = try lhs.allocator.dupe(usize, out_shape);
             errdefer lhs.allocator.free(shape);
             const strides = try stridesFor(lhs.allocator, shape);
@@ -14983,10 +14982,13 @@ pub fn Array(comptime T: type) type {
                 .device = lhs.device,
                 .device_storage = null,
                 .pending_matmul = .{
-                    .lhs_storage = lhs_storage,
-                    .rhs_storage = rhs_storage,
-                    .lhs_shape = .{ lhs.shape[0], lhs.shape[1] },
-                    .rhs_shape = .{ rhs.shape[0], rhs.shape[1] },
+                    .lhs_storage = pending.lhs_storage,
+                    .rhs_storage = pending.rhs_storage,
+                    .add_storage = pending.add_storage,
+                    .lhs_shape = pending.lhs_shape,
+                    .rhs_shape = pending.rhs_shape,
+                    .alpha = pending.alpha,
+                    .beta = pending.beta,
                 },
             };
         }
@@ -21202,9 +21204,8 @@ pub fn Array(comptime T: type) type {
             if (lhs_k != rhs_k) return error.ShapeMismatch;
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (self.device.isCuda()) {
-                    if (lhs_vec or rhs_vec) return error.TypeUnsupported;
-                    return try Self.pendingCudaMatmul(self, other, &.{ self.shape[0], other.shape[1] });
+                if (!lhs_vec and !rhs_vec) {
+                    if (try Self.pendingAxiomMatmul(self, other, &.{ self.shape[0], other.shape[1] })) |pending_out| return pending_out;
                 }
                 if (try axiom_backend.executeMatmulDefault(T, self, other)) |accelerated_value| {
                     var accelerated = accelerated_value;
@@ -21212,6 +21213,7 @@ pub fn Array(comptime T: type) type {
                     return accelerated;
                 }
             }
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.TypeUnsupported;
 
             if (lhs_vec and rhs_vec) return self.dot(other);
             const lhs_batch = if (lhs_vec) self.shape[0..0] else self.shape[0 .. self.shape.len - 2];

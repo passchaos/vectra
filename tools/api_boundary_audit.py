@@ -76,11 +76,17 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn executeEigh(",
     "pub fn executeEigvalsh(",
     "pub fn transferStorage(",
+    "pub fn planPendingMatmul(",
+    "pub fn hostFallbackAllowed(",
 )
 
 FORBIDDEN_ROOT_TARGET_SPLIT_SNIPPETS = (
     "tryCpuMatmulAdd",
     "tryCudaMatmulAdd",
+)
+
+FORBIDDEN_ARRAY_TARGET_SPLIT_SNIPPETS = (
+    "pendingCudaMatmul",
 )
 
 FORBIDDEN_ARRAY_STORAGE_SPLIT_SNIPPETS = (
@@ -179,6 +185,9 @@ def main() -> int:
 
     for path in TARGET_FACADE_CLIENT_FILES:
         text = read(path)
+        for snippet in FORBIDDEN_ARRAY_TARGET_SPLIT_SNIPPETS:
+            if snippet in text:
+                issues.append({"kind": "target_split_array_helper", "path": str(path.relative_to(REPO)), "snippet": snippet})
         for snippet in FORBIDDEN_DIRECT_ACCELERATOR_SNIPPETS:
             if snippet in text:
                 issues.append({"kind": "direct_accelerator_dispatch_outside_axiom_backend", "path": str(path.relative_to(REPO)), "snippet": snippet})
