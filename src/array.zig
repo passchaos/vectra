@@ -10551,10 +10551,8 @@ pub fn Array(comptime T: type) type {
             if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
             if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
             if (rhs.shape[0] != self.shape[0]) return error.ShapeMismatch;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.trySolveF32(self, rhs)) |out| return out;
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.trySolveF64(self, rhs)) |out| return out;
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeSolveDefault(T, self, rhs)) |out| return out;
             }
             if (comptime T == f64) {
                 var matrix = try self.toVeyraMatrixF64();

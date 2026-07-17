@@ -643,6 +643,46 @@ pub fn executeInverseDefault(comptime T: type, input: array_mod.Array(T)) array_
     return executeInverse(T, defaultExecutionTarget(), input);
 }
 
+pub fn executeSolve(comptime T: type, target: DialectBackend, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedSolveExecution(T, matrix, rhs)) return null;
+    return switch (target) {
+        .cpu => executeCpuSolve(T, matrix, rhs),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeSolveDefault(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeSolve(T, defaultExecutionTarget(), matrix, rhs);
+}
+
+fn executeCpuSolve(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    const matrix_view = matrixView(T, matrix, "matrix") orelse return null;
+    const rhs_view = matrixOrVectorColumnView(T, rhs, "rhs") orelse return null;
+    const out_shape = if (rhs.shape.len == 1) rhs.shape else &.{ matrix.shape[1], rhs.shape[1] };
+    var out = try array_mod.Array(T).empty(matrix.allocator, out_shape);
+    errdefer out.deinit();
+    const out_view = matrixOrVectorColumnView(T, out, "out") orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetSolveF32(.cpu, matrix_view, rhs_view, out_view, @as(array_mod.Array(f32), matrix).data, @as(array_mod.Array(f32), rhs).data, @as(array_mod.Array(f32), out).data) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetSolveF64(.cpu, matrix_view, rhs_view, out_view, @as(array_mod.Array(f64), matrix).data, @as(array_mod.Array(f64), rhs).data, @as(array_mod.Array(f64), out).data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 fn executeCpuInverse(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     const matrix_view = matrixView(T, input, "input") orelse return null;
     var out = try array_mod.Array(T).empty(input.allocator, input.shape);
@@ -746,6 +786,15 @@ fn matrixView(comptime T: type, input: array_mod.Array(T), name: []const u8) ?ax
         row_stride,
         col_stride,
     );
+    view.element_type = if (T == f32) .f32 else if (T == f64) .f64 else return null;
+    return view;
+}
+
+fn matrixOrVectorColumnView(comptime T: type, input: array_mod.Array(T), name: []const u8) ?axiom.accelerator.TensorMatrixView {
+    if (input.shape.len == 2) return matrixView(T, input, name);
+    if (input.shape.len != 1 or input.strides.len != 1) return null;
+    const row_stride = std.math.cast(isize, input.strides[0]) orelse return null;
+    var view = axiom.accelerator.TensorMatrixView.strided(name, @intCast(@intFromPtr(input.data.ptr)), input.shape[0], 1, row_stride, 1);
     view.element_type = if (T == f32) .f32 else if (T == f64) .f64 else return null;
     return view;
 }
@@ -1186,6 +1235,16 @@ fn supportedSquareMatrixExecution(comptime T: type, input: array_mod.Array(T)) b
         input.shape.len == 2 and
         input.shape[0] == input.shape[1] and
         input.isContiguous();
+}
+
+fn supportedSolveExecution(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
+    const rhs_rank_ok = rhs.shape.len == 1 or rhs.shape.len == 2;
+    return supportedSquareMatrixExecution(T, matrix) and
+        rhs.device.isCpu() and
+        rhs_rank_ok and
+        rhs.shape[0] == matrix.shape[0] and
+        rhs.data.len != 0 and
+        rhs.isContiguous();
 }
 
 fn supportedUnaryExecution(comptime T: type, input: array_mod.Array(T)) bool {
