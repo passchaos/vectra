@@ -13204,6 +13204,7 @@ pub fn Array(comptime T: type) type {
         pub fn transpose(self: Self) ArrayError!Self {
             if (self.shape.len != 2) return error.NonMatrixArray;
             if (try axiom_backend.executeTransposeDefault(T, self)) |out| return out;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             const rows = self.shape[0];
             const cols = self.shape[1];
             var out = try Self.empty(self.allocator, &.{ cols, rows });
@@ -18131,12 +18132,14 @@ pub fn Array(comptime T: type) type {
         pub fn sum(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             if (try self.tryAxiomReduction(axis_opt, keepdims, .sum)) |out| return out;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             return self.reduce(axis_opt, keepdims, zero(T), opAdd);
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             if (try self.tryAxiomReduction(axis_opt, keepdims, .prod)) |out| return out;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             return self.reduce(axis_opt, keepdims, one(T), opMul);
         }
 
@@ -18144,6 +18147,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyArray;
             if (try self.tryAxiomReduction(axis_opt, keepdims, .min)) |out| return out;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, b, a)) b else a;
@@ -18159,6 +18163,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyArray;
             if (try self.tryAxiomReduction(axis_opt, keepdims, .max)) |out| return out;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, a, b)) b else a;
@@ -18180,7 +18185,6 @@ pub fn Array(comptime T: type) type {
 
         fn tryAxiomReduction(self: Self, axis_opt: ?isize, keepdims: bool, op: axiom_backend.DialectReductionOp) ArrayError!?Self {
             if (axis_opt == null or self.shape.len != 2) return null;
-            if (!self.device.isCpu() or !self.isContiguous()) return null;
             if (comptime T != f32 and T != f64) return null;
 
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
