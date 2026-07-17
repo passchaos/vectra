@@ -15139,7 +15139,7 @@ pub fn Array(comptime T: type) type {
 
         fn attachCpuMatmulProvenance(out: *Self, lhs: Self, rhs: Self) void {
             if (comptime T != f32 and T != f64) return;
-            if (!out.device.isCpu() or !lhs.device.isCpu() or !rhs.device.isCpu()) return;
+            if (!axiom_backend.hostFallbackAllowed(out.device) or !axiom_backend.hostFallbackAllowed(lhs.device) or !axiom_backend.hostFallbackAllowed(rhs.device)) return;
             if (lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0]) return;
             if (!lhs.isContiguous() or !rhs.isContiguous()) return;
             out.cpu_matmul = .{
@@ -15152,7 +15152,7 @@ pub fn Array(comptime T: type) type {
 
         fn attachCpuMatmulDerived(out: *Self, pending: CpuMatmulFusion, alpha_value: f32, beta_value: f32) void {
             if (comptime T != f32 and T != f64) return;
-            if (!out.device.isCpu()) return;
+            if (!axiom_backend.hostFallbackAllowed(out.device)) return;
             out.cpu_matmul = pending;
             out.cpu_matmul.?.alpha = alpha_value;
             out.cpu_matmul.?.beta = beta_value;
@@ -15161,7 +15161,7 @@ pub fn Array(comptime T: type) type {
 
         fn attachCpuUnaryDerived(out: *Self, pending: CpuMatmulFusion, unary_op: PendingUnary) void {
             if (comptime T != f32 and T != f64) return;
-            if (!out.device.isCpu()) return;
+            if (!axiom_backend.hostFallbackAllowed(out.device)) return;
             out.cpu_matmul = pending;
             out.cpu_matmul.?.unary = unary_op;
         }
@@ -15170,7 +15170,7 @@ pub fn Array(comptime T: type) type {
             if (comptime T != f32 and T != f64) return null;
             const pending = self.cpu_matmul orelse return null;
             if (comptime op != opAdd and op != opSub) return null;
-            if (!self.device.isCpu() or !other.device.isCpu()) return null;
+            if (!axiom_backend.hostFallbackAllowed(self.device) or !axiom_backend.hostFallbackAllowed(other.device)) return null;
             if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
             if (!other.isContiguous()) return null;
             var lhs_shape = [_]usize{ pending.lhs_shape[0], pending.lhs_shape[1] };
@@ -15203,7 +15203,7 @@ pub fn Array(comptime T: type) type {
         fn tryFuseCpuMatmulRSub(self: Self, other: Self) ArrayError!?Self {
             if (comptime T != f32 and T != f64) return null;
             const pending = self.cpu_matmul orelse return null;
-            if (!self.device.isCpu() or !other.device.isCpu()) return null;
+            if (!axiom_backend.hostFallbackAllowed(self.device) or !axiom_backend.hostFallbackAllowed(other.device)) return null;
             if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
             if (!other.isContiguous()) return null;
             var lhs_shape = [_]usize{ pending.lhs_shape[0], pending.lhs_shape[1] };
@@ -21213,7 +21213,7 @@ pub fn Array(comptime T: type) type {
                 }
                 if (try axiom_backend.executeMatmulDefault(T, self, other)) |accelerated_value| {
                     var accelerated = accelerated_value;
-                    if (accelerated.device.isCpu() and !lhs_vec and !rhs_vec) accelerated.attachCpuMatmulProvenance(self, other);
+                    if (axiom_backend.hostFallbackAllowed(accelerated.device) and !lhs_vec and !rhs_vec) accelerated.attachCpuMatmulProvenance(self, other);
                     return accelerated;
                 }
             }
