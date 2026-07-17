@@ -10930,11 +10930,8 @@ pub fn Array(comptime T: type) type {
         pub fn pinv(self: Self, tolerance: T) ArrayError!Self {
             if (comptime @typeInfo(T) != .float) @compileError("pinv requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryPinvF32(self, tolerance)) |out| return out;
-                return error.BackendFailure;
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryPinvF64(self, tolerance)) |out| return out;
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executePinvDefault(T, self, tolerance)) |out| return out;
                 return error.BackendFailure;
             } else {
                 return error.BackendFailure;

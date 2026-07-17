@@ -742,6 +742,44 @@ pub fn executeCondDefault(comptime T: type, input: array_mod.Array(T), tolerance
     return executeCond(T, defaultExecutionTarget(), input, tolerance);
 }
 
+pub fn executePinv(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuPinv(T, input, tolerance),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executePinvDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    return executePinv(T, defaultExecutionTarget(), input, tolerance);
+}
+
+fn executeCpuPinv(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    var out = try array_mod.Array(T).empty(input.allocator, &.{ input.shape[1], input.shape[0] });
+    errdefer out.deinit();
+    const out_view = matrixView(T, out, "out") orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetPinvF32(.cpu, matrix_view, out_view, @as(array_mod.Array(f32), input).data, @as(array_mod.Array(f32), out).data, @as(f32, tolerance)) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetPinvF64(.cpu, matrix_view, out_view, @as(array_mod.Array(f64), input).data, @as(array_mod.Array(f64), out).data, @as(f64, tolerance)) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 fn executeCpuCond(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?T {
     const matrix_view = matrixView(T, input, "input") orelse return null;
     if (T == f32) {
