@@ -19,12 +19,14 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 ROOT = REPO / "src" / "root.zig"
 ARRAY = REPO / "src" / "array.zig"
+AXIOM_BACKEND = REPO / "src" / "backends" / "axiom_backend.zig"
 README = REPO / "README.md"
 BOUNDARY_DOC = REPO / "docs" / "API_BOUNDARY.md"
 BUILD = REPO / "build.zig"
 ZON = REPO / "build.zig.zon"
 
 PUBLIC_SOURCE_FILES = (ROOT, ARRAY)
+AXIAL_GUARD_FILES = (BUILD, ZON, ROOT, ARRAY, AXIOM_BACKEND)
 
 BANNED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("public_tensor_alias", re.compile(r"\bpub\s+const\s+Tensor\b")),
@@ -55,6 +57,25 @@ REQUIRED_BOUNDARY_SNIPPETS = (
     "Vectra lowers array operations through Axiom dialects",
     "Do not add a `Tensor` alias to Vectra",
     "Do not add autograd to Vectra",
+)
+
+REQUIRED_AXIOM_BACKEND_SNIPPETS = (
+    "pub fn defaultExecutionTarget() DialectBackend",
+    "pub fn executeElementwise(",
+    "pub fn executeElementwiseScalar(",
+    "pub fn executeMatmul(",
+    "pub fn executeMatmulAdd(",
+    "pub fn executeReduction(",
+    "pub fn executeTrace(",
+    "pub fn executeDet(",
+)
+
+FORBIDDEN_AXIAL_SNIPPETS = (
+    '@import("axial")',
+    'b.dependency("axial"',
+    '.axial',
+    'axial_cuda',
+    'axial-accelerator-smoke',
 )
 
 
@@ -105,6 +126,17 @@ def main() -> int:
     for snippet in (".axiom", '.path = "../axiom"'):
         if snippet not in zon_text:
             issues.append({"kind": "missing_axiom_zon_snippet", "path": "build.zig.zon", "snippet": snippet})
+
+    axiom_backend_text = read(AXIOM_BACKEND)
+    for snippet in REQUIRED_AXIOM_BACKEND_SNIPPETS:
+        if snippet not in axiom_backend_text:
+            issues.append({"kind": "missing_axiom_target_facade", "path": "src/backends/axiom_backend.zig", "snippet": snippet})
+
+    for path in AXIAL_GUARD_FILES:
+        text = read(path)
+        for snippet in FORBIDDEN_AXIAL_SNIPPETS:
+            if snippet in text:
+                issues.append({"kind": "forbidden_axial_dependency", "path": str(path.relative_to(REPO)), "snippet": snippet})
 
     row = {
         "kind": "vectra_api_boundary_audit",

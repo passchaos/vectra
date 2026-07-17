@@ -27,6 +27,12 @@ sibling projects own higher and lower layers of the stack.
   training-loop semantics to Vectra.
 - Do not place CUTILE/CuteDSL/SIMT kernel DSL APIs in Forge or Vectra; route
   compiler/runtime work through Axiom dialect records and backend passes.
+- Do not route Vectra Array execution through Axial or reintroduce `@import("axial")`,
+  `b.dependency("axial")`, `axial_cuda`, or Axial smoke build steps.
+- Keep eager Array acceleration behind `src/backends/axiom_backend.zig` target
+  facade calls such as `executeMatmul`, `executeElementwise`,
+  `executeReduction`, and `executeTrace`, so Array methods specify an Axiom
+  CPU/CUDA/MPS target instead of scattering backend-specific dispatch.
 - It is OK for Vectra to expose Array methods that are convenient for numerical
   computing, such as `a.matmul(b)` or `a.matmulAdd(b, c)`, as long as they remain
   Array operations without autograd ownership.
