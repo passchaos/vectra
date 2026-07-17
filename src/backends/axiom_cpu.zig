@@ -25,6 +25,13 @@ pub const UnaryOp = enum {
     exp,
 };
 
+pub const ReductionOp = enum {
+    sum,
+    prod,
+    min,
+    max,
+};
+
 pub fn tryAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryElementwise(f32, .add, lhs, rhs);
 }
@@ -64,6 +71,38 @@ pub fn trySqrtF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.A
 
 pub fn tryExpF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryUnaryElementwise(f64, .exp, input);
+}
+
+pub fn trySumF32(input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryReduction(f32, .sum, input, axis, keepdims);
+}
+
+pub fn tryProdF32(input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryReduction(f32, .prod, input, axis, keepdims);
+}
+
+pub fn tryMinF32(input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryReduction(f32, .min, input, axis, keepdims);
+}
+
+pub fn tryMaxF32(input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryReduction(f32, .max, input, axis, keepdims);
+}
+
+pub fn trySumF64(input: array_mod.Array(f64), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryReduction(f64, .sum, input, axis, keepdims);
+}
+
+pub fn tryProdF64(input: array_mod.Array(f64), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryReduction(f64, .prod, input, axis, keepdims);
+}
+
+pub fn tryMinF64(input: array_mod.Array(f64), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryReduction(f64, .min, input, axis, keepdims);
+}
+
+pub fn tryMaxF64(input: array_mod.Array(f64), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryReduction(f64, .max, input, axis, keepdims);
 }
 
 fn tryElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -113,6 +152,56 @@ fn tryUnaryElementwise(comptime T: type, op: UnaryOp, input: array_mod.Array(T))
             }
         else
             axiom.accelerator.cpu_veyra.runUnaryElementwiseF64(axiom_op, input.data, out.data) catch {
+                out.deinit();
+                return null;
+            };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return out;
+    } else {
+        return null;
+    }
+}
+
+fn tryReduction(comptime T: type, op: ReductionOp, input: array_mod.Array(T), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(T) {
+    if (comptime build_options.enable_axiom_cpu_dispatch) {
+        if (!supportedReduction2d(T, input)) return null;
+        const matrix_view = (try matrixView(T, input, "input")) orelse return null;
+        var out_shape_storage: [2]usize = undefined;
+        const out_shape = if (keepdims) shape: {
+            out_shape_storage = if (axis == 0)
+                .{ 1, input.shape[1] }
+            else
+                .{ input.shape[0], 1 };
+            break :shape out_shape_storage[0..2];
+        } else shape: {
+            out_shape_storage[0] = if (axis == 0) input.shape[1] else input.shape[0];
+            break :shape out_shape_storage[0..1];
+        };
+        var out = try array_mod.Array(T).empty(input.allocator, out_shape);
+        errdefer out.deinit();
+
+        var out_view = axiom.accelerator.TensorBufferView.contiguous(
+            "out",
+            @intCast(@intFromPtr(out.data.ptr)),
+            out.data.len,
+        );
+        out_view.element_type = tensorElementType(T);
+        const axiom_op: axiom.accelerator.cpu_veyra.CpuVeyraReductionOp = switch (op) {
+            .sum => .sum,
+            .prod => .prod,
+            .min => .min,
+            .max => .max,
+        };
+        const report = if (T == f32)
+            axiom.accelerator.cpu_veyra.runReductionF32(axiom_op, axis, matrix_view, out_view, input.data, out.data) catch {
+                out.deinit();
+                return null;
+            }
+        else
+            axiom.accelerator.cpu_veyra.runReductionF64(axiom_op, axis, matrix_view, out_view, input.data, out.data) catch {
                 out.deinit();
                 return null;
             };
@@ -932,6 +1021,14 @@ fn supportedSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: 
 
 fn supportedNonEmptyContiguous(comptime T: type, input: array_mod.Array(T)) bool {
     return input.device.isCpu() and input.data.len != 0 and input.isContiguous();
+}
+
+fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
+    return (T == f32 or T == f64) and
+        input.device.isCpu() and
+        input.shape.len == 2 and
+        input.data.len != 0 and
+        input.isContiguous();
 }
 
 fn supportedMatmul2dContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {

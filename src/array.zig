@@ -18707,17 +18707,20 @@ pub fn Array(comptime T: type) type {
 
         pub fn sum(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
+            if (try self.tryAxiomCpuReduction(axis_opt, keepdims, .sum)) |out| return out;
             return self.reduce(axis_opt, keepdims, zero(T), opAdd);
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
+            if (try self.tryAxiomCpuReduction(axis_opt, keepdims, .prod)) |out| return out;
             return self.reduce(axis_opt, keepdims, one(T), opMul);
         }
 
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyArray;
+            if (try self.tryAxiomCpuReduction(axis_opt, keepdims, .min)) |out| return out;
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, b, a)) b else a;
@@ -18732,6 +18735,7 @@ pub fn Array(comptime T: type) type {
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyArray;
+            if (try self.tryAxiomCpuReduction(axis_opt, keepdims, .max)) |out| return out;
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, a, b)) b else a;
@@ -18749,6 +18753,36 @@ pub fn Array(comptime T: type) type {
             var min_values = try self.min(axis_opt, keepdims);
             defer min_values.deinit();
             return max_values.sub(min_values);
+        }
+
+        fn tryAxiomCpuReduction(self: Self, axis_opt: ?isize, keepdims: bool, op: axiom_cpu_backend.ReductionOp) ArrayError!?Self {
+            if (axis_opt == null or self.shape.len != 2) return null;
+            if (!self.device.isCpu() or !self.isContiguous()) return null;
+            if (comptime T != f32 and T != f64) return null;
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const axis_u1: u1 = std.math.cast(u1, axis) orelse return null;
+            if (comptime T == f32) {
+                const maybe = switch (op) {
+                    .sum => try axiom_cpu_backend.trySumF32(self, axis_u1, keepdims),
+                    .prod => try axiom_cpu_backend.tryProdF32(self, axis_u1, keepdims),
+                    .min => try axiom_cpu_backend.tryMinF32(self, axis_u1, keepdims),
+                    .max => try axiom_cpu_backend.tryMaxF32(self, axis_u1, keepdims),
+                };
+                if (maybe) |out| return out;
+                return null;
+            }
+            if (comptime T == f64) {
+                const maybe = switch (op) {
+                    .sum => try axiom_cpu_backend.trySumF64(self, axis_u1, keepdims),
+                    .prod => try axiom_cpu_backend.tryProdF64(self, axis_u1, keepdims),
+                    .min => try axiom_cpu_backend.tryMinF64(self, axis_u1, keepdims),
+                    .max => try axiom_cpu_backend.tryMaxF64(self, axis_u1, keepdims),
+                };
+                if (maybe) |out| return out;
+                return null;
+            }
+            return null;
         }
 
         fn reduceAxes(self: Self, axes: []const isize, keepdims: bool, comptime reducer: fn (Self, ?isize, bool) ArrayError!Self) ArrayError!Self {
