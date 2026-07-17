@@ -11044,11 +11044,8 @@ pub fn Array(comptime T: type) type {
             if (self.shape.len != 2) return error.NonMatrixArray;
             if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
             if (rhs.shape[0] != self.shape[0]) return error.ShapeMismatch;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryLstsqF32(self, rhs, tolerance)) |out| return out;
-                return error.BackendFailure;
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryLstsqF64(self, rhs, tolerance)) |out| return out;
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeLstsqDefault(T, self, rhs, tolerance)) |out| return out;
                 return error.BackendFailure;
             } else {
                 return error.BackendFailure;

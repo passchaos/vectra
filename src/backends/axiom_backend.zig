@@ -755,6 +755,46 @@ pub fn executePinvDefault(comptime T: type, input: array_mod.Array(T), tolerance
     return executePinv(T, defaultExecutionTarget(), input, tolerance);
 }
 
+pub fn executeLstsq(comptime T: type, target: DialectBackend, matrix: array_mod.Array(T), rhs: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedLstsqExecution(T, matrix, rhs)) return null;
+    return switch (target) {
+        .cpu => executeCpuLstsq(T, matrix, rhs, tolerance),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeLstsqDefault(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeLstsq(T, defaultExecutionTarget(), matrix, rhs, tolerance);
+}
+
+fn executeCpuLstsq(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    const matrix_view = matrixView(T, matrix, "matrix") orelse return null;
+    const rhs_view = matrixOrVectorColumnView(T, rhs, "rhs") orelse return null;
+    const out_shape = if (rhs.shape.len == 1) &.{matrix.shape[1]} else &.{ matrix.shape[1], rhs.shape[1] };
+    var out = try array_mod.Array(T).empty(matrix.allocator, out_shape);
+    errdefer out.deinit();
+    const out_view = matrixOrVectorColumnView(T, out, "out") orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetLstsqF32(.cpu, matrix_view, rhs_view, out_view, @as(array_mod.Array(f32), matrix).data, @as(array_mod.Array(f32), rhs).data, @as(array_mod.Array(f32), out).data, @as(f32, tolerance)) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetLstsqF64(.cpu, matrix_view, rhs_view, out_view, @as(array_mod.Array(f64), matrix).data, @as(array_mod.Array(f64), rhs).data, @as(array_mod.Array(f64), out).data, @as(f64, tolerance)) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 fn executeCpuPinv(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
     const matrix_view = matrixView(T, input, "input") orelse return null;
     var out = try array_mod.Array(T).empty(input.allocator, &.{ input.shape[1], input.shape[0] });
@@ -1523,6 +1563,16 @@ fn supportedSquareMatrixExecution(comptime T: type, input: array_mod.Array(T)) b
 fn supportedSolveExecution(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     const rhs_rank_ok = rhs.shape.len == 1 or rhs.shape.len == 2;
     return supportedSquareMatrixExecution(T, matrix) and
+        rhs.device.isCpu() and
+        rhs_rank_ok and
+        rhs.shape[0] == matrix.shape[0] and
+        rhs.data.len != 0 and
+        rhs.isContiguous();
+}
+
+fn supportedLstsqExecution(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
+    const rhs_rank_ok = rhs.shape.len == 1 or rhs.shape.len == 2;
+    return supportedMatrixExecution(T, matrix) and
         rhs.device.isCpu() and
         rhs_rank_ok and
         rhs.shape[0] == matrix.shape[0] and
