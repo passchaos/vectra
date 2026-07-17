@@ -16832,6 +16832,13 @@ pub fn Array(comptime T: type) type {
 
         pub fn square(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (self.device.isCpu() and self.isContiguous()) {
+                if (comptime T == f32) {
+                    if (try axiom_cpu_backend.trySquareF32(self)) |out| return out;
+                } else if (comptime T == f64) {
+                    if (try axiom_cpu_backend.trySquareF64(self)) |out| return out;
+                }
+            }
             return self.unary(opSquare);
         }
 
