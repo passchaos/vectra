@@ -63,6 +63,9 @@ pub const DialectReductionLoweringStatus = axiom.accelerator.DialectReductionLow
 pub const DialectBroadcastAxis = axiom.accelerator.DialectBroadcastAxis;
 pub const DialectBroadcastLoweringReport = axiom.accelerator.DialectBroadcastLoweringReport;
 pub const DialectBroadcastLoweringStatus = axiom.accelerator.DialectBroadcastLoweringStatus;
+pub const DialectUnaryOp = axiom.accelerator.DialectUnaryOp;
+pub const DialectUnaryLoweringReport = axiom.accelerator.DialectUnaryLoweringReport;
+pub const DialectUnaryLoweringStatus = axiom.accelerator.DialectUnaryLoweringStatus;
 pub const MpsRuntimeAbiStatus = axiom.accelerator.MpsRuntimeAbiStatus;
 pub const MpsRuntimeAbiReport = axiom.accelerator.MpsRuntimeAbiReport;
 
@@ -197,6 +200,23 @@ pub fn lowerBroadcastAddDialect(comptime T: type, input: array_mod.Array(T), bia
 
 pub fn lowerBroadcastAddDialectDefault(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!DialectBroadcastLoweringReport {
     return lowerBroadcastAddDialect(T, input, bias, axis, defaultDialectBackend());
+}
+
+pub fn lowerUnaryDialect(comptime T: type, input: array_mod.Array(T), op: DialectUnaryOp, backend: DialectBackend) array_mod.ArrayError!DialectUnaryLoweringReport {
+    if (!supportedUnary2d(T, input)) return error.ShapeMismatch;
+    const element = dialectElement(T) orelse return error.TypeUnsupported;
+    return axiom.accelerator.lowerDialectUnary(.{
+        .name = "vectra.unary",
+        .element = element,
+        .rows = input.shape[0],
+        .cols = input.shape[1],
+        .op = op,
+        .backend = backend,
+    }) catch error.BackendFailure;
+}
+
+pub fn lowerUnaryDialectDefault(comptime T: type, input: array_mod.Array(T), op: DialectUnaryOp) array_mod.ArrayError!DialectUnaryLoweringReport {
+    return lowerUnaryDialect(T, input, op, defaultDialectBackend());
 }
 
 fn dialectElement(comptime T: type) ?axiom.linalg_dialect.Element {
@@ -420,6 +440,10 @@ fn supportedMatmul2d(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
 }
 
 fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
+    return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
+}
+
+fn supportedUnary2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
 }
 
@@ -662,6 +686,24 @@ test "Axiom dialect lowering reports broadcast generic route" {
     const default_mps_report = try lowerBroadcastAddDialectDefault(f32, input, column, .column);
     try std.testing.expect(default_mps_report.ok());
     try std.testing.expectEqual(DialectBroadcastLoweringStatus.planned_mps, default_mps_report.status);
+    resetDefaultDialectBackend();
+}
+
+test "Axiom dialect lowering reports unary generic route" {
+    const gpa = std.testing.allocator;
+    var input = try array_mod.Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer input.deinit();
+
+    const cuda_report = try lowerUnaryDialect(f32, input, .square, .cuda);
+    try std.testing.expect(cuda_report.ok());
+    try std.testing.expectEqual(DialectUnaryLoweringStatus.lowered_cuda, cuda_report.status);
+    try std.testing.expect(cuda_report.vector_fragment_fingerprint != 0);
+    try std.testing.expect(cuda_report.gpu_mapping_fingerprint != 0);
+
+    setDefaultDialectBackend(.mps);
+    const default_mps_report = try lowerUnaryDialectDefault(f32, input, .cube);
+    try std.testing.expect(default_mps_report.ok());
+    try std.testing.expectEqual(DialectUnaryLoweringStatus.planned_mps, default_mps_report.status);
     resetDefaultDialectBackend();
 }
 
