@@ -617,6 +617,35 @@ pub fn executeTraceDefault(comptime T: type, input: array_mod.Array(T), offset: 
     return executeTrace(T, defaultExecutionTarget(), input, offset);
 }
 
+pub fn executeDet(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?T {
+    if (!supportedSquareMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuDet(T, input),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeDetDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?T {
+    return executeDet(T, defaultExecutionTarget(), input);
+}
+
+fn executeCpuDet(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?T {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    if (T == f32) {
+        var value: f32 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetDetF32(.cpu, matrix_view, @as(array_mod.Array(f32), input).data, &value) catch return null;
+        if (!report.ok()) return null;
+        return @as(T, value);
+    } else if (T == f64) {
+        var value: f64 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetDetF64(.cpu, matrix_view, @as(array_mod.Array(f64), input).data, &value) catch return null;
+        if (!report.ok()) return null;
+        return @as(T, value);
+    }
+    return null;
+}
+
 fn executeCpuTrace(comptime T: type, input: array_mod.Array(T), offset: isize) array_mod.ArrayError!?T {
     const matrix_view = matrixView(T, input, "input") orelse return null;
     if (T == f32) {
@@ -1111,6 +1140,14 @@ fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
 
 fn supportedUnary2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
+}
+
+fn supportedSquareMatrixExecution(comptime T: type, input: array_mod.Array(T)) bool {
+    return (T == f32 or T == f64) and
+        input.device.isCpu() and
+        input.shape.len == 2 and
+        input.shape[0] == input.shape[1] and
+        input.isContiguous();
 }
 
 fn supportedUnaryExecution(comptime T: type, input: array_mod.Array(T)) bool {

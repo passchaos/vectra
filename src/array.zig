@@ -10447,10 +10447,8 @@ pub fn Array(comptime T: type) type {
         pub fn det(self: Self) ArrayError!T {
             if (comptime @typeInfo(T) != .float) @compileError("det requires floating-point arrays");
             if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryDetF32(self)) |value| return value;
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryDetF64(self)) |value| return value;
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeDetDefault(T, self)) |value| return value;
             }
             if (comptime T == f64) {
                 var matrix = try self.toVeyraMatrixF64();
