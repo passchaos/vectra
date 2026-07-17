@@ -2134,7 +2134,7 @@ fn supportsAxiomCpuMatmul(comptime T: type) bool {
 }
 
 fn supportsAxiomCudaMatmul(comptime T: type) bool {
-    return T == f32 or T == f16 or T == array_mod.BFloat16;
+    return T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16;
 }
 
 fn supportedScalarElementwise(comptime T: type, input: array_mod.Array(T)) bool {
