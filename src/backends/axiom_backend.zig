@@ -432,11 +432,34 @@ pub fn executeTransposeDefault(comptime T: type, input: array_mod.Array(T)) arra
 }
 
 fn executeCpuUnary(comptime T: type, op: DialectUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    if (op != .square) return null;
+    const cpu_op: axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp = switch (op) {
+        .square => .square,
+        else => return null,
+    };
     if (T == f32) {
-        if (try axiom_cpu.trySquareF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+        var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
+        errdefer out.deinit();
+        const report = axiom.accelerator.cpu_veyra.runTargetUnaryElementwiseF32(.cpu, cpu_op, @as(array_mod.Array(f32), input).data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
     } else if (T == f64) {
-        if (try axiom_cpu.trySquareF64(@as(array_mod.Array(f64), input))) |out| return @as(array_mod.Array(T), out);
+        var out = try array_mod.Array(f64).empty(input.allocator, input.shape);
+        errdefer out.deinit();
+        const report = axiom.accelerator.cpu_veyra.runTargetUnaryElementwiseF64(.cpu, cpu_op, @as(array_mod.Array(f64), input).data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
     }
     return null;
 }
