@@ -60,6 +60,16 @@ pub const DialectElementwiseLoweringStatus = axiom.accelerator.DialectElementwis
 pub const DialectReductionOp = axiom.accelerator.DialectReductionOp;
 pub const DialectReductionLoweringReport = axiom.accelerator.DialectReductionLoweringReport;
 pub const DialectReductionLoweringStatus = axiom.accelerator.DialectReductionLoweringStatus;
+pub const MpsRuntimeAbiStatus = axiom.accelerator.MpsRuntimeAbiStatus;
+pub const MpsRuntimeAbiReport = axiom.accelerator.MpsRuntimeAbiReport;
+
+pub fn mpsDeviceReport(index: usize) MpsRuntimeAbiReport {
+    return axiom.accelerator.mpsDeviceReport(index);
+}
+
+pub fn mpsDeviceAvailable(index: usize) bool {
+    return axiom.accelerator.mpsDeviceAvailable(index);
+}
 
 threadlocal var default_dialect_backend: DialectBackend = .cpu;
 

@@ -11,6 +11,7 @@ pub fn main(init: std.process.Init) !void {
     const cpu_report = try vx.axiom_backend.lowerMatmulDialect(f32, lhs, rhs, .cpu);
     const cuda_report = try vx.axiom_backend.lowerMatmulDialect(f32, lhs, rhs, .cuda);
     const mps_report = try vx.axiom_backend.lowerMatmulDialect(f32, lhs, rhs, .mps);
+    const mps_runtime = vx.axiom_backend.mpsDeviceReport(0);
     vx.setDefaultDialectBackend(.cuda);
     const default_cuda_report = try vx.axiom_backend.lowerMatmulDialectDefault(f32, lhs, rhs);
     const elementwise_cuda_report = try vx.axiom_backend.lowerElementwiseDialectDefault(f32, .add, lhs, lhs);
@@ -36,6 +37,8 @@ pub fn main(init: std.process.Init) !void {
         std.mem.eql(u8, mps_report.launch_backend, "mps_planned") and
         std.mem.eql(u8, elementwise_mps_report.launch_backend, "mps_planned") and
         std.mem.eql(u8, reduction_mps_report.launch_backend, "mps_planned") and
+        mps_runtime.status == .planned and
+        !mps_runtime.ok() and
         vx.defaultDialectBackend() == .cpu and
         cpu_report.registration.ok() and
         cuda_report.cuda_tile_projection_fingerprint != 0;
@@ -43,7 +46,7 @@ pub fn main(init: std.process.Init) !void {
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_mps_status\":\"{s}\",\"mps_launch_backend\":\"{s}\",\"fingerprint\":{d}}}\n",
+        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_mps_status\":\"{s}\",\"mps_launch_backend\":\"{s}\",\"mps_runtime_status\":\"{s}\",\"mps_runtime_fingerprint\":{d},\"fingerprint\":{d}}}\n",
         .{
             ok,
             cpu_report.status.label(),
@@ -62,6 +65,8 @@ pub fn main(init: std.process.Init) !void {
             reduction_cuda_report.status.label(),
             reduction_mps_report.status.label(),
             mps_report.launch_backend,
+            mps_runtime.status.label(),
+            mps_runtime.fingerprint(),
             cuda_report.fingerprint(),
         },
     );

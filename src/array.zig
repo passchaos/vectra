@@ -144,10 +144,10 @@ pub const Device = struct {
             // CUDA paths, and creation on CUDA fails instead of silently
             // becoming a CPU array otherwise.
             .cuda => build_options.enable_axiom_cuda and axiom_cuda_backend.deviceAvailable(self.index),
-            // Axiom exposes the MPS route as dialect-lowering evidence today.
-            // Real Metal/MPS storage allocation remains disabled until Axiom owns
-            // a runtime ABI for it, so `.mps()` is visible but not silently faked.
-            .mps => false,
+            // MPS availability is delegated to Axiom's MPS runtime ABI report.
+            // Today that report is an honest planned/unavailable contract rather
+            // than a fake CPU/CUDA allocation path.
+            .mps => axiom_backend.mpsDeviceAvailable(self.index),
         };
     }
 
