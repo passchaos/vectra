@@ -54,6 +54,9 @@ pub const ScalarSide = enum(u8) {
 pub const DialectBackend = axiom.accelerator.DialectBackend;
 pub const DialectMatmulLoweringReport = axiom.accelerator.DialectMatmulLoweringReport;
 pub const DialectMatmulLoweringStatus = axiom.accelerator.DialectMatmulLoweringStatus;
+pub const DialectElementwiseOp = axiom.accelerator.DialectElementwiseOp;
+pub const DialectElementwiseLoweringReport = axiom.accelerator.DialectElementwiseLoweringReport;
+pub const DialectElementwiseLoweringStatus = axiom.accelerator.DialectElementwiseLoweringStatus;
 
 threadlocal var default_dialect_backend: DialectBackend = .cpu;
 
@@ -117,6 +120,32 @@ pub fn lowerMatmulDialectForRoute(comptime T: type, lhs: array_mod.Array(T), rhs
         .direct_cpu, .axiom_cpu_veyra => .cpu,
         .axiom_cuda => .cuda,
     });
+}
+
+pub fn lowerElementwiseDialect(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T), backend: DialectBackend) array_mod.ArrayError!DialectElementwiseLoweringReport {
+    if (!supportedElementwiseSameShapeContiguous(T, lhs, rhs)) return error.ShapeMismatch;
+    const element = dialectElement(T) orelse return error.TypeUnsupported;
+    return axiom.accelerator.lowerDialectElementwise(.{
+        .name = "vectra.elementwise",
+        .element = element,
+        .rows = if (lhs.shape.len == 1) 1 else lhs.shape[0],
+        .cols = if (lhs.shape.len == 1) lhs.shape[0] else lhs.shape[1],
+        .op = dialectElementwiseOp(op),
+        .backend = backend,
+    }) catch error.BackendFailure;
+}
+
+pub fn lowerElementwiseDialectDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!DialectElementwiseLoweringReport {
+    return lowerElementwiseDialect(T, op, lhs, rhs, defaultDialectBackend());
+}
+
+fn dialectElementwiseOp(op: ElementwiseOp) DialectElementwiseOp {
+    return switch (op) {
+        .add => .add,
+        .sub => .sub,
+        .mul => .mul,
+        .div => .div,
+    };
 }
 
 fn dialectElement(comptime T: type) ?axiom.linalg_dialect.Element {
@@ -508,6 +537,26 @@ test "Axiom dialect lowering reports linalg memref gpu route" {
     const default_mps_report = try lowerMatmulDialectDefault(f32, a, b);
     try std.testing.expect(default_mps_report.ok());
     try std.testing.expectEqual(DialectMatmulLoweringStatus.planned_mps, default_mps_report.status);
+    resetDefaultDialectBackend();
+}
+
+test "Axiom dialect lowering reports elementwise generic route" {
+    const gpa = std.testing.allocator;
+    var lhs = try array_mod.Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f32).fromSlice(gpa, &.{ 10, 20, 30, 40 }, &.{ 2, 2 });
+    defer rhs.deinit();
+
+    const cuda_report = try lowerElementwiseDialect(f32, .add, lhs, rhs, .cuda);
+    try std.testing.expect(cuda_report.ok());
+    try std.testing.expectEqual(DialectElementwiseLoweringStatus.lowered_cuda, cuda_report.status);
+    try std.testing.expect(cuda_report.vector_fragment_fingerprint != 0);
+    try std.testing.expect(cuda_report.gpu_mapping_fingerprint != 0);
+
+    setDefaultDialectBackend(.mps);
+    const default_mps_report = try lowerElementwiseDialectDefault(f32, .mul, lhs, rhs);
+    try std.testing.expect(default_mps_report.ok());
+    try std.testing.expectEqual(DialectElementwiseLoweringStatus.planned_mps, default_mps_report.status);
     resetDefaultDialectBackend();
 }
 
