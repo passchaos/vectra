@@ -157,7 +157,7 @@ pub const cuda_dtype_support = [_]CudaDTypeSupportRecord{
     .{ .cuda_name = "CUDA_C_16BF", .cuda_value = 15, .meaning = "complex bfloat16 pair", .status = .not_exposed },
     .{ .cuda_name = "CUDA_R_32F", .cuda_value = 0, .meaning = "real float", .vectra_dtype = .f32, .status = .native_cuda_seed, .same_shape_elementwise = true, .scalar_broadcast = true, .matmul = true, .smoke_covered = true },
     .{ .cuda_name = "CUDA_C_32F", .cuda_value = 4, .meaning = "complex float pair", .vectra_dtype = .c64, .status = .planned },
-    .{ .cuda_name = "CUDA_R_64F", .cuda_value = 1, .meaning = "real double", .vectra_dtype = .f64, .status = .planned, .same_shape_elementwise = true },
+    .{ .cuda_name = "CUDA_R_64F", .cuda_value = 1, .meaning = "real double", .vectra_dtype = .f64, .status = .native_cuda_seed, .same_shape_elementwise = true, .matmul = true, .smoke_covered = true },
     .{ .cuda_name = "CUDA_C_64F", .cuda_value = 5, .meaning = "complex double pair", .vectra_dtype = .c128, .status = .planned },
     .{ .cuda_name = "CUDA_R_4I", .cuda_value = 16, .meaning = "signed 4-bit integer", .status = .not_exposed },
     .{ .cuda_name = "CUDA_C_4I", .cuda_value = 17, .meaning = "signed 4-bit integer pair", .status = .not_exposed },
@@ -3089,8 +3089,8 @@ fn hashBF16Slice(values: []const BFloat16) u64 {
 test "Axiom CUDA bridge reports dtype metadata deterministically" {
     const report = runSmoke(std.testing.allocator);
     try std.testing.expectEqual(cuda_dtype_support.len, report.dtype_support_count);
-    try std.testing.expectEqual(@as(usize, 3), report.dtype_bridge_count);
-    try std.testing.expectEqual(@as(usize, 1), report.dtype_native_seed_count);
+    try std.testing.expectEqual(@as(usize, 4), report.dtype_bridge_count);
+    try std.testing.expectEqual(@as(usize, 2), report.dtype_native_seed_count);
     try std.testing.expectEqual(@as(usize, 2), report.dtype_widened_seed_count);
     try std.testing.expect(report.dtype_support_fingerprint != 0);
     const f16_record = findCudaDTypeSupport("CUDA_R_16F").?;
@@ -3100,6 +3100,9 @@ test "Axiom CUDA bridge reports dtype metadata deterministically" {
     try std.testing.expectEqualStrings("CUDA_R_16BF", bf16_record.cuda_name);
     const f32_record = findVectraDTypeSupport(.f32).?;
     try std.testing.expectEqual(CudaDTypeBridgeStatus.native_cuda_seed, f32_record.status);
+    const f64_record = findVectraDTypeSupport(.f64).?;
+    try std.testing.expectEqual(CudaDTypeBridgeStatus.native_cuda_seed, f64_record.status);
+    try std.testing.expect(f64_record.matmul);
     try std.testing.expect(findCudaDTypeSupport("CUDA_R_8F_E4M3") != null);
     if (build_options.enable_axiom_cuda) {
         try std.testing.expect(report.status == .ran or report.status == .skipped or report.status == .failed);

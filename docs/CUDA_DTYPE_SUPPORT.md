@@ -16,7 +16,7 @@ Local CUDA evidence: `/usr/local/cuda/include/library_types.h` declares
 | `CUDA_C_16BF` | complex bfloat16 pair | Not exposed | Planned. |
 | `CUDA_R_32F` | real float | `f32` | Native Axiom CUDA seed for add/sub/mul/div and SAXPY; owning CUDA Array matmul/matmulAdd use Axiom cached cuBLAS SGEMM for production throughput with the CUDA Tile IR seed retained as fallback/provenance. |
 | `CUDA_C_32F` | complex float pair | `Complex64` | CPU Vectra support exists; Axiom CUDA bridge planned. |
-| `CUDA_R_64F` | real double | `f64` | Axiom CPU→Veyra path for supported ops; CUDA bridge planned. |
+| `CUDA_R_64F` | real double | `f64` | Axiom CPU→Veyra path for supported ops plus native Axiom CUDA device same-shape elementwise and DGEMM matmul seeds. |
 | `CUDA_C_64F` | complex double pair | `Complex128` | CPU Vectra support exists; Axiom CUDA bridge planned. |
 | `CUDA_R_4I` / `CUDA_C_4I` | signed 4-bit integer / pair | Not exposed | Planned packed dtype. |
 | `CUDA_R_4U` / `CUDA_C_4U` | unsigned 4-bit integer / pair | Not exposed | Planned packed dtype. |

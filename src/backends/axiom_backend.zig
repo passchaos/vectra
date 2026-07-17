@@ -650,6 +650,8 @@ fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
     if (lhs.shape.len != 2 or rhs.shape.len != 2) return null;
     if (T == f32) {
         if (try axiom_cuda.tryMatmulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceMatmulF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
         if (try axiom_cuda.tryMatmulF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
@@ -2018,7 +2020,7 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
             (lhs.shape.len == 1 or lhs.shape.len == 2) and
             (rhs.shape.len == 1 or rhs.shape.len == 2);
     }
-    return lhs.device.isCuda() and lhs.shape.len == 2 and rhs.shape.len == 2 and (T == f32 or T == f16 or T == array_mod.BFloat16);
+    return lhs.device.isCuda() and lhs.shape.len == 2 and rhs.shape.len == 2 and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16);
 }
 
 fn supportedMatmulAddExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) bool {
