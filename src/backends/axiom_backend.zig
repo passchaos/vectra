@@ -703,6 +703,43 @@ pub fn executeMatrixNormDefault(comptime T: type, input: array_mod.Array(T), ord
     return executeMatrixNorm(T, defaultExecutionTarget(), input, order);
 }
 
+pub fn executeSingularValues(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuSingularValues(T, input, tolerance),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeSingularValuesDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeSingularValues(T, defaultExecutionTarget(), input, tolerance);
+}
+
+fn executeCpuSingularValues(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    const len = @min(input.shape[0], input.shape[1]);
+    var out = try array_mod.Array(T).empty(input.allocator, &.{len});
+    errdefer out.deinit();
+    var out_view = axiom.accelerator.TensorBufferView.contiguous("out", @intCast(@intFromPtr(out.data.ptr)), out.data.len);
+    out_view.element_type = if (T == f32) .f32 else if (T == f64) .f64 else return null;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetSingularValuesF32(.cpu, matrix_view, out_view, @as(array_mod.Array(f32), input).data, @as(array_mod.Array(f32), out).data, @as(f32, tolerance)) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetSingularValuesF64(.cpu, matrix_view, out_view, @as(array_mod.Array(f64), input).data, @as(array_mod.Array(f64), out).data, @as(f64, tolerance)) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 fn executeCpuMatrixNorm(comptime T: type, input: array_mod.Array(T), order: axiom.accelerator.cpu_veyra.CpuVeyraMatrixNormOrder) array_mod.ArrayError!?T {
     const matrix_view = matrixView(T, input, "input") orelse return null;
     if (T == f32) {
