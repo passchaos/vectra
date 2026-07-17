@@ -15771,7 +15771,9 @@ pub fn Array(comptime T: type) type {
                         axiom_backend.ElementwiseOp.div
                     else
                         null;
-                    if (maybe_op) |op_value| return try axiom_backend.elementwise(T, op_value, axiom_backend.defaultBackendPolicy(), self, other);
+                    if (maybe_op) |op_value| {
+                        if (try axiom_backend.executeElementwiseDefault(T, op_value, self, other)) |out| return out;
+                    }
                 }
             }
             if (std.mem.eql(usize, self.shape, other.shape)) {
