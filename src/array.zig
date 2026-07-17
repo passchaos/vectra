@@ -10271,7 +10271,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
-            if (!self.device.isCpu()) {
+            if (!axiom_backend.hostFallbackAllowed(self.device)) {
                 var host = try self.to(.cpu);
                 defer host.deinit();
                 var out = try host.astype(U);
@@ -11801,12 +11801,12 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn asView(self: Self) ArrayError!ArrayView(T) {
-            if (!self.device.isCpu()) return error.InvalidDevice;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.InvalidDevice;
             return ArrayView(T).fromArray(self);
         }
 
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) ArrayError!ArrayView(T) {
-            if (!self.device.isCpu()) return error.InvalidDevice;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.InvalidDevice;
             try validateStridedBounds(self.data.len, offset, dims, stride_values);
             return ArrayView(T).init(self.allocator, self.data, dims, stride_values, offset, self.device);
         }
@@ -12251,7 +12251,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn asSlice(self: Self) ArrayError![]T {
-            if (!self.device.isCpu()) return error.InvalidDevice;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.InvalidDevice;
             if (!self.isContiguous()) return error.InvalidShape;
             return self.data;
         }
