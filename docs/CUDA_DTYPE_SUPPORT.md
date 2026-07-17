@@ -53,7 +53,7 @@ Current registry summary:
 
 ## Current bridge behavior
 
-- `Array(f32)` and `Array(f64)` are native CUDA seed paths; f64 currently covers same-shape/scalar elementwise, sqrt/exp, and DGEMM matmul.
+- `Array(f32)` and `Array(f64)` are native CUDA seed paths; f64 currently covers same-shape/scalar elementwise, sqrt/exp, DGEMM matmul, and matmulAdd/fusion.
 - `Array(f16)` and `Array(BFloat16)` now try Axiom's native typed CUDA
   elementwise runtime seeds for same-shape add/sub/mul/div before falling back to
   widened f32 routes.
@@ -80,7 +80,7 @@ zig build axiom-cuda-dispatch-smoke
 ```
 
 The CUDA smoke JSON includes `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`,
-`bf16_matmul_ok`, `f64_matmul_ok`, and `f64_elementwise_ok` fields when the CUDA smokes run. It also includes
+`bf16_matmul_ok`, `f64_matmul_ok`, `f64_elementwise_ok`, and `f64_matmul_add_ok` fields when the CUDA smokes run. It also includes
 `f16_native_execution_fingerprint` and `bf16_native_execution_fingerprint` when
 the native typed elementwise seeds run,
 `dtype_support_count`, `dtype_bridge_count`, `dtype_native_seed_count`,
