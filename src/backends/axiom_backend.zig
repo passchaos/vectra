@@ -749,6 +749,44 @@ fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.Ar
     return null;
 }
 
+fn tensorBinaryOp(op: ElementwiseOp) axiom.accelerator.TensorBinaryElementwiseOp {
+    return switch (op) {
+        .add => .add,
+        .sub => .sub,
+        .mul => .mul,
+        .div => .div,
+    };
+}
+
+fn executeCpuElementwiseTarget(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        var out = try array_mod.Array(f32).empty(lhs.allocator, lhs.shape);
+        errdefer out.deinit();
+        const report = axiom.accelerator.cpu_veyra.runTargetElementwiseF32(.cpu, tensorBinaryOp(op), @as(array_mod.Array(f32), lhs).data, @as(array_mod.Array(f32), rhs).data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        var out = try array_mod.Array(f64).empty(lhs.allocator, lhs.shape);
+        errdefer out.deinit();
+        const report = axiom.accelerator.cpu_veyra.runTargetElementwiseF64(.cpu, tensorBinaryOp(op), @as(array_mod.Array(f64), lhs).data, @as(array_mod.Array(f64), rhs).data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 pub fn selectMatmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) BackendReport {
     const supported = supportedMatmul2d(T, lhs, rhs);
     const selected: BackendRoute = if (!supported)
@@ -842,18 +880,7 @@ pub fn elementwise(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, l
             if (out) |value| return @as(array_mod.Array(T), value);
         },
         .axiom_cpu_veyra => {
-            const out = if (T == f32) switch (op) {
-                .add => try axiom_cpu.tryAddF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
-                .sub => try axiom_cpu.trySubF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
-                .mul => try axiom_cpu.tryMulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
-                .div => try axiom_cpu.tryDivF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs)),
-            } else if (T == f64) switch (op) {
-                .add => try axiom_cpu.tryAddF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs)),
-                .sub => try axiom_cpu.trySubF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs)),
-                .mul => try axiom_cpu.tryMulF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs)),
-                .div => try axiom_cpu.tryDivF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs)),
-            } else null;
-            if (out) |value| return @as(array_mod.Array(T), value);
+            if (try executeCpuElementwiseTarget(T, op, lhs, rhs)) |out| return out;
         },
         .direct_cpu => {},
     }
