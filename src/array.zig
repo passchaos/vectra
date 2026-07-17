@@ -22351,10 +22351,8 @@ pub fn Array(comptime T: type) type {
         pub fn traceOffset(self: Self, offset: isize) ArrayError!T {
             ensureNumeric(T);
             if (self.shape.len != 2) return error.NonMatrixArray;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryTraceF32(self, offset)) |value| return value;
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryTraceF64(self, offset)) |value| return value;
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeTraceDefault(T, self, offset)) |value| return value;
             }
             const rows = self.shape[0];
             const cols = self.shape[1];

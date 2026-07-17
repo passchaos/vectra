@@ -604,6 +604,35 @@ pub fn executeTransposeDefault(comptime T: type, input: array_mod.Array(T)) arra
     return executeTranspose(T, defaultExecutionTarget(), input);
 }
 
+pub fn executeTrace(comptime T: type, target: DialectBackend, input: array_mod.Array(T), offset: isize) array_mod.ArrayError!?T {
+    if (!supportedUnary2d(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuTrace(T, input, offset),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeTraceDefault(comptime T: type, input: array_mod.Array(T), offset: isize) array_mod.ArrayError!?T {
+    return executeTrace(T, defaultExecutionTarget(), input, offset);
+}
+
+fn executeCpuTrace(comptime T: type, input: array_mod.Array(T), offset: isize) array_mod.ArrayError!?T {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    if (T == f32) {
+        var value: f32 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetTraceF32(.cpu, matrix_view, offset, @as(array_mod.Array(f32), input).data, &value) catch return null;
+        if (!report.ok()) return null;
+        return @as(T, value);
+    } else if (T == f64) {
+        var value: f64 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetTraceF64(.cpu, matrix_view, offset, @as(array_mod.Array(f64), input).data, &value) catch return null;
+        if (!report.ok()) return null;
+        return @as(T, value);
+    }
+    return null;
+}
+
 fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     const cpu_op: axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp = switch (op) {
         .square => .square,
