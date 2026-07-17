@@ -850,8 +850,18 @@ fn executeCudaMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
 }
 
 fn executeCudaMatmulAddScaled(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
-    if (alpha == 1.0 and beta == 1.0) return executeCudaMatmulAdd(T, lhs, rhs, addend);
-    return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    const add_storage = addend.device_storage orelse return null;
+    return executePendingMatmul(T, .cuda, lhs.allocator, addend.shape, lhs.device, .{
+        .lhs_storage = lhs_storage,
+        .rhs_storage = rhs_storage,
+        .add_storage = add_storage,
+        .lhs_shape = .{ lhs.shape[0], lhs.shape[1] },
+        .rhs_shape = .{ rhs.shape[0], rhs.shape[1] },
+        .alpha = alpha,
+        .beta = beta,
+    });
 }
 
 pub fn executeUnary(
