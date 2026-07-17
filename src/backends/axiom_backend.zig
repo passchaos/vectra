@@ -302,7 +302,7 @@ fn executeCpuMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Ar
             if (try axiom_cpu.tryMatvecF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 1 and rhs.shape.len == 2) {
             if (try axiom_cpu.tryVecmatF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
-        } else if (try axiom_cpu.tryMatmulF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
+        } else if (try executeCpuGemmTarget(f32, lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f64) {
         const lhs64 = @as(array_mod.Array(f64), lhs);
         const rhs64 = @as(array_mod.Array(f64), rhs);
@@ -312,9 +312,40 @@ fn executeCpuMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Ar
             if (try axiom_cpu.tryMatvecF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 1 and rhs.shape.len == 2) {
             if (try axiom_cpu.tryVecmatF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
-        } else if (try axiom_cpu.tryMatmulF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
+        } else if (try executeCpuGemmTarget(f64, lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (lhs.shape.len != 2 or rhs.shape.len != 2) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    var c = try array_mod.Array(T).zeros(lhs.allocator, &.{ m, n });
+    defer c.deinit();
+    var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
+    errdefer out.deinit();
+    const spec = axiom.accelerator.TensorGemmSpec.rowMajor(
+        .rowMajor("lhs", @intCast(@intFromPtr(lhs.data.ptr)), m, k),
+        .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
+        .rowMajor("out", @intCast(@intFromPtr(out.data.ptr)), m, n),
+    );
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetGemmF32(.cpu, spec, @as(array_mod.Array(f32), lhs).data, @as(array_mod.Array(f32), rhs).data, @as(array_mod.Array(f32), c).data, @as(array_mod.Array(f32), out).data) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetGemmF64(.cpu, spec, @as(array_mod.Array(f64), lhs).data, @as(array_mod.Array(f64), rhs).data, @as(array_mod.Array(f64), c).data, @as(array_mod.Array(f64), out).data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
 }
 
 fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
