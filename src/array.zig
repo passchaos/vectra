@@ -1,7 +1,6 @@
 const std = @import("std");
 const build_options = @import("vectra_build_options");
 const alea = @import("alea");
-const veyra = @import("veyra");
 const axiom_cuda_backend = @import("backends/axiom_cuda.zig");
 const axiom_backend = @import("backends/axiom_backend.zig");
 
@@ -455,17 +454,6 @@ pub const ArrayError = error{
     NotPositiveDefinite,
     BackendFailure,
 } || std.mem.Allocator.Error;
-
-fn mapVeyraArrayError(err: anyerror) ArrayError {
-    return switch (err) {
-        error.Singular => error.SingularMatrix,
-        error.NotPositiveDefinite => error.NotPositiveDefinite,
-        error.DimensionMismatch => error.ShapeMismatch,
-        error.IndexOutOfBounds => error.IndexOutOfBounds,
-        error.OutOfMemory => error.OutOfMemory,
-        else => error.BackendFailure,
-    };
-}
 
 pub const Shape = struct {
     allocator: std.mem.Allocator,
@@ -1000,20 +988,6 @@ pub fn LuResult(comptime T: type) type {
             self.u.deinit();
             self.* = undefined;
         }
-    };
-}
-
-fn toVeyraTriangle(triangle_value: Triangle) veyra.Triangle {
-    return switch (triangle_value) {
-        .lower => .lower,
-        .upper => .upper,
-    };
-}
-
-fn toVeyraDiagonal(diagonal_kind: Diagonal) veyra.DiagonalKind {
-    return switch (diagonal_kind) {
-        .non_unit => .non_unit,
-        .unit => .unit,
     };
 }
 
@@ -10318,131 +10292,6 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        fn toVeyraMatrixF64(self: Self) ArrayError!veyra.Matrix(f64) {
-            if (comptime T != f64) @compileError("Veyra dense backend path requires Array(f64)");
-            if (self.shape.len != 2) return error.NonMatrixArray;
-            return veyra.Matrix(f64).fromSlice(self.allocator, self.shape[0], self.shape[1], .row_major, self.data) catch |err| return mapVeyraArrayError(err);
-        }
-
-        fn toVeyraVectorF64(self: Self) ArrayError!veyra.Vector(f64) {
-            if (comptime T != f64) @compileError("Veyra dense backend path requires Array(f64)");
-            if (self.shape.len != 1) return error.NonVectorArray;
-            return veyra.Vector(f64).fromSlice(self.allocator, self.data) catch |err| return mapVeyraArrayError(err);
-        }
-
-        fn fromVeyraMatrixF64(allocator: std.mem.Allocator, matrix: *const veyra.Matrix(f64)) ArrayError!Self {
-            if (comptime T != f64) @compileError("Veyra dense backend path requires Array(f64)");
-            return Self.fromSlice(allocator, matrix.data, &.{ matrix.rows, matrix.cols });
-        }
-
-        fn fromVeyraVectorF64(allocator: std.mem.Allocator, vector: *const veyra.Vector(f64)) ArrayError!Self {
-            if (comptime T != f64) @compileError("Veyra dense backend path requires Array(f64)");
-            return Self.fromSlice(allocator, vector.data, &.{vector.len()});
-        }
-
-        fn matmul2dContiguousF64(self: Self, other: Self) ArrayError!Self {
-            if (comptime T != f64) @compileError("Veyra dense matmul fast path requires Array(f64)");
-            if (self.shape.len != 2 or other.shape.len != 2) return error.NonMatrixArray;
-            if (self.shape[1] != other.shape[0]) return error.ShapeMismatch;
-            if (!self.isContiguous() or !other.isContiguous()) return error.InvalidShape;
-
-            var out = try Self.empty(self.allocator, &.{ self.shape[0], other.shape[1] });
-            errdefer out.deinit();
-            if (out.data.len == 0) return out;
-            if (self.shape[1] == 0) {
-                @memset(out.data, 0);
-                return out;
-            }
-
-            const lhs = veyra.MatrixView(f64).fromStridedSlice(
-                self.data,
-                self.shape[0],
-                self.shape[1],
-                try usizeToPositiveIsize(self.strides[0]),
-                try usizeToPositiveIsize(self.strides[1]),
-            ) catch |err| return mapVeyraArrayError(err);
-            const rhs = veyra.MatrixView(f64).fromStridedSlice(
-                other.data,
-                other.shape[0],
-                other.shape[1],
-                try usizeToPositiveIsize(other.strides[0]),
-                try usizeToPositiveIsize(other.strides[1]),
-            ) catch |err| return mapVeyraArrayError(err);
-            const dst = veyra.MatrixMut(f64).fromSlice(
-                out.data,
-                out.shape[0],
-                out.shape[1],
-                .row_major,
-            ) catch |err| return mapVeyraArrayError(err);
-            veyra.matmul(f64, lhs, rhs, dst) catch |err| return mapVeyraArrayError(err);
-            return out;
-        }
-
-        fn veyraVectorViewF64(self: Self) ArrayError!veyra.VectorView(f64) {
-            if (comptime T != f64) @compileError("Veyra dense vector fast path requires Array(f64)");
-            if (self.shape.len != 1) return error.NonVectorArray;
-            return veyra.VectorView(f64).fromStridedSlice(
-                self.data,
-                self.shape[0],
-                try usizeToPositiveIsize(self.strides[0]),
-            ) catch |err| return mapVeyraArrayError(err);
-        }
-
-        fn veyraMatrixViewF64(self: Self) ArrayError!veyra.MatrixView(f64) {
-            if (comptime T != f64) @compileError("Veyra dense matrix fast path requires Array(f64)");
-            if (self.shape.len != 2) return error.NonMatrixArray;
-            return veyra.MatrixView(f64).fromStridedSlice(
-                self.data,
-                self.shape[0],
-                self.shape[1],
-                try usizeToPositiveIsize(self.strides[0]),
-                try usizeToPositiveIsize(self.strides[1]),
-            ) catch |err| return mapVeyraArrayError(err);
-        }
-
-        fn matvecF64(self: Self, vector: Self) ArrayError!Self {
-            if (comptime T != f64) @compileError("Veyra dense matvec fast path requires Array(f64)");
-            if (self.shape.len != 2) return error.NonMatrixArray;
-            if (vector.shape.len != 1) return error.NonVectorArray;
-            if (self.shape[1] != vector.shape[0]) return error.ShapeMismatch;
-            if (!self.isContiguous() or !vector.isContiguous()) return error.InvalidShape;
-
-            var out = try Self.zeros(self.allocator, &.{self.shape[0]});
-            errdefer out.deinit();
-            const lhs = try self.veyraMatrixViewF64();
-            const rhs = try vector.veyraVectorViewF64();
-            const dst = veyra.VectorMut(f64).fromSlice(out.data);
-            veyra.matvec(f64, lhs, rhs, dst) catch |err| return mapVeyraArrayError(err);
-            return out;
-        }
-
-        fn vecmatF64(self: Self, matrix: Self) ArrayError!Self {
-            if (comptime T != f64) @compileError("Veyra dense vector-matrix fast path requires Array(f64)");
-            if (self.shape.len != 1) return error.NonVectorArray;
-            if (matrix.shape.len != 2) return error.NonMatrixArray;
-            if (self.shape[0] != matrix.shape[0]) return error.ShapeMismatch;
-            if (!self.isContiguous() or !matrix.isContiguous()) return error.InvalidShape;
-
-            var out = try Self.zeros(self.allocator, &.{matrix.shape[1]});
-            errdefer out.deinit();
-            const lhs = try matrix.veyraMatrixViewF64();
-            const rhs = try self.veyraVectorViewF64();
-            const dst = veyra.VectorMut(f64).fromSlice(out.data);
-            veyra.gemv(f64, lhs, rhs, dst, .{ .transpose_lhs = .transpose }) catch |err| return mapVeyraArrayError(err);
-            return out;
-        }
-
-        fn dotF64(self: Self, other: Self) ArrayError!Self {
-            if (comptime T != f64) @compileError("Veyra dense dot fast path requires Array(f64)");
-            if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
-            if (self.shape[0] != other.shape[0]) return error.ShapeMismatch;
-            if (!self.isContiguous() or !other.isContiguous()) return error.InvalidShape;
-            const lhs = try self.veyraVectorViewF64();
-            const rhs = try other.veyraVectorViewF64();
-            const result = veyra.dot(f64, lhs, rhs) catch |err| return mapVeyraArrayError(err);
-            return Self.fromSlice(self.allocator, &.{result}, &.{});
-        }
-
         pub fn det(self: Self) ArrayError!T {
             if (comptime @typeInfo(T) != .float) @compileError("det requires floating-point arrays");
             if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
@@ -10578,31 +10427,6 @@ pub fn Array(comptime T: type) type {
             return self.qrReference();
         }
 
-        fn qrF64(self: Self) ArrayError!QrResult(T) {
-            var matrix = try self.toVeyraMatrixF64();
-            defer matrix.deinit();
-            var factorization = veyra.qr(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
-            defer factorization.deinit();
-
-            var identity_matrix = veyra.Matrix(f64).identity(self.allocator, self.shape[0], .row_major) catch |err| return mapVeyraArrayError(err);
-            defer identity_matrix.deinit();
-            var q_matrix = veyra.Matrix(f64).zeros(self.allocator, self.shape[0], self.shape[0], .row_major) catch |err| return mapVeyraArrayError(err);
-            defer q_matrix.deinit();
-            factorization.applyQMatrix(identity_matrix.asView(), q_matrix.asMut()) catch |err| return mapVeyraArrayError(err);
-
-            var q = try Self.fromVeyraMatrixF64(self.allocator, &q_matrix);
-            errdefer q.deinit();
-            var r = try Self.zeros(self.allocator, &.{ self.shape[0], self.shape[1] });
-            errdefer r.deinit();
-            const r_view = factorization.rView();
-            for (0..self.shape[0]) |row| {
-                for (row..self.shape[1]) |col| {
-                    if (row < r_view.rows and col < r_view.cols) r.data[row * self.shape[1] + col] = r_view.get(row, col);
-                }
-            }
-            return .{ .q = q, .r = r };
-        }
-
         fn qrReference(self: Self) ArrayError!QrResult(T) {
             const m = self.shape[0];
             const n = self.shape[1];
@@ -10639,34 +10463,6 @@ pub fn Array(comptime T: type) type {
                 if (try axiom_backend.executeLuDefault(T, self)) |out| return .{ .p = out.p, .l = out.l, .u = out.u };
             }
             return self.luReference();
-        }
-
-        fn luF64(self: Self) ArrayError!LuResult(T) {
-            var matrix = try self.toVeyraMatrixF64();
-            defer matrix.deinit();
-            var factorization = veyra.lu(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
-            defer factorization.deinit();
-            const n = self.shape[0];
-            var p = try Self.zeros(self.allocator, &.{ n, n });
-            errdefer p.deinit();
-            var l = try Self.zeros(self.allocator, &.{ n, n });
-            errdefer l.deinit();
-            var u = try Self.zeros(self.allocator, &.{ n, n });
-            errdefer u.deinit();
-            const permutation_view = factorization.permutationView();
-            const factors = factorization.factors.asView();
-            for (0..n) |r_idx| {
-                p.data[r_idx * n + permutation_view.get(r_idx)] = one(T);
-                l.data[r_idx * n + r_idx] = one(T);
-                for (0..n) |c_idx| {
-                    if (r_idx > c_idx) {
-                        l.data[r_idx * n + c_idx] = factors.get(r_idx, c_idx);
-                    } else {
-                        u.data[r_idx * n + c_idx] = factors.get(r_idx, c_idx);
-                    }
-                }
-            }
-            return .{ .p = p, .l = l, .u = u };
         }
 
         fn luReference(self: Self) ArrayError!LuResult(T) {
@@ -10721,28 +10517,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn solve_triangular(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Self {
             return self.solveTriangular(rhs, triangle, diagonal_kind);
-        }
-
-        fn solveTriangularF64(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Self {
-            var triangular_matrix = try self.toVeyraMatrixF64();
-            defer triangular_matrix.deinit();
-            const options: veyra.dense.TriangularSolveOptions = .{ .triangle = toVeyraTriangle(triangle), .diagonal = toVeyraDiagonal(diagonal_kind) };
-
-            if (rhs.shape.len == 1) {
-                var rhs_vector = try rhs.toVeyraVectorF64();
-                defer rhs_vector.deinit();
-                var dst_vector = veyra.Vector(f64).zeros(self.allocator, self.shape[0]) catch |err| return mapVeyraArrayError(err);
-                defer dst_vector.deinit();
-                veyra.dense.solveTriangular(f64, triangular_matrix.asView(), rhs_vector.asView(), dst_vector.asMut(), options) catch |err| return mapVeyraArrayError(err);
-                return Self.fromVeyraVectorF64(self.allocator, &dst_vector);
-            }
-
-            var rhs_matrix = try rhs.toVeyraMatrixF64();
-            defer rhs_matrix.deinit();
-            var dst_matrix = veyra.Matrix(f64).zeros(self.allocator, self.shape[0], rhs.shape[1], .row_major) catch |err| return mapVeyraArrayError(err);
-            defer dst_matrix.deinit();
-            veyra.dense.solveTriangularMatrix(f64, triangular_matrix.asView(), rhs_matrix.asView(), dst_matrix.asMut(), options) catch |err| return mapVeyraArrayError(err);
-            return Self.fromVeyraMatrixF64(self.allocator, &dst_matrix);
         }
 
         fn solveTriangularReference(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Self {
@@ -21451,27 +21225,6 @@ pub fn Array(comptime T: type) type {
             }
 
             if (lhs_vec and rhs_vec) return self.dot(other);
-            if (comptime T == f64) {
-                if (!lhs_vec and rhs_vec and
-                    self.shape.len == 2 and other.shape.len == 1 and
-                    self.isContiguous() and other.isContiguous())
-                {
-                    return self.matvecF64(other);
-                }
-                if (lhs_vec and !rhs_vec and
-                    self.shape.len == 1 and other.shape.len == 2 and
-                    self.isContiguous() and other.isContiguous())
-                {
-                    return self.vecmatF64(other);
-                }
-                if (!lhs_vec and !rhs_vec and
-                    self.shape.len == 2 and other.shape.len == 2 and
-                    self.isContiguous() and other.isContiguous())
-                {
-                    return self.matmul2dContiguousF64(other);
-                }
-            }
-
             const lhs_batch = if (lhs_vec) self.shape[0..0] else self.shape[0 .. self.shape.len - 2];
             const rhs_batch = if (rhs_vec) other.shape[0..0] else other.shape[0 .. other.shape.len - 2];
             const batch_shape = try computeBroadcastShape(self.allocator, lhs_batch, rhs_batch);
@@ -21608,9 +21361,6 @@ pub fn Array(comptime T: type) type {
             if (self.shape[1] != vector.shape[0]) return error.ShapeMismatch;
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeMatmulDefault(T, self, vector)) |out| return out;
-                if (comptime T == f64) {
-                    if (self.isContiguous() and vector.isContiguous()) return self.matvecF64(vector);
-                }
             }
             const rows = self.shape[0];
             const cols = self.shape[1];
@@ -21635,9 +21385,6 @@ pub fn Array(comptime T: type) type {
             if (self.shape[0] != other.shape[0]) return error.ShapeMismatch;
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeMatmulDefault(T, self, other)) |out| return out;
-                if (comptime T == f64) {
-                    if (self.isContiguous() and other.isContiguous()) return self.dotF64(other);
-                }
             }
             var acc = zero(T);
             for (self.data, other.data) |a, b| acc = addValue(T, acc, mulValue(T, a, b));
@@ -27566,7 +27313,7 @@ test "array view object math sort and linalg wrappers" {
     try std.testing.expect(try hermitian_view.isHermitian(complex_tol, complex_tol));
 }
 
-test "array object linalg methods use Veyra-backed and fallback paths" {
+test "array object linalg methods use Axiom-backed and fallback paths" {
     const gpa = std.testing.allocator;
     var a = try Array(f64).fromSlice(gpa, &.{ 4, 7, 2, 6 }, &.{ 2, 2 });
     defer a.deinit();
