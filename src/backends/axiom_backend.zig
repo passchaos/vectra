@@ -630,6 +630,44 @@ pub fn executeDetDefault(comptime T: type, input: array_mod.Array(T)) array_mod.
     return executeDet(T, defaultExecutionTarget(), input);
 }
 
+pub fn executeInverse(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedSquareMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuInverse(T, input),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeInverseDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeInverse(T, defaultExecutionTarget(), input);
+}
+
+fn executeCpuInverse(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    const out_view = matrixView(T, out, "out") orelse {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetInverseF32(.cpu, matrix_view, out_view, @as(array_mod.Array(f32), input).data, @as(array_mod.Array(f32), out).data) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetInverseF64(.cpu, matrix_view, out_view, @as(array_mod.Array(f64), input).data, @as(array_mod.Array(f64), out).data) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 fn executeCpuDet(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?T {
     const matrix_view = matrixView(T, input, "input") orelse return null;
     if (T == f32) {
