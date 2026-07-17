@@ -1862,8 +1862,8 @@ pub fn selectElementwise(comptime T: type, op: ElementwiseOp, policy: BackendPol
         .direct_cpu
     else switch (policy) {
         .force_direct_cpu => .direct_cpu,
-        .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else .direct_cpu,
-        .prefer_cuda => if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else if (supportsAxiomCudaElementwise(T) and axiom_cuda.enabled()) .axiom_cuda else .direct_cpu,
+        .prefer_cuda => if (supportsAxiomCudaElementwise(T) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
     };
     var report: BackendReport = .{
         .policy = policy,
@@ -1888,8 +1888,8 @@ pub fn selectScalarElementwise(
         .direct_cpu
     else switch (policy) {
         .force_direct_cpu => .direct_cpu,
-        .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else .direct_cpu,
-        .prefer_cuda => if ((T == f32 or T == f16 or T == array_mod.BFloat16) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
+        .prefer_axiom_cpu => if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else if (supportsAxiomCudaElementwise(T) and axiom_cuda.enabled()) .axiom_cuda else .direct_cpu,
+        .prefer_cuda => if (supportsAxiomCudaElementwise(T) and axiom_cuda.enabled()) .axiom_cuda else if (supportsAxiomCpuElementwise(T) and axiom_cpu.enabled()) .axiom_cpu_veyra else .direct_cpu,
     };
     var report: BackendReport = .{
         .policy = policy,
@@ -2105,6 +2105,10 @@ fn supportedElementwiseExecution(comptime T: type, target: DialectBackend, lhs: 
 }
 
 fn supportsAxiomElementwise(comptime T: type) bool {
+    return T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16;
+}
+
+fn supportsAxiomCudaElementwise(comptime T: type) bool {
     return T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16;
 }
 
