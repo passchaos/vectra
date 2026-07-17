@@ -10449,14 +10449,6 @@ pub fn Array(comptime T: type) type {
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeDetDefault(T, self)) |value| return value;
             }
-            if (comptime T == f64) {
-                var matrix = try self.toVeyraMatrixF64();
-                defer matrix.deinit();
-                var factorization = veyra.lu(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
-                defer factorization.deinit();
-                return factorization.determinant() catch |err| return mapVeyraArrayError(err);
-            }
-
             const n = self.shape[0];
             var matrix_data = try self.allocator.dupe(T, self.data);
             defer self.allocator.free(matrix_data);
@@ -10493,14 +10485,6 @@ pub fn Array(comptime T: type) type {
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeInverseDefault(T, self)) |out| return out;
             }
-            if (comptime T == f64) {
-                var matrix = try self.toVeyraMatrixF64();
-                defer matrix.deinit();
-                var inverse_matrix = veyra.inverse(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
-                defer inverse_matrix.deinit();
-                return Self.fromVeyraMatrixF64(self.allocator, &inverse_matrix);
-            }
-
             const n = self.shape[0];
             var augmented = try self.allocator.alloc(T, n * n * 2);
             defer self.allocator.free(augmented);
@@ -10553,27 +10537,6 @@ pub fn Array(comptime T: type) type {
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeSolveDefault(T, self, rhs)) |out| return out;
             }
-            if (comptime T == f64) {
-                var matrix = try self.toVeyraMatrixF64();
-                defer matrix.deinit();
-                var factorization = veyra.lu(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
-                defer factorization.deinit();
-                if (rhs.shape.len == 1) {
-                    var rhs_vector = try rhs.toVeyraVectorF64();
-                    defer rhs_vector.deinit();
-                    var dst_vector = veyra.Vector(f64).zeros(self.allocator, self.shape[1]) catch |err| return mapVeyraArrayError(err);
-                    defer dst_vector.deinit();
-                    factorization.solve(rhs_vector.asView(), dst_vector.asMut()) catch |err| return mapVeyraArrayError(err);
-                    return Self.fromVeyraVectorF64(self.allocator, &dst_vector);
-                }
-                var rhs_matrix = try rhs.toVeyraMatrixF64();
-                defer rhs_matrix.deinit();
-                var dst_matrix = veyra.Matrix(f64).zeros(self.allocator, self.shape[1], rhs.shape[1], .row_major) catch |err| return mapVeyraArrayError(err);
-                defer dst_matrix.deinit();
-                factorization.solveMatrix(rhs_matrix.asView(), dst_matrix.asMut()) catch |err| return mapVeyraArrayError(err);
-                return Self.fromVeyraMatrixF64(self.allocator, &dst_matrix);
-            }
-
             var inv_self = try self.inverse();
             defer inv_self.deinit();
             return inv_self.matmul(rhs);
@@ -10585,20 +10548,6 @@ pub fn Array(comptime T: type) type {
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeCholeskyDefault(T, self)) |out| return out;
             }
-            if (comptime T == f64) {
-                var matrix = try self.toVeyraMatrixF64();
-                defer matrix.deinit();
-                var factorization = veyra.cholesky(f64, self.allocator, matrix.asView()) catch |err| return mapVeyraArrayError(err);
-                defer factorization.deinit();
-                var out = try Self.zeros(self.allocator, &.{ self.shape[0], self.shape[1] });
-                errdefer out.deinit();
-                const lower = factorization.lView();
-                for (0..self.shape[0]) |r| {
-                    for (0..r + 1) |c| out.data[r * self.shape[1] + c] = lower.get(r, c);
-                }
-                return out;
-            }
-
             const n = self.shape[0];
             var out = try Self.zeros(self.allocator, &.{ n, n });
             errdefer out.deinit();
@@ -10626,7 +10575,6 @@ pub fn Array(comptime T: type) type {
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeQrDefault(T, self)) |out| return .{ .q = out.q, .r = out.r };
             }
-            if (comptime T == f64) return self.qrF64();
             return self.qrReference();
         }
 
@@ -10690,7 +10638,6 @@ pub fn Array(comptime T: type) type {
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeLuDefault(T, self)) |out| return .{ .p = out.p, .l = out.l, .u = out.u };
             }
-            if (comptime T == f64) return self.luF64();
             return self.luReference();
         }
 
@@ -10769,7 +10716,6 @@ pub fn Array(comptime T: type) type {
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeSolveTriangularDefault(T, self, rhs, triangle, diagonal_kind)) |out| return out;
             }
-            if (comptime T == f64) return self.solveTriangularF64(rhs, triangle, diagonal_kind);
             return self.solveTriangularReference(rhs, triangle, diagonal_kind);
         }
 
@@ -10863,17 +10809,7 @@ pub fn Array(comptime T: type) type {
                 return error.BackendFailure;
             }
 
-            var matrix = try self.toVeyraMatrixF64();
-            defer matrix.deinit();
-            var decomposition = veyra.svdViaEigen(f64, self.allocator, matrix.asView(), tolerance) catch |err| return mapVeyraArrayError(err);
-            defer decomposition.deinit();
-            var u = try Self.fromVeyraMatrixF64(self.allocator, &decomposition.u);
-            errdefer u.deinit();
-            var s_values = try Self.fromVeyraVectorF64(self.allocator, &decomposition.singular_values);
-            errdefer s_values.deinit();
-            var vt = try Self.fromVeyraMatrixF64(self.allocator, &decomposition.vt);
-            errdefer vt.deinit();
-            return .{ .u = u, .s = s_values, .vt = vt };
+            return error.BackendFailure;
         }
 
         pub fn singularValues(self: Self, tolerance: T) ArrayError!Self {
@@ -10937,33 +10873,6 @@ pub fn Array(comptime T: type) type {
             if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeMatrixNormDefault(T, self, order)) |value| return value;
             }
-            if (comptime T == f64) {
-                var matrix = try self.toVeyraMatrixF64();
-                defer matrix.deinit();
-                return switch (order) {
-                    .fro => veyra.frobeniusNorm(f64, matrix.asView()),
-                    .one => veyra.matrixOneNorm(f64, matrix.asView()),
-                    .inf => veyra.matrixInfNorm(f64, matrix.asView()),
-                    .two => blk: {
-                        var values = try self.singularValues(tolerance);
-                        defer values.deinit();
-                        if (values.data.len == 0) break :blk zero(T);
-                        var max_value = values.data[0];
-                        for (values.data[1..]) |value| {
-                            if (value > max_value) max_value = value;
-                        }
-                        break :blk max_value;
-                    },
-                    .nuclear => blk: {
-                        var values = try self.singularValues(tolerance);
-                        defer values.deinit();
-                        var total = zero(T);
-                        for (values.data) |value| total += value;
-                        break :blk total;
-                    },
-                };
-            }
-
             return switch (order) {
                 .fro => blk: {
                     var total = zero(T);
