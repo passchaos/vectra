@@ -464,6 +464,22 @@ fn executeCpuUnary(comptime T: type, op: DialectUnaryOp, input: array_mod.Array(
     return null;
 }
 
+fn matrixView(comptime T: type, input: array_mod.Array(T), name: []const u8) ?axiom.accelerator.TensorMatrixView {
+    if (input.shape.len != 2 or input.strides.len != 2) return null;
+    const row_stride = std.math.cast(isize, input.strides[0]) orelse return null;
+    const col_stride = std.math.cast(isize, input.strides[1]) orelse return null;
+    var view = axiom.accelerator.TensorMatrixView.strided(
+        name,
+        @intCast(@intFromPtr(input.data.ptr)),
+        input.shape[0],
+        input.shape[1],
+        row_stride,
+        col_stride,
+    );
+    view.element_type = if (T == f32) .f32 else if (T == f64) .f64 else return null;
+    return view;
+}
+
 fn executeCpuReduction(
     comptime T: type,
     op: DialectReductionOp,
@@ -471,22 +487,61 @@ fn executeCpuReduction(
     axis: u1,
     keepdims: bool,
 ) array_mod.ArrayError!?array_mod.Array(T) {
+    const cpu_op: axiom.accelerator.cpu_veyra.CpuVeyraReductionOp = switch (op) {
+        .sum => .sum,
+        .prod => .prod,
+        .min => .min,
+        .max => .max,
+    };
+    var out_shape_storage: [2]usize = undefined;
+    const out_shape = if (keepdims) shape: {
+        out_shape_storage = if (axis == 0)
+            .{ 1, input.shape[1] }
+        else
+            .{ input.shape[0], 1 };
+        break :shape out_shape_storage[0..2];
+    } else shape: {
+        out_shape_storage[0] = if (axis == 0) input.shape[1] else input.shape[0];
+        break :shape out_shape_storage[0..1];
+    };
     if (T == f32) {
-        const maybe = switch (op) {
-            .sum => try axiom_cpu.trySumF32(@as(array_mod.Array(f32), input), axis, keepdims),
-            .prod => try axiom_cpu.tryProdF32(@as(array_mod.Array(f32), input), axis, keepdims),
-            .min => try axiom_cpu.tryMinF32(@as(array_mod.Array(f32), input), axis, keepdims),
-            .max => try axiom_cpu.tryMaxF32(@as(array_mod.Array(f32), input), axis, keepdims),
+        const input32 = @as(array_mod.Array(f32), input);
+        var out = try array_mod.Array(f32).empty(input.allocator, out_shape);
+        errdefer out.deinit();
+        const matrix_view = matrixView(f32, input32, "input") orelse {
+            out.deinit();
+            return null;
         };
-        if (maybe) |out| return @as(array_mod.Array(T), out);
+        var out_view = axiom.accelerator.TensorBufferView.contiguous("out", @intCast(@intFromPtr(out.data.ptr)), out.data.len);
+        out_view.element_type = .f32;
+        const report = axiom.accelerator.cpu_veyra.runTargetReductionF32(.cpu, cpu_op, axis, matrix_view, out_view, input32.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
     } else if (T == f64) {
-        const maybe = switch (op) {
-            .sum => try axiom_cpu.trySumF64(@as(array_mod.Array(f64), input), axis, keepdims),
-            .prod => try axiom_cpu.tryProdF64(@as(array_mod.Array(f64), input), axis, keepdims),
-            .min => try axiom_cpu.tryMinF64(@as(array_mod.Array(f64), input), axis, keepdims),
-            .max => try axiom_cpu.tryMaxF64(@as(array_mod.Array(f64), input), axis, keepdims),
+        const input64 = @as(array_mod.Array(f64), input);
+        var out = try array_mod.Array(f64).empty(input.allocator, out_shape);
+        errdefer out.deinit();
+        const matrix_view = matrixView(f64, input64, "input") orelse {
+            out.deinit();
+            return null;
         };
-        if (maybe) |out| return @as(array_mod.Array(T), out);
+        var out_view = axiom.accelerator.TensorBufferView.contiguous("out", @intCast(@intFromPtr(out.data.ptr)), out.data.len);
+        out_view.element_type = .f64;
+        const report = axiom.accelerator.cpu_veyra.runTargetReductionF64(.cpu, cpu_op, axis, matrix_view, out_view, input64.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
     }
     return null;
 }
