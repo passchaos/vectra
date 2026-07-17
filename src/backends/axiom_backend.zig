@@ -74,6 +74,21 @@ pub fn QrResult(comptime T: type) type {
     };
 }
 
+pub fn LuResult(comptime T: type) type {
+    return struct {
+        p: array_mod.Array(T),
+        l: array_mod.Array(T),
+        u: array_mod.Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.p.deinit();
+            self.l.deinit();
+            self.u.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
 pub const DialectBackend = axiom.accelerator.DialectBackend;
 pub const DialectMatmulLoweringReport = axiom.accelerator.DialectMatmulLoweringReport;
 pub const DialectMatmulLoweringStatus = axiom.accelerator.DialectMatmulLoweringStatus;
@@ -695,6 +710,19 @@ pub fn executeQrDefault(comptime T: type, input: array_mod.Array(T)) array_mod.A
     return executeQr(T, defaultExecutionTarget(), input);
 }
 
+pub fn executeLu(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?LuResult(T) {
+    if (!supportedSquareMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuLu(T, input),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeLuDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?LuResult(T) {
+    return executeLu(T, defaultExecutionTarget(), input);
+}
+
 pub fn executeSolveTriangular(
     comptime T: type,
     target: DialectBackend,
@@ -974,6 +1002,29 @@ fn cpuDiagonal(diagonal: array_mod.Diagonal) axiom.accelerator.cpu_veyra.CpuVeyr
         .non_unit => .non_unit,
         .unit => .unit,
     };
+}
+
+fn executeCpuLu(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?LuResult(T) {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    var p = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer p.deinit();
+    var l = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer l.deinit();
+    var u = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer u.deinit();
+    const p_view = matrixView(T, p, "p") orelse return null;
+    const l_view = matrixView(T, l, "l") orelse return null;
+    const u_view = matrixView(T, u, "u") orelse return null;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetLuF32(.cpu, matrix_view, p_view, l_view, u_view, @as(array_mod.Array(f32), input).data, @as(array_mod.Array(f32), p).data, @as(array_mod.Array(f32), l).data, @as(array_mod.Array(f32), u).data) catch {
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetLuF64(.cpu, matrix_view, p_view, l_view, u_view, @as(array_mod.Array(f64), input).data, @as(array_mod.Array(f64), p).data, @as(array_mod.Array(f64), l).data, @as(array_mod.Array(f64), u).data) catch {
+            return null;
+        };
+    if (!report.ok()) return null;
+    return .{ .p = p, .l = l, .u = u };
 }
 
 fn executeCpuQr(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?QrResult(T) {

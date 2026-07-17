@@ -10688,10 +10688,8 @@ pub fn Array(comptime T: type) type {
         pub fn lu(self: Self) ArrayError!LuResult(T) {
             if (comptime @typeInfo(T) != .float) @compileError("lu requires floating-point arrays");
             if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryLuF32(self)) |out| return .{ .p = out.p, .l = out.l, .u = out.u };
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryLuF64(self)) |out| return .{ .p = out.p, .l = out.l, .u = out.u };
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeLuDefault(T, self)) |out| return .{ .p = out.p, .l = out.l, .u = out.u };
             }
             if (comptime T == f64) return self.luF64();
             return self.luReference();
