@@ -21934,11 +21934,11 @@ pub fn Array(comptime T: type) type {
             if (self.shape.len != 2) return error.NonMatrixArray;
             if (vector.shape.len != 1) return error.NonVectorArray;
             if (self.shape[1] != vector.shape[0]) return error.ShapeMismatch;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryMatvecF32(self, vector)) |out| return out;
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryMatvecF64(self, vector)) |out| return out;
-                if (self.isContiguous() and vector.isContiguous()) return self.matvecF64(vector);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeMatmulDefault(T, self, vector)) |out| return out;
+                if (comptime T == f64) {
+                    if (self.isContiguous() and vector.isContiguous()) return self.matvecF64(vector);
+                }
             }
             const rows = self.shape[0];
             const cols = self.shape[1];
@@ -21961,11 +21961,11 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
             if (self.shape[0] != other.shape[0]) return error.ShapeMismatch;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryDotF32(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryDotF64(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
-                if (self.isContiguous() and other.isContiguous()) return self.dotF64(other);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeMatmulDefault(T, self, other)) |out| return out;
+                if (comptime T == f64) {
+                    if (self.isContiguous() and other.isContiguous()) return self.dotF64(other);
+                }
             }
             var acc = zero(T);
             for (self.data, other.data) |a, b| acc = addValue(T, acc, mulValue(T, a, b));
@@ -21975,10 +21975,8 @@ pub fn Array(comptime T: type) type {
         pub fn vdot(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.data.len != other.data.len) return error.ShapeMismatch;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryDotF32(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryDotF64(self, other)) |value| return Self.fromSlice(self.allocator, &.{value}, &.{});
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeMatmulDefault(T, self, other)) |out| return out;
             }
             var acc = zero(T);
             for (self.data, other.data) |a, b| acc = addValue(T, acc, mulValue(T, a, b));
