@@ -174,6 +174,17 @@ pub fn allocateStorage(device: array_mod.Device, len: usize, element_size: usize
     };
 }
 
+pub fn hostElementCapacity(device: array_mod.Device, len: usize) usize {
+    return if (allocateStorageOptionalForDevice(device)) 0 else len;
+}
+
+fn allocateStorageOptionalForDevice(device: array_mod.Device) bool {
+    return switch (executionTargetForDevice(device)) {
+        .cpu => false,
+        .cuda, .mps => true,
+    };
+}
+
 pub fn freeStorage(storage: array_mod.DeviceStorage) void {
     switch (executionTargetForDevice(storage.device)) {
         .cpu => {},
@@ -188,6 +199,15 @@ pub fn fillStorage(comptime T: type, storage: array_mod.DeviceStorage, value: T)
         .cuda => axiom_cuda.fillStorage(T, storage, value),
         .mps => error.InvalidDevice,
     };
+}
+
+pub fn fillAllocated(comptime T: type, device: array_mod.Device, host_data: []T, storage: ?array_mod.DeviceStorage, value: T) array_mod.ArrayError!void {
+    if (storage) |device_storage| {
+        try fillStorage(T, device_storage, value);
+        return;
+    }
+    if (!hostFallbackAllowed(device)) return error.InvalidDevice;
+    @memset(host_data, value);
 }
 
 pub fn uploadStorage(storage: array_mod.DeviceStorage, bytes: []const u8) array_mod.ArrayError!void {

@@ -76,6 +76,8 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn executeEigh(",
     "pub fn executeEigvalsh(",
     "pub fn transferStorage(",
+    "pub fn hostElementCapacity(",
+    "pub fn fillAllocated(",
     "pub fn planPendingMatmul(",
     "pub fn hostFallbackAllowed(",
     "pub fn shouldRestoreDeviceAfterHostCast(",

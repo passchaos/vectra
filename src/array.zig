@@ -9561,15 +9561,10 @@ pub fn Array(comptime T: type) type {
             errdefer allocator.free(shape);
             const strides = try stridesFor(allocator, shape);
             errdefer allocator.free(strides);
-            if (device.isCpu()) {
-                const values = try allocator.alloc(T, n);
-                errdefer allocator.free(values);
-                return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides, .device = device };
-            }
-            const values = try allocator.alloc(T, 0);
+            const storage = try axiom_backend.allocateStorage(device, n, @sizeOf(T));
+            errdefer if (storage) |owned_storage| axiom_backend.freeStorage(owned_storage);
+            const values = try allocator.alloc(T, axiom_backend.hostElementCapacity(device, n));
             errdefer allocator.free(values);
-            const storage = (try axiom_backend.allocateStorage(device, n, @sizeOf(T))) orelse return error.InvalidDevice;
-            errdefer axiom_backend.freeStorage(storage);
             return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides, .device = device, .device_storage = storage };
         }
 
@@ -9587,11 +9582,7 @@ pub fn Array(comptime T: type) type {
                 var cleanup = out;
                 cleanup.deinit();
             }
-            if (device.isCpu()) {
-                @memset(out.data, value);
-            } else if (out.device_storage) |storage| {
-                try axiom_backend.fillStorage(T, storage, value);
-            }
+            try axiom_backend.fillAllocated(T, device, out.data, out.device_storage, value);
             return out;
         }
 
