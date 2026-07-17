@@ -60,6 +60,9 @@ pub const DialectElementwiseLoweringStatus = axiom.accelerator.DialectElementwis
 pub const DialectReductionOp = axiom.accelerator.DialectReductionOp;
 pub const DialectReductionLoweringReport = axiom.accelerator.DialectReductionLoweringReport;
 pub const DialectReductionLoweringStatus = axiom.accelerator.DialectReductionLoweringStatus;
+pub const DialectBroadcastAxis = axiom.accelerator.DialectBroadcastAxis;
+pub const DialectBroadcastLoweringReport = axiom.accelerator.DialectBroadcastLoweringReport;
+pub const DialectBroadcastLoweringStatus = axiom.accelerator.DialectBroadcastLoweringStatus;
 pub const MpsRuntimeAbiStatus = axiom.accelerator.MpsRuntimeAbiStatus;
 pub const MpsRuntimeAbiReport = axiom.accelerator.MpsRuntimeAbiReport;
 
@@ -177,6 +180,23 @@ pub fn lowerReductionDialect(comptime T: type, input: array_mod.Array(T), op: Di
 
 pub fn lowerReductionDialectDefault(comptime T: type, input: array_mod.Array(T), op: DialectReductionOp, axis: u1) array_mod.ArrayError!DialectReductionLoweringReport {
     return lowerReductionDialect(T, input, op, axis, defaultDialectBackend());
+}
+
+pub fn lowerBroadcastAddDialect(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis, backend: DialectBackend) array_mod.ArrayError!DialectBroadcastLoweringReport {
+    if (!supportedBroadcastAdd(T, input, bias, axis)) return error.ShapeMismatch;
+    const element = dialectElement(T) orelse return error.TypeUnsupported;
+    return axiom.accelerator.lowerDialectBroadcastAdd(.{
+        .name = "vectra.broadcast_add",
+        .element = element,
+        .rows = input.shape[0],
+        .cols = input.shape[1],
+        .axis = axis,
+        .backend = backend,
+    }) catch error.BackendFailure;
+}
+
+pub fn lowerBroadcastAddDialectDefault(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!DialectBroadcastLoweringReport {
+    return lowerBroadcastAddDialect(T, input, bias, axis, defaultDialectBackend());
 }
 
 fn dialectElement(comptime T: type) ?axiom.linalg_dialect.Element {
@@ -403,6 +423,16 @@ fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
 }
 
+fn supportedBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
+    if (dialectElement(T) == null) return false;
+    if (!input.device.isCpu() or !bias.device.isCpu() or input.shape.len != 2 or bias.shape.len != 1) return false;
+    if (!input.isContiguous() or !bias.isContiguous()) return false;
+    return bias.shape[0] == switch (axis) {
+        .row => input.shape[1],
+        .column => input.shape[0],
+    };
+}
+
 fn supportedElementwiseSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     return supportsAxiomElementwise(T) and
         lhs.device.isCpu() and
@@ -610,6 +640,28 @@ test "Axiom dialect lowering reports reduction generic route" {
     const default_mps_report = try lowerReductionDialectDefault(f32, input, .max, 0);
     try std.testing.expect(default_mps_report.ok());
     try std.testing.expectEqual(DialectReductionLoweringStatus.planned_mps, default_mps_report.status);
+    resetDefaultDialectBackend();
+}
+
+test "Axiom dialect lowering reports broadcast generic route" {
+    const gpa = std.testing.allocator;
+    var input = try array_mod.Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer input.deinit();
+    var row = try array_mod.Array(f32).fromSlice(gpa, &.{ 10, 20, 30 }, &.{3});
+    defer row.deinit();
+    var column = try array_mod.Array(f32).fromSlice(gpa, &.{ 100, 200 }, &.{2});
+    defer column.deinit();
+
+    const cuda_report = try lowerBroadcastAddDialect(f32, input, row, .row, .cuda);
+    try std.testing.expect(cuda_report.ok());
+    try std.testing.expectEqual(DialectBroadcastLoweringStatus.lowered_cuda, cuda_report.status);
+    try std.testing.expect(cuda_report.vector_fragment_fingerprint != 0);
+    try std.testing.expect(cuda_report.gpu_mapping_fingerprint != 0);
+
+    setDefaultDialectBackend(.mps);
+    const default_mps_report = try lowerBroadcastAddDialectDefault(f32, input, column, .column);
+    try std.testing.expect(default_mps_report.ok());
+    try std.testing.expectEqual(DialectBroadcastLoweringStatus.planned_mps, default_mps_report.status);
     resetDefaultDialectBackend();
 }
 

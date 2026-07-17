@@ -7,6 +7,10 @@ pub fn main(init: std.process.Init) !void {
     defer lhs.deinit();
     var rhs = try vx.Array(f32).fromSlice(allocator, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
     defer rhs.deinit();
+    var row_bias = try vx.Array(f32).fromSlice(allocator, &.{ 10, 20, 30 }, &.{3});
+    defer row_bias.deinit();
+    var col_bias = try vx.Array(f32).fromSlice(allocator, &.{ 100, 200 }, &.{2});
+    defer col_bias.deinit();
 
     const cpu_report = try vx.axiom_backend.lowerMatmulDialect(f32, lhs, rhs, .cpu);
     const cuda_report = try vx.axiom_backend.lowerMatmulDialect(f32, lhs, rhs, .cuda);
@@ -16,15 +20,18 @@ pub fn main(init: std.process.Init) !void {
     const default_cuda_report = try vx.axiom_backend.lowerMatmulDialectDefault(f32, lhs, rhs);
     const elementwise_cuda_report = try vx.axiom_backend.lowerElementwiseDialectDefault(f32, .add, lhs, lhs);
     const reduction_cuda_report = try vx.axiom_backend.lowerReductionDialectDefault(f32, lhs, .sum, 1);
+    const broadcast_cuda_report = try vx.axiom_backend.lowerBroadcastAddDialectDefault(f32, lhs, row_bias, .row);
     vx.setDefaultDialectBackend(.mps);
     const default_mps_report = try vx.axiom_backend.lowerMatmulDialectDefault(f32, lhs, rhs);
     const elementwise_mps_report = try vx.axiom_backend.lowerElementwiseDialectDefault(f32, .mul, lhs, lhs);
     const reduction_mps_report = try vx.axiom_backend.lowerReductionDialectDefault(f32, lhs, .max, 0);
+    const broadcast_mps_report = try vx.axiom_backend.lowerBroadcastAddDialectDefault(f32, lhs, col_bias, .column);
     vx.resetDefaultDialectBackend();
     const ok = cpu_report.ok() and cuda_report.ok() and mps_report.ok() and
         default_cuda_report.ok() and default_mps_report.ok() and
         elementwise_cuda_report.ok() and elementwise_mps_report.ok() and
         reduction_cuda_report.ok() and reduction_mps_report.ok() and
+        broadcast_cuda_report.ok() and broadcast_mps_report.ok() and
         cpu_report.status == .lowered_cpu and
         cuda_report.status == .lowered_cuda and
         mps_report.status == .planned_mps and
@@ -34,6 +41,8 @@ pub fn main(init: std.process.Init) !void {
         elementwise_mps_report.status == .planned_mps and
         reduction_cuda_report.status == .lowered_cuda and
         reduction_mps_report.status == .planned_mps and
+        broadcast_cuda_report.status == .lowered_cuda and
+        broadcast_mps_report.status == .planned_mps and
         std.mem.eql(u8, mps_report.launch_backend, "mps_planned") and
         std.mem.eql(u8, elementwise_mps_report.launch_backend, "mps_planned") and
         std.mem.eql(u8, reduction_mps_report.launch_backend, "mps_planned") and
@@ -46,7 +55,7 @@ pub fn main(init: std.process.Init) !void {
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_mps_status\":\"{s}\",\"mps_launch_backend\":\"{s}\",\"mps_runtime_status\":\"{s}\",\"mps_runtime_fingerprint\":{d},\"fingerprint\":{d}}}\n",
+        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_mps_status\":\"{s}\",\"mps_launch_backend\":\"{s}\",\"mps_runtime_status\":\"{s}\",\"mps_runtime_fingerprint\":{d},\"broadcast_cuda_status\":\"{s}\",\"broadcast_mps_status\":\"{s}\",\"fingerprint\":{d}}}\n",
         .{
             ok,
             cpu_report.status.label(),
@@ -67,6 +76,8 @@ pub fn main(init: std.process.Init) !void {
             mps_report.launch_backend,
             mps_runtime.status.label(),
             mps_runtime.fingerprint(),
+            broadcast_cuda_report.status.label(),
+            broadcast_mps_report.status.label(),
             cuda_report.fingerprint(),
         },
     );
