@@ -1,7 +1,5 @@
 const std = @import("std");
-const build_options = @import("vectra_build_options");
 const alea = @import("alea");
-const axiom_cuda_backend = @import("backends/axiom_cuda.zig");
 const axiom_backend = @import("backends/axiom_backend.zig");
 
 pub const Complex64 = std.math.Complex(f32);
@@ -141,7 +139,7 @@ pub const Device = struct {
             // honest: CPU arrays run Axiom CPU paths, CUDA arrays run Axiom
             // CUDA paths, and creation on CUDA fails instead of silently
             // becoming a CPU array otherwise.
-            .cuda => build_options.enable_axiom_cuda and axiom_cuda_backend.deviceAvailable(self.index),
+            .cuda => axiom_backend.deviceAvailable(self),
             // MPS availability is delegated to Axiom's MPS runtime ABI report.
             // Today that report is an honest planned/unavailable contract rather
             // than a fake CPU/CUDA allocation path.
@@ -9570,8 +9568,8 @@ pub fn Array(comptime T: type) type {
             }
             const values = try allocator.alloc(T, 0);
             errdefer allocator.free(values);
-            const storage = (try axiom_cuda_backend.allocateStorage(device, n, @sizeOf(T))) orelse return error.InvalidDevice;
-            errdefer axiom_cuda_backend.freeStorage(storage);
+            const storage = (try axiom_backend.allocateStorage(device, n, @sizeOf(T))) orelse return error.InvalidDevice;
+            errdefer axiom_backend.freeStorage(storage);
             return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides, .device = device, .device_storage = storage };
         }
 
@@ -9592,7 +9590,7 @@ pub fn Array(comptime T: type) type {
             if (device.isCpu()) {
                 @memset(out.data, value);
             } else if (out.device_storage) |storage| {
-                try axiom_cuda_backend.fillStorage(T, storage, value);
+                try axiom_backend.fillStorage(T, storage, value);
             }
             return out;
         }
@@ -9824,9 +9822,9 @@ pub fn Array(comptime T: type) type {
             const strides = try stridesFor(allocator, shape);
             errdefer allocator.free(strides);
             if (device.isCpu()) return .{ .allocator = allocator, .data = data, .shape = shape, .strides = strides, .device = device };
-            const storage = (try axiom_cuda_backend.allocateStorage(device, n, @sizeOf(T))) orelse return error.InvalidDevice;
-            errdefer axiom_cuda_backend.freeStorage(storage);
-            try axiom_cuda_backend.uploadStorage(storage, std.mem.sliceAsBytes(values));
+            const storage = (try axiom_backend.allocateStorage(device, n, @sizeOf(T))) orelse return error.InvalidDevice;
+            errdefer axiom_backend.freeStorage(storage);
+            try axiom_backend.uploadStorage(storage, std.mem.sliceAsBytes(values));
             return .{ .allocator = allocator, .data = data, .shape = shape, .strides = strides, .device = device, .device_storage = storage };
         }
 
@@ -10237,7 +10235,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn deinit(self: *Self) void {
-            if (self.device_storage) |storage| axiom_cuda_backend.freeStorage(storage);
+            if (self.device_storage) |storage| axiom_backend.freeStorage(storage);
             self.pending_matmul = null;
             self.cpu_matmul = null;
             self.allocator.free(self.data);
@@ -10253,7 +10251,7 @@ pub fn Array(comptime T: type) type {
             if (self.device.isCpu()) {
                 @memcpy(out.data, self.data);
             } else if (self.device_storage) |src_storage| {
-                if (out.device_storage) |dst_storage| try axiom_cuda_backend.copyStorage(dst_storage, src_storage) else return error.InvalidDevice;
+                if (out.device_storage) |dst_storage| try axiom_backend.copyStorage(dst_storage, src_storage) else return error.InvalidDevice;
             } else {
                 return error.InvalidDevice;
             }
@@ -11125,12 +11123,12 @@ pub fn Array(comptime T: type) type {
             var out = try Self.emptyOn(self.allocator, self.shape, device);
             errdefer out.deinit();
             if (self.device.isCpu() and device.isCuda()) {
-                if (out.device_storage) |storage| try axiom_cuda_backend.uploadStorage(storage, std.mem.sliceAsBytes(self.data)) else return error.InvalidDevice;
+                if (out.device_storage) |storage| try axiom_backend.uploadStorage(storage, std.mem.sliceAsBytes(self.data)) else return error.InvalidDevice;
             } else if (self.device.isCuda() and device.isCpu()) {
-                if (self.device_storage) |storage| try axiom_cuda_backend.downloadStorage(storage, std.mem.sliceAsBytes(out.data)) else return error.InvalidDevice;
+                if (self.device_storage) |storage| try axiom_backend.downloadStorage(storage, std.mem.sliceAsBytes(out.data)) else return error.InvalidDevice;
             } else if (self.device.isCuda() and device.isCuda()) {
                 if (self.device_storage) |src_storage| {
-                    if (out.device_storage) |dst_storage| try axiom_cuda_backend.copyStorage(dst_storage, src_storage) else return error.InvalidDevice;
+                    if (out.device_storage) |dst_storage| try axiom_backend.copyStorage(dst_storage, src_storage) else return error.InvalidDevice;
                 } else return error.InvalidDevice;
             } else {
                 return error.InvalidDevice;
@@ -12286,7 +12284,7 @@ pub fn Array(comptime T: type) type {
                 return materialized.copyToSlice(out);
             }
             if (!self.device.isCpu()) {
-                if (self.device_storage) |storage| return axiom_cuda_backend.downloadStorage(storage, std.mem.sliceAsBytes(out));
+                if (self.device_storage) |storage| return axiom_backend.downloadStorage(storage, std.mem.sliceAsBytes(out));
                 return error.InvalidDevice;
             }
             @memcpy(out, self.data);

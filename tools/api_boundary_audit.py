@@ -27,7 +27,11 @@ ZON = REPO / "build.zig.zon"
 
 PUBLIC_SOURCE_FILES = (ROOT, ARRAY)
 AXIAL_GUARD_FILES = (BUILD, ZON, ROOT, ARRAY, AXIOM_BACKEND)
-TARGET_FACADE_CLIENT_FILES = (ROOT, ARRAY)
+# Array implementation code must not bypass the Axiom target facade.  The root
+# module still re-exports low-level bridge modules for explicit smoke/provenance
+# tools, so this guard is intentionally scoped to the eager Array execution
+# client rather than every public export surface.
+TARGET_FACADE_CLIENT_FILES = (ARRAY,)
 
 BANNED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("public_tensor_alias", re.compile(r"\bpub\s+const\s+Tensor\b")),
@@ -83,6 +87,9 @@ FORBIDDEN_AXIAL_SNIPPETS = (
 
 FORBIDDEN_DIRECT_ACCELERATOR_SNIPPETS = (
     "axiom_cpu_backend",
+    "axiom_cuda_backend",
+    '@import("backends/axiom_cuda.zig")',
+    '@import("backends/axiom_cpu.zig")',
     "tryDeviceBinary",
     "tryDeviceUnary",
     "trySqrt",

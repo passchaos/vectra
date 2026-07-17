@@ -158,6 +158,63 @@ pub fn mpsDeviceAvailable(index: usize) bool {
     return axiom.accelerator.mpsDeviceAvailable(index);
 }
 
+pub fn deviceAvailable(device: array_mod.Device) bool {
+    return switch (device.backend) {
+        .cpu => true,
+        .cuda => build_options.enable_axiom_cuda and axiom_cuda.deviceAvailable(device.index),
+        .mps => mpsDeviceAvailable(device.index),
+    };
+}
+
+pub fn allocateStorage(device: array_mod.Device, len: usize, element_size: usize) array_mod.ArrayError!?array_mod.DeviceStorage {
+    return switch (executionTargetForDevice(device)) {
+        .cpu => null,
+        .cuda => axiom_cuda.allocateStorage(device, len, element_size),
+        .mps => null,
+    };
+}
+
+pub fn freeStorage(storage: array_mod.DeviceStorage) void {
+    switch (executionTargetForDevice(storage.device)) {
+        .cpu => {},
+        .cuda => axiom_cuda.freeStorage(storage),
+        .mps => {},
+    }
+}
+
+pub fn fillStorage(comptime T: type, storage: array_mod.DeviceStorage, value: T) array_mod.ArrayError!void {
+    return switch (executionTargetForDevice(storage.device)) {
+        .cpu => error.InvalidDevice,
+        .cuda => axiom_cuda.fillStorage(T, storage, value),
+        .mps => error.InvalidDevice,
+    };
+}
+
+pub fn uploadStorage(storage: array_mod.DeviceStorage, bytes: []const u8) array_mod.ArrayError!void {
+    return switch (executionTargetForDevice(storage.device)) {
+        .cpu => error.InvalidDevice,
+        .cuda => axiom_cuda.uploadStorage(storage, bytes),
+        .mps => error.InvalidDevice,
+    };
+}
+
+pub fn downloadStorage(storage: array_mod.DeviceStorage, bytes: []u8) array_mod.ArrayError!void {
+    return switch (executionTargetForDevice(storage.device)) {
+        .cpu => error.InvalidDevice,
+        .cuda => axiom_cuda.downloadStorage(storage, bytes),
+        .mps => error.InvalidDevice,
+    };
+}
+
+pub fn copyStorage(dst: array_mod.DeviceStorage, src: array_mod.DeviceStorage) array_mod.ArrayError!void {
+    if (!dst.device.sameDevice(src.device)) return error.InvalidDevice;
+    return switch (executionTargetForDevice(dst.device)) {
+        .cpu => error.InvalidDevice,
+        .cuda => axiom_cuda.copyStorage(dst, src),
+        .mps => error.InvalidDevice,
+    };
+}
+
 threadlocal var default_dialect_backend: DialectBackend = .cpu;
 
 pub fn setDefaultDialectBackend(backend: DialectBackend) void {
