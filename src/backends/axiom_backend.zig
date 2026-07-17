@@ -669,6 +669,50 @@ pub fn executeCholeskyDefault(comptime T: type, input: array_mod.Array(T)) array
     return executeCholesky(T, defaultExecutionTarget(), input);
 }
 
+pub fn executeMatrixNorm(comptime T: type, target: DialectBackend, input: array_mod.Array(T), order: array_mod.MatrixNormOrder) array_mod.ArrayError!?T {
+    if (!supportedMatrixExecution(T, input)) return null;
+    const cpu_order = cpuMatrixNormOrder(order) orelse return null;
+    return switch (target) {
+        .cpu => executeCpuMatrixNorm(T, input, cpu_order),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeMatrixNormDefault(comptime T: type, input: array_mod.Array(T), order: array_mod.MatrixNormOrder) array_mod.ArrayError!?T {
+    return executeMatrixNorm(T, defaultExecutionTarget(), input, order);
+}
+
+fn executeCpuMatrixNorm(comptime T: type, input: array_mod.Array(T), order: axiom.accelerator.cpu_veyra.CpuVeyraMatrixNormOrder) array_mod.ArrayError!?T {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    if (T == f32) {
+        var value: f32 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetMatrixNormF32(.cpu, matrix_view, @as(array_mod.Array(f32), input).data, order, &value, normTolerance(T)) catch return null;
+        if (!report.ok()) return null;
+        return @as(T, value);
+    } else if (T == f64) {
+        var value: f64 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetMatrixNormF64(.cpu, matrix_view, @as(array_mod.Array(f64), input).data, order, &value, normTolerance(T)) catch return null;
+        if (!report.ok()) return null;
+        return @as(T, value);
+    }
+    return null;
+}
+
+fn cpuMatrixNormOrder(order: array_mod.MatrixNormOrder) ?axiom.accelerator.cpu_veyra.CpuVeyraMatrixNormOrder {
+    return switch (order) {
+        .fro => .fro,
+        .one => .one,
+        .inf => .inf,
+        .two => .two,
+        .nuclear => .nuclear,
+    };
+}
+
+fn normTolerance(comptime T: type) T {
+    return if (T == f32) 1e-5 else 1e-12;
+}
+
 fn executeCpuCholesky(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     const matrix_view = matrixView(T, input, "input") orelse return null;
     var out = try array_mod.Array(T).empty(input.allocator, input.shape);
@@ -1267,12 +1311,16 @@ fn supportedUnary2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
 }
 
-fn supportedSquareMatrixExecution(comptime T: type, input: array_mod.Array(T)) bool {
+fn supportedMatrixExecution(comptime T: type, input: array_mod.Array(T)) bool {
     return (T == f32 or T == f64) and
         input.device.isCpu() and
         input.shape.len == 2 and
-        input.shape[0] == input.shape[1] and
+        input.data.len != 0 and
         input.isContiguous();
+}
+
+fn supportedSquareMatrixExecution(comptime T: type, input: array_mod.Array(T)) bool {
+    return supportedMatrixExecution(T, input) and input.shape[0] == input.shape[1];
 }
 
 fn supportedSolveExecution(comptime T: type, matrix: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
