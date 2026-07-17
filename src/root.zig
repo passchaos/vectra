@@ -93,6 +93,10 @@ pub fn cuda(index: usize) Device {
     return Device.cuda(index);
 }
 
+pub fn mps(index: usize) Device {
+    return Device.mps(index);
+}
+
 pub fn withAllocator(allocator: @import("std").mem.Allocator) Context {
     return layered_array_mod.withAllocator(allocator);
 }
@@ -106,6 +110,7 @@ pub fn add(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     return switch (lhs.device.backend) {
         .cpu => lhs.add(rhs),
         .cuda => lhs.add(rhs),
+        .mps => error.InvalidDevice,
     };
 }
 
@@ -114,6 +119,7 @@ pub fn matmul(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     return switch (lhs.device.backend) {
         .cpu => lhs.matmul(rhs),
         .cuda => lhs.matmul(rhs),
+        .mps => error.InvalidDevice,
     };
 }
 

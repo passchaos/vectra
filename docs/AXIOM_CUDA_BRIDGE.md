@@ -44,12 +44,15 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
 ## CUDA owning-array behavior
 
 - `Device.cuda(index).isAvailable()` is true when Axiom can load the CUDA driver
-  and retain that device's primary context.
+  and retain that device's primary context. `Device.mps(index)` is part of the
+  public backend selector surface, but `isAvailable()` is false until Axiom owns
+  a real Metal/MPS storage/runtime ABI.
 - `Array.*On(..., vx.cuda(i))`, deterministic `Context.*With(vx.onDevice(...))`
   creation helpers, and `.cuda(i)` allocate/copy real device storage.
 - `.cpu()` explicitly downloads CUDA storage.
 - `ArrayView.cuda()` remains unsupported until view/device storage semantics are
-  implemented.
+  implemented; `Array.mps()` / `ArrayView.mps()` return `InvalidDevice` today while
+  dialect lowering reports the planned MPS route.
 - CUDA `Array(f32).add/sub/mul/div` launch Axiom cached device-pointer
   elementwise kernels with existing device pointers, avoiding repeated
   compile/module-load overhead after the first operation per op.

@@ -70,6 +70,7 @@ pub const BFloat16 = struct {
 pub const Backend = enum {
     cpu,
     cuda,
+    mps,
 };
 
 pub const Device = struct {
@@ -80,6 +81,10 @@ pub const Device = struct {
 
     pub fn cuda(index: usize) Device {
         return .{ .backend = .cuda, .index = index };
+    }
+
+    pub fn mps(index: usize) Device {
+        return .{ .backend = .mps, .index = index };
     }
 
     pub fn isCpu(self: Device) bool {
@@ -98,10 +103,19 @@ pub const Device = struct {
         return self.isCuda();
     }
 
+    pub fn isMps(self: Device) bool {
+        return self.backend == .mps;
+    }
+
+    pub fn is_mps(self: Device) bool {
+        return self.isMps();
+    }
+
     pub fn backendName(self: Device) []const u8 {
         return switch (self.backend) {
             .cpu => "cpu",
             .cuda => "cuda",
+            .mps => "mps",
         };
     }
 
@@ -130,6 +144,10 @@ pub const Device = struct {
             // CUDA paths, and creation on CUDA fails instead of silently
             // becoming a CPU array otherwise.
             .cuda => build_options.enable_axiom_cuda and axiom_cuda_backend.deviceAvailable(self.index),
+            // Axiom exposes the MPS route as dialect-lowering evidence today.
+            // Real Metal/MPS storage allocation remains disabled until Axiom owns
+            // a runtime ABI for it, so `.mps()` is visible but not silently faked.
+            .mps => false,
         };
     }
 
@@ -2147,6 +2165,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.to(Device.cuda(index));
         }
 
+        pub fn mps(self: Self, index: usize) ArrayError!Self {
+            return self.to(Device.mps(index));
+        }
+
         pub fn deviceBackend(self: Self) Backend {
             return self.device.backend;
         }
@@ -2185,6 +2207,14 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn is_cuda(self: Self) bool {
             return self.isCuda();
+        }
+
+        pub fn isMps(self: Self) bool {
+            return self.device.isMps();
+        }
+
+        pub fn is_mps(self: Self) bool {
+            return self.isMps();
         }
 
         pub fn isDeviceAvailable(self: Self) bool {
@@ -11467,6 +11497,10 @@ pub fn Array(comptime T: type) type {
             return self.to(Device.cuda(index));
         }
 
+        pub fn mps(self: Self, index: usize) ArrayError!Self {
+            return self.to(Device.mps(index));
+        }
+
         pub fn deviceBackend(self: Self) Backend {
             return self.device.backend;
         }
@@ -11505,6 +11539,14 @@ pub fn Array(comptime T: type) type {
 
         pub fn is_cuda(self: Self) bool {
             return self.isCuda();
+        }
+
+        pub fn isMps(self: Self) bool {
+            return self.device.isMps();
+        }
+
+        pub fn is_mps(self: Self) bool {
+            return self.isMps();
         }
 
         pub fn isDeviceAvailable(self: Self) bool {
@@ -25510,6 +25552,13 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqual(@as(usize, 1), cuda_device.index);
     try std.testing.expect(!cuda_device.isAvailable());
     try std.testing.expect(!Device.cpu.sameDevice(cuda_device));
+    const mps_device = Device.mps(0);
+    try std.testing.expect(mps_device.isMps());
+    try std.testing.expect(mps_device.is_mps());
+    try std.testing.expect(!mps_device.isCpu());
+    try std.testing.expect(!mps_device.isCuda());
+    try std.testing.expectEqualStrings("mps", mps_device.backendName());
+    try std.testing.expect(!mps_device.isAvailable());
     try std.testing.expectEqual(Backend.cpu, a.deviceBackend());
     try std.testing.expectEqual(Backend.cpu, a.device_backend());
     try std.testing.expectEqual(@as(usize, 0), a.deviceIndex());
@@ -25520,6 +25569,8 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expect(a.is_cpu());
     try std.testing.expect(!a.isCuda());
     try std.testing.expect(!a.is_cuda());
+    try std.testing.expect(!a.isMps());
+    try std.testing.expect(!a.is_mps());
     try std.testing.expect(a.isDeviceAvailable());
     try std.testing.expect(a.is_device_available());
     var cpu_clone = try a.cpu();
@@ -25537,6 +25588,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     } else {
         try std.testing.expectError(error.InvalidDevice, a.cuda(0));
     }
+    try std.testing.expectError(error.InvalidDevice, a.mps(0));
     try std.testing.expectEqual(@as(f64, 5), try a.at(&.{ 1, 1 }));
     var empty_meta = try Array(f64).zeros(gpa, &.{ 0, 3 });
     defer empty_meta.deinit();
@@ -25937,6 +25989,8 @@ test "array view materializing shape wrappers" {
     try std.testing.expect(view.is_cpu());
     try std.testing.expect(!view.isCuda());
     try std.testing.expect(!view.is_cuda());
+    try std.testing.expect(!view.isMps());
+    try std.testing.expect(!view.is_mps());
     try std.testing.expect(view.isDeviceAvailable());
     try std.testing.expect(view.is_device_available());
     var view_cpu_clone = try view.cpu();
@@ -31463,6 +31517,7 @@ test "array dtype metadata and casts cover common numeric types" {
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
+    try std.testing.expectError(error.InvalidDevice, cpu_source.mps(0));
 
     var cpu_view = try cpu_source.sliceAxisView(1, .{ .start = 0, .stop = 2, .step = 1 });
     defer cpu_view.deinit();
@@ -31472,6 +31527,7 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expectEqualSlices(usize, cpu_view.shape, view_cpu.shape);
     try std.testing.expectEqualSlices(usize, cpu_view.strides, view_cpu.strides);
     try std.testing.expectError(error.InvalidDevice, cpu_view.cuda(0));
+    try std.testing.expectError(error.InvalidDevice, cpu_view.mps(0));
 }
 
 test "array object two dimensional convolution and correlation" {
