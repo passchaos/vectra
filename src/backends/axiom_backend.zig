@@ -57,6 +57,9 @@ pub const DialectMatmulLoweringStatus = axiom.accelerator.DialectMatmulLoweringS
 pub const DialectElementwiseOp = axiom.accelerator.DialectElementwiseOp;
 pub const DialectElementwiseLoweringReport = axiom.accelerator.DialectElementwiseLoweringReport;
 pub const DialectElementwiseLoweringStatus = axiom.accelerator.DialectElementwiseLoweringStatus;
+pub const DialectReductionOp = axiom.accelerator.DialectReductionOp;
+pub const DialectReductionLoweringReport = axiom.accelerator.DialectReductionLoweringReport;
+pub const DialectReductionLoweringStatus = axiom.accelerator.DialectReductionLoweringStatus;
 
 threadlocal var default_dialect_backend: DialectBackend = .cpu;
 
@@ -146,6 +149,24 @@ fn dialectElementwiseOp(op: ElementwiseOp) DialectElementwiseOp {
         .mul => .mul,
         .div => .div,
     };
+}
+
+pub fn lowerReductionDialect(comptime T: type, input: array_mod.Array(T), op: DialectReductionOp, axis: u1, backend: DialectBackend) array_mod.ArrayError!DialectReductionLoweringReport {
+    if (!supportedReduction2d(T, input)) return error.ShapeMismatch;
+    const element = dialectElement(T) orelse return error.TypeUnsupported;
+    return axiom.accelerator.lowerDialectReduction(.{
+        .name = "vectra.reduction",
+        .element = element,
+        .rows = input.shape[0],
+        .cols = input.shape[1],
+        .axis = axis,
+        .op = op,
+        .backend = backend,
+    }) catch error.BackendFailure;
+}
+
+pub fn lowerReductionDialectDefault(comptime T: type, input: array_mod.Array(T), op: DialectReductionOp, axis: u1) array_mod.ArrayError!DialectReductionLoweringReport {
+    return lowerReductionDialect(T, input, op, axis, defaultDialectBackend());
 }
 
 fn dialectElement(comptime T: type) ?axiom.linalg_dialect.Element {
@@ -368,6 +389,10 @@ fn supportedMatmul2d(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
     return lhs.device.isCpu() and rhs.device.isCpu() and lhs.shape.len == 2 and rhs.shape.len == 2 and lhs.shape[1] == rhs.shape[0] and lhs.isContiguous() and rhs.isContiguous();
 }
 
+fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
+    return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
+}
+
 fn supportedElementwiseSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     return supportsAxiomElementwise(T) and
         lhs.device.isCpu() and
@@ -557,6 +582,24 @@ test "Axiom dialect lowering reports elementwise generic route" {
     const default_mps_report = try lowerElementwiseDialectDefault(f32, .mul, lhs, rhs);
     try std.testing.expect(default_mps_report.ok());
     try std.testing.expectEqual(DialectElementwiseLoweringStatus.planned_mps, default_mps_report.status);
+    resetDefaultDialectBackend();
+}
+
+test "Axiom dialect lowering reports reduction generic route" {
+    const gpa = std.testing.allocator;
+    var input = try array_mod.Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer input.deinit();
+
+    const cuda_report = try lowerReductionDialect(f32, input, .sum, 1, .cuda);
+    try std.testing.expect(cuda_report.ok());
+    try std.testing.expectEqual(DialectReductionLoweringStatus.lowered_cuda, cuda_report.status);
+    try std.testing.expect(cuda_report.vector_fragment_fingerprint != 0);
+    try std.testing.expect(cuda_report.gpu_mapping_fingerprint != 0);
+
+    setDefaultDialectBackend(.mps);
+    const default_mps_report = try lowerReductionDialectDefault(f32, input, .max, 0);
+    try std.testing.expect(default_mps_report.ok());
+    try std.testing.expectEqual(DialectReductionLoweringStatus.planned_mps, default_mps_report.status);
     resetDefaultDialectBackend();
 }
 
