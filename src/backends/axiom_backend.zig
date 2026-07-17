@@ -729,6 +729,35 @@ pub fn executeMatrixRankDefault(comptime T: type, input: array_mod.Array(T), tol
     return executeMatrixRank(T, defaultExecutionTarget(), input, tolerance);
 }
 
+pub fn executeCond(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?T {
+    if (!supportedMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuCond(T, input, tolerance),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeCondDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?T {
+    return executeCond(T, defaultExecutionTarget(), input, tolerance);
+}
+
+fn executeCpuCond(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?T {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    if (T == f32) {
+        var value: f32 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetConditionNumberF32(.cpu, matrix_view, @as(array_mod.Array(f32), input).data, @as(f32, tolerance), &value) catch return null;
+        if (!report.ok()) return null;
+        return @as(T, value);
+    } else if (T == f64) {
+        var value: f64 = 0;
+        const report = axiom.accelerator.cpu_veyra.runTargetConditionNumberF64(.cpu, matrix_view, @as(array_mod.Array(f64), input).data, @as(f64, tolerance), &value) catch return null;
+        if (!report.ok()) return null;
+        return @as(T, value);
+    }
+    return null;
+}
+
 fn executeCpuMatrixRank(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?usize {
     const matrix_view = matrixView(T, input, "input") orelse return null;
     var value: usize = 0;
