@@ -150,7 +150,7 @@ Vectra now routes array-compute intent directly into the sibling [`../axiom`](..
 zig build axiom-dialect-lowering-smoke
 ```
 
-The current public evidence API is `vx.axiom_backend.lowerMatmulDialect(...)`, which reports registered linalg/memref/gpu dialect counts, operation-store fingerprints, schedule fingerprints, CUDA Tile/NVVM handoff fingerprints for CUDA, and an explicit `planned_mps` status for the MPS backend until Axiom grows a Metal/MPS runtime ABI.
+The current public evidence API is `vx.axiom_backend.lowerMatmulDialect(...)`, which reports registered linalg/memref/gpu dialect counts, operation-store fingerprints, schedule fingerprints, CUDA Tile/NVVM handoff fingerprints for CUDA, and an explicit `planned_mps` status for the MPS backend until Axiom grows a Metal/MPS runtime ABI. `vx.setDefaultDialectBackend(.cpu/.cuda/.mps)` switches the default dialect-lowering target dynamically for helpers that use the default route.
 
 
 ## Axiom accelerator backend

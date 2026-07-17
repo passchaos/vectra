@@ -55,6 +55,20 @@ pub const DialectBackend = axiom.accelerator.DialectBackend;
 pub const DialectMatmulLoweringReport = axiom.accelerator.DialectMatmulLoweringReport;
 pub const DialectMatmulLoweringStatus = axiom.accelerator.DialectMatmulLoweringStatus;
 
+threadlocal var default_dialect_backend: DialectBackend = .cpu;
+
+pub fn setDefaultDialectBackend(backend: DialectBackend) void {
+    default_dialect_backend = backend;
+}
+
+pub fn defaultDialectBackend() DialectBackend {
+    return default_dialect_backend;
+}
+
+pub fn resetDefaultDialectBackend() void {
+    default_dialect_backend = .cpu;
+}
+
 pub const BackendReport = struct {
     policy: BackendPolicy = .prefer_cuda,
     selected: BackendRoute = .direct_cpu,
@@ -92,6 +106,10 @@ pub fn lowerMatmulDialect(comptime T: type, lhs: array_mod.Array(T), rhs: array_
         .k = lhs.shape[1],
         .backend = backend,
     }) catch error.BackendFailure;
+}
+
+pub fn lowerMatmulDialectDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!DialectMatmulLoweringReport {
+    return lowerMatmulDialect(T, lhs, rhs, defaultDialectBackend());
 }
 
 pub fn lowerMatmulDialectForRoute(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), route: BackendRoute) array_mod.ArrayError!DialectMatmulLoweringReport {
@@ -479,6 +497,18 @@ test "Axiom dialect lowering reports linalg memref gpu route" {
     const mps_report = try lowerMatmulDialect(f32, a, b, .mps);
     try std.testing.expect(mps_report.ok());
     try std.testing.expectEqual(DialectMatmulLoweringStatus.planned_mps, mps_report.status);
+
+    resetDefaultDialectBackend();
+    try std.testing.expectEqual(DialectBackend.cpu, defaultDialectBackend());
+    setDefaultDialectBackend(.cuda);
+    const default_cuda_report = try lowerMatmulDialectDefault(f32, a, b);
+    try std.testing.expect(default_cuda_report.ok());
+    try std.testing.expectEqual(DialectMatmulLoweringStatus.lowered_cuda, default_cuda_report.status);
+    setDefaultDialectBackend(.mps);
+    const default_mps_report = try lowerMatmulDialectDefault(f32, a, b);
+    try std.testing.expect(default_mps_report.ok());
+    try std.testing.expectEqual(DialectMatmulLoweringStatus.planned_mps, default_mps_report.status);
+    resetDefaultDialectBackend();
 }
 
 test "Axiom backend policy reports matmul route" {
