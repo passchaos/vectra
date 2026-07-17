@@ -61,6 +61,19 @@ pub const ExecutionUnaryOp = enum(u8) {
     }
 };
 
+pub fn QrResult(comptime T: type) type {
+    return struct {
+        q: array_mod.Array(T),
+        r: array_mod.Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.q.deinit();
+            self.r.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
 pub const DialectBackend = axiom.accelerator.DialectBackend;
 pub const DialectMatmulLoweringReport = axiom.accelerator.DialectMatmulLoweringReport;
 pub const DialectMatmulLoweringStatus = axiom.accelerator.DialectMatmulLoweringStatus;
@@ -669,6 +682,19 @@ pub fn executeCholeskyDefault(comptime T: type, input: array_mod.Array(T)) array
     return executeCholesky(T, defaultExecutionTarget(), input);
 }
 
+pub fn executeQr(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) array_mod.ArrayError!?QrResult(T) {
+    if (!supportedMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuQr(T, input),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeQrDefault(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?QrResult(T) {
+    return executeQr(T, defaultExecutionTarget(), input);
+}
+
 pub fn executeSolveTriangular(
     comptime T: type,
     target: DialectBackend,
@@ -948,6 +974,26 @@ fn cpuDiagonal(diagonal: array_mod.Diagonal) axiom.accelerator.cpu_veyra.CpuVeyr
         .non_unit => .non_unit,
         .unit => .unit,
     };
+}
+
+fn executeCpuQr(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?QrResult(T) {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    var q = try array_mod.Array(T).empty(input.allocator, &.{ input.shape[0], input.shape[0] });
+    errdefer q.deinit();
+    var r = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer r.deinit();
+    const q_view = matrixView(T, q, "q") orelse return null;
+    const r_view = matrixView(T, r, "r") orelse return null;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetQrF32(.cpu, matrix_view, q_view, r_view, @as(array_mod.Array(f32), input).data, @as(array_mod.Array(f32), q).data, @as(array_mod.Array(f32), r).data) catch {
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetQrF64(.cpu, matrix_view, q_view, r_view, @as(array_mod.Array(f64), input).data, @as(array_mod.Array(f64), q).data, @as(array_mod.Array(f64), r).data) catch {
+            return null;
+        };
+    if (!report.ok()) return null;
+    return .{ .q = q, .r = r };
 }
 
 fn executeCpuCholesky(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {

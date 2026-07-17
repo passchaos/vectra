@@ -10624,10 +10624,8 @@ pub fn Array(comptime T: type) type {
         pub fn qr(self: Self) ArrayError!QrResult(T) {
             if (comptime @typeInfo(T) != .float) @compileError("qr requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryQrF32(self)) |out| return .{ .q = out.q, .r = out.r };
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryQrF64(self)) |out| return .{ .q = out.q, .r = out.r };
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeQrDefault(T, self)) |out| return .{ .q = out.q, .r = out.r };
             }
             if (comptime T == f64) return self.qrF64();
             return self.qrReference();
