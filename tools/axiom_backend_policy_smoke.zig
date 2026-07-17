@@ -7,8 +7,15 @@ pub fn main(init: std.process.Init) !void {
     defer a.deinit();
     var b = try vx.Array(f32).fromSlice(allocator, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
     defer b.deinit();
+    vx.resetDefaultDialectBackend();
+    const default_cpu_policy = vx.axiom_backend.defaultBackendPolicy();
+    vx.setDefaultDialectBackend(.cuda);
+    const default_cuda_policy = vx.axiom_backend.defaultBackendPolicy();
+    vx.setDefaultDialectBackend(.mps);
+    const default_mps_policy = vx.axiom_backend.defaultBackendPolicy();
+    vx.resetDefaultDialectBackend();
     const report = vx.axiom_backend.selectMatmul(f32, .prefer_cuda, a, b);
-    var out = try vx.axiom_backend.matmul(f32, .prefer_axiom_cpu, a, b);
+    var out = try vx.axiom_backend.matmul(f32, vx.axiom_backend.defaultBackendPolicy(), a, b);
     defer out.deinit();
     var lhs32 = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3, 4 }, &.{4});
     defer lhs32.deinit();
@@ -34,12 +41,15 @@ pub fn main(init: std.process.Init) !void {
         equalF32(ew32.data, &.{ 11, 22, 33, 44 }) and
         equalF64(ew64.data, &.{ 4, 2, 1, 1 });
     const scalar_ok = scalar64_report.ok() and equalF64(scalar64.data, &.{ 6, 4, 2, 0 });
-    const ok = matmul_ok and elementwise_ok and scalar_ok;
+    const default_policy_ok = default_cpu_policy == .prefer_axiom_cpu and
+        default_cuda_policy == .prefer_cuda and
+        default_mps_policy == .prefer_axiom_cpu;
+    const ok = matmul_ok and elementwise_ok and scalar_ok and default_policy_ok;
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d}}}\n",
-        .{ ok, matmul_ok, elementwise_ok, scalar_ok, report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), scalar64_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint() },
+        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"default_policy_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d}}}\n",
+        .{ ok, matmul_ok, elementwise_ok, scalar_ok, default_policy_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), scalar64_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint() },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

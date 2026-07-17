@@ -15770,7 +15770,7 @@ pub fn Array(comptime T: type) type {
                         axiom_backend.ElementwiseOp.div
                     else
                         null;
-                    if (maybe_op) |op_value| return try axiom_backend.elementwise(T, op_value, .prefer_axiom_cpu, self, other);
+                    if (maybe_op) |op_value| return try axiom_backend.elementwise(T, op_value, axiom_backend.defaultBackendPolicy(), self, other);
                 }
             }
             if (std.mem.eql(usize, self.shape, other.shape)) {
@@ -15794,7 +15794,7 @@ pub fn Array(comptime T: type) type {
                     else
                         null;
                     const accelerated = if (maybe_op) |op_value|
-                        try axiom_backend.tryElementwiseScalarBroadcast(T, op_value, .prefer_axiom_cpu, self, other)
+                        try axiom_backend.tryElementwiseScalarBroadcast(T, op_value, axiom_backend.defaultBackendPolicy(), self, other)
                     else
                         null;
                     if (accelerated) |out| return out;
@@ -16577,7 +16577,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.device.isCuda()) return self.binaryScalar(scalar, opAdd);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                return axiom_backend.elementwiseScalar(T, .add, .prefer_axiom_cpu, self, scalar, .rhs);
+                return axiom_backend.elementwiseScalar(T, .add, axiom_backend.defaultBackendPolicy(), self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opAdd);
         }
@@ -16586,7 +16586,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.device.isCuda()) return self.binaryScalar(scalar, opSub);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                return axiom_backend.elementwiseScalar(T, .sub, .prefer_axiom_cpu, self, scalar, .rhs);
+                return axiom_backend.elementwiseScalar(T, .sub, axiom_backend.defaultBackendPolicy(), self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opSub);
         }
@@ -16595,7 +16595,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.device.isCuda()) return self.binaryScalar(scalar, opMul);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                return axiom_backend.elementwiseScalar(T, .mul, .prefer_axiom_cpu, self, scalar, .rhs);
+                return axiom_backend.elementwiseScalar(T, .mul, axiom_backend.defaultBackendPolicy(), self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opMul);
         }
@@ -16604,7 +16604,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.device.isCuda()) return self.binaryScalar(scalar, opDiv);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                return axiom_backend.elementwiseScalar(T, .div, .prefer_axiom_cpu, self, scalar, .rhs);
+                return axiom_backend.elementwiseScalar(T, .div, axiom_backend.defaultBackendPolicy(), self, scalar, .rhs);
             }
             return self.binaryScalar(scalar, opDiv);
         }
@@ -21795,7 +21795,7 @@ pub fn Array(comptime T: type) type {
             if (lhs_vec and rhs_vec) return self.dot(other);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (!lhs_vec and !rhs_vec) {
-                    const report = axiom_backend.selectMatmul(T, .prefer_axiom_cpu, self, other);
+                    const report = axiom_backend.selectMatmul(T, axiom_backend.defaultBackendPolicy(), self, other);
                     switch (report.selected) {
                         .axiom_cuda => if (comptime T == f32) {
                             const accelerated = try axiom_cuda_backend.tryMatmulF32(self, other);

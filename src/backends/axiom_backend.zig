@@ -93,6 +93,18 @@ pub fn resetDefaultDialectBackend() void {
     default_dialect_backend = .cpu;
 }
 
+pub fn defaultBackendPolicy() BackendPolicy {
+    return switch (defaultDialectBackend()) {
+        .cpu => .prefer_axiom_cpu,
+        .cuda => .prefer_cuda,
+        // Axiom's MPS runtime ABI is currently planned/unavailable.  A default
+        // MPS selection should still be legal for planning evidence, but eager
+        // CPU arrays must keep a real execution fallback rather than pretending
+        // MPS ran.
+        .mps => .prefer_axiom_cpu,
+    };
+}
+
 pub const BackendReport = struct {
     policy: BackendPolicy = .prefer_cuda,
     selected: BackendRoute = .direct_cpu,
@@ -644,6 +656,12 @@ test "Axiom dialect lowering reports linalg memref gpu route" {
     const default_mps_report = try lowerMatmulDialectDefault(f32, a, b);
     try std.testing.expect(default_mps_report.ok());
     try std.testing.expectEqual(DialectMatmulLoweringStatus.planned_mps, default_mps_report.status);
+    resetDefaultDialectBackend();
+
+    setDefaultDialectBackend(.cuda);
+    try std.testing.expectEqual(BackendPolicy.prefer_cuda, defaultBackendPolicy());
+    setDefaultDialectBackend(.mps);
+    try std.testing.expectEqual(BackendPolicy.prefer_axiom_cpu, defaultBackendPolicy());
     resetDefaultDialectBackend();
 }
 
