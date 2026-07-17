@@ -77,6 +77,11 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn executeEigvalsh(",
 )
 
+FORBIDDEN_ROOT_TARGET_SPLIT_SNIPPETS = (
+    "tryCpuMatmulAdd",
+    "tryCudaMatmulAdd",
+)
+
 FORBIDDEN_AXIAL_SNIPPETS = (
     '@import("axial")',
     'b.dependency("axial"',
@@ -124,6 +129,11 @@ def main() -> int:
     for snippet in REQUIRED_ROOT_SNIPPETS:
         if snippet not in root_text:
             issues.append({"kind": "missing_root_array_export", "path": "src/root.zig", "snippet": snippet})
+    if "pub fn tryMatmulAddTarget(target: DialectBackend," not in root_text:
+        issues.append({"kind": "missing_target_based_public_helper", "path": "src/root.zig", "snippet": "tryMatmulAddTarget"})
+    for snippet in FORBIDDEN_ROOT_TARGET_SPLIT_SNIPPETS:
+        if snippet in root_text:
+            issues.append({"kind": "target_split_public_helper", "path": "src/root.zig", "snippet": snippet})
 
     readme_text = read(README)
     for snippet in REQUIRED_README_SNIPPETS:

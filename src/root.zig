@@ -127,40 +127,10 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
     return lhs.matmulAdd(rhs, addend);
 }
 
-pub fn tryCpuMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32)) ArrayError!?Array(f32) {
+pub fn tryMatmulAddTarget(target: DialectBackend, lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!?@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);
-    return axiom_backend.executeMatmulAdd(f32, .cpu, lhs, rhs, addend);
-}
-
-pub fn tryCpuMatmulAddF64(lhs: Array(f64), rhs: Array(f64), addend: Array(f64)) ArrayError!?Array(f64) {
-    try requireSameDevice(lhs, rhs);
-    try requireSameDevice(lhs, addend);
-    return axiom_backend.executeMatmulAdd(f64, .cpu, lhs, rhs, addend);
-}
-
-pub fn tryCudaMatmulAddF32(lhs: Array(f32), rhs: Array(f32), addend: Array(f32)) ArrayError!?Array(f32) {
-    try requireSameDevice(lhs, rhs);
-    try requireSameDevice(lhs, addend);
-    return axiom_backend.executeMatmulAdd(f32, .cuda, lhs, rhs, addend);
-}
-
-pub fn tryCudaMatmulAddF64(lhs: Array(f64), rhs: Array(f64), addend: Array(f64)) ArrayError!?Array(f64) {
-    try requireSameDevice(lhs, rhs);
-    try requireSameDevice(lhs, addend);
-    return axiom_backend.executeMatmulAdd(f64, .cuda, lhs, rhs, addend);
-}
-
-pub fn tryCudaMatmulAddF16(lhs: Array(f16), rhs: Array(f16), addend: Array(f16)) ArrayError!?Array(f16) {
-    try requireSameDevice(lhs, rhs);
-    try requireSameDevice(lhs, addend);
-    return axiom_backend.executeMatmulAdd(f16, .cuda, lhs, rhs, addend);
-}
-
-pub fn tryCudaMatmulAddBF16(lhs: Array(BFloat16), rhs: Array(BFloat16), addend: Array(BFloat16)) ArrayError!?Array(BFloat16) {
-    try requireSameDevice(lhs, rhs);
-    try requireSameDevice(lhs, addend);
-    return axiom_backend.executeMatmulAdd(BFloat16, .cuda, lhs, rhs, addend);
+    return axiom_backend.executeMatmulAdd(@TypeOf(lhs).Scalar, target, lhs, rhs, addend);
 }
 
 fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {
@@ -187,6 +157,13 @@ test "top-level ops respect device dispatch" {
     defer sum_cpu.deinit();
     try @import("std").testing.expect(sum_cpu.device.isCpu());
     try @import("std").testing.expectEqualSlices(f32, &.{ 11, 22, 33, 44 }, sum_cpu.data);
+
+    if (try tryMatmulAddTarget(.cpu, lhs, rhs, sum_cpu)) |target_add_value| {
+        var target_add = target_add_value;
+        defer target_add.deinit();
+        try @import("std").testing.expect(target_add.device.isCpu());
+        try @import("std").testing.expectEqualSlices(f32, &.{ 81, 122, 183, 264 }, target_add.data);
+    }
 
     var cuda_rhs = try rhs.clone();
     defer cuda_rhs.deinit();
