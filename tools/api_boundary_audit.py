@@ -27,6 +27,7 @@ ZON = REPO / "build.zig.zon"
 
 PUBLIC_SOURCE_FILES = (ROOT, ARRAY)
 AXIAL_GUARD_FILES = (BUILD, ZON, ROOT, ARRAY, AXIOM_BACKEND)
+TARGET_FACADE_CLIENT_FILES = (ROOT, ARRAY)
 
 BANNED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("public_tensor_alias", re.compile(r"\bpub\s+const\s+Tensor\b")),
@@ -76,6 +77,18 @@ FORBIDDEN_AXIAL_SNIPPETS = (
     '.axial',
     'axial_cuda',
     'axial-accelerator-smoke',
+)
+
+FORBIDDEN_DIRECT_ACCELERATOR_SNIPPETS = (
+    "axiom_cpu_backend",
+    "tryDeviceBinary",
+    "tryDeviceUnary",
+    "trySqrt",
+    "tryExp",
+    "runPendingMatmul",
+    "runPendingMatmulAdd",
+    "axiom_cuda_backend.BinaryOp",
+    "axiom_cuda_backend.UnaryOp",
 )
 
 
@@ -137,6 +150,12 @@ def main() -> int:
         for snippet in FORBIDDEN_AXIAL_SNIPPETS:
             if snippet in text:
                 issues.append({"kind": "forbidden_axial_dependency", "path": str(path.relative_to(REPO)), "snippet": snippet})
+
+    for path in TARGET_FACADE_CLIENT_FILES:
+        text = read(path)
+        for snippet in FORBIDDEN_DIRECT_ACCELERATOR_SNIPPETS:
+            if snippet in text:
+                issues.append({"kind": "direct_accelerator_dispatch_outside_axiom_backend", "path": str(path.relative_to(REPO)), "snippet": snippet})
 
     row = {
         "kind": "vectra_api_boundary_audit",
