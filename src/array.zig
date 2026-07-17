@@ -17085,7 +17085,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn nllLoss(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
-            if (!self.device.isCpu() or !targets.device.isCpu()) return error.InvalidDevice;
+            if (!axiom_backend.hostFallbackAllowed(self.device) or !axiom_backend.hostFallbackAllowed(targets.device)) return error.InvalidDevice;
             if (self.shape.len == 0) return error.InvalidShape;
             const axis = try normalizeDim(axis_index, self.shape.len);
             if (self.shape[axis] == 0) return error.InvalidShape;
@@ -17397,7 +17397,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn multiMarginLoss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
-            if (!self.device.isCpu() or !targets.device.isCpu()) return error.InvalidDevice;
+            if (!axiom_backend.hostFallbackAllowed(self.device) or !axiom_backend.hostFallbackAllowed(targets.device)) return error.InvalidDevice;
             if (self.shape.len != 2 or targets.shape.len != 1 or targets.shape[0] != self.shape[0]) return error.ShapeMismatch;
             if (p != 1 and p != 2) return error.InvalidShape;
             const rows = self.shape[0];
