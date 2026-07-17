@@ -53,15 +53,18 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
 - `ArrayView.cuda()` remains unsupported until view/device storage semantics are
   implemented; `Array.mps()` / `ArrayView.mps()` return `InvalidDevice` today while
   dialect lowering reports the planned MPS route.
-- CUDA `Array(f32).add/sub/mul/div` launch Axiom cached device-pointer
-  elementwise kernels with existing device pointers, avoiding repeated
-  compile/module-load overhead after the first operation per op.
+- CUDA `Array(f32).add/sub/mul/div` and `Array(f64).add/sub/mul/div` launch
+  Axiom cached device-pointer elementwise kernels with existing device pointers,
+  avoiding repeated compile/module-load overhead after the first operation per op.
+- CUDA `Array(f32).sqrt/exp` and `Array(f64).sqrt/exp` use Axiom device unary
+  elementwise kernels.
 - CUDA `Array(f32).matmul` uses Axiom's cached cuBLAS-backed SGEMM wrapper first
   for PyTorch-class throughput and falls back to the Axiom PTX/CUDA Tile IR seed
-  if cuBLAS is unavailable.
-- CUDA `vx.matmulAdd(Array(f32), Array(f32), Array(f32))` uses Axiom's cached
-  cuBLAS SGEMM wrapper with `beta=1` so the addend is consumed in the GEMM
-  epilogue instead of launching a separate add kernel.
+  if cuBLAS is unavailable; CUDA `Array(f64).matmul` uses Axiom's cuBLAS DGEMM
+  target path.
+- CUDA `vx.matmulAdd(Array(f32), Array(f32), Array(f32))` and the f64 equivalent
+  use Axiom cached cuBLAS/cuBLASLt-backed GEMM paths so the addend is consumed in
+  the GEMM epilogue instead of launching a separate add kernel.
 
 ## CPU-backed policy
 
@@ -118,5 +121,6 @@ where Vectra still has a non-Axiom generic implementation.
   CUDA view storage are not exposed yet.
 - f16 and BFloat16 matmul call Axiom typed SIMT GEMM seed entry points, which
   report typed launch/readiness metadata while using widened f32 compute today.
-- f64 CUDA tensor runtime support is not exposed yet; f64 supported accelerator
-  routes are CPU→Veyra.
+- f64 CUDA same-shape/scalar elementwise, sqrt/exp, matmul, and matmulAdd/fusion
+  are exposed for owning CUDA arrays; broader f64 CUDA reductions/broadcast/view
+  storage remain future work.
