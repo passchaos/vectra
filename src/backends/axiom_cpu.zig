@@ -105,6 +105,14 @@ pub fn tryMaxF64(input: array_mod.Array(f64), axis: u1, keepdims: bool) array_mo
     return tryReduction(f64, .max, input, axis, keepdims);
 }
 
+pub fn tryTransposeF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryTranspose(f32, input);
+}
+
+pub fn tryTransposeF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryTranspose(f64, input);
+}
+
 fn tryElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (comptime build_options.enable_axiom_cpu_dispatch) {
         if (!supportedSameShapeContiguous(T, lhs, rhs)) return null;
@@ -202,6 +210,36 @@ fn tryReduction(comptime T: type, op: ReductionOp, input: array_mod.Array(T), ax
             }
         else
             axiom.accelerator.cpu_veyra.runReductionF64(axiom_op, axis, matrix_view, out_view, input.data, out.data) catch {
+                out.deinit();
+                return null;
+            };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return out;
+    } else {
+        return null;
+    }
+}
+
+fn tryTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (comptime build_options.enable_axiom_cpu_dispatch) {
+        if (!supportedTranspose2d(T, input)) return null;
+        const matrix_view = (try matrixView(T, input, "input")) orelse return null;
+        var out = try array_mod.Array(T).empty(input.allocator, &.{ input.shape[1], input.shape[0] });
+        errdefer out.deinit();
+        const out_view = (try matrixView(T, out, "out")) orelse {
+            out.deinit();
+            return null;
+        };
+        const report = if (T == f32)
+            axiom.accelerator.cpu_veyra.runTransposeF32(matrix_view, out_view, input.data, out.data) catch {
+                out.deinit();
+                return null;
+            }
+        else
+            axiom.accelerator.cpu_veyra.runTransposeF64(matrix_view, out_view, input.data, out.data) catch {
                 out.deinit();
                 return null;
             };
@@ -1024,6 +1062,14 @@ fn supportedNonEmptyContiguous(comptime T: type, input: array_mod.Array(T)) bool
 }
 
 fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
+    return (T == f32 or T == f64) and
+        input.device.isCpu() and
+        input.shape.len == 2 and
+        input.data.len != 0 and
+        input.isContiguous();
+}
+
+fn supportedTranspose2d(comptime T: type, input: array_mod.Array(T)) bool {
     return (T == f32 or T == f64) and
         input.device.isCpu() and
         input.shape.len == 2 and

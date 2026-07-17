@@ -112,7 +112,7 @@ where Vectra still has a non-Axiom generic implementation.
 
 - Automatic Axiom dispatch covers contiguous same-shape elementwise,
   scalar/one-element scalar-broadcast, CPU f32/f64 2D axis reductions
-  (`sum/prod/min/max`), and contiguous 2D matmul for the dtypes
+  (`sum/prod/min/max`), CPU f32/f64 2D transpose, and contiguous 2D matmul for the dtypes
   listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).
 - General broadcast lowering, CUDA reductions, softmax, random CUDA creation, and
   CUDA view storage are not exposed yet.

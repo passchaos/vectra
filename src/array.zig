@@ -13565,6 +13565,13 @@ pub fn Array(comptime T: type) type {
 
         pub fn transpose(self: Self) ArrayError!Self {
             if (self.shape.len != 2) return error.NonMatrixArray;
+            if (self.device.isCpu() and self.isContiguous()) {
+                if (comptime T == f32) {
+                    if (try axiom_cpu_backend.tryTransposeF32(self)) |out| return out;
+                } else if (comptime T == f64) {
+                    if (try axiom_cpu_backend.tryTransposeF64(self)) |out| return out;
+                }
+            }
             const rows = self.shape[0];
             const cols = self.shape[1];
             var out = try Self.empty(self.allocator, &.{ cols, rows });
