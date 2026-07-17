@@ -187,6 +187,22 @@ pub fn main(init: std.process.Init) !void {
     defer lstsq_rhs64.deinit();
     var lstsq64 = try qr_input64.lstsq(lstsq_rhs64, 1e-12);
     defer lstsq64.deinit();
+    var eigen_source64 = try vx.Array(f64).fromSlice(allocator, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
+    defer eigen_source64.deinit();
+    var eigen64 = try eigen_source64.eigh(64, 1e-12);
+    defer eigen64.deinit();
+    var eigvalsh64 = try eigen_source64.eigvalsh(64, 1e-12);
+    defer eigvalsh64.deinit();
+    var eigen_diag64 = try vx.Array(f64).zeros(allocator, &.{ 2, 2 });
+    defer eigen_diag64.deinit();
+    eigen_diag64.data[0] = eigen64.values.data[0];
+    eigen_diag64.data[3] = eigen64.values.data[1];
+    var eigen_vd64 = try eigen64.vectors.matmul(eigen_diag64);
+    defer eigen_vd64.deinit();
+    var eigen_vt64 = try eigen64.vectors.transpose();
+    defer eigen_vt64.deinit();
+    var eigen_reconstructed64 = try eigen_vd64.matmul(eigen_vt64);
+    defer eigen_reconstructed64.deinit();
 
     const matmul_ok = out32.data[0] == 58 and out32.data[3] == 154 and
         matmul_add32.data[0] == 59 and matmul_add32.data[3] == 155 and
@@ -257,12 +273,16 @@ pub fn main(init: std.process.Init) !void {
         approxF64(two_norm64, singular_values64.data[0], 1e-12) and
         approxF64(nuclear_norm64, singular_values64.data[0] + singular_values64.data[1], 1e-12) and
         try qr_pinv_qr64.allclose(qr_input64, 1e-10, 1e-10) and
-        equalF64Approx(lstsq64.data, &.{ 2.0 / 3.0, 0.5 }, 1e-10);
+        equalF64Approx(lstsq64.data, &.{ 2.0 / 3.0, 0.5 }, 1e-10) and
+        approxF64(eigen64.values.data[0], 1, 1e-10) and
+        approxF64(eigen64.values.data[1], 3, 1e-10) and
+        equalF64Approx(eigvalsh64.data, eigen64.values.data, 1e-12) and
+        try eigen_reconstructed64.allclose(eigen_source64, 1e-10, 1e-10);
     const ok = matmul_ok and elementwise_ok and scalar_ok and reduction_ok and transpose_ok and vector_ok and dense_linalg_ok;
     var stdout_buffer: [4096]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"reduction_ok\":{},\"transpose_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"cpu_fusion_status32_ok\":{},\"cpu_fusion_status64_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"sqrt32_3\":{d},\"exp32_0\":{d},\"square32_5\":{d},\"div64_0\":{d},\"sqrt64_3\":{d},\"exp64_0\":{d},\"square64_5\":{d},\"sub_scalar64_0\":{d},", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, reduction_ok, transpose_ok, vector_ok, dense_linalg_ok, cpu_fusion_status32_ok, cpu_fusion_status64_ok, out32.data[0], out64.data[3], add32.data[5], sqrt32.data[3], exp32.data[0], square32.data[5], div64.data[0], sqrt64.data[3], exp64.data[0], square64.data[5], sub_scalar64.data[0] });
-    try stdout.interface.print("\"row_sum32_1\":{d},\"col_max32_2\":{d},\"row_prod64_1\":{d},\"col_min64_0\":{d},\"transpose32_5\":{d},\"transpose64_5\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d},\"fro64\":{d},\"svd64_s0\":{d},\"singular64_s0\":{d},\"rank64\":{},\"cond64\":{d},\"two_norm64\":{d},\"nuclear64\":{d},\"pinv64_0\":{d},\"lstsq64_0\":{d}}}\n", .{ row_sum32.data[1], col_max32.data[2], row_prod64.data[1], col_min64.data[0], transpose32.data[5], transpose64.data[5], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2], fro64, svd64.s.data[0], singular_values64.data[0], rank64, cond64, two_norm64, nuclear_norm64, pinv64.data[0], lstsq64.data[0] });
+    try stdout.interface.print("\"row_sum32_1\":{d},\"col_max32_2\":{d},\"row_prod64_1\":{d},\"col_min64_0\":{d},\"transpose32_5\":{d},\"transpose64_5\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d},\"fro64\":{d},\"svd64_s0\":{d},\"singular64_s0\":{d},\"rank64\":{},\"cond64\":{d},\"two_norm64\":{d},\"nuclear64\":{d},\"pinv64_0\":{d},\"lstsq64_0\":{d},\"eigh64_0\":{d},\"eigh64_1\":{d}}}\n", .{ row_sum32.data[1], col_max32.data[2], row_prod64.data[1], col_min64.data[0], transpose32.data[5], transpose64.data[5], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2], fro64, svd64.s.data[0], singular_values64.data[0], rank64, cond64, two_norm64, nuclear_norm64, pinv64.data[0], lstsq64.data[0], eigen64.values.data[0], eigen64.values.data[1] });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
 }

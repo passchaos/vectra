@@ -11013,23 +11013,23 @@ pub fn Array(comptime T: type) type {
         pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) ArrayError!EighResult(T) {
             if (comptime @typeInfo(T) != .float) @compileError("eigh requires floating-point arrays");
             if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
-            if (comptime T != f64) return error.BackendFailure;
-
-            var matrix = try self.toVeyraMatrixF64();
-            defer matrix.deinit();
-            var eig = veyra.symmetricEigenJacobi(f64, self.allocator, matrix.asView(), max_sweeps, tolerance) catch |err| return mapVeyraArrayError(err);
-            defer eig.deinit();
-            var values = try Self.fromVeyraVectorF64(self.allocator, &eig.eigenvalues);
-            errdefer values.deinit();
-            var vectors = try Self.fromVeyraMatrixF64(self.allocator, &eig.eigenvectors);
-            errdefer vectors.deinit();
-            return .{ .values = values, .vectors = vectors };
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeEighDefault(T, self, max_sweeps, tolerance)) |out| return .{ .values = out.values, .vectors = out.vectors };
+                return error.BackendFailure;
+            } else {
+                return error.BackendFailure;
+            }
         }
 
         pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) ArrayError!Self {
-            var result = try self.eigh(max_sweeps, tolerance);
-            defer result.deinit();
-            return result.values.clone();
+            if (comptime @typeInfo(T) != .float) @compileError("eigvalsh requires floating-point arrays");
+            if (self.shape.len != 2 or self.shape[0] != self.shape[1]) return error.NonMatrixArray;
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeEigvalshDefault(T, self, max_sweeps, tolerance)) |out| return out;
+                return error.BackendFailure;
+            } else {
+                return error.BackendFailure;
+            }
         }
 
         pub fn lstsq(self: Self, rhs: Self, tolerance: T) ArrayError!Self {

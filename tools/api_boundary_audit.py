@@ -69,6 +69,8 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn executeReduction(",
     "pub fn executeTrace(",
     "pub fn executeDet(",
+    "pub fn executeEigh(",
+    "pub fn executeEigvalsh(",
 )
 
 FORBIDDEN_AXIAL_SNIPPETS = (

@@ -91,6 +91,19 @@ pub fn SvdResult(comptime T: type) type {
     };
 }
 
+pub fn EighResult(comptime T: type) type {
+    return struct {
+        values: array_mod.Array(T),
+        vectors: array_mod.Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.values.deinit();
+            self.vectors.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
 pub fn LuResult(comptime T: type) type {
     return struct {
         p: array_mod.Array(T),
@@ -1002,6 +1015,32 @@ pub fn executeSvdDefault(comptime T: type, input: array_mod.Array(T), tolerance:
     return executeSvd(T, defaultTargetForDevice(input.device), input, tolerance);
 }
 
+pub fn executeEigh(comptime T: type, target: DialectBackend, input: array_mod.Array(T), max_sweeps: usize, tolerance: T) array_mod.ArrayError!?EighResult(T) {
+    if (!supportedSquareMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuEigh(T, input, max_sweeps, tolerance),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeEighDefault(comptime T: type, input: array_mod.Array(T), max_sweeps: usize, tolerance: T) array_mod.ArrayError!?EighResult(T) {
+    return executeEigh(T, defaultTargetForDevice(input.device), input, max_sweeps, tolerance);
+}
+
+pub fn executeEigvalsh(comptime T: type, target: DialectBackend, input: array_mod.Array(T), max_sweeps: usize, tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeEigh(T, target, input, max_sweeps, tolerance)) |result_value| {
+        var result = result_value;
+        defer result.vectors.deinit();
+        return result.values;
+    }
+    return null;
+}
+
+pub fn executeEigvalshDefault(comptime T: type, input: array_mod.Array(T), max_sweeps: usize, tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeEigvalsh(T, defaultTargetForDevice(input.device), input, max_sweeps, tolerance);
+}
+
 pub fn executeMatrixRank(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?usize {
     if (!supportedMatrixExecution(T, input)) return null;
     return switch (target) {
@@ -1176,6 +1215,38 @@ fn executeCpuSingularValues(comptime T: type, input: array_mod.Array(T), toleran
         return null;
     }
     return out;
+}
+
+fn executeCpuEigh(comptime T: type, input: array_mod.Array(T), max_sweeps: usize, tolerance: T) array_mod.ArrayError!?EighResult(T) {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    var values = try array_mod.Array(T).empty(input.allocator, &.{input.shape[0]});
+    errdefer values.deinit();
+    var vectors = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer vectors.deinit();
+    var values_view = axiom.accelerator.TensorBufferView.contiguous("values", @intCast(@intFromPtr(values.data.ptr)), values.data.len);
+    values_view.element_type = if (T == f32) .f32 else if (T == f64) .f64 else return null;
+    const vectors_view = matrixView(T, vectors, "vectors") orelse {
+        vectors.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetSymmetricEigenF32(.cpu, matrix_view, values_view, vectors_view, @as(array_mod.Array(f32), input).data, @as(array_mod.Array(f32), values).data, @as(array_mod.Array(f32), vectors).data, max_sweeps, @as(f32, tolerance)) catch {
+            values.deinit();
+            vectors.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetSymmetricEigenF64(.cpu, matrix_view, values_view, vectors_view, @as(array_mod.Array(f64), input).data, @as(array_mod.Array(f64), values).data, @as(array_mod.Array(f64), vectors).data, max_sweeps, @as(f64, tolerance)) catch {
+            values.deinit();
+            vectors.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        values.deinit();
+        vectors.deinit();
+        return null;
+    }
+    return .{ .values = values, .vectors = vectors };
 }
 
 fn executeCpuMatrixNorm(comptime T: type, input: array_mod.Array(T), order: axiom.accelerator.cpu_veyra.CpuVeyraMatrixNormOrder) array_mod.ArrayError!?T {
