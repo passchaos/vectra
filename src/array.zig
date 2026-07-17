@@ -10904,11 +10904,8 @@ pub fn Array(comptime T: type) type {
         pub fn matrixRank(self: Self, tolerance: T) ArrayError!usize {
             if (comptime @typeInfo(T) != .float) @compileError("matrixRank requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
-            if (comptime T == f32) {
-                if (try axiom_cpu_backend.tryMatrixRankF32(self, tolerance)) |value| return value;
-                return error.BackendFailure;
-            } else if (comptime T == f64) {
-                if (try axiom_cpu_backend.tryMatrixRankF64(self, tolerance)) |value| return value;
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeMatrixRankDefault(T, self, tolerance)) |value| return value;
                 return error.BackendFailure;
             } else {
                 return error.BackendFailure;

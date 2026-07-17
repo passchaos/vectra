@@ -716,6 +716,30 @@ pub fn executeSingularValuesDefault(comptime T: type, input: array_mod.Array(T),
     return executeSingularValues(T, defaultExecutionTarget(), input, tolerance);
 }
 
+pub fn executeMatrixRank(comptime T: type, target: DialectBackend, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?usize {
+    if (!supportedMatrixExecution(T, input)) return null;
+    return switch (target) {
+        .cpu => executeCpuMatrixRank(T, input, tolerance),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeMatrixRankDefault(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?usize {
+    return executeMatrixRank(T, defaultExecutionTarget(), input, tolerance);
+}
+
+fn executeCpuMatrixRank(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?usize {
+    const matrix_view = matrixView(T, input, "input") orelse return null;
+    var value: usize = 0;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetMatrixRankF32(.cpu, matrix_view, @as(array_mod.Array(f32), input).data, @as(f32, tolerance), &value) catch return null
+    else
+        axiom.accelerator.cpu_veyra.runTargetMatrixRankF64(.cpu, matrix_view, @as(array_mod.Array(f64), input).data, @as(f64, tolerance), &value) catch return null;
+    if (!report.ok()) return null;
+    return value;
+}
+
 fn executeCpuSingularValues(comptime T: type, input: array_mod.Array(T), tolerance: T) array_mod.ArrayError!?array_mod.Array(T) {
     const matrix_view = matrixView(T, input, "input") orelse return null;
     const len = @min(input.shape[0], input.shape[1]);
