@@ -857,6 +857,7 @@ pub const SmokeReport = struct {
     strided_sqrt_ok: bool = false,
     strided_exp_ok: bool = false,
     strided_memref_legality_fingerprint: u64 = 0,
+    strided_scalar_memref_legality_fingerprint: u64 = 0,
     strided_scalar_add_ok: bool = false,
     strided_scalar_sub_ok: bool = false,
     strided_scalar_mul_ok: bool = false,
@@ -911,7 +912,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_sub_ok and report.strided_mul_ok and report.strided_div_ok and report.strided_abs_ok and report.strided_sqrt_ok and report.strided_exp_ok and report.strided_memref_legality_fingerprint != 0 and report.strided_scalar_add_ok and report.strided_scalar_sub_ok and report.strided_scalar_mul_ok and report.strided_scalar_div_ok and report.f64_strided_add_ok and report.f64_strided_sub_ok and report.f64_strided_mul_ok and report.f64_strided_div_ok and report.f64_strided_abs_ok and report.f64_strided_sqrt_ok and report.f64_strided_exp_ok and report.f64_strided_scalar_add_ok and report.f64_strided_scalar_sub_ok and report.f64_strided_scalar_mul_ok and report.f64_strided_scalar_div_ok and report.f16_strided_add_ok and report.f16_strided_sub_ok and report.f16_strided_mul_ok and report.f16_strided_div_ok and report.f16_strided_scalar_add_ok and report.f16_strided_scalar_sub_ok and report.f16_strided_scalar_mul_ok and report.f16_strided_scalar_div_ok and report.bf16_strided_add_ok and report.bf16_strided_sub_ok and report.bf16_strided_mul_ok and report.bf16_strided_div_ok and report.bf16_strided_scalar_add_ok and report.bf16_strided_scalar_sub_ok and report.bf16_strided_scalar_mul_ok and report.bf16_strided_scalar_div_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_sub_ok and report.strided_mul_ok and report.strided_div_ok and report.strided_abs_ok and report.strided_sqrt_ok and report.strided_exp_ok and report.strided_memref_legality_fingerprint != 0 and report.strided_scalar_memref_legality_fingerprint != 0 and report.strided_scalar_add_ok and report.strided_scalar_sub_ok and report.strided_scalar_mul_ok and report.strided_scalar_div_ok and report.f64_strided_add_ok and report.f64_strided_sub_ok and report.f64_strided_mul_ok and report.f64_strided_div_ok and report.f64_strided_abs_ok and report.f64_strided_sqrt_ok and report.f64_strided_exp_ok and report.f64_strided_scalar_add_ok and report.f64_strided_scalar_sub_ok and report.f64_strided_scalar_mul_ok and report.f64_strided_scalar_div_ok and report.f16_strided_add_ok and report.f16_strided_sub_ok and report.f16_strided_mul_ok and report.f16_strided_div_ok and report.f16_strided_scalar_add_ok and report.f16_strided_scalar_sub_ok and report.f16_strided_scalar_mul_ok and report.f16_strided_scalar_div_ok and report.bf16_strided_add_ok and report.bf16_strided_sub_ok and report.bf16_strided_mul_ok and report.bf16_strided_div_ok and report.bf16_strided_scalar_add_ok and report.bf16_strided_scalar_sub_ok and report.bf16_strided_scalar_mul_ok and report.bf16_strided_scalar_div_ok,
             .failed => false,
         };
     }
@@ -944,6 +945,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.strided_sqrt_ok);
         hashBool(&hasher, report.strided_exp_ok);
         hashU64(&hasher, report.strided_memref_legality_fingerprint);
+        hashU64(&hasher, report.strided_scalar_memref_legality_fingerprint);
         hashBool(&hasher, report.strided_scalar_add_ok);
         hashBool(&hasher, report.strided_scalar_sub_ok);
         hashBool(&hasher, report.strided_scalar_mul_ok);
@@ -1034,7 +1036,7 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_memref={x} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
+            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_memref={x} strided_scalar_memref={x} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
             .{
                 report.strided_add_ok,
                 report.strided_sub_ok,
@@ -1044,6 +1046,7 @@ pub const SmokeReport = struct {
                 report.strided_sqrt_ok,
                 report.strided_exp_ok,
                 report.strided_memref_legality_fingerprint,
+                report.strided_scalar_memref_legality_fingerprint,
                 report.strided_scalar_add_ok,
                 report.strided_scalar_sub_ok,
                 report.strided_scalar_mul_ok,
@@ -1235,6 +1238,7 @@ pub const SmokeReport = struct {
                 "  \"strided_sqrt_ok\": {},\n" ++
                 "  \"strided_exp_ok\": {},\n" ++
                 "  \"strided_memref_legality_fingerprint\": {d},\n" ++
+                "  \"strided_scalar_memref_legality_fingerprint\": {d},\n" ++
                 "  \"strided_scalar_add_ok\": {},\n" ++
                 "  \"strided_scalar_sub_ok\": {},\n" ++
                 "  \"strided_scalar_mul_ok\": {},\n" ++
@@ -1262,6 +1266,7 @@ pub const SmokeReport = struct {
                 report.strided_sqrt_ok,
                 report.strided_exp_ok,
                 report.strided_memref_legality_fingerprint,
+                report.strided_scalar_memref_legality_fingerprint,
                 report.strided_scalar_add_ok,
                 report.strided_scalar_sub_ok,
                 report.strided_scalar_mul_ok,
@@ -3165,6 +3170,11 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.strided_exp_ok = sliceClose(out.data, &.{ 2.7182817, 7.389056, 20.085537, 54.59815 }, 0.05);
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
+    const scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar", 0x4000, .f32, .host, 0, &.{4}, &.{0}) catch return failedReport();
+    const scalar_out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar_out", 0x5000, .f32, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const scalar_legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(lhs_descriptor, scalar_descriptor, scalar_out_descriptor);
+    if (!scalar_legality.ok()) return failedReport();
+    report.strided_scalar_memref_legality_fingerprint = scalar_legality.fingerprint();
     var strided_scalar_add = tryViewScalarF32(.add, lhs_view, 2.0, false) catch return failedReport();
     if (strided_scalar_add) |*out| {
         defer out.deinit();
@@ -3637,16 +3647,21 @@ fn tryBinaryViewScalarF32(op: BinaryOp, input: array_mod.ArrayView(f32), scalar:
 
     const lhs_slice = if (scalar_left) scalar_values[0..] else input_slice;
     const rhs_slice = if (scalar_left) input_slice else scalar_values[0..];
-    const lhs_stride: isize = if (scalar_left) 0 else @intCast(input.strides[0]);
-    const rhs_stride: isize = if (scalar_left) @intCast(input.strides[0]) else 0;
+    const input_descriptor = try describeHostViewMemRef(f32, input, "input");
+    const scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar", @intCast(@intFromPtr(&scalar_values[0])), .f32, .host, 0, &.{input.shape[0]}, &.{0}) catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeHostArrayMemRef(f32, out, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const lhs_descriptor = if (scalar_left) scalar_descriptor else input_descriptor;
+    const rhs_descriptor = if (scalar_left) input_descriptor else scalar_descriptor;
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const result = runtime.runTensorElementwiseBinary(lhs_slice, rhs_slice, out.data, .{
+    const result = runtime.runTensorElementwiseBinaryMemRefsF32(lhs_slice, rhs_slice, out.data, lhs_descriptor, rhs_descriptor, out_descriptor, .{
         .op = axiomBinaryOp(op),
-        .len = input.shape[0],
-        .lhs_stride = lhs_stride,
-        .rhs_stride = rhs_stride,
-        .out_stride = 1,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_strided_scalar_add",
             .sub => "vectra_axiom_strided_scalar_sub",
