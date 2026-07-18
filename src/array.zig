@@ -15947,11 +15947,29 @@ pub fn Array(comptime T: type) type {
 
         pub fn lerp(self: Self, end: Self, weight: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, end.device) and self.device.sameDevice(weight.device)) {
+                    var delta = try end.sub(self);
+                    defer delta.deinit();
+                    var weighted_delta = try delta.mul(weight);
+                    defer weighted_delta.deinit();
+                    return self.add(weighted_delta);
+                }
+            }
             return self.ternaryArray(end, weight, opLerp);
         }
 
         pub fn lerpScalar(self: Self, end: Self, weight: T) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, end.device)) {
+                    var delta = try end.sub(self);
+                    defer delta.deinit();
+                    var weighted_delta = try delta.mulScalar(weight);
+                    defer weighted_delta.deinit();
+                    return self.add(weighted_delta);
+                }
+            }
             return self.binaryArrayScalar(end, weight, opLerpScalar);
         }
 

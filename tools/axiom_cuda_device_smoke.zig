@@ -184,11 +184,23 @@ pub fn main(init: std.process.Init) !void {
         defer addcdiv_out.deinit();
         var addcdiv_host = try addcdiv_out.cpu();
         defer addcdiv_host.deinit();
+        var lerp_scalar_out = try addend.lerpScalar(lhs, 0.5);
+        defer lerp_scalar_out.deinit();
+        var lerp_scalar_host = try lerp_scalar_out.cpu();
+        defer lerp_scalar_host.deinit();
+        var lerp_array_out = try addend.lerp(lhs, rhs);
+        defer lerp_array_out.deinit();
+        var lerp_array_host = try lerp_array_out.cpu();
+        defer lerp_array_host.deinit();
         direct_ternary_ok = addcmul_out.device.isCuda() and addcmul_out.device_storage != null and
             equalF32(addcmul_host.data, &.{ 3, 5, 7, 9 }) and
             addcdiv_out.device.isCuda() and addcdiv_out.device_storage != null and
             approxF32(addcdiv_host.data[0], 1.5, 0.01) and
-            approxF32(addcdiv_host.data[3], 3.0, 0.01);
+            approxF32(addcdiv_host.data[3], 3.0, 0.01) and
+            lerp_scalar_out.device.isCuda() and lerp_scalar_out.device_storage != null and
+            equalF32(lerp_scalar_host.data, &.{ 1, 1.5, 2, 2.5 }) and
+            lerp_array_out.device.isCuda() and lerp_array_out.device_storage != null and
+            equalF32(lerp_array_host.data, &.{ 1, 2, 3, 4 });
 
         var product = try lhs.matmul(rhs);
         defer product.deinit();
