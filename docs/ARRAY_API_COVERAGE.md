@@ -16,6 +16,7 @@ zig build array-api-coverage-audit
 zig build dtype-promotion-smoke
 zig build einsum-smoke
 zig build contraction-smoke
+zig build indexing-smoke
 ```
 
 The build step runs `tools/array_api_coverage_audit.py`, which statically checks
@@ -29,7 +30,8 @@ The audit currently checks representative public symbols for:
 - constructors and initializers;
 - random sampling;
 - reshape/view/broadcast/stride layout helpers;
-- slicing, gather/take, scatter/put, masking, and `where`;
+- slicing, gather/take, scatter/put, masking, and `where` (with
+  `indexing-smoke` behavior coverage);
 - arithmetic, comparisons, math ufuncs, and activation-style numerical ops;
 - reductions, nan reductions, order statistics, histograms, and counts;
 - matrix products, `tensordot`/general contractions, linear solves/factorizations,

@@ -216,6 +216,21 @@ pub fn build(b: *std.Build) void {
     const contraction_smoke_step = b.step("contraction-smoke", "Run NumPy/PyTorch-style tensordot/contractAxes smoke");
     contraction_smoke_step.dependOn(&contraction_smoke_cmd.step);
 
+    const indexing_smoke_exe = b.addExecutable(.{
+        .name = "vectra-indexing-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/indexing_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const indexing_smoke_cmd = b.addRunArtifact(indexing_smoke_exe);
+    const indexing_smoke_step = b.step("indexing-smoke", "Run NumPy/PyTorch-style gather/scatter/where indexing smoke");
+    indexing_smoke_step.dependOn(&indexing_smoke_cmd.step);
+
     const examples_step = b.step("examples", "Run Vectra usage examples");
 
     const basic_array_example_exe = b.addExecutable(.{
