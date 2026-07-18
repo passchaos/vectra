@@ -92,6 +92,14 @@ pub fn main(init: std.process.Init) !void {
         defer clipped_out.deinit();
         var clipped_host = try clipped_out.cpu();
         defer clipped_host.deinit();
+        var clip_min_values = try vx.Array(f32).fullOn(allocator, &.{ 2, 2 }, -0.25, vx.cuda(0));
+        defer clip_min_values.deinit();
+        var clip_max_values = try vx.Array(f32).fullOn(allocator, &.{ 2, 2 }, 0.75, vx.cuda(0));
+        defer clip_max_values.deinit();
+        var clipped_array_out = try shifted_for_relu.clipArray(clip_min_values, clip_max_values);
+        defer clipped_array_out.deinit();
+        var clipped_array_host = try clipped_array_out.cpu();
+        defer clipped_array_host.deinit();
         var relu6_out = try shifted_for_relu.relu6();
         defer relu6_out.deinit();
         var relu6_host = try relu6_out.cpu();
@@ -153,6 +161,8 @@ pub fn main(init: std.process.Init) !void {
             approxF32(silu_host.data[3], sigmoid_pos1, 0.01) and
             clipped_out.device.isCuda() and clipped_out.device_storage != null and
             equalF32(clipped_host.data, &.{ -0.5, -0.5, 0, 0.5 }) and
+            clipped_array_out.device.isCuda() and clipped_array_out.device_storage != null and
+            equalF32(clipped_array_host.data, &.{ -0.25, -0.25, 0, 0.75 }) and
             relu6_out.device.isCuda() and relu6_out.device_storage != null and
             equalF32(relu6_host.data, &.{ 0, 0, 0, 1 }) and
             hardsigmoid_out.device.isCuda() and hardsigmoid_out.device_storage != null and
