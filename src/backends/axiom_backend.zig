@@ -2317,6 +2317,36 @@ pub fn executeElementwiseDefault(comptime T: type, op: ElementwiseOp, lhs: array
     return executeElementwise(T, op, defaultTargetForDevice(lhs.device), lhs, rhs);
 }
 
+pub fn executeViewElementwise(
+    comptime T: type,
+    op: ElementwiseOp,
+    target: DialectBackend,
+    lhs: array_mod.ArrayView(T),
+    rhs: array_mod.ArrayView(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!lhs.device.sameDevice(rhs.device) or !targetCanAccessDevice(target, lhs.device)) return null;
+    return switch (target) {
+        .cpu, .mps => null,
+        .cuda => executeCudaViewElementwise(T, op, lhs, rhs),
+    };
+}
+
+pub fn executeViewElementwiseDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.ArrayView(T), rhs: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeViewElementwise(T, op, defaultTargetForDevice(lhs.device), lhs, rhs);
+}
+
+fn executeCudaViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.ArrayView(T), rhs: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        const out = switch (op) {
+            .add => try axiom_cuda.tryAddViewF32(@as(array_mod.ArrayView(f32), lhs), @as(array_mod.ArrayView(f32), rhs)),
+            .mul => try axiom_cuda.tryMulViewF32(@as(array_mod.ArrayView(f32), lhs), @as(array_mod.ArrayView(f32), rhs)),
+            .sub, .div => null,
+        };
+        if (out) |value| return @as(array_mod.Array(T), value);
+    }
+    return null;
+}
+
 fn executeCudaElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     const cuda_op = cudaBinaryOp(op);
     if (T == f32) {

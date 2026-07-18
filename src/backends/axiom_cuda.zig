@@ -874,7 +874,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_mul_ok,
             .failed => false,
         };
     }
@@ -2116,9 +2116,15 @@ pub fn trySaxpyF32(alpha: f32, x: array_mod.Array(f32), y: array_mod.Array(f32))
         .prefer_cached_device = true,
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => return null,
+        else => {
+            out.deinit();
+            return null;
+        },
     };
-    if (!result.verified) return null;
+    if (!result.verified) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
@@ -2207,9 +2213,15 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
     const result = runtime.runCudaTileGemmHostSlices(tile_program, 1.0, 0.0, "auto", lhs.data, rhs.data, c.data, out.data) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => return null,
+        else => {
+            out.deinit();
+            return null;
+        },
     };
-    if (!result.verified) return null;
+    if (!result.verified) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
@@ -2664,9 +2676,15 @@ fn tryMatmulF16AxiomTypedSimtSeed(lhs: array_mod.Array(f16), rhs: array_mod.Arra
         .kernel_symbol = "vectra_axiom_typed_f16_gemm_seed",
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => return null,
+        else => {
+            out.deinit();
+            return null;
+        },
     };
-    if (!result.ok()) return null;
+    if (!result.ok()) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
@@ -2698,9 +2716,15 @@ fn tryMatmulBF16AxiomTypedSimtSeed(lhs: array_mod.Array(BFloat16), rhs: array_mo
         .kernel_symbol = "vectra_axiom_typed_bf16_gemm_seed",
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => return null,
+        else => {
+            out.deinit();
+            return null;
+        },
     };
-    if (!result.ok()) return null;
+    if (!result.ok()) {
+        out.deinit();
+        return null;
+    }
     for (out_bits, out.data) |bits, *slot| slot.* = .{ .bits = bits };
     return out;
 }
@@ -2778,6 +2802,27 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         defer out.deinit();
         report.div_ok = sliceClose(out.data, &.{ 10, 10, 10, 10 }, 0.0);
         report.max_abs_error = @max(report.max_abs_error, maxAbsError(out.data, &.{ 10, 10, 10, 10 }));
+        report.output_fingerprint ^= hashF32Slice(out.data);
+    }
+
+    var strided_lhs = array_mod.Array(f32).fromSlice(allocator, &.{ 1, 99, 2, 99, 3, 99, 4, 99 }, &.{8}) catch return failedReport();
+    defer strided_lhs.deinit();
+    var strided_rhs = array_mod.Array(f32).fromSlice(allocator, &.{ 10, 99, 20, 99, 30, 99, 40, 99 }, &.{8}) catch return failedReport();
+    defer strided_rhs.deinit();
+    var lhs_view = strided_lhs.asStrided(&.{4}, &.{2}, 0) catch return failedReport();
+    defer lhs_view.deinit();
+    var rhs_view = strided_rhs.asStrided(&.{4}, &.{2}, 0) catch return failedReport();
+    defer rhs_view.deinit();
+    var strided_add = tryAddViewF32(lhs_view, rhs_view) catch return failedReport();
+    if (strided_add) |*out| {
+        defer out.deinit();
+        report.strided_add_ok = sliceClose(out.data, &.{ 11, 22, 33, 44 }, 0.0);
+        report.output_fingerprint ^= hashF32Slice(out.data);
+    }
+    var strided_mul = tryMulViewF32(lhs_view, rhs_view) catch return failedReport();
+    if (strided_mul) |*out| {
+        defer out.deinit();
+        report.strided_mul_ok = sliceClose(out.data, &.{ 10, 40, 90, 160 }, 0.0);
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
@@ -2885,7 +2930,7 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.typed_bf16_gemm_route = typed_bf16_runtime.route;
     }
 
-    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok) {
+    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_mul_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
@@ -2917,7 +2962,9 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute"))) +
             @as(u8, @intFromBool(!report.scalar_add_ok)) +
             @as(u8, @intFromBool(!report.scalar_mul_ok)) +
-            @as(u8, @intFromBool(!report.scalar_saxpy_ok));
+            @as(u8, @intFromBool(!report.scalar_saxpy_ok)) +
+            @as(u8, @intFromBool(!report.strided_add_ok)) +
+            @as(u8, @intFromBool(!report.strided_mul_ok));
     }
     return report;
 }
@@ -2926,11 +2973,11 @@ fn tryBinaryViewF32(op: BinaryOp, lhs: array_mod.ArrayView(f32), rhs: array_mod.
     if (!build_options.enable_axiom_cuda) return null;
     if (!supportedOneDimensionalView(lhs) or !supportedOneDimensionalView(rhs) or !std.mem.eql(usize, lhs.shape, rhs.shape)) return null;
 
+    const lhs_slice = viewBackingSlice(lhs) orelse return null;
+    const rhs_slice = viewBackingSlice(rhs) orelse return null;
     var out = try array_mod.Array(f32).empty(lhs.allocator, lhs.shape);
     errdefer out.deinit();
 
-    const lhs_slice = viewBackingSlice(lhs) orelse return null;
-    const rhs_slice = viewBackingSlice(rhs) orelse return null;
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
     const result = runtime.runTensorElementwiseBinary(lhs_slice, rhs_slice, out.data, .{
         .op = axiomBinaryOp(op),
@@ -2946,9 +2993,15 @@ fn tryBinaryViewF32(op: BinaryOp, lhs: array_mod.ArrayView(f32), rhs: array_mod.
         },
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => return null,
+        else => {
+            out.deinit();
+            return null;
+        },
     };
-    if (!result.verified) return null;
+    if (!result.verified) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
@@ -2972,9 +3025,15 @@ fn tryBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f3
         .prefer_cached_device = true,
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => return null,
+        else => {
+            out.deinit();
+            return null;
+        },
     };
-    if (!result.verified) return null;
+    if (!result.verified) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
@@ -2995,9 +3054,15 @@ pub fn tryBinaryF64(op: BinaryOp, lhs: array_mod.Array(f64), rhs: array_mod.Arra
         },
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => return null,
+        else => {
+            out.deinit();
+            return null;
+        },
     };
-    if (!result.ok()) return null;
+    if (!result.ok()) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 
@@ -3049,9 +3114,15 @@ fn tryBinaryBF16Native(op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_
         },
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => return null,
+        else => {
+            out.deinit();
+            return null;
+        },
     };
-    if (!result.ok()) return null;
+    if (!result.ok()) {
+        out.deinit();
+        return null;
+    }
     for (out_bits, out.data) |bits, *slot| slot.* = .{ .bits = bits };
     return out;
 }
@@ -3087,9 +3158,15 @@ fn tryBinaryF16Native(op: BinaryOp, lhs: array_mod.Array(f16), rhs: array_mod.Ar
         },
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => return null,
+        else => {
+            out.deinit();
+            return null;
+        },
     };
-    if (!result.ok()) return null;
+    if (!result.ok()) {
+        out.deinit();
+        return null;
+    }
     return out;
 }
 

@@ -2697,6 +2697,23 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn binaryView(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            if (comptime T == f32) {
+                if (std.mem.eql(usize, self.shape, other.shape) and self.shape.len == 1) {
+                    const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
+                        .add
+                    else if (comptime op == opMul)
+                        .mul
+                    else
+                        null;
+                    if (maybe_op) |op_value| {
+                        // Keep the view operation target-oriented: ArrayView
+                        // only asks the Axiom facade to execute for the current
+                        // target, while CUDA-specific stride ABI details remain
+                        // isolated inside `backends/axiom_*`.
+                        if (try axiom_backend.executeViewElementwiseDefault(T, op_value, self, other)) |out| return out;
+                    }
+                }
+            }
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             var out = try Array(T).empty(self.allocator, out_shape);
