@@ -72,11 +72,29 @@ pub fn main(init: std.process.Init) !void {
         defer col_sum_keep.deinit();
         var col_sum_keep_host = try col_sum_keep.cpu();
         defer col_sum_keep_host.deinit();
+        var row_prod = try lhs.prod(1, false);
+        defer row_prod.deinit();
+        var row_prod_host = try row_prod.cpu();
+        defer row_prod_host.deinit();
+        var col_min = try lhs.min(0, false);
+        defer col_min.deinit();
+        var col_min_host = try col_min.cpu();
+        defer col_min_host.deinit();
+        var col_max = try lhs.max(0, false);
+        defer col_max.deinit();
+        var col_max_host = try col_max.cpu();
+        defer col_max_host.deinit();
         direct_reduction_ok = row_sum.device.isCuda() and row_sum.device_storage != null and
             equalF32(row_sum_host.data, &.{ 3, 7 }) and
             col_sum_keep.device.isCuda() and col_sum_keep.device_storage != null and
             std.mem.eql(usize, col_sum_keep_host.shape, &.{ 1, 2 }) and
-            equalF32(col_sum_keep_host.data, &.{ 4, 6 });
+            equalF32(col_sum_keep_host.data, &.{ 4, 6 }) and
+            row_prod.device.isCuda() and row_prod.device_storage != null and
+            equalF32(row_prod_host.data, &.{ 2, 12 }) and
+            col_min.device.isCuda() and col_min.device_storage != null and
+            equalF32(col_min_host.data, &.{ 1, 2 }) and
+            col_max.device.isCuda() and col_max.device_storage != null and
+            equalF32(col_max_host.data, &.{ 3, 4 });
 
         var negated = try lhs.neg();
         defer negated.deinit();

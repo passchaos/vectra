@@ -18442,7 +18442,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
-            if (self.data.len == 0) return error.EmptyArray;
+            if (self.isEmpty()) return error.EmptyArray;
             if (try self.tryAxiomReduction(axis_opt, keepdims, .min)) |out| return out;
             if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             return self.reduceFirst(axis_opt, keepdims, struct {
@@ -18458,7 +18458,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
-            if (self.data.len == 0) return error.EmptyArray;
+            if (self.isEmpty()) return error.EmptyArray;
             if (try self.tryAxiomReduction(axis_opt, keepdims, .max)) |out| return out;
             if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             return self.reduceFirst(axis_opt, keepdims, struct {

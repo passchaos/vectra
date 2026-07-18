@@ -490,7 +490,7 @@ pub fn reductionRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
             .target = target,
             .operation = "reduction",
             .status = .executable,
-            .reason = "Axiom CUDA exposes an eager f32 2D sum reduction runtime; other reduction dtypes/ops remain capability-gated.",
+            .reason = "Axiom CUDA exposes eager f32 2D sum/prod/min/max reduction runtimes; other reduction dtypes remain capability-gated.",
         },
         .mps => .{
             .target = target,
@@ -1188,7 +1188,7 @@ pub fn executeReduction(
     axis: u1,
     keepdims: bool,
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    if (!supportedReductionExecution(T, target, input, op)) return null;
+    if (!supportedReductionExecution(T, target, input)) return null;
     if (!reductionRuntimeCapability(target).executable()) return null;
     return switch (target) {
         .cpu => executeCpuReduction(T, op, input, axis, keepdims),
@@ -2003,8 +2003,8 @@ fn executeCudaReduction(
     axis: u1,
     keepdims: bool,
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32 and op == .sum) {
-        if (try axiom_cuda.tryDeviceReductionSumF32(@as(array_mod.Array(f32), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceReductionF32(op, @as(array_mod.Array(f32), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2433,11 +2433,11 @@ fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
 }
 
-fn supportedReductionExecution(comptime T: type, target: DialectBackend, input: array_mod.Array(T), op: DialectReductionOp) bool {
+fn supportedReductionExecution(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) bool {
     if (input.shape.len != 2 or !input.isContiguous()) return false;
     return switch (target) {
         .cpu => supportedReduction2d(T, input),
-        .cuda => input.device.isCuda() and T == f32 and op == .sum and input.device_storage != null,
+        .cuda => input.device.isCuda() and T == f32 and input.device_storage != null,
         .mps => false,
     };
 }

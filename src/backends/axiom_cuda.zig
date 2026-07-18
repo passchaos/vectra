@@ -1662,7 +1662,7 @@ pub fn tryDeviceUnaryF64(op: UnaryOp, input: array_mod.Array(f64)) array_mod.Arr
     return out;
 }
 
-pub fn tryDeviceReductionSumF32(input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+pub fn tryDeviceReductionF32(op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
     if (input.shape.len != 2) return null;
@@ -1684,8 +1684,9 @@ pub fn tryDeviceReductionSumF32(input: array_mod.Array(f32), axis: u1, keepdims:
         return null;
     };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceReductionSumF32(
+    const report = runtime.runCudaDeviceReductionF32(
         input.device.index,
+        op,
         input.shape[0],
         input.shape[1],
         axis,
