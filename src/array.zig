@@ -15957,6 +15957,15 @@ pub fn Array(comptime T: type) type {
 
         pub fn addcmul(self: Self, input1: Self, input2: Self, value: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, input1.device) and self.device.sameDevice(input2.device)) {
+                    var pair_product = try input1.mul(input2);
+                    defer pair_product.deinit();
+                    var scaled = try pair_product.mulScalar(value);
+                    defer scaled.deinit();
+                    return self.add(scaled);
+                }
+            }
             return self.ternaryArrayScalar(input1, input2, value, opAddcmul);
         }
 
@@ -15966,6 +15975,15 @@ pub fn Array(comptime T: type) type {
 
         pub fn addcdiv(self: Self, input1: Self, input2: Self, value: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, input1.device) and self.device.sameDevice(input2.device)) {
+                    var quotient = try input1.div(input2);
+                    defer quotient.deinit();
+                    var scaled = try quotient.mulScalar(value);
+                    defer scaled.deinit();
+                    return self.add(scaled);
+                }
+            }
             return self.ternaryArrayScalar(input1, input2, value, opAddcdiv);
         }
 
