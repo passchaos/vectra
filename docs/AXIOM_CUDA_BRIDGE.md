@@ -91,7 +91,7 @@ where Vectra still has a non-Axiom generic implementation.
 - `tryAddF16(lhs, rhs)` / `trySubF16` / `tryMulF16` / `tryDivF16`
 - `tryAddBF16(lhs, rhs)` / `trySubBF16` / `tryMulBF16` / `tryDivBF16`
 - `tryAddViewF32(lhs_view, rhs_view)` / `trySubViewF32` / `tryMulViewF32` /
-  `tryDivViewF32`
+  `tryDivViewF32` / `tryAbsViewF32`
 - `trySaxpyF32(alpha, x, y)`
 - `tryAddScalarF32(input, scalar)` / `tryMulScalarF32` / `tryDivScalarF32`
 - `trySaxpyScalarF32(alpha, scalar_x, y)`
@@ -119,7 +119,7 @@ where Vectra still has a non-Axiom generic implementation.
   (`sum/prod/min/max`), CPU f32/f64 2D transpose, and contiguous 2D matmul for the dtypes
   listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).
 - General non-f32/f64/f16/BFloat16 reduction/broadcast/transpose CUDA eager execution, non-f32/f64/general softmax, random CUDA creation, and
-  full CUDA view storage are not exposed yet; host-backed 1D positive-stride `ArrayView(f32/f64/f16/BFloat16).add/sub/mul/div` and `ArrayView(f32/f64/f16/BFloat16).addScalar/subScalar/mulScalar/divScalar` plus `neg/square/reciprocal` can execute through the central Axiom target facade with CUDA strided/zero-stride scalar launch provenance when the default target is CUDA. CUDA f32/f64/f16/BFloat16 2D `sum/prod/min/max(axis=0/1)` and CUDA f32/f64/f16/BFloat16 2D `softmax(axis=0/1)` plus CUDA f32/f64/f16/BFloat16 2D `logSoftmax(axis=0/1)` have
+  full CUDA view storage are not exposed yet; host-backed 1D positive-stride `ArrayView(f32/f64/f16/BFloat16).add/sub/mul/div` and `ArrayView(f32/f64/f16/BFloat16).addScalar/subScalar/mulScalar/divScalar` plus f32 `abs` and f32/f64/f16/BFloat16 `neg/square/reciprocal` can execute through the central Axiom target facade with CUDA strided/unary/zero-stride scalar launch provenance when the default target is CUDA. CUDA f32/f64/f16/BFloat16 2D `sum/prod/min/max(axis=0/1)` and CUDA f32/f64/f16/BFloat16 2D `softmax(axis=0/1)` plus CUDA f32/f64/f16/BFloat16 2D `logSoftmax(axis=0/1)` have
   eager Axiom runtimes; other CUDA reduction/broadcast/transpose/softmax/logSoftmax dtypes
   dialect lowerings are visible through `vx.axiom_backend.lowerReductionDialect(...)`,
   `lowerBroadcastAddDialect(...)`, and `lowerTransposeDialect(...)`, until Axiom exposes matching eager runtime ABIs.

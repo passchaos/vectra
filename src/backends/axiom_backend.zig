@@ -2354,6 +2354,23 @@ pub fn executeViewElementwiseScalarDefault(comptime T: type, op: ElementwiseOp, 
     return executeViewElementwiseScalar(T, op, defaultTargetForDevice(input.device), input, scalar, scalar_side);
 }
 
+pub fn executeViewUnary(
+    comptime T: type,
+    op: ExecutionUnaryOp,
+    target: DialectBackend,
+    input: array_mod.ArrayView(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!targetCanAccessDevice(target, input.device)) return null;
+    return switch (target) {
+        .cpu, .mps => null,
+        .cuda => executeCudaViewUnary(T, op, input),
+    };
+}
+
+pub fn executeViewUnaryDefault(comptime T: type, op: ExecutionUnaryOp, input: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeViewUnary(T, op, defaultTargetForDevice(input.device), input);
+}
+
 fn executeCudaViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.ArrayView(T), rhs: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         const out = switch (op) {
@@ -2387,6 +2404,13 @@ fn executeCudaViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mo
             .div => try axiom_cuda.tryDivViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), lhs), @as(array_mod.ArrayView(array_mod.BFloat16), rhs)),
         };
         if (out) |value| return @as(array_mod.Array(T), value);
+    }
+    return null;
+}
+
+fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32 and op == .abs) {
+        if (try axiom_cuda.tryAbsViewF32(@as(array_mod.ArrayView(f32), input))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }

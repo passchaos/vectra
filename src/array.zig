@@ -3239,6 +3239,15 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn abs(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
+            if (comptime T == f32) {
+                if (self.shape.len == 1) {
+                    // Keep accelerated view unary execution behind the Axiom
+                    // facade: ArrayView selects no CUDA path itself, it only
+                    // asks the target-oriented backend to run if that target
+                    // owns a compatible ABI.
+                    if (try axiom_backend.executeViewUnaryDefault(T, .abs, self)) |out| return out;
+                }
+            }
             return self.unary(opAbs);
         }
 
