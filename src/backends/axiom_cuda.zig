@@ -2588,7 +2588,7 @@ pub fn tryDeviceMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) 
         out.deinit();
         return null;
     };
-    const spec = describeDeviceGemmMemRefSpec(m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs", "rhs", "out") catch {
+    const spec = describeDeviceGemmMemRefSpec(f32, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs", "rhs", "out") catch {
         out.deinit();
         return null;
     };
@@ -2620,8 +2620,12 @@ pub fn tryDeviceMatmulF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) 
         return null;
     };
 
+    const spec = describeDeviceGemmMemRefSpec(f64, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs64", "rhs64", "out64") catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceDgemm(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch null;
+    const report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
     if (report) |value| {
         recordCudaDeviceGemmReport(value);
         if (value.valid()) return out;
@@ -2647,8 +2651,12 @@ pub fn tryDeviceMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) 
         return null;
     };
 
+    const spec = describeDeviceGemmMemRefSpec(f16, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs16", "rhs16", "out16") catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceF16Gemm(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch null;
+    const report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
     if (report) |value| {
         recordCudaDeviceGemmReport(value);
         if (value.valid()) return out;
@@ -2784,8 +2792,12 @@ pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(
         return null;
     };
 
+    const spec = describeDeviceGemmMemRefSpec(BFloat16, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs_bf16", "rhs_bf16", "out_bf16") catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceBf16Gemm(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch null;
+    const report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
     if (report) |value| {
         recordCudaDeviceGemmReport(value);
         if (value.valid()) return out;
@@ -2795,7 +2807,7 @@ pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(
 
 pub fn runPendingMatmulF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
-    const spec = try describeDeviceGemmMemRefSpec(m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs", "pending_rhs", "pending_out");
+    const spec = try describeDeviceGemmMemRefSpec(f32, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs", "pending_rhs", "pending_out");
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
     const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
@@ -2804,24 +2816,27 @@ pub fn runPendingMatmulF32(allocator: std.mem.Allocator, device: array_mod.Devic
 
 pub fn runPendingMatmulBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
+    const spec = try describeDeviceGemmMemRefSpec(BFloat16, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_bf16", "pending_rhs_bf16", "pending_out_bf16");
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceBf16Gemm(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr) catch return error.BackendFailure;
+    const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
 pub fn runPendingMatmulF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
+    const spec = try describeDeviceGemmMemRefSpec(f16, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_f16", "pending_rhs_f16", "pending_out_f16");
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceF16Gemm(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr) catch return error.BackendFailure;
+    const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
 pub fn runPendingMatmulF64(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
+    const spec = try describeDeviceGemmMemRefSpec(f64, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_f64", "pending_rhs_f64", "pending_out_f64");
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceDgemm(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr) catch return error.BackendFailure;
+    const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }
@@ -4560,6 +4575,7 @@ fn describeDeviceBufferMemRef(
 }
 
 fn describeDeviceGemmMemRefSpec(
+    comptime T: type,
     m: usize,
     n: usize,
     k: usize,
@@ -4570,10 +4586,11 @@ fn describeDeviceGemmMemRefSpec(
     rhs_name: []const u8,
     out_name: []const u8,
 ) array_mod.ArrayError!axiom.accelerator.TensorGemmSpec {
+    const element = axiomTensorElementType(T) orelse return error.TypeUnsupported;
     const lhs_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
         lhs_name,
         lhs_ptr,
-        .f32,
+        element,
         .cuda,
         0,
         &.{ m, k },
@@ -4582,7 +4599,7 @@ fn describeDeviceGemmMemRefSpec(
     const rhs_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
         rhs_name,
         rhs_ptr,
-        .f32,
+        element,
         .cuda,
         0,
         &.{ k, n },
@@ -4591,7 +4608,7 @@ fn describeDeviceGemmMemRefSpec(
     const out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
         out_name,
         out_ptr,
-        .f32,
+        element,
         .cuda,
         0,
         &.{ m, n },

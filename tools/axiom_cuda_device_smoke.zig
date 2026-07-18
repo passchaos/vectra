@@ -65,6 +65,7 @@ pub fn main(init: std.process.Init) !void {
     var elementwise_binary_memref_fingerprint: u64 = 0;
     var elementwise_unary_memref_fingerprint: u64 = 0;
     var gemm_memref_fingerprint: u64 = 0;
+    var f64_gemm_memref_fingerprint: u64 = 0;
     var reduction_memref_fingerprint: u64 = 0;
     var broadcast_memref_fingerprint: u64 = 0;
     var transpose_memref_fingerprint: u64 = 0;
@@ -884,12 +885,16 @@ pub fn main(init: std.process.Init) !void {
         defer f64_product.deinit();
         var f64_product_host = try f64_product.cpu();
         defer f64_product_host.deinit();
+        const f64_gemm_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        f64_gemm_memref_fingerprint = f64_gemm_report.memref_spec_fingerprint;
         var f64_target_product = (try vx.axiom_backend.executeMatmul(f64, .cuda, f64_lhs, f64_rhs)) orelse return error.BackendFailure;
         defer f64_target_product.deinit();
         var f64_target_host = try f64_target_product.cpu();
         defer f64_target_host.deinit();
         f64_matmul_ok = f64_product.device.isCuda() and
             f64_product.fusionStatus() == .cuda_matmul and
+            f64_gemm_report.valid() and
+            f64_gemm_report.memref_spec_fingerprint != 0 and
             equalF64(f64_product_host.data, &.{ 3, 3, 7, 7 }) and
             f64_target_product.device.isCuda() and
             f64_target_product.device_storage != null and
@@ -1236,6 +1241,7 @@ pub fn main(init: std.process.Init) !void {
         (elementwise_binary_memref_fingerprint != 0 and
             elementwise_unary_memref_fingerprint != 0 and
             gemm_memref_fingerprint != 0 and
+            f64_gemm_memref_fingerprint != 0 and
             reduction_memref_fingerprint != 0 and
             broadcast_memref_fingerprint != 0 and
             transpose_memref_fingerprint != 0 and
@@ -1256,8 +1262,8 @@ pub fn main(init: std.process.Init) !void {
         .{ bf16_log_softmax_ok, f16_activation_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
     );
     try stdout.interface.print(
-        ",\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
-        .{ memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
+        ",\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
+        .{ memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, f64_gemm_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
