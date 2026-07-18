@@ -421,6 +421,24 @@ pub fn main(init: std.process.Init) !void {
         defer f16_clip.deinit();
         var f16_clip_host = try f16_clip.cpu();
         defer f16_clip_host.deinit();
+        var f16_loss_target = try vx.Array(f16).zerosOn(allocator, &.{ 2, 2 }, vx.cuda(0));
+        defer f16_loss_target.deinit();
+        var f16_mse = try f16_shifted.mseLoss(f16_loss_target, .none);
+        defer f16_mse.deinit();
+        var f16_mse_host = try f16_mse.cpu();
+        defer f16_mse_host.deinit();
+        var f16_l1 = try f16_shifted.l1Loss(f16_loss_target, .none);
+        defer f16_l1.deinit();
+        var f16_l1_host = try f16_l1.cpu();
+        defer f16_l1_host.deinit();
+        var f16_smooth_l1 = try f16_shifted.smoothL1Loss(f16_loss_target, @as(f16, 1), .none);
+        defer f16_smooth_l1.deinit();
+        var f16_smooth_l1_host = try f16_smooth_l1.cpu();
+        defer f16_smooth_l1_host.deinit();
+        var f16_huber = try f16_shifted.huberLoss(f16_loss_target, @as(f16, 1), .none);
+        defer f16_huber.deinit();
+        var f16_huber_host = try f16_huber.cpu();
+        defer f16_huber_host.deinit();
         f16_activation_ok = f16_relu.device.isCuda() and f16_relu.device_storage != null and
             approxF16(f16_relu_host.data[0], 0, 0.05) and
             approxF16(f16_relu_host.data[3], 1, 0.05) and
@@ -430,7 +448,15 @@ pub fn main(init: std.process.Init) !void {
             approxF16(f16_softsign_host.data[0], -2.0 / 3.0, 0.05) and
             f16_clip.device.isCuda() and f16_clip.device_storage != null and
             approxF16(f16_clip_host.data[0], -0.5, 0.05) and
-            approxF16(f16_clip_host.data[3], 0.5, 0.05);
+            approxF16(f16_clip_host.data[3], 0.5, 0.05) and
+            f16_mse.device.isCuda() and f16_mse.device_storage != null and
+            approxF16(f16_mse_host.data[0], 4, 0.05) and
+            f16_l1.device.isCuda() and f16_l1.device_storage != null and
+            approxF16(f16_l1_host.data[0], 2, 0.05) and
+            f16_smooth_l1.device.isCuda() and f16_smooth_l1.device_storage != null and
+            approxF16(f16_smooth_l1_host.data[0], 1.5, 0.05) and
+            f16_huber.device.isCuda() and f16_huber.device_storage != null and
+            approxF16(f16_huber_host.data[0], 1.5, 0.05);
 
         var f64_lhs = try vx.Array(f64).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 }, vx.cuda(0));
         defer f64_lhs.deinit();
