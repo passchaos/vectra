@@ -46,9 +46,10 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
 - True MPS runtime ABI: MPS remains planned/unavailable until Axiom owns real
   Metal/MPS storage and runtime execution.
 - Strided/transposed device GEMM lowering: Axiom now supports contiguous and
-  padded row-major f32/f64/f16/BFloat16 GEMM memrefs through cuBLAS leading
-  dimensions.  It still needs bufferization/layout-transform lowering for
-  transposed, negative-stride, and batched device GEMM layouts.
+  padded row-major f32/f64/f16/BFloat16 GEMM and matmul-add memrefs through
+  cuBLAS/cuBLASLt leading dimensions.  It still needs bufferization/layout-
+  transform lowering for transposed, negative-stride, and batched device GEMM
+  layouts.
 - Complete NumPy/PyTorch dtype promotion matrix: `dtype-promotion-smoke` now
   checks every pair in Vectra's current `DType` set plus representative promoted
   value operations.  More NumPy/PyTorch scalar edge cases still need expansion.
