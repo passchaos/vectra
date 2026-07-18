@@ -26,6 +26,8 @@ CUDA validation requires a CUDA/libnvvm/PTXAS-capable host.
 
 ## Axiom dialect route
 
+The long-term descriptor/lowering/runtime plan is in [`AXIOM_ARCHITECTURE_PLAN.md`](AXIOM_ARCHITECTURE_PLAN.md). This bridge document records the current executable CUDA surface; new work should first check whether it advances that architecture.
+
 Vectra uses Axiom directly as the compiler/runtime boundary.  Frontends should model array work as linalg/memref/gpu-style records and let Axiom lower them through its structured-linalg, schedule, CUDA Tile/NVVM, and runtime ABI layers.  `vx.axiom_backend.lowerMatmulDialect(...)` is the first public Vectra-facing helper for that route; it returns Axiom's `DialectMatmulLoweringReport` with concrete evidence for:
 
 - linalg/memref/gpu dialect registration and operation counts;

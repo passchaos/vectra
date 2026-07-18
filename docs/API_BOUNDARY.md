@@ -58,4 +58,5 @@ Axiom backend/compiler/runtime  <-  Vectra Array  <-  Forge Tensor/autograd
 
 The Axiom boundary starts with linalg/memref/gpu dialect records and lowers from
 there into CPU/CUDA/MPS/native backend contracts.  Vectra should not depend on an
-intermediate compute-facade package for array execution.
+intermediate compute-facade package for array execution.  The detailed
+architecture-first roadmap lives in [`AXIOM_ARCHITECTURE_PLAN.md`](AXIOM_ARCHITECTURE_PLAN.md).

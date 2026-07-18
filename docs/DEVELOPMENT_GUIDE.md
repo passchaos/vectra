@@ -180,6 +180,8 @@ CSC 当前支持：
 - `solveTriangular`：CSC sparse triangular solve，支持 vector/matrix RHS，f64 路径复用 Veyra。
 ## 9. Axiom accelerator backend
 
+架构优先路线图见 [`AXIOM_ARCHITECTURE_PLAN.md`](AXIOM_ARCHITECTURE_PLAN.md)。后续加速开发应优先推进统一 descriptor/linalg/memref/gpu lowering 与 Axiom runtime ABI，而不是继续堆叠孤立的短期 backend 分支。
+
 Vectra 当前默认导入相邻 `../axiom`，CPU 和 CUDA 支持路径都优先走 Axiom：
 
 - CPU-backed `Array(f32/f64)` add/sub/mul/div、square、scalar/one-element scalar broadcast、Axiom-composed `powScalar(-1/-0.5/0/0.5/1/2/3)`、2D row/column-bias broadcast add、2D axis reductions (`sum/prod/min/max`)、2D transpose、2D matmul、matrix-vector、vector-matrix、dot/vdot、trace、det/inverse/solve/cholesky/qr/lu/solveTriangular、matrixNorm(.fro/.one/.inf/.two/.nuclear)、svd/singularValues/matrixRank/cond/pinv/lstsq、eigh/eigvalsh 通过 Axiom CPU lowering 到 Veyra。

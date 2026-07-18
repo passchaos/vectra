@@ -144,6 +144,8 @@ versus the default PyTorch-like single-output reuse loop.
 
 ## Axiom dialect lowering layer
 
+The architecture-first roadmap is documented in [`docs/AXIOM_ARCHITECTURE_PLAN.md`](docs/AXIOM_ARCHITECTURE_PLAN.md). New acceleration work should move Vectra toward that descriptor/linalg/memref/gpu plan rather than adding isolated short-term backend branches.
+
 Vectra now routes array-compute intent directly into the sibling [`../axiom`](../axiom) package instead of depending on a separate facade package.  The front door follows an MLIR-like progression: Vectra describes Array operations as Axiom `linalg` operations over `memref` storage contracts, Axiom attaches `gpu` launch metadata for accelerator backends, and later Axiom-owned passes lower those records toward CPU, CUDA, or planned MPS runtime paths.  The smoke gate for this route is:
 
 ```sh
@@ -260,6 +262,7 @@ alongside performance regressions.
 
 ## Roadmap
 
+- Descriptor-first Axiom lowering/runtime convergence; see [`docs/AXIOM_ARCHITECTURE_PLAN.md`](docs/AXIOM_ARCHITECTURE_PLAN.md).
 - Broader view-aware kernels and more simple-stride fast paths on top of the current `ArrayView`/`NDArrayView` storage model.
 - Nullable values, categorical/string kernels and richer promotion policy.
 - Polars-like lazy query plans and expression DSL.
