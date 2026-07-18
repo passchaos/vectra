@@ -152,6 +152,15 @@ pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayErro
     return permuted;
 }
 
+pub fn tensordot(lhs: anytype, rhs: @TypeOf(lhs), axes_lhs: []const usize, axes_rhs: []const usize) ArrayError!@TypeOf(lhs) {
+    try requireSameDevice(lhs, rhs);
+    return lhs.contractAxes(rhs, axes_lhs, axes_rhs);
+}
+
+pub fn tensorDot(lhs: anytype, rhs: @TypeOf(lhs), axes_lhs: []const usize, axes_rhs: []const usize) ArrayError!@TypeOf(lhs) {
+    return tensordot(lhs, rhs, axes_lhs, axes_rhs);
+}
+
 pub fn tryMatmulAddTarget(target: DialectBackend, lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!?@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);

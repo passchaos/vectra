@@ -201,6 +201,21 @@ pub fn build(b: *std.Build) void {
     const einsum_smoke_step = b.step("einsum-smoke", "Run bounded NumPy/PyTorch-style einsum syntax smoke");
     einsum_smoke_step.dependOn(&einsum_smoke_cmd.step);
 
+    const contraction_smoke_exe = b.addExecutable(.{
+        .name = "vectra-contraction-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/contraction_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const contraction_smoke_cmd = b.addRunArtifact(contraction_smoke_exe);
+    const contraction_smoke_step = b.step("contraction-smoke", "Run NumPy/PyTorch-style tensordot/contractAxes smoke");
+    contraction_smoke_step.dependOn(&contraction_smoke_cmd.step);
+
     const examples_step = b.step("examples", "Run Vectra usage examples");
 
     const basic_array_example_exe = b.addExecutable(.{
