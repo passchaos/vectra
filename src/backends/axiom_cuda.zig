@@ -2298,43 +2298,20 @@ fn tryDeviceLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) ar
         out.deinit();
         return null;
     };
+    const input_descriptor = describeDeviceArrayMemRef(T, input, in_storage, "input") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeDeviceArrayMemRef(T, out, out_storage, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorSoftmax2DSpec.fromMemRefs(.log_softmax, reductionAxisFromU1(axis), input_descriptor, out_descriptor) catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = (if (T == f32)
-        runtime.runCudaDeviceLogSoftmaxF32(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f64)
-        runtime.runCudaDeviceLogSoftmaxF64(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f16)
-        runtime.runCudaDeviceLogSoftmaxF16(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else
-        runtime.runCudaDeviceLogSoftmaxBF16(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )) catch {
+    const report = runtime.runCudaDeviceLogSoftmaxMemRefs(input.device.index, spec) catch {
         out.deinit();
         return null;
     };
@@ -2374,43 +2351,20 @@ fn tryDeviceSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array
         out.deinit();
         return null;
     };
+    const input_descriptor = describeDeviceArrayMemRef(T, input, in_storage, "input") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeDeviceArrayMemRef(T, out, out_storage, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorSoftmax2DSpec.fromMemRefs(.softmax, reductionAxisFromU1(axis), input_descriptor, out_descriptor) catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = (if (T == f32)
-        runtime.runCudaDeviceSoftmaxF32(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f64)
-        runtime.runCudaDeviceSoftmaxF64(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f16)
-        runtime.runCudaDeviceSoftmaxF16(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else
-        runtime.runCudaDeviceSoftmaxBF16(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )) catch {
+    const report = runtime.runCudaDeviceSoftmaxMemRefs(input.device.index, spec) catch {
         out.deinit();
         return null;
     };
