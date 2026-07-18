@@ -16704,6 +16704,13 @@ pub fn Array(comptime T: type) type {
 
         pub fn threshold(self: Self, threshold_value: T, replacement_value: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    if (threshold_value == zero(T) and replacement_value == zero(T)) return self.relu();
+                    if (replacement_value == threshold_value) return self.maximumScalar(threshold_value);
+                    return error.BackendFailure;
+                }
+            }
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
                 slot.* = if (value > threshold_value) value else replacement_value;

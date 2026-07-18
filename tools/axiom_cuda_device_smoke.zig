@@ -80,6 +80,14 @@ pub fn main(init: std.process.Init) !void {
         defer relu_out.deinit();
         var relu_host = try relu_out.cpu();
         defer relu_host.deinit();
+        var threshold_zero_out = try shifted_for_relu.threshold(0, 0);
+        defer threshold_zero_out.deinit();
+        var threshold_zero_host = try threshold_zero_out.cpu();
+        defer threshold_zero_host.deinit();
+        var threshold_clamp_out = try shifted_for_relu.threshold(0.5, 0.5);
+        defer threshold_clamp_out.deinit();
+        var threshold_clamp_host = try threshold_clamp_out.cpu();
+        defer threshold_clamp_host.deinit();
         var sigmoid_out = try shifted_for_relu.sigmoid();
         defer sigmoid_out.deinit();
         var sigmoid_host = try sigmoid_out.cpu();
@@ -153,6 +161,10 @@ pub fn main(init: std.process.Init) !void {
             approxF32(reciprocal_host.data[3], 0.25, 1e-6) and
             relu_out.device.isCuda() and relu_out.device_storage != null and
             equalF32(relu_host.data, &.{ 0, 0, 0, 1 }) and
+            threshold_zero_out.device.isCuda() and threshold_zero_out.device_storage != null and
+            equalF32(threshold_zero_host.data, &.{ 0, 0, 0, 1 }) and
+            threshold_clamp_out.device.isCuda() and threshold_clamp_out.device_storage != null and
+            equalF32(threshold_clamp_host.data, &.{ 0.5, 0.5, 0.5, 1 }) and
             sigmoid_out.device.isCuda() and sigmoid_out.device_storage != null and
             approxF32(sigmoid_host.data[0], sigmoid_neg2, 0.01) and
             approxF32(sigmoid_host.data[3], sigmoid_pos1, 0.01) and
