@@ -392,6 +392,10 @@ pub fn main(init: std.process.Init) !void {
         defer f64_relu.deinit();
         var f64_relu_host = try f64_relu.cpu();
         defer f64_relu_host.deinit();
+        var f64_threshold = try f64_shifted.threshold(0.5, 0.5);
+        defer f64_threshold.deinit();
+        var f64_threshold_host = try f64_threshold.cpu();
+        defer f64_threshold_host.deinit();
         var f64_sigmoid = try f64_shifted.sigmoid();
         defer f64_sigmoid.deinit();
         var f64_sigmoid_host = try f64_sigmoid.cpu();
@@ -418,6 +422,14 @@ pub fn main(init: std.process.Init) !void {
         defer f64_lerp.deinit();
         var f64_lerp_host = try f64_lerp.cpu();
         defer f64_lerp_host.deinit();
+        var f64_addcmul = try f64_rhs.addcmul(f64_lhs, f64_rhs, 2.0);
+        defer f64_addcmul.deinit();
+        var f64_addcmul_host = try f64_addcmul.cpu();
+        defer f64_addcmul_host.deinit();
+        var f64_addcdiv = try f64_rhs.addcdiv(f64_lhs, f64_rhs, 0.5);
+        defer f64_addcdiv.deinit();
+        var f64_addcdiv_host = try f64_addcdiv.cpu();
+        defer f64_addcdiv_host.deinit();
         var f64_silu = try f64_shifted.silu();
         defer f64_silu.deinit();
         var f64_silu_host = try f64_silu.cpu();
@@ -446,6 +458,8 @@ pub fn main(init: std.process.Init) !void {
             approxF64(f64_exp_host.data[0], std.math.exp(@as(f64, 2)), 1e-12) and
             f64_relu.device.isCuda() and f64_relu.device_storage != null and
             equalF64(f64_relu_host.data, &.{ 0, 0, 0, 1 }) and
+            f64_threshold.device.isCuda() and f64_threshold.device_storage != null and
+            equalF64(f64_threshold_host.data, &.{ 0.5, 0.5, 0.5, 1 }) and
             f64_sigmoid.device.isCuda() and f64_sigmoid.device_storage != null and
             approxF64(f64_sigmoid_host.data[0], @as(f64, 1.0) / (@as(f64, 1.0) + std.math.exp(@as(f64, 2.0))), 1e-12) and
             f64_softsign.device.isCuda() and f64_softsign.device_storage != null and
@@ -459,6 +473,10 @@ pub fn main(init: std.process.Init) !void {
             approxF64(f64_leaky_host.data[0], -0.2, 1e-12) and
             f64_lerp.device.isCuda() and f64_lerp.device_storage != null and
             equalF64(f64_lerp_host.data, &.{ 1, 1.5, 2, 2.5 }) and
+            f64_addcmul.device.isCuda() and f64_addcmul.device_storage != null and
+            equalF64(f64_addcmul_host.data, &.{ 3, 5, 7, 9 }) and
+            f64_addcdiv.device.isCuda() and f64_addcdiv.device_storage != null and
+            equalF64(f64_addcdiv_host.data, &.{ 1.5, 2, 2.5, 3 }) and
             f64_silu.device.isCuda() and f64_silu.device_storage != null and
             approxF64(f64_silu_host.data[0], -2.0 / (1.0 + std.math.exp(@as(f64, 2.0))), 1e-12) and
             f64_hardsigmoid.device.isCuda() and f64_hardsigmoid.device_storage != null and

@@ -53,7 +53,7 @@ Current registry summary:
 
 ## Current bridge behavior
 
-- `Array(f32)` and `Array(f64)` are native CUDA seed paths; f64 currently covers same-shape/scalar elementwise, maximum/leakyRelu/lerp/neg/abs/reciprocal/square/sqrt/exp/relu/clip/sigmoid/silu/hardsigmoid/hardswish/softsign, DGEMM matmul, and matmulAdd/fusion.
+- `Array(f32)` and `Array(f64)` are native CUDA seed paths; f64 currently covers same-shape/scalar elementwise, maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/exp/relu/threshold/leakyRelu/clip/sigmoid/silu/hardsigmoid/hardswish/softsign, DGEMM matmul, and matmulAdd/fusion.
 - `Array(f16)` and `Array(BFloat16)` now try Axiom's native typed CUDA
   elementwise runtime seeds for same-shape add/sub/mul/div before falling back to
   widened f32 routes.
