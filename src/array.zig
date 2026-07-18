@@ -3239,7 +3239,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn abs(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (self.shape.len == 1) {
                     // Keep accelerated view unary execution behind the Axiom
                     // facade: ArrayView selects no CUDA path itself, it only
@@ -4024,7 +4024,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn exp(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (self.shape.len == 1) {
                     if (try axiom_backend.executeViewUnaryDefault(T, .exp, self)) |out| return out;
                 }
@@ -4081,7 +4081,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn sqrt(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (self.shape.len == 1) {
                     if (try axiom_backend.executeViewUnaryDefault(T, .sqrt, self)) |out| return out;
                 }

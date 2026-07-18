@@ -2507,6 +2507,22 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .square => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
+    } else if (T == f16) {
+        const out = switch (op) {
+            .abs => try axiom_cuda.tryAbsViewF16(@as(array_mod.ArrayView(f16), input)),
+            .sqrt => try axiom_cuda.trySqrtViewF16(@as(array_mod.ArrayView(f16), input)),
+            .exp => try axiom_cuda.tryExpViewF16(@as(array_mod.ArrayView(f16), input)),
+            .square => null,
+        };
+        if (out) |value| return @as(array_mod.Array(T), value);
+    } else if (T == array_mod.BFloat16) {
+        const out = switch (op) {
+            .abs => try axiom_cuda.tryAbsViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), input)),
+            .sqrt => try axiom_cuda.trySqrtViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), input)),
+            .exp => try axiom_cuda.tryExpViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), input)),
+            .square => null,
+        };
+        if (out) |value| return @as(array_mod.Array(T), value);
     }
     return null;
 }
