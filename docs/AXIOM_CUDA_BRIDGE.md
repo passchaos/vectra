@@ -65,7 +65,10 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
   matching lowering. f16 and BFloat16 2D `sum/prod/min/max(axis=0/1)` reductions, row/column broadcast-add, transpose, softmax(axis=0/1), logSoftmax(axis=0/1), plus widened activation/powScalar combinations such as `relu/sigmoid/softsign/clip/powScalar(-1/-0.5/0/0.5/1/2/3)` are covered by the CUDA device smoke.
 - CUDA `Array(f32/f64/f16/BFloat16).matmul` builds an Axiom memref-backed
   `TensorGemmSpec` from device descriptors before lowering to Axiom's cached
-  cuBLAS-backed GEMM runtime for PyTorch-class throughput.
+  cuBLAS-backed GEMM runtime for PyTorch-class throughput.  Axiom also accepts
+  padded row-major f32 GEMM memrefs via cuBLAS leading dimensions; more general
+  transposed/negative-stride/non-f32 strided GEMM layouts still require a
+  legalization/layout-transform pass.
 - CUDA `vx.matmulAdd(Array(f32/f64/f16/BFloat16), ...)` builds an Axiom
   memref-backed matmul-add spec with separate addend/output descriptors before
   lowering to cached cuBLASLt-backed GEMM epilogues where available.  Fused f32

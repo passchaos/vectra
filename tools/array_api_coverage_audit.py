@@ -67,7 +67,7 @@ KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "strided_transposed_device_gemm_lowering",
-        "reason": "Current CUDA GEMM memref wrappers require contiguous row-major descriptors; strided layouts need bufferization/layout-transform lowering.",
+        "reason": "Axiom supports contiguous and padded row-major f32 GEMM memrefs; transposed, negative-stride, and non-f32 strided device GEMM layouts still need bufferization/layout-transform lowering.",
         "target_layer": "axiom",
     },
     {
