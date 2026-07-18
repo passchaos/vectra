@@ -869,6 +869,8 @@ pub const SmokeReport = struct {
     f64_strided_abs_ok: bool = false,
     f64_strided_sqrt_ok: bool = false,
     f64_strided_exp_ok: bool = false,
+    f64_strided_memref_legality_fingerprint: u64 = 0,
+    f64_strided_scalar_memref_legality_fingerprint: u64 = 0,
     f64_strided_scalar_add_ok: bool = false,
     f64_strided_scalar_sub_ok: bool = false,
     f64_strided_scalar_mul_ok: bool = false,
@@ -912,9 +914,150 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_sub_ok and report.strided_mul_ok and report.strided_div_ok and report.strided_abs_ok and report.strided_sqrt_ok and report.strided_exp_ok and report.strided_memref_legality_fingerprint != 0 and report.strided_scalar_memref_legality_fingerprint != 0 and report.strided_scalar_add_ok and report.strided_scalar_sub_ok and report.strided_scalar_mul_ok and report.strided_scalar_div_ok and report.f64_strided_add_ok and report.f64_strided_sub_ok and report.f64_strided_mul_ok and report.f64_strided_div_ok and report.f64_strided_abs_ok and report.f64_strided_sqrt_ok and report.f64_strided_exp_ok and report.f64_strided_scalar_add_ok and report.f64_strided_scalar_sub_ok and report.f64_strided_scalar_mul_ok and report.f64_strided_scalar_div_ok and report.f16_strided_add_ok and report.f16_strided_sub_ok and report.f16_strided_mul_ok and report.f16_strided_div_ok and report.f16_strided_scalar_add_ok and report.f16_strided_scalar_sub_ok and report.f16_strided_scalar_mul_ok and report.f16_strided_scalar_div_ok and report.bf16_strided_add_ok and report.bf16_strided_sub_ok and report.bf16_strided_mul_ok and report.bf16_strided_div_ok and report.bf16_strided_scalar_add_ok and report.bf16_strided_scalar_sub_ok and report.bf16_strided_scalar_mul_ok and report.bf16_strided_scalar_div_ok,
+            .ran => report.enabled and report.executionEvidenceOk(),
             .failed => false,
         };
+    }
+
+    fn executionEvidenceOk(report: SmokeReport) bool {
+        // Descriptor fingerprints are part of the executable contract, not just
+        // diagnostics: without them a smoke run could regress to a legacy
+        // stride-only bridge while still producing numerically correct outputs.
+        return report.lhs_plan.ok and
+            report.lhs_plan.copy_ok and
+            report.add_ok and
+            report.sub_ok and
+            report.mul_ok and
+            report.div_ok and
+            report.saxpy_ok and
+            report.matmul_ok and
+            report.matmul_tile_ir_ok and
+            report.f16_add_ok and
+            report.f16_matmul_ok and
+            report.bf16_add_ok and
+            report.bf16_matmul_ok and
+            report.typed_f16_gemm_plan.ok and
+            report.typed_bf16_gemm_plan.ok and
+            report.f16_widened_execution_fingerprint != 0 and
+            report.bf16_widened_execution_fingerprint != 0 and
+            report.typed_f16_gemm_route_fingerprint != 0 and
+            report.typed_bf16_gemm_route_fingerprint != 0 and
+            std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and
+            std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and
+            report.scalar_add_ok and
+            report.scalar_mul_ok and
+            report.scalar_saxpy_ok and
+            report.strided_add_ok and
+            report.strided_sub_ok and
+            report.strided_mul_ok and
+            report.strided_div_ok and
+            report.strided_abs_ok and
+            report.strided_sqrt_ok and
+            report.strided_exp_ok and
+            report.strided_memref_legality_fingerprint != 0 and
+            report.strided_scalar_memref_legality_fingerprint != 0 and
+            report.strided_scalar_add_ok and
+            report.strided_scalar_sub_ok and
+            report.strided_scalar_mul_ok and
+            report.strided_scalar_div_ok and
+            report.f64_strided_add_ok and
+            report.f64_strided_sub_ok and
+            report.f64_strided_mul_ok and
+            report.f64_strided_div_ok and
+            report.f64_strided_abs_ok and
+            report.f64_strided_sqrt_ok and
+            report.f64_strided_exp_ok and
+            report.f64_strided_memref_legality_fingerprint != 0 and
+            report.f64_strided_scalar_memref_legality_fingerprint != 0 and
+            report.f64_strided_scalar_add_ok and
+            report.f64_strided_scalar_sub_ok and
+            report.f64_strided_scalar_mul_ok and
+            report.f64_strided_scalar_div_ok and
+            report.f16_strided_add_ok and
+            report.f16_strided_sub_ok and
+            report.f16_strided_mul_ok and
+            report.f16_strided_div_ok and
+            report.f16_strided_scalar_add_ok and
+            report.f16_strided_scalar_sub_ok and
+            report.f16_strided_scalar_mul_ok and
+            report.f16_strided_scalar_div_ok and
+            report.bf16_strided_add_ok and
+            report.bf16_strided_sub_ok and
+            report.bf16_strided_mul_ok and
+            report.bf16_strided_div_ok and
+            report.bf16_strided_scalar_add_ok and
+            report.bf16_strided_scalar_sub_ok and
+            report.bf16_strided_scalar_mul_ok and
+            report.bf16_strided_scalar_div_ok;
+    }
+
+    fn executionIssueCount(report: SmokeReport) u8 {
+        return @as(u8, @intFromBool(!report.lhs_plan.ok)) +
+            @as(u8, @intFromBool(!report.lhs_plan.copy_ok)) +
+            @as(u8, @intFromBool(!report.add_ok)) +
+            @as(u8, @intFromBool(!report.sub_ok)) +
+            @as(u8, @intFromBool(!report.mul_ok)) +
+            @as(u8, @intFromBool(!report.div_ok)) +
+            @as(u8, @intFromBool(!report.saxpy_ok)) +
+            @as(u8, @intFromBool(!report.matmul_ok)) +
+            @as(u8, @intFromBool(!report.matmul_tile_ir_ok)) +
+            @as(u8, @intFromBool(!report.f16_add_ok)) +
+            @as(u8, @intFromBool(!report.f16_matmul_ok)) +
+            @as(u8, @intFromBool(!report.bf16_add_ok)) +
+            @as(u8, @intFromBool(!report.bf16_matmul_ok)) +
+            @as(u8, @intFromBool(!report.typed_f16_gemm_plan.ok)) +
+            @as(u8, @intFromBool(!report.typed_bf16_gemm_plan.ok)) +
+            @as(u8, @intFromBool(report.f16_widened_execution_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.bf16_widened_execution_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.typed_f16_gemm_route_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.typed_bf16_gemm_route_fingerprint == 0)) +
+            @as(u8, @intFromBool(!std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute"))) +
+            @as(u8, @intFromBool(!std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute"))) +
+            @as(u8, @intFromBool(!report.scalar_add_ok)) +
+            @as(u8, @intFromBool(!report.scalar_mul_ok)) +
+            @as(u8, @intFromBool(!report.scalar_saxpy_ok)) +
+            @as(u8, @intFromBool(!report.strided_add_ok)) +
+            @as(u8, @intFromBool(!report.strided_sub_ok)) +
+            @as(u8, @intFromBool(!report.strided_mul_ok)) +
+            @as(u8, @intFromBool(!report.strided_div_ok)) +
+            @as(u8, @intFromBool(!report.strided_abs_ok)) +
+            @as(u8, @intFromBool(!report.strided_sqrt_ok)) +
+            @as(u8, @intFromBool(!report.strided_exp_ok)) +
+            @as(u8, @intFromBool(report.strided_memref_legality_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.strided_scalar_memref_legality_fingerprint == 0)) +
+            @as(u8, @intFromBool(!report.strided_scalar_add_ok)) +
+            @as(u8, @intFromBool(!report.strided_scalar_sub_ok)) +
+            @as(u8, @intFromBool(!report.strided_scalar_mul_ok)) +
+            @as(u8, @intFromBool(!report.strided_scalar_div_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_add_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_sub_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_mul_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_div_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_abs_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_sqrt_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_exp_ok)) +
+            @as(u8, @intFromBool(report.f64_strided_memref_legality_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.f64_strided_scalar_memref_legality_fingerprint == 0)) +
+            @as(u8, @intFromBool(!report.f64_strided_scalar_add_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_scalar_sub_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_scalar_mul_ok)) +
+            @as(u8, @intFromBool(!report.f64_strided_scalar_div_ok)) +
+            @as(u8, @intFromBool(!report.f16_strided_add_ok)) +
+            @as(u8, @intFromBool(!report.f16_strided_sub_ok)) +
+            @as(u8, @intFromBool(!report.f16_strided_mul_ok)) +
+            @as(u8, @intFromBool(!report.f16_strided_div_ok)) +
+            @as(u8, @intFromBool(!report.f16_strided_scalar_add_ok)) +
+            @as(u8, @intFromBool(!report.f16_strided_scalar_sub_ok)) +
+            @as(u8, @intFromBool(!report.f16_strided_scalar_mul_ok)) +
+            @as(u8, @intFromBool(!report.f16_strided_scalar_div_ok)) +
+            @as(u8, @intFromBool(!report.bf16_strided_add_ok)) +
+            @as(u8, @intFromBool(!report.bf16_strided_sub_ok)) +
+            @as(u8, @intFromBool(!report.bf16_strided_mul_ok)) +
+            @as(u8, @intFromBool(!report.bf16_strided_div_ok)) +
+            @as(u8, @intFromBool(!report.bf16_strided_scalar_add_ok)) +
+            @as(u8, @intFromBool(!report.bf16_strided_scalar_sub_ok)) +
+            @as(u8, @intFromBool(!report.bf16_strided_scalar_mul_ok)) +
+            @as(u8, @intFromBool(!report.bf16_strided_scalar_div_ok));
     }
 
     pub fn fingerprint(report: SmokeReport) u64 {
@@ -957,6 +1100,8 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.f64_strided_abs_ok);
         hashBool(&hasher, report.f64_strided_sqrt_ok);
         hashBool(&hasher, report.f64_strided_exp_ok);
+        hashU64(&hasher, report.f64_strided_memref_legality_fingerprint);
+        hashU64(&hasher, report.f64_strided_scalar_memref_legality_fingerprint);
         hashBool(&hasher, report.f64_strided_scalar_add_ok);
         hashBool(&hasher, report.f64_strided_scalar_sub_ok);
         hashBool(&hasher, report.f64_strided_scalar_mul_ok);
@@ -1036,7 +1181,7 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_memref={x} strided_scalar_memref={x} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
+            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_memref={x} strided_scalar_memref={x} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_memref={x} f64_strided_scalar_memref={x} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
             .{
                 report.strided_add_ok,
                 report.strided_sub_ok,
@@ -1058,6 +1203,8 @@ pub const SmokeReport = struct {
                 report.f64_strided_abs_ok,
                 report.f64_strided_sqrt_ok,
                 report.f64_strided_exp_ok,
+                report.f64_strided_memref_legality_fingerprint,
+                report.f64_strided_scalar_memref_legality_fingerprint,
                 report.f64_strided_scalar_add_ok,
                 report.f64_strided_scalar_sub_ok,
                 report.f64_strided_scalar_mul_ok,
@@ -1250,6 +1397,8 @@ pub const SmokeReport = struct {
                 "  \"f64_strided_abs_ok\": {},\n" ++
                 "  \"f64_strided_sqrt_ok\": {},\n" ++
                 "  \"f64_strided_exp_ok\": {},\n" ++
+                "  \"f64_strided_memref_legality_fingerprint\": {d},\n" ++
+                "  \"f64_strided_scalar_memref_legality_fingerprint\": {d},\n" ++
                 "  \"f64_strided_scalar_add_ok\": {},\n" ++
                 "  \"f64_strided_scalar_sub_ok\": {},\n" ++
                 "  \"f64_strided_scalar_mul_ok\": {},\n" ++
@@ -1278,6 +1427,8 @@ pub const SmokeReport = struct {
                 report.f64_strided_abs_ok,
                 report.f64_strided_sqrt_ok,
                 report.f64_strided_exp_ok,
+                report.f64_strided_memref_legality_fingerprint,
+                report.f64_strided_scalar_memref_legality_fingerprint,
                 report.f64_strided_scalar_add_ok,
                 report.f64_strided_scalar_sub_ok,
                 report.f64_strided_scalar_mul_ok,
@@ -3208,6 +3359,12 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     defer f64_lhs_view.deinit();
     var f64_rhs_view = f64_strided_rhs.asStrided(&.{4}, &.{2}, 0) catch return failedReport();
     defer f64_rhs_view.deinit();
+    const f64_lhs_descriptor = describeHostViewMemRef(f64, f64_lhs_view, "lhs64") catch return failedReport();
+    const f64_rhs_descriptor = describeHostViewMemRef(f64, f64_rhs_view, "rhs64") catch return failedReport();
+    const f64_out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("out64", 0x6000, .f64, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const f64_legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(f64_lhs_descriptor, f64_rhs_descriptor, f64_out_descriptor);
+    if (!f64_legality.ok()) return failedReport();
+    report.f64_strided_memref_legality_fingerprint = f64_legality.fingerprint();
     var f64_strided_add = tryAddViewF64(f64_lhs_view, f64_rhs_view) catch return failedReport();
     if (f64_strided_add) |*out| {
         defer out.deinit();
@@ -3254,6 +3411,11 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.f64_strided_exp_ok = sliceCloseF64(out.data, &.{ 2.718281828459045, 7.38905609893065, 20.085536923187668, 54.598150033144236 }, 0.01);
         report.output_fingerprint ^= hashF64Slice(out.data);
     }
+    const f64_scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar64", 0x7000, .f64, .host, 0, &.{4}, &.{0}) catch return failedReport();
+    const f64_scalar_out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar_out64", 0x8000, .f64, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const f64_scalar_legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(f64_lhs_descriptor, f64_scalar_descriptor, f64_scalar_out_descriptor);
+    if (!f64_scalar_legality.ok()) return failedReport();
+    report.f64_strided_scalar_memref_legality_fingerprint = f64_scalar_legality.fingerprint();
     var f64_strided_scalar_add = tryViewScalarF64(.add, f64_lhs_view, 2.0, false) catch return failedReport();
     if (f64_strided_scalar_add) |*out| {
         defer out.deinit();
@@ -3517,77 +3679,15 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.typed_bf16_gemm_route = typed_bf16_runtime.route;
     }
 
-    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_sub_ok and report.strided_mul_ok and report.strided_div_ok and report.strided_abs_ok and report.strided_sqrt_ok and report.strided_exp_ok and report.strided_scalar_add_ok and report.strided_scalar_sub_ok and report.strided_scalar_mul_ok and report.strided_scalar_div_ok and report.f64_strided_add_ok and report.f64_strided_sub_ok and report.f64_strided_mul_ok and report.f64_strided_div_ok and report.f64_strided_abs_ok and report.f64_strided_sqrt_ok and report.f64_strided_exp_ok and report.f64_strided_scalar_add_ok and report.f64_strided_scalar_sub_ok and report.f64_strided_scalar_mul_ok and report.f64_strided_scalar_div_ok and report.f16_strided_add_ok and report.f16_strided_sub_ok and report.f16_strided_mul_ok and report.f16_strided_div_ok and report.f16_strided_scalar_add_ok and report.f16_strided_scalar_sub_ok and report.f16_strided_scalar_mul_ok and report.f16_strided_scalar_div_ok and report.bf16_strided_add_ok and report.bf16_strided_sub_ok and report.bf16_strided_mul_ok and report.bf16_strided_div_ok and report.bf16_strided_scalar_add_ok and report.bf16_strided_scalar_sub_ok and report.bf16_strided_scalar_mul_ok and report.bf16_strided_scalar_div_ok) {
+    if (report.executionEvidenceOk()) {
         report.status = .ran;
-        report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
-            @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
+        report.issue_count = 0;
     } else if (add_out == null and sub_out == null and mul_out == null and div_out == null and saxpy_out == null and matmul_out == null and f16_add_out == null and f16_matmul_out == null and bf16_add_out == null and bf16_matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null and strided_add == null and strided_sub == null and strided_mul == null and strided_div == null and strided_abs == null and strided_sqrt == null and strided_exp == null and strided_scalar_add == null and strided_scalar_sub == null and strided_scalar_mul == null and strided_scalar_div == null and f64_strided_add == null and f64_strided_sub == null and f64_strided_mul == null and f64_strided_div == null and f64_strided_abs == null and f64_strided_sqrt == null and f64_strided_exp == null and f64_strided_scalar_add == null and f64_strided_scalar_sub == null and f64_strided_scalar_mul == null and f64_strided_scalar_div == null and f16_strided_add == null and f16_strided_sub == null and f16_strided_mul == null and f16_strided_div == null and f16_strided_scalar_add == null and f16_strided_scalar_sub == null and f16_strided_scalar_mul == null and f16_strided_scalar_div == null and bf16_strided_add == null and bf16_strided_sub == null and bf16_strided_mul == null and bf16_strided_div == null and bf16_strided_scalar_add == null and bf16_strided_scalar_sub == null and bf16_strided_scalar_mul == null and bf16_strided_scalar_div == null) {
         report.status = .skipped;
         report.issue_count = 0;
     } else {
         report.status = .failed;
-        report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
-            @as(u8, @intFromBool(!report.lhs_plan.copy_ok)) +
-            @as(u8, @intFromBool(!report.add_ok)) +
-            @as(u8, @intFromBool(!report.sub_ok)) +
-            @as(u8, @intFromBool(!report.mul_ok)) +
-            @as(u8, @intFromBool(!report.div_ok)) +
-            @as(u8, @intFromBool(!report.saxpy_ok)) +
-            @as(u8, @intFromBool(!report.matmul_ok)) +
-            @as(u8, @intFromBool(!report.matmul_tile_ir_ok)) +
-            @as(u8, @intFromBool(!report.f16_add_ok)) +
-            @as(u8, @intFromBool(!report.f16_matmul_ok)) +
-            @as(u8, @intFromBool(!report.bf16_add_ok)) +
-            @as(u8, @intFromBool(!report.bf16_matmul_ok)) +
-            @as(u8, @intFromBool(!report.typed_f16_gemm_plan.ok)) +
-            @as(u8, @intFromBool(!report.typed_bf16_gemm_plan.ok)) +
-            @as(u8, @intFromBool(report.f16_widened_execution_fingerprint == 0)) +
-            @as(u8, @intFromBool(report.bf16_widened_execution_fingerprint == 0)) +
-            @as(u8, @intFromBool(report.typed_f16_gemm_route_fingerprint == 0)) +
-            @as(u8, @intFromBool(report.typed_bf16_gemm_route_fingerprint == 0)) +
-            @as(u8, @intFromBool(!std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute"))) +
-            @as(u8, @intFromBool(!std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute"))) +
-            @as(u8, @intFromBool(!report.scalar_add_ok)) +
-            @as(u8, @intFromBool(!report.scalar_mul_ok)) +
-            @as(u8, @intFromBool(!report.scalar_saxpy_ok)) +
-            @as(u8, @intFromBool(!report.strided_add_ok)) +
-            @as(u8, @intFromBool(!report.strided_sub_ok)) +
-            @as(u8, @intFromBool(!report.strided_mul_ok)) +
-            @as(u8, @intFromBool(!report.strided_div_ok)) +
-            @as(u8, @intFromBool(!report.strided_abs_ok)) +
-            @as(u8, @intFromBool(!report.strided_sqrt_ok)) +
-            @as(u8, @intFromBool(!report.strided_exp_ok)) +
-            @as(u8, @intFromBool(!report.strided_scalar_add_ok)) +
-            @as(u8, @intFromBool(!report.strided_scalar_sub_ok)) +
-            @as(u8, @intFromBool(!report.strided_scalar_mul_ok)) +
-            @as(u8, @intFromBool(!report.strided_scalar_div_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_add_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_sub_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_mul_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_div_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_abs_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_sqrt_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_exp_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_scalar_add_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_scalar_sub_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_scalar_mul_ok)) +
-            @as(u8, @intFromBool(!report.f64_strided_scalar_div_ok)) +
-            @as(u8, @intFromBool(!report.f16_strided_add_ok)) +
-            @as(u8, @intFromBool(!report.f16_strided_sub_ok)) +
-            @as(u8, @intFromBool(!report.f16_strided_mul_ok)) +
-            @as(u8, @intFromBool(!report.f16_strided_div_ok)) +
-            @as(u8, @intFromBool(!report.f16_strided_scalar_add_ok)) +
-            @as(u8, @intFromBool(!report.f16_strided_scalar_sub_ok)) +
-            @as(u8, @intFromBool(!report.f16_strided_scalar_mul_ok)) +
-            @as(u8, @intFromBool(!report.f16_strided_scalar_div_ok)) +
-            @as(u8, @intFromBool(!report.bf16_strided_add_ok)) +
-            @as(u8, @intFromBool(!report.bf16_strided_sub_ok)) +
-            @as(u8, @intFromBool(!report.bf16_strided_mul_ok)) +
-            @as(u8, @intFromBool(!report.bf16_strided_div_ok)) +
-            @as(u8, @intFromBool(!report.bf16_strided_scalar_add_ok)) +
-            @as(u8, @intFromBool(!report.bf16_strided_scalar_sub_ok)) +
-            @as(u8, @intFromBool(!report.bf16_strided_scalar_mul_ok)) +
-            @as(u8, @intFromBool(!report.bf16_strided_scalar_div_ok));
+        report.issue_count = report.executionIssueCount();
     }
     return report;
 }
@@ -3719,14 +3819,16 @@ fn tryBinaryViewF64(op: BinaryOp, lhs: array_mod.ArrayView(f64), rhs: array_mod.
     const rhs_slice = viewBackingSliceTyped(f64, rhs) orelse return null;
     var out = try array_mod.Array(f64).empty(lhs.allocator, lhs.shape);
     errdefer out.deinit();
+    const lhs_descriptor = try describeHostViewMemRef(f64, lhs, "lhs");
+    const rhs_descriptor = try describeHostViewMemRef(f64, rhs, "rhs");
+    const out_descriptor = describeHostArrayMemRef(f64, out, "out") catch {
+        out.deinit();
+        return null;
+    };
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const result = runtime.runTensorElementwiseBinaryF64Native(lhs_slice, rhs_slice, out.data, .{
+    const result = runtime.runTensorElementwiseBinaryMemRefsNative(f64, .f64, lhs_slice, rhs_slice, out.data, lhs_descriptor, rhs_descriptor, out_descriptor, .{
         .op = axiomBinaryOp(op),
-        .len = lhs.shape[0],
-        .lhs_stride = @intCast(lhs.strides[0]),
-        .rhs_stride = @intCast(rhs.strides[0]),
-        .out_stride = 1,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_f64_strided_add",
             .sub => "vectra_axiom_f64_strided_sub",
@@ -3758,16 +3860,21 @@ fn tryBinaryViewScalarF64(op: BinaryOp, input: array_mod.ArrayView(f64), scalar:
 
     const lhs_slice = if (scalar_left) scalar_values[0..] else input_slice;
     const rhs_slice = if (scalar_left) input_slice else scalar_values[0..];
-    const lhs_stride: isize = if (scalar_left) 0 else @intCast(input.strides[0]);
-    const rhs_stride: isize = if (scalar_left) @intCast(input.strides[0]) else 0;
+    const input_descriptor = try describeHostViewMemRef(f64, input, "input");
+    const scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar", @intCast(@intFromPtr(&scalar_values[0])), .f64, .host, 0, &.{input.shape[0]}, &.{0}) catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeHostArrayMemRef(f64, out, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const lhs_descriptor = if (scalar_left) scalar_descriptor else input_descriptor;
+    const rhs_descriptor = if (scalar_left) input_descriptor else scalar_descriptor;
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const result = runtime.runTensorElementwiseBinaryF64Native(lhs_slice, rhs_slice, out.data, .{
+    const result = runtime.runTensorElementwiseBinaryMemRefsNative(f64, .f64, lhs_slice, rhs_slice, out.data, lhs_descriptor, rhs_descriptor, out_descriptor, .{
         .op = axiomBinaryOp(op),
-        .len = input.shape[0],
-        .lhs_stride = lhs_stride,
-        .rhs_stride = rhs_stride,
-        .out_stride = 1,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_f64_strided_scalar_add",
             .sub => "vectra_axiom_f64_strided_scalar_sub",
