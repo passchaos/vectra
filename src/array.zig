@@ -16128,6 +16128,19 @@ pub fn Array(comptime T: type) type {
 
         pub fn maximumScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var delta = try self.subScalar(scalar);
+                    defer delta.deinit();
+                    var abs_delta = try delta.abs();
+                    defer abs_delta.deinit();
+                    var shifted = try self.addScalar(scalar);
+                    defer shifted.deinit();
+                    var doubled = try shifted.add(abs_delta);
+                    defer doubled.deinit();
+                    return doubled.mulScalar(castValue(T, 0.5));
+                }
+            }
             return self.binaryScalar(scalar, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, a, b)) b else a;
@@ -16141,6 +16154,19 @@ pub fn Array(comptime T: type) type {
 
         pub fn minimumScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var delta = try self.subScalar(scalar);
+                    defer delta.deinit();
+                    var abs_delta = try delta.abs();
+                    defer abs_delta.deinit();
+                    var shifted = try self.addScalar(scalar);
+                    defer shifted.deinit();
+                    var doubled = try shifted.sub(abs_delta);
+                    defer doubled.deinit();
+                    return doubled.mulScalar(castValue(T, 0.5));
+                }
+            }
             return self.binaryScalar(scalar, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, b, a)) b else a;
@@ -16911,6 +16937,14 @@ pub fn Array(comptime T: type) type {
 
         pub fn clip(self: Self, min_value: T, max_value: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var lower_bounded = try self.clipMin(min_value);
+                    defer lower_bounded.deinit();
+                    return lower_bounded.clipMax(max_value);
+                }
+            }
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = @min(@max(v, min_value), max_value);
             return out;

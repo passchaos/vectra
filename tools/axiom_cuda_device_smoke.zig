@@ -87,6 +87,14 @@ pub fn main(init: std.process.Init) !void {
         defer silu_out.deinit();
         var silu_host = try silu_out.cpu();
         defer silu_host.deinit();
+        var clipped_out = try shifted_for_relu.clip(-0.5, 0.5);
+        defer clipped_out.deinit();
+        var clipped_host = try clipped_out.cpu();
+        defer clipped_host.deinit();
+        var relu6_out = try shifted_for_relu.relu6();
+        defer relu6_out.deinit();
+        var relu6_host = try relu6_out.cpu();
+        defer relu6_host.deinit();
         const sigmoid_neg2 = @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, 2.0)));
         const sigmoid_pos1 = @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0)));
         direct_unary_scalar_ok = negated.device.isCuda() and negated.device_storage != null and
@@ -103,7 +111,11 @@ pub fn main(init: std.process.Init) !void {
             approxF32(sigmoid_host.data[3], sigmoid_pos1, 0.01) and
             silu_out.device.isCuda() and silu_out.device_storage != null and
             approxF32(silu_host.data[0], -2.0 * sigmoid_neg2, 0.01) and
-            approxF32(silu_host.data[3], sigmoid_pos1, 0.01);
+            approxF32(silu_host.data[3], sigmoid_pos1, 0.01) and
+            clipped_out.device.isCuda() and clipped_out.device_storage != null and
+            equalF32(clipped_host.data, &.{ -0.5, -0.5, 0, 0.5 }) and
+            relu6_out.device.isCuda() and relu6_out.device_storage != null and
+            equalF32(relu6_host.data, &.{ 0, 0, 0, 1 });
 
         var product = try lhs.matmul(rhs);
         defer product.deinit();
