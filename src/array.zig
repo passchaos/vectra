@@ -2677,6 +2677,27 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            if (comptime T == f32) {
+                if (self.shape.len == 1) {
+                    const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
+                        .add
+                    else if (comptime op == opSub)
+                        .sub
+                    else if (comptime op == opMul)
+                        .mul
+                    else if (comptime op == opDiv)
+                        .div
+                    else
+                        null;
+                    if (maybe_op) |op_value| {
+                        // Scalar view operations use the same target-oriented
+                        // facade as view/view operations.  Axiom CUDA models the
+                        // scalar as a zero-stride operand, so Vectra does not
+                        // need to materialize a same-shape scalar buffer.
+                        if (try axiom_backend.executeViewElementwiseScalarDefault(T, op_value, self, scalar, .rhs)) |out| return out;
+                    }
+                }
+            }
             var out = try Array(T).empty(self.allocator, self.shape);
             errdefer out.deinit();
             try self.binaryScalarOut(scalar, out, op);

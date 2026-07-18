@@ -76,6 +76,14 @@ pub fn main(init: std.process.Init) !void {
     defer view_mul.deinit();
     var view_div = try rhs_view.div(lhs_view);
     defer view_div.deinit();
+    var view_scalar_add = try lhs_view.addScalar(2.0);
+    defer view_scalar_add.deinit();
+    var view_scalar_sub = try lhs_view.subScalar(2.0);
+    defer view_scalar_sub.deinit();
+    var view_scalar_mul = try lhs_view.mulScalar(2.0);
+    defer view_scalar_mul.deinit();
+    var view_scalar_div = try rhs_view.divScalar(10.0);
+    defer view_scalar_div.deinit();
 
     var f64_strided_lhs = try vx.Array(f64).fromSlice(allocator, &.{ 1, 99, 2, 99, 3, 99, 4, 99 }, &.{8});
     defer f64_strided_lhs.deinit();
@@ -153,6 +161,10 @@ pub fn main(init: std.process.Init) !void {
         equalF32(view_sub.data, &.{ 9, 18, 27, 36 }) and
         equalF32(view_mul.data, &.{ 10, 40, 90, 160 }) and
         equalF32(view_div.data, &.{ 10, 10, 10, 10 });
+    const view_scalar_ok = equalF32(view_scalar_add.data, &.{ 3, 4, 5, 6 }) and
+        equalF32(view_scalar_sub.data, &.{ -1, 0, 1, 2 }) and
+        equalF32(view_scalar_mul.data, &.{ 2, 4, 6, 8 }) and
+        equalF32(view_scalar_div.data, &.{ 1, 2, 3, 4 });
     const view64_ok = equalF64(f64_view_add.data, &.{ 11, 22, 33, 44 }) and
         equalF64(f64_view_sub.data, &.{ 9, 18, 27, 36 }) and
         equalF64(f64_view_mul.data, &.{ 10, 40, 90, 160 }) and
@@ -177,16 +189,16 @@ pub fn main(init: std.process.Init) !void {
         equalF32(eager_cpu.data, &.{ 58, 64, 139, 154 }) and
         equalF32(eager_cuda_default.data, eager_cpu.data) and
         equalF32(eager_mps_default.data, eager_cpu.data);
-    const ok = matmul_ok and elementwise_ok and scalar_ok and view_ok and view64_ok and view16_ok and view_bf16_ok and default_policy_ok and dynamic_execution_ok;
+    const ok = matmul_ok and elementwise_ok and scalar_ok and view_ok and view_scalar_ok and view64_ok and view16_ok and view_bf16_ok and default_policy_ok and dynamic_execution_ok;
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"view64_ok\":{},\"view16_ok\":{},\"view_bf16_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{}",
-        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view64_ok, view16_ok, view_bf16_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled },
+        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"view_scalar_ok\":{},\"view64_ok\":{},\"view16_ok\":{},\"view_bf16_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{}",
+        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view_scalar_ok, view64_ok, view16_ok, view_bf16_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled },
     );
     try stdout.interface.print(
-        ",\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view64_fingerprint\":{d},\"view16_fingerprint\":{d},\"view_bf16_fingerprint\":{d}}}\n",
-        .{ report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data), hashBF16(bf16_view_add.data) ^ hashBF16(bf16_view_sub.data) ^ hashBF16(bf16_view_mul.data) ^ hashBF16(bf16_view_div.data) },
+        ",\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view_scalar_fingerprint\":{d},\"view64_fingerprint\":{d},\"view16_fingerprint\":{d},\"view_bf16_fingerprint\":{d}}}\n",
+        .{ report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF32(view_scalar_add.data) ^ hashF32(view_scalar_sub.data) ^ hashF32(view_scalar_mul.data) ^ hashF32(view_scalar_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data), hashBF16(bf16_view_add.data) ^ hashBF16(bf16_view_sub.data) ^ hashBF16(bf16_view_mul.data) ^ hashBF16(bf16_view_div.data) },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
