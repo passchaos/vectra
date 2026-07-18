@@ -2701,8 +2701,12 @@ pub fn ArrayView(comptime T: type) type {
                 if (std.mem.eql(usize, self.shape, other.shape) and self.shape.len == 1) {
                     const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
                         .add
+                    else if (comptime op == opSub)
+                        .sub
                     else if (comptime op == opMul)
                         .mul
+                    else if (comptime op == opDiv)
+                        .div
                     else
                         null;
                     if (maybe_op) |op_value| {

@@ -2339,8 +2339,9 @@ fn executeCudaViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mo
     if (T == f32) {
         const out = switch (op) {
             .add => try axiom_cuda.tryAddViewF32(@as(array_mod.ArrayView(f32), lhs), @as(array_mod.ArrayView(f32), rhs)),
+            .sub => try axiom_cuda.trySubViewF32(@as(array_mod.ArrayView(f32), lhs), @as(array_mod.ArrayView(f32), rhs)),
             .mul => try axiom_cuda.tryMulViewF32(@as(array_mod.ArrayView(f32), lhs), @as(array_mod.ArrayView(f32), rhs)),
-            .sub, .div => null,
+            .div => try axiom_cuda.tryDivViewF32(@as(array_mod.ArrayView(f32), lhs), @as(array_mod.ArrayView(f32), rhs)),
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     }

@@ -850,7 +850,9 @@ pub const SmokeReport = struct {
     scalar_mul_ok: bool = false,
     scalar_saxpy_ok: bool = false,
     strided_add_ok: bool = false,
+    strided_sub_ok: bool = false,
     strided_mul_ok: bool = false,
+    strided_div_ok: bool = false,
     device_array_ok: bool = false,
     max_abs_error: f32 = 0.0,
     lhs_plan: BufferPlanEvidence = .{},
@@ -874,7 +876,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_mul_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_sub_ok and report.strided_mul_ok and report.strided_div_ok,
             .failed => false,
         };
     }
@@ -900,7 +902,9 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.scalar_mul_ok);
         hashBool(&hasher, report.scalar_saxpy_ok);
         hashBool(&hasher, report.strided_add_ok);
+        hashBool(&hasher, report.strided_sub_ok);
         hashBool(&hasher, report.strided_mul_ok);
+        hashBool(&hasher, report.strided_div_ok);
         hashBool(&hasher, report.device_array_ok);
         hashF32(&hasher, report.max_abs_error);
         hashBool(&hasher, report.lhs_plan.ok);
@@ -933,7 +937,7 @@ pub const SmokeReport = struct {
 
     pub fn writeText(report: SmokeReport, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} matmul_tile_ir={} f16_add={} f16_matmul={} bf16_add={} bf16_matmul={} typed_f16_gemm={} typed_bf16_gemm={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_mul={} device_array={} max_abs_error={d} logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            "vectra_axiom_cuda_smoke enabled={} status={s} ok={} issues={d} add={} sub={} mul={} div={} saxpy={} matmul={} matmul_tile_ir={} f16_add={} f16_matmul={} bf16_add={} bf16_matmul={} typed_f16_gemm={} typed_bf16_gemm={} scalar_add={} scalar_mul={} scalar_saxpy={} strided_add={} strided_sub={} strided_mul={} strided_div={} device_array={} max_abs_error={d}\n",
             .{
                 report.enabled,
                 report.status.label(),
@@ -956,9 +960,16 @@ pub const SmokeReport = struct {
                 report.scalar_mul_ok,
                 report.scalar_saxpy_ok,
                 report.strided_add_ok,
+                report.strided_sub_ok,
                 report.strided_mul_ok,
+                report.strided_div_ok,
                 report.device_array_ok,
                 report.max_abs_error,
+            },
+        );
+        try writer.print(
+            "vectra_axiom_cuda_buffers logical_elements={d} required_bytes={d} linear_copy={} copy_plan_ok={} copy_requires_strided={} output={x} fingerprint={x}\n",
+            .{
                 report.lhs_plan.logical_elements,
                 report.lhs_plan.required_bytes,
                 report.lhs_plan.linear_copy,
@@ -1102,7 +1113,9 @@ pub const SmokeReport = struct {
                 "  \"scalar_mul_ok\": {},\n" ++
                 "  \"scalar_saxpy_ok\": {},\n" ++
                 "  \"strided_add_ok\": {},\n" ++
+                "  \"strided_sub_ok\": {},\n" ++
                 "  \"strided_mul_ok\": {},\n" ++
+                "  \"strided_div_ok\": {},\n" ++
                 "  \"device_array_ok\": {},\n" ++
                 "  \"max_abs_error\": {d},\n" ++
                 "  \"lhs_plan_ok\": {},\n" ++
@@ -1129,7 +1142,9 @@ pub const SmokeReport = struct {
                 report.scalar_mul_ok,
                 report.scalar_saxpy_ok,
                 report.strided_add_ok,
+                report.strided_sub_ok,
                 report.strided_mul_ok,
+                report.strided_div_ok,
                 report.device_array_ok,
                 report.max_abs_error,
                 report.lhs_plan.ok,
@@ -2188,6 +2203,10 @@ pub fn tryAddViewF32(lhs: array_mod.ArrayView(f32), rhs: array_mod.ArrayView(f32
     return tryBinaryViewF32(.add, lhs, rhs);
 }
 
+pub fn trySubViewF32(lhs: array_mod.ArrayView(f32), rhs: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryBinaryViewF32(.sub, lhs, rhs);
+}
+
 pub fn tryMulViewF32(lhs: array_mod.ArrayView(f32), rhs: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryBinaryViewF32(.mul, lhs, rhs);
 }
@@ -2819,10 +2838,22 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.strided_add_ok = sliceClose(out.data, &.{ 11, 22, 33, 44 }, 0.0);
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
+    var strided_sub = trySubViewF32(rhs_view, lhs_view) catch return failedReport();
+    if (strided_sub) |*out| {
+        defer out.deinit();
+        report.strided_sub_ok = sliceClose(out.data, &.{ 9, 18, 27, 36 }, 0.0);
+        report.output_fingerprint ^= hashF32Slice(out.data);
+    }
     var strided_mul = tryMulViewF32(lhs_view, rhs_view) catch return failedReport();
     if (strided_mul) |*out| {
         defer out.deinit();
         report.strided_mul_ok = sliceClose(out.data, &.{ 10, 40, 90, 160 }, 0.0);
+        report.output_fingerprint ^= hashF32Slice(out.data);
+    }
+    var strided_div = tryDivViewF32(rhs_view, lhs_view) catch return failedReport();
+    if (strided_div) |*out| {
+        defer out.deinit();
+        report.strided_div_ok = sliceClose(out.data, &.{ 10, 10, 10, 10 }, 0.0);
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
 
@@ -2930,11 +2961,11 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.typed_bf16_gemm_route = typed_bf16_runtime.route;
     }
 
-    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_mul_ok) {
+    if (report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_sub_ok and report.strided_mul_ok and report.strided_div_ok) {
         report.status = .ran;
         report.issue_count = @as(u8, @intFromBool(!report.lhs_plan.ok)) +
             @as(u8, @intFromBool(!report.lhs_plan.copy_ok));
-    } else if (add_out == null and sub_out == null and mul_out == null and div_out == null and saxpy_out == null and matmul_out == null and f16_add_out == null and f16_matmul_out == null and bf16_add_out == null and bf16_matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null) {
+    } else if (add_out == null and sub_out == null and mul_out == null and div_out == null and saxpy_out == null and matmul_out == null and f16_add_out == null and f16_matmul_out == null and bf16_add_out == null and bf16_matmul_out == null and scalar_add_out == null and scalar_mul_out == null and scalar_saxpy_out == null and strided_add == null and strided_sub == null and strided_mul == null and strided_div == null) {
         report.status = .skipped;
         report.issue_count = 0;
     } else {
@@ -2964,7 +2995,9 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
             @as(u8, @intFromBool(!report.scalar_mul_ok)) +
             @as(u8, @intFromBool(!report.scalar_saxpy_ok)) +
             @as(u8, @intFromBool(!report.strided_add_ok)) +
-            @as(u8, @intFromBool(!report.strided_mul_ok));
+            @as(u8, @intFromBool(!report.strided_sub_ok)) +
+            @as(u8, @intFromBool(!report.strided_mul_ok)) +
+            @as(u8, @intFromBool(!report.strided_div_ok));
     }
     return report;
 }
