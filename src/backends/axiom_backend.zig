@@ -559,7 +559,7 @@ pub fn softmaxRuntimeCapability(target: DialectBackend) RuntimeCapabilityReport 
             .target = target,
             .operation = "softmax2d",
             .status = .executable,
-            .reason = "Axiom CUDA exposes eager f32 2D axis softmax runtime; other softmax dtypes/shapes remain capability-gated.",
+            .reason = "Axiom CUDA exposes eager f32/f64 2D axis softmax runtimes; other softmax dtypes/shapes remain capability-gated.",
         },
         .mps => .{
             .target = target,
@@ -2042,6 +2042,8 @@ fn executeCpuReduction(
 fn executeCudaSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_cuda.tryDeviceSoftmaxF32(@as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceSoftmaxF64(@as(array_mod.Array(f64), input), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }

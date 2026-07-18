@@ -118,8 +118,8 @@ where Vectra still has a non-Axiom generic implementation.
   row/column-bias broadcast add, CPU f32/f64 2D axis reductions
   (`sum/prod/min/max`), CPU f32/f64 2D transpose, and contiguous 2D matmul for the dtypes
   listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).
-- General non-f32/f64/f16/BFloat16 reduction/broadcast/transpose CUDA eager execution, non-f32/general softmax, random CUDA creation, and
-  CUDA view storage are not exposed yet. CUDA f32/f64/f16/BFloat16 2D `sum/prod/min/max(axis=0/1)` and CUDA f32 2D `softmax(axis=0/1)` have
+- General non-f32/f64/f16/BFloat16 reduction/broadcast/transpose CUDA eager execution, non-f32/f64/general softmax, random CUDA creation, and
+  CUDA view storage are not exposed yet. CUDA f32/f64/f16/BFloat16 2D `sum/prod/min/max(axis=0/1)` and CUDA f32/f64 2D `softmax(axis=0/1)` have
   eager Axiom runtimes; other CUDA reduction/broadcast/transpose/softmax dtypes
   dialect lowerings are visible through `vx.axiom_backend.lowerReductionDialect(...)`,
   `lowerBroadcastAddDialect(...)`, and `lowerTransposeDialect(...)`, until Axiom exposes matching eager runtime ABIs.
