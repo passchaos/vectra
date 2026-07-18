@@ -123,6 +123,12 @@ pub fn main(init: std.process.Init) !void {
     defer f64_view_scalar_div.deinit();
     var f64_view_neg = try f64_lhs_view.neg();
     defer f64_view_neg.deinit();
+    var f64_view_abs = try f64_view_neg.abs();
+    defer f64_view_abs.deinit();
+    var f64_view_sqrt = try f64_lhs_view.sqrt();
+    defer f64_view_sqrt.deinit();
+    var f64_view_exp = try f64_lhs_view.exp();
+    defer f64_view_exp.deinit();
     var f64_view_square = try f64_lhs_view.square();
     defer f64_view_square.deinit();
     var f64_view_reciprocal = try f64_lhs_view.reciprocal();
@@ -250,6 +256,9 @@ pub fn main(init: std.process.Init) !void {
         equalF32(view_square.data, &.{ 1, 4, 9, 16 }) and
         closeF32(view_reciprocal.data, &.{ 1, 0.5, 0.33333334, 0.25 }, 1e-6) and
         equalF64(f64_view_neg.data, &.{ -1, -2, -3, -4 }) and
+        equalF64(f64_view_abs.data, &.{ 1, 2, 3, 4 }) and
+        closeF64(f64_view_sqrt.data, &.{ 1, 1.4142135623730951, 1.7320508075688772, 2 }, 1e-12) and
+        closeF64(f64_view_exp.data, &.{ 2.718281828459045, 7.38905609893065, 20.085536923187668, 54.598150033144236 }, 0.01) and
         equalF64(f64_view_square.data, &.{ 1, 4, 9, 16 }) and
         closeF64(f64_view_reciprocal.data, &.{ 1, 0.5, 1.0 / 3.0, 0.25 }, 1e-12) and
         equalF16(f16_view_neg.data, &.{ -1, -2, -3, -4 }, 0.02) and
