@@ -81,7 +81,7 @@ zig build -Daxiom-cuda-expect=ran axiom-cuda-smoke
 zig build axiom-cuda-dispatch-smoke
 ```
 
-The CUDA smoke JSON includes `strided_add_ok`, `strided_sub_ok`, `strided_mul_ok`, `strided_div_ok`, `f64_strided_add_ok`, `f64_strided_sub_ok`, `f64_strided_mul_ok`, `f64_strided_div_ok`, `direct_softmax_ok`, `direct_log_softmax_ok`, `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`,
+The CUDA smoke JSON includes `strided_add_ok`, `strided_sub_ok`, `strided_mul_ok`, `strided_div_ok`, `f64_strided_add_ok`, `f64_strided_sub_ok`, `f64_strided_mul_ok`, `f64_strided_div_ok`, `f16_strided_add_ok`, `f16_strided_sub_ok`, `f16_strided_mul_ok`, `f16_strided_div_ok`, `direct_softmax_ok`, `direct_log_softmax_ok`, `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`,
 `bf16_matmul_ok`, `bf16_broadcast_ok`, `bf16_reduction_ok`, `bf16_transpose_ok`, `bf16_softmax_ok`, `bf16_log_softmax_ok`, `f16_broadcast_ok`, `f16_reduction_ok`, `f16_transpose_ok`, `f16_softmax_ok`, `f16_log_softmax_ok`, `f64_matmul_ok`, `f64_elementwise_ok`, `f64_softmax_ok`, `f64_log_softmax_ok`, and `f64_matmul_add_ok` fields when the CUDA smokes run. It also includes
 `f16_native_execution_fingerprint` and `bf16_native_execution_fingerprint` when
 the native typed elementwise seeds run,
