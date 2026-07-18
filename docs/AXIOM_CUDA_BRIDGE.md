@@ -57,7 +57,7 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
   Axiom cached device-pointer elementwise kernels with existing device pointers,
   avoiding repeated compile/module-load overhead after the first operation per op.
 - CUDA `Array(f32).add/sub/mul/div/sum/prod/min/max(axis=0/1)/broadcast-add(row/column)/transpose/softmax(axis=0/1)/logSoftmax(axis=0/1)/maximum/minimum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` and `Array(f64).logSoftmax(axis=0/1)/sum/prod/min/max(axis=0/1)/broadcast-add(row/column)/transpose/maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` use Axiom device unary/elementwise
-  elementwise kernels. f16 and BFloat16 2D `sum/prod/min/max(axis=0/1)` reductions, row/column broadcast-add, transpose, softmax(axis=0/1), plus widened activation/powScalar combinations such as `relu/sigmoid/softsign/clip/powScalar(-1/-0.5/0/0.5/1/2/3)` are covered by the CUDA device smoke.
+  elementwise kernels. f16 and BFloat16 2D `sum/prod/min/max(axis=0/1)` reductions, row/column broadcast-add, transpose, softmax(axis=0/1), logSoftmax(axis=0/1), plus widened activation/powScalar combinations such as `relu/sigmoid/softsign/clip/powScalar(-1/-0.5/0/0.5/1/2/3)` are covered by the CUDA device smoke.
 - CUDA `Array(f32).matmul` uses Axiom's cached cuBLAS-backed SGEMM wrapper first
   for PyTorch-class throughput and falls back to the Axiom PTX/CUDA Tile IR seed
   if cuBLAS is unavailable; CUDA `Array(f64).matmul` uses Axiom's cuBLAS DGEMM
@@ -119,7 +119,7 @@ where Vectra still has a non-Axiom generic implementation.
   (`sum/prod/min/max`), CPU f32/f64 2D transpose, and contiguous 2D matmul for the dtypes
   listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).
 - General non-f32/f64/f16/BFloat16 reduction/broadcast/transpose CUDA eager execution, non-f32/f64/general softmax, random CUDA creation, and
-  CUDA view storage are not exposed yet. CUDA f32/f64/f16/BFloat16 2D `sum/prod/min/max(axis=0/1)` and CUDA f32/f64/f16/BFloat16 2D `softmax(axis=0/1)` plus CUDA f32/f64 2D `logSoftmax(axis=0/1)` have
+  CUDA view storage are not exposed yet. CUDA f32/f64/f16/BFloat16 2D `sum/prod/min/max(axis=0/1)` and CUDA f32/f64/f16/BFloat16 2D `softmax(axis=0/1)` plus CUDA f32/f64/f16/BFloat16 2D `logSoftmax(axis=0/1)` have
   eager Axiom runtimes; other CUDA reduction/broadcast/transpose/softmax/logSoftmax dtypes
   dialect lowerings are visible through `vx.axiom_backend.lowerReductionDialect(...)`,
   `lowerBroadcastAddDialect(...)`, and `lowerTransposeDialect(...)`, until Axiom exposes matching eager runtime ABIs.

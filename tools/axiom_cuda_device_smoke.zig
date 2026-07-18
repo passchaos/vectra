@@ -47,11 +47,13 @@ pub fn main(init: std.process.Init) !void {
     var bf16_reduction_ok = !vx.axiom_cuda.enabled();
     var bf16_transpose_ok = !vx.axiom_cuda.enabled();
     var bf16_softmax_ok = !vx.axiom_cuda.enabled();
+    var bf16_log_softmax_ok = !vx.axiom_cuda.enabled();
     var f16_activation_ok = !vx.axiom_cuda.enabled();
     var f16_broadcast_ok = !vx.axiom_cuda.enabled();
     var f16_reduction_ok = !vx.axiom_cuda.enabled();
     var f16_transpose_ok = !vx.axiom_cuda.enabled();
     var f16_softmax_ok = !vx.axiom_cuda.enabled();
+    var f16_log_softmax_ok = !vx.axiom_cuda.enabled();
     var f64_matmul_ok = !vx.axiom_cuda.enabled();
     var f64_elementwise_ok = !vx.axiom_cuda.enabled();
     var f64_transpose_ok = !vx.axiom_cuda.enabled();
@@ -613,6 +615,14 @@ pub fn main(init: std.process.Init) !void {
         bf16_softmax_ok = bf16_softmax.device.isCuda() and bf16_softmax.device_storage != null and
             approxF32(bf16_softmax_host.data[0].toF32(), std.math.exp(@as(f32, -1)) / bf16_softmax_denom, 0.05) and
             approxF32(bf16_softmax_host.data[1].toF32(), 1.0 / bf16_softmax_denom, 0.05);
+        var bf16_log_softmax = try bf16_lhs.logSoftmax(1);
+        defer bf16_log_softmax.deinit();
+        var bf16_log_softmax_host = try bf16_log_softmax.cpu();
+        defer bf16_log_softmax_host.deinit();
+        const bf16_log_softmax_denom = std.math.log(f32, std.math.e, bf16_softmax_denom);
+        bf16_log_softmax_ok = bf16_log_softmax.device.isCuda() and bf16_log_softmax.device_storage != null and
+            approxF32(bf16_log_softmax_host.data[0].toF32(), -1.0 - bf16_log_softmax_denom, 0.08) and
+            approxF32(bf16_log_softmax_host.data[1].toF32(), -bf16_log_softmax_denom, 0.08);
 
         var bf16_row_sum = try bf16_lhs.sum(1, false);
         defer bf16_row_sum.deinit();
@@ -694,6 +704,14 @@ pub fn main(init: std.process.Init) !void {
         f16_softmax_ok = f16_softmax.device.isCuda() and f16_softmax.device_storage != null and
             approxF16(f16_softmax_host.data[0], std.math.exp(@as(f32, -1)) / f16_softmax_denom, 0.05) and
             approxF16(f16_softmax_host.data[1], 1.0 / f16_softmax_denom, 0.05);
+        var f16_log_softmax = try f16_lhs.logSoftmax(1);
+        defer f16_log_softmax.deinit();
+        var f16_log_softmax_host = try f16_log_softmax.cpu();
+        defer f16_log_softmax_host.deinit();
+        const f16_log_softmax_denom = std.math.log(f32, std.math.e, f16_softmax_denom);
+        f16_log_softmax_ok = f16_log_softmax.device.isCuda() and f16_log_softmax.device_storage != null and
+            approxF16(f16_log_softmax_host.data[0], -1.0 - f16_log_softmax_denom, 0.08) and
+            approxF16(f16_log_softmax_host.data[1], -f16_log_softmax_denom, 0.08);
         var f16_shifted = try f16_lhs.subScalar(@as(f16, 3));
         defer f16_shifted.deinit();
         var f16_relu = try f16_shifted.relu();
@@ -1171,7 +1189,7 @@ pub fn main(init: std.process.Init) !void {
             f64_chained.fusionStatus() == .cuda_matmul_add and
             equalF64(f64_chained_host.data, &.{ 4, 4, 8, 8 });
     }
-    ok = ok and direct_storage_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_reduction_ok and direct_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and f16_activation_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f64_matmul_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
+    ok = ok and direct_storage_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_reduction_ok and direct_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
@@ -1182,8 +1200,8 @@ pub fn main(init: std.process.Init) !void {
         .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_square_ok, direct_unary_scalar_ok, direct_reduction_ok, direct_broadcast_ok, direct_transpose_ok, direct_softmax_ok, direct_log_softmax_ok, direct_ternary_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, bf16_broadcast_ok, bf16_reduction_ok, bf16_transpose_ok, bf16_softmax_ok },
     );
     try stdout.interface.print(
-        ",\"f16_activation_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}}}\n",
-        .{ f16_activation_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f64_matmul_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
+        ",\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}}}\n",
+        .{ bf16_log_softmax_ok, f16_activation_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

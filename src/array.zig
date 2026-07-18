@@ -15564,6 +15564,7 @@ pub fn Array(comptime T: type) type {
         fn opLog(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.log(a);
             if (comptime T == BFloat16) return BFloat16.fromF32(std.math.log(f32, std.math.e, a.toF32()));
+            if (comptime T == f16) return @floatCast(std.math.log(f32, std.math.e, @as(f32, @floatCast(a))));
             return std.math.log(T, std.math.e, a);
         }
         fn opLog2(a: T) T {
@@ -17303,9 +17304,10 @@ pub fn Array(comptime T: type) type {
         pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Self {
             ensureFloat(T);
             const axis = try normalizeDim(axis_index, self.shape.len);
-            if (self.shape.len == 2 and (comptime T == f32 or T == f64)) {
+            if (self.shape.len == 2 and (comptime T == f32 or T == f64 or T == f16 or T == BFloat16)) {
                 const axis_u1: u1 = std.math.cast(u1, axis) orelse return error.InvalidAxis;
                 if (try axiom_backend.executeLogSoftmaxDefault(T, self, axis_u1)) |out| return out;
+                if (self.device.isCuda() and (comptime T == f16 or T == BFloat16)) return error.BackendFailure;
             }
             var lse = try self.logsumexp(@intCast(axis), true);
             defer lse.deinit();
