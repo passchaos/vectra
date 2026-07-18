@@ -133,6 +133,16 @@ pub fn main(init: std.process.Init) !void {
         defer softshrink_out.deinit();
         var softshrink_host = try softshrink_out.cpu();
         defer softshrink_host.deinit();
+        var loss_target = try vx.Array(f32).zerosOn(allocator, &.{ 2, 2 }, vx.cuda(0));
+        defer loss_target.deinit();
+        var smooth_l1_out = try shifted_for_relu.smoothL1Loss(loss_target, 1.0, .none);
+        defer smooth_l1_out.deinit();
+        var smooth_l1_host = try smooth_l1_out.cpu();
+        defer smooth_l1_host.deinit();
+        var huber_out = try shifted_for_relu.huberLoss(loss_target, 1.0, .none);
+        defer huber_out.deinit();
+        var huber_host = try huber_out.cpu();
+        defer huber_host.deinit();
         var elu_out = try shifted_for_relu.elu(1.0);
         defer elu_out.deinit();
         var elu_host = try elu_out.cpu();
@@ -197,6 +207,10 @@ pub fn main(init: std.process.Init) !void {
             softshrink_out.device.isCuda() and softshrink_out.device_storage != null and
             approxF32(softshrink_host.data[0], -1.5, 0.01) and
             approxF32(softshrink_host.data[3], 0.5, 0.01) and
+            smooth_l1_out.device.isCuda() and smooth_l1_out.device_storage != null and
+            equalF32(smooth_l1_host.data, &.{ 1.5, 0.5, 0, 0.5 }) and
+            huber_out.device.isCuda() and huber_out.device_storage != null and
+            equalF32(huber_host.data, &.{ 1.5, 0.5, 0, 0.5 }) and
             elu_out.device.isCuda() and elu_out.device_storage != null and
             approxF32(elu_host.data[0], std.math.exp(@as(f32, -2.0)) - 1.0, 0.01) and
             approxF32(elu_host.data[3], 1.0, 0.01) and

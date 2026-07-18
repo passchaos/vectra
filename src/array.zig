@@ -17505,6 +17505,23 @@ pub fn Array(comptime T: type) type {
             defer diff_values.deinit();
             var abs_values = try diff_values.abs();
             defer abs_values.deinit();
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    if (reduction != .none) return error.BackendFailure;
+                    if (beta_value == zero(T)) return abs_values.clone();
+                    var quadratic_input = try abs_values.minimumScalar(beta_value);
+                    defer quadratic_input.deinit();
+                    var quadratic = try quadratic_input.square();
+                    defer quadratic.deinit();
+                    var scaled_quadratic = try quadratic.divScalar(castValue(T, 2) * beta_value);
+                    defer scaled_quadratic.deinit();
+                    var linear_input = try abs_values.subScalar(beta_value);
+                    defer linear_input.deinit();
+                    var linear = try linear_input.relu();
+                    defer linear.deinit();
+                    return scaled_quadratic.add(linear);
+                }
+            }
             var losses = try Self.empty(self.allocator, abs_values.shape);
             errdefer losses.deinit();
             if (beta_value == zero(T)) {
@@ -17529,6 +17546,24 @@ pub fn Array(comptime T: type) type {
             defer diff_values.deinit();
             var abs_values = try diff_values.abs();
             defer abs_values.deinit();
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    if (reduction != .none) return error.BackendFailure;
+                    var quadratic_input = try abs_values.minimumScalar(delta);
+                    defer quadratic_input.deinit();
+                    var quadratic = try quadratic_input.square();
+                    defer quadratic.deinit();
+                    var scaled_quadratic = try quadratic.mulScalar(castValue(T, 0.5));
+                    defer scaled_quadratic.deinit();
+                    var linear_input = try abs_values.subScalar(delta);
+                    defer linear_input.deinit();
+                    var linear = try linear_input.relu();
+                    defer linear.deinit();
+                    var scaled_linear = try linear.mulScalar(delta);
+                    defer scaled_linear.deinit();
+                    return scaled_quadratic.add(scaled_linear);
+                }
+            }
             var losses = try Self.empty(self.allocator, abs_values.shape);
             errdefer losses.deinit();
             for (abs_values.data, losses.data) |abs_diff, *slot| {
