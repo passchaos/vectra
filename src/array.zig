@@ -16715,6 +16715,13 @@ pub fn Array(comptime T: type) type {
 
         pub fn silu(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var gates = try self.sigmoid();
+                    defer gates.deinit();
+                    return self.mul(gates);
+                }
+            }
             return self.unary(struct {
                 fn f(a: T) T {
                     return mulValue(T, a, opExpit(a));
