@@ -1844,55 +1844,69 @@ fn tryDeviceBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
 }
 
 pub fn tryDeviceTransposeF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
-    if (input.shape.len != 2) return null;
-    const in_storage = input.device_storage orelse return null;
-    if (in_storage.len == 0) return null;
-    var out = try array_mod.Array(f32).emptyOn(input.allocator, &.{ input.shape[1], input.shape[0] }, input.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceTransposeF32(
-        input.device.index,
-        input.shape[0],
-        input.shape[1],
-        in_storage.ptr,
-        out_storage.ptr,
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    return out;
+    return tryDeviceTranspose(f32, input);
 }
 
 pub fn tryDeviceTransposeF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceTranspose(f64, input);
+}
+
+pub fn tryDeviceTransposeF16(input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceTranspose(f16, input);
+}
+
+pub fn tryDeviceTransposeBF16(input: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceTranspose(BFloat16, input);
+}
+
+fn tryDeviceTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
+    if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
     if (input.shape.len != 2) return null;
     const in_storage = input.device_storage orelse return null;
     if (in_storage.len == 0) return null;
-    var out = try array_mod.Array(f64).emptyOn(input.allocator, &.{ input.shape[1], input.shape[0] }, input.device);
+    var out = try array_mod.Array(T).emptyOn(input.allocator, &.{ input.shape[1], input.shape[0] }, input.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
         out.deinit();
         return null;
     };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceTransposeF64(
-        input.device.index,
-        input.shape[0],
-        input.shape[1],
-        in_storage.ptr,
-        out_storage.ptr,
-    ) catch {
+    // Axiom owns the target-specific transpose kernels; Vectra only picks the
+    // dtype-specific ABI after central target/capability gating succeeds.
+    const report = (if (T == f32)
+        runtime.runCudaDeviceTransposeF32(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            in_storage.ptr,
+            out_storage.ptr,
+        )
+    else if (T == f64)
+        runtime.runCudaDeviceTransposeF64(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            in_storage.ptr,
+            out_storage.ptr,
+        )
+    else if (T == f16)
+        runtime.runCudaDeviceTransposeF16(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            in_storage.ptr,
+            out_storage.ptr,
+        )
+    else
+        runtime.runCudaDeviceTransposeBF16(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            in_storage.ptr,
+            out_storage.ptr,
+        )) catch {
         out.deinit();
         return null;
     };
