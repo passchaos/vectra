@@ -56,7 +56,7 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
 - CUDA `Array(f32).add/sub/mul/div` and `Array(f64).add/sub/mul/div` launch
   Axiom cached device-pointer elementwise kernels with existing device pointers,
   avoiding repeated compile/module-load overhead after the first operation per op.
-- CUDA `Array(f32).add/sub/mul/div/sum/prod/min/max(axis=0/1)/broadcast-add(row/column)/maximum/minimum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` and `Array(f64).maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` use Axiom device unary/elementwise
+- CUDA `Array(f32).add/sub/mul/div/sum/prod/min/max(axis=0/1)/broadcast-add(row/column)/transpose/maximum/minimum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` and `Array(f64).maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` use Axiom device unary/elementwise
   elementwise kernels. f16 and BFloat16 widened activation/powScalar combinations such as `relu/sigmoid/softsign/clip/powScalar(-1/-0.5/0/0.5/1/2/3)` are covered by the CUDA device smoke.
 - CUDA `Array(f32).matmul` uses Axiom's cached cuBLAS-backed SGEMM wrapper first
   for PyTorch-class throughput and falls back to the Axiom PTX/CUDA Tile IR seed
@@ -118,13 +118,11 @@ where Vectra still has a non-Axiom generic implementation.
   row/column-bias broadcast add, CPU f32/f64 2D axis reductions
   (`sum/prod/min/max`), CPU f32/f64 2D transpose, and contiguous 2D matmul for the dtypes
   listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).
-- General non-f32-broadcast/most-reduction/transpose CUDA eager execution, softmax, random CUDA creation, and
+- General non-f32-broadcast/most-reduction/non-f32-transpose CUDA eager execution, softmax, random CUDA creation, and
   CUDA view storage are not exposed yet. CUDA f32 2D `sum/prod/min/max(axis=0/1)` has an
-  eager Axiom runtime; other CUDA reductions, non-f32/general broadcast-add, and transpose
+  eager Axiom runtime; other CUDA reductions, non-f32/general broadcast-add, and non-f32/general transpose
   dialect lowerings are visible through `vx.axiom_backend.lowerReductionDialect(...)`,
-  `lowerBroadcastAddDialect(...)`, and `lowerTransposeDialect(...)`, while
-  `transposeRuntimeCapability(.cuda)`
-  still reports `lowering_only` until Axiom exposes matching eager runtime ABIs.
+  `lowerBroadcastAddDialect(...)`, and `lowerTransposeDialect(...)`, until Axiom exposes matching eager runtime ABIs.
 - Dialect-lowering helpers accept both CPU arrays and CUDA-tagged/device arrays
   when the operation shape and dtype are structurally valid. This keeps Vectra
   MLIR-like: array operations are described once and lowered for the requested

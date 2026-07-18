@@ -535,8 +535,8 @@ pub fn transposeRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
         .cuda => .{
             .target = target,
             .operation = "transpose2d",
-            .status = .lowering_only,
-            .reason = "Axiom CUDA linalg/schedule/vector/gpu transpose lowering exists, but no eager CUDA transpose runtime ABI is exposed to Vectra yet.",
+            .status = .executable,
+            .reason = "Axiom CUDA exposes an eager f32 2D transpose runtime; other transpose dtypes/shapes remain capability-gated.",
         },
         .mps => .{
             .target = target,
@@ -1212,11 +1212,11 @@ pub fn executeTranspose(
     target: DialectBackend,
     input: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    if (!supportedUnary2d(T, input)) return null;
+    if (!supportedTransposeExecution(T, target, input)) return null;
     if (!transposeRuntimeCapability(target).executable()) return null;
     return switch (target) {
         .cpu => executeCpuTranspose(T, input),
-        .cuda => null,
+        .cuda => executeCudaTranspose(T, input),
         .mps => null,
     };
 }
@@ -2120,6 +2120,13 @@ fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.Ar
     return null;
 }
 
+fn executeCudaTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceTransposeF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 fn tensorBinaryOp(op: ElementwiseOp) axiom.accelerator.TensorBinaryElementwiseOp {
     return switch (op) {
         .add => .add,
@@ -2455,6 +2462,15 @@ fn supportedReductionLowering2d(comptime T: type, input: array_mod.Array(T)) boo
 
 fn supportedUnary2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
+}
+
+fn supportedTransposeExecution(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) bool {
+    if (input.shape.len != 2 or !input.isContiguous()) return false;
+    return switch (target) {
+        .cpu => supportedUnary2d(T, input),
+        .cuda => input.device.isCuda() and T == f32 and input.device_storage != null,
+        .mps => false,
+    };
 }
 
 fn supportedUnaryLowering2d(comptime T: type, input: array_mod.Array(T)) bool {

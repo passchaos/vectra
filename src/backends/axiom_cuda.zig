@@ -1741,6 +1741,36 @@ pub fn tryDeviceBroadcastAddF32(input: array_mod.Array(f32), bias: array_mod.Arr
     return out;
 }
 
+pub fn tryDeviceTransposeF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
+    if (input.shape.len != 2) return null;
+    const in_storage = input.device_storage orelse return null;
+    if (in_storage.len == 0) return null;
+    var out = try array_mod.Array(f32).emptyOn(input.allocator, &.{ input.shape[1], input.shape[0] }, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
+    const report = runtime.runCudaDeviceTransposeF32(
+        input.device.index,
+        input.shape[0],
+        input.shape[1],
+        in_storage.ptr,
+        out_storage.ptr,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    if (!report.valid()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 pub fn tryAddF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
     return tryBinaryF16(.add, lhs, rhs);
 }

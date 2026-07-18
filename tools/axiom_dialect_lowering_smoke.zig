@@ -71,7 +71,7 @@ pub fn main(init: std.process.Init) !void {
         unary_cuda_runtime.status == .executable and
         unary_mps_report.status == .planned_mps and
         transpose_cuda_report.status == .lowered_cuda and
-        transpose_cuda_runtime.status == .lowering_only and
+        transpose_cuda_runtime.status == .executable and
         device_matmul_cuda_report.status == .lowered_cuda and
         device_elementwise_cuda_report.status == .lowered_cuda and
         device_reduction_cuda_report.status == .lowered_cuda and
