@@ -3220,6 +3220,11 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn neg(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (self.shape.len == 1) {
+                    if (try axiom_backend.executeViewElementwiseScalarDefault(T, .mul, self, negValue(T, one(T)), .rhs)) |out| return out;
+                }
+            }
             return self.unary(opNeg);
         }
 
@@ -3980,6 +3985,11 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn square(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (self.shape.len == 1) {
+                    if (try axiom_backend.executeViewElementwiseDefault(T, .mul, self, self)) |out| return out;
+                }
+            }
             return self.unary(opSquare);
         }
 

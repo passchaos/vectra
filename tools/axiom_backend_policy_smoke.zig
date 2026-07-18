@@ -84,6 +84,10 @@ pub fn main(init: std.process.Init) !void {
     defer view_scalar_mul.deinit();
     var view_scalar_div = try rhs_view.divScalar(10.0);
     defer view_scalar_div.deinit();
+    var view_neg = try lhs_view.neg();
+    defer view_neg.deinit();
+    var view_square = try lhs_view.square();
+    defer view_square.deinit();
 
     var f64_strided_lhs = try vx.Array(f64).fromSlice(allocator, &.{ 1, 99, 2, 99, 3, 99, 4, 99 }, &.{8});
     defer f64_strided_lhs.deinit();
@@ -109,6 +113,10 @@ pub fn main(init: std.process.Init) !void {
     defer f64_view_scalar_mul.deinit();
     var f64_view_scalar_div = try f64_rhs_view.divScalar(10.0);
     defer f64_view_scalar_div.deinit();
+    var f64_view_neg = try f64_lhs_view.neg();
+    defer f64_view_neg.deinit();
+    var f64_view_square = try f64_lhs_view.square();
+    defer f64_view_square.deinit();
 
     var f16_strided_lhs = try vx.Array(f16).fromSlice(allocator, &.{
         @as(f16, 1), @as(f16, 99), @as(f16, 2), @as(f16, 99),
@@ -140,6 +148,10 @@ pub fn main(init: std.process.Init) !void {
     defer f16_view_scalar_mul.deinit();
     var f16_view_scalar_div = try f16_rhs_view.divScalar(@as(f16, 10.0));
     defer f16_view_scalar_div.deinit();
+    var f16_view_neg = try f16_lhs_view.neg();
+    defer f16_view_neg.deinit();
+    var f16_view_square = try f16_lhs_view.square();
+    defer f16_view_square.deinit();
 
     var bf16_strided_lhs = try vx.Array(vx.BFloat16).fromSlice(allocator, &.{
         vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(99), vx.BFloat16.fromF32(2), vx.BFloat16.fromF32(99),
@@ -171,6 +183,10 @@ pub fn main(init: std.process.Init) !void {
     defer bf16_view_scalar_mul.deinit();
     var bf16_view_scalar_div = try bf16_rhs_view.divScalar(vx.BFloat16.fromF32(10.0));
     defer bf16_view_scalar_div.deinit();
+    var bf16_view_neg = try bf16_lhs_view.neg();
+    defer bf16_view_neg.deinit();
+    var bf16_view_square = try bf16_lhs_view.square();
+    defer bf16_view_square.deinit();
     vx.resetDefaultDialectBackend();
 
     const matmul_ok = report.ok() and matmul64_report.ok() and matmul64_report.selected == .axiom_cuda and out.data[0] == 58 and out.data[3] == 154;
@@ -213,6 +229,14 @@ pub fn main(init: std.process.Init) !void {
         equalBF16(bf16_view_scalar_sub.data, &.{ -1, 0, 1, 2 }, 0.125) and
         equalBF16(bf16_view_scalar_mul.data, &.{ 2, 4, 6, 8 }, 0.125) and
         equalBF16(bf16_view_scalar_div.data, &.{ 1, 2, 3, 4 }, 0.125);
+    const view_unary_ok = equalF32(view_neg.data, &.{ -1, -2, -3, -4 }) and
+        equalF32(view_square.data, &.{ 1, 4, 9, 16 }) and
+        equalF64(f64_view_neg.data, &.{ -1, -2, -3, -4 }) and
+        equalF64(f64_view_square.data, &.{ 1, 4, 9, 16 }) and
+        equalF16(f16_view_neg.data, &.{ -1, -2, -3, -4 }, 0.02) and
+        equalF16(f16_view_square.data, &.{ 1, 4, 9, 16 }, 0.02) and
+        equalBF16(bf16_view_neg.data, &.{ -1, -2, -3, -4 }, 0.125) and
+        equalBF16(bf16_view_square.data, &.{ 1, 4, 9, 16 }, 0.125);
     const default_policy_ok = default_cpu_policy == .prefer_axiom_cpu and
         default_cuda_policy == .prefer_cuda and
         default_mps_policy == .prefer_axiom_cpu;
@@ -225,16 +249,16 @@ pub fn main(init: std.process.Init) !void {
         equalF32(eager_cpu.data, &.{ 58, 64, 139, 154 }) and
         equalF32(eager_cuda_default.data, eager_cpu.data) and
         equalF32(eager_mps_default.data, eager_cpu.data);
-    const ok = matmul_ok and elementwise_ok and scalar_ok and view_ok and view_scalar_ok and view64_ok and view64_scalar_ok and view16_ok and view16_scalar_ok and view_bf16_ok and view_bf16_scalar_ok and default_policy_ok and dynamic_execution_ok;
+    const ok = matmul_ok and elementwise_ok and scalar_ok and view_ok and view_scalar_ok and view64_ok and view64_scalar_ok and view16_ok and view16_scalar_ok and view_bf16_ok and view_bf16_scalar_ok and view_unary_ok and default_policy_ok and dynamic_execution_ok;
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"view_scalar_ok\":{},\"view64_ok\":{},\"view64_scalar_ok\":{},\"view16_ok\":{},\"view16_scalar_ok\":{},\"view_bf16_ok\":{},\"view_bf16_scalar_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{}",
-        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view_scalar_ok, view64_ok, view64_scalar_ok, view16_ok, view16_scalar_ok, view_bf16_ok, view_bf16_scalar_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled },
+        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"view_scalar_ok\":{},\"view64_ok\":{},\"view64_scalar_ok\":{},\"view16_ok\":{},\"view16_scalar_ok\":{},\"view_bf16_ok\":{},\"view_bf16_scalar_ok\":{},\"view_unary_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{}",
+        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view_scalar_ok, view64_ok, view64_scalar_ok, view16_ok, view16_scalar_ok, view_bf16_ok, view_bf16_scalar_ok, view_unary_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled },
     );
     try stdout.interface.print(
-        ",\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view_scalar_fingerprint\":{d},\"view64_fingerprint\":{d},\"view64_scalar_fingerprint\":{d},\"view16_fingerprint\":{d},\"view16_scalar_fingerprint\":{d},\"view_bf16_fingerprint\":{d},\"view_bf16_scalar_fingerprint\":{d}}}\n",
-        .{ report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF32(view_scalar_add.data) ^ hashF32(view_scalar_sub.data) ^ hashF32(view_scalar_mul.data) ^ hashF32(view_scalar_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF64(f64_view_scalar_add.data) ^ hashF64(f64_view_scalar_sub.data) ^ hashF64(f64_view_scalar_mul.data) ^ hashF64(f64_view_scalar_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data), hashF16(f16_view_scalar_add.data) ^ hashF16(f16_view_scalar_sub.data) ^ hashF16(f16_view_scalar_mul.data) ^ hashF16(f16_view_scalar_div.data), hashBF16(bf16_view_add.data) ^ hashBF16(bf16_view_sub.data) ^ hashBF16(bf16_view_mul.data) ^ hashBF16(bf16_view_div.data), hashBF16(bf16_view_scalar_add.data) ^ hashBF16(bf16_view_scalar_sub.data) ^ hashBF16(bf16_view_scalar_mul.data) ^ hashBF16(bf16_view_scalar_div.data) },
+        ",\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view_scalar_fingerprint\":{d},\"view64_fingerprint\":{d},\"view64_scalar_fingerprint\":{d},\"view16_fingerprint\":{d},\"view16_scalar_fingerprint\":{d},\"view_bf16_fingerprint\":{d},\"view_bf16_scalar_fingerprint\":{d},\"view_unary_fingerprint\":{d}}}\n",
+        .{ report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF32(view_scalar_add.data) ^ hashF32(view_scalar_sub.data) ^ hashF32(view_scalar_mul.data) ^ hashF32(view_scalar_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF64(f64_view_scalar_add.data) ^ hashF64(f64_view_scalar_sub.data) ^ hashF64(f64_view_scalar_mul.data) ^ hashF64(f64_view_scalar_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data), hashF16(f16_view_scalar_add.data) ^ hashF16(f16_view_scalar_sub.data) ^ hashF16(f16_view_scalar_mul.data) ^ hashF16(f16_view_scalar_div.data), hashBF16(bf16_view_add.data) ^ hashBF16(bf16_view_sub.data) ^ hashBF16(bf16_view_mul.data) ^ hashBF16(bf16_view_div.data), hashBF16(bf16_view_scalar_add.data) ^ hashBF16(bf16_view_scalar_sub.data) ^ hashBF16(bf16_view_scalar_mul.data) ^ hashBF16(bf16_view_scalar_div.data), hashF32(view_neg.data) ^ hashF32(view_square.data) ^ hashF64(f64_view_neg.data) ^ hashF64(f64_view_square.data) ^ hashF16(f16_view_neg.data) ^ hashF16(f16_view_square.data) ^ hashBF16(bf16_view_neg.data) ^ hashBF16(bf16_view_square.data) },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
