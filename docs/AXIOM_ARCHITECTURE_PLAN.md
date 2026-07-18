@@ -133,7 +133,10 @@ CPU path for CPU arrays, or return an explicit error.
 - Keep current f32/f64/f16/BFloat16 paths as compatibility wrappers around the
   descriptor ABI, not as independently growing API families.
 - Validate f32/f64/f16/BFloat16 unary/binary/scalar broadcast through the same
-  runtime descriptor contract.
+  runtime descriptor contract.  The current first executable slice is f32
+  strided `ArrayView.add/sub/mul/div`, which now calls Axiom
+  `runTensorElementwiseBinaryMemRefsF32` and reports a non-zero
+  `strided_memref_legality_fingerprint` in `axiom-cuda-smoke`.
 
 ### Milestone C: reductions, broadcasts, transpose, and softmax
 

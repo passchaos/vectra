@@ -856,6 +856,7 @@ pub const SmokeReport = struct {
     strided_abs_ok: bool = false,
     strided_sqrt_ok: bool = false,
     strided_exp_ok: bool = false,
+    strided_memref_legality_fingerprint: u64 = 0,
     strided_scalar_add_ok: bool = false,
     strided_scalar_sub_ok: bool = false,
     strided_scalar_mul_ok: bool = false,
@@ -910,7 +911,7 @@ pub const SmokeReport = struct {
         return report.issue_count == 0 and switch (report.status) {
             .disabled => !report.enabled,
             .skipped => report.enabled,
-            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_sub_ok and report.strided_mul_ok and report.strided_div_ok and report.strided_abs_ok and report.strided_sqrt_ok and report.strided_exp_ok and report.strided_scalar_add_ok and report.strided_scalar_sub_ok and report.strided_scalar_mul_ok and report.strided_scalar_div_ok and report.f64_strided_add_ok and report.f64_strided_sub_ok and report.f64_strided_mul_ok and report.f64_strided_div_ok and report.f64_strided_abs_ok and report.f64_strided_sqrt_ok and report.f64_strided_exp_ok and report.f64_strided_scalar_add_ok and report.f64_strided_scalar_sub_ok and report.f64_strided_scalar_mul_ok and report.f64_strided_scalar_div_ok and report.f16_strided_add_ok and report.f16_strided_sub_ok and report.f16_strided_mul_ok and report.f16_strided_div_ok and report.f16_strided_scalar_add_ok and report.f16_strided_scalar_sub_ok and report.f16_strided_scalar_mul_ok and report.f16_strided_scalar_div_ok and report.bf16_strided_add_ok and report.bf16_strided_sub_ok and report.bf16_strided_mul_ok and report.bf16_strided_div_ok and report.bf16_strided_scalar_add_ok and report.bf16_strided_scalar_sub_ok and report.bf16_strided_scalar_mul_ok and report.bf16_strided_scalar_div_ok,
+            .ran => report.enabled and report.add_ok and report.sub_ok and report.mul_ok and report.div_ok and report.saxpy_ok and report.matmul_ok and report.matmul_tile_ir_ok and report.f16_add_ok and report.f16_matmul_ok and report.bf16_add_ok and report.bf16_matmul_ok and report.typed_f16_gemm_plan.ok and report.typed_bf16_gemm_plan.ok and report.f16_widened_execution_fingerprint != 0 and report.bf16_widened_execution_fingerprint != 0 and report.typed_f16_gemm_route_fingerprint != 0 and report.typed_bf16_gemm_route_fingerprint != 0 and std.mem.eql(u8, report.typed_f16_gemm_route, "widened_f32_cuda_compute") and std.mem.eql(u8, report.typed_bf16_gemm_route, "widened_f32_cuda_compute") and report.scalar_add_ok and report.scalar_mul_ok and report.scalar_saxpy_ok and report.strided_add_ok and report.strided_sub_ok and report.strided_mul_ok and report.strided_div_ok and report.strided_abs_ok and report.strided_sqrt_ok and report.strided_exp_ok and report.strided_memref_legality_fingerprint != 0 and report.strided_scalar_add_ok and report.strided_scalar_sub_ok and report.strided_scalar_mul_ok and report.strided_scalar_div_ok and report.f64_strided_add_ok and report.f64_strided_sub_ok and report.f64_strided_mul_ok and report.f64_strided_div_ok and report.f64_strided_abs_ok and report.f64_strided_sqrt_ok and report.f64_strided_exp_ok and report.f64_strided_scalar_add_ok and report.f64_strided_scalar_sub_ok and report.f64_strided_scalar_mul_ok and report.f64_strided_scalar_div_ok and report.f16_strided_add_ok and report.f16_strided_sub_ok and report.f16_strided_mul_ok and report.f16_strided_div_ok and report.f16_strided_scalar_add_ok and report.f16_strided_scalar_sub_ok and report.f16_strided_scalar_mul_ok and report.f16_strided_scalar_div_ok and report.bf16_strided_add_ok and report.bf16_strided_sub_ok and report.bf16_strided_mul_ok and report.bf16_strided_div_ok and report.bf16_strided_scalar_add_ok and report.bf16_strided_scalar_sub_ok and report.bf16_strided_scalar_mul_ok and report.bf16_strided_scalar_div_ok,
             .failed => false,
         };
     }
@@ -942,6 +943,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.strided_abs_ok);
         hashBool(&hasher, report.strided_sqrt_ok);
         hashBool(&hasher, report.strided_exp_ok);
+        hashU64(&hasher, report.strided_memref_legality_fingerprint);
         hashBool(&hasher, report.strided_scalar_add_ok);
         hashBool(&hasher, report.strided_scalar_sub_ok);
         hashBool(&hasher, report.strided_scalar_mul_ok);
@@ -1032,7 +1034,7 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
+            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_memref={x} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
             .{
                 report.strided_add_ok,
                 report.strided_sub_ok,
@@ -1041,6 +1043,7 @@ pub const SmokeReport = struct {
                 report.strided_abs_ok,
                 report.strided_sqrt_ok,
                 report.strided_exp_ok,
+                report.strided_memref_legality_fingerprint,
                 report.strided_scalar_add_ok,
                 report.strided_scalar_sub_ok,
                 report.strided_scalar_mul_ok,
@@ -1231,6 +1234,7 @@ pub const SmokeReport = struct {
                 "  \"strided_abs_ok\": {},\n" ++
                 "  \"strided_sqrt_ok\": {},\n" ++
                 "  \"strided_exp_ok\": {},\n" ++
+                "  \"strided_memref_legality_fingerprint\": {d},\n" ++
                 "  \"strided_scalar_add_ok\": {},\n" ++
                 "  \"strided_scalar_sub_ok\": {},\n" ++
                 "  \"strided_scalar_mul_ok\": {},\n" ++
@@ -1257,6 +1261,7 @@ pub const SmokeReport = struct {
                 report.strided_abs_ok,
                 report.strided_sqrt_ok,
                 report.strided_exp_ok,
+                report.strided_memref_legality_fingerprint,
                 report.strided_scalar_add_ok,
                 report.strided_scalar_sub_ok,
                 report.strided_scalar_mul_ok,
@@ -3112,6 +3117,12 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     defer lhs_view.deinit();
     var rhs_view = strided_rhs.asStrided(&.{4}, &.{2}, 0) catch return failedReport();
     defer rhs_view.deinit();
+    const lhs_descriptor = describeHostViewMemRef(f32, lhs_view, "lhs") catch return failedReport();
+    const rhs_descriptor = describeHostViewMemRef(f32, rhs_view, "rhs") catch return failedReport();
+    const out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("out", 0x3000, .f32, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(lhs_descriptor, rhs_descriptor, out_descriptor);
+    if (!legality.ok()) return failedReport();
+    report.strided_memref_legality_fingerprint = legality.fingerprint();
     var strided_add = tryAddViewF32(lhs_view, rhs_view) catch return failedReport();
     if (strided_add) |*out| {
         defer out.deinit();
@@ -3579,14 +3590,22 @@ fn tryBinaryViewF32(op: BinaryOp, lhs: array_mod.ArrayView(f32), rhs: array_mod.
     const rhs_slice = viewBackingSlice(rhs) orelse return null;
     var out = try array_mod.Array(f32).empty(lhs.allocator, lhs.shape);
     errdefer out.deinit();
+    const lhs_descriptor = describeHostViewMemRef(f32, lhs, "lhs") catch {
+        out.deinit();
+        return null;
+    };
+    const rhs_descriptor = describeHostViewMemRef(f32, rhs, "rhs") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeHostArrayMemRef(f32, out, "out") catch {
+        out.deinit();
+        return null;
+    };
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const result = runtime.runTensorElementwiseBinary(lhs_slice, rhs_slice, out.data, .{
+    const result = runtime.runTensorElementwiseBinaryMemRefsF32(lhs_slice, rhs_slice, out.data, lhs_descriptor, rhs_descriptor, out_descriptor, .{
         .op = axiomBinaryOp(op),
-        .len = lhs.shape[0],
-        .lhs_stride = @intCast(lhs.strides[0]),
-        .rhs_stride = @intCast(rhs.strides[0]),
-        .out_stride = 1,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_strided_add",
             .sub => "vectra_axiom_strided_sub",
@@ -4308,6 +4327,56 @@ fn viewBackingSliceTyped(comptime T: type, view: array_mod.ArrayView(T)) ?[]cons
     const end_index = std.math.add(usize, view.offset, last_delta) catch return null;
     if (end_index >= view.data.len) return null;
     return view.data[view.offset .. end_index + 1];
+}
+
+fn describeHostArrayMemRef(comptime T: type, input: array_mod.Array(T), name: []const u8) array_mod.ArrayError!axiom.accelerator.TensorMemRefDescriptor {
+    const element = axiomTensorElementType(T) orelse return error.TypeUnsupported;
+    const strides = try usizeStridesToIsize(input.strides);
+    return axiom.accelerator.TensorMemRefDescriptor.init(
+        name,
+        @intCast(@intFromPtr(input.data.ptr)),
+        element,
+        .host,
+        0,
+        input.shape,
+        strides[0..input.strides.len],
+    ) catch error.InvalidShape;
+}
+
+fn describeHostViewMemRef(comptime T: type, input: array_mod.ArrayView(T), name: []const u8) array_mod.ArrayError!axiom.accelerator.TensorMemRefDescriptor {
+    const element = axiomTensorElementType(T) orelse return error.TypeUnsupported;
+    const strides = try usizeStridesToIsize(input.strides);
+    return axiom.accelerator.TensorMemRefDescriptor.init(
+        name,
+        @intCast(@intFromPtr(input.data.ptr)),
+        element,
+        .host,
+        input.offset,
+        input.shape,
+        strides[0..input.strides.len],
+    ) catch error.InvalidShape;
+}
+
+fn axiomTensorElementType(comptime T: type) ?axiom.accelerator.TensorElementType {
+    return if (T == f32)
+        .f32
+    else if (T == f64)
+        .f64
+    else if (T == f16)
+        .f16
+    else if (T == BFloat16)
+        .bf16
+    else
+        null;
+}
+
+fn usizeStridesToIsize(strides: []const usize) array_mod.ArrayError![4]isize {
+    if (strides.len > 4) return error.InvalidShape;
+    var out: [4]isize = .{ 1, 1, 1, 1 };
+    for (strides, 0..) |stride, index| {
+        out[index] = std.math.cast(isize, stride) orelse return error.InvalidShape;
+    }
+    return out;
 }
 
 fn failedReport() SmokeReport {
