@@ -19,7 +19,7 @@ pub fn main(init: std.process.Init) !void {
 
     var v1 = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3 }, &.{3});
     defer v1.deinit();
-    var v2 = try vx.Array(f32).fromSlice(allocator, &.{ 10, 20, 30 }, &.{3});
+    var v2 = try vx.Array(f32).fromSlice(allocator, &.{ 10, 30, 50 }, &.{3});
     defer v2.deinit();
     var dot = try vx.einsum("i,i->", v1, v2);
     defer dot.deinit();
@@ -27,6 +27,25 @@ pub fn main(init: std.process.Init) !void {
     defer outer.deinit();
     var matvec = try vx.einsum("ij,j->i", a, v1);
     defer matvec.deinit();
+    var vecmat = try vx.einsum("i,ij->j", v1, b);
+    defer vecmat.deinit();
+    var transposed_outer = try vx.einsum("i,j->ji", v1, v2);
+    defer transposed_outer.deinit();
+    var tensor3 = try vx.Array(f32).fromSlice(allocator, &.{
+        1,  2,  3,
+        4,  5,  6,
+        7,  8,  9,
+        10, 11, 12,
+    }, &.{ 2, 2, 3 });
+    defer tensor3.deinit();
+    var contract_rhs = try vx.Array(f32).fromSlice(allocator, &.{
+        1, 2,
+        3, 4,
+        5, 6,
+    }, &.{ 3, 2 });
+    defer contract_rhs.deinit();
+    var generic_contract = try vx.einsum("abc,cd->abd", tensor3, contract_rhs);
+    defer generic_contract.deinit();
 
     const unsupported_rejected = blk: {
         var bad = vx.einsum("ij->ji", a, b) catch |err| {
@@ -39,23 +58,32 @@ pub fn main(init: std.process.Init) !void {
     const ok = eql(f32, mm.data, &.{ 58, 64, 139, 154 }) and
         std.mem.eql(usize, mm.shape, &.{ 2, 2 }) and
         std.mem.eql(usize, dot.shape, &.{}) and
-        eql(f32, dot.data, &.{140}) and
+        eql(f32, dot.data, &.{220}) and
         std.mem.eql(usize, outer.shape, &.{ 3, 3 }) and
-        eql(f32, outer.data, &.{ 10, 20, 30, 20, 40, 60, 30, 60, 90 }) and
+        eql(f32, outer.data, &.{ 10, 30, 50, 20, 60, 100, 30, 90, 150 }) and
         std.mem.eql(usize, matvec.shape, &.{2}) and
         eql(f32, matvec.data, &.{ 14, 32 }) and
+        std.mem.eql(usize, vecmat.shape, &.{2}) and
+        eql(f32, vecmat.data, &.{ 58, 64 }) and
+        std.mem.eql(usize, transposed_outer.shape, &.{ 3, 3 }) and
+        eql(f32, transposed_outer.data, &.{ 10, 20, 30, 30, 60, 90, 50, 100, 150 }) and
+        std.mem.eql(usize, generic_contract.shape, &.{ 2, 2, 2 }) and
+        eql(f32, generic_contract.data, &.{ 22, 28, 49, 64, 76, 100, 103, 136 }) and
         unsupported_rejected;
 
     var stdout_buffer: [512]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"unsupported_rejected\":{}}}\n",
+        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"vecmat_ok\":{},\"reordered_ok\":{},\"generic_contract_ok\":{},\"unsupported_rejected\":{}}}\n",
         .{
             ok,
             eql(f32, mm.data, &.{ 58, 64, 139, 154 }),
-            eql(f32, dot.data, &.{140}),
-            eql(f32, outer.data, &.{ 10, 20, 30, 20, 40, 60, 30, 60, 90 }),
+            eql(f32, dot.data, &.{220}),
+            eql(f32, outer.data, &.{ 10, 30, 50, 20, 60, 100, 30, 90, 150 }),
             eql(f32, matvec.data, &.{ 14, 32 }),
+            eql(f32, vecmat.data, &.{ 58, 64 }),
+            eql(f32, transposed_outer.data, &.{ 10, 20, 30, 30, 60, 90, 50, 100, 150 }),
+            eql(f32, generic_contract.data, &.{ 22, 28, 49, 64, 76, 100, 103, 136 }),
             unsupported_rejected,
         },
     );

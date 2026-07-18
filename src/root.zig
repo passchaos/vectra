@@ -9,6 +9,7 @@
 //! present; CUDA arrays own device-resident storage and dispatch supported f32/f64
 //! operations without staging through host arrays.
 
+const std = @import("std");
 const array_mod = @import("array.zig");
 const series_mod = @import("series.zig");
 const dataframe_mod = @import("dataframe.zig");
@@ -130,14 +131,24 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
 pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     // Bounded NumPy/PyTorch-style front-end syntax over existing Array
-    // primitives.  This deliberately keeps execution routed through Array/Axiom
-    // matmul/dot/outer paths instead of adding a separate backend branch here.
-    if (@import("std").mem.eql(u8, subscripts, "ij,jk->ik")) return lhs.matmul(rhs);
-    if (@import("std").mem.eql(u8, subscripts, "ab,bc->ac")) return lhs.matmul(rhs);
-    if (@import("std").mem.eql(u8, subscripts, "i,i->")) return lhs.dot(rhs);
-    if (@import("std").mem.eql(u8, subscripts, "i,j->ij")) return lhs.outer(rhs);
-    if (@import("std").mem.eql(u8, subscripts, "ij,j->i")) return lhs.matmul(rhs);
-    return error.InvalidShape;
+    // primitives.  This parser intentionally supports only explicit binary
+    // subscript forms without ellipsis, repeated labels, or shared batch labels.
+    // Fast paths keep common contractions on Array/Axiom matmul/dot/outer
+    // dispatch; the generic fallback uses `contractAxes` plus optional output
+    // permutation rather than introducing a separate backend branch here.
+    const plan = try parseBinaryEinsum(subscripts, lhs.shape.len, rhs.shape.len);
+    if (plan.matmulLike()) return lhs.matmul(rhs);
+    if (plan.matvecLike()) return lhs.matmul(rhs);
+    if (plan.vecmatLike()) return lhs.matmul(rhs);
+    if (plan.dotLike()) return lhs.dot(rhs);
+    if (plan.outerLike()) return lhs.outer(rhs);
+
+    var contracted = try lhs.contractAxes(rhs, plan.lhsAxes(), plan.rhsAxes());
+    errdefer contracted.deinit();
+    if (plan.outputIsDefault()) return contracted;
+    const permuted = try contracted.permute(plan.permuteAxes());
+    contracted.deinit();
+    return permuted;
 }
 
 pub fn tryMatmulAddTarget(target: DialectBackend, lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!?@TypeOf(lhs) {
@@ -149,6 +160,133 @@ pub fn tryMatmulAddTarget(target: DialectBackend, lhs: anytype, rhs: @TypeOf(lhs
 fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {
     if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
     if (!lhs.device.isAvailable()) return error.InvalidDevice;
+}
+
+const max_einsum_rank = 16;
+
+const BinaryEinsumPlan = struct {
+    lhs: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
+    rhs: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
+    out: [max_einsum_rank * 2]u8 = [_]u8{0} ** (max_einsum_rank * 2),
+    default_out: [max_einsum_rank * 2]u8 = [_]u8{0} ** (max_einsum_rank * 2),
+    lhs_contract_axes: [max_einsum_rank]usize = [_]usize{0} ** max_einsum_rank,
+    rhs_contract_axes: [max_einsum_rank]usize = [_]usize{0} ** max_einsum_rank,
+    permutation: [max_einsum_rank * 2]usize = [_]usize{0} ** (max_einsum_rank * 2),
+    lhs_len: usize = 0,
+    rhs_len: usize = 0,
+    out_len: usize = 0,
+    default_out_len: usize = 0,
+    contract_len: usize = 0,
+
+    fn lhsAxes(plan: *const BinaryEinsumPlan) []const usize {
+        return plan.lhs_contract_axes[0..plan.contract_len];
+    }
+
+    fn rhsAxes(plan: *const BinaryEinsumPlan) []const usize {
+        return plan.rhs_contract_axes[0..plan.contract_len];
+    }
+
+    fn permuteAxes(plan: *const BinaryEinsumPlan) []const usize {
+        return plan.permutation[0..plan.out_len];
+    }
+
+    fn outputIsDefault(plan: BinaryEinsumPlan) bool {
+        return plan.out_len == plan.default_out_len and std.mem.eql(u8, plan.out[0..plan.out_len], plan.default_out[0..plan.default_out_len]);
+    }
+
+    fn matmulLike(plan: BinaryEinsumPlan) bool {
+        return plan.lhs_len == 2 and plan.rhs_len == 2 and plan.contract_len == 1 and
+            plan.lhs_contract_axes[0] == 1 and plan.rhs_contract_axes[0] == 0 and
+            plan.outputIsDefault();
+    }
+
+    fn matvecLike(plan: BinaryEinsumPlan) bool {
+        return plan.lhs_len == 2 and plan.rhs_len == 1 and plan.contract_len == 1 and
+            plan.lhs_contract_axes[0] == 1 and plan.rhs_contract_axes[0] == 0 and
+            plan.outputIsDefault();
+    }
+
+    fn vecmatLike(plan: BinaryEinsumPlan) bool {
+        return plan.lhs_len == 1 and plan.rhs_len == 2 and plan.contract_len == 1 and
+            plan.lhs_contract_axes[0] == 0 and plan.rhs_contract_axes[0] == 0 and
+            plan.outputIsDefault();
+    }
+
+    fn dotLike(plan: BinaryEinsumPlan) bool {
+        return plan.lhs_len == 1 and plan.rhs_len == 1 and plan.contract_len == 1 and plan.out_len == 0;
+    }
+
+    fn outerLike(plan: BinaryEinsumPlan) bool {
+        return plan.lhs_len == 1 and plan.rhs_len == 1 and plan.contract_len == 0 and plan.outputIsDefault();
+    }
+};
+
+fn parseBinaryEinsum(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) ArrayError!BinaryEinsumPlan {
+    if (lhs_rank > max_einsum_rank or rhs_rank > max_einsum_rank) return error.InvalidShape;
+    if (std.mem.indexOf(u8, subscripts, "...") != null) return error.InvalidShape;
+    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse return error.InvalidShape;
+    if (std.mem.indexOf(u8, subscripts[arrow + 2 ..], "->") != null) return error.InvalidShape;
+    const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return error.InvalidShape;
+
+    var plan: BinaryEinsumPlan = .{};
+    plan.lhs_len = try parseEinsumLabels(subscripts[0..comma], lhs_rank, plan.lhs[0..]);
+    plan.rhs_len = try parseEinsumLabels(subscripts[comma + 1 .. arrow], rhs_rank, plan.rhs[0..]);
+    plan.out_len = try parseEinsumLabels(subscripts[arrow + 2 ..], null, plan.out[0..]);
+
+    var out_seen = [_]bool{false} ** 256;
+    for (plan.out[0..plan.out_len]) |label| {
+        if (out_seen[label]) return error.InvalidShape;
+        out_seen[label] = true;
+    }
+
+    var default_seen = [_]bool{false} ** 256;
+    for (plan.lhs[0..plan.lhs_len], 0..) |label, lhs_axis| {
+        if (findLabel(plan.rhs[0..plan.rhs_len], label)) |rhs_axis| {
+            if (out_seen[label]) return error.InvalidShape; // shared batch labels are a future extension.
+            plan.lhs_contract_axes[plan.contract_len] = lhs_axis;
+            plan.rhs_contract_axes[plan.contract_len] = rhs_axis;
+            plan.contract_len += 1;
+        } else {
+            plan.default_out[plan.default_out_len] = label;
+            default_seen[label] = true;
+            plan.default_out_len += 1;
+        }
+    }
+    for (plan.rhs[0..plan.rhs_len]) |label| {
+        if (findLabel(plan.lhs[0..plan.lhs_len], label) == null) {
+            plan.default_out[plan.default_out_len] = label;
+            default_seen[label] = true;
+            plan.default_out_len += 1;
+        }
+    }
+    if (plan.out_len != plan.default_out_len) return error.InvalidShape;
+    for (plan.out[0..plan.out_len], 0..) |label, out_axis| {
+        if (!default_seen[label]) return error.InvalidShape;
+        plan.permutation[out_axis] = findLabel(plan.default_out[0..plan.default_out_len], label) orelse return error.InvalidShape;
+    }
+    return plan;
+}
+
+fn parseEinsumLabels(segment: []const u8, expected_rank: ?usize, out: []u8) ArrayError!usize {
+    if (segment.len > out.len) return error.InvalidShape;
+    if (expected_rank) |rank| {
+        if (segment.len != rank) return error.InvalidShape;
+    }
+    var seen = [_]bool{false} ** 256;
+    for (segment, 0..) |label, index| {
+        if (!std.ascii.isAlphabetic(label)) return error.InvalidShape;
+        if (seen[label]) return error.InvalidShape;
+        seen[label] = true;
+        out[index] = label;
+    }
+    return segment.len;
+}
+
+fn findLabel(labels: []const u8, needle: u8) ?usize {
+    for (labels, 0..) |label, index| {
+        if (label == needle) return index;
+    }
+    return null;
 }
 
 pub fn sum(input: anytype, axis_opt: ?isize, keepdims: bool) ArrayError!@TypeOf(input) {
