@@ -62,6 +62,11 @@ pub fn main(init: std.process.Init) !void {
     var f64_softmax_ok = !vx.axiom_cuda.enabled();
     var f64_log_softmax_ok = !vx.axiom_cuda.enabled();
     var f64_matmul_add_ok = !vx.axiom_cuda.enabled();
+    var reduction_memref_fingerprint: u64 = 0;
+    var broadcast_memref_fingerprint: u64 = 0;
+    var transpose_memref_fingerprint: u64 = 0;
+    var softmax_memref_fingerprint: u64 = 0;
+    var log_softmax_memref_fingerprint: u64 = 0;
     if (vx.Device.cuda(0).isAvailable()) {
         var lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 }, vx.cuda(0));
         defer lhs.deinit();
@@ -103,7 +108,11 @@ pub fn main(init: std.process.Init) !void {
         defer col_max.deinit();
         var col_max_host = try col_max.cpu();
         defer col_max_host.deinit();
+        const reduction_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        reduction_memref_fingerprint = reduction_report.memref_spec_fingerprint;
         direct_reduction_ok = row_sum.device.isCuda() and row_sum.device_storage != null and
+            reduction_report.valid() and
+            std.mem.eql(u8, reduction_report.operation, "reduction2d") and
             equalF32(row_sum_host.data, &.{ 3, 7 }) and
             col_sum_keep.device.isCuda() and col_sum_keep.device_storage != null and
             std.mem.eql(usize, col_sum_keep_host.shape, &.{ 1, 2 }) and
@@ -127,7 +136,11 @@ pub fn main(init: std.process.Init) !void {
         defer column_broadcast.deinit();
         var column_broadcast_host = try column_broadcast.cpu();
         defer column_broadcast_host.deinit();
+        const broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        broadcast_memref_fingerprint = broadcast_report.memref_spec_fingerprint;
         direct_broadcast_ok = row_broadcast.device.isCuda() and row_broadcast.device_storage != null and
+            broadcast_report.valid() and
+            std.mem.eql(u8, broadcast_report.operation, "broadcast_add2d") and
             equalF32(row_broadcast_host.data, &.{ 11, 22, 13, 24 }) and
             column_broadcast.device.isCuda() and column_broadcast.device_storage != null and
             equalF32(column_broadcast_host.data, &.{ 101, 102, 203, 204 });
@@ -136,7 +149,11 @@ pub fn main(init: std.process.Init) !void {
         defer transposed.deinit();
         var transposed_host = try transposed.cpu();
         defer transposed_host.deinit();
+        const transpose_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        transpose_memref_fingerprint = transpose_report.memref_spec_fingerprint;
         direct_transpose_ok = transposed.device.isCuda() and transposed.device_storage != null and
+            transpose_report.valid() and
+            std.mem.eql(u8, transpose_report.operation, "transpose2d") and
             std.mem.eql(usize, transposed_host.shape, &.{ 2, 2 }) and
             equalF32(transposed_host.data, &.{ 1, 3, 2, 4 });
 
@@ -148,9 +165,13 @@ pub fn main(init: std.process.Init) !void {
         defer softmax_col.deinit();
         var softmax_col_host = try softmax_col.cpu();
         defer softmax_col_host.deinit();
+        const softmax_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        softmax_memref_fingerprint = softmax_report.memref_spec_fingerprint;
         const row_denom = std.math.exp(@as(f32, -1)) + 1.0;
         const col_denom = std.math.exp(@as(f32, -2)) + 1.0;
         direct_softmax_ok = softmax_row.device.isCuda() and softmax_row.device_storage != null and
+            softmax_report.valid() and
+            std.mem.eql(u8, softmax_report.operation, "softmax2d") and
             approxF32(softmax_row_host.data[0], std.math.exp(@as(f32, -1)) / row_denom, 0.01) and
             approxF32(softmax_row_host.data[1], 1.0 / row_denom, 0.01) and
             approxF32(softmax_row_host.data[2], std.math.exp(@as(f32, -1)) / row_denom, 0.01) and
@@ -167,9 +188,13 @@ pub fn main(init: std.process.Init) !void {
         defer log_softmax_col.deinit();
         var log_softmax_col_host = try log_softmax_col.cpu();
         defer log_softmax_col_host.deinit();
+        const log_softmax_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        log_softmax_memref_fingerprint = log_softmax_report.memref_spec_fingerprint;
         const row_log_denom = std.math.log(f32, std.math.e, row_denom);
         const col_log_denom = std.math.log(f32, std.math.e, col_denom);
         direct_log_softmax_ok = log_softmax_row.device.isCuda() and log_softmax_row.device_storage != null and
+            log_softmax_report.valid() and
+            std.mem.eql(u8, log_softmax_report.operation, "log_softmax2d") and
             approxF32(log_softmax_row_host.data[0], -1.0 - row_log_denom, 0.03) and
             approxF32(log_softmax_row_host.data[1], -row_log_denom, 0.03) and
             approxF32(log_softmax_row_host.data[2], -1.0 - row_log_denom, 0.03) and
@@ -1189,19 +1214,30 @@ pub fn main(init: std.process.Init) !void {
             f64_chained.fusionStatus() == .cuda_matmul_add and
             equalF64(f64_chained_host.data, &.{ 4, 4, 8, 8 });
     }
-    ok = ok and direct_storage_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_reduction_ok and direct_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
+    const cuda_available = vx.Device.cuda(0).isAvailable();
+    const memref_fingerprints_ok = !cuda_available or
+        (reduction_memref_fingerprint != 0 and
+            broadcast_memref_fingerprint != 0 and
+            transpose_memref_fingerprint != 0 and
+            softmax_memref_fingerprint != 0 and
+            log_softmax_memref_fingerprint != 0);
+    ok = ok and memref_fingerprints_ok and direct_storage_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_reduction_ok and direct_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     // Zig's std.Io formatter intentionally caps each call at 32 arguments, so
-    // keep the smoke JSON evidence in two contiguous writes as coverage grows.
+    // keep the smoke JSON evidence split across contiguous writes as coverage grows.
     try stdout.interface.print(
         "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_square_ok\":{},\"direct_unary_scalar_ok\":{},\"direct_reduction_ok\":{},\"direct_broadcast_ok\":{},\"direct_transpose_ok\":{},\"direct_softmax_ok\":{},\"direct_log_softmax_ok\":{},\"direct_ternary_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"scaled_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"reversed_add_fusion_ok\":{},\"reversed_sub_fusion_ok\":{},\"pending_fusion_status_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{},\"bf16_broadcast_ok\":{},\"bf16_reduction_ok\":{},\"bf16_transpose_ok\":{},\"bf16_softmax_ok\":{}",
         .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_square_ok, direct_unary_scalar_ok, direct_reduction_ok, direct_broadcast_ok, direct_transpose_ok, direct_softmax_ok, direct_log_softmax_ok, direct_ternary_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, bf16_broadcast_ok, bf16_reduction_ok, bf16_transpose_ok, bf16_softmax_ok },
     );
     try stdout.interface.print(
-        ",\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}}}\n",
+        ",\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}",
         .{ bf16_log_softmax_ok, f16_activation_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
+    );
+    try stdout.interface.print(
+        ",\"memref_fingerprints_ok\":{},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
+        .{ memref_fingerprints_ok, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

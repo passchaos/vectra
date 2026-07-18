@@ -70,6 +70,41 @@ pub fn lastCudaDeviceGemmReport() CudaDeviceGemmReportSnapshot {
     return last_cuda_device_gemm_report;
 }
 
+pub const CudaDeviceMemRefReportSnapshot = struct {
+    ok: bool = false,
+    operation: []const u8 = "",
+    device_ordinal: usize = 0,
+    rows: usize = 0,
+    cols: usize = 0,
+    axis: usize = 0,
+    input_device_ptr: u64 = 0,
+    aux_device_ptr: u64 = 0,
+    out_device_ptr: u64 = 0,
+    memref_spec_fingerprint: u64 = 0,
+    report_fingerprint: u64 = 0,
+
+    pub fn valid(report: CudaDeviceMemRefReportSnapshot) bool {
+        return report.ok and
+            report.operation.len != 0 and
+            report.rows != 0 and
+            report.cols != 0 and
+            report.input_device_ptr != 0 and
+            report.out_device_ptr != 0 and
+            report.memref_spec_fingerprint != 0 and
+            report.report_fingerprint != 0;
+    }
+};
+
+threadlocal var last_cuda_device_memref_report: CudaDeviceMemRefReportSnapshot = .{};
+
+pub fn resetLastCudaDeviceMemRefReport() void {
+    last_cuda_device_memref_report = .{};
+}
+
+pub fn lastCudaDeviceMemRefReport() CudaDeviceMemRefReportSnapshot {
+    return last_cuda_device_memref_report;
+}
+
 pub fn synchronizeDevice(allocator: std.mem.Allocator, device: array_mod.Device) array_mod.ArrayError!void {
     if (!build_options.enable_axiom_cuda or !device.isCuda()) return error.InvalidDevice;
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
@@ -93,6 +128,40 @@ fn recordCudaDeviceGemmReport(report: anytype) void {
         .lt_plan_cache_hit = report.lt_plan_cache_hit,
         .lt_algo_cache_hit = report.lt_algo_cache_hit,
         .fingerprint = report.fingerprint(),
+    };
+}
+
+fn cudaDeviceMemRefReportAxis(report: anytype) usize {
+    const Report = @TypeOf(report);
+    if (comptime !@hasField(Report, "axis")) return 0;
+    const axis = report.axis;
+    const Axis = @TypeOf(axis);
+    return switch (@typeInfo(Axis)) {
+        .int, .comptime_int => @intCast(axis),
+        .@"enum" => @intCast(@intFromEnum(axis)),
+        else => 0,
+    };
+}
+
+fn cudaDeviceMemRefReportAuxPtr(report: anytype) u64 {
+    const Report = @TypeOf(report);
+    if (comptime !@hasField(Report, "bias_device_ptr")) return 0;
+    return report.bias_device_ptr;
+}
+
+fn recordCudaDeviceMemRefReport(operation: []const u8, report: anytype) void {
+    last_cuda_device_memref_report = .{
+        .ok = report.ok,
+        .operation = operation,
+        .device_ordinal = report.device_ordinal,
+        .rows = report.rows,
+        .cols = report.cols,
+        .axis = cudaDeviceMemRefReportAxis(report),
+        .input_device_ptr = report.input_device_ptr,
+        .aux_device_ptr = cudaDeviceMemRefReportAuxPtr(report),
+        .out_device_ptr = report.out_device_ptr,
+        .memref_spec_fingerprint = report.memref_spec_fingerprint,
+        .report_fingerprint = report.fingerprint(),
     };
 }
 
@@ -2197,6 +2266,7 @@ fn tryDeviceReduction(comptime T: type, op: axiom.accelerator.DialectReductionOp
         out.deinit();
         return null;
     }
+    recordCudaDeviceMemRefReport("reduction2d", report);
     return out;
 }
 
@@ -2266,6 +2336,7 @@ fn tryDeviceBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
         out.deinit();
         return null;
     }
+    recordCudaDeviceMemRefReport("broadcast_add2d", report);
     return out;
 }
 
@@ -2319,6 +2390,7 @@ fn tryDeviceLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) ar
         out.deinit();
         return null;
     }
+    recordCudaDeviceMemRefReport("log_softmax2d", report);
     return out;
 }
 
@@ -2372,6 +2444,7 @@ fn tryDeviceSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array
         out.deinit();
         return null;
     }
+    recordCudaDeviceMemRefReport("softmax2d", report);
     return out;
 }
 
@@ -2425,6 +2498,7 @@ fn tryDeviceTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.Arr
         out.deinit();
         return null;
     }
+    recordCudaDeviceMemRefReport("transpose2d", report);
     return out;
 }
 
