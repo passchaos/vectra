@@ -66,9 +66,9 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
 - CUDA `Array(f32/f64/f16/BFloat16).matmul` builds an Axiom memref-backed
   `TensorGemmSpec` from device descriptors before lowering to Axiom's cached
   cuBLAS-backed GEMM runtime for PyTorch-class throughput.
-- CUDA `vx.matmulAdd(Array(f32), Array(f32), Array(f32))` and the f64 equivalent
-  use Axiom cached cuBLAS/cuBLASLt-backed GEMM paths so the addend is consumed in
-  the GEMM epilogue instead of launching a separate add kernel.
+- CUDA `vx.matmulAdd(Array(f32/f64/f16/BFloat16), ...)` builds an Axiom
+  memref-backed matmul-add spec with separate addend/output descriptors before
+  lowering to cached cuBLASLt-backed GEMM epilogues where available.
 
 ## CPU-backed policy
 

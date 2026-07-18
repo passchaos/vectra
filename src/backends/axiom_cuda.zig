@@ -2689,8 +2689,12 @@ pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32
             return null;
         };
 
+        const spec = describeDeviceGemmAddMemRefSpec(f32, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr, "lhs", "rhs", "addend", "out") catch {
+            out.deinit();
+            return null;
+        };
         var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-        const report = runtime.runCudaDeviceSgemmLtMatmulAdd(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr) catch null;
+        const report = runtime.runCudaDeviceMatmulAddMemRefs(lhs.device.index, spec) catch null;
         if (report) |value| {
             recordCudaDeviceGemmReport(value);
             if (value.valid()) return out;
@@ -2730,8 +2734,12 @@ pub fn tryDeviceMatmulAddF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64
         return null;
     };
 
+    const spec = describeDeviceGemmAddMemRefSpec(f64, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr, "lhs64", "rhs64", "add64", "out64") catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceDgemmLtMatmulAdd(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr) catch null;
+    const report = runtime.runCudaDeviceMatmulAddMemRefs(lhs.device.index, spec) catch null;
     if (report) |value| {
         recordCudaDeviceGemmReport(value);
         if (value.valid()) return out;
@@ -2764,8 +2772,12 @@ pub fn tryDeviceMatmulAddF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16
         return null;
     };
 
+    const spec = describeDeviceGemmAddMemRefSpec(f16, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr, "lhs16", "rhs16", "add16", "out16") catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceF16GemmLtMatmulAdd(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr) catch null;
+    const report = runtime.runCudaDeviceMatmulAddMemRefs(lhs.device.index, spec) catch null;
     if (report) |value| {
         recordCudaDeviceGemmReport(value);
         if (value.valid()) return out;
@@ -2843,38 +2855,44 @@ pub fn runPendingMatmulF64(allocator: std.mem.Allocator, device: array_mod.Devic
 
 pub fn runPendingMatmulAddF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
+    var spec = try describeDeviceGemmAddMemRefSpec(f32, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, "pending_lhs", "pending_rhs", "pending_add", "pending_out");
+    spec.alpha = alpha;
+    spec.beta = beta;
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceSgemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    const report = runtime.runCudaDeviceMatmulAddMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
 pub fn runPendingMatmulAddBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
+    var spec = try describeDeviceGemmAddMemRefSpec(BFloat16, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, "pending_lhs_bf16", "pending_rhs_bf16", "pending_add_bf16", "pending_out_bf16");
+    spec.alpha = alpha;
+    spec.beta = beta;
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceBf16GemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    const report = runtime.runCudaDeviceMatmulAddMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
 pub fn runPendingMatmulAddF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
+    var spec = try describeDeviceGemmAddMemRefSpec(f16, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, "pending_lhs_f16", "pending_rhs_f16", "pending_add_f16", "pending_out_f16");
+    spec.alpha = alpha;
+    spec.beta = beta;
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceF16GemmLtMatmulAddEx(device.index, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    const report = runtime.runCudaDeviceMatmulAddMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }
 
 pub fn runPendingMatmulAddF64(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
+    var spec = try describeDeviceGemmAddMemRefSpec(f64, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, "pending_lhs_f64", "pending_rhs_f64", "pending_add_f64", "pending_out_f64");
+    spec.alpha = alpha;
+    spec.beta = beta;
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const byte_count = std.math.mul(usize, m, n) catch return error.InvalidShape;
-    const bytes = std.math.mul(usize, byte_count, @sizeOf(f64)) catch return error.InvalidShape;
-    try copyStorage(
-        .{ .device = device, .ptr = out_ptr, .len = byte_count, .bytes = bytes, .owns = false },
-        .{ .device = device, .ptr = add_ptr, .len = byte_count, .bytes = bytes, .owns = false },
-    );
-    const report = runtime.runCudaDeviceDgemmEx(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr, alpha, beta) catch return error.BackendFailure;
+    const report = runtime.runCudaDeviceMatmulAddMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }
@@ -2940,8 +2958,12 @@ pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Arr
         return null;
     };
 
+    const spec = describeDeviceGemmAddMemRefSpec(BFloat16, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr, "lhs_bf16", "rhs_bf16", "add_bf16", "out_bf16") catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceBf16GemmLtMatmulAdd(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, add_storage.ptr, out_storage.ptr) catch null;
+    const report = runtime.runCudaDeviceMatmulAddMemRefs(lhs.device.index, spec) catch null;
     if (report) |value| {
         recordCudaDeviceGemmReport(value);
         if (value.valid()) return out;
@@ -4615,6 +4637,60 @@ fn describeDeviceGemmMemRefSpec(
         &.{ @as(isize, @intCast(n)), 1 },
     ) catch return error.InvalidShape;
     return axiom.accelerator.TensorGemmSpec.fromMemRefs(lhs_descriptor, rhs_descriptor, out_descriptor) catch error.InvalidShape;
+}
+
+fn describeDeviceGemmAddMemRefSpec(
+    comptime T: type,
+    m: usize,
+    n: usize,
+    k: usize,
+    lhs_ptr: u64,
+    rhs_ptr: u64,
+    add_ptr: u64,
+    out_ptr: u64,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    add_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!axiom.accelerator.TensorGemmAddSpec {
+    const element = axiomTensorElementType(T) orelse return error.TypeUnsupported;
+    const lhs_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
+        lhs_name,
+        lhs_ptr,
+        element,
+        .cuda,
+        0,
+        &.{ m, k },
+        &.{ @as(isize, @intCast(k)), 1 },
+    ) catch return error.InvalidShape;
+    const rhs_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
+        rhs_name,
+        rhs_ptr,
+        element,
+        .cuda,
+        0,
+        &.{ k, n },
+        &.{ @as(isize, @intCast(n)), 1 },
+    ) catch return error.InvalidShape;
+    const add_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
+        add_name,
+        add_ptr,
+        element,
+        .cuda,
+        0,
+        &.{ m, n },
+        &.{ @as(isize, @intCast(n)), 1 },
+    ) catch return error.InvalidShape;
+    const out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
+        out_name,
+        out_ptr,
+        element,
+        .cuda,
+        0,
+        &.{ m, n },
+        &.{ @as(isize, @intCast(n)), 1 },
+    ) catch return error.InvalidShape;
+    return axiom.accelerator.TensorGemmAddSpec.fromMemRefs(lhs_descriptor, rhs_descriptor, add_descriptor, out_descriptor) catch error.InvalidShape;
 }
 
 fn reductionOpFromDialect(op: axiom.accelerator.DialectReductionOp) axiom.accelerator.TensorReduction2DOp {
