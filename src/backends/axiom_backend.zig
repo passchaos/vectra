@@ -54,6 +54,7 @@ pub const ScalarSide = enum(u8) {
 };
 
 pub const ExecutionUnaryOp = enum(u8) {
+    abs,
     square,
     sqrt,
     exp,
@@ -1037,7 +1038,7 @@ fn runCudaPendingMatmulUnary(
             const cuda_unary: axiom_cuda.UnaryOp = switch (unary) {
                 .sqrt => .sqrt,
                 .exp => .exp,
-                .square => return false,
+                .abs, .square => return false,
             };
             return axiom_cuda.runPendingMatmulAddUnaryF32(
                 allocator,
@@ -1801,6 +1802,7 @@ fn executeCpuTrace(comptime T: type, input: array_mod.Array(T), offset: isize) a
 
 fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     const cpu_op: axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp = switch (op) {
+        .abs => .abs,
         .square => .square,
         .sqrt => .sqrt,
         .exp => .exp,
@@ -1836,6 +1838,7 @@ fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
 fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (op == .square) return executeCudaElementwise(T, .mul, input, input);
     const cuda_op: axiom_cuda.UnaryOp = switch (op) {
+        .abs => .abs,
         .sqrt => .sqrt,
         .exp => .exp,
         .square => unreachable,

@@ -16277,6 +16277,9 @@ pub fn Array(comptime T: type) type {
 
         pub fn abs(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (try axiom_backend.executeUnaryDefault(T, .abs, self)) |out| return out;
+            }
             return self.unary(opAbs);
         }
 

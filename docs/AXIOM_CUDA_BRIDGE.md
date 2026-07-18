@@ -56,7 +56,7 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
 - CUDA `Array(f32).add/sub/mul/div` and `Array(f64).add/sub/mul/div` launch
   Axiom cached device-pointer elementwise kernels with existing device pointers,
   avoiding repeated compile/module-load overhead after the first operation per op.
-- CUDA `Array(f32).neg/reciprocal/square/sqrt/exp` and `Array(f64).neg/reciprocal/square/sqrt/exp` use Axiom device unary/elementwise
+- CUDA `Array(f32).neg/abs/reciprocal/square/sqrt/exp` and `Array(f64).neg/abs/reciprocal/square/sqrt/exp` use Axiom device unary/elementwise
   elementwise kernels.
 - CUDA `Array(f32).matmul` uses Axiom's cached cuBLAS-backed SGEMM wrapper first
   for PyTorch-class throughput and falls back to the Axiom PTX/CUDA Tile IR seed

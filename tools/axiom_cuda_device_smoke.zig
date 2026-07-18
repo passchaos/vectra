@@ -65,12 +65,18 @@ pub fn main(init: std.process.Init) !void {
         defer negated.deinit();
         var negated_host = try negated.cpu();
         defer negated_host.deinit();
+        var abs_negated = try negated.abs();
+        defer abs_negated.deinit();
+        var abs_negated_host = try abs_negated.cpu();
+        defer abs_negated_host.deinit();
         var reciprocal = try lhs.reciprocal();
         defer reciprocal.deinit();
         var reciprocal_host = try reciprocal.cpu();
         defer reciprocal_host.deinit();
         direct_unary_scalar_ok = negated.device.isCuda() and negated.device_storage != null and
             equalF32(negated_host.data, &.{ -1, -2, -3, -4 }) and
+            abs_negated.device.isCuda() and abs_negated.device_storage != null and
+            equalF32(abs_negated_host.data, &.{ 1, 2, 3, 4 }) and
             reciprocal.device.isCuda() and reciprocal.device_storage != null and
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
             approxF32(reciprocal_host.data[3], 0.25, 1e-6);
@@ -210,6 +216,14 @@ pub fn main(init: std.process.Init) !void {
         defer f64_scaled.deinit();
         var f64_scaled_host = try f64_scaled.cpu();
         defer f64_scaled_host.deinit();
+        var f64_neg = try f64_lhs.neg();
+        defer f64_neg.deinit();
+        var f64_neg_host = try f64_neg.cpu();
+        defer f64_neg_host.deinit();
+        var f64_abs = try f64_neg.abs();
+        defer f64_abs.deinit();
+        var f64_abs_host = try f64_abs.cpu();
+        defer f64_abs_host.deinit();
         var f64_square = try f64_lhs.square();
         defer f64_square.deinit();
         var f64_square_host = try f64_square.cpu();
@@ -226,6 +240,10 @@ pub fn main(init: std.process.Init) !void {
             equalF64(f64_sum_host.data, &.{ 2, 3, 4, 5 }) and
             f64_scaled.device.isCuda() and f64_scaled.device_storage != null and
             equalF64(f64_scaled_host.data, &.{ 0.5, 1, 1.5, 2 }) and
+            f64_neg.device.isCuda() and f64_neg.device_storage != null and
+            equalF64(f64_neg_host.data, &.{ -1, -2, -3, -4 }) and
+            f64_abs.device.isCuda() and f64_abs.device_storage != null and
+            equalF64(f64_abs_host.data, &.{ 1, 2, 3, 4 }) and
             f64_square.device.isCuda() and f64_square.device_storage != null and
             equalF64(f64_square_host.data, &.{ 1, 4, 9, 16 }) and
             f64_sqrt.device.isCuda() and

@@ -35,6 +35,7 @@ pub const BinaryOp = enum {
 pub const UnaryOp = enum {
     sqrt,
     exp,
+    abs,
 };
 
 pub const CudaDeviceGemmReportSnapshot = struct {
@@ -1509,6 +1510,22 @@ pub fn tryExpF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Ar
     return tryDeviceUnaryF64(.exp, input);
 }
 
+pub fn tryAbsF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.abs, input);
+}
+
+pub fn tryAbsF16(input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceUnaryF16(.abs, input);
+}
+
+pub fn tryAbsBF16(input: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceUnaryBF16(.abs, input);
+}
+
+pub fn tryAbsF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceUnaryF64(.abs, input);
+}
+
 pub fn tryDeviceUnaryF32(op: UnaryOp, input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
@@ -1527,6 +1544,7 @@ pub fn tryDeviceUnaryF32(op: UnaryOp, input: array_mod.Array(f32)) array_mod.Arr
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
             .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
+            .abs => axiom.accelerator.TensorUnaryElementwiseOp.abs,
         },
         in_storage.len,
         in_storage.ptr,
@@ -1560,6 +1578,7 @@ pub fn tryDeviceUnaryF16(op: UnaryOp, input: array_mod.Array(f16)) array_mod.Arr
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
             .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
+            .abs => axiom.accelerator.TensorUnaryElementwiseOp.abs,
         },
         in_storage.len,
         in_storage.ptr,
@@ -1593,6 +1612,7 @@ pub fn tryDeviceUnaryBF16(op: UnaryOp, input: array_mod.Array(BFloat16)) array_m
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
             .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
+            .abs => axiom.accelerator.TensorUnaryElementwiseOp.abs,
         },
         in_storage.len,
         in_storage.ptr,
@@ -1626,6 +1646,7 @@ pub fn tryDeviceUnaryF64(op: UnaryOp, input: array_mod.Array(f64)) array_mod.Arr
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
             .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
+            .abs => axiom.accelerator.TensorUnaryElementwiseOp.abs,
         },
         in_storage.len,
         in_storage.ptr,
@@ -2136,6 +2157,7 @@ pub fn runPendingMatmulAddUnaryF32(
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
             .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
+            .abs => return error.TypeUnsupported,
         },
         m,
         n,
