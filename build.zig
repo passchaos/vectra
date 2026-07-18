@@ -171,6 +171,21 @@ pub fn build(b: *std.Build) void {
     const array_api_coverage_audit_step = b.step("array-api-coverage-audit", "Audit NumPy/PyTorch-style dense Array API coverage with autograd out of scope");
     array_api_coverage_audit_step.dependOn(&array_api_coverage_audit_cmd.step);
 
+    const dtype_promotion_smoke_exe = b.addExecutable(.{
+        .name = "vectra-dtype-promotion-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/dtype_promotion_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const dtype_promotion_smoke_cmd = b.addRunArtifact(dtype_promotion_smoke_exe);
+    const dtype_promotion_smoke_step = b.step("dtype-promotion-smoke", "Run representative NumPy/PyTorch-style dtype promotion smoke");
+    dtype_promotion_smoke_step.dependOn(&dtype_promotion_smoke_cmd.step);
+
     const examples_step = b.step("examples", "Run Vectra usage examples");
 
     const basic_array_example_exe = b.addExecutable(.{

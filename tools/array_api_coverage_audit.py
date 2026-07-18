@@ -72,7 +72,7 @@ KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "complete_numpy_torch_dtype_promotion_matrix",
-        "reason": "Promotion helpers exist, but a full NumPy/PyTorch compatibility matrix still needs explicit audited cases.",
+        "reason": "Promotion helpers and a representative dtype-promotion-smoke exist, but a full NumPy/PyTorch compatibility matrix still needs more audited cases.",
         "target_layer": "vectra",
     },
     {
@@ -96,6 +96,7 @@ SCOPED_OUT: tuple[dict[str, str], ...] = (
 
 REQUIRED_BUILD_SNIPPETS = (
     "api-boundary-audit",
+    "dtype-promotion-smoke",
     "axiom-descriptor-smoke",
     "axiom-dialect-lowering-smoke",
     "axiom-cuda-device-smoke",

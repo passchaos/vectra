@@ -13,6 +13,7 @@ Run:
 
 ```sh
 zig build array-api-coverage-audit
+zig build dtype-promotion-smoke
 ```
 
 The build step runs `tools/array_api_coverage_audit.py`, which statically checks
@@ -46,8 +47,9 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
 - Strided/transposed device GEMM lowering: current CUDA GEMM memref wrappers
   require contiguous row-major descriptors.  Axiom still needs bufferization and
   layout-transform lowering for more general memrefs.
-- Complete NumPy/PyTorch dtype promotion matrix: Vectra has promotion helpers,
-  but a full compatibility matrix needs explicit audited cases.
+- Complete NumPy/PyTorch dtype promotion matrix: Vectra has promotion helpers
+  and a representative `dtype-promotion-smoke`, but a full compatibility matrix
+  still needs more explicit audited cases.
 - `einsum`/general contraction syntax: Vectra has matmul/dot/tensordot-style
   building blocks, but NumPy-compatible `einsum` syntax is not audited as
   covered.
