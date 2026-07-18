@@ -512,8 +512,8 @@ pub fn broadcastAddRuntimeCapability(target: DialectBackend) RuntimeCapabilityRe
         .cuda => .{
             .target = target,
             .operation = "broadcast_add",
-            .status = .lowering_only,
-            .reason = "Axiom CUDA linalg/schedule/vector/gpu broadcast-add lowering exists, but no eager CUDA broadcast runtime ABI is exposed to Vectra yet.",
+            .status = .executable,
+            .reason = "Axiom CUDA exposes an eager f32 2D row/column broadcast-add runtime; other broadcast dtypes/shapes remain capability-gated.",
         },
         .mps => .{
             .target = target,
@@ -611,7 +611,7 @@ pub fn executeBroadcastAdd(
     if (!supportedBroadcastAddExecution(T, target, input, bias, axis)) return null;
     return switch (target) {
         .cpu => executeCpuBroadcastAdd(T, input, bias, axis),
-        .cuda => null,
+        .cuda => executeCudaBroadcastAdd(T, input, bias, axis),
         .mps => null,
     };
 }
@@ -2066,6 +2066,13 @@ fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arr
     return null;
 }
 
+fn executeCudaBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceBroadcastAddF32(@as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         const input32 = @as(array_mod.Array(f32), input);
@@ -2503,9 +2510,12 @@ fn supportedBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
 fn supportedBroadcastAddExecution(comptime T: type, target: DialectBackend, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
     return broadcastAddRuntimeCapability(target).executable() and
         targetCanAccessDevice(target, input.device) and
-        supportsAxiomCpuElementwise(T) and
         input.device.sameDevice(bias.device) and
-        supportedBroadcastAdd(T, input, bias, axis);
+        switch (target) {
+            .cpu => supportedBroadcastAdd(T, input, bias, axis),
+            .cuda => T == f32 and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
+            .mps => false,
+        };
 }
 
 fn broadcastBiasMatches(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
@@ -2532,7 +2542,7 @@ fn supportedBroadcastAddLowering(comptime T: type, input: array_mod.Array(T), bi
     if (dialectElement(T) == null) return false;
     if (!input.device.sameDevice(bias.device) or input.shape.len != 2) return false;
     if (!input.isContiguous() or !bias.isContiguous()) return false;
-    return broadcastBiasMatches(T, input, bias, axis);
+    return broadcastBiasMatchesArrayAdd(T, input, bias, axis);
 }
 
 fn supportedElementwiseLowering(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {

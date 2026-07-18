@@ -65,7 +65,7 @@ pub fn main(init: std.process.Init) !void {
         reduction_cuda_runtime.status == .executable and
         reduction_mps_report.status == .planned_mps and
         broadcast_cuda_report.status == .lowered_cuda and
-        broadcast_cuda_runtime.status == .lowering_only and
+        broadcast_cuda_runtime.status == .executable and
         broadcast_mps_report.status == .planned_mps and
         unary_cuda_report.status == .lowered_cuda and
         unary_cuda_runtime.status == .executable and
