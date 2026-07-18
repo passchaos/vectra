@@ -1670,9 +1670,17 @@ pub fn tryDeviceReductionF64(op: axiom.accelerator.DialectReductionOp, input: ar
     return tryDeviceReduction(f64, op, input, axis, keepdims);
 }
 
+pub fn tryDeviceReductionF16(op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(f16), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceReduction(f16, op, input, axis, keepdims);
+}
+
+pub fn tryDeviceReductionBF16(op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(BFloat16), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceReduction(BFloat16, op, input, axis, keepdims);
+}
+
 fn tryDeviceReduction(comptime T: type, op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(T), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
-    if (T != f32 and T != f64) return null;
+    if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
     if (input.shape.len != 2) return null;
     const in_storage = input.device_storage orelse return null;
@@ -1706,8 +1714,28 @@ fn tryDeviceReduction(comptime T: type, op: axiom.accelerator.DialectReductionOp
             in_storage.ptr,
             out_storage.ptr,
         )
-    else
+    else if (T == f64)
         runtime.runCudaDeviceReductionF64(
+            input.device.index,
+            op,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            out_storage.ptr,
+        )
+    else if (T == f16)
+        runtime.runCudaDeviceReductionF16(
+            input.device.index,
+            op,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            out_storage.ptr,
+        )
+    else
+        runtime.runCudaDeviceReductionBF16(
             input.device.index,
             op,
             input.shape[0],
