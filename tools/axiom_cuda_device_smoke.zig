@@ -392,6 +392,32 @@ pub fn main(init: std.process.Init) !void {
         defer f64_clip.deinit();
         var f64_clip_host = try f64_clip.cpu();
         defer f64_clip_host.deinit();
+        var f64_scaled_for_max = try f64_shifted.mulScalar(0.1);
+        defer f64_scaled_for_max.deinit();
+        var f64_maximum = try f64_shifted.maximum(f64_scaled_for_max);
+        defer f64_maximum.deinit();
+        var f64_maximum_host = try f64_maximum.cpu();
+        defer f64_maximum_host.deinit();
+        var f64_leaky = try f64_shifted.leakyRelu(0.1);
+        defer f64_leaky.deinit();
+        var f64_leaky_host = try f64_leaky.cpu();
+        defer f64_leaky_host.deinit();
+        var f64_lerp = try f64_rhs.lerpScalar(f64_lhs, 0.5);
+        defer f64_lerp.deinit();
+        var f64_lerp_host = try f64_lerp.cpu();
+        defer f64_lerp_host.deinit();
+        var f64_silu = try f64_shifted.silu();
+        defer f64_silu.deinit();
+        var f64_silu_host = try f64_silu.cpu();
+        defer f64_silu_host.deinit();
+        var f64_hardsigmoid = try f64_shifted.hardsigmoid();
+        defer f64_hardsigmoid.deinit();
+        var f64_hardsigmoid_host = try f64_hardsigmoid.cpu();
+        defer f64_hardsigmoid_host.deinit();
+        var f64_hardswish = try f64_shifted.hardswish();
+        defer f64_hardswish.deinit();
+        var f64_hardswish_host = try f64_hardswish.cpu();
+        defer f64_hardswish_host.deinit();
         f64_elementwise_ok = f64_sum.device.isCuda() and f64_sum.device_storage != null and
             equalF64(f64_sum_host.data, &.{ 2, 3, 4, 5 }) and
             f64_scaled.device.isCuda() and f64_scaled.device_storage != null and
@@ -413,7 +439,20 @@ pub fn main(init: std.process.Init) !void {
             f64_softsign.device.isCuda() and f64_softsign.device_storage != null and
             approxF64(f64_softsign_host.data[0], -2.0 / 3.0, 1e-12) and
             f64_clip.device.isCuda() and f64_clip.device_storage != null and
-            equalF64(f64_clip_host.data, &.{ -0.5, -0.5, 0, 0.5 });
+            equalF64(f64_clip_host.data, &.{ -0.5, -0.5, 0, 0.5 }) and
+            f64_maximum.device.isCuda() and f64_maximum.device_storage != null and
+            approxF64(f64_maximum_host.data[0], -0.2, 1e-12) and
+            approxF64(f64_maximum_host.data[3], 1.0, 1e-12) and
+            f64_leaky.device.isCuda() and f64_leaky.device_storage != null and
+            approxF64(f64_leaky_host.data[0], -0.2, 1e-12) and
+            f64_lerp.device.isCuda() and f64_lerp.device_storage != null and
+            equalF64(f64_lerp_host.data, &.{ 1, 1.5, 2, 2.5 }) and
+            f64_silu.device.isCuda() and f64_silu.device_storage != null and
+            approxF64(f64_silu_host.data[0], -2.0 / (1.0 + std.math.exp(@as(f64, 2.0))), 1e-12) and
+            f64_hardsigmoid.device.isCuda() and f64_hardsigmoid.device_storage != null and
+            approxF64(f64_hardsigmoid_host.data[0], 1.0 / 6.0, 1e-12) and
+            f64_hardswish.device.isCuda() and f64_hardswish.device_storage != null and
+            approxF64(f64_hardswish_host.data[0], -2.0 / 6.0, 1e-12);
 
         var f64_fused = try vx.matmulAdd(f64_lhs, f64_rhs, f64_rhs);
         defer f64_fused.deinit();
