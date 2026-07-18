@@ -15400,12 +15400,14 @@ pub fn Array(comptime T: type) type {
         }
 
         fn unary(self: Self, comptime op: fn (T) T) ArrayError!Self {
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = op(v);
             return out;
         }
 
         fn unaryBool(self: Self, comptime op: fn (T) bool) ArrayError!Array(bool) {
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             const out = try Array(bool).empty(self.allocator, self.shape);
             for (self.data, out.data) |v, *slot| slot.* = op(v);
             return out;

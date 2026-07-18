@@ -546,6 +546,43 @@ pub fn transposeRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
     };
 }
 
+pub fn unaryRuntimeCapability(target: DialectBackend, op: DialectUnaryOp) RuntimeCapabilityReport {
+    return switch (target) {
+        .cpu => .{
+            .target = target,
+            .operation = dialectUnaryRuntimeOperation(op),
+            .status = if (op == .square) .executable else .lowering_only,
+            .reason = if (op == .square)
+                "Axiom CPU square runtime is routed through Veyra unary elementwise execution."
+            else
+                "Axiom CPU unary dialect lowering exists for this op, but Vectra has no dedicated eager Axiom runtime ABI for it yet.",
+        },
+        .cuda => .{
+            .target = target,
+            .operation = dialectUnaryRuntimeOperation(op),
+            .status = if (op == .square) .executable else .lowering_only,
+            .reason = if (op == .square)
+                "Axiom CUDA square eager execution is routed through the device elementwise multiply runtime."
+            else
+                "Axiom CUDA unary dialect lowering exists for this op, but Vectra has no dedicated eager CUDA runtime ABI for it yet.",
+        },
+        .mps => .{
+            .target = target,
+            .operation = dialectUnaryRuntimeOperation(op),
+            .status = .unavailable,
+            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
+        },
+    };
+}
+
+fn dialectUnaryRuntimeOperation(op: DialectUnaryOp) []const u8 {
+    return switch (op) {
+        .copy => "unary.copy",
+        .square => "unary.square",
+        .cube => "unary.cube",
+    };
+}
+
 pub fn lowerBroadcastAddDialect(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis, backend: DialectBackend) array_mod.ArrayError!DialectBroadcastLoweringReport {
     if (!supportedBroadcastAdd(T, input, bias, axis)) return error.ShapeMismatch;
     const element = dialectElement(T) orelse return error.TypeUnsupported;
@@ -1797,7 +1834,7 @@ fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
 }
 
 fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    if (op == .square) return null;
+    if (op == .square) return executeCudaElementwise(T, .mul, input, input);
     const cuda_op: axiom_cuda.UnaryOp = switch (op) {
         .sqrt => .sqrt,
         .exp => .exp,

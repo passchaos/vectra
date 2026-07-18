@@ -56,7 +56,7 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
 - CUDA `Array(f32).add/sub/mul/div` and `Array(f64).add/sub/mul/div` launch
   Axiom cached device-pointer elementwise kernels with existing device pointers,
   avoiding repeated compile/module-load overhead after the first operation per op.
-- CUDA `Array(f32).sqrt/exp` and `Array(f64).sqrt/exp` use Axiom device unary
+- CUDA `Array(f32).square/sqrt/exp` and `Array(f64).square/sqrt/exp` use Axiom device unary/elementwise
   elementwise kernels.
 - CUDA `Array(f32).matmul` uses Axiom's cached cuBLAS-backed SGEMM wrapper first
   for PyTorch-class throughput and falls back to the Axiom PTX/CUDA Tile IR seed
@@ -125,6 +125,6 @@ where Vectra still has a non-Axiom generic implementation.
   Axiom exposes matching eager runtime ABIs.
 - f16 and BFloat16 matmul call Axiom typed SIMT GEMM seed entry points, which
   report typed launch/readiness metadata while using widened f32 compute today.
-- f64 CUDA same-shape/scalar elementwise, sqrt/exp, matmul, and matmulAdd/fusion
+- f64 CUDA same-shape/scalar elementwise, square/sqrt/exp, matmul, and matmulAdd/fusion
   are exposed for owning CUDA arrays; broader f64 CUDA reductions/broadcast/view
   storage remain future work.

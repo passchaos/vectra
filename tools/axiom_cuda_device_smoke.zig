@@ -22,6 +22,7 @@ pub fn main(init: std.process.Init) !void {
 
     var direct_storage_ok = !vx.axiom_cuda.enabled();
     var direct_add_ok = !vx.axiom_cuda.enabled();
+    var direct_square_ok = !vx.axiom_cuda.enabled();
     var direct_matmul_ok = !vx.axiom_cuda.enabled();
     var direct_matmul_add_ok = !vx.axiom_cuda.enabled();
     var scaled_matmul_add_ok = !vx.axiom_cuda.enabled();
@@ -52,6 +53,12 @@ pub fn main(init: std.process.Init) !void {
         var sum_host = try sum.cpu();
         defer sum_host.deinit();
         direct_add_ok = sum.device.isCuda() and sum.device_storage != null and equalF32(sum_host.data, &.{ 2, 3, 4, 5 });
+
+        var squared = try lhs.square();
+        defer squared.deinit();
+        var squared_host = try squared.cpu();
+        defer squared_host.deinit();
+        direct_square_ok = squared.device.isCuda() and squared.device_storage != null and equalF32(squared_host.data, &.{ 1, 4, 9, 16 });
 
         var product = try lhs.matmul(rhs);
         defer product.deinit();
@@ -188,6 +195,10 @@ pub fn main(init: std.process.Init) !void {
         defer f64_scaled.deinit();
         var f64_scaled_host = try f64_scaled.cpu();
         defer f64_scaled_host.deinit();
+        var f64_square = try f64_lhs.square();
+        defer f64_square.deinit();
+        var f64_square_host = try f64_square.cpu();
+        defer f64_square_host.deinit();
         var f64_sqrt = try f64_product.sqrt();
         defer f64_sqrt.deinit();
         var f64_sqrt_host = try f64_sqrt.cpu();
@@ -200,6 +211,8 @@ pub fn main(init: std.process.Init) !void {
             equalF64(f64_sum_host.data, &.{ 2, 3, 4, 5 }) and
             f64_scaled.device.isCuda() and f64_scaled.device_storage != null and
             equalF64(f64_scaled_host.data, &.{ 0.5, 1, 1.5, 2 }) and
+            f64_square.device.isCuda() and f64_square.device_storage != null and
+            equalF64(f64_square_host.data, &.{ 1, 4, 9, 16 }) and
             f64_sqrt.device.isCuda() and
             approxF64(f64_sqrt_host.data[0], std.math.sqrt(@as(f64, 3)), 1e-12) and
             f64_exp.device.isCuda() and
@@ -227,13 +240,13 @@ pub fn main(init: std.process.Init) !void {
             f64_chained.fusionStatus() == .cuda_matmul_add and
             equalF64(f64_chained_host.data, &.{ 4, 4, 8, 8 });
     }
-    ok = ok and direct_storage_ok and direct_add_ok and direct_matmul_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok and f64_matmul_ok and f64_elementwise_ok and f64_matmul_add_ok;
+    ok = ok and direct_storage_ok and direct_add_ok and direct_square_ok and direct_matmul_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok and f64_matmul_ok and f64_elementwise_ok and f64_matmul_add_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"scaled_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"reversed_add_fusion_ok\":{},\"reversed_sub_fusion_ok\":{},\"pending_fusion_status_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{},\"f64_matmul_ok\":{},\"f64_elementwise_ok\":{},\"f64_matmul_add_ok\":{}}}\n",
-        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, f64_matmul_ok, f64_elementwise_ok, f64_matmul_add_ok },
+        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_add_ok\":{},\"direct_square_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"scaled_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"reversed_add_fusion_ok\":{},\"reversed_sub_fusion_ok\":{},\"pending_fusion_status_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{},\"f64_matmul_ok\":{},\"f64_elementwise_ok\":{},\"f64_matmul_add_ok\":{}}}\n",
+        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_square_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, f64_matmul_ok, f64_elementwise_ok, f64_matmul_add_ok },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

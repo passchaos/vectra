@@ -24,6 +24,7 @@ pub fn main(init: std.process.Init) !void {
     const broadcast_cuda_report = try vx.axiom_backend.lowerBroadcastAddDialectDefault(f32, lhs, row_bias, .row);
     const broadcast_cuda_runtime = vx.axiom_backend.broadcastAddRuntimeCapability(.cuda);
     const unary_cuda_report = try vx.axiom_backend.lowerUnaryDialectDefault(f32, lhs, .square);
+    const unary_cuda_runtime = vx.axiom_backend.unaryRuntimeCapability(.cuda, .square);
     const transpose_cuda_report = try vx.axiom_backend.lowerTransposeDialectDefault(f32, lhs);
     const transpose_cuda_runtime = vx.axiom_backend.transposeRuntimeCapability(.cuda);
     vx.setDefaultDialectBackend(.mps);
@@ -55,6 +56,7 @@ pub fn main(init: std.process.Init) !void {
         broadcast_cuda_runtime.status == .lowering_only and
         broadcast_mps_report.status == .planned_mps and
         unary_cuda_report.status == .lowered_cuda and
+        unary_cuda_runtime.status == .executable and
         unary_mps_report.status == .planned_mps and
         transpose_cuda_report.status == .lowered_cuda and
         transpose_cuda_runtime.status == .lowering_only and
@@ -71,7 +73,7 @@ pub fn main(init: std.process.Init) !void {
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_cuda_runtime_status\":\"{s}\",\"reduction_cuda_runtime_fingerprint\":{d},\"reduction_mps_status\":\"{s}\",\"mps_launch_backend\":\"{s}\",\"mps_runtime_status\":\"{s}\",\"mps_runtime_fingerprint\":{d},\"broadcast_cuda_status\":\"{s}\",\"broadcast_cuda_runtime_status\":\"{s}\",\"broadcast_cuda_runtime_fingerprint\":{d},\"broadcast_mps_status\":\"{s}\",\"unary_cuda_status\":\"{s}\",\"unary_mps_status\":\"{s}\",\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"transpose_mps_status\":\"{s}\",\"fingerprint\":{d}}}\n",
+        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_cuda_runtime_status\":\"{s}\",\"reduction_cuda_runtime_fingerprint\":{d},\"reduction_mps_status\":\"{s}\",\"mps_launch_backend\":\"{s}\",\"mps_runtime_status\":\"{s}\",\"mps_runtime_fingerprint\":{d},\"broadcast_cuda_status\":\"{s}\",\"broadcast_cuda_runtime_status\":\"{s}\",\"broadcast_cuda_runtime_fingerprint\":{d},\"broadcast_mps_status\":\"{s}\"",
         .{
             ok,
             cpu_report.status.label(),
@@ -98,7 +100,14 @@ pub fn main(init: std.process.Init) !void {
             broadcast_cuda_runtime.status.label(),
             broadcast_cuda_runtime.fingerprint(),
             broadcast_mps_report.status.label(),
+        },
+    );
+    try stdout.interface.print(
+        ",\"unary_cuda_status\":\"{s}\",\"unary_cuda_runtime_status\":\"{s}\",\"unary_cuda_runtime_fingerprint\":{d},\"unary_mps_status\":\"{s}\",\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"transpose_mps_status\":\"{s}\",\"fingerprint\":{d}}}\n",
+        .{
             unary_cuda_report.status.label(),
+            unary_cuda_runtime.status.label(),
+            unary_cuda_runtime.fingerprint(),
             unary_mps_report.status.label(),
             transpose_cuda_report.status.label(),
             transpose_cuda_runtime.status.label(),

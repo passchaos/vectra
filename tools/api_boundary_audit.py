@@ -81,6 +81,7 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn reductionRuntimeCapability(",
     "pub fn broadcastAddRuntimeCapability(",
     "pub fn transposeRuntimeCapability(",
+    "pub fn unaryRuntimeCapability(",
     "pub fn planPendingMatmul(",
     "pub fn hostFallbackAllowed(",
     "pub fn shouldRestoreDeviceAfterHostCast(",
