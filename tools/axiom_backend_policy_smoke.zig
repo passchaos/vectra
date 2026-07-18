@@ -76,6 +76,23 @@ pub fn main(init: std.process.Init) !void {
     defer view_mul.deinit();
     var view_div = try rhs_view.div(lhs_view);
     defer view_div.deinit();
+
+    var f64_strided_lhs = try vx.Array(f64).fromSlice(allocator, &.{ 1, 99, 2, 99, 3, 99, 4, 99 }, &.{8});
+    defer f64_strided_lhs.deinit();
+    var f64_strided_rhs = try vx.Array(f64).fromSlice(allocator, &.{ 10, 99, 20, 99, 30, 99, 40, 99 }, &.{8});
+    defer f64_strided_rhs.deinit();
+    var f64_lhs_view = try f64_strided_lhs.asStrided(&.{4}, &.{2}, 0);
+    defer f64_lhs_view.deinit();
+    var f64_rhs_view = try f64_strided_rhs.asStrided(&.{4}, &.{2}, 0);
+    defer f64_rhs_view.deinit();
+    var f64_view_add = try f64_lhs_view.add(f64_rhs_view);
+    defer f64_view_add.deinit();
+    var f64_view_sub = try f64_rhs_view.sub(f64_lhs_view);
+    defer f64_view_sub.deinit();
+    var f64_view_mul = try f64_lhs_view.mul(f64_rhs_view);
+    defer f64_view_mul.deinit();
+    var f64_view_div = try f64_rhs_view.div(f64_lhs_view);
+    defer f64_view_div.deinit();
     vx.resetDefaultDialectBackend();
 
     const matmul_ok = report.ok() and matmul64_report.ok() and matmul64_report.selected == .axiom_cuda and out.data[0] == 58 and out.data[3] == 154;
@@ -90,6 +107,10 @@ pub fn main(init: std.process.Init) !void {
         equalF32(view_sub.data, &.{ 9, 18, 27, 36 }) and
         equalF32(view_mul.data, &.{ 10, 40, 90, 160 }) and
         equalF32(view_div.data, &.{ 10, 10, 10, 10 });
+    const view64_ok = equalF64(f64_view_add.data, &.{ 11, 22, 33, 44 }) and
+        equalF64(f64_view_sub.data, &.{ 9, 18, 27, 36 }) and
+        equalF64(f64_view_mul.data, &.{ 10, 40, 90, 160 }) and
+        equalF64(f64_view_div.data, &.{ 10, 10, 10, 10 });
     const default_policy_ok = default_cpu_policy == .prefer_axiom_cpu and
         default_cuda_policy == .prefer_cuda and
         default_mps_policy == .prefer_axiom_cpu;
@@ -102,12 +123,12 @@ pub fn main(init: std.process.Init) !void {
         equalF32(eager_cpu.data, &.{ 58, 64, 139, 154 }) and
         equalF32(eager_cuda_default.data, eager_cpu.data) and
         equalF32(eager_mps_default.data, eager_cpu.data);
-    const ok = matmul_ok and elementwise_ok and scalar_ok and view_ok and default_policy_ok and dynamic_execution_ok;
+    const ok = matmul_ok and elementwise_ok and scalar_ok and view_ok and view64_ok and default_policy_ok and dynamic_execution_ok;
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d}}}\n",
-        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data) },
+        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"view64_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view64_fingerprint\":{d}}}\n",
+        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view64_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data) },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
@@ -129,6 +150,19 @@ fn hashF32(values: []const f32) u64 {
     for (values) |value| {
         var bytes: [4]u8 = undefined;
         std.mem.writeInt(u32, &bytes, @bitCast(value), .little);
+        hasher.update(&bytes);
+    }
+    return hasher.final();
+}
+
+fn hashF64(values: []const f64) u64 {
+    var hasher = std.hash.Wyhash.init(0x0abc_beef_5731_ded1);
+    var len_bytes: [8]u8 = undefined;
+    std.mem.writeInt(u64, &len_bytes, values.len, .little);
+    hasher.update(&len_bytes);
+    for (values) |value| {
+        var bytes: [8]u8 = undefined;
+        std.mem.writeInt(u64, &bytes, @bitCast(value), .little);
         hasher.update(&bytes);
     }
     return hasher.final();

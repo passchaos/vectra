@@ -2697,7 +2697,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn binaryView(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Array(T) {
-            if (comptime T == f32) {
+            if (comptime T == f32 or T == f64) {
                 if (std.mem.eql(usize, self.shape, other.shape) and self.shape.len == 1) {
                     const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
                         .add
