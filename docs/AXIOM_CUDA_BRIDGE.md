@@ -63,10 +63,10 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
 - CUDA `Array(f32).add/sub/mul/div/sum/prod/min/max(axis=0/1)/broadcast-add(row/column)/transpose/softmax(axis=0/1)/logSoftmax(axis=0/1)/maximum/minimum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` and `Array(f64).logSoftmax(axis=0/1)/sum/prod/min/max(axis=0/1)/broadcast-add(row/column)/transpose/maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` use Axiom device unary/elementwise
   kernels through descriptor-backed specs where the current runtime ABI has a
   matching lowering. f16 and BFloat16 2D `sum/prod/min/max(axis=0/1)` reductions, row/column broadcast-add, transpose, softmax(axis=0/1), logSoftmax(axis=0/1), plus widened activation/powScalar combinations such as `relu/sigmoid/softsign/clip/powScalar(-1/-0.5/0/0.5/1/2/3)` are covered by the CUDA device smoke.
-- CUDA `Array(f32).matmul` uses Axiom's cached cuBLAS-backed SGEMM wrapper first
-  for PyTorch-class throughput and falls back to the Axiom PTX/CUDA Tile IR seed
-  if cuBLAS is unavailable; CUDA `Array(f64).matmul` uses Axiom's cuBLAS DGEMM
-  target path.
+- CUDA `Array(f32).matmul` builds an Axiom memref-backed `TensorGemmSpec` from
+  device descriptors before lowering to Axiom's cached cuBLAS-backed SGEMM
+  runtime for PyTorch-class throughput; CUDA `Array(f64).matmul` uses Axiom's
+  cuBLAS DGEMM target path.
 - CUDA `vx.matmulAdd(Array(f32), Array(f32), Array(f32))` and the f64 equivalent
   use Axiom cached cuBLAS/cuBLASLt-backed GEMM paths so the addend is consumed in
   the GEMM epilogue instead of launching a separate add kernel.

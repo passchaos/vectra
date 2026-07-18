@@ -53,6 +53,7 @@ pub const CudaDeviceGemmReportSnapshot = struct {
     cache_hit: bool = false,
     lt_plan_cache_hit: bool = false,
     lt_algo_cache_hit: bool = false,
+    memref_spec_fingerprint: u64 = 0,
     fingerprint: u64 = 0,
 
     pub fn valid(report: CudaDeviceGemmReportSnapshot) bool {
@@ -127,8 +128,15 @@ fn recordCudaDeviceGemmReport(report: anytype) void {
         .cache_hit = report.cache_hit,
         .lt_plan_cache_hit = report.lt_plan_cache_hit,
         .lt_algo_cache_hit = report.lt_algo_cache_hit,
+        .memref_spec_fingerprint = cudaDeviceReportMemRefSpecFingerprint(report),
         .fingerprint = report.fingerprint(),
     };
+}
+
+fn cudaDeviceReportMemRefSpecFingerprint(report: anytype) u64 {
+    const Report = @TypeOf(report);
+    if (comptime !@hasField(Report, "memref_spec_fingerprint")) return 0;
+    return report.memref_spec_fingerprint;
 }
 
 fn cudaDeviceMemRefReportAxis(report: anytype) usize {
@@ -2580,56 +2588,18 @@ pub fn tryDeviceMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) 
         out.deinit();
         return null;
     };
-
+    const spec = describeDeviceGemmMemRefSpec(m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs", "rhs", "out") catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const cublas_report = runtime.runCudaDeviceSgemm(lhs.device.index, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch null;
+    const cublas_report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
     if (cublas_report) |report| {
         recordCudaDeviceGemmReport(report);
         if (report.valid()) return out;
     }
-
-    try zeroStorage(out_storage);
-    var session = withCudaContext(lhs.device.index) catch return error.InvalidDevice;
-    defer session.driver.close();
-    defer session.context.release(&session.driver);
-    var cuda_arch_buffer: [16]u8 = undefined;
-    const resolved_arch = session.driver.resolveCudaArch(session.context.device, "auto", &cuda_arch_buffer) catch return error.BackendFailure;
-    const target = axiom.accelerator.cuda_backend.CudaBackendTarget.fromArch(resolved_arch);
-    const plan = axiom.accelerator.GemmBuilder.init()
-        .dimensions(m, n, k)
-        .alpha(1.0)
-        .beta(0.0)
-        .tile(@intCast(@min(n, @as(usize, 16))), @intCast(@min(m, @as(usize, 16))))
-        .cudaArch(resolved_arch)
-        .kernelSymbol("vectra_device_tile_gemm")
-        .build();
-    var artifact = axiom.accelerator.cuda_backend.lowerGemmKernelIrToCudaArtifact(lhs.allocator, plan.lowerToKernelIr(), target) catch return null;
-    defer artifact.deinit(lhs.allocator);
-    if (!artifact.valid()) return null;
-    const module = session.driver.moduleLoadData(artifact.ptx) catch return null;
-    defer session.driver.moduleUnload(module);
-    var symbol_buffer: [128]u8 = undefined;
-    const symbol = std.fmt.bufPrintSentinel(&symbol_buffer, "{s}", .{plan.kernel_symbol}, 0) catch return null;
-    const function = session.driver.moduleGetFunction(module, symbol.ptr) catch return null;
-    const invocation = plan.invocation() catch return null;
-
-    var a_ptr = lhs_storage.ptr;
-    var b_ptr = rhs_storage.ptr;
-    var c_ptr = out_storage.ptr;
-    var m_arg: i32 = std.math.cast(i32, m) orelse return error.InvalidShape;
-    var n_arg: i32 = std.math.cast(i32, n) orelse return error.InvalidShape;
-    var k_arg: i32 = std.math.cast(i32, k) orelse return error.InvalidShape;
-    var args = [_]?*anyopaque{
-        @ptrCast(&a_ptr),
-        @ptrCast(&b_ptr),
-        @ptrCast(&c_ptr),
-        @ptrCast(&m_arg),
-        @ptrCast(&n_arg),
-        @ptrCast(&k_arg),
-    };
-    session.driver.launchKernel(function, invocation.grid, invocation.block, invocation.shared_memory_bytes, &args) catch return null;
-    session.driver.synchronize() catch return null;
-    return out;
+    out.deinit();
+    return null;
 }
 
 pub fn tryDeviceMatmulF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
@@ -2825,8 +2795,9 @@ pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(
 
 pub fn runPendingMatmulF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
+    const spec = try describeDeviceGemmMemRefSpec(m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs", "pending_rhs", "pending_out");
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceSgemm(device.index, m, n, k, lhs_ptr, rhs_ptr, out_ptr) catch return error.BackendFailure;
+    const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
 }
@@ -4586,6 +4557,47 @@ fn describeDeviceBufferMemRef(
         shape,
         strides[0..stride_values.len],
     ) catch error.InvalidShape;
+}
+
+fn describeDeviceGemmMemRefSpec(
+    m: usize,
+    n: usize,
+    k: usize,
+    lhs_ptr: u64,
+    rhs_ptr: u64,
+    out_ptr: u64,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!axiom.accelerator.TensorGemmSpec {
+    const lhs_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
+        lhs_name,
+        lhs_ptr,
+        .f32,
+        .cuda,
+        0,
+        &.{ m, k },
+        &.{ @as(isize, @intCast(k)), 1 },
+    ) catch return error.InvalidShape;
+    const rhs_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
+        rhs_name,
+        rhs_ptr,
+        .f32,
+        .cuda,
+        0,
+        &.{ k, n },
+        &.{ @as(isize, @intCast(n)), 1 },
+    ) catch return error.InvalidShape;
+    const out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
+        out_name,
+        out_ptr,
+        .f32,
+        .cuda,
+        0,
+        &.{ m, n },
+        &.{ @as(isize, @intCast(n)), 1 },
+    ) catch return error.InvalidShape;
+    return axiom.accelerator.TensorGemmSpec.fromMemRefs(lhs_descriptor, rhs_descriptor, out_descriptor) catch error.InvalidShape;
 }
 
 fn reductionOpFromDialect(op: axiom.accelerator.DialectReductionOp) axiom.accelerator.TensorReduction2DOp {
