@@ -68,7 +68,9 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
   cuBLAS-backed GEMM runtime for PyTorch-class throughput.
 - CUDA `vx.matmulAdd(Array(f32/f64/f16/BFloat16), ...)` builds an Axiom
   memref-backed matmul-add spec with separate addend/output descriptors before
-  lowering to cached cuBLASLt-backed GEMM epilogues where available.
+  lowering to cached cuBLASLt-backed GEMM epilogues where available.  Fused f32
+  `matmul + add + sqrt/exp` uses the same memref-backed matmul-add spec before
+  selecting Axiom's fused unary epilogue seed.
 
 ## CPU-backed policy
 

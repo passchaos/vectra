@@ -2912,23 +2912,18 @@ pub fn runPendingMatmulAddUnaryF32(
     beta: f32,
 ) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
+    var spec = try describeDeviceGemmAddMemRefSpec(f32, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, "pending_unary_lhs", "pending_unary_rhs", "pending_unary_add", "pending_unary_out");
+    spec.alpha = alpha;
+    spec.beta = beta;
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceF32MatmulAddUnary(
+    const report = runtime.runCudaDeviceF32MatmulAddUnaryMemRefs(
         device.index,
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
             .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
             .abs => return error.TypeUnsupported,
         },
-        m,
-        n,
-        k,
-        lhs_ptr,
-        rhs_ptr,
-        add_ptr,
-        out_ptr,
-        alpha,
-        beta,
+        spec,
     ) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
