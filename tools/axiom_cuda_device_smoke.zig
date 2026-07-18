@@ -551,6 +551,16 @@ pub fn main(init: std.process.Init) !void {
         defer f64_softshrink.deinit();
         var f64_softshrink_host = try f64_softshrink.cpu();
         defer f64_softshrink_host.deinit();
+        var f64_loss_target = try vx.Array(f64).zerosOn(allocator, &.{ 2, 2 }, vx.cuda(0));
+        defer f64_loss_target.deinit();
+        var f64_smooth_l1 = try f64_shifted.smoothL1Loss(f64_loss_target, 1.0, .none);
+        defer f64_smooth_l1.deinit();
+        var f64_smooth_l1_host = try f64_smooth_l1.cpu();
+        defer f64_smooth_l1_host.deinit();
+        var f64_huber = try f64_shifted.huberLoss(f64_loss_target, 1.0, .none);
+        defer f64_huber.deinit();
+        var f64_huber_host = try f64_huber.cpu();
+        defer f64_huber_host.deinit();
         f64_elementwise_ok = f64_sum.device.isCuda() and f64_sum.device_storage != null and
             equalF64(f64_sum_host.data, &.{ 2, 3, 4, 5 }) and
             f64_scaled.device.isCuda() and f64_scaled.device_storage != null and
@@ -604,7 +614,11 @@ pub fn main(init: std.process.Init) !void {
             f64_celu.device.isCuda() and f64_celu.device_storage != null and
             approxF64(f64_celu_host.data[0], 2.0 * (std.math.exp(@as(f64, -1.0)) - 1.0), 1e-12) and
             f64_softshrink.device.isCuda() and f64_softshrink.device_storage != null and
-            approxF64(f64_softshrink_host.data[0], -1.5, 1e-12);
+            approxF64(f64_softshrink_host.data[0], -1.5, 1e-12) and
+            f64_smooth_l1.device.isCuda() and f64_smooth_l1.device_storage != null and
+            equalF64(f64_smooth_l1_host.data, &.{ 1.5, 0.5, 0, 0.5 }) and
+            f64_huber.device.isCuda() and f64_huber.device_storage != null and
+            equalF64(f64_huber_host.data, &.{ 1.5, 0.5, 0, 0.5 });
 
         var f64_fused = try vx.matmulAdd(f64_lhs, f64_rhs, f64_rhs);
         defer f64_fused.deinit();
