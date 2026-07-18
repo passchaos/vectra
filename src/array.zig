@@ -16732,6 +16732,21 @@ pub fn Array(comptime T: type) type {
 
         pub fn softshrink(self: Self, lambd: T) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var positive_excess_input = try self.subScalar(lambd);
+                    defer positive_excess_input.deinit();
+                    var positive_excess = try positive_excess_input.relu();
+                    defer positive_excess.deinit();
+                    var negated = try self.neg();
+                    defer negated.deinit();
+                    var negative_excess_input = try negated.subScalar(lambd);
+                    defer negative_excess_input.deinit();
+                    var negative_excess = try negative_excess_input.relu();
+                    defer negative_excess.deinit();
+                    return positive_excess.sub(negative_excess);
+                }
+            }
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
                 if (comptime T == BFloat16) {

@@ -108,6 +108,10 @@ pub fn main(init: std.process.Init) !void {
         defer softsign_out.deinit();
         var softsign_host = try softsign_out.cpu();
         defer softsign_host.deinit();
+        var softshrink_out = try shifted_for_relu.softshrink(0.5);
+        defer softshrink_out.deinit();
+        var softshrink_host = try softshrink_out.cpu();
+        defer softshrink_host.deinit();
         var elu_out = try shifted_for_relu.elu(1.0);
         defer elu_out.deinit();
         var elu_host = try elu_out.cpu();
@@ -160,6 +164,9 @@ pub fn main(init: std.process.Init) !void {
             softsign_out.device.isCuda() and softsign_out.device_storage != null and
             approxF32(softsign_host.data[0], -2.0 / 3.0, 0.01) and
             approxF32(softsign_host.data[3], 0.5, 0.01) and
+            softshrink_out.device.isCuda() and softshrink_out.device_storage != null and
+            approxF32(softshrink_host.data[0], -1.5, 0.01) and
+            approxF32(softshrink_host.data[3], 0.5, 0.01) and
             elu_out.device.isCuda() and elu_out.device_storage != null and
             approxF32(elu_host.data[0], std.math.exp(@as(f32, -2.0)) - 1.0, 0.01) and
             approxF32(elu_host.data[3], 1.0, 0.01) and
