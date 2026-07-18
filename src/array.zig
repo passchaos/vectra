@@ -16966,6 +16966,15 @@ pub fn Array(comptime T: type) type {
 
         pub fn softsign(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var abs_values = try self.abs();
+                    defer abs_values.deinit();
+                    var denominator = try abs_values.addScalar(one(T));
+                    defer denominator.deinit();
+                    return self.div(denominator);
+                }
+            }
             return self.unary(struct {
                 fn f(a: T) T {
                     return a / (one(T) + @abs(a));

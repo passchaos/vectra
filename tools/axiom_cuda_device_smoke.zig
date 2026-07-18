@@ -103,6 +103,10 @@ pub fn main(init: std.process.Init) !void {
         defer hardswish_out.deinit();
         var hardswish_host = try hardswish_out.cpu();
         defer hardswish_host.deinit();
+        var softsign_out = try shifted_for_relu.softsign();
+        defer softsign_out.deinit();
+        var softsign_host = try softsign_out.cpu();
+        defer softsign_host.deinit();
         var scaled_for_max = try shifted_for_relu.mulScalar(0.1);
         defer scaled_for_max.deinit();
         var leaky_relu_out = try shifted_for_relu.leakyRelu(0.1);
@@ -144,6 +148,9 @@ pub fn main(init: std.process.Init) !void {
             hardswish_out.device.isCuda() and hardswish_out.device_storage != null and
             approxF32(hardswish_host.data[0], -2.0 / 6.0, 0.01) and
             approxF32(hardswish_host.data[3], @as(f32, 4.0) / 6.0, 0.01) and
+            softsign_out.device.isCuda() and softsign_out.device_storage != null and
+            approxF32(softsign_host.data[0], -2.0 / 3.0, 0.01) and
+            approxF32(softsign_host.data[3], 0.5, 0.01) and
             leaky_relu_out.device.isCuda() and leaky_relu_out.device_storage != null and
             approxF32(leaky_relu_host.data[0], -0.2, 0.01) and
             approxF32(leaky_relu_host.data[3], 1.0, 0.01) and
