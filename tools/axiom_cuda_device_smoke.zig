@@ -75,6 +75,10 @@ pub fn main(init: std.process.Init) !void {
         defer reciprocal.deinit();
         var reciprocal_host = try reciprocal.cpu();
         defer reciprocal_host.deinit();
+        var rsqrt = try lhs.rsqrt();
+        defer rsqrt.deinit();
+        var rsqrt_host = try rsqrt.cpu();
+        defer rsqrt_host.deinit();
         var shifted_for_relu = try lhs.subScalar(3);
         defer shifted_for_relu.deinit();
         var relu_out = try shifted_for_relu.relu();
@@ -160,6 +164,9 @@ pub fn main(init: std.process.Init) !void {
             reciprocal.device.isCuda() and reciprocal.device_storage != null and
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
             approxF32(reciprocal_host.data[3], 0.25, 1e-6) and
+            rsqrt.device.isCuda() and rsqrt.device_storage != null and
+            approxF32(rsqrt_host.data[0], 1.0, 0.01) and
+            approxF32(rsqrt_host.data[3], 0.5, 0.01) and
             relu_out.device.isCuda() and relu_out.device_storage != null and
             equalF32(relu_host.data, &.{ 0, 0, 0, 1 }) and
             threshold_zero_out.device.isCuda() and threshold_zero_out.device_storage != null and
@@ -442,6 +449,10 @@ pub fn main(init: std.process.Init) !void {
         defer f64_sqrt.deinit();
         var f64_sqrt_host = try f64_sqrt.cpu();
         defer f64_sqrt_host.deinit();
+        var f64_rsqrt = try f64_lhs.rsqrt();
+        defer f64_rsqrt.deinit();
+        var f64_rsqrt_host = try f64_rsqrt.cpu();
+        defer f64_rsqrt_host.deinit();
         var f64_exp = try f64_sum.exp();
         defer f64_exp.deinit();
         var f64_exp_host = try f64_exp.cpu();
@@ -514,6 +525,9 @@ pub fn main(init: std.process.Init) !void {
             equalF64(f64_square_host.data, &.{ 1, 4, 9, 16 }) and
             f64_sqrt.device.isCuda() and
             approxF64(f64_sqrt_host.data[0], std.math.sqrt(@as(f64, 3)), 1e-12) and
+            f64_rsqrt.device.isCuda() and f64_rsqrt.device_storage != null and
+            approxF64(f64_rsqrt_host.data[0], 1.0, 1e-12) and
+            approxF64(f64_rsqrt_host.data[3], 0.5, 1e-12) and
             f64_exp.device.isCuda() and
             approxF64(f64_exp_host.data[0], std.math.exp(@as(f64, 2)), 1e-12) and
             f64_relu.device.isCuda() and f64_relu.device_storage != null and

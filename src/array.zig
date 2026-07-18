@@ -16484,6 +16484,13 @@ pub fn Array(comptime T: type) type {
 
         pub fn rsqrt(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var root = try self.sqrt();
+                    defer root.deinit();
+                    return root.reciprocal();
+                }
+            }
             return self.unary(opRsqrt);
         }
 
