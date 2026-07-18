@@ -2396,6 +2396,8 @@ fn executeCudaViewElementwiseScalar(comptime T: type, op: ElementwiseOp, input: 
         if (try axiom_cuda.tryViewScalarF32(cudaBinaryOp(op), @as(array_mod.ArrayView(f32), input), @as(f32, scalar), scalar_side == .lhs)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f64) {
         if (try axiom_cuda.tryViewScalarF64(cudaBinaryOp(op), @as(array_mod.ArrayView(f64), input), @as(f64, scalar), scalar_side == .lhs)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_cuda.tryViewScalarF16(cudaBinaryOp(op), @as(array_mod.ArrayView(f16), input), @as(f16, scalar), scalar_side == .lhs)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
