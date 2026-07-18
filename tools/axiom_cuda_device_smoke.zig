@@ -79,6 +79,10 @@ pub fn main(init: std.process.Init) !void {
         defer relu_out.deinit();
         var relu_host = try relu_out.cpu();
         defer relu_host.deinit();
+        var sigmoid_out = try shifted_for_relu.sigmoid();
+        defer sigmoid_out.deinit();
+        var sigmoid_host = try sigmoid_out.cpu();
+        defer sigmoid_host.deinit();
         direct_unary_scalar_ok = negated.device.isCuda() and negated.device_storage != null and
             equalF32(negated_host.data, &.{ -1, -2, -3, -4 }) and
             abs_negated.device.isCuda() and abs_negated.device_storage != null and
@@ -87,7 +91,10 @@ pub fn main(init: std.process.Init) !void {
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
             approxF32(reciprocal_host.data[3], 0.25, 1e-6) and
             relu_out.device.isCuda() and relu_out.device_storage != null and
-            equalF32(relu_host.data, &.{ 0, 0, 0, 1 });
+            equalF32(relu_host.data, &.{ 0, 0, 0, 1 }) and
+            sigmoid_out.device.isCuda() and sigmoid_out.device_storage != null and
+            approxF32(sigmoid_host.data[0], @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, 2.0))), 0.01) and
+            approxF32(sigmoid_host.data[3], @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0))), 0.01);
 
         var product = try lhs.matmul(rhs);
         defer product.deinit();

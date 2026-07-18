@@ -16854,6 +16854,17 @@ pub fn Array(comptime T: type) type {
 
         pub fn expit(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var negated = try self.neg();
+                    defer negated.deinit();
+                    var exp_negated = try negated.exp();
+                    defer exp_negated.deinit();
+                    var denominator = try exp_negated.addScalar(one(T));
+                    defer denominator.deinit();
+                    return denominator.reciprocal();
+                }
+            }
             return self.unary(opExpit);
         }
 
