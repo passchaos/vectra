@@ -1844,26 +1844,45 @@ fn tryDeviceBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
 }
 
 pub fn tryDeviceLogSoftmaxF32(input: array_mod.Array(f32), axis: u1) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceLogSoftmax(f32, input, axis);
+}
+
+pub fn tryDeviceLogSoftmaxF64(input: array_mod.Array(f64), axis: u1) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceLogSoftmax(f64, input, axis);
+}
+
+fn tryDeviceLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
+    if (T != f32 and T != f64) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
     if (input.shape.len != 2) return null;
     const in_storage = input.device_storage orelse return null;
     if (in_storage.len == 0) return null;
-    var out = try array_mod.Array(f32).emptyOn(input.allocator, input.shape, input.device);
+    var out = try array_mod.Array(T).emptyOn(input.allocator, input.shape, input.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
         out.deinit();
         return null;
     };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceLogSoftmaxF32(
-        input.device.index,
-        input.shape[0],
-        input.shape[1],
-        axis,
-        in_storage.ptr,
-        out_storage.ptr,
-    ) catch {
+    const report = (if (T == f32)
+        runtime.runCudaDeviceLogSoftmaxF32(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            out_storage.ptr,
+        )
+    else
+        runtime.runCudaDeviceLogSoftmaxF64(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            out_storage.ptr,
+        )) catch {
         out.deinit();
         return null;
     };
