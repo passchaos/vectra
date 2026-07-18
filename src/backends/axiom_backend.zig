@@ -1921,6 +1921,15 @@ fn matrixOrVectorColumnView(comptime T: type, input: array_mod.Array(T), name: [
     return view;
 }
 
+fn broadcastBiasView(comptime T: type, bias: array_mod.Array(T), axis: DialectBroadcastAxis, name: []const u8) ?axiom.accelerator.TensorBufferView {
+    if (axis == .row or bias.shape.len == 1) return bufferView(T, bias, name);
+    if (bias.shape.len != 2 or bias.shape[1] != 1 or bias.strides.len != 2) return null;
+    const stride = std.math.cast(isize, bias.strides[0]) orelse return null;
+    var view = axiom.accelerator.TensorBufferView.strided(name, @intCast(@intFromPtr(bias.data.ptr)), bias.shape[0], stride);
+    view.element_type = if (T == f32) .f32 else if (T == f64) .f64 else return null;
+    return view;
+}
+
 fn executeCpuReduction(
     comptime T: type,
     op: DialectReductionOp,
@@ -1997,7 +2006,7 @@ fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arr
             out.deinit();
             return null;
         };
-        const bias_view = bufferView(f32, bias32, "bias") orelse {
+        const bias_view = broadcastBiasView(f32, bias32, axis, "bias") orelse {
             out.deinit();
             return null;
         };
@@ -2023,7 +2032,7 @@ fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arr
             out.deinit();
             return null;
         };
-        const bias_view = bufferView(f64, bias64, "bias") orelse {
+        const bias_view = broadcastBiasView(f64, bias64, axis, "bias") orelse {
             out.deinit();
             return null;
         };
@@ -2466,7 +2475,7 @@ fn supportedBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
     if (dialectElement(T) == null) return false;
     if (!input.device.isCpu() or !bias.device.isCpu() or input.shape.len != 2) return false;
     if (!input.isContiguous() or !bias.isContiguous()) return false;
-    return broadcastBiasMatches(T, input, bias, axis);
+    return broadcastBiasMatchesArrayAdd(T, input, bias, axis);
 }
 
 fn supportedBroadcastAddExecution(comptime T: type, target: DialectBackend, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
@@ -2754,6 +2763,8 @@ test "Axiom dialect lowering reports broadcast generic route" {
     defer row.deinit();
     var column = try array_mod.Array(f32).fromSlice(gpa, &.{ 100, 200 }, &.{2});
     defer column.deinit();
+    var column2d = try array_mod.Array(f32).fromSlice(gpa, &.{ 100, 200 }, &.{ 2, 1 });
+    defer column2d.deinit();
 
     const cuda_report = try lowerBroadcastAddDialect(f32, input, row, .row, .cuda);
     try std.testing.expect(cuda_report.ok());
@@ -2768,6 +2779,9 @@ test "Axiom dialect lowering reports broadcast generic route" {
     var reversed_row_out = (try tryBroadcastAdd(f32, .cpu, row, input)) orelse return error.BackendFailure;
     defer reversed_row_out.deinit();
     try std.testing.expectEqualSlices(f32, row_out.data, reversed_row_out.data);
+    var column2d_out = (try tryBroadcastAdd(f32, .cpu, input, column2d)) orelse return error.BackendFailure;
+    defer column2d_out.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ 101, 102, 103, 204, 205, 206 }, column2d_out.data);
 
     setDefaultDialectBackend(.mps);
     const default_mps_report = try lowerBroadcastAddDialectDefault(f32, input, column, .column);
