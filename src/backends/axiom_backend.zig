@@ -513,7 +513,7 @@ pub fn broadcastAddRuntimeCapability(target: DialectBackend) RuntimeCapabilityRe
             .target = target,
             .operation = "broadcast_add",
             .status = .executable,
-            .reason = "Axiom CUDA exposes an eager f32 2D row/column broadcast-add runtime; other broadcast dtypes/shapes remain capability-gated.",
+            .reason = "Axiom CUDA exposes eager f32/f64 2D row/column broadcast-add runtimes; other broadcast dtypes/shapes remain capability-gated.",
         },
         .mps => .{
             .target = target,
@@ -2069,6 +2069,8 @@ fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arr
 fn executeCudaBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_cuda.tryDeviceBroadcastAddF32(@as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceBroadcastAddF64(@as(array_mod.Array(f64), input), @as(array_mod.Array(f64), bias), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2531,7 +2533,7 @@ fn supportedBroadcastAddExecution(comptime T: type, target: DialectBackend, inpu
         input.device.sameDevice(bias.device) and
         switch (target) {
             .cpu => supportedBroadcastAdd(T, input, bias, axis),
-            .cuda => T == f32 and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
+            .cuda => (T == f32 or T == f64) and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
             .mps => false,
         };
 }
