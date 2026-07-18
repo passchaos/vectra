@@ -100,6 +100,7 @@ REQUIRED_BUILD_SNIPPETS = (
     "einsum-smoke",
     "contraction-smoke",
     "indexing-smoke",
+    "shape-view-smoke",
     "axiom-descriptor-smoke",
     "axiom-dialect-lowering-smoke",
     "axiom-cuda-device-smoke",

@@ -231,6 +231,21 @@ pub fn build(b: *std.Build) void {
     const indexing_smoke_step = b.step("indexing-smoke", "Run NumPy/PyTorch-style gather/scatter/where indexing smoke");
     indexing_smoke_step.dependOn(&indexing_smoke_cmd.step);
 
+    const shape_view_smoke_exe = b.addExecutable(.{
+        .name = "vectra-shape-view-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/shape_view_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const shape_view_smoke_cmd = b.addRunArtifact(shape_view_smoke_exe);
+    const shape_view_smoke_step = b.step("shape-view-smoke", "Run NumPy/PyTorch-style shape/view/broadcast smoke");
+    shape_view_smoke_step.dependOn(&shape_view_smoke_cmd.step);
+
     const examples_step = b.step("examples", "Run Vectra usage examples");
 
     const basic_array_example_exe = b.addExecutable(.{
