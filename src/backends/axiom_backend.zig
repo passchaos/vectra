@@ -500,6 +500,52 @@ pub fn reductionRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
     };
 }
 
+pub fn broadcastAddRuntimeCapability(target: DialectBackend) RuntimeCapabilityReport {
+    return switch (target) {
+        .cpu => .{
+            .target = target,
+            .operation = "broadcast_add",
+            .status = .unavailable,
+            .reason = "Vectra has generic host broadcast fallback, but no dedicated Axiom eager broadcast-add runtime ABI is exposed yet.",
+        },
+        .cuda => .{
+            .target = target,
+            .operation = "broadcast_add",
+            .status = .lowering_only,
+            .reason = "Axiom CUDA linalg/schedule/vector/gpu broadcast-add lowering exists, but no eager CUDA broadcast runtime ABI is exposed to Vectra yet.",
+        },
+        .mps => .{
+            .target = target,
+            .operation = "broadcast_add",
+            .status = .unavailable,
+            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
+        },
+    };
+}
+
+pub fn transposeRuntimeCapability(target: DialectBackend) RuntimeCapabilityReport {
+    return switch (target) {
+        .cpu => .{
+            .target = target,
+            .operation = "transpose2d",
+            .status = .executable,
+            .reason = "Axiom CPU transpose runtime is routed through Veyra for contiguous f32/f64 2D transpose.",
+        },
+        .cuda => .{
+            .target = target,
+            .operation = "transpose2d",
+            .status = .lowering_only,
+            .reason = "Axiom CUDA linalg/schedule/vector/gpu transpose lowering exists, but no eager CUDA transpose runtime ABI is exposed to Vectra yet.",
+        },
+        .mps => .{
+            .target = target,
+            .operation = "transpose2d",
+            .status = .unavailable,
+            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
+        },
+    };
+}
+
 pub fn lowerBroadcastAddDialect(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis, backend: DialectBackend) array_mod.ArrayError!DialectBroadcastLoweringReport {
     if (!supportedBroadcastAdd(T, input, bias, axis)) return error.ShapeMismatch;
     const element = dialectElement(T) orelse return error.TypeUnsupported;
@@ -1088,6 +1134,7 @@ pub fn executeTranspose(
     input: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!supportedUnary2d(T, input)) return null;
+    if (!transposeRuntimeCapability(target).executable()) return null;
     return switch (target) {
         .cpu => executeCpuTranspose(T, input),
         .cuda => null,
