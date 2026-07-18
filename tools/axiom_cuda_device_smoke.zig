@@ -73,13 +73,21 @@ pub fn main(init: std.process.Init) !void {
         defer reciprocal.deinit();
         var reciprocal_host = try reciprocal.cpu();
         defer reciprocal_host.deinit();
+        var shifted_for_relu = try lhs.subScalar(3);
+        defer shifted_for_relu.deinit();
+        var relu_out = try shifted_for_relu.relu();
+        defer relu_out.deinit();
+        var relu_host = try relu_out.cpu();
+        defer relu_host.deinit();
         direct_unary_scalar_ok = negated.device.isCuda() and negated.device_storage != null and
             equalF32(negated_host.data, &.{ -1, -2, -3, -4 }) and
             abs_negated.device.isCuda() and abs_negated.device_storage != null and
             equalF32(abs_negated_host.data, &.{ 1, 2, 3, 4 }) and
             reciprocal.device.isCuda() and reciprocal.device_storage != null and
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
-            approxF32(reciprocal_host.data[3], 0.25, 1e-6);
+            approxF32(reciprocal_host.data[3], 0.25, 1e-6) and
+            relu_out.device.isCuda() and relu_out.device_storage != null and
+            equalF32(relu_host.data, &.{ 0, 0, 0, 1 });
 
         var product = try lhs.matmul(rhs);
         defer product.deinit();

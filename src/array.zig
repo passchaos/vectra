@@ -16586,6 +16586,15 @@ pub fn Array(comptime T: type) type {
 
         pub fn relu(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var abs_values = try self.abs();
+                    defer abs_values.deinit();
+                    var doubled_positive = try self.add(abs_values);
+                    defer doubled_positive.deinit();
+                    return doubled_positive.mulScalar(castValue(T, 0.5));
+                }
+            }
             return self.unary(struct {
                 fn f(a: T) T {
                     return if (a > zero(T)) a else zero(T);
