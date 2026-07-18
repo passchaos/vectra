@@ -336,7 +336,35 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_scaled.deinit();
         var bf16_scaled_host = try bf16_scaled.cpu();
         defer bf16_scaled_host.deinit();
-        bf16_scalar_mul_ok = bf16_scaled.device.isCuda() and bf16_scaled.device_storage != null and approxF32(bf16_scaled_host.data[0].toF32(), 1.0, 0.05);
+        var bf16_shifted = try bf16_lhs.subScalar(vx.BFloat16.fromF32(3));
+        defer bf16_shifted.deinit();
+        var bf16_relu = try bf16_shifted.relu();
+        defer bf16_relu.deinit();
+        var bf16_relu_host = try bf16_relu.cpu();
+        defer bf16_relu_host.deinit();
+        var bf16_sigmoid = try bf16_shifted.sigmoid();
+        defer bf16_sigmoid.deinit();
+        var bf16_sigmoid_host = try bf16_sigmoid.cpu();
+        defer bf16_sigmoid_host.deinit();
+        var bf16_softsign = try bf16_shifted.softsign();
+        defer bf16_softsign.deinit();
+        var bf16_softsign_host = try bf16_softsign.cpu();
+        defer bf16_softsign_host.deinit();
+        var bf16_clip = try bf16_shifted.clip(vx.BFloat16.fromF32(-0.5), vx.BFloat16.fromF32(0.5));
+        defer bf16_clip.deinit();
+        var bf16_clip_host = try bf16_clip.cpu();
+        defer bf16_clip_host.deinit();
+        bf16_scalar_mul_ok = bf16_scaled.device.isCuda() and bf16_scaled.device_storage != null and approxF32(bf16_scaled_host.data[0].toF32(), 1.0, 0.05) and
+            bf16_relu.device.isCuda() and bf16_relu.device_storage != null and
+            approxF32(bf16_relu_host.data[0].toF32(), 0, 0.05) and
+            approxF32(bf16_relu_host.data[3].toF32(), 1, 0.05) and
+            bf16_sigmoid.device.isCuda() and bf16_sigmoid.device_storage != null and
+            approxF32(bf16_sigmoid_host.data[0].toF32(), @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, 2.0))), 0.05) and
+            bf16_softsign.device.isCuda() and bf16_softsign.device_storage != null and
+            approxF32(bf16_softsign_host.data[0].toF32(), -2.0 / 3.0, 0.05) and
+            bf16_clip.device.isCuda() and bf16_clip.device_storage != null and
+            approxF32(bf16_clip_host.data[0].toF32(), -0.5, 0.05) and
+            approxF32(bf16_clip_host.data[3].toF32(), 0.5, 0.05);
         pending_fusion_status_ok = pending_fusion_status_ok and bf16_chained_status_ok and bf16_sqrt_status_ok and bf16_exp_status_ok;
 
         var f64_lhs = try vx.Array(f64).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 }, vx.cuda(0));
