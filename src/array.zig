@@ -16260,6 +16260,9 @@ pub fn Array(comptime T: type) type {
 
         pub fn neg(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (try axiom_backend.executeElementwiseScalarDefault(T, .mul, self, negValue(T, one(T)), .rhs)) |out| return out;
+            }
             return self.unary(opNeg);
         }
 
@@ -16293,6 +16296,9 @@ pub fn Array(comptime T: type) type {
 
         pub fn reciprocal(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (try axiom_backend.executeElementwiseScalarDefault(T, .div, self, one(T), .lhs)) |out| return out;
+            }
             return self.unary(opReciprocal);
         }
 
