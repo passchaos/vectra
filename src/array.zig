@@ -3995,6 +3995,11 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn reciprocal(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (self.shape.len == 1) {
+                    if (try axiom_backend.executeViewElementwiseScalarDefault(T, .div, self, one(T), .lhs)) |out| return out;
+                }
+            }
             return self.unary(opReciprocal);
         }
 
