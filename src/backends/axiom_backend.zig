@@ -536,7 +536,7 @@ pub fn transposeRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
             .target = target,
             .operation = "transpose2d",
             .status = .executable,
-            .reason = "Axiom CUDA exposes an eager f32 2D transpose runtime; other transpose dtypes/shapes remain capability-gated.",
+            .reason = "Axiom CUDA exposes eager f32/f64 2D transpose runtimes; other transpose dtypes/shapes remain capability-gated.",
         },
         .mps => .{
             .target = target,
@@ -2123,6 +2123,8 @@ fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.Ar
 fn executeCudaTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_cuda.tryDeviceTransposeF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceTransposeF64(@as(array_mod.Array(f64), input))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2468,7 +2470,7 @@ fn supportedTransposeExecution(comptime T: type, target: DialectBackend, input: 
     if (input.shape.len != 2 or !input.isContiguous()) return false;
     return switch (target) {
         .cpu => supportedUnary2d(T, input),
-        .cuda => input.device.isCuda() and T == f32 and input.device_storage != null,
+        .cuda => input.device.isCuda() and (T == f32 or T == f64) and input.device_storage != null,
         .mps => false,
     };
 }
