@@ -116,6 +116,29 @@ pub fn main(init: std.process.Init) !void {
     defer f16_view_mul.deinit();
     var f16_view_div = try f16_rhs_view.div(f16_lhs_view);
     defer f16_view_div.deinit();
+
+    var bf16_strided_lhs = try vx.Array(vx.BFloat16).fromSlice(allocator, &.{
+        vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(99), vx.BFloat16.fromF32(2), vx.BFloat16.fromF32(99),
+        vx.BFloat16.fromF32(3), vx.BFloat16.fromF32(99), vx.BFloat16.fromF32(4), vx.BFloat16.fromF32(99),
+    }, &.{8});
+    defer bf16_strided_lhs.deinit();
+    var bf16_strided_rhs = try vx.Array(vx.BFloat16).fromSlice(allocator, &.{
+        vx.BFloat16.fromF32(10), vx.BFloat16.fromF32(99), vx.BFloat16.fromF32(20), vx.BFloat16.fromF32(99),
+        vx.BFloat16.fromF32(30), vx.BFloat16.fromF32(99), vx.BFloat16.fromF32(40), vx.BFloat16.fromF32(99),
+    }, &.{8});
+    defer bf16_strided_rhs.deinit();
+    var bf16_lhs_view = try bf16_strided_lhs.asStrided(&.{4}, &.{2}, 0);
+    defer bf16_lhs_view.deinit();
+    var bf16_rhs_view = try bf16_strided_rhs.asStrided(&.{4}, &.{2}, 0);
+    defer bf16_rhs_view.deinit();
+    var bf16_view_add = try bf16_lhs_view.add(bf16_rhs_view);
+    defer bf16_view_add.deinit();
+    var bf16_view_sub = try bf16_rhs_view.sub(bf16_lhs_view);
+    defer bf16_view_sub.deinit();
+    var bf16_view_mul = try bf16_lhs_view.mul(bf16_rhs_view);
+    defer bf16_view_mul.deinit();
+    var bf16_view_div = try bf16_rhs_view.div(bf16_lhs_view);
+    defer bf16_view_div.deinit();
     vx.resetDefaultDialectBackend();
 
     const matmul_ok = report.ok() and matmul64_report.ok() and matmul64_report.selected == .axiom_cuda and out.data[0] == 58 and out.data[3] == 154;
@@ -138,6 +161,10 @@ pub fn main(init: std.process.Init) !void {
         equalF16(f16_view_sub.data, &.{ 9, 18, 27, 36 }, 0.02) and
         equalF16(f16_view_mul.data, &.{ 10, 40, 90, 160 }, 0.02) and
         equalF16(f16_view_div.data, &.{ 10, 10, 10, 10 }, 0.02);
+    const view_bf16_ok = equalBF16(bf16_view_add.data, &.{ 11, 22, 33, 44 }, 0.125) and
+        equalBF16(bf16_view_sub.data, &.{ 9, 18, 27, 36 }, 0.125) and
+        equalBF16(bf16_view_mul.data, &.{ 10, 40, 90, 160 }, 0.125) and
+        equalBF16(bf16_view_div.data, &.{ 10, 10, 10, 10 }, 0.125);
     const default_policy_ok = default_cpu_policy == .prefer_axiom_cpu and
         default_cuda_policy == .prefer_cuda and
         default_mps_policy == .prefer_axiom_cpu;
@@ -150,12 +177,16 @@ pub fn main(init: std.process.Init) !void {
         equalF32(eager_cpu.data, &.{ 58, 64, 139, 154 }) and
         equalF32(eager_cuda_default.data, eager_cpu.data) and
         equalF32(eager_mps_default.data, eager_cpu.data);
-    const ok = matmul_ok and elementwise_ok and scalar_ok and view_ok and view64_ok and view16_ok and default_policy_ok and dynamic_execution_ok;
+    const ok = matmul_ok and elementwise_ok and scalar_ok and view_ok and view64_ok and view16_ok and view_bf16_ok and default_policy_ok and dynamic_execution_ok;
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"view64_ok\":{},\"view16_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view64_fingerprint\":{d},\"view16_fingerprint\":{d}}}\n",
-        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view64_ok, view16_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data) },
+        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"view64_ok\":{},\"view16_ok\":{},\"view_bf16_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{}",
+        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view64_ok, view16_ok, view_bf16_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled },
+    );
+    try stdout.interface.print(
+        ",\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view64_fingerprint\":{d},\"view16_fingerprint\":{d},\"view_bf16_fingerprint\":{d}}}\n",
+        .{ report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data), hashBF16(bf16_view_add.data) ^ hashBF16(bf16_view_sub.data) ^ hashBF16(bf16_view_mul.data) ^ hashBF16(bf16_view_div.data) },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
@@ -208,6 +239,19 @@ fn hashF16(values: []const f16) u64 {
     return hasher.final();
 }
 
+fn hashBF16(values: []const vx.BFloat16) u64 {
+    var hasher = std.hash.Wyhash.init(0x0abc_beef_5731_ded3);
+    var len_bytes: [8]u8 = undefined;
+    std.mem.writeInt(u64, &len_bytes, values.len, .little);
+    hasher.update(&len_bytes);
+    for (values) |value| {
+        var bytes: [2]u8 = undefined;
+        std.mem.writeInt(u16, &bytes, value.bits, .little);
+        hasher.update(&bytes);
+    }
+    return hasher.final();
+}
+
 fn equalF64(actual: []const f64, expected: []const f64) bool {
     if (actual.len != expected.len) return false;
     for (actual, expected) |a, e| {
@@ -220,6 +264,14 @@ fn equalF16(actual: []const f16, expected: []const f32, tolerance: f32) bool {
     if (actual.len != expected.len) return false;
     for (actual, expected) |a, e| {
         if (@abs(@as(f32, @floatCast(a)) - e) > tolerance) return false;
+    }
+    return true;
+}
+
+fn equalBF16(actual: []const vx.BFloat16, expected: []const f32, tolerance: f32) bool {
+    if (actual.len != expected.len) return false;
+    for (actual, expected) |a, e| {
+        if (@abs(a.toF32() - e) > tolerance) return false;
     }
     return true;
 }
