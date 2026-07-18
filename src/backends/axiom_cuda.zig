@@ -1662,6 +1662,46 @@ pub fn tryDeviceUnaryF64(op: UnaryOp, input: array_mod.Array(f64)) array_mod.Arr
     return out;
 }
 
+pub fn tryDeviceReductionSumF32(input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
+    if (input.shape.len != 2) return null;
+    const in_storage = input.device_storage orelse return null;
+    if (in_storage.len == 0) return null;
+    var keep_shape: [2]usize = undefined;
+    var drop_shape: [1]usize = undefined;
+    const out_shape: []const usize = if (keepdims) shape: {
+        keep_shape = if (axis == 0) .{ 1, input.shape[1] } else .{ input.shape[0], 1 };
+        break :shape keep_shape[0..2];
+    } else shape: {
+        drop_shape[0] = if (axis == 0) input.shape[1] else input.shape[0];
+        break :shape drop_shape[0..1];
+    };
+    var out = try array_mod.Array(f32).emptyOn(input.allocator, out_shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
+    const report = runtime.runCudaDeviceReductionSumF32(
+        input.device.index,
+        input.shape[0],
+        input.shape[1],
+        axis,
+        in_storage.ptr,
+        out_storage.ptr,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    if (!report.valid()) {
+        out.deinit();
+        return null;
+    }
+    return out;
+}
+
 pub fn tryAddF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
     return tryBinaryF16(.add, lhs, rhs);
 }

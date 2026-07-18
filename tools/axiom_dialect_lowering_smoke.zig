@@ -62,7 +62,7 @@ pub fn main(init: std.process.Init) !void {
         elementwise_cuda_report.status == .lowered_cuda and
         elementwise_mps_report.status == .planned_mps and
         reduction_cuda_report.status == .lowered_cuda and
-        reduction_cuda_runtime.status == .lowering_only and
+        reduction_cuda_runtime.status == .executable and
         reduction_mps_report.status == .planned_mps and
         broadcast_cuda_report.status == .lowered_cuda and
         broadcast_cuda_runtime.status == .lowering_only and

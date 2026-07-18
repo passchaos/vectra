@@ -489,8 +489,8 @@ pub fn reductionRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
         .cuda => .{
             .target = target,
             .operation = "reduction",
-            .status = .lowering_only,
-            .reason = "Axiom CUDA linalg/schedule/vector/gpu reduction lowering exists, but no eager CUDA reduction runtime ABI is exposed to Vectra yet.",
+            .status = .executable,
+            .reason = "Axiom CUDA exposes an eager f32 2D sum reduction runtime; other reduction dtypes/ops remain capability-gated.",
         },
         .mps => .{
             .target = target,
@@ -1188,11 +1188,11 @@ pub fn executeReduction(
     axis: u1,
     keepdims: bool,
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    if (!supportedReduction2d(T, input)) return null;
+    if (!supportedReductionExecution(T, target, input, op)) return null;
     if (!reductionRuntimeCapability(target).executable()) return null;
     return switch (target) {
         .cpu => executeCpuReduction(T, op, input, axis, keepdims),
-        .cuda => null,
+        .cuda => executeCudaReduction(T, op, input, axis, keepdims),
         .mps => null,
     };
 }
@@ -1996,6 +1996,19 @@ fn executeCpuReduction(
     return null;
 }
 
+fn executeCudaReduction(
+    comptime T: type,
+    op: DialectReductionOp,
+    input: array_mod.Array(T),
+    axis: u1,
+    keepdims: bool,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32 and op == .sum) {
+        if (try axiom_cuda.tryDeviceReductionSumF32(@as(array_mod.Array(f32), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         const input32 = @as(array_mod.Array(f32), input);
@@ -2418,6 +2431,15 @@ fn supportedMatmulAddExecution(comptime T: type, lhs: array_mod.Array(T), rhs: a
 
 fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
+}
+
+fn supportedReductionExecution(comptime T: type, target: DialectBackend, input: array_mod.Array(T), op: DialectReductionOp) bool {
+    if (input.shape.len != 2 or !input.isContiguous()) return false;
+    return switch (target) {
+        .cpu => supportedReduction2d(T, input),
+        .cuda => input.device.isCuda() and T == f32 and op == .sum and input.device_storage != null,
+        .mps => false,
+    };
 }
 
 fn supportedReductionLowering2d(comptime T: type, input: array_mod.Array(T)) bool {
