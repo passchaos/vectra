@@ -17302,7 +17302,12 @@ pub fn Array(comptime T: type) type {
 
         pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Self {
             ensureFloat(T);
-            var lse = try self.logsumexp(axis_index, true);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (self.shape.len == 2 and (comptime T == f32)) {
+                const axis_u1: u1 = std.math.cast(u1, axis) orelse return error.InvalidAxis;
+                if (try axiom_backend.executeLogSoftmaxDefault(T, self, axis_u1)) |out| return out;
+            }
+            var lse = try self.logsumexp(@intCast(axis), true);
             defer lse.deinit();
             return self.sub(lse);
         }

@@ -547,6 +547,29 @@ pub fn transposeRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
     };
 }
 
+pub fn logSoftmaxRuntimeCapability(target: DialectBackend) RuntimeCapabilityReport {
+    return switch (target) {
+        .cpu => .{
+            .target = target,
+            .operation = "log_softmax2d",
+            .status = .lowering_only,
+            .reason = "Vectra composes CPU logSoftmax from logsumexp/sub today; no dedicated Axiom CPU logSoftmax runtime ABI is exposed yet.",
+        },
+        .cuda => .{
+            .target = target,
+            .operation = "log_softmax2d",
+            .status = .executable,
+            .reason = "Axiom CUDA exposes eager f32 2D axis logSoftmax runtime; other logSoftmax dtypes/shapes remain capability-gated.",
+        },
+        .mps => .{
+            .target = target,
+            .operation = "log_softmax2d",
+            .status = .unavailable,
+            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
+        },
+    };
+}
+
 pub fn softmaxRuntimeCapability(target: DialectBackend) RuntimeCapabilityReport {
     return switch (target) {
         .cpu => .{
@@ -1201,6 +1224,26 @@ pub fn executeDialectUnaryDefault(comptime T: type, op: DialectUnaryOp, input: a
         .square => .square,
         else => return null,
     }, input);
+}
+
+pub fn executeLogSoftmax(
+    comptime T: type,
+    target: DialectBackend,
+    input: array_mod.Array(T),
+    axis: u1,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!logSoftmaxRuntimeCapability(target).executable()) return null;
+    if (!targetCanAccessDevice(target, input.device)) return null;
+    if (input.shape.len != 2 or !input.isContiguous()) return null;
+    return switch (target) {
+        .cpu => null,
+        .cuda => executeCudaLogSoftmax(T, input, axis),
+        .mps => null,
+    };
+}
+
+pub fn executeLogSoftmaxDefault(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeLogSoftmax(T, defaultTargetForDevice(input.device), input, axis);
 }
 
 pub fn executeSoftmax(
@@ -2035,6 +2078,13 @@ fn executeCpuReduction(
             return null;
         }
         return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeCudaLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceLogSoftmaxF32(@as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
