@@ -513,6 +513,30 @@ pub fn main(init: std.process.Init) !void {
         defer f64_hardswish.deinit();
         var f64_hardswish_host = try f64_hardswish.cpu();
         defer f64_hardswish_host.deinit();
+        var f64_relu6 = try f64_shifted.relu6();
+        defer f64_relu6.deinit();
+        var f64_relu6_host = try f64_relu6.cpu();
+        defer f64_relu6_host.deinit();
+        var f64_clip_min_values = try vx.Array(f64).fullOn(allocator, &.{ 2, 2 }, -0.25, vx.cuda(0));
+        defer f64_clip_min_values.deinit();
+        var f64_clip_max_values = try vx.Array(f64).fullOn(allocator, &.{ 2, 2 }, 0.75, vx.cuda(0));
+        defer f64_clip_max_values.deinit();
+        var f64_clip_array = try f64_shifted.clipArray(f64_clip_min_values, f64_clip_max_values);
+        defer f64_clip_array.deinit();
+        var f64_clip_array_host = try f64_clip_array.cpu();
+        defer f64_clip_array_host.deinit();
+        var f64_elu = try f64_shifted.elu(1.0);
+        defer f64_elu.deinit();
+        var f64_elu_host = try f64_elu.cpu();
+        defer f64_elu_host.deinit();
+        var f64_celu = try f64_shifted.celu(2.0);
+        defer f64_celu.deinit();
+        var f64_celu_host = try f64_celu.cpu();
+        defer f64_celu_host.deinit();
+        var f64_softshrink = try f64_shifted.softshrink(0.5);
+        defer f64_softshrink.deinit();
+        var f64_softshrink_host = try f64_softshrink.cpu();
+        defer f64_softshrink_host.deinit();
         f64_elementwise_ok = f64_sum.device.isCuda() and f64_sum.device_storage != null and
             equalF64(f64_sum_host.data, &.{ 2, 3, 4, 5 }) and
             f64_scaled.device.isCuda() and f64_scaled.device_storage != null and
@@ -556,7 +580,17 @@ pub fn main(init: std.process.Init) !void {
             f64_hardsigmoid.device.isCuda() and f64_hardsigmoid.device_storage != null and
             approxF64(f64_hardsigmoid_host.data[0], 1.0 / 6.0, 1e-12) and
             f64_hardswish.device.isCuda() and f64_hardswish.device_storage != null and
-            approxF64(f64_hardswish_host.data[0], -2.0 / 6.0, 1e-12);
+            approxF64(f64_hardswish_host.data[0], -2.0 / 6.0, 1e-12) and
+            f64_relu6.device.isCuda() and f64_relu6.device_storage != null and
+            equalF64(f64_relu6_host.data, &.{ 0, 0, 0, 1 }) and
+            f64_clip_array.device.isCuda() and f64_clip_array.device_storage != null and
+            equalF64(f64_clip_array_host.data, &.{ -0.25, -0.25, 0, 0.75 }) and
+            f64_elu.device.isCuda() and f64_elu.device_storage != null and
+            approxF64(f64_elu_host.data[0], std.math.exp(@as(f64, -2.0)) - 1.0, 1e-12) and
+            f64_celu.device.isCuda() and f64_celu.device_storage != null and
+            approxF64(f64_celu_host.data[0], 2.0 * (std.math.exp(@as(f64, -1.0)) - 1.0), 1e-12) and
+            f64_softshrink.device.isCuda() and f64_softshrink.device_storage != null and
+            approxF64(f64_softshrink_host.data[0], -1.5, 1e-12);
 
         var f64_fused = try vx.matmulAdd(f64_lhs, f64_rhs, f64_rhs);
         defer f64_fused.deinit();
