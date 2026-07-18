@@ -881,6 +881,8 @@ pub const SmokeReport = struct {
     f16_strided_sub_ok: bool = false,
     f16_strided_mul_ok: bool = false,
     f16_strided_div_ok: bool = false,
+    f16_strided_memref_legality_fingerprint: u64 = 0,
+    f16_strided_scalar_memref_legality_fingerprint: u64 = 0,
     f16_strided_scalar_add_ok: bool = false,
     f16_strided_scalar_sub_ok: bool = false,
     f16_strided_scalar_mul_ok: bool = false,
@@ -889,6 +891,8 @@ pub const SmokeReport = struct {
     bf16_strided_sub_ok: bool = false,
     bf16_strided_mul_ok: bool = false,
     bf16_strided_div_ok: bool = false,
+    bf16_strided_memref_legality_fingerprint: u64 = 0,
+    bf16_strided_scalar_memref_legality_fingerprint: u64 = 0,
     bf16_strided_scalar_add_ok: bool = false,
     bf16_strided_scalar_sub_ok: bool = false,
     bf16_strided_scalar_mul_ok: bool = false,
@@ -981,6 +985,8 @@ pub const SmokeReport = struct {
             report.f16_strided_sub_ok and
             report.f16_strided_mul_ok and
             report.f16_strided_div_ok and
+            report.f16_strided_memref_legality_fingerprint != 0 and
+            report.f16_strided_scalar_memref_legality_fingerprint != 0 and
             report.f16_strided_scalar_add_ok and
             report.f16_strided_scalar_sub_ok and
             report.f16_strided_scalar_mul_ok and
@@ -989,6 +995,8 @@ pub const SmokeReport = struct {
             report.bf16_strided_sub_ok and
             report.bf16_strided_mul_ok and
             report.bf16_strided_div_ok and
+            report.bf16_strided_memref_legality_fingerprint != 0 and
+            report.bf16_strided_scalar_memref_legality_fingerprint != 0 and
             report.bf16_strided_scalar_add_ok and
             report.bf16_strided_scalar_sub_ok and
             report.bf16_strided_scalar_mul_ok and
@@ -1052,6 +1060,8 @@ pub const SmokeReport = struct {
             @as(u8, @intFromBool(!report.f16_strided_sub_ok)) +
             @as(u8, @intFromBool(!report.f16_strided_mul_ok)) +
             @as(u8, @intFromBool(!report.f16_strided_div_ok)) +
+            @as(u8, @intFromBool(report.f16_strided_memref_legality_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.f16_strided_scalar_memref_legality_fingerprint == 0)) +
             @as(u8, @intFromBool(!report.f16_strided_scalar_add_ok)) +
             @as(u8, @intFromBool(!report.f16_strided_scalar_sub_ok)) +
             @as(u8, @intFromBool(!report.f16_strided_scalar_mul_ok)) +
@@ -1060,6 +1070,8 @@ pub const SmokeReport = struct {
             @as(u8, @intFromBool(!report.bf16_strided_sub_ok)) +
             @as(u8, @intFromBool(!report.bf16_strided_mul_ok)) +
             @as(u8, @intFromBool(!report.bf16_strided_div_ok)) +
+            @as(u8, @intFromBool(report.bf16_strided_memref_legality_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.bf16_strided_scalar_memref_legality_fingerprint == 0)) +
             @as(u8, @intFromBool(!report.bf16_strided_scalar_add_ok)) +
             @as(u8, @intFromBool(!report.bf16_strided_scalar_sub_ok)) +
             @as(u8, @intFromBool(!report.bf16_strided_scalar_mul_ok)) +
@@ -1118,6 +1130,8 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.f16_strided_sub_ok);
         hashBool(&hasher, report.f16_strided_mul_ok);
         hashBool(&hasher, report.f16_strided_div_ok);
+        hashU64(&hasher, report.f16_strided_memref_legality_fingerprint);
+        hashU64(&hasher, report.f16_strided_scalar_memref_legality_fingerprint);
         hashBool(&hasher, report.f16_strided_scalar_add_ok);
         hashBool(&hasher, report.f16_strided_scalar_sub_ok);
         hashBool(&hasher, report.f16_strided_scalar_mul_ok);
@@ -1126,6 +1140,8 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.bf16_strided_sub_ok);
         hashBool(&hasher, report.bf16_strided_mul_ok);
         hashBool(&hasher, report.bf16_strided_div_ok);
+        hashU64(&hasher, report.bf16_strided_memref_legality_fingerprint);
+        hashU64(&hasher, report.bf16_strided_scalar_memref_legality_fingerprint);
         hashBool(&hasher, report.bf16_strided_scalar_add_ok);
         hashBool(&hasher, report.bf16_strided_scalar_sub_ok);
         hashBool(&hasher, report.bf16_strided_scalar_mul_ok);
@@ -1222,12 +1238,14 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_strided_half f16_strided_add={} f16_strided_sub={} f16_strided_mul={} f16_strided_div={} f16_strided_scalar_add={} f16_strided_scalar_sub={} f16_strided_scalar_mul={} f16_strided_scalar_div={} bf16_strided_add={} bf16_strided_sub={} bf16_strided_mul={} bf16_strided_div={} bf16_strided_scalar_add={} bf16_strided_scalar_sub={} bf16_strided_scalar_mul={} bf16_strided_scalar_div={}\n",
+            "vectra_axiom_cuda_strided_half f16_strided_add={} f16_strided_sub={} f16_strided_mul={} f16_strided_div={} f16_strided_memref={x} f16_strided_scalar_memref={x} f16_strided_scalar_add={} f16_strided_scalar_sub={} f16_strided_scalar_mul={} f16_strided_scalar_div={} bf16_strided_add={} bf16_strided_sub={} bf16_strided_mul={} bf16_strided_div={} bf16_strided_memref={x} bf16_strided_scalar_memref={x} bf16_strided_scalar_add={} bf16_strided_scalar_sub={} bf16_strided_scalar_mul={} bf16_strided_scalar_div={}\n",
             .{
                 report.f16_strided_add_ok,
                 report.f16_strided_sub_ok,
                 report.f16_strided_mul_ok,
                 report.f16_strided_div_ok,
+                report.f16_strided_memref_legality_fingerprint,
+                report.f16_strided_scalar_memref_legality_fingerprint,
                 report.f16_strided_scalar_add_ok,
                 report.f16_strided_scalar_sub_ok,
                 report.f16_strided_scalar_mul_ok,
@@ -1236,6 +1254,8 @@ pub const SmokeReport = struct {
                 report.bf16_strided_sub_ok,
                 report.bf16_strided_mul_ok,
                 report.bf16_strided_div_ok,
+                report.bf16_strided_memref_legality_fingerprint,
+                report.bf16_strided_scalar_memref_legality_fingerprint,
                 report.bf16_strided_scalar_add_ok,
                 report.bf16_strided_scalar_sub_ok,
                 report.bf16_strided_scalar_mul_ok,
@@ -1454,6 +1474,8 @@ pub const SmokeReport = struct {
                 "  \"f16_strided_sub_ok\": {},\n" ++
                 "  \"f16_strided_mul_ok\": {},\n" ++
                 "  \"f16_strided_div_ok\": {},\n" ++
+                "  \"f16_strided_memref_legality_fingerprint\": {d},\n" ++
+                "  \"f16_strided_scalar_memref_legality_fingerprint\": {d},\n" ++
                 "  \"f16_strided_scalar_add_ok\": {},\n" ++
                 "  \"f16_strided_scalar_sub_ok\": {},\n" ++
                 "  \"f16_strided_scalar_mul_ok\": {},\n" ++
@@ -1467,6 +1489,8 @@ pub const SmokeReport = struct {
                 report.f16_strided_sub_ok,
                 report.f16_strided_mul_ok,
                 report.f16_strided_div_ok,
+                report.f16_strided_memref_legality_fingerprint,
+                report.f16_strided_scalar_memref_legality_fingerprint,
                 report.f16_strided_scalar_add_ok,
                 report.f16_strided_scalar_sub_ok,
                 report.f16_strided_scalar_mul_ok,
@@ -1478,11 +1502,15 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "  \"bf16_strided_scalar_add_ok\": {},\n" ++
+            "  \"bf16_strided_memref_legality_fingerprint\": {d},\n" ++
+                "  \"bf16_strided_scalar_memref_legality_fingerprint\": {d},\n" ++
+                "  \"bf16_strided_scalar_add_ok\": {},\n" ++
                 "  \"bf16_strided_scalar_sub_ok\": {},\n" ++
                 "  \"bf16_strided_scalar_mul_ok\": {},\n" ++
                 "  \"bf16_strided_scalar_div_ok\": {},\n",
             .{
+                report.bf16_strided_memref_legality_fingerprint,
+                report.bf16_strided_scalar_memref_legality_fingerprint,
                 report.bf16_strided_scalar_add_ok,
                 report.bf16_strided_scalar_sub_ok,
                 report.bf16_strided_scalar_mul_ok,
@@ -3481,6 +3509,12 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     defer f16_lhs_view.deinit();
     var f16_rhs_view = f16_strided_rhs.asStrided(&.{4}, &.{2}, 0) catch return failedReport();
     defer f16_rhs_view.deinit();
+    const f16_lhs_descriptor = describeHostViewMemRef(f16, f16_lhs_view, "lhs16") catch return failedReport();
+    const f16_rhs_descriptor = describeHostViewMemRef(f16, f16_rhs_view, "rhs16") catch return failedReport();
+    const f16_out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("out16", 0x9100, .f16, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const f16_legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(f16_lhs_descriptor, f16_rhs_descriptor, f16_out_descriptor);
+    if (!f16_legality.ok()) return failedReport();
+    report.f16_strided_memref_legality_fingerprint = f16_legality.fingerprint();
     var f16_strided_add = tryAddViewF16(f16_lhs_view, f16_rhs_view) catch return failedReport();
     if (f16_strided_add) |*out| {
         defer out.deinit();
@@ -3505,6 +3539,11 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.f16_strided_div_ok = f16Close(out.data, &.{ 10, 10, 10, 10 }, 0.02);
         report.output_fingerprint ^= hashF16Slice(out.data);
     }
+    const f16_scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar16", 0x9200, .f16, .host, 0, &.{4}, &.{0}) catch return failedReport();
+    const f16_scalar_out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar_out16", 0x9300, .f16, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const f16_scalar_legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(f16_lhs_descriptor, f16_scalar_descriptor, f16_scalar_out_descriptor);
+    if (!f16_scalar_legality.ok()) return failedReport();
+    report.f16_strided_scalar_memref_legality_fingerprint = f16_scalar_legality.fingerprint();
     var f16_strided_scalar_add = tryViewScalarF16(.add, f16_lhs_view, @as(f16, 2.0), false) catch return failedReport();
     if (f16_strided_scalar_add) |*out| {
         defer out.deinit();
@@ -3548,6 +3587,12 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     defer bf16_lhs_view.deinit();
     var bf16_rhs_view = bf16_strided_rhs.asStrided(&.{4}, &.{2}, 0) catch return failedReport();
     defer bf16_rhs_view.deinit();
+    const bf16_lhs_descriptor = describeHostViewMemRef(BFloat16, bf16_lhs_view, "lhs_bf16") catch return failedReport();
+    const bf16_rhs_descriptor = describeHostViewMemRef(BFloat16, bf16_rhs_view, "rhs_bf16") catch return failedReport();
+    const bf16_out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("out_bf16", 0xa100, .bf16, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const bf16_legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(bf16_lhs_descriptor, bf16_rhs_descriptor, bf16_out_descriptor);
+    if (!bf16_legality.ok()) return failedReport();
+    report.bf16_strided_memref_legality_fingerprint = bf16_legality.fingerprint();
     var bf16_strided_add = tryAddViewBF16(bf16_lhs_view, bf16_rhs_view) catch return failedReport();
     if (bf16_strided_add) |*out| {
         defer out.deinit();
@@ -3572,6 +3617,11 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
         report.bf16_strided_div_ok = bf16Close(out.data, &.{ 10, 10, 10, 10 }, 0.125);
         report.output_fingerprint ^= hashBF16Slice(out.data);
     }
+    const bf16_scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar_bf16", 0xa200, .bf16, .host, 0, &.{4}, &.{0}) catch return failedReport();
+    const bf16_scalar_out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar_out_bf16", 0xa300, .bf16, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const bf16_scalar_legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(bf16_lhs_descriptor, bf16_scalar_descriptor, bf16_scalar_out_descriptor);
+    if (!bf16_scalar_legality.ok()) return failedReport();
+    report.bf16_strided_scalar_memref_legality_fingerprint = bf16_scalar_legality.fingerprint();
     var bf16_strided_scalar_add = tryViewScalarBF16(.add, bf16_lhs_view, BFloat16.fromF32(2.0), false) catch return failedReport();
     if (bf16_strided_scalar_add) |*out| {
         defer out.deinit();
@@ -3956,14 +4006,16 @@ fn tryBinaryViewF16(op: BinaryOp, lhs: array_mod.ArrayView(f16), rhs: array_mod.
     const rhs_slice = viewBackingSliceTyped(f16, rhs) orelse return null;
     var out = try array_mod.Array(f16).empty(lhs.allocator, lhs.shape);
     errdefer out.deinit();
+    const lhs_descriptor = try describeHostViewMemRef(f16, lhs, "lhs");
+    const rhs_descriptor = try describeHostViewMemRef(f16, rhs, "rhs");
+    const out_descriptor = describeHostArrayMemRef(f16, out, "out") catch {
+        out.deinit();
+        return null;
+    };
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const result = runtime.runTensorElementwiseBinaryF16Native(lhs_slice, rhs_slice, out.data, .{
+    const result = runtime.runTensorElementwiseBinaryMemRefsNative(f16, .f16, lhs_slice, rhs_slice, out.data, lhs_descriptor, rhs_descriptor, out_descriptor, .{
         .op = axiomBinaryOp(op),
-        .len = lhs.shape[0],
-        .lhs_stride = @intCast(lhs.strides[0]),
-        .rhs_stride = @intCast(rhs.strides[0]),
-        .out_stride = 1,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_f16_strided_add",
             .sub => "vectra_axiom_f16_strided_sub",
@@ -3995,16 +4047,21 @@ fn tryBinaryViewScalarF16(op: BinaryOp, input: array_mod.ArrayView(f16), scalar:
 
     const lhs_slice = if (scalar_left) scalar_values[0..] else input_slice;
     const rhs_slice = if (scalar_left) input_slice else scalar_values[0..];
-    const lhs_stride: isize = if (scalar_left) 0 else @intCast(input.strides[0]);
-    const rhs_stride: isize = if (scalar_left) @intCast(input.strides[0]) else 0;
+    const input_descriptor = try describeHostViewMemRef(f16, input, "input");
+    const scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar", @intCast(@intFromPtr(&scalar_values[0])), .f16, .host, 0, &.{input.shape[0]}, &.{0}) catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeHostArrayMemRef(f16, out, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const lhs_descriptor = if (scalar_left) scalar_descriptor else input_descriptor;
+    const rhs_descriptor = if (scalar_left) input_descriptor else scalar_descriptor;
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const result = runtime.runTensorElementwiseBinaryF16Native(lhs_slice, rhs_slice, out.data, .{
+    const result = runtime.runTensorElementwiseBinaryMemRefsNative(f16, .f16, lhs_slice, rhs_slice, out.data, lhs_descriptor, rhs_descriptor, out_descriptor, .{
         .op = axiomBinaryOp(op),
-        .len = input.shape[0],
-        .lhs_stride = lhs_stride,
-        .rhs_stride = rhs_stride,
-        .out_stride = 1,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_f16_strided_scalar_add",
             .sub => "vectra_axiom_f16_strided_scalar_sub",
@@ -4042,14 +4099,22 @@ fn tryBinaryViewBF16(op: BinaryOp, lhs: array_mod.ArrayView(BFloat16), rhs: arra
     defer lhs.allocator.free(out_bits);
     for (lhs_slice, lhs_bits) |value, *slot| slot.* = value.bits;
     for (rhs_slice, rhs_bits) |value, *slot| slot.* = value.bits;
+    const lhs_descriptor = describeHostBitsViewMemRef(.bf16, lhs_bits.ptr, lhs.shape, lhs.strides, "lhs") catch {
+        out.deinit();
+        return null;
+    };
+    const rhs_descriptor = describeHostBitsViewMemRef(.bf16, rhs_bits.ptr, rhs.shape, rhs.strides, "rhs") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeHostBitsViewMemRef(.bf16, out_bits.ptr, out.shape, out.strides, "out") catch {
+        out.deinit();
+        return null;
+    };
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const result = runtime.runTensorElementwiseBinaryBF16Native(lhs_bits, rhs_bits, out_bits, .{
+    const result = runtime.runTensorElementwiseBinaryMemRefsNative(u16, .bf16, lhs_bits, rhs_bits, out_bits, lhs_descriptor, rhs_descriptor, out_descriptor, .{
         .op = axiomBinaryOp(op),
-        .len = lhs.shape[0],
-        .lhs_stride = @intCast(lhs.strides[0]),
-        .rhs_stride = @intCast(rhs.strides[0]),
-        .out_stride = 1,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_bf16_strided_add",
             .sub => "vectra_axiom_bf16_strided_sub",
@@ -4088,16 +4153,24 @@ fn tryBinaryViewScalarBF16(op: BinaryOp, input: array_mod.ArrayView(BFloat16), s
 
     const lhs_bits = if (scalar_left) scalar_bits[0..] else input_bits;
     const rhs_bits = if (scalar_left) input_bits else scalar_bits[0..];
-    const lhs_stride: isize = if (scalar_left) 0 else @intCast(input.strides[0]);
-    const rhs_stride: isize = if (scalar_left) @intCast(input.strides[0]) else 0;
+    const input_descriptor = describeHostBitsViewMemRef(.bf16, input_bits.ptr, input.shape, input.strides, "input") catch {
+        out.deinit();
+        return null;
+    };
+    const scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar", @intCast(@intFromPtr(&scalar_bits[0])), .bf16, .host, 0, &.{input.shape[0]}, &.{0}) catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeHostBitsViewMemRef(.bf16, out_bits.ptr, out.shape, out.strides, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const lhs_descriptor = if (scalar_left) scalar_descriptor else input_descriptor;
+    const rhs_descriptor = if (scalar_left) input_descriptor else scalar_descriptor;
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const result = runtime.runTensorElementwiseBinaryBF16Native(lhs_bits, rhs_bits, out_bits, .{
+    const result = runtime.runTensorElementwiseBinaryMemRefsNative(u16, .bf16, lhs_bits, rhs_bits, out_bits, lhs_descriptor, rhs_descriptor, out_descriptor, .{
         .op = axiomBinaryOp(op),
-        .len = input.shape[0],
-        .lhs_stride = lhs_stride,
-        .rhs_stride = rhs_stride,
-        .out_stride = 1,
         .kernel_symbol = switch (op) {
             .add => "vectra_axiom_bf16_strided_scalar_add",
             .sub => "vectra_axiom_bf16_strided_scalar_sub",
@@ -4500,6 +4573,25 @@ fn describeHostViewMemRef(comptime T: type, input: array_mod.ArrayView(T), name:
         input.offset,
         input.shape,
         strides[0..input.strides.len],
+    ) catch error.InvalidShape;
+}
+
+fn describeHostBitsViewMemRef(
+    element: axiom.accelerator.TensorElementType,
+    base_ptr: [*]const u16,
+    shape: []const usize,
+    stride_values: []const usize,
+    name: []const u8,
+) array_mod.ArrayError!axiom.accelerator.TensorMemRefDescriptor {
+    const strides = try usizeStridesToIsize(stride_values);
+    return axiom.accelerator.TensorMemRefDescriptor.init(
+        name,
+        @intCast(@intFromPtr(base_ptr)),
+        element,
+        .host,
+        0,
+        shape,
+        strides[0..stride_values.len],
     ) catch error.InvalidShape;
 }
 
