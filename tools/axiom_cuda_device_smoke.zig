@@ -79,6 +79,18 @@ pub fn main(init: std.process.Init) !void {
         defer pow_zero.deinit();
         var pow_zero_host = try pow_zero.cpu();
         defer pow_zero_host.deinit();
+        var pow_recip = try lhs.powScalar(-1);
+        defer pow_recip.deinit();
+        var pow_recip_host = try pow_recip.cpu();
+        defer pow_recip_host.deinit();
+        var pow_sqrt = try lhs.powScalar(0.5);
+        defer pow_sqrt.deinit();
+        var pow_sqrt_host = try pow_sqrt.cpu();
+        defer pow_sqrt_host.deinit();
+        var pow_rsqrt = try lhs.powScalar(-0.5);
+        defer pow_rsqrt.deinit();
+        var pow_rsqrt_host = try pow_rsqrt.cpu();
+        defer pow_rsqrt_host.deinit();
         var pow_cube = try lhs.powScalar(3);
         defer pow_cube.deinit();
         var pow_cube_host = try pow_cube.cpu();
@@ -192,6 +204,12 @@ pub fn main(init: std.process.Init) !void {
             approxF32(reciprocal_host.data[3], 0.25, 1e-6) and
             pow_zero.device.isCuda() and pow_zero.device_storage != null and
             equalF32(pow_zero_host.data, &.{ 1, 1, 1, 1 }) and
+            pow_recip.device.isCuda() and pow_recip.device_storage != null and
+            approxF32(pow_recip_host.data[3], 0.25, 1e-6) and
+            pow_sqrt.device.isCuda() and pow_sqrt.device_storage != null and
+            approxF32(pow_sqrt_host.data[3], 2, 0.01) and
+            pow_rsqrt.device.isCuda() and pow_rsqrt.device_storage != null and
+            approxF32(pow_rsqrt_host.data[3], 0.5, 0.01) and
             pow_cube.device.isCuda() and pow_cube.device_storage != null and
             equalF32(pow_cube_host.data, &.{ 1, 8, 27, 64 }) and
             rsqrt.device.isCuda() and rsqrt.device_storage != null and
@@ -404,6 +422,18 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_pow_zero.deinit();
         var bf16_pow_zero_host = try bf16_pow_zero.cpu();
         defer bf16_pow_zero_host.deinit();
+        var bf16_pow_recip = try bf16_lhs.powScalar(vx.BFloat16.fromF32(-1));
+        defer bf16_pow_recip.deinit();
+        var bf16_pow_recip_host = try bf16_pow_recip.cpu();
+        defer bf16_pow_recip_host.deinit();
+        var bf16_pow_sqrt = try bf16_lhs.powScalar(vx.BFloat16.fromF32(0.5));
+        defer bf16_pow_sqrt.deinit();
+        var bf16_pow_sqrt_host = try bf16_pow_sqrt.cpu();
+        defer bf16_pow_sqrt_host.deinit();
+        var bf16_pow_rsqrt = try bf16_lhs.powScalar(vx.BFloat16.fromF32(-0.5));
+        defer bf16_pow_rsqrt.deinit();
+        var bf16_pow_rsqrt_host = try bf16_pow_rsqrt.cpu();
+        defer bf16_pow_rsqrt_host.deinit();
         var bf16_pow_cube = try bf16_lhs.powScalar(vx.BFloat16.fromF32(3));
         defer bf16_pow_cube.deinit();
         var bf16_pow_cube_host = try bf16_pow_cube.cpu();
@@ -421,6 +451,12 @@ pub fn main(init: std.process.Init) !void {
             approxF32(bf16_clip_host.data[3].toF32(), 0.5, 0.05) and
             bf16_pow_zero.device.isCuda() and bf16_pow_zero.device_storage != null and
             approxF32(bf16_pow_zero_host.data[0].toF32(), 1, 0.05) and
+            bf16_pow_recip.device.isCuda() and bf16_pow_recip.device_storage != null and
+            approxF32(bf16_pow_recip_host.data[3].toF32(), 0.25, 0.05) and
+            bf16_pow_sqrt.device.isCuda() and bf16_pow_sqrt.device_storage != null and
+            approxF32(bf16_pow_sqrt_host.data[3].toF32(), 2, 0.05) and
+            bf16_pow_rsqrt.device.isCuda() and bf16_pow_rsqrt.device_storage != null and
+            approxF32(bf16_pow_rsqrt_host.data[3].toF32(), 0.5, 0.05) and
             bf16_pow_cube.device.isCuda() and bf16_pow_cube.device_storage != null and
             approxF32(bf16_pow_cube_host.data[3].toF32(), 64, 0.5);
         pending_fusion_status_ok = pending_fusion_status_ok and bf16_chained_status_ok and bf16_sqrt_status_ok and bf16_exp_status_ok;
@@ -449,6 +485,18 @@ pub fn main(init: std.process.Init) !void {
         defer f16_pow_zero.deinit();
         var f16_pow_zero_host = try f16_pow_zero.cpu();
         defer f16_pow_zero_host.deinit();
+        var f16_pow_recip = try f16_lhs.powScalar(@as(f16, -1));
+        defer f16_pow_recip.deinit();
+        var f16_pow_recip_host = try f16_pow_recip.cpu();
+        defer f16_pow_recip_host.deinit();
+        var f16_pow_sqrt = try f16_lhs.powScalar(@as(f16, 0.5));
+        defer f16_pow_sqrt.deinit();
+        var f16_pow_sqrt_host = try f16_pow_sqrt.cpu();
+        defer f16_pow_sqrt_host.deinit();
+        var f16_pow_rsqrt = try f16_lhs.powScalar(@as(f16, -0.5));
+        defer f16_pow_rsqrt.deinit();
+        var f16_pow_rsqrt_host = try f16_pow_rsqrt.cpu();
+        defer f16_pow_rsqrt_host.deinit();
         var f16_pow_cube = try f16_lhs.powScalar(@as(f16, 3));
         defer f16_pow_cube.deinit();
         var f16_pow_cube_host = try f16_pow_cube.cpu();
@@ -483,6 +531,12 @@ pub fn main(init: std.process.Init) !void {
             approxF16(f16_clip_host.data[3], 0.5, 0.05) and
             f16_pow_zero.device.isCuda() and f16_pow_zero.device_storage != null and
             approxF16(f16_pow_zero_host.data[0], 1, 0.05) and
+            f16_pow_recip.device.isCuda() and f16_pow_recip.device_storage != null and
+            approxF16(f16_pow_recip_host.data[3], 0.25, 0.05) and
+            f16_pow_sqrt.device.isCuda() and f16_pow_sqrt.device_storage != null and
+            approxF16(f16_pow_sqrt_host.data[3], 2, 0.05) and
+            f16_pow_rsqrt.device.isCuda() and f16_pow_rsqrt.device_storage != null and
+            approxF16(f16_pow_rsqrt_host.data[3], 0.5, 0.05) and
             f16_pow_cube.device.isCuda() and f16_pow_cube.device_storage != null and
             approxF16(f16_pow_cube_host.data[3], 64, 0.5) and
             f16_mse.device.isCuda() and f16_mse.device_storage != null and
@@ -537,6 +591,18 @@ pub fn main(init: std.process.Init) !void {
         defer f64_pow_zero.deinit();
         var f64_pow_zero_host = try f64_pow_zero.cpu();
         defer f64_pow_zero_host.deinit();
+        var f64_pow_recip = try f64_lhs.powScalar(-1);
+        defer f64_pow_recip.deinit();
+        var f64_pow_recip_host = try f64_pow_recip.cpu();
+        defer f64_pow_recip_host.deinit();
+        var f64_pow_sqrt = try f64_lhs.powScalar(0.5);
+        defer f64_pow_sqrt.deinit();
+        var f64_pow_sqrt_host = try f64_pow_sqrt.cpu();
+        defer f64_pow_sqrt_host.deinit();
+        var f64_pow_rsqrt = try f64_lhs.powScalar(-0.5);
+        defer f64_pow_rsqrt.deinit();
+        var f64_pow_rsqrt_host = try f64_pow_rsqrt.cpu();
+        defer f64_pow_rsqrt_host.deinit();
         var f64_pow_cube = try f64_lhs.powScalar(3);
         defer f64_pow_cube.deinit();
         var f64_pow_cube_host = try f64_pow_cube.cpu();
@@ -663,6 +729,12 @@ pub fn main(init: std.process.Init) !void {
             equalF64(f64_square_host.data, &.{ 1, 4, 9, 16 }) and
             f64_pow_zero.device.isCuda() and f64_pow_zero.device_storage != null and
             equalF64(f64_pow_zero_host.data, &.{ 1, 1, 1, 1 }) and
+            f64_pow_recip.device.isCuda() and f64_pow_recip.device_storage != null and
+            approxF64(f64_pow_recip_host.data[3], 0.25, 1e-12) and
+            f64_pow_sqrt.device.isCuda() and f64_pow_sqrt.device_storage != null and
+            approxF64(f64_pow_sqrt_host.data[3], 2, 1e-12) and
+            f64_pow_rsqrt.device.isCuda() and f64_pow_rsqrt.device_storage != null and
+            approxF64(f64_pow_rsqrt_host.data[3], 0.5, 1e-12) and
             f64_pow_cube.device.isCuda() and f64_pow_cube.device_storage != null and
             equalF64(f64_pow_cube_host.data, &.{ 1, 8, 27, 64 }) and
             f64_sqrt.device.isCuda() and

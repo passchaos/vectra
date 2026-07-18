@@ -53,11 +53,11 @@ Current registry summary:
 
 ## Current bridge behavior
 
-- `Array(f32)` and `Array(f64)` are native CUDA seed paths; f64 currently covers same-shape/scalar elementwise, maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/powScalar(0/1/2/3)/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink, DGEMM matmul, and matmulAdd/fusion.
+- `Array(f32)` and `Array(f64)` are native CUDA seed paths; f64 currently covers same-shape/scalar elementwise, maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/powScalar(-1/-0.5/0/0.5/1/2/3)/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink, DGEMM matmul, and matmulAdd/fusion.
 - `Array(f16)` and `Array(BFloat16)` now try Axiom's native typed CUDA
   elementwise runtime seeds for same-shape add/sub/mul/div before falling back to
   widened f32 routes; f16 and BFloat16 widened activation/powScalar combinations such as
-  relu/sigmoid/softsign/clip/powScalar(0/1/2/3) are covered by the CUDA device smoke.
+  relu/sigmoid/softsign/clip/powScalar(-1/-0.5/0/0.5/1/2/3) are covered by the CUDA device smoke.
 - `Array(f16)` and `Array(BFloat16)` matmul now exercise Axiom CUDA through
   Axiom's typed SIMT GEMM runtime seed entry points.  Those entry points report
   typed launch-plan/readiness/seed fingerprints and the explicit

@@ -16189,6 +16189,9 @@ pub fn Array(comptime T: type) type {
                 }
                 if (eqlValue(T, scalar, zero(T))) return Self.onesOn(self.allocator, self.shape, self.device);
                 if (eqlValue(T, scalar, one(T))) return self.clone();
+                if (eqlValue(T, scalar, negValue(T, one(T)))) return self.reciprocal();
+                if (eqlValue(T, scalar, castValue(T, 0.5))) return self.sqrt();
+                if (eqlValue(T, scalar, castValue(T, -0.5))) return self.rsqrt();
                 if (eqlValue(T, scalar, castValue(T, 2))) return self.square();
                 if (eqlValue(T, scalar, castValue(T, 3))) {
                     var squared = try self.square();
