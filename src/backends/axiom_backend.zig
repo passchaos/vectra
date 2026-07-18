@@ -2409,8 +2409,14 @@ fn executeCudaViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mo
 }
 
 fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32 and op == .abs) {
-        if (try axiom_cuda.tryAbsViewF32(@as(array_mod.ArrayView(f32), input))) |out| return @as(array_mod.Array(T), out);
+    if (T == f32) {
+        const out = switch (op) {
+            .abs => try axiom_cuda.tryAbsViewF32(@as(array_mod.ArrayView(f32), input)),
+            .sqrt => try axiom_cuda.trySqrtViewF32(@as(array_mod.ArrayView(f32), input)),
+            .exp => try axiom_cuda.tryExpViewF32(@as(array_mod.ArrayView(f32), input)),
+            .square => null,
+        };
+        if (out) |value| return @as(array_mod.Array(T), value);
     }
     return null;
 }

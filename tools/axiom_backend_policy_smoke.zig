@@ -88,6 +88,10 @@ pub fn main(init: std.process.Init) !void {
     defer view_neg.deinit();
     var view_abs = try view_neg.abs();
     defer view_abs.deinit();
+    var view_sqrt = try lhs_view.sqrt();
+    defer view_sqrt.deinit();
+    var view_exp = try lhs_view.exp();
+    defer view_exp.deinit();
     var view_square = try lhs_view.square();
     defer view_square.deinit();
     var view_reciprocal = try lhs_view.reciprocal();
@@ -241,6 +245,8 @@ pub fn main(init: std.process.Init) !void {
         equalBF16(bf16_view_scalar_div.data, &.{ 1, 2, 3, 4 }, 0.125);
     const view_unary_ok = equalF32(view_neg.data, &.{ -1, -2, -3, -4 }) and
         equalF32(view_abs.data, &.{ 1, 2, 3, 4 }) and
+        closeF32(view_sqrt.data, &.{ 1, 1.4142135, 1.7320508, 2 }, 1e-5) and
+        closeF32(view_exp.data, &.{ 2.7182817, 7.389056, 20.085537, 54.59815 }, 0.05) and
         equalF32(view_square.data, &.{ 1, 4, 9, 16 }) and
         closeF32(view_reciprocal.data, &.{ 1, 0.5, 0.33333334, 0.25 }, 1e-6) and
         equalF64(f64_view_neg.data, &.{ -1, -2, -3, -4 }) and

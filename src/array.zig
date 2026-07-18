@@ -4024,6 +4024,11 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn exp(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
+            if (comptime T == f32) {
+                if (self.shape.len == 1) {
+                    if (try axiom_backend.executeViewUnaryDefault(T, .exp, self)) |out| return out;
+                }
+            }
             return self.unary(Array(T).opExp);
         }
 
@@ -4076,6 +4081,11 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn sqrt(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
+            if (comptime T == f32) {
+                if (self.shape.len == 1) {
+                    if (try axiom_backend.executeViewUnaryDefault(T, .sqrt, self)) |out| return out;
+                }
+            }
             return self.unary(Array(T).opSqrt);
         }
 
