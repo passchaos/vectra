@@ -15975,6 +15975,19 @@ pub fn Array(comptime T: type) type {
 
         pub fn maximum(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, other.device)) {
+                    var delta = try self.sub(other);
+                    defer delta.deinit();
+                    var abs_delta = try delta.abs();
+                    defer abs_delta.deinit();
+                    var pair_sum = try self.add(other);
+                    defer pair_sum.deinit();
+                    var doubled = try pair_sum.add(abs_delta);
+                    defer doubled.deinit();
+                    return doubled.mulScalar(castValue(T, 0.5));
+                }
+            }
             return self.binaryArray(other, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, a, b)) b else a;
@@ -15984,6 +15997,19 @@ pub fn Array(comptime T: type) type {
 
         pub fn minimum(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, other.device)) {
+                    var delta = try self.sub(other);
+                    defer delta.deinit();
+                    var abs_delta = try delta.abs();
+                    defer abs_delta.deinit();
+                    var pair_sum = try self.add(other);
+                    defer pair_sum.deinit();
+                    var doubled = try pair_sum.sub(abs_delta);
+                    defer doubled.deinit();
+                    return doubled.mulScalar(castValue(T, 0.5));
+                }
+            }
             return self.binaryArray(other, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, b, a)) b else a;
@@ -16728,6 +16754,13 @@ pub fn Array(comptime T: type) type {
 
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var scaled_negative = try self.mulScalar(negative_slope);
+                    defer scaled_negative.deinit();
+                    return self.maximum(scaled_negative);
+                }
+            }
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
                 slot.* = if (value > zero(T)) value else mulValue(T, value, negative_slope);

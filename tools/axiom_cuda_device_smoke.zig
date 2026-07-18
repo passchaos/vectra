@@ -103,6 +103,20 @@ pub fn main(init: std.process.Init) !void {
         defer hardswish_out.deinit();
         var hardswish_host = try hardswish_out.cpu();
         defer hardswish_host.deinit();
+        var scaled_for_max = try shifted_for_relu.mulScalar(0.1);
+        defer scaled_for_max.deinit();
+        var leaky_relu_out = try shifted_for_relu.leakyRelu(0.1);
+        defer leaky_relu_out.deinit();
+        var leaky_relu_host = try leaky_relu_out.cpu();
+        defer leaky_relu_host.deinit();
+        var maximum_out = try shifted_for_relu.maximum(scaled_for_max);
+        defer maximum_out.deinit();
+        var maximum_host = try maximum_out.cpu();
+        defer maximum_host.deinit();
+        var minimum_out = try shifted_for_relu.minimum(scaled_for_max);
+        defer minimum_out.deinit();
+        var minimum_host = try minimum_out.cpu();
+        defer minimum_host.deinit();
         const sigmoid_neg2 = @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, 2.0)));
         const sigmoid_pos1 = @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0)));
         direct_unary_scalar_ok = negated.device.isCuda() and negated.device_storage != null and
@@ -129,7 +143,16 @@ pub fn main(init: std.process.Init) !void {
             approxF32(hardsigmoid_host.data[3], @as(f32, 4.0) / 6.0, 0.01) and
             hardswish_out.device.isCuda() and hardswish_out.device_storage != null and
             approxF32(hardswish_host.data[0], -2.0 / 6.0, 0.01) and
-            approxF32(hardswish_host.data[3], @as(f32, 4.0) / 6.0, 0.01);
+            approxF32(hardswish_host.data[3], @as(f32, 4.0) / 6.0, 0.01) and
+            leaky_relu_out.device.isCuda() and leaky_relu_out.device_storage != null and
+            approxF32(leaky_relu_host.data[0], -0.2, 0.01) and
+            approxF32(leaky_relu_host.data[3], 1.0, 0.01) and
+            maximum_out.device.isCuda() and maximum_out.device_storage != null and
+            approxF32(maximum_host.data[0], -0.2, 0.01) and
+            approxF32(maximum_host.data[3], 1.0, 0.01) and
+            minimum_out.device.isCuda() and minimum_out.device_storage != null and
+            approxF32(minimum_host.data[0], -2.0, 0.01) and
+            approxF32(minimum_host.data[3], 0.1, 0.01);
 
         var product = try lhs.matmul(rhs);
         defer product.deinit();
