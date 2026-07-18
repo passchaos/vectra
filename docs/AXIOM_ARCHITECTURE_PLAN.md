@@ -137,8 +137,10 @@ CPU path for CPU arrays, or return an explicit error.
   strided `ArrayView.add/sub/mul/div` via Axiom
   `runTensorElementwiseBinaryMemRefsF32` and f64 strided
   `ArrayView.add/sub/mul/div` plus scalar broadcast through Axiom's generic
-  `runTensorElementwiseBinaryMemRefsNative` ABI; `axiom-cuda-smoke` must report
-  non-zero f32/f64 strided and scalar-broadcast memref legality fingerprints so
+  `runTensorElementwiseBinaryMemRefsNative` ABI, and f32/f64 strided
+  `ArrayView.abs/sqrt/exp` through unary memref runtime ABIs;
+  `axiom-cuda-smoke` must report non-zero f32/f64 strided, unary, and
+  scalar-broadcast memref legality fingerprints so
   the bridge cannot silently regress to stride-only host-slice calls.
 
 ### Milestone C: reductions, broadcasts, transpose, and softmax

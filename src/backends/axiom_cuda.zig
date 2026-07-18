@@ -857,6 +857,7 @@ pub const SmokeReport = struct {
     strided_sqrt_ok: bool = false,
     strided_exp_ok: bool = false,
     strided_memref_legality_fingerprint: u64 = 0,
+    strided_unary_memref_legality_fingerprint: u64 = 0,
     strided_scalar_memref_legality_fingerprint: u64 = 0,
     strided_scalar_add_ok: bool = false,
     strided_scalar_sub_ok: bool = false,
@@ -870,6 +871,7 @@ pub const SmokeReport = struct {
     f64_strided_sqrt_ok: bool = false,
     f64_strided_exp_ok: bool = false,
     f64_strided_memref_legality_fingerprint: u64 = 0,
+    f64_strided_unary_memref_legality_fingerprint: u64 = 0,
     f64_strided_scalar_memref_legality_fingerprint: u64 = 0,
     f64_strided_scalar_add_ok: bool = false,
     f64_strided_scalar_sub_ok: bool = false,
@@ -955,6 +957,7 @@ pub const SmokeReport = struct {
             report.strided_sqrt_ok and
             report.strided_exp_ok and
             report.strided_memref_legality_fingerprint != 0 and
+            report.strided_unary_memref_legality_fingerprint != 0 and
             report.strided_scalar_memref_legality_fingerprint != 0 and
             report.strided_scalar_add_ok and
             report.strided_scalar_sub_ok and
@@ -968,6 +971,7 @@ pub const SmokeReport = struct {
             report.f64_strided_sqrt_ok and
             report.f64_strided_exp_ok and
             report.f64_strided_memref_legality_fingerprint != 0 and
+            report.f64_strided_unary_memref_legality_fingerprint != 0 and
             report.f64_strided_scalar_memref_legality_fingerprint != 0 and
             report.f64_strided_scalar_add_ok and
             report.f64_strided_scalar_sub_ok and
@@ -1024,6 +1028,7 @@ pub const SmokeReport = struct {
             @as(u8, @intFromBool(!report.strided_sqrt_ok)) +
             @as(u8, @intFromBool(!report.strided_exp_ok)) +
             @as(u8, @intFromBool(report.strided_memref_legality_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.strided_unary_memref_legality_fingerprint == 0)) +
             @as(u8, @intFromBool(report.strided_scalar_memref_legality_fingerprint == 0)) +
             @as(u8, @intFromBool(!report.strided_scalar_add_ok)) +
             @as(u8, @intFromBool(!report.strided_scalar_sub_ok)) +
@@ -1037,6 +1042,7 @@ pub const SmokeReport = struct {
             @as(u8, @intFromBool(!report.f64_strided_sqrt_ok)) +
             @as(u8, @intFromBool(!report.f64_strided_exp_ok)) +
             @as(u8, @intFromBool(report.f64_strided_memref_legality_fingerprint == 0)) +
+            @as(u8, @intFromBool(report.f64_strided_unary_memref_legality_fingerprint == 0)) +
             @as(u8, @intFromBool(report.f64_strided_scalar_memref_legality_fingerprint == 0)) +
             @as(u8, @intFromBool(!report.f64_strided_scalar_add_ok)) +
             @as(u8, @intFromBool(!report.f64_strided_scalar_sub_ok)) +
@@ -1088,6 +1094,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.strided_sqrt_ok);
         hashBool(&hasher, report.strided_exp_ok);
         hashU64(&hasher, report.strided_memref_legality_fingerprint);
+        hashU64(&hasher, report.strided_unary_memref_legality_fingerprint);
         hashU64(&hasher, report.strided_scalar_memref_legality_fingerprint);
         hashBool(&hasher, report.strided_scalar_add_ok);
         hashBool(&hasher, report.strided_scalar_sub_ok);
@@ -1101,6 +1108,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.f64_strided_sqrt_ok);
         hashBool(&hasher, report.f64_strided_exp_ok);
         hashU64(&hasher, report.f64_strided_memref_legality_fingerprint);
+        hashU64(&hasher, report.f64_strided_unary_memref_legality_fingerprint);
         hashU64(&hasher, report.f64_strided_scalar_memref_legality_fingerprint);
         hashBool(&hasher, report.f64_strided_scalar_add_ok);
         hashBool(&hasher, report.f64_strided_scalar_sub_ok);
@@ -1181,7 +1189,7 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_memref={x} strided_scalar_memref={x} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_memref={x} f64_strided_scalar_memref={x} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
+            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_memref={x} strided_unary_memref={x} strided_scalar_memref={x} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_memref={x} f64_strided_unary_memref={x} f64_strided_scalar_memref={x} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
             .{
                 report.strided_add_ok,
                 report.strided_sub_ok,
@@ -1191,6 +1199,7 @@ pub const SmokeReport = struct {
                 report.strided_sqrt_ok,
                 report.strided_exp_ok,
                 report.strided_memref_legality_fingerprint,
+                report.strided_unary_memref_legality_fingerprint,
                 report.strided_scalar_memref_legality_fingerprint,
                 report.strided_scalar_add_ok,
                 report.strided_scalar_sub_ok,
@@ -1204,6 +1213,7 @@ pub const SmokeReport = struct {
                 report.f64_strided_sqrt_ok,
                 report.f64_strided_exp_ok,
                 report.f64_strided_memref_legality_fingerprint,
+                report.f64_strided_unary_memref_legality_fingerprint,
                 report.f64_strided_scalar_memref_legality_fingerprint,
                 report.f64_strided_scalar_add_ok,
                 report.f64_strided_scalar_sub_ok,
@@ -1385,6 +1395,7 @@ pub const SmokeReport = struct {
                 "  \"strided_sqrt_ok\": {},\n" ++
                 "  \"strided_exp_ok\": {},\n" ++
                 "  \"strided_memref_legality_fingerprint\": {d},\n" ++
+                "  \"strided_unary_memref_legality_fingerprint\": {d},\n" ++
                 "  \"strided_scalar_memref_legality_fingerprint\": {d},\n" ++
                 "  \"strided_scalar_add_ok\": {},\n" ++
                 "  \"strided_scalar_sub_ok\": {},\n" ++
@@ -1398,6 +1409,7 @@ pub const SmokeReport = struct {
                 "  \"f64_strided_sqrt_ok\": {},\n" ++
                 "  \"f64_strided_exp_ok\": {},\n" ++
                 "  \"f64_strided_memref_legality_fingerprint\": {d},\n" ++
+                "  \"f64_strided_unary_memref_legality_fingerprint\": {d},\n" ++
                 "  \"f64_strided_scalar_memref_legality_fingerprint\": {d},\n" ++
                 "  \"f64_strided_scalar_add_ok\": {},\n" ++
                 "  \"f64_strided_scalar_sub_ok\": {},\n" ++
@@ -1415,6 +1427,7 @@ pub const SmokeReport = struct {
                 report.strided_sqrt_ok,
                 report.strided_exp_ok,
                 report.strided_memref_legality_fingerprint,
+                report.strided_unary_memref_legality_fingerprint,
                 report.strided_scalar_memref_legality_fingerprint,
                 report.strided_scalar_add_ok,
                 report.strided_scalar_sub_ok,
@@ -1428,6 +1441,7 @@ pub const SmokeReport = struct {
                 report.f64_strided_sqrt_ok,
                 report.f64_strided_exp_ok,
                 report.f64_strided_memref_legality_fingerprint,
+                report.f64_strided_unary_memref_legality_fingerprint,
                 report.f64_strided_scalar_memref_legality_fingerprint,
                 report.f64_strided_scalar_add_ok,
                 report.f64_strided_scalar_sub_ok,
@@ -3279,6 +3293,10 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     const legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(lhs_descriptor, rhs_descriptor, out_descriptor);
     if (!legality.ok()) return failedReport();
     report.strided_memref_legality_fingerprint = legality.fingerprint();
+    const unary_out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("unary_out", 0x9000, .f32, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const unary_legality = axiom.accelerator.TensorUnaryMemRefLegalityReport.unaryElementwise(lhs_descriptor, unary_out_descriptor);
+    if (!unary_legality.ok()) return failedReport();
+    report.strided_unary_memref_legality_fingerprint = unary_legality.fingerprint();
     var strided_add = tryAddViewF32(lhs_view, rhs_view) catch return failedReport();
     if (strided_add) |*out| {
         defer out.deinit();
@@ -3365,6 +3383,10 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     const f64_legality = axiom.accelerator.TensorMemRefLegalityReport.binaryElementwise(f64_lhs_descriptor, f64_rhs_descriptor, f64_out_descriptor);
     if (!f64_legality.ok()) return failedReport();
     report.f64_strided_memref_legality_fingerprint = f64_legality.fingerprint();
+    const f64_unary_out_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("unary_out64", 0x9000, .f64, .host, 0, &.{4}, &.{1}) catch return failedReport();
+    const f64_unary_legality = axiom.accelerator.TensorUnaryMemRefLegalityReport.unaryElementwise(f64_lhs_descriptor, f64_unary_out_descriptor);
+    if (!f64_unary_legality.ok()) return failedReport();
+    report.f64_strided_unary_memref_legality_fingerprint = f64_unary_legality.fingerprint();
     var f64_strided_add = tryAddViewF64(f64_lhs_view, f64_rhs_view) catch return failedReport();
     if (f64_strided_add) |*out| {
         defer out.deinit();
@@ -3787,16 +3809,17 @@ fn tryUnaryViewF32(op: UnaryOp, input: array_mod.ArrayView(f32)) array_mod.Array
     if (!supportedOneDimensionalView(input)) return null;
 
     const input_slice = viewBackingSlice(input) orelse return null;
-    const input_stride = std.math.cast(isize, input.strides[0]) orelse return null;
     var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
     errdefer out.deinit();
+    const input_descriptor = try describeHostViewMemRef(f32, input, "input");
+    const out_descriptor = describeHostArrayMemRef(f32, out, "out") catch {
+        out.deinit();
+        return null;
+    };
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const result = runtime.runTensorUnaryElementwiseF32(input_slice, out.data, .{
+    const result = runtime.runTensorUnaryElementwiseMemRefsF32(input_slice, out.data, input_descriptor, out_descriptor, .{
         .op = axiomUnaryOp(op),
-        .len = input.shape[0],
-        .input_stride = input_stride,
-        .out_stride = 1,
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => {
@@ -3900,16 +3923,17 @@ fn tryUnaryViewF64(op: UnaryOp, input: array_mod.ArrayView(f64)) array_mod.Array
     if (!supportedOneDimensionalViewTyped(f64, input)) return null;
 
     const input_slice = viewBackingSliceTyped(f64, input) orelse return null;
-    const input_stride = std.math.cast(isize, input.strides[0]) orelse return null;
     var out = try array_mod.Array(f64).empty(input.allocator, input.shape);
     errdefer out.deinit();
+    const input_descriptor = try describeHostViewMemRef(f64, input, "input");
+    const out_descriptor = describeHostArrayMemRef(f64, out, "out") catch {
+        out.deinit();
+        return null;
+    };
 
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const result = runtime.runTensorUnaryElementwiseF64(input_slice, out.data, .{
+    const result = runtime.runTensorUnaryElementwiseMemRefsF64(input_slice, out.data, input_descriptor, out_descriptor, .{
         .op = axiomUnaryOp(op),
-        .len = input.shape[0],
-        .input_stride = input_stride,
-        .out_stride = 1,
     }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => {
