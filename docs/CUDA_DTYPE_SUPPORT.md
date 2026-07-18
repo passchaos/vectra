@@ -10,9 +10,9 @@ Local CUDA evidence: `/usr/local/cuda/include/library_types.h` declares
 
 | CUDA dtype | Meaning in CUDA headers | Vectra dtype | Axiom bridge status |
 | --- | --- | --- | --- |
-| `CUDA_R_16F` | real half | `f16` | Same-shape add/sub/mul/div, contiguous 2D sum/prod/min/max(axis=0/1), row/column broadcast-add, and 2D transpose now try Axiom's native f16 CUDA runtime seeds first, with widened-to-f32 fallback for same-shape elementwise when needed. Contiguous 2D matmul calls Axiom's typed SIMT GEMM runtime seed, which reports typed launch-plan readiness and the explicit `widened_f32_cuda_compute` route while using widened f32 compute underneath today. |
+| `CUDA_R_16F` | real half | `f16` | Same-shape add/sub/mul/div, contiguous 2D sum/prod/min/max(axis=0/1), row/column broadcast-add, 2D transpose, and softmax(axis=0/1) now try Axiom's native f16 CUDA runtime seeds first, with widened-to-f32 fallback for same-shape elementwise when needed. Contiguous 2D matmul calls Axiom's typed SIMT GEMM runtime seed, which reports typed launch-plan readiness and the explicit `widened_f32_cuda_compute` route while using widened f32 compute underneath today. |
 | `CUDA_C_16F` | complex half pair | Not exposed | Planned. |
-| `CUDA_R_16BF` | real bfloat16 | `BFloat16` | Same-shape add/sub/mul/div, contiguous 2D sum/prod/min/max(axis=0/1), row/column broadcast-add, and 2D transpose now try Axiom's native BF16 CUDA runtime seeds first, with widened-to-f32 fallback for same-shape elementwise when needed. Contiguous 2D matmul calls Axiom's typed SIMT GEMM runtime seed, which reports typed launch-plan readiness and the explicit `widened_f32_cuda_compute` route while using widened f32 compute underneath today; CUTILE tensor-core lowering remains future work. |
+| `CUDA_R_16BF` | real bfloat16 | `BFloat16` | Same-shape add/sub/mul/div, contiguous 2D sum/prod/min/max(axis=0/1), row/column broadcast-add, 2D transpose, and softmax(axis=0/1) now try Axiom's native BF16 CUDA runtime seeds first, with widened-to-f32 fallback for same-shape elementwise when needed. Contiguous 2D matmul calls Axiom's typed SIMT GEMM runtime seed, which reports typed launch-plan readiness and the explicit `widened_f32_cuda_compute` route while using widened f32 compute underneath today; CUTILE tensor-core lowering remains future work. |
 | `CUDA_C_16BF` | complex bfloat16 pair | Not exposed | Planned. |
 | `CUDA_R_32F` | real float | `f32` | Native Axiom CUDA seed for add/sub/mul/div, SAXPY, and 2D softmax(axis=0/1); owning CUDA Array matmul/matmulAdd use Axiom cached cuBLAS SGEMM for production throughput with the CUDA Tile IR seed retained as fallback/provenance. |
 | `CUDA_C_32F` | complex float pair | `Complex64` | CPU Vectra support exists; Axiom CUDA bridge planned. |
@@ -56,7 +56,7 @@ Current registry summary:
 - `Array(f32)` and `Array(f64)` are native CUDA seed paths; f32 also covers 2D `sum/prod/min/max(axis=0/1)`, row/column broadcast-add, transpose, and softmax(axis=0/1), while f64 currently covers same-shape/scalar elementwise, 2D sum/prod/min/max(axis=0/1), broadcast-add(row/column), transpose, softmax(axis=0/1), maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/powScalar(-1/-0.5/0/0.5/1/2/3)/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink, DGEMM matmul, and matmulAdd/fusion.
 - `Array(f16)` and `Array(BFloat16)` now try Axiom's native typed CUDA
   elementwise runtime seeds for same-shape add/sub/mul/div and typed CUDA
-  reduction, broadcast-add, and transpose kernels for contiguous 2D sum/prod/min/max(axis=0/1), row/column bias-add, and 2D transpose before falling back to
+  reduction, broadcast-add, transpose, and softmax kernels for contiguous 2D sum/prod/min/max(axis=0/1), row/column bias-add, 2D transpose, and softmax(axis=0/1) before falling back to
   widened f32 routes; f16 and BFloat16 widened activation/powScalar combinations such as
   relu/sigmoid/softsign/clip/powScalar(-1/-0.5/0/0.5/1/2/3) are covered by the CUDA device smoke.
 - `Array(f16)` and `Array(BFloat16)` matmul now exercise Axiom CUDA through
@@ -82,7 +82,7 @@ zig build axiom-cuda-dispatch-smoke
 ```
 
 The CUDA smoke JSON includes `direct_softmax_ok`, `f16_add_ok`, `f16_matmul_ok`, `bf16_add_ok`,
-`bf16_matmul_ok`, `bf16_broadcast_ok`, `bf16_reduction_ok`, `bf16_transpose_ok`, `f16_broadcast_ok`, `f16_reduction_ok`, `f16_transpose_ok`, `f64_matmul_ok`, `f64_elementwise_ok`, `f64_softmax_ok`, and `f64_matmul_add_ok` fields when the CUDA smokes run. It also includes
+`bf16_matmul_ok`, `bf16_broadcast_ok`, `bf16_reduction_ok`, `bf16_transpose_ok`, `bf16_softmax_ok`, `f16_broadcast_ok`, `f16_reduction_ok`, `f16_transpose_ok`, `f16_softmax_ok`, `f64_matmul_ok`, `f64_elementwise_ok`, `f64_softmax_ok`, and `f64_matmul_add_ok` fields when the CUDA smokes run. It also includes
 `f16_native_execution_fingerprint` and `bf16_native_execution_fingerprint` when
 the native typed elementwise seeds run,
 `dtype_support_count`, `dtype_bridge_count`, `dtype_native_seed_count`,

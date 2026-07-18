@@ -1851,9 +1851,17 @@ pub fn tryDeviceSoftmaxF64(input: array_mod.Array(f64), axis: u1) array_mod.Arra
     return tryDeviceSoftmax(f64, input, axis);
 }
 
+pub fn tryDeviceSoftmaxF16(input: array_mod.Array(f16), axis: u1) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceSoftmax(f16, input, axis);
+}
+
+pub fn tryDeviceSoftmaxBF16(input: array_mod.Array(BFloat16), axis: u1) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceSoftmax(BFloat16, input, axis);
+}
+
 fn tryDeviceSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
-    if (T != f32 and T != f64) return null;
+    if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
     if (input.shape.len != 2) return null;
     const in_storage = input.device_storage orelse return null;
@@ -1874,8 +1882,26 @@ fn tryDeviceSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array
             in_storage.ptr,
             out_storage.ptr,
         )
-    else
+    else if (T == f64)
         runtime.runCudaDeviceSoftmaxF64(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            out_storage.ptr,
+        )
+    else if (T == f16)
+        runtime.runCudaDeviceSoftmaxF16(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            out_storage.ptr,
+        )
+    else
+        runtime.runCudaDeviceSoftmaxBF16(
             input.device.index,
             input.shape[0],
             input.shape[1],

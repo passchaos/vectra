@@ -22184,7 +22184,7 @@ pub fn Array(comptime T: type) type {
         pub fn softmax(self: Self, axis_index: isize) ArrayError!Self {
             ensureFloat(T);
             const axis = try normalizeDim(axis_index, self.shape.len);
-            if (self.shape.len == 2 and (comptime T == f32 or T == f64)) {
+            if (self.shape.len == 2 and (comptime T == f32 or T == f64 or T == f16 or T == BFloat16)) {
                 const axis_u1: u1 = std.math.cast(u1, axis) orelse return error.InvalidAxis;
                 if (try axiom_backend.executeSoftmaxDefault(T, self, axis_u1)) |out| return out;
             }
