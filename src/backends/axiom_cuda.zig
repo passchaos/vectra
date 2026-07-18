@@ -1755,45 +1755,24 @@ fn tryDeviceReduction(comptime T: type, op: axiom.accelerator.DialectReductionOp
 }
 
 pub fn tryDeviceBroadcastAddF32(input: array_mod.Array(f32), bias: array_mod.Array(f32), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f32) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!input.device.isCuda() or !bias.device.isCuda() or !input.device.sameDevice(bias.device)) return null;
-    if (input.data.len != 0 or bias.data.len != 0 or !input.isContiguous() or !bias.isContiguous()) return null;
-    if (input.shape.len != 2) return null;
-    const expected_bias_len = switch (axis) {
-        .row => input.shape[1],
-        .column => input.shape[0],
-    };
-    const in_storage = input.device_storage orelse return null;
-    const bias_storage = bias.device_storage orelse return null;
-    if (in_storage.len == 0 or bias_storage.len != expected_bias_len) return null;
-    var out = try array_mod.Array(f32).emptyOn(input.allocator, input.shape, input.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceBroadcastAddF32(
-        input.device.index,
-        input.shape[0],
-        input.shape[1],
-        axis,
-        in_storage.ptr,
-        bias_storage.ptr,
-        out_storage.ptr,
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    return out;
+    return tryDeviceBroadcastAdd(f32, input, bias, axis);
 }
 
 pub fn tryDeviceBroadcastAddF64(input: array_mod.Array(f64), bias: array_mod.Array(f64), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceBroadcastAdd(f64, input, bias, axis);
+}
+
+pub fn tryDeviceBroadcastAddF16(input: array_mod.Array(f16), bias: array_mod.Array(f16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceBroadcastAdd(f16, input, bias, axis);
+}
+
+pub fn tryDeviceBroadcastAddBF16(input: array_mod.Array(BFloat16), bias: array_mod.Array(BFloat16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceBroadcastAdd(BFloat16, input, bias, axis);
+}
+
+fn tryDeviceBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
+    if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or !bias.device.isCuda() or !input.device.sameDevice(bias.device)) return null;
     if (input.data.len != 0 or bias.data.len != 0 or !input.isContiguous() or !bias.isContiguous()) return null;
     if (input.shape.len != 2) return null;
@@ -1804,22 +1783,56 @@ pub fn tryDeviceBroadcastAddF64(input: array_mod.Array(f64), bias: array_mod.Arr
     const in_storage = input.device_storage orelse return null;
     const bias_storage = bias.device_storage orelse return null;
     if (in_storage.len == 0 or bias_storage.len != expected_bias_len) return null;
-    var out = try array_mod.Array(f64).emptyOn(input.allocator, input.shape, input.device);
+    var out = try array_mod.Array(T).emptyOn(input.allocator, input.shape, input.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
         out.deinit();
         return null;
     };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceBroadcastAddF64(
-        input.device.index,
-        input.shape[0],
-        input.shape[1],
-        axis,
-        in_storage.ptr,
-        bias_storage.ptr,
-        out_storage.ptr,
-    ) catch {
+    // Keep target and launch semantics inside Axiom; Vectra only selects the
+    // dtype-specialized ABI once central capability gating has approved CUDA
+    // device storage for this broadcast-add shape.
+    const report = (if (T == f32)
+        runtime.runCudaDeviceBroadcastAddF32(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            bias_storage.ptr,
+            out_storage.ptr,
+        )
+    else if (T == f64)
+        runtime.runCudaDeviceBroadcastAddF64(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            bias_storage.ptr,
+            out_storage.ptr,
+        )
+    else if (T == f16)
+        runtime.runCudaDeviceBroadcastAddF16(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            bias_storage.ptr,
+            out_storage.ptr,
+        )
+    else
+        runtime.runCudaDeviceBroadcastAddBF16(
+            input.device.index,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            bias_storage.ptr,
+            out_storage.ptr,
+        )) catch {
         out.deinit();
         return null;
     };

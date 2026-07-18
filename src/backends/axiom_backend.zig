@@ -513,7 +513,7 @@ pub fn broadcastAddRuntimeCapability(target: DialectBackend) RuntimeCapabilityRe
             .target = target,
             .operation = "broadcast_add",
             .status = .executable,
-            .reason = "Axiom CUDA exposes eager f32/f64 2D row/column broadcast-add runtimes; other broadcast dtypes/shapes remain capability-gated.",
+            .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D row/column broadcast-add runtimes; other broadcast dtypes/shapes remain capability-gated.",
         },
         .mps => .{
             .target = target,
@@ -2080,6 +2080,10 @@ fn executeCudaBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: ar
         if (try axiom_cuda.tryDeviceBroadcastAddF32(@as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f64) {
         if (try axiom_cuda.tryDeviceBroadcastAddF64(@as(array_mod.Array(f64), input), @as(array_mod.Array(f64), bias), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_cuda.tryDeviceBroadcastAddF16(@as(array_mod.Array(f16), input), @as(array_mod.Array(f16), bias), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_cuda.tryDeviceBroadcastAddBF16(@as(array_mod.Array(array_mod.BFloat16), input), @as(array_mod.Array(array_mod.BFloat16), bias), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2542,7 +2546,7 @@ fn supportedBroadcastAddExecution(comptime T: type, target: DialectBackend, inpu
         input.device.sameDevice(bias.device) and
         switch (target) {
             .cpu => supportedBroadcastAdd(T, input, bias, axis),
-            .cuda => (T == f32 or T == f64) and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
+            .cuda => (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
             .mps => false,
         };
 }
