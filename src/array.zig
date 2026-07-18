@@ -564,6 +564,12 @@ fn lessValue(comptime T: type, a: T, b: T) bool {
     };
 }
 
+fn eqlValue(comptime T: type, a: T, b: T) bool {
+    if (comptime T == BFloat16) return a.eql(b);
+    if (comptime isComplex(T)) return a.re == b.re and a.im == b.im;
+    return a == b;
+}
+
 fn quantileFromSortedValues(comptime T: type, sorted_values: []const T, q: T) T {
     const max_index = sorted_values.len - 1;
     const position = q * castValue(T, max_index);
@@ -16174,6 +16180,27 @@ pub fn Array(comptime T: type) type {
 
         pub fn powScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (self.pending_matmul != null) {
+                    if (eqlValue(T, scalar, zero(T))) return Self.onesOn(self.allocator, self.shape, self.device);
+                    var materialized = try self.materializePendingMatmul();
+                    defer materialized.deinit();
+                    return materialized.powScalar(scalar);
+                }
+                if (eqlValue(T, scalar, zero(T))) return Self.onesOn(self.allocator, self.shape, self.device);
+                if (eqlValue(T, scalar, one(T))) return self.clone();
+                if (eqlValue(T, scalar, castValue(T, 2))) return self.square();
+                if (eqlValue(T, scalar, castValue(T, 3))) {
+                    var squared = try self.square();
+                    defer squared.deinit();
+                    return squared.mul(self);
+                }
+                // Zig's std.math.pow does not define f16/BFloat16 overloads.
+                // Keep these low-precision dtypes on explicit Axiom-composed
+                // fast paths for the common integer exponents above instead of
+                // instantiating an unsupported generic host fallback.
+                if (comptime T == f16 or T == BFloat16) return error.TypeUnsupported;
+            }
             return self.binaryScalar(scalar, opPow);
         }
 

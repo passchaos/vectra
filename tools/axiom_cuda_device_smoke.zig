@@ -75,6 +75,14 @@ pub fn main(init: std.process.Init) !void {
         defer reciprocal.deinit();
         var reciprocal_host = try reciprocal.cpu();
         defer reciprocal_host.deinit();
+        var pow_zero = try lhs.powScalar(0);
+        defer pow_zero.deinit();
+        var pow_zero_host = try pow_zero.cpu();
+        defer pow_zero_host.deinit();
+        var pow_cube = try lhs.powScalar(3);
+        defer pow_cube.deinit();
+        var pow_cube_host = try pow_cube.cpu();
+        defer pow_cube_host.deinit();
         var rsqrt = try lhs.rsqrt();
         defer rsqrt.deinit();
         var rsqrt_host = try rsqrt.cpu();
@@ -182,6 +190,10 @@ pub fn main(init: std.process.Init) !void {
             reciprocal.device.isCuda() and reciprocal.device_storage != null and
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
             approxF32(reciprocal_host.data[3], 0.25, 1e-6) and
+            pow_zero.device.isCuda() and pow_zero.device_storage != null and
+            equalF32(pow_zero_host.data, &.{ 1, 1, 1, 1 }) and
+            pow_cube.device.isCuda() and pow_cube.device_storage != null and
+            equalF32(pow_cube_host.data, &.{ 1, 8, 27, 64 }) and
             rsqrt.device.isCuda() and rsqrt.device_storage != null and
             approxF32(rsqrt_host.data[0], 1.0, 0.01) and
             approxF32(rsqrt_host.data[3], 0.5, 0.01) and
@@ -388,6 +400,14 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_clip.deinit();
         var bf16_clip_host = try bf16_clip.cpu();
         defer bf16_clip_host.deinit();
+        var bf16_pow_zero = try bf16_lhs.powScalar(vx.BFloat16.fromF32(0));
+        defer bf16_pow_zero.deinit();
+        var bf16_pow_zero_host = try bf16_pow_zero.cpu();
+        defer bf16_pow_zero_host.deinit();
+        var bf16_pow_cube = try bf16_lhs.powScalar(vx.BFloat16.fromF32(3));
+        defer bf16_pow_cube.deinit();
+        var bf16_pow_cube_host = try bf16_pow_cube.cpu();
+        defer bf16_pow_cube_host.deinit();
         bf16_scalar_mul_ok = bf16_scaled.device.isCuda() and bf16_scaled.device_storage != null and approxF32(bf16_scaled_host.data[0].toF32(), 1.0, 0.05) and
             bf16_relu.device.isCuda() and bf16_relu.device_storage != null and
             approxF32(bf16_relu_host.data[0].toF32(), 0, 0.05) and
@@ -398,7 +418,11 @@ pub fn main(init: std.process.Init) !void {
             approxF32(bf16_softsign_host.data[0].toF32(), -2.0 / 3.0, 0.05) and
             bf16_clip.device.isCuda() and bf16_clip.device_storage != null and
             approxF32(bf16_clip_host.data[0].toF32(), -0.5, 0.05) and
-            approxF32(bf16_clip_host.data[3].toF32(), 0.5, 0.05);
+            approxF32(bf16_clip_host.data[3].toF32(), 0.5, 0.05) and
+            bf16_pow_zero.device.isCuda() and bf16_pow_zero.device_storage != null and
+            approxF32(bf16_pow_zero_host.data[0].toF32(), 1, 0.05) and
+            bf16_pow_cube.device.isCuda() and bf16_pow_cube.device_storage != null and
+            approxF32(bf16_pow_cube_host.data[3].toF32(), 64, 0.5);
         pending_fusion_status_ok = pending_fusion_status_ok and bf16_chained_status_ok and bf16_sqrt_status_ok and bf16_exp_status_ok;
 
         var f16_lhs = try vx.Array(f16).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 }, vx.cuda(0));
@@ -421,6 +445,14 @@ pub fn main(init: std.process.Init) !void {
         defer f16_clip.deinit();
         var f16_clip_host = try f16_clip.cpu();
         defer f16_clip_host.deinit();
+        var f16_pow_zero = try f16_lhs.powScalar(@as(f16, 0));
+        defer f16_pow_zero.deinit();
+        var f16_pow_zero_host = try f16_pow_zero.cpu();
+        defer f16_pow_zero_host.deinit();
+        var f16_pow_cube = try f16_lhs.powScalar(@as(f16, 3));
+        defer f16_pow_cube.deinit();
+        var f16_pow_cube_host = try f16_pow_cube.cpu();
+        defer f16_pow_cube_host.deinit();
         var f16_loss_target = try vx.Array(f16).zerosOn(allocator, &.{ 2, 2 }, vx.cuda(0));
         defer f16_loss_target.deinit();
         var f16_mse = try f16_shifted.mseLoss(f16_loss_target, .none);
@@ -449,6 +481,10 @@ pub fn main(init: std.process.Init) !void {
             f16_clip.device.isCuda() and f16_clip.device_storage != null and
             approxF16(f16_clip_host.data[0], -0.5, 0.05) and
             approxF16(f16_clip_host.data[3], 0.5, 0.05) and
+            f16_pow_zero.device.isCuda() and f16_pow_zero.device_storage != null and
+            approxF16(f16_pow_zero_host.data[0], 1, 0.05) and
+            f16_pow_cube.device.isCuda() and f16_pow_cube.device_storage != null and
+            approxF16(f16_pow_cube_host.data[3], 64, 0.5) and
             f16_mse.device.isCuda() and f16_mse.device_storage != null and
             approxF16(f16_mse_host.data[0], 4, 0.05) and
             f16_l1.device.isCuda() and f16_l1.device_storage != null and
@@ -497,6 +533,14 @@ pub fn main(init: std.process.Init) !void {
         defer f64_square.deinit();
         var f64_square_host = try f64_square.cpu();
         defer f64_square_host.deinit();
+        var f64_pow_zero = try f64_lhs.powScalar(0);
+        defer f64_pow_zero.deinit();
+        var f64_pow_zero_host = try f64_pow_zero.cpu();
+        defer f64_pow_zero_host.deinit();
+        var f64_pow_cube = try f64_lhs.powScalar(3);
+        defer f64_pow_cube.deinit();
+        var f64_pow_cube_host = try f64_pow_cube.cpu();
+        defer f64_pow_cube_host.deinit();
         var f64_sqrt = try f64_product.sqrt();
         defer f64_sqrt.deinit();
         var f64_sqrt_host = try f64_sqrt.cpu();
@@ -617,6 +661,10 @@ pub fn main(init: std.process.Init) !void {
             equalF64(f64_abs_host.data, &.{ 1, 2, 3, 4 }) and
             f64_square.device.isCuda() and f64_square.device_storage != null and
             equalF64(f64_square_host.data, &.{ 1, 4, 9, 16 }) and
+            f64_pow_zero.device.isCuda() and f64_pow_zero.device_storage != null and
+            equalF64(f64_pow_zero_host.data, &.{ 1, 1, 1, 1 }) and
+            f64_pow_cube.device.isCuda() and f64_pow_cube.device_storage != null and
+            equalF64(f64_pow_cube_host.data, &.{ 1, 8, 27, 64 }) and
             f64_sqrt.device.isCuda() and
             approxF64(f64_sqrt_host.data[0], std.math.sqrt(@as(f64, 3)), 1e-12) and
             f64_rsqrt.device.isCuda() and f64_rsqrt.device_storage != null and

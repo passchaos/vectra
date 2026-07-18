@@ -38,6 +38,8 @@ pub fn main(init: std.process.Init) !void {
     defer exp32.deinit();
     var square32 = try a32.square();
     defer square32.deinit();
+    var pow_cube32 = try a32.powScalar(3);
+    defer pow_cube32.deinit();
     var add_scalar32 = try a32.addScalar(2);
     defer add_scalar32.deinit();
     var sub_scalar32 = try a32.subScalar(2);
@@ -102,6 +104,8 @@ pub fn main(init: std.process.Init) !void {
     defer exp64.deinit();
     var square64 = try a64.square();
     defer square64.deinit();
+    var pow_zero64 = try a64.powScalar(0);
+    defer pow_zero64.deinit();
     var add_scalar64 = try a64.addScalar(2);
     defer add_scalar64.deinit();
     var sub_scalar64 = try a64.subScalar(2);
@@ -232,11 +236,13 @@ pub fn main(init: std.process.Init) !void {
         equalF32(square32.data, &.{ 1, 4, 9, 16, 25, 36 }) and
         approxF32(sqrt32.data[3], 2.0, 0.001) and
         approxF32(exp32.data[0], std.math.exp(@as(f32, 1.0)), 0.001) and
+        equalF32(pow_cube32.data, &.{ 1, 8, 27, 64, 125, 216 }) and
         equalF64(add64.data, &.{ 2, 4, 6, 8, 10, 12 }) and
         equalF64(sub64.data, &.{ 0, 0, 0, 0, 0, 0 }) and
         equalF64(mul64.data, &.{ 1, 4, 9, 16, 25, 36 }) and
         equalF64(div64.data, &.{ 1, 1, 1, 1, 1, 1 }) and
         equalF64(square64.data, &.{ 1, 4, 9, 16, 25, 36 }) and
+        equalF64(pow_zero64.data, &.{ 1, 1, 1, 1, 1, 1 }) and
         approxF64(sqrt64.data[3], 2.0, 1e-12) and
         approxF64(exp64.data[0], std.math.exp(@as(f64, 1.0)), 1e-12);
     const scalar_ok = equalF32(add_scalar32.data, &.{ 3, 4, 5, 6, 7, 8 }) and
@@ -294,7 +300,7 @@ pub fn main(init: std.process.Init) !void {
     const ok = matmul_ok and elementwise_ok and scalar_ok and reduction_ok and transpose_ok and vector_ok and dense_linalg_ok;
     var stdout_buffer: [4096]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
-    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"reduction_ok\":{},\"transpose_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"cpu_fusion_status32_ok\":{},\"cpu_fusion_status64_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"sqrt32_3\":{d},\"exp32_0\":{d},\"square32_5\":{d},\"div64_0\":{d},\"sqrt64_3\":{d},\"exp64_0\":{d},\"square64_5\":{d},\"sub_scalar64_0\":{d},", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, reduction_ok, transpose_ok, vector_ok, dense_linalg_ok, cpu_fusion_status32_ok, cpu_fusion_status64_ok, out32.data[0], out64.data[3], add32.data[5], sqrt32.data[3], exp32.data[0], square32.data[5], div64.data[0], sqrt64.data[3], exp64.data[0], square64.data[5], sub_scalar64.data[0] });
+    try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"reduction_ok\":{},\"transpose_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"cpu_fusion_status32_ok\":{},\"cpu_fusion_status64_ok\":{},\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"sqrt32_3\":{d},\"exp32_0\":{d},\"square32_5\":{d},\"pow_cube32_5\":{d},\"div64_0\":{d},\"sqrt64_3\":{d},\"exp64_0\":{d},\"square64_5\":{d},\"pow_zero64_0\":{d},\"sub_scalar64_0\":{d},", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, reduction_ok, transpose_ok, vector_ok, dense_linalg_ok, cpu_fusion_status32_ok, cpu_fusion_status64_ok, out32.data[0], out64.data[3], add32.data[5], sqrt32.data[3], exp32.data[0], square32.data[5], pow_cube32.data[5], div64.data[0], sqrt64.data[3], exp64.data[0], square64.data[5], pow_zero64.data[0], sub_scalar64.data[0] });
     try stdout.interface.print("\"row_sum32_1\":{d},\"col_max32_2\":{d},\"row_broadcast32_5\":{d},\"column_broadcast64_3\":{d},\"row_prod64_1\":{d},\"col_min64_0\":{d},\"transpose32_5\":{d},\"transpose64_5\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d},\"fro64\":{d},\"svd64_s0\":{d},\"singular64_s0\":{d},\"rank64\":{},\"cond64\":{d},\"two_norm64\":{d},\"nuclear64\":{d},\"pinv64_0\":{d},\"lstsq64_0\":{d},\"eigh64_0\":{d},\"eigh64_1\":{d}}}\n", .{ row_sum32.data[1], col_max32.data[2], row_broadcast32.data[5], column_broadcast64.data[3], row_prod64.data[1], col_min64.data[0], transpose32.data[5], transpose64.data[5], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2], fro64, svd64.s.data[0], singular_values64.data[0], rank64, cond64, two_norm64, nuclear_norm64, pinv64.data[0], lstsq64.data[0], eigen64.values.data[0], eigen64.values.data[1] });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
