@@ -127,6 +127,19 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
     return lhs.matmulAdd(rhs, addend);
 }
 
+pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
+    try requireSameDevice(lhs, rhs);
+    // Bounded NumPy/PyTorch-style front-end syntax over existing Array
+    // primitives.  This deliberately keeps execution routed through Array/Axiom
+    // matmul/dot/outer paths instead of adding a separate backend branch here.
+    if (@import("std").mem.eql(u8, subscripts, "ij,jk->ik")) return lhs.matmul(rhs);
+    if (@import("std").mem.eql(u8, subscripts, "ab,bc->ac")) return lhs.matmul(rhs);
+    if (@import("std").mem.eql(u8, subscripts, "i,i->")) return lhs.dot(rhs);
+    if (@import("std").mem.eql(u8, subscripts, "i,j->ij")) return lhs.outer(rhs);
+    if (@import("std").mem.eql(u8, subscripts, "ij,j->i")) return lhs.matmul(rhs);
+    return error.InvalidShape;
+}
+
 pub fn tryMatmulAddTarget(target: DialectBackend, lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!?@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);

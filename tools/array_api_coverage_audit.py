@@ -47,7 +47,7 @@ CAPABILITIES: tuple[Capability, ...] = (
     Capability("reductions", "nan_reductions", ("nansum", "nanmean", "nanvar", "nanstd", "nanmin", "nanmax"), ("numpy", "torch")),
     Capability("statistics", "order_statistics", ("median", "quantile", "percentile", "nanmedian", "nanquantile", "nanpercentile"), ("numpy", "torch")),
     Capability("statistics", "histogram_and_counts", ("histogram", "bincount", "countNonzero", "unique", "uniqueWithCounts"), ("numpy", "torch")),
-    Capability("linear_algebra", "matrix_products", ("matmul", "matmulAdd", "bmm", "dot", "vdot", "inner", "outer"), ("numpy.linalg", "torch.linalg")),
+    Capability("linear_algebra", "matrix_products", ("matmul", "matmulAdd", "bmm", "dot", "vdot", "inner", "outer", "einsum"), ("numpy.linalg", "torch.linalg")),
     Capability("linear_algebra", "factorizations_and_solves", ("solve", "lstsq", "cholesky", "qr", "svd", "eigh", "lu"), ("numpy.linalg", "torch.linalg")),
     Capability("linear_algebra", "matrix_properties", ("trace", "det", "inv", "pinv", "matrixRank", "matrixNorm", "matrixPower"), ("numpy.linalg", "torch.linalg")),
     Capability("sorting", "sorting_and_topk", ("sort", "argsort", "partition", "argpartition", "topk", "kthValue"), ("numpy", "torch")),
@@ -77,7 +77,7 @@ KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "einsum_and_general_contraction_syntax",
-        "reason": "matmul/dot/tensordot-style pieces exist, but NumPy einsum-compatible syntax is not audited as covered.",
+        "reason": "A bounded einsum-smoke exists for common contractions, but full NumPy einsum syntax is not covered yet.",
         "target_layer": "vectra_axiom",
     },
     {
@@ -97,6 +97,7 @@ SCOPED_OUT: tuple[dict[str, str], ...] = (
 REQUIRED_BUILD_SNIPPETS = (
     "api-boundary-audit",
     "dtype-promotion-smoke",
+    "einsum-smoke",
     "axiom-descriptor-smoke",
     "axiom-dialect-lowering-smoke",
     "axiom-cuda-device-smoke",
@@ -126,7 +127,7 @@ def capability_row(capability: Capability, methods: set[str]) -> dict[str, Any]:
 
 def main() -> int:
     array_text = read(ARRAY)
-    methods = public_methods(array_text)
+    methods = public_methods(array_text) | public_methods(read(REPO / "src" / "root.zig"))
     rows = [capability_row(capability, methods) for capability in CAPABILITIES]
     missing_required = [row for row in rows if row["status"] != "covered"]
 

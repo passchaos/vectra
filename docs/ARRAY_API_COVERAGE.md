@@ -14,6 +14,7 @@ Run:
 ```sh
 zig build array-api-coverage-audit
 zig build dtype-promotion-smoke
+zig build einsum-smoke
 ```
 
 The build step runs `tools/array_api_coverage_audit.py`, which statically checks
@@ -50,9 +51,9 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
 - Complete NumPy/PyTorch dtype promotion matrix: Vectra has promotion helpers
   and a representative `dtype-promotion-smoke`, but a full compatibility matrix
   still needs more explicit audited cases.
-- `einsum`/general contraction syntax: Vectra has matmul/dot/tensordot-style
-  building blocks, but NumPy-compatible `einsum` syntax is not audited as
-  covered.
+- `einsum`/general contraction syntax: Vectra now has a bounded `einsum-smoke`
+  for common binary contractions (`ij,jk->ik`, `i,i->`, `i,j->ij`,
+  `ij,j->i`), but full NumPy-compatible `einsum` syntax is not covered yet.
 - Sparse tensor/array layouts are outside the current dense Array surface.
 
 ## Backend evidence

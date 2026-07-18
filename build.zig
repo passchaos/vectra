@@ -186,6 +186,21 @@ pub fn build(b: *std.Build) void {
     const dtype_promotion_smoke_step = b.step("dtype-promotion-smoke", "Run representative NumPy/PyTorch-style dtype promotion smoke");
     dtype_promotion_smoke_step.dependOn(&dtype_promotion_smoke_cmd.step);
 
+    const einsum_smoke_exe = b.addExecutable(.{
+        .name = "vectra-einsum-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/einsum_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const einsum_smoke_cmd = b.addRunArtifact(einsum_smoke_exe);
+    const einsum_smoke_step = b.step("einsum-smoke", "Run bounded NumPy/PyTorch-style einsum syntax smoke");
+    einsum_smoke_step.dependOn(&einsum_smoke_cmd.step);
+
     const examples_step = b.step("examples", "Run Vectra usage examples");
 
     const basic_array_example_exe = b.addExecutable(.{
