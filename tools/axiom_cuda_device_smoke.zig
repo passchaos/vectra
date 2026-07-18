@@ -62,6 +62,8 @@ pub fn main(init: std.process.Init) !void {
     var f64_softmax_ok = !vx.axiom_cuda.enabled();
     var f64_log_softmax_ok = !vx.axiom_cuda.enabled();
     var f64_matmul_add_ok = !vx.axiom_cuda.enabled();
+    var elementwise_binary_memref_fingerprint: u64 = 0;
+    var elementwise_unary_memref_fingerprint: u64 = 0;
     var reduction_memref_fingerprint: u64 = 0;
     var broadcast_memref_fingerprint: u64 = 0;
     var transpose_memref_fingerprint: u64 = 0;
@@ -86,7 +88,12 @@ pub fn main(init: std.process.Init) !void {
         defer squared.deinit();
         var squared_host = try squared.cpu();
         defer squared_host.deinit();
-        direct_square_ok = squared.device.isCuda() and squared.device_storage != null and equalF32(squared_host.data, &.{ 1, 4, 9, 16 });
+        const elementwise_binary_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        elementwise_binary_memref_fingerprint = elementwise_binary_report.memref_spec_fingerprint;
+        direct_square_ok = squared.device.isCuda() and squared.device_storage != null and
+            elementwise_binary_report.valid() and
+            std.mem.eql(u8, elementwise_binary_report.operation, "elementwise_binary") and
+            equalF32(squared_host.data, &.{ 1, 4, 9, 16 });
 
         var row_sum = try lhs.sum(1, false);
         defer row_sum.deinit();
@@ -211,6 +218,8 @@ pub fn main(init: std.process.Init) !void {
         defer abs_negated.deinit();
         var abs_negated_host = try abs_negated.cpu();
         defer abs_negated_host.deinit();
+        const elementwise_unary_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        elementwise_unary_memref_fingerprint = elementwise_unary_report.memref_spec_fingerprint;
         var reciprocal = try lhs.reciprocal();
         defer reciprocal.deinit();
         var reciprocal_host = try reciprocal.cpu();
@@ -338,6 +347,8 @@ pub fn main(init: std.process.Init) !void {
         direct_unary_scalar_ok = negated.device.isCuda() and negated.device_storage != null and
             equalF32(negated_host.data, &.{ -1, -2, -3, -4 }) and
             abs_negated.device.isCuda() and abs_negated.device_storage != null and
+            elementwise_unary_report.valid() and
+            std.mem.eql(u8, elementwise_unary_report.operation, "elementwise_unary") and
             equalF32(abs_negated_host.data, &.{ 1, 2, 3, 4 }) and
             reciprocal.device.isCuda() and reciprocal.device_storage != null and
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
@@ -1216,7 +1227,9 @@ pub fn main(init: std.process.Init) !void {
     }
     const cuda_available = vx.Device.cuda(0).isAvailable();
     const memref_fingerprints_ok = !cuda_available or
-        (reduction_memref_fingerprint != 0 and
+        (elementwise_binary_memref_fingerprint != 0 and
+            elementwise_unary_memref_fingerprint != 0 and
+            reduction_memref_fingerprint != 0 and
             broadcast_memref_fingerprint != 0 and
             transpose_memref_fingerprint != 0 and
             softmax_memref_fingerprint != 0 and
@@ -1236,8 +1249,8 @@ pub fn main(init: std.process.Init) !void {
         .{ bf16_log_softmax_ok, f16_activation_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
     );
     try stdout.interface.print(
-        ",\"memref_fingerprints_ok\":{},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
-        .{ memref_fingerprints_ok, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
+        ",\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
+        .{ memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

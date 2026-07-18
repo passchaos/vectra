@@ -143,10 +143,32 @@ fn cudaDeviceMemRefReportAxis(report: anytype) usize {
     };
 }
 
-fn cudaDeviceMemRefReportAuxPtr(report: anytype) u64 {
+fn cudaDeviceMemRefReportRows(report: anytype) usize {
     const Report = @TypeOf(report);
-    if (comptime !@hasField(Report, "bias_device_ptr")) return 0;
-    return report.bias_device_ptr;
+    if (comptime @hasField(Report, "rows")) return report.rows;
+    if (comptime @hasField(Report, "len")) return report.len;
+    return 0;
+}
+
+fn cudaDeviceMemRefReportCols(report: anytype) usize {
+    const Report = @TypeOf(report);
+    if (comptime @hasField(Report, "cols")) return report.cols;
+    if (comptime @hasField(Report, "len")) return 1;
+    return 0;
+}
+
+fn cudaDeviceMemRefReportInputPtr(report: anytype) u64 {
+    const Report = @TypeOf(report);
+    if (comptime @hasField(Report, "input_device_ptr")) return report.input_device_ptr;
+    if (comptime @hasField(Report, "lhs_device_ptr")) return report.lhs_device_ptr;
+    return 0;
+}
+
+fn cudaDeviceMemRefReportAuxiliaryPtr(report: anytype) u64 {
+    const Report = @TypeOf(report);
+    if (comptime @hasField(Report, "bias_device_ptr")) return report.bias_device_ptr;
+    if (comptime @hasField(Report, "rhs_device_ptr")) return report.rhs_device_ptr;
+    return 0;
 }
 
 fn recordCudaDeviceMemRefReport(operation: []const u8, report: anytype) void {
@@ -154,11 +176,11 @@ fn recordCudaDeviceMemRefReport(operation: []const u8, report: anytype) void {
         .ok = report.ok,
         .operation = operation,
         .device_ordinal = report.device_ordinal,
-        .rows = report.rows,
-        .cols = report.cols,
+        .rows = cudaDeviceMemRefReportRows(report),
+        .cols = cudaDeviceMemRefReportCols(report),
         .axis = cudaDeviceMemRefReportAxis(report),
-        .input_device_ptr = report.input_device_ptr,
-        .aux_device_ptr = cudaDeviceMemRefReportAuxPtr(report),
+        .input_device_ptr = cudaDeviceMemRefReportInputPtr(report),
+        .aux_device_ptr = cudaDeviceMemRefReportAuxiliaryPtr(report),
         .out_device_ptr = report.out_device_ptr,
         .memref_spec_fingerprint = report.memref_spec_fingerprint,
         .report_fingerprint = report.fingerprint(),
@@ -1803,214 +1825,64 @@ pub fn tryDivF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod
     return tryBinaryF32(.div, lhs, rhs);
 }
 
-pub fn tryDeviceBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+fn tryDeviceBinaryMemRefs(comptime T: type, op: BinaryOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
+    if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
     if (!lhs.sameShape(rhs) or lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
     const lhs_storage = lhs.device_storage orelse return null;
     const rhs_storage = rhs.device_storage orelse return null;
     if (lhs_storage.len == 0 or lhs_storage.len != rhs_storage.len) return null;
 
-    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, lhs.shape, lhs.device);
+    var out = try array_mod.Array(T).emptyOn(lhs.allocator, lhs.shape, lhs.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
         out.deinit();
         return null;
     };
-
+    const lhs_descriptor = describeDeviceArrayMemRef(T, lhs, lhs_storage, "lhs") catch {
+        out.deinit();
+        return null;
+    };
+    const rhs_descriptor = describeDeviceArrayMemRef(T, rhs, rhs_storage, "rhs") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeDeviceArrayMemRef(T, out, out_storage, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorElementwiseBinarySpec.fromMemRefs(axiomBinaryOp(op), lhs_descriptor, rhs_descriptor, out_descriptor) catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const cached_report = runtime.runCudaDeviceElementwiseF32(
-        lhs.device.index,
-        axiomBinaryOp(op),
-        lhs_storage.len,
-        lhs_storage.ptr,
-        rhs_storage.ptr,
-        out_storage.ptr,
-    ) catch null;
-    if (cached_report) |report| {
-        if (report.valid()) return out;
+    const report = runtime.runCudaDeviceElementwiseBinaryMemRefs(lhs.device.index, spec) catch {
+        out.deinit();
+        return null;
+    };
+    if (!report.valid()) {
+        out.deinit();
+        return null;
     }
-
-    var session = withCudaContext(lhs.device.index) catch return error.InvalidDevice;
-    defer session.driver.close();
-    defer session.context.release(&session.driver);
-    var cuda_arch_buffer: [16]u8 = undefined;
-    const resolved_arch = session.driver.resolveCudaArch(session.context.device, "auto", &cuda_arch_buffer) catch return error.BackendFailure;
-
-    var spec = switch (op) {
-        .add => axiom.accelerator.TensorElementwiseBinarySpec.add(
-            .contiguous("lhs", lhs_storage.ptr, lhs_storage.len),
-            .contiguous("rhs", rhs_storage.ptr, rhs_storage.len),
-            .contiguous("out", out_storage.ptr, out_storage.len),
-        ),
-        .sub => axiom.accelerator.TensorElementwiseBinarySpec.sub(
-            .contiguous("lhs", lhs_storage.ptr, lhs_storage.len),
-            .contiguous("rhs", rhs_storage.ptr, rhs_storage.len),
-            .contiguous("out", out_storage.ptr, out_storage.len),
-        ),
-        .mul => axiom.accelerator.TensorElementwiseBinarySpec.mul(
-            .contiguous("lhs", lhs_storage.ptr, lhs_storage.len),
-            .contiguous("rhs", rhs_storage.ptr, rhs_storage.len),
-            .contiguous("out", out_storage.ptr, out_storage.len),
-        ),
-        .div => axiom.accelerator.TensorElementwiseBinarySpec.div(
-            .contiguous("lhs", lhs_storage.ptr, lhs_storage.len),
-            .contiguous("rhs", rhs_storage.ptr, rhs_storage.len),
-            .contiguous("out", out_storage.ptr, out_storage.len),
-        ),
-    };
-    spec.blocks = std.math.cast(u32, (lhs_storage.len + 127) / 128) orelse return error.InvalidShape;
-    if (spec.blocks == 0) spec.blocks = 1;
-    spec.threads = 128;
-    spec.target_arch = resolved_arch;
-    spec.kernel_symbol = switch (op) {
-        .add => "vectra_device_add",
-        .sub => "vectra_device_sub",
-        .mul => "vectra_device_mul",
-        .div => "vectra_device_div",
-    };
-
-    var runtime_threaded_io = std.Io.Threaded.init(lhs.allocator, .{});
-    defer runtime_threaded_io.deinit();
-    const runtime_io = runtime_threaded_io.io();
-    const launch_plan = axiom.accelerator.tensor_adapter.buildElementwiseBinaryLaunchPlan(runtime_io, lhs.allocator, spec, true) catch return null;
-    if (launch_plan.runtime_image.image_kind == .none) return null;
-    const image = readRuntimeImage(lhs.allocator, launch_plan.runtime_image.rootSlice(), launch_plan.runtime_image.fileNameSlice()) catch return null;
-    defer lhs.allocator.free(image);
-    var fallback_image: ?[:0]u8 = null;
-    defer if (fallback_image) |bytes| lhs.allocator.free(bytes);
-    const module = session.driver.moduleLoadData(image) catch module_fallback: {
-        if (launch_plan.runtime_image.image_kind != .cubin) return null;
-        var ptx_name_buffer: [256]u8 = undefined;
-        const ptx_name = ptxFallbackNameForImage(launch_plan.runtime_image.fileNameSlice(), &ptx_name_buffer) catch return null;
-        fallback_image = readRuntimeImage(lhs.allocator, launch_plan.runtime_image.rootSlice(), ptx_name) catch return null;
-        break :module_fallback session.driver.moduleLoadData(fallback_image.?) catch return null;
-    };
-    defer session.driver.moduleUnload(module);
-    var symbol_buffer: [128]u8 = undefined;
-    const symbol = std.fmt.bufPrintSentinel(&symbol_buffer, "{s}", .{spec.kernel_symbol}, 0) catch return null;
-    const function = session.driver.moduleGetFunction(module, symbol.ptr) catch return null;
-    var lhs_ptr = lhs_storage.ptr;
-    var rhs_ptr = rhs_storage.ptr;
-    var out_ptr = out_storage.ptr;
-    var n_arg: i32 = std.math.cast(i32, lhs_storage.len) orelse return error.InvalidShape;
-    var args = [_]?*anyopaque{
-        @ptrCast(&lhs_ptr),
-        @ptrCast(&rhs_ptr),
-        @ptrCast(&out_ptr),
-        @ptrCast(&n_arg),
-    };
-    session.driver.launchKernel(
-        function,
-        launch_plan.driver_launch.grid,
-        launch_plan.driver_launch.block,
-        launch_plan.driver_launch.shared_memory_bytes,
-        &args,
-    ) catch return null;
-    session.driver.synchronize() catch return null;
+    recordCudaDeviceMemRefReport("elementwise_binary", report);
     return out;
+}
+
+pub fn tryDeviceBinaryF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceBinaryMemRefs(f32, op, lhs, rhs);
 }
 
 pub fn tryDeviceBinaryF16(op: BinaryOp, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
-    if (!lhs.sameShape(rhs) or lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
-    const lhs_storage = lhs.device_storage orelse return null;
-    const rhs_storage = rhs.device_storage orelse return null;
-    if (lhs_storage.len == 0 or lhs_storage.len != rhs_storage.len) return null;
-
-    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, lhs.shape, lhs.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceElementwiseF16(
-        lhs.device.index,
-        axiomBinaryOp(op),
-        lhs_storage.len,
-        lhs_storage.ptr,
-        rhs_storage.ptr,
-        out_storage.ptr,
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    return out;
+    return tryDeviceBinaryMemRefs(f16, op, lhs, rhs);
 }
 
 pub fn tryDeviceBinaryF64(op: BinaryOp, lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
-    if (!lhs.sameShape(rhs) or lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
-    const lhs_storage = lhs.device_storage orelse return null;
-    const rhs_storage = rhs.device_storage orelse return null;
-    if (lhs_storage.len == 0 or lhs_storage.len != rhs_storage.len) return null;
-
-    var out = try array_mod.Array(f64).emptyOn(lhs.allocator, lhs.shape, lhs.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceElementwiseF64(
-        lhs.device.index,
-        axiomBinaryOp(op),
-        lhs_storage.len,
-        lhs_storage.ptr,
-        rhs_storage.ptr,
-        out_storage.ptr,
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    return out;
+    return tryDeviceBinaryMemRefs(f64, op, lhs, rhs);
 }
 
 pub fn tryDeviceBinaryBF16(op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
-    if (!lhs.sameShape(rhs) or lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
-    const lhs_storage = lhs.device_storage orelse return null;
-    const rhs_storage = rhs.device_storage orelse return null;
-    if (lhs_storage.len == 0 or lhs_storage.len != rhs_storage.len) return null;
-
-    var out = try array_mod.Array(BFloat16).emptyOn(lhs.allocator, lhs.shape, lhs.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceElementwiseBF16(
-        lhs.device.index,
-        axiomBinaryOp(op),
-        lhs_storage.len,
-        lhs_storage.ptr,
-        rhs_storage.ptr,
-        out_storage.ptr,
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    return out;
+    return tryDeviceBinaryMemRefs(BFloat16, op, lhs, rhs);
 }
 
 pub fn trySqrtF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -2061,30 +1933,32 @@ pub fn tryAbsF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Ar
     return tryDeviceUnaryF64(.abs, input);
 }
 
-pub fn tryDeviceUnaryF32(op: UnaryOp, input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+fn tryDeviceUnaryMemRefs(comptime T: type, op: UnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
+    if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
     const in_storage = input.device_storage orelse return null;
     if (in_storage.len == 0) return null;
-    var out = try array_mod.Array(f32).emptyOn(input.allocator, input.shape, input.device);
+    var out = try array_mod.Array(T).emptyOn(input.allocator, input.shape, input.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
         out.deinit();
         return null;
     };
-
+    const input_descriptor = describeDeviceArrayMemRef(T, input, in_storage, "input") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeDeviceArrayMemRef(T, out, out_storage, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorElementwiseUnarySpec.fromMemRefs(axiomUnaryOp(op), input_descriptor, out_descriptor) catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceUnaryElementwiseF32(
-        input.device.index,
-        switch (op) {
-            .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
-            .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
-            .abs => axiom.accelerator.TensorUnaryElementwiseOp.abs,
-        },
-        in_storage.len,
-        in_storage.ptr,
-        out_storage.ptr,
-    ) catch {
+    const report = runtime.runCudaDeviceUnaryElementwiseMemRefs(input.device.index, spec) catch {
         out.deinit();
         return null;
     };
@@ -2092,109 +1966,24 @@ pub fn tryDeviceUnaryF32(op: UnaryOp, input: array_mod.Array(f32)) array_mod.Arr
         out.deinit();
         return null;
     }
+    recordCudaDeviceMemRefReport("elementwise_unary", report);
     return out;
+}
+
+pub fn tryDeviceUnaryF32(op: UnaryOp, input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryMemRefs(f32, op, input);
 }
 
 pub fn tryDeviceUnaryF16(op: UnaryOp, input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
-    const in_storage = input.device_storage orelse return null;
-    if (in_storage.len == 0) return null;
-    var out = try array_mod.Array(f16).emptyOn(input.allocator, input.shape, input.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceUnaryElementwiseF16(
-        input.device.index,
-        switch (op) {
-            .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
-            .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
-            .abs => axiom.accelerator.TensorUnaryElementwiseOp.abs,
-        },
-        in_storage.len,
-        in_storage.ptr,
-        out_storage.ptr,
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    return out;
+    return tryDeviceUnaryMemRefs(f16, op, input);
 }
 
 pub fn tryDeviceUnaryBF16(op: UnaryOp, input: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
-    const in_storage = input.device_storage orelse return null;
-    if (in_storage.len == 0) return null;
-    var out = try array_mod.Array(BFloat16).emptyOn(input.allocator, input.shape, input.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceUnaryElementwiseBF16(
-        input.device.index,
-        switch (op) {
-            .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
-            .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
-            .abs => axiom.accelerator.TensorUnaryElementwiseOp.abs,
-        },
-        in_storage.len,
-        in_storage.ptr,
-        out_storage.ptr,
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    return out;
+    return tryDeviceUnaryMemRefs(BFloat16, op, input);
 }
 
 pub fn tryDeviceUnaryF64(op: UnaryOp, input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
-    const in_storage = input.device_storage orelse return null;
-    if (in_storage.len == 0) return null;
-    var out = try array_mod.Array(f64).emptyOn(input.allocator, input.shape, input.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceUnaryElementwiseF64(
-        input.device.index,
-        switch (op) {
-            .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
-            .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
-            .abs => axiom.accelerator.TensorUnaryElementwiseOp.abs,
-        },
-        in_storage.len,
-        in_storage.ptr,
-        out_storage.ptr,
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    return out;
+    return tryDeviceUnaryMemRefs(f64, op, input);
 }
 
 pub fn tryDeviceReductionF32(op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
