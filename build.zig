@@ -167,6 +167,10 @@ pub fn build(b: *std.Build) void {
     const api_boundary_audit_step = b.step("api-boundary-audit", "Check that Vectra keeps Array API boundaries and leaves Tensor/autograd to Forge");
     api_boundary_audit_step.dependOn(&api_boundary_audit_cmd.step);
 
+    const array_api_coverage_audit_cmd = b.addSystemCommand(&.{ "python3", "tools/array_api_coverage_audit.py" });
+    const array_api_coverage_audit_step = b.step("array-api-coverage-audit", "Audit NumPy/PyTorch-style dense Array API coverage with autograd out of scope");
+    array_api_coverage_audit_step.dependOn(&array_api_coverage_audit_cmd.step);
+
     const examples_step = b.step("examples", "Run Vectra usage examples");
 
     const basic_array_example_exe = b.addExecutable(.{
