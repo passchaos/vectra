@@ -49,9 +49,9 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
   padded row-major f32/f64/f16/BFloat16 GEMM memrefs through cuBLAS leading
   dimensions.  It still needs bufferization/layout-transform lowering for
   transposed, negative-stride, and batched device GEMM layouts.
-- Complete NumPy/PyTorch dtype promotion matrix: Vectra has promotion helpers
-  and a representative `dtype-promotion-smoke`, but a full compatibility matrix
-  still needs more explicit audited cases.
+- Complete NumPy/PyTorch dtype promotion matrix: `dtype-promotion-smoke` now
+  checks every pair in Vectra's current `DType` set plus representative promoted
+  value operations.  More NumPy/PyTorch scalar edge cases still need expansion.
 - `einsum`/general contraction syntax: Vectra now has a bounded binary
   explicit-subscript `einsum-smoke` for common contractions and output
   reordering, but full NumPy-compatible syntax (ellipsis, repeated labels,

@@ -72,7 +72,7 @@ KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "complete_numpy_torch_dtype_promotion_matrix",
-        "reason": "Promotion helpers and a representative dtype-promotion-smoke exist, but a full NumPy/PyTorch compatibility matrix still needs more audited cases.",
+        "reason": "dtype-promotion-smoke checks the full current Vectra DType pair matrix plus representative promoted values; exact NumPy/PyTorch scalar edge-case compatibility still needs expansion.",
         "target_layer": "vectra",
     },
     {

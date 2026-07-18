@@ -10,6 +10,8 @@ const vx = @import("vectra");
 pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.smp_allocator;
 
+    const matrix_ok = promotionMatrixOk();
+
     const metadata_ok =
         vx.promoteDType(.bool, .i32) == .i32 and
         vx.promoteDType(.i16, .u16) == .i32 and
@@ -78,16 +80,124 @@ pub fn main(init: std.process.Init) !void {
         approx(promoted_complex.data[1].re, 9.0, 1e-6) and
         approx(promoted_complex.data[1].im, -3.0, 1e-6);
 
-    const ok = metadata_ok and int_promote_ok and half_promote_ok and bf16_promote_ok and complex_promote_ok;
+    const ok = matrix_ok and metadata_ok and int_promote_ok and half_promote_ok and bf16_promote_ok and complex_promote_ok;
 
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_dtype_promotion_smoke\",\"ok\":{},\"metadata_ok\":{},\"int_promote_ok\":{},\"half_promote_ok\":{},\"bf16_promote_ok\":{},\"complex_promote_ok\":{},\"cases\":{d}}}\n",
-        .{ ok, metadata_ok, int_promote_ok, half_promote_ok, bf16_promote_ok, complex_promote_ok, 13 },
+        "{{\"kind\":\"vectra_dtype_promotion_smoke\",\"ok\":{},\"matrix_ok\":{},\"metadata_ok\":{},\"int_promote_ok\":{},\"half_promote_ok\":{},\"bf16_promote_ok\":{},\"complex_promote_ok\":{},\"cases\":{d},\"matrix_cases\":{d}}}\n",
+        .{ ok, matrix_ok, metadata_ok, int_promote_ok, half_promote_ok, bf16_promote_ok, complex_promote_ok, 13, dtype_order.len * dtype_order.len },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
+}
+
+const dtype_order = [_]vx.DType{
+    .bool,
+    .i8,
+    .u8,
+    .i16,
+    .u16,
+    .i32,
+    .u32,
+    .i64,
+    .u64,
+    .isize,
+    .usize,
+    .f16,
+    .bf16,
+    .f32,
+    .f64,
+    .c64,
+    .c128,
+};
+
+fn promotionMatrixOk() bool {
+    for (dtype_order) |lhs| {
+        for (dtype_order) |rhs| {
+            const expected = expectedPromote(lhs, rhs);
+            if (vx.promoteDType(lhs, rhs) != expected) return false;
+            if (vx.promoteDType(rhs, lhs) != expected) return false;
+            if (vx.resultDType(lhs, rhs) != expected) return false;
+        }
+    }
+    return true;
+}
+
+fn expectedPromote(lhs: vx.DType, rhs: vx.DType) vx.DType {
+    if (lhs == rhs) return lhs;
+    if (isComplex(lhs) or isComplex(rhs)) {
+        if (lhs == .c128 or rhs == .c128 or lhs == .f64 or rhs == .f64) return .c128;
+        return .c64;
+    }
+    if (lhs == .bool) return rhs;
+    if (rhs == .bool) return lhs;
+    if (isFloat(lhs) or isFloat(rhs)) {
+        const rank = @max(floatRank(lhs), floatRank(rhs));
+        if (rank >= 3) return .f64;
+        if (rank == 2) return .f32;
+        return .f16;
+    }
+    var rank = @max(intRank(lhs), intRank(rhs));
+    const lhs_unsigned = isInteger(lhs) and !isSigned(lhs);
+    const rhs_unsigned = isInteger(rhs) and !isSigned(rhs);
+    const mixed_signedness = (isSigned(lhs) and rhs_unsigned) or (isSigned(rhs) and lhs_unsigned);
+    if (mixed_signedness) {
+        const signed_rank = if (isSigned(lhs)) intRank(lhs) else intRank(rhs);
+        const unsigned_rank = if (lhs_unsigned) intRank(lhs) else intRank(rhs);
+        if (unsigned_rank >= signed_rank) rank += 1;
+        if (rank > 4) return .f64;
+    }
+    const signed = isSigned(lhs) or isSigned(rhs);
+    if (rank <= 1) return if (signed) .i8 else .u8;
+    if (rank == 2) return if (signed) .i16 else .u16;
+    if (rank == 3) return if (signed) .i32 else .u32;
+    return if (signed) .i64 else .u64;
+}
+
+fn isComplex(dtype: vx.DType) bool {
+    return dtype == .c64 or dtype == .c128;
+}
+
+fn isFloat(dtype: vx.DType) bool {
+    return switch (dtype) {
+        .bf16, .f16, .f32, .f64 => true,
+        else => false,
+    };
+}
+
+fn isInteger(dtype: vx.DType) bool {
+    return switch (dtype) {
+        .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize => true,
+        else => false,
+    };
+}
+
+fn isSigned(dtype: vx.DType) bool {
+    return switch (dtype) {
+        .i8, .i16, .i32, .i64, .isize => true,
+        else => false,
+    };
+}
+
+fn floatRank(dtype: vx.DType) usize {
+    return switch (dtype) {
+        .bf16, .f16 => 1,
+        .f32 => 2,
+        .f64 => 3,
+        else => 0,
+    };
+}
+
+fn intRank(dtype: vx.DType) usize {
+    return switch (dtype) {
+        .bool => 0,
+        .i8, .u8 => 1,
+        .i16, .u16 => 2,
+        .i32, .u32 => 3,
+        .i64, .u64, .usize, .isize => 4,
+        else => 0,
+    };
 }
 
 fn eql(comptime T: type, actual: []const T, expected: []const T) bool {
