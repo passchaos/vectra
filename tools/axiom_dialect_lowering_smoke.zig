@@ -11,6 +11,12 @@ pub fn main(init: std.process.Init) !void {
     defer row_bias.deinit();
     var col_bias = try vx.Array(f32).fromSlice(allocator, &.{ 100, 200 }, &.{2});
     defer col_bias.deinit();
+    var lhs_cuda_lowering = try cudaLoweringArray(f32, lhs);
+    defer lhs_cuda_lowering.deinit();
+    var rhs_cuda_lowering = try cudaLoweringArray(f32, rhs);
+    defer rhs_cuda_lowering.deinit();
+    var row_bias_cuda_lowering = try cudaLoweringArray(f32, row_bias);
+    defer row_bias_cuda_lowering.deinit();
 
     const cpu_report = try vx.axiom_backend.lowerMatmulDialect(f32, lhs, rhs, .cpu);
     const cuda_report = try vx.axiom_backend.lowerMatmulDialect(f32, lhs, rhs, .cuda);
@@ -27,6 +33,12 @@ pub fn main(init: std.process.Init) !void {
     const unary_cuda_runtime = vx.axiom_backend.unaryRuntimeCapability(.cuda, .square);
     const transpose_cuda_report = try vx.axiom_backend.lowerTransposeDialectDefault(f32, lhs);
     const transpose_cuda_runtime = vx.axiom_backend.transposeRuntimeCapability(.cuda);
+    const device_matmul_cuda_report = try vx.axiom_backend.lowerMatmulDialect(f32, lhs_cuda_lowering, rhs_cuda_lowering, .cuda);
+    const device_elementwise_cuda_report = try vx.axiom_backend.lowerElementwiseDialect(f32, .add, lhs_cuda_lowering, lhs_cuda_lowering, .cuda);
+    const device_reduction_cuda_report = try vx.axiom_backend.lowerReductionDialect(f32, lhs_cuda_lowering, .sum, 1, .cuda);
+    const device_broadcast_cuda_report = try vx.axiom_backend.lowerBroadcastAddDialect(f32, lhs_cuda_lowering, row_bias_cuda_lowering, .row, .cuda);
+    const device_unary_cuda_report = try vx.axiom_backend.lowerUnaryDialect(f32, lhs_cuda_lowering, .square, .cuda);
+    const device_transpose_cuda_report = try vx.axiom_backend.lowerTransposeDialect(f32, lhs_cuda_lowering, .cuda);
     vx.setDefaultDialectBackend(.mps);
     const default_mps_report = try vx.axiom_backend.lowerMatmulDialectDefault(f32, lhs, rhs);
     const elementwise_mps_report = try vx.axiom_backend.lowerElementwiseDialectDefault(f32, .mul, lhs, lhs);
@@ -60,6 +72,12 @@ pub fn main(init: std.process.Init) !void {
         unary_mps_report.status == .planned_mps and
         transpose_cuda_report.status == .lowered_cuda and
         transpose_cuda_runtime.status == .lowering_only and
+        device_matmul_cuda_report.status == .lowered_cuda and
+        device_elementwise_cuda_report.status == .lowered_cuda and
+        device_reduction_cuda_report.status == .lowered_cuda and
+        device_broadcast_cuda_report.status == .lowered_cuda and
+        device_unary_cuda_report.status == .lowered_cuda and
+        device_transpose_cuda_report.status == .lowered_cuda and
         transpose_mps_report.status == .planned_mps and
         std.mem.eql(u8, mps_report.launch_backend, "mps_planned") and
         std.mem.eql(u8, elementwise_mps_report.launch_backend, "mps_planned") and
@@ -103,7 +121,7 @@ pub fn main(init: std.process.Init) !void {
         },
     );
     try stdout.interface.print(
-        ",\"unary_cuda_status\":\"{s}\",\"unary_cuda_runtime_status\":\"{s}\",\"unary_cuda_runtime_fingerprint\":{d},\"unary_mps_status\":\"{s}\",\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"transpose_mps_status\":\"{s}\",\"fingerprint\":{d}}}\n",
+        ",\"unary_cuda_status\":\"{s}\",\"unary_cuda_runtime_status\":\"{s}\",\"unary_cuda_runtime_fingerprint\":{d},\"unary_mps_status\":\"{s}\",\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"device_matmul_cuda_status\":\"{s}\",\"device_elementwise_cuda_status\":\"{s}\",\"device_reduction_cuda_status\":\"{s}\",\"device_broadcast_cuda_status\":\"{s}\",\"device_unary_cuda_status\":\"{s}\",\"device_transpose_cuda_status\":\"{s}\",\"transpose_mps_status\":\"{s}\",\"fingerprint\":{d}}}\n",
         .{
             unary_cuda_report.status.label(),
             unary_cuda_runtime.status.label(),
@@ -112,10 +130,23 @@ pub fn main(init: std.process.Init) !void {
             transpose_cuda_report.status.label(),
             transpose_cuda_runtime.status.label(),
             transpose_cuda_runtime.fingerprint(),
+            device_matmul_cuda_report.status.label(),
+            device_elementwise_cuda_report.status.label(),
+            device_reduction_cuda_report.status.label(),
+            device_broadcast_cuda_report.status.label(),
+            device_unary_cuda_report.status.label(),
+            device_transpose_cuda_report.status.label(),
             transpose_mps_report.status.label(),
             cuda_report.fingerprint(),
         },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
+}
+
+fn cudaLoweringArray(comptime T: type, input: vx.Array(T)) !vx.Array(T) {
+    if (vx.Device.cuda(0).isAvailable()) return input.cuda(0);
+    var tagged = try input.clone();
+    tagged.device = vx.cuda(0);
+    return tagged;
 }

@@ -123,6 +123,11 @@ where Vectra still has a non-Axiom generic implementation.
   `vx.axiom_backend.reductionRuntimeCapability(.cuda)`, `broadcastAddRuntimeCapability(.cuda)`, and
   `transposeRuntimeCapability(.cuda)` report `lowering_only` until
   Axiom exposes matching eager runtime ABIs.
+- Dialect-lowering helpers accept both CPU arrays and CUDA-tagged/device arrays
+  when the operation shape and dtype are structurally valid. This keeps Vectra
+  MLIR-like: array operations are described once and lowered for the requested
+  Axiom target (`.cpu/.cuda/.mps`), while eager execution remains gated by the
+  runtime capability reports above.
 - f16 and BFloat16 matmul call Axiom typed SIMT GEMM seed entry points, which
   report typed launch/readiness metadata while using widened f32 compute today.
 - f64 CUDA same-shape/scalar elementwise, square/sqrt/exp, matmul, and matmulAdd/fusion

@@ -411,7 +411,7 @@ pub const BackendReport = struct {
 };
 
 pub fn lowerMatmulDialect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), backend: DialectBackend) array_mod.ArrayError!DialectMatmulLoweringReport {
-    if (!supportedMatmul2d(T, lhs, rhs)) return error.ShapeMismatch;
+    if (!supportedMatmulLowering2d(T, lhs, rhs)) return error.ShapeMismatch;
     const element = dialectElement(T) orelse return error.TypeUnsupported;
     return axiom.accelerator.lowerDialectMatmul(.{
         .name = "vectra.matmul",
@@ -435,7 +435,7 @@ pub fn lowerMatmulDialectForRoute(comptime T: type, lhs: array_mod.Array(T), rhs
 }
 
 pub fn lowerElementwiseDialect(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T), backend: DialectBackend) array_mod.ArrayError!DialectElementwiseLoweringReport {
-    if (!supportedElementwiseSameShapeContiguous(T, lhs, rhs)) return error.ShapeMismatch;
+    if (!supportedElementwiseLowering(T, lhs, rhs)) return error.ShapeMismatch;
     const element = dialectElement(T) orelse return error.TypeUnsupported;
     return axiom.accelerator.lowerDialectElementwise(.{
         .name = "vectra.elementwise",
@@ -461,7 +461,7 @@ fn dialectElementwiseOp(op: ElementwiseOp) DialectElementwiseOp {
 }
 
 pub fn lowerReductionDialect(comptime T: type, input: array_mod.Array(T), op: DialectReductionOp, axis: u1, backend: DialectBackend) array_mod.ArrayError!DialectReductionLoweringReport {
-    if (!supportedReduction2d(T, input)) return error.ShapeMismatch;
+    if (!supportedReductionLowering2d(T, input)) return error.ShapeMismatch;
     const element = dialectElement(T) orelse return error.TypeUnsupported;
     return axiom.accelerator.lowerDialectReduction(.{
         .name = "vectra.reduction",
@@ -585,7 +585,7 @@ fn dialectUnaryRuntimeOperation(op: DialectUnaryOp) []const u8 {
 }
 
 pub fn lowerBroadcastAddDialect(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis, backend: DialectBackend) array_mod.ArrayError!DialectBroadcastLoweringReport {
-    if (!supportedBroadcastAdd(T, input, bias, axis)) return error.ShapeMismatch;
+    if (!supportedBroadcastAddLowering(T, input, bias, axis)) return error.ShapeMismatch;
     const element = dialectElement(T) orelse return error.TypeUnsupported;
     return axiom.accelerator.lowerDialectBroadcastAdd(.{
         .name = "vectra.broadcast_add",
@@ -602,7 +602,7 @@ pub fn lowerBroadcastAddDialectDefault(comptime T: type, input: array_mod.Array(
 }
 
 pub fn lowerUnaryDialect(comptime T: type, input: array_mod.Array(T), op: DialectUnaryOp, backend: DialectBackend) array_mod.ArrayError!DialectUnaryLoweringReport {
-    if (!supportedUnary2d(T, input)) return error.ShapeMismatch;
+    if (!supportedUnaryLowering2d(T, input)) return error.ShapeMismatch;
     const element = dialectElement(T) orelse return error.TypeUnsupported;
     return axiom.accelerator.lowerDialectUnary(.{
         .name = "vectra.unary",
@@ -619,7 +619,7 @@ pub fn lowerUnaryDialectDefault(comptime T: type, input: array_mod.Array(T), op:
 }
 
 pub fn lowerTransposeDialect(comptime T: type, input: array_mod.Array(T), backend: DialectBackend) array_mod.ArrayError!DialectTransposeLoweringReport {
-    if (!supportedUnary2d(T, input)) return error.ShapeMismatch;
+    if (!supportedUnaryLowering2d(T, input)) return error.ShapeMismatch;
     const element = dialectElement(T) orelse return error.TypeUnsupported;
     return axiom.accelerator.lowerDialectTranspose(.{
         .name = "vectra.transpose2d",
@@ -2271,8 +2271,19 @@ fn directMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(
     return out;
 }
 
+// Dialect lowering is a structural contract: it models the operation's element
+// type, shape/layout constraints, and requested Axiom target.  It must not
+// require host slices, CPU-only arrays, or executable device storage; those are
+// eager runtime ABI constraints and stay in the `*Execution` helpers below.
+// Keeping the predicates split lets Vectra behave like an MLIR-style frontend:
+// arrays describe linalg/memref/gpu work for `.cpu/.cuda/.mps`, while
+// `RuntimeCapabilityReport` says whether that lowered program can run today.
+fn supportedMatmulLowering2d(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
+    return lhs.device.sameDevice(rhs.device) and lhs.shape.len == 2 and rhs.shape.len == 2 and lhs.shape[1] == rhs.shape[0] and lhs.isContiguous() and rhs.isContiguous();
+}
+
 fn supportedMatmul2d(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
-    return lhs.device.isCpu() and rhs.device.isCpu() and lhs.shape.len == 2 and rhs.shape.len == 2 and lhs.shape[1] == rhs.shape[0] and lhs.isContiguous() and rhs.isContiguous();
+    return lhs.device.isCpu() and supportedMatmulLowering2d(T, lhs, rhs);
 }
 
 fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
@@ -2302,8 +2313,16 @@ fn supportedReduction2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
 }
 
+fn supportedReductionLowering2d(comptime T: type, input: array_mod.Array(T)) bool {
+    return dialectElement(T) != null and input.shape.len == 2 and input.isContiguous();
+}
+
 fn supportedUnary2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.device.isCpu() and input.shape.len == 2 and input.isContiguous();
+}
+
+fn supportedUnaryLowering2d(comptime T: type, input: array_mod.Array(T)) bool {
+    return dialectElement(T) != null and input.shape.len == 2 and input.isContiguous();
 }
 
 fn supportedMatrixExecution(comptime T: type, input: array_mod.Array(T)) bool {
@@ -2353,6 +2372,25 @@ fn supportedBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
         .row => input.shape[1],
         .column => input.shape[0],
     };
+}
+
+fn supportedBroadcastAddLowering(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
+    if (dialectElement(T) == null) return false;
+    if (!input.device.sameDevice(bias.device) or input.shape.len != 2 or bias.shape.len != 1) return false;
+    if (!input.isContiguous() or !bias.isContiguous()) return false;
+    return bias.shape[0] == switch (axis) {
+        .row => input.shape[1],
+        .column => input.shape[0],
+    };
+}
+
+fn supportedElementwiseLowering(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
+    return dialectElement(T) != null and
+        (lhs.shape.len == 1 or lhs.shape.len == 2) and
+        lhs.device.sameDevice(rhs.device) and
+        lhs.sameShape(rhs) and
+        lhs.isContiguous() and
+        rhs.isContiguous();
 }
 
 fn supportedElementwiseSameShapeContiguous(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
