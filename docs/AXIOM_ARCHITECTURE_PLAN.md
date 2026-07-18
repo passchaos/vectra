@@ -122,7 +122,7 @@ CPU path for CPU arrays, or return an explicit error.
 
 - Add Axiom `TensorMemRefDescriptor` / `TensorViewDescriptor` records with
   deterministic fingerprints and text/json evidence.
-- Add Vectra conversion helpers from `Array` and `ArrayView` to those records.
+- Add Vectra conversion helpers from `Array` and `ArrayView` to those records.  The first smoke gate is `zig build axiom-descriptor-smoke`.
 - Add verifier coverage for contiguous, strided, scalar-broadcast, empty,
   non-zero-offset, and rejected-overlap examples.
 
@@ -172,6 +172,7 @@ from the relevant subset of:
 - `zig build api-boundary-audit` for no Axial and boundary compliance;
 - `zig build axiom-dialect-lowering-smoke` for linalg/memref/gpu route evidence;
 - descriptor verifier tests in Axiom for shape/stride/alias/device contracts;
+- `zig build axiom-descriptor-smoke` for Vectra Array/ArrayView to Axiom descriptor conversion evidence;
 - `zig build test` in Axiom and Vectra;
 - `zig build axiom-backend-policy-smoke` for dynamic target policy;
 - `zig build axiom-cpu-dispatch-smoke` for CPU runtime paths;

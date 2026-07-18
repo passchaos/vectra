@@ -462,6 +462,21 @@ pub fn build(b: *std.Build) void {
     const axiom_dialect_lowering_smoke_step = b.step("axiom-dialect-lowering-smoke", "Run Axiom linalg/memref/gpu dialect lowering smoke");
     axiom_dialect_lowering_smoke_step.dependOn(&axiom_dialect_lowering_smoke_cmd.step);
 
+    const axiom_descriptor_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-descriptor-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/axiom_descriptor_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_descriptor_smoke_cmd = b.addRunArtifact(axiom_descriptor_smoke_exe);
+    const axiom_descriptor_smoke_step = b.step("axiom-descriptor-smoke", "Run Vectra Array/ArrayView to Axiom descriptor smoke");
+    axiom_descriptor_smoke_step.dependOn(&axiom_descriptor_smoke_cmd.step);
+
     // Creates an executable that will run `test` blocks from the provided module.
     // Here `mod` needs to define a target, which is why earlier we made sure to
     // set the releative field.

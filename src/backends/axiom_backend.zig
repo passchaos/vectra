@@ -64,6 +64,9 @@ pub const ExecutionUnaryOp = enum(u8) {
     }
 };
 
+pub const TensorMemRefDescriptor = axiom.accelerator.TensorMemRefDescriptor;
+pub const TensorMemRefAddressSpace = axiom.accelerator.TensorMemRefAddressSpace;
+
 pub fn QrResult(comptime T: type) type {
     return struct {
         q: array_mod.Array(T),
@@ -327,6 +330,85 @@ pub fn defaultDialectBackend() DialectBackend {
 
 pub fn resetDefaultDialectBackend() void {
     default_dialect_backend = .cpu;
+}
+
+pub fn tensorElementType(comptime T: type) ?axiom.accelerator.TensorElementType {
+    return if (T == f32)
+        .f32
+    else if (T == f64)
+        .f64
+    else if (T == f16)
+        .f16
+    else if (T == array_mod.BFloat16)
+        .bf16
+    else if (T == i8)
+        .i8
+    else if (T == u8)
+        .u8
+    else if (T == i16)
+        .i16
+    else if (T == u16)
+        .u16
+    else if (T == i32)
+        .i32
+    else if (T == u32)
+        .u32
+    else if (T == i64)
+        .i64
+    else if (T == u64)
+        .u64
+    else
+        null;
+}
+
+pub fn memRefAddressSpaceForDevice(device: array_mod.Device) TensorMemRefAddressSpace {
+    return switch (device.backend) {
+        .cpu => .host,
+        .cuda => .cuda,
+        .mps => .mps,
+    };
+}
+
+pub fn describeArrayMemRef(comptime T: type, input: array_mod.Array(T), name: []const u8) array_mod.ArrayError!TensorMemRefDescriptor {
+    const element = tensorElementType(T) orelse return error.TypeUnsupported;
+    const strides = try usizeStridesToIsize(input.strides);
+    const base_ptr: u64 = if (input.device_storage) |storage| storage.ptr else @intCast(@intFromPtr(input.data.ptr));
+    return axiom.accelerator.TensorMemRefDescriptor.init(
+        name,
+        base_ptr,
+        element,
+        memRefAddressSpaceForDevice(input.device),
+        0,
+        input.shape,
+        strides[0..input.strides.len],
+    ) catch mapTensorViewError();
+}
+
+pub fn describeViewMemRef(comptime T: type, input: array_mod.ArrayView(T), name: []const u8) array_mod.ArrayError!TensorMemRefDescriptor {
+    const element = tensorElementType(T) orelse return error.TypeUnsupported;
+    const strides = try usizeStridesToIsize(input.strides);
+    return axiom.accelerator.TensorMemRefDescriptor.init(
+        name,
+        @intCast(@intFromPtr(input.data.ptr)),
+        element,
+        memRefAddressSpaceForDevice(input.device),
+        input.offset,
+        input.shape,
+        strides[0..input.strides.len],
+    ) catch mapTensorViewError();
+}
+
+fn usizeStridesToIsize(strides: []const usize) array_mod.ArrayError![4]isize {
+    if (strides.len > 4) return error.InvalidShape;
+    var out: [4]isize = .{ 1, 1, 1, 1 };
+    for (strides, 0..) |stride, index| {
+        out[index] = std.math.cast(isize, stride) orelse return error.InvalidShape;
+    }
+    return out;
+}
+
+fn mapTensorViewError() array_mod.ArrayError {
+    return error.InvalidShape;
 }
 
 pub fn defaultBackendPolicy() BackendPolicy {
