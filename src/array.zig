@@ -16685,6 +16685,7 @@ pub fn Array(comptime T: type) type {
             }
             return self.unary(struct {
                 fn f(a: T) T {
+                    if (comptime T == BFloat16) return if (a.toF32() > 0) a else zero(T);
                     return if (a > zero(T)) a else zero(T);
                 }
             }.f);
@@ -17067,6 +17068,10 @@ pub fn Array(comptime T: type) type {
             }
             return self.unary(struct {
                 fn f(a: T) T {
+                    if (comptime T == BFloat16) {
+                        const value = a.toF32();
+                        return BFloat16.fromF32(value / (@as(f32, 1.0) + @abs(value)));
+                    }
                     return a / (one(T) + @abs(a));
                 }
             }.f);
@@ -17094,7 +17099,13 @@ pub fn Array(comptime T: type) type {
             }
             if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             const out = try Self.empty(self.allocator, self.shape);
-            for (self.data, out.data) |v, *slot| slot.* = @min(@max(v, min_value), max_value);
+            for (self.data, out.data) |v, *slot| {
+                if (comptime T == BFloat16) {
+                    slot.* = BFloat16.fromF32(@min(@max(v.toF32(), min_value.toF32()), max_value.toF32()));
+                } else {
+                    slot.* = @min(@max(v, min_value), max_value);
+                }
+            }
             return out;
         }
 
