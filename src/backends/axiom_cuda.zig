@@ -2166,50 +2166,30 @@ fn tryDeviceReduction(comptime T: type, op: axiom.accelerator.DialectReductionOp
         out.deinit();
         return null;
     };
+    const input_descriptor = describeDeviceArrayMemRef(T, input, in_storage, "input") catch {
+        out.deinit();
+        return null;
+    };
+    // Axiom's reduction runtime writes a dense rank-1 vector even when the
+    // Vectra-facing Array keeps the reduced axis as a size-1 dimension.  Keep
+    // the public `out.shape` untouched, but hand Axiom the actual runtime ABI
+    // shape so descriptor legality matches the kernel contract.
+    const runtime_out_shape = [_]usize{if (axis == 0) input.shape[1] else input.shape[0]};
+    const out_descriptor = describeDeviceBufferMemRef(T, out_storage, runtime_out_shape[0..], &.{1}, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorReduction2DSpec.fromMemRefs(
+        reductionOpFromDialect(op),
+        reductionAxisFromU1(axis),
+        input_descriptor,
+        out_descriptor,
+    ) catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    // Axiom owns the target-specific runtime ABI.  Vectra only selects dtype
-    // at the bridge boundary after target-based capability gating has already
-    // proven this CUDA/device-storage path is valid.
-    const report = (if (T == f32)
-        runtime.runCudaDeviceReductionF32(
-            input.device.index,
-            op,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f64)
-        runtime.runCudaDeviceReductionF64(
-            input.device.index,
-            op,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f16)
-        runtime.runCudaDeviceReductionF16(
-            input.device.index,
-            op,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else
-        runtime.runCudaDeviceReductionBF16(
-            input.device.index,
-            op,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            out_storage.ptr,
-        )) catch {
+    const report = runtime.runCudaDeviceReductionMemRefs(input.device.index, spec) catch {
         out.deinit();
         return null;
     };
@@ -2255,50 +2235,30 @@ fn tryDeviceBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
         out.deinit();
         return null;
     };
+    const input_descriptor = describeDeviceArrayMemRef(T, input, in_storage, "input") catch {
+        out.deinit();
+        return null;
+    };
+    const runtime_bias_shape = [_]usize{expected_bias_len};
+    const bias_descriptor = describeDeviceBufferMemRef(T, bias_storage, runtime_bias_shape[0..], &.{1}, "bias") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeDeviceArrayMemRef(T, out, out_storage, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorBroadcastAdd2DSpec.fromMemRefs(
+        broadcastAxisFromDialect(axis),
+        input_descriptor,
+        bias_descriptor,
+        out_descriptor,
+    ) catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    // Keep target and launch semantics inside Axiom; Vectra only selects the
-    // dtype-specialized ABI once central capability gating has approved CUDA
-    // device storage for this broadcast-add shape.
-    const report = (if (T == f32)
-        runtime.runCudaDeviceBroadcastAddF32(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            bias_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f64)
-        runtime.runCudaDeviceBroadcastAddF64(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            bias_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f16)
-        runtime.runCudaDeviceBroadcastAddF16(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            bias_storage.ptr,
-            out_storage.ptr,
-        )
-    else
-        runtime.runCudaDeviceBroadcastAddBF16(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            axis,
-            in_storage.ptr,
-            bias_storage.ptr,
-            out_storage.ptr,
-        )) catch {
+    const report = runtime.runCudaDeviceBroadcastAddMemRefs(input.device.index, spec) catch {
         out.deinit();
         return null;
     };
@@ -2490,41 +2450,20 @@ fn tryDeviceTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.Arr
         out.deinit();
         return null;
     };
+    const input_descriptor = describeDeviceArrayMemRef(T, input, in_storage, "input") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeDeviceArrayMemRef(T, out, out_storage, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorTranspose2DSpec.fromMemRefs(input_descriptor, out_descriptor) catch {
+        out.deinit();
+        return null;
+    };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    // Axiom owns the target-specific transpose kernels; Vectra only picks the
-    // dtype-specific ABI after central target/capability gating succeeds.
-    const report = (if (T == f32)
-        runtime.runCudaDeviceTransposeF32(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f64)
-        runtime.runCudaDeviceTransposeF64(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else if (T == f16)
-        runtime.runCudaDeviceTransposeF16(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            in_storage.ptr,
-            out_storage.ptr,
-        )
-    else
-        runtime.runCudaDeviceTransposeBF16(
-            input.device.index,
-            input.shape[0],
-            input.shape[1],
-            in_storage.ptr,
-            out_storage.ptr,
-        )) catch {
+    const report = runtime.runCudaDeviceTransposeMemRefs(input.device.index, spec) catch {
         out.deinit();
         return null;
     };
@@ -4806,6 +4745,53 @@ fn describeHostBitsViewMemRef(
         shape,
         strides[0..stride_values.len],
     ) catch error.InvalidShape;
+}
+
+fn describeDeviceArrayMemRef(comptime T: type, input: array_mod.Array(T), storage: array_mod.DeviceStorage, name: []const u8) array_mod.ArrayError!axiom.accelerator.TensorMemRefDescriptor {
+    return describeDeviceBufferMemRef(T, storage, input.shape, input.strides, name);
+}
+
+fn describeDeviceBufferMemRef(
+    comptime T: type,
+    storage: array_mod.DeviceStorage,
+    shape: []const usize,
+    stride_values: []const usize,
+    name: []const u8,
+) array_mod.ArrayError!axiom.accelerator.TensorMemRefDescriptor {
+    const element = axiomTensorElementType(T) orelse return error.TypeUnsupported;
+    const strides = try usizeStridesToIsize(stride_values);
+    return axiom.accelerator.TensorMemRefDescriptor.init(
+        name,
+        storage.ptr,
+        element,
+        .cuda,
+        0,
+        shape,
+        strides[0..stride_values.len],
+    ) catch error.InvalidShape;
+}
+
+fn reductionOpFromDialect(op: axiom.accelerator.DialectReductionOp) axiom.accelerator.TensorReduction2DOp {
+    return switch (op) {
+        .sum => .sum,
+        .max => .max,
+        .min => .min,
+        .prod => .prod,
+    };
+}
+
+fn reductionAxisFromU1(axis: u1) axiom.accelerator.TensorReduction2DAxis {
+    return switch (axis) {
+        0 => .axis0,
+        1 => .axis1,
+    };
+}
+
+fn broadcastAxisFromDialect(axis: axiom.accelerator.DialectBroadcastAxis) axiom.accelerator.TensorBroadcastAdd2DAxis {
+    return switch (axis) {
+        .row => .row,
+        .column => .column,
+    };
 }
 
 fn axiomTensorElementType(comptime T: type) ?axiom.accelerator.TensorElementType {
