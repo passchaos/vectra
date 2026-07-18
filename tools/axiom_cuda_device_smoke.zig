@@ -374,6 +374,24 @@ pub fn main(init: std.process.Init) !void {
         defer f64_exp.deinit();
         var f64_exp_host = try f64_exp.cpu();
         defer f64_exp_host.deinit();
+        var f64_shifted = try f64_lhs.subScalar(3);
+        defer f64_shifted.deinit();
+        var f64_relu = try f64_shifted.relu();
+        defer f64_relu.deinit();
+        var f64_relu_host = try f64_relu.cpu();
+        defer f64_relu_host.deinit();
+        var f64_sigmoid = try f64_shifted.sigmoid();
+        defer f64_sigmoid.deinit();
+        var f64_sigmoid_host = try f64_sigmoid.cpu();
+        defer f64_sigmoid_host.deinit();
+        var f64_softsign = try f64_shifted.softsign();
+        defer f64_softsign.deinit();
+        var f64_softsign_host = try f64_softsign.cpu();
+        defer f64_softsign_host.deinit();
+        var f64_clip = try f64_shifted.clip(-0.5, 0.5);
+        defer f64_clip.deinit();
+        var f64_clip_host = try f64_clip.cpu();
+        defer f64_clip_host.deinit();
         f64_elementwise_ok = f64_sum.device.isCuda() and f64_sum.device_storage != null and
             equalF64(f64_sum_host.data, &.{ 2, 3, 4, 5 }) and
             f64_scaled.device.isCuda() and f64_scaled.device_storage != null and
@@ -387,7 +405,15 @@ pub fn main(init: std.process.Init) !void {
             f64_sqrt.device.isCuda() and
             approxF64(f64_sqrt_host.data[0], std.math.sqrt(@as(f64, 3)), 1e-12) and
             f64_exp.device.isCuda() and
-            approxF64(f64_exp_host.data[0], std.math.exp(@as(f64, 2)), 1e-12);
+            approxF64(f64_exp_host.data[0], std.math.exp(@as(f64, 2)), 1e-12) and
+            f64_relu.device.isCuda() and f64_relu.device_storage != null and
+            equalF64(f64_relu_host.data, &.{ 0, 0, 0, 1 }) and
+            f64_sigmoid.device.isCuda() and f64_sigmoid.device_storage != null and
+            approxF64(f64_sigmoid_host.data[0], @as(f64, 1.0) / (@as(f64, 1.0) + std.math.exp(@as(f64, 2.0))), 1e-12) and
+            f64_softsign.device.isCuda() and f64_softsign.device_storage != null and
+            approxF64(f64_softsign_host.data[0], -2.0 / 3.0, 1e-12) and
+            f64_clip.device.isCuda() and f64_clip.device_storage != null and
+            equalF64(f64_clip_host.data, &.{ -0.5, -0.5, 0, 0.5 });
 
         var f64_fused = try vx.matmulAdd(f64_lhs, f64_rhs, f64_rhs);
         defer f64_fused.deinit();
