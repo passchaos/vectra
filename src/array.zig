@@ -16780,6 +16780,15 @@ pub fn Array(comptime T: type) type {
 
         pub fn hardsigmoid(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var shifted = try self.addScalar(castValue(T, 3));
+                    defer shifted.deinit();
+                    var scaled = try shifted.divScalar(castValue(T, 6));
+                    defer scaled.deinit();
+                    return scaled.clip(zero(T), one(T));
+                }
+            }
             return self.unary(struct {
                 fn f(a: T) T {
                     if (comptime T == BFloat16) {
@@ -16797,6 +16806,13 @@ pub fn Array(comptime T: type) type {
 
         pub fn hardswish(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var gate = try self.hardsigmoid();
+                    defer gate.deinit();
+                    return self.mul(gate);
+                }
+            }
             return self.unary(struct {
                 fn f(a: T) T {
                     if (comptime T == BFloat16) {

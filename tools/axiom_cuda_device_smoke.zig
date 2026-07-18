@@ -95,6 +95,14 @@ pub fn main(init: std.process.Init) !void {
         defer relu6_out.deinit();
         var relu6_host = try relu6_out.cpu();
         defer relu6_host.deinit();
+        var hardsigmoid_out = try shifted_for_relu.hardsigmoid();
+        defer hardsigmoid_out.deinit();
+        var hardsigmoid_host = try hardsigmoid_out.cpu();
+        defer hardsigmoid_host.deinit();
+        var hardswish_out = try shifted_for_relu.hardswish();
+        defer hardswish_out.deinit();
+        var hardswish_host = try hardswish_out.cpu();
+        defer hardswish_host.deinit();
         const sigmoid_neg2 = @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, 2.0)));
         const sigmoid_pos1 = @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0)));
         direct_unary_scalar_ok = negated.device.isCuda() and negated.device_storage != null and
@@ -115,7 +123,13 @@ pub fn main(init: std.process.Init) !void {
             clipped_out.device.isCuda() and clipped_out.device_storage != null and
             equalF32(clipped_host.data, &.{ -0.5, -0.5, 0, 0.5 }) and
             relu6_out.device.isCuda() and relu6_out.device_storage != null and
-            equalF32(relu6_host.data, &.{ 0, 0, 0, 1 });
+            equalF32(relu6_host.data, &.{ 0, 0, 0, 1 }) and
+            hardsigmoid_out.device.isCuda() and hardsigmoid_out.device_storage != null and
+            approxF32(hardsigmoid_host.data[0], @as(f32, 1.0) / 6.0, 0.01) and
+            approxF32(hardsigmoid_host.data[3], @as(f32, 4.0) / 6.0, 0.01) and
+            hardswish_out.device.isCuda() and hardswish_out.device_storage != null and
+            approxF32(hardswish_host.data[0], -2.0 / 6.0, 0.01) and
+            approxF32(hardswish_host.data[3], @as(f32, 4.0) / 6.0, 0.01);
 
         var product = try lhs.matmul(rhs);
         defer product.deinit();
