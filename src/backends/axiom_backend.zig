@@ -490,7 +490,7 @@ pub fn reductionRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
             .target = target,
             .operation = "reduction",
             .status = .executable,
-            .reason = "Axiom CUDA exposes eager f32 2D sum/prod/min/max reduction runtimes; other reduction dtypes remain capability-gated.",
+            .reason = "Axiom CUDA exposes eager f32/f64 2D sum/prod/min/max reduction runtimes; other reduction dtypes remain capability-gated.",
         },
         .mps => .{
             .target = target,
@@ -2006,6 +2006,9 @@ fn executeCudaReduction(
     if (T == f32) {
         if (try axiom_cuda.tryDeviceReductionF32(op, @as(array_mod.Array(f32), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
     }
+    if (T == f64) {
+        if (try axiom_cuda.tryDeviceReductionF64(op, @as(array_mod.Array(f64), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
+    }
     return null;
 }
 
@@ -2455,7 +2458,7 @@ fn supportedReductionExecution(comptime T: type, target: DialectBackend, input: 
     if (input.shape.len != 2 or !input.isContiguous()) return false;
     return switch (target) {
         .cpu => supportedReduction2d(T, input),
-        .cuda => input.device.isCuda() and T == f32 and input.device_storage != null,
+        .cuda => input.device.isCuda() and (T == f32 or T == f64) and input.device_storage != null,
         .mps => false,
     };
 }

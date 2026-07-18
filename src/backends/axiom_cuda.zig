@@ -1663,7 +1663,16 @@ pub fn tryDeviceUnaryF64(op: UnaryOp, input: array_mod.Array(f64)) array_mod.Arr
 }
 
 pub fn tryDeviceReductionF32(op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceReduction(f32, op, input, axis, keepdims);
+}
+
+pub fn tryDeviceReductionF64(op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(f64), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceReduction(f64, op, input, axis, keepdims);
+}
+
+fn tryDeviceReduction(comptime T: type, op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(T), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
+    if (T != f32 and T != f64) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
     if (input.shape.len != 2) return null;
     const in_storage = input.device_storage orelse return null;
@@ -1677,22 +1686,36 @@ pub fn tryDeviceReductionF32(op: axiom.accelerator.DialectReductionOp, input: ar
         drop_shape[0] = if (axis == 0) input.shape[1] else input.shape[0];
         break :shape drop_shape[0..1];
     };
-    var out = try array_mod.Array(f32).emptyOn(input.allocator, out_shape, input.device);
+    var out = try array_mod.Array(T).emptyOn(input.allocator, out_shape, input.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
         out.deinit();
         return null;
     };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
-    const report = runtime.runCudaDeviceReductionF32(
-        input.device.index,
-        op,
-        input.shape[0],
-        input.shape[1],
-        axis,
-        in_storage.ptr,
-        out_storage.ptr,
-    ) catch {
+    // Axiom owns the target-specific runtime ABI.  Vectra only selects dtype
+    // at the bridge boundary after target-based capability gating has already
+    // proven this CUDA/device-storage path is valid.
+    const report = (if (T == f32)
+        runtime.runCudaDeviceReductionF32(
+            input.device.index,
+            op,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            out_storage.ptr,
+        )
+    else
+        runtime.runCudaDeviceReductionF64(
+            input.device.index,
+            op,
+            input.shape[0],
+            input.shape[1],
+            axis,
+            in_storage.ptr,
+            out_storage.ptr,
+        )) catch {
         out.deinit();
         return null;
     };
