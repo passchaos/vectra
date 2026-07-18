@@ -107,6 +107,14 @@ pub fn main(init: std.process.Init) !void {
         defer softsign_out.deinit();
         var softsign_host = try softsign_out.cpu();
         defer softsign_host.deinit();
+        var elu_out = try shifted_for_relu.elu(1.0);
+        defer elu_out.deinit();
+        var elu_host = try elu_out.cpu();
+        defer elu_host.deinit();
+        var celu_out = try shifted_for_relu.celu(2.0);
+        defer celu_out.deinit();
+        var celu_host = try celu_out.cpu();
+        defer celu_host.deinit();
         var scaled_for_max = try shifted_for_relu.mulScalar(0.1);
         defer scaled_for_max.deinit();
         var leaky_relu_out = try shifted_for_relu.leakyRelu(0.1);
@@ -151,6 +159,12 @@ pub fn main(init: std.process.Init) !void {
             softsign_out.device.isCuda() and softsign_out.device_storage != null and
             approxF32(softsign_host.data[0], -2.0 / 3.0, 0.01) and
             approxF32(softsign_host.data[3], 0.5, 0.01) and
+            elu_out.device.isCuda() and elu_out.device_storage != null and
+            approxF32(elu_host.data[0], std.math.exp(@as(f32, -2.0)) - 1.0, 0.01) and
+            approxF32(elu_host.data[3], 1.0, 0.01) and
+            celu_out.device.isCuda() and celu_out.device_storage != null and
+            approxF32(celu_host.data[0], 2.0 * (std.math.exp(@as(f32, -1.0)) - 1.0), 0.01) and
+            approxF32(celu_host.data[3], 1.0, 0.01) and
             leaky_relu_out.device.isCuda() and leaky_relu_out.device_storage != null and
             approxF32(leaky_relu_host.data[0], -0.2, 0.01) and
             approxF32(leaky_relu_host.data[3], 1.0, 0.01) and

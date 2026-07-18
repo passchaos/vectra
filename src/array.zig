@@ -16888,6 +16888,21 @@ pub fn Array(comptime T: type) type {
 
         pub fn elu(self: Self, alpha: T) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var positive_part = try self.relu();
+                    defer positive_part.deinit();
+                    var negative_part = try self.minimumScalar(zero(T));
+                    defer negative_part.deinit();
+                    var exp_negative = try negative_part.exp();
+                    defer exp_negative.deinit();
+                    var expm1_negative = try exp_negative.subScalar(one(T));
+                    defer expm1_negative.deinit();
+                    var scaled_negative = try expm1_negative.mulScalar(alpha);
+                    defer scaled_negative.deinit();
+                    return positive_part.add(scaled_negative);
+                }
+            }
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
                 if (comptime T == BFloat16) {
@@ -16902,6 +16917,23 @@ pub fn Array(comptime T: type) type {
 
         pub fn celu(self: Self, alpha: T) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                    var positive_part = try self.relu();
+                    defer positive_part.deinit();
+                    var negative_part = try self.minimumScalar(zero(T));
+                    defer negative_part.deinit();
+                    var normalized_negative = try negative_part.divScalar(alpha);
+                    defer normalized_negative.deinit();
+                    var exp_negative = try normalized_negative.exp();
+                    defer exp_negative.deinit();
+                    var expm1_negative = try exp_negative.subScalar(one(T));
+                    defer expm1_negative.deinit();
+                    var scaled_negative = try expm1_negative.mulScalar(alpha);
+                    defer scaled_negative.deinit();
+                    return positive_part.add(scaled_negative);
+                }
+            }
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
                 if (comptime T == BFloat16) {
