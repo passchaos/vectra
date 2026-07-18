@@ -71,6 +71,7 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn executeMatmul(",
     "pub fn executeMatmulAdd(",
     "pub fn executeReduction(",
+    "pub fn executeBroadcastAdd(",
     "pub fn executeTrace(",
     "pub fn executeDet(",
     "pub fn executeEigh(",

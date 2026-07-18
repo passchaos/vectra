@@ -114,7 +114,8 @@ where Vectra still has a non-Axiom generic implementation.
 ## Current limits
 
 - Automatic Axiom dispatch covers contiguous same-shape elementwise,
-  CPU f32/f64 square, scalar/one-element scalar-broadcast, CPU f32/f64 2D axis reductions
+  CPU f32/f64 square, scalar/one-element scalar-broadcast, CPU f32/f64
+  row/column-bias broadcast add, CPU f32/f64 2D axis reductions
   (`sum/prod/min/max`), CPU f32/f64 2D transpose, and contiguous 2D matmul for the dtypes
   listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).
 - General broadcast/reduction/transpose CUDA eager execution, softmax, random CUDA creation, and

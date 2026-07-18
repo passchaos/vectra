@@ -506,8 +506,8 @@ pub fn broadcastAddRuntimeCapability(target: DialectBackend) RuntimeCapabilityRe
         .cpu => .{
             .target = target,
             .operation = "broadcast_add",
-            .status = .unavailable,
-            .reason = "Vectra has generic host broadcast fallback, but no dedicated Axiom eager broadcast-add runtime ABI is exposed yet.",
+            .status = .executable,
+            .reason = "Axiom CPU broadcast-add runtime is routed through Veyra for contiguous f32/f64 row/column 2D bias adds.",
         },
         .cuda => .{
             .target = target,
@@ -599,6 +599,47 @@ pub fn lowerBroadcastAddDialect(comptime T: type, input: array_mod.Array(T), bia
 
 pub fn lowerBroadcastAddDialectDefault(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!DialectBroadcastLoweringReport {
     return lowerBroadcastAddDialect(T, input, bias, axis, defaultDialectBackend());
+}
+
+pub fn executeBroadcastAdd(
+    comptime T: type,
+    target: DialectBackend,
+    input: array_mod.Array(T),
+    bias: array_mod.Array(T),
+    axis: DialectBroadcastAxis,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedBroadcastAddExecution(T, target, input, bias, axis)) return null;
+    return switch (target) {
+        .cpu => executeCpuBroadcastAdd(T, input, bias, axis),
+        .cuda => null,
+        .mps => null,
+    };
+}
+
+pub fn executeBroadcastAddDefault(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeBroadcastAdd(T, defaultTargetForDevice(input.device), input, bias, axis);
+}
+
+pub fn tryBroadcastAdd(
+    comptime T: type,
+    target: DialectBackend,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
+    if (lhs.shape.len == 2) {
+        if (broadcastBiasMatchesArrayAdd(T, lhs, rhs, .row)) return executeBroadcastAdd(T, target, lhs, rhs, .row);
+        if (broadcastBiasMatchesArrayAdd(T, lhs, rhs, .column)) return executeBroadcastAdd(T, target, lhs, rhs, .column);
+    }
+    if (rhs.shape.len == 2) {
+        if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .row)) return executeBroadcastAdd(T, target, rhs, lhs, .row);
+        if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .column)) return executeBroadcastAdd(T, target, rhs, lhs, .column);
+    }
+    return null;
+}
+
+pub fn tryBroadcastAddDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return tryBroadcastAdd(T, defaultTargetForDevice(lhs.device), lhs, rhs);
 }
 
 pub fn lowerUnaryDialect(comptime T: type, input: array_mod.Array(T), op: DialectUnaryOp, backend: DialectBackend) array_mod.ArrayError!DialectUnaryLoweringReport {
@@ -1946,6 +1987,63 @@ fn executeCpuReduction(
     return null;
 }
 
+fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        const input32 = @as(array_mod.Array(f32), input);
+        const bias32 = @as(array_mod.Array(f32), bias);
+        var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
+        errdefer out.deinit();
+        const matrix_view = matrixView(f32, input32, "input") orelse {
+            out.deinit();
+            return null;
+        };
+        const bias_view = bufferView(f32, bias32, "bias") orelse {
+            out.deinit();
+            return null;
+        };
+        const out_view = matrixView(f32, out, "out") orelse {
+            out.deinit();
+            return null;
+        };
+        const report = axiom.accelerator.cpu_veyra.runTargetBroadcastAddF32(.cpu, axis, matrix_view, bias_view, out_view, input32.data, bias32.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        const input64 = @as(array_mod.Array(f64), input);
+        const bias64 = @as(array_mod.Array(f64), bias);
+        var out = try array_mod.Array(f64).empty(input.allocator, input.shape);
+        errdefer out.deinit();
+        const matrix_view = matrixView(f64, input64, "input") orelse {
+            out.deinit();
+            return null;
+        };
+        const bias_view = bufferView(f64, bias64, "bias") orelse {
+            out.deinit();
+            return null;
+        };
+        const out_view = matrixView(f64, out, "out") orelse {
+            out.deinit();
+            return null;
+        };
+        const report = axiom.accelerator.cpu_veyra.runTargetBroadcastAddF64(.cpu, axis, matrix_view, bias_view, out_view, input64.data, bias64.data, out.data) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         const input32 = @as(array_mod.Array(f32), input);
@@ -2366,22 +2464,44 @@ fn supportedUnaryExecution(comptime T: type, input: array_mod.Array(T)) bool {
 
 fn supportedBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
     if (dialectElement(T) == null) return false;
-    if (!input.device.isCpu() or !bias.device.isCpu() or input.shape.len != 2 or bias.shape.len != 1) return false;
+    if (!input.device.isCpu() or !bias.device.isCpu() or input.shape.len != 2) return false;
     if (!input.isContiguous() or !bias.isContiguous()) return false;
-    return bias.shape[0] == switch (axis) {
-        .row => input.shape[1],
-        .column => input.shape[0],
+    return broadcastBiasMatches(T, input, bias, axis);
+}
+
+fn supportedBroadcastAddExecution(comptime T: type, target: DialectBackend, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
+    return broadcastAddRuntimeCapability(target).executable() and
+        targetCanAccessDevice(target, input.device) and
+        supportsAxiomCpuElementwise(T) and
+        input.device.sameDevice(bias.device) and
+        supportedBroadcastAdd(T, input, bias, axis);
+}
+
+fn broadcastBiasMatches(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
+    if (!input.device.sameDevice(bias.device) or input.shape.len != 2) return false;
+    return switch (axis) {
+        .row => bias.shape.len == 1 and bias.shape[0] == input.shape[1],
+        .column => bias.shape.len == 1 and bias.shape[0] == input.shape[0],
+    };
+}
+
+fn broadcastBiasMatchesArrayAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
+    if (broadcastBiasMatches(T, input, bias, axis)) return true;
+    return switch (axis) {
+        .row => false,
+        .column => input.device.sameDevice(bias.device) and
+            input.shape.len == 2 and
+            bias.shape.len == 2 and
+            bias.shape[0] == input.shape[0] and
+            bias.shape[1] == 1,
     };
 }
 
 fn supportedBroadcastAddLowering(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
     if (dialectElement(T) == null) return false;
-    if (!input.device.sameDevice(bias.device) or input.shape.len != 2 or bias.shape.len != 1) return false;
+    if (!input.device.sameDevice(bias.device) or input.shape.len != 2) return false;
     if (!input.isContiguous() or !bias.isContiguous()) return false;
-    return bias.shape[0] == switch (axis) {
-        .row => input.shape[1],
-        .column => input.shape[0],
-    };
+    return broadcastBiasMatches(T, input, bias, axis);
 }
 
 fn supportedElementwiseLowering(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
@@ -2640,6 +2760,14 @@ test "Axiom dialect lowering reports broadcast generic route" {
     try std.testing.expectEqual(DialectBroadcastLoweringStatus.lowered_cuda, cuda_report.status);
     try std.testing.expect(cuda_report.vector_fragment_fingerprint != 0);
     try std.testing.expect(cuda_report.gpu_mapping_fingerprint != 0);
+    const cpu_runtime = broadcastAddRuntimeCapability(.cpu);
+    try std.testing.expect(cpu_runtime.executable());
+    var row_out = (try executeBroadcastAdd(f32, .cpu, input, row, .row)) orelse return error.BackendFailure;
+    defer row_out.deinit();
+    try std.testing.expectEqualSlices(f32, &.{ 11, 22, 33, 14, 25, 36 }, row_out.data);
+    var reversed_row_out = (try tryBroadcastAdd(f32, .cpu, row, input)) orelse return error.BackendFailure;
+    defer reversed_row_out.deinit();
+    try std.testing.expectEqualSlices(f32, row_out.data, reversed_row_out.data);
 
     setDefaultDialectBackend(.mps);
     const default_mps_report = try lowerBroadcastAddDialectDefault(f32, input, column, .column);
