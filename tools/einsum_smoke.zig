@@ -16,6 +16,8 @@ pub fn main(init: std.process.Init) !void {
     defer b.deinit();
     var mm = try vx.einsum("ij,jk->ik", a, b);
     defer mm.deinit();
+    var mm_implicit = try vx.einsum("ij,jk", a, b);
+    defer mm_implicit.deinit();
 
     var v1 = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3 }, &.{3});
     defer v1.deinit();
@@ -23,8 +25,12 @@ pub fn main(init: std.process.Init) !void {
     defer v2.deinit();
     var dot = try vx.einsum("i,i->", v1, v2);
     defer dot.deinit();
+    var dot_implicit = try vx.einsum("i,i", v1, v2);
+    defer dot_implicit.deinit();
     var outer = try vx.einsum("i,j->ij", v1, v2);
     defer outer.deinit();
+    var outer_implicit = try vx.einsum("i,j", v1, v2);
+    defer outer_implicit.deinit();
     var matvec = try vx.einsum("ij,j->i", a, v1);
     defer matvec.deinit();
     var vecmat = try vx.einsum("i,ij->j", v1, b);
@@ -58,6 +64,8 @@ pub fn main(init: std.process.Init) !void {
     defer batch_rhs.deinit();
     var batched = try vx.einsum("bij,bjk->bik", batch_lhs, batch_rhs);
     defer batched.deinit();
+    var batched_implicit = try vx.einsum("bij,bjk", batch_lhs, batch_rhs);
+    defer batched_implicit.deinit();
 
     const unsupported_rejected = blk: {
         var bad = vx.einsum("ij->ji", a, b) catch |err| {
@@ -68,11 +76,14 @@ pub fn main(init: std.process.Init) !void {
     };
 
     const ok = eql(f32, mm.data, &.{ 58, 64, 139, 154 }) and
+        eql(f32, mm_implicit.data, &.{ 58, 64, 139, 154 }) and
         std.mem.eql(usize, mm.shape, &.{ 2, 2 }) and
         std.mem.eql(usize, dot.shape, &.{}) and
         eql(f32, dot.data, &.{220}) and
+        eql(f32, dot_implicit.data, &.{220}) and
         std.mem.eql(usize, outer.shape, &.{ 3, 3 }) and
         eql(f32, outer.data, &.{ 10, 30, 50, 20, 60, 100, 30, 90, 150 }) and
+        eql(f32, outer_implicit.data, &.{ 10, 30, 50, 20, 60, 100, 30, 90, 150 }) and
         std.mem.eql(usize, matvec.shape, &.{2}) and
         eql(f32, matvec.data, &.{ 14, 32 }) and
         std.mem.eql(usize, vecmat.shape, &.{2}) and
@@ -83,15 +94,17 @@ pub fn main(init: std.process.Init) !void {
         eql(f32, generic_contract.data, &.{ 22, 28, 49, 64, 76, 100, 103, 136 }) and
         std.mem.eql(usize, batched.shape, &.{ 2, 2, 2 }) and
         eql(f32, batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }) and
+        eql(f32, batched_implicit.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }) and
         unsupported_rejected;
 
     var stdout_buffer: [512]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"vecmat_ok\":{},\"reordered_ok\":{},\"generic_contract_ok\":{},\"batched_matmul_ok\":{},\"unsupported_rejected\":{}}}\n",
+        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"implicit_output_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"vecmat_ok\":{},\"reordered_ok\":{},\"generic_contract_ok\":{},\"batched_matmul_ok\":{},\"unsupported_rejected\":{}}}\n",
         .{
             ok,
             eql(f32, mm.data, &.{ 58, 64, 139, 154 }),
+            eql(f32, mm_implicit.data, &.{ 58, 64, 139, 154 }) and eql(f32, dot_implicit.data, &.{220}) and eql(f32, outer_implicit.data, &.{ 10, 30, 50, 20, 60, 100, 30, 90, 150 }) and eql(f32, batched_implicit.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),
             eql(f32, dot.data, &.{220}),
             eql(f32, outer.data, &.{ 10, 30, 50, 20, 60, 100, 30, 90, 150 }),
             eql(f32, matvec.data, &.{ 14, 32 }),

@@ -165,14 +165,16 @@ fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {
 
 fn batchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
     if (lhs_rank != 3 or rhs_rank != 3) return false;
-    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse return false;
+    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse subscripts.len;
     const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return false;
     const lhs = subscripts[0..comma];
     const rhs = subscripts[comma + 1 .. arrow];
-    const out = subscripts[arrow + 2 ..];
-    if (lhs.len != 3 or rhs.len != 3 or out.len != 3) return false;
+    const out = if (arrow == subscripts.len) "" else subscripts[arrow + 2 ..];
+    if (lhs.len != 3 or rhs.len != 3) return false;
+    if (out.len != 0 and out.len != 3) return false;
     if (!allEinsumLabels(lhs) or !allEinsumLabels(rhs) or !allEinsumLabels(out)) return false;
     if (hasRepeatedLabels(lhs) or hasRepeatedLabels(rhs) or hasRepeatedLabels(out)) return false;
+    if (out.len == 0) return lhs[0] == rhs[0] and lhs[2] == rhs[1];
     return lhs[0] == rhs[0] and
         lhs[0] == out[0] and
         lhs[1] == out[1] and
@@ -242,14 +244,17 @@ const BinaryEinsumPlan = struct {
 fn parseBinaryEinsum(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) ArrayError!BinaryEinsumPlan {
     if (lhs_rank > max_einsum_rank or rhs_rank > max_einsum_rank) return error.InvalidShape;
     if (std.mem.indexOf(u8, subscripts, "...") != null) return error.InvalidShape;
-    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse return error.InvalidShape;
-    if (std.mem.indexOf(u8, subscripts[arrow + 2 ..], "->") != null) return error.InvalidShape;
+    const explicit_output = std.mem.indexOf(u8, subscripts, "->");
+    const arrow = explicit_output orelse subscripts.len;
+    if (explicit_output != null and std.mem.indexOf(u8, subscripts[arrow + 2 ..], "->") != null) return error.InvalidShape;
     const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return error.InvalidShape;
 
     var plan: BinaryEinsumPlan = .{};
     plan.lhs_len = try parseEinsumLabels(subscripts[0..comma], lhs_rank, plan.lhs[0..]);
     plan.rhs_len = try parseEinsumLabels(subscripts[comma + 1 .. arrow], rhs_rank, plan.rhs[0..]);
-    plan.out_len = try parseEinsumLabels(subscripts[arrow + 2 ..], null, plan.out[0..]);
+    if (explicit_output) |_| {
+        plan.out_len = try parseEinsumLabels(subscripts[arrow + 2 ..], null, plan.out[0..]);
+    }
 
     var out_seen = [_]bool{false} ** 256;
     for (plan.out[0..plan.out_len]) |label| {
@@ -276,6 +281,10 @@ fn parseBinaryEinsum(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) A
             default_seen[label] = true;
             plan.default_out_len += 1;
         }
+    }
+    if (explicit_output == null) {
+        @memcpy(plan.out[0..plan.default_out_len], plan.default_out[0..plan.default_out_len]);
+        plan.out_len = plan.default_out_len;
     }
     if (plan.out_len != plan.default_out_len) return error.InvalidShape;
     for (plan.out[0..plan.out_len], 0..) |label, out_axis| {

@@ -54,10 +54,10 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
   checks every pair in Vectra's current `DType` set plus representative promoted
   value operations.  More NumPy/PyTorch scalar edge cases still need expansion.
 - `einsum`/general contraction syntax: Vectra now has a bounded binary
-  explicit-subscript `einsum-smoke` for common contractions and output
-  reordering, including the common batched matmul form `bij,bjk->bik`, but full
-  NumPy-compatible syntax (ellipsis, repeated labels, more than two operands,
-  and optimized path planning) is not covered yet.
+  explicit-subscript `einsum-smoke` for common contractions, implicit output
+  inference, and output reordering, including the common batched matmul form
+  `bij,bjk->bik`, but full NumPy-compatible syntax (ellipsis, repeated labels,
+  more than two operands, and optimized path planning) is not covered yet.
 - Sparse tensor/array layouts are outside the current dense Array surface.
 
 ## Backend evidence
