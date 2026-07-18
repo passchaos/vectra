@@ -132,10 +132,11 @@ pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayErro
     try requireSameDevice(lhs, rhs);
     // Bounded NumPy/PyTorch-style front-end syntax over existing Array
     // primitives.  This parser intentionally supports only explicit binary
-    // subscript forms without ellipsis, repeated labels, or shared batch labels.
-    // Fast paths keep common contractions on Array/Axiom matmul/dot/outer
-    // dispatch; the generic fallback uses `contractAxes` plus optional output
-    // permutation rather than introducing a separate backend branch here.
+    // subscript forms without ellipsis or repeated labels.  The dedicated
+    // batched-matmul fast path handles the common shared leading batch label;
+    // the generic fallback still rejects other shared output labels until a
+    // fuller einsum lowering exists.
+    if (batchedMatmulLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) return lhs.matmul(rhs);
     const plan = try parseBinaryEinsum(subscripts, lhs.shape.len, rhs.shape.len);
     if (plan.matmulLike()) return lhs.matmul(rhs);
     if (plan.matvecLike()) return lhs.matmul(rhs);
@@ -160,6 +161,23 @@ pub fn tryMatmulAddTarget(target: DialectBackend, lhs: anytype, rhs: @TypeOf(lhs
 fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {
     if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
     if (!lhs.device.isAvailable()) return error.InvalidDevice;
+}
+
+fn batchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
+    if (lhs_rank != 3 or rhs_rank != 3) return false;
+    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse return false;
+    const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return false;
+    const lhs = subscripts[0..comma];
+    const rhs = subscripts[comma + 1 .. arrow];
+    const out = subscripts[arrow + 2 ..];
+    if (lhs.len != 3 or rhs.len != 3 or out.len != 3) return false;
+    if (!allEinsumLabels(lhs) or !allEinsumLabels(rhs) or !allEinsumLabels(out)) return false;
+    if (hasRepeatedLabels(lhs) or hasRepeatedLabels(rhs) or hasRepeatedLabels(out)) return false;
+    return lhs[0] == rhs[0] and
+        lhs[0] == out[0] and
+        lhs[1] == out[1] and
+        rhs[2] == out[2] and
+        lhs[2] == rhs[1];
 }
 
 const max_einsum_rank = 16;
@@ -280,6 +298,22 @@ fn parseEinsumLabels(segment: []const u8, expected_rank: ?usize, out: []u8) Arra
         out[index] = label;
     }
     return segment.len;
+}
+
+fn allEinsumLabels(segment: []const u8) bool {
+    for (segment) |label| {
+        if (!std.ascii.isAlphabetic(label)) return false;
+    }
+    return true;
+}
+
+fn hasRepeatedLabels(segment: []const u8) bool {
+    var seen = [_]bool{false} ** 256;
+    for (segment) |label| {
+        if (seen[label]) return true;
+        seen[label] = true;
+    }
+    return false;
 }
 
 fn findLabel(labels: []const u8, needle: u8) ?usize {

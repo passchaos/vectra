@@ -46,6 +46,18 @@ pub fn main(init: std.process.Init) !void {
     defer contract_rhs.deinit();
     var generic_contract = try vx.einsum("abc,cd->abd", tensor3, contract_rhs);
     defer generic_contract.deinit();
+    var batch_lhs = try vx.Array(f32).fromSlice(allocator, &.{
+        1, 2, 3, 4,
+        5, 6, 7, 8,
+    }, &.{ 2, 2, 2 });
+    defer batch_lhs.deinit();
+    var batch_rhs = try vx.Array(f32).fromSlice(allocator, &.{
+        1, 0, 0, 1,
+        1, 1, 1, 1,
+    }, &.{ 2, 2, 2 });
+    defer batch_rhs.deinit();
+    var batched = try vx.einsum("bij,bjk->bik", batch_lhs, batch_rhs);
+    defer batched.deinit();
 
     const unsupported_rejected = blk: {
         var bad = vx.einsum("ij->ji", a, b) catch |err| {
@@ -69,12 +81,14 @@ pub fn main(init: std.process.Init) !void {
         eql(f32, transposed_outer.data, &.{ 10, 20, 30, 30, 60, 90, 50, 100, 150 }) and
         std.mem.eql(usize, generic_contract.shape, &.{ 2, 2, 2 }) and
         eql(f32, generic_contract.data, &.{ 22, 28, 49, 64, 76, 100, 103, 136 }) and
+        std.mem.eql(usize, batched.shape, &.{ 2, 2, 2 }) and
+        eql(f32, batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }) and
         unsupported_rejected;
 
     var stdout_buffer: [512]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"vecmat_ok\":{},\"reordered_ok\":{},\"generic_contract_ok\":{},\"unsupported_rejected\":{}}}\n",
+        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"vecmat_ok\":{},\"reordered_ok\":{},\"generic_contract_ok\":{},\"batched_matmul_ok\":{},\"unsupported_rejected\":{}}}\n",
         .{
             ok,
             eql(f32, mm.data, &.{ 58, 64, 139, 154 }),
@@ -84,6 +98,7 @@ pub fn main(init: std.process.Init) !void {
             eql(f32, vecmat.data, &.{ 58, 64 }),
             eql(f32, transposed_outer.data, &.{ 10, 20, 30, 30, 60, 90, 50, 100, 150 }),
             eql(f32, generic_contract.data, &.{ 22, 28, 49, 64, 76, 100, 103, 136 }),
+            eql(f32, batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),
             unsupported_rejected,
         },
     );
