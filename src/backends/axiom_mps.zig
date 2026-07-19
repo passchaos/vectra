@@ -249,6 +249,96 @@ pub fn tryUnaryF16(op: axiom.accelerator.MpsUnaryOp, input: array_mod.Array(f16)
     return out;
 }
 
+pub fn tryBinaryBF16(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(array_mod.BFloat16), rhs: array_mod.Array(array_mod.BFloat16)) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (!std.mem.eql(usize, lhs.shape, rhs.shape) or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    if (lhs_storage.len != rhs_storage.len) return null;
+
+    var out = try array_mod.Array(array_mod.BFloat16).emptyOn(lhs.allocator, lhs.shape, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runBinaryBF16(
+        op,
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        lhs_storage.len,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryScalarBF16(op: axiom.accelerator.MpsBinaryOp, input: array_mod.Array(array_mod.BFloat16), scalar: array_mod.BFloat16, scalar_left: bool) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    if (!input.device.isMps() or !input.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+
+    var out = try array_mod.Array(array_mod.BFloat16).emptyOn(input.allocator, input.shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runScalarBF16(
+        op,
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        scalar.toF32(),
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        input_storage.len,
+        scalar_left,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryUnaryBF16(op: axiom.accelerator.MpsUnaryOp, input: array_mod.Array(array_mod.BFloat16)) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    if (!input.device.isMps() or !input.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+
+    var out = try array_mod.Array(array_mod.BFloat16).emptyOn(input.allocator, input.shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runUnaryBF16(
+        op,
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        input_storage.len,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
 pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
     if (lhs.shape.len != 2 or rhs.shape.len != 2 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
