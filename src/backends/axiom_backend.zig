@@ -67,6 +67,9 @@ pub const ExecutionUnaryOp = enum(u8) {
     sin,
     cos,
     tan,
+    asin,
+    acos,
+    atan,
 
     pub fn label(op: ExecutionUnaryOp) []const u8 {
         return @tagName(op);
@@ -1458,7 +1461,7 @@ fn runCudaPendingMatmulUnary(
             const cuda_unary: axiom_cuda.UnaryOp = switch (unary) {
                 .sqrt => .sqrt,
                 .exp => .exp,
-                .abs, .square, .log, .exp2, .expm1, .log1p, .log2, .log10, .sin, .cos, .tan => return false,
+                .abs, .square, .log, .exp2, .expm1, .log1p, .log2, .log10, .sin, .cos, .tan, .asin, .acos, .atan => return false,
             };
             return axiom_cuda.runPendingMatmulAddUnaryF32(
                 allocator,
@@ -2279,6 +2282,9 @@ fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
         .sin => .sin,
         .cos => .cos,
         .tan => .tan,
+        .asin => .asin,
+        .acos => .acos,
+        .atan => .atan,
     };
     if (T == f32) {
         var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
@@ -2323,11 +2329,11 @@ fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arr
         .log1p => .log1p,
         .log2 => .log2,
         .log10 => .log10,
-        .square => unreachable,
+        .square, .asin, .acos, .atan => unreachable,
     };
     if (T == f32) {
         if (try axiom_cuda.tryDeviceUnaryF32(cuda_op, @as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
-    } else if (op == .log or op == .sin or op == .cos or op == .tan or op == .exp2 or op == .expm1 or op == .log1p or op == .log2 or op == .log10) {
+    } else if (op == .log or op == .sin or op == .cos or op == .tan or op == .exp2 or op == .expm1 or op == .log1p or op == .log2 or op == .log10 or op == .asin or op == .acos or op == .atan) {
         return null;
     } else if (T == f16) {
         if (try axiom_cuda.tryDeviceUnaryF16(cuda_op, @as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);
@@ -2794,7 +2800,7 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .sin => try axiom_cuda.trySinViewF32(@as(array_mod.ArrayView(f32), input)),
             .cos => try axiom_cuda.tryCosViewF32(@as(array_mod.ArrayView(f32), input)),
             .tan => try axiom_cuda.tryTanViewF32(@as(array_mod.ArrayView(f32), input)),
-            .square => null,
+            .square, .asin, .acos, .atan => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     } else if (T == f64) {
@@ -2802,7 +2808,7 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .abs => try axiom_cuda.tryAbsViewF64(@as(array_mod.ArrayView(f64), input)),
             .sqrt => try axiom_cuda.trySqrtViewF64(@as(array_mod.ArrayView(f64), input)),
             .exp => try axiom_cuda.tryExpViewF64(@as(array_mod.ArrayView(f64), input)),
-            .square, .log, .exp2, .expm1, .log1p, .log2, .log10, .sin, .cos, .tan => null,
+            .square, .log, .exp2, .expm1, .log1p, .log2, .log10, .sin, .cos, .tan, .asin, .acos, .atan => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     } else if (T == f16) {
@@ -2810,7 +2816,7 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .abs => try axiom_cuda.tryAbsViewF16(@as(array_mod.ArrayView(f16), input)),
             .sqrt => try axiom_cuda.trySqrtViewF16(@as(array_mod.ArrayView(f16), input)),
             .exp => try axiom_cuda.tryExpViewF16(@as(array_mod.ArrayView(f16), input)),
-            .square, .log, .exp2, .expm1, .log1p, .log2, .log10, .sin, .cos, .tan => null,
+            .square, .log, .exp2, .expm1, .log1p, .log2, .log10, .sin, .cos, .tan, .asin, .acos, .atan => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     } else if (T == array_mod.BFloat16) {
@@ -2818,7 +2824,7 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .abs => try axiom_cuda.tryAbsViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), input)),
             .sqrt => try axiom_cuda.trySqrtViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), input)),
             .exp => try axiom_cuda.tryExpViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), input)),
-            .square, .log, .exp2, .expm1, .log1p, .log2, .log10, .sin, .cos, .tan => null,
+            .square, .log, .exp2, .expm1, .log1p, .log2, .log10, .sin, .cos, .tan, .asin, .acos, .atan => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     }

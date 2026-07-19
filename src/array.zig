@@ -16861,6 +16861,9 @@ pub fn Array(comptime T: type) type {
 
         pub fn asin(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .asin, self)) |out| return out;
+            }
             return self.unary(opAsin);
         }
 
@@ -16870,6 +16873,9 @@ pub fn Array(comptime T: type) type {
 
         pub fn acos(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .acos, self)) |out| return out;
+            }
             return self.unary(opAcos);
         }
 
@@ -16879,6 +16885,9 @@ pub fn Array(comptime T: type) type {
 
         pub fn atan(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .atan, self)) |out| return out;
+            }
             return self.unary(opAtan);
         }
 
