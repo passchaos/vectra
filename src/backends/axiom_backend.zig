@@ -1439,6 +1439,37 @@ fn executeMpsMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Ar
     } else if (T == array_mod.BFloat16 and lhs.shape.len == 2 and rhs.shape.len == 2) {
         if (try axiom_mps.tryMatmulBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
+    if (T == f32 or T == f16 or T == array_mod.BFloat16) {
+        if (lhs.shape.len == 1 and rhs.shape.len == 1) {
+            var lhs_matrix = try lhs.reshape(&.{ 1, lhs.shape[0] });
+            defer lhs_matrix.deinit();
+            var rhs_matrix = try rhs.reshape(&.{ rhs.shape[0], 1 });
+            defer rhs_matrix.deinit();
+            var matrix_out = (try executeMpsMatmul(T, lhs_matrix, rhs_matrix)) orelse return null;
+            errdefer matrix_out.deinit();
+            const scalar = try matrix_out.reshape(&.{});
+            matrix_out.deinit();
+            return scalar;
+        }
+        if (lhs.shape.len == 2 and rhs.shape.len == 1) {
+            var rhs_matrix = try rhs.reshape(&.{ rhs.shape[0], 1 });
+            defer rhs_matrix.deinit();
+            var matrix_out = (try executeMpsMatmul(T, lhs, rhs_matrix)) orelse return null;
+            errdefer matrix_out.deinit();
+            const vector = try matrix_out.reshape(&.{lhs.shape[0]});
+            matrix_out.deinit();
+            return vector;
+        }
+        if (lhs.shape.len == 1 and rhs.shape.len == 2) {
+            var lhs_matrix = try lhs.reshape(&.{ 1, lhs.shape[0] });
+            defer lhs_matrix.deinit();
+            var matrix_out = (try executeMpsMatmul(T, lhs_matrix, rhs)) orelse return null;
+            errdefer matrix_out.deinit();
+            const vector = try matrix_out.reshape(&.{rhs.shape[1]});
+            matrix_out.deinit();
+            return vector;
+        }
+    }
     return null;
 }
 
@@ -3792,7 +3823,11 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
             (rhs.shape.len == 1 or rhs.shape.len == 2);
     }
     if (lhs.device.isMps()) {
-        return (T == f32 or T == f16 or T == array_mod.BFloat16) and lhs.shape.len == 2 and rhs.shape.len == 2;
+        if (T != f32 and T != f16 and T != array_mod.BFloat16) return false;
+        return (lhs.shape.len == 1 and rhs.shape.len == 1) or
+            (lhs.shape.len == 2 and rhs.shape.len == 2) or
+            (lhs.shape.len == 2 and rhs.shape.len == 1) or
+            (lhs.shape.len == 1 and rhs.shape.len == 2);
     }
     if (!lhs.device.isCuda() or (T != f32 and T != f64 and T != f16 and T != array_mod.BFloat16)) return false;
     return (lhs.shape.len == 1 and rhs.shape.len == 1) or

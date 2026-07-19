@@ -22076,7 +22076,7 @@ pub fn Array(comptime T: type) type {
             if (self.shape.len != 2) return error.NonMatrixArray;
             if (vector.shape.len != 1) return error.NonVectorArray;
             if (self.shape[1] != vector.shape[0]) return error.ShapeMismatch;
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (try axiom_backend.executeMatmulDefault(T, self, vector)) |out| return out;
             }
             const rows = self.shape[0];
@@ -22100,7 +22100,7 @@ pub fn Array(comptime T: type) type {
             ensureNumeric(T);
             if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
             if (self.shape[0] != other.shape[0]) return error.ShapeMismatch;
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (try axiom_backend.executeMatmulDefault(T, self, other)) |out| return out;
             }
             var acc = zero(T);
@@ -22111,7 +22111,7 @@ pub fn Array(comptime T: type) type {
         pub fn vdot(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.data.len != other.data.len) return error.ShapeMismatch;
-            if (comptime T == f32 or T == f64) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (try axiom_backend.executeMatmulDefault(T, self, other)) |out| return out;
             }
             var acc = zero(T);
