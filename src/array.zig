@@ -673,6 +673,16 @@ fn negValue(comptime T: type, a: T) T {
     return -a;
 }
 
+fn expm1Value(comptime T: type, value: T) T {
+    if (comptime T == BFloat16) return BFloat16.fromF32(std.math.expm1(value.toF32()));
+    if (comptime isComplex(T)) return std.math.complex.exp(value).sub(one(T));
+    return switch (T) {
+        f16 => @floatCast(std.math.expm1(@as(f32, @floatCast(value)))),
+        f32, f64 => std.math.expm1(value),
+        else => @compileError("expm1 requires a floating-point array"),
+    };
+}
+
 fn absValue(comptime T: type, value: T) T {
     if (comptime T == BFloat16) return value.abs();
     if (comptime isComplex(T)) return T.init(value.magnitude(), 0);
@@ -4437,7 +4447,7 @@ pub fn ArrayView(comptime T: type) type {
             for (out.data, 0..) |*slot, flat| {
                 unravelIndexInto(flat, self.shape, multi);
                 const value = self.data[self.offset + ravelIndex(multi, self.strides)];
-                slot.* = if (value > zero(T)) value else mulValue(T, value, negative_slope);
+                slot.* = if (lessValue(T, zero(T), value)) value else mulValue(T, value, negative_slope);
             }
             return out;
         }
@@ -4551,7 +4561,7 @@ pub fn ArrayView(comptime T: type) type {
                     const v = value.toF32();
                     slot.* = if (v > 0) value else BFloat16.fromF32(alpha.toF32() * std.math.expm1(v));
                 } else {
-                    slot.* = if (value > zero(T)) value else alpha * std.math.expm1(value);
+                    slot.* = if (lessValue(T, zero(T), value)) value else mulValue(T, alpha, expm1Value(T, value));
                 }
             }
             return out;
@@ -4572,7 +4582,7 @@ pub fn ArrayView(comptime T: type) type {
                     const v = value.toF32();
                     slot.* = if (v > 0) value else BFloat16.fromF32(alpha_f32 * std.math.expm1(v / alpha_f32));
                 } else {
-                    slot.* = if (value > zero(T)) value else alpha * std.math.expm1(value / alpha);
+                    slot.* = if (lessValue(T, zero(T), value)) value else mulValue(T, alpha, expm1Value(T, divValue(T, value, alpha)));
                 }
             }
             return out;
@@ -4588,7 +4598,7 @@ pub fn ArrayView(comptime T: type) type {
                         const value = a.toF32();
                         return BFloat16.fromF32(@as(f32, @floatCast(scale)) * if (value > 0) value else @as(f32, @floatCast(alpha)) * std.math.expm1(value));
                     }
-                    return castValue(T, scale) * if (a > zero(T)) a else castValue(T, alpha) * std.math.expm1(a);
+                    return mulValue(T, castValue(T, scale), if (lessValue(T, zero(T), a)) a else mulValue(T, castValue(T, alpha), expm1Value(T, a)));
                 }
             }.f);
         }
@@ -15840,9 +15850,7 @@ pub fn Array(comptime T: type) type {
             return std.math.log1p(a);
         }
         fn opExpm1(a: T) T {
-            if (comptime isComplex(T)) return std.math.complex.exp(a).sub(one(T));
-            if (comptime T == BFloat16) return BFloat16.fromF32(std.math.expm1(a.toF32()));
-            return std.math.expm1(a);
+            return expm1Value(T, a);
         }
         fn opSinc(a: T) T {
             if (comptime T == BFloat16) {
@@ -16730,7 +16738,7 @@ pub fn Array(comptime T: type) type {
         pub fn rsqrt(self: Self) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var root = try self.sqrt();
                     defer root.deinit();
                     return root.reciprocal();
@@ -17011,7 +17019,7 @@ pub fn Array(comptime T: type) type {
         pub fn softshrink(self: Self, lambd: T) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var positive_excess_input = try self.subScalar(lambd);
                     defer positive_excess_input.deinit();
                     var positive_excess = try positive_excess_input.relu();
@@ -17084,7 +17092,7 @@ pub fn Array(comptime T: type) type {
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var scaled_negative = try self.mulScalar(negative_slope);
                     defer scaled_negative.deinit();
                     return self.maximum(scaled_negative);
@@ -17092,7 +17100,7 @@ pub fn Array(comptime T: type) type {
             }
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
-                slot.* = if (value > zero(T)) value else mulValue(T, value, negative_slope);
+                slot.* = if (lessValue(T, zero(T), value)) value else mulValue(T, value, negative_slope);
             }
             return out;
         }
@@ -17104,7 +17112,7 @@ pub fn Array(comptime T: type) type {
         pub fn silu(self: Self) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var gates = try self.sigmoid();
                     defer gates.deinit();
                     return self.mul(gates);
@@ -17143,7 +17151,7 @@ pub fn Array(comptime T: type) type {
         pub fn hardsigmoid(self: Self) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var shifted = try self.addScalar(castValue(T, 3));
                     defer shifted.deinit();
                     var scaled = try shifted.divScalar(castValue(T, 6));
@@ -17169,7 +17177,7 @@ pub fn Array(comptime T: type) type {
         pub fn hardswish(self: Self) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var gate = try self.hardsigmoid();
                     defer gate.deinit();
                     return self.mul(gate);
@@ -17218,7 +17226,7 @@ pub fn Array(comptime T: type) type {
         pub fn elu(self: Self, alpha: T) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var positive_part = try self.relu();
                     defer positive_part.deinit();
                     var negative_part = try self.minimumScalar(zero(T));
@@ -17238,7 +17246,7 @@ pub fn Array(comptime T: type) type {
                     const v = value.toF32();
                     slot.* = if (v > 0) value else BFloat16.fromF32(alpha.toF32() * std.math.expm1(v));
                 } else {
-                    slot.* = if (value > zero(T)) value else alpha * std.math.expm1(value);
+                    slot.* = if (lessValue(T, zero(T), value)) value else mulValue(T, alpha, expm1Value(T, value));
                 }
             }
             return out;
@@ -17247,7 +17255,7 @@ pub fn Array(comptime T: type) type {
         pub fn celu(self: Self, alpha: T) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var positive_part = try self.relu();
                     defer positive_part.deinit();
                     var negative_part = try self.minimumScalar(zero(T));
@@ -17270,7 +17278,7 @@ pub fn Array(comptime T: type) type {
                     const v = value.toF32();
                     slot.* = if (v > 0) value else BFloat16.fromF32(alpha_f32 * std.math.expm1(v / alpha_f32));
                 } else {
-                    slot.* = if (value > zero(T)) value else alpha * std.math.expm1(value / alpha);
+                    slot.* = if (lessValue(T, zero(T), value)) value else mulValue(T, alpha, expm1Value(T, divValue(T, value, alpha)));
                 }
             }
             return out;
@@ -17286,7 +17294,7 @@ pub fn Array(comptime T: type) type {
                         const value = a.toF32();
                         return BFloat16.fromF32(@as(f32, @floatCast(scale)) * if (value > 0) value else @as(f32, @floatCast(alpha)) * std.math.expm1(value));
                     }
-                    return castValue(T, scale) * if (a > zero(T)) a else castValue(T, alpha) * std.math.expm1(a);
+                    return mulValue(T, castValue(T, scale), if (lessValue(T, zero(T), a)) a else mulValue(T, castValue(T, alpha), expm1Value(T, a)));
                 }
             }.f);
         }

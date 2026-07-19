@@ -22,6 +22,7 @@ pub fn main(init: std.process.Init) !void {
     var f16_softmax_ok = !available;
     var f16_log_softmax_ok = !available;
     var f16_activation_ok = !available;
+    var f16_activation_compose_ok = !available;
     var f16_loss_ok = !available;
     var bf16_elementwise_ok = !available;
     var bf16_scalar_ok = !available;
@@ -33,6 +34,7 @@ pub fn main(init: std.process.Init) !void {
     var bf16_softmax_ok = !available;
     var bf16_log_softmax_ok = !available;
     var bf16_activation_ok = !available;
+    var bf16_activation_compose_ok = !available;
     var matmul_ok = !available;
     var matmul_add_ok = !available;
     var transpose_ok = !available;
@@ -40,6 +42,7 @@ pub fn main(init: std.process.Init) !void {
     var reduction_ok = !available;
     var minmax_ok = !available;
     var activation_ok = !available;
+    var activation_compose_ok = !available;
     var ternary_ok = !available;
     var loss_ok = !available;
     var softmax_ok = !available;
@@ -342,6 +345,55 @@ pub fn main(init: std.process.Init) !void {
             closeF16(f16_sigmoid_back.data, &.{ sigmoid_neg2, @as(f32, 1.0) / (@as(f32, 1.0) + std.math.e), 0.5, @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0))), @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -2.0))), sigmoid_pos3 }, 0.02) and
             closeF16(f16_softsign_back.data, &.{ -2.0 / 3.0, -0.5, 0, 0.5, 2.0 / 3.0, 0.75 }, 0.02);
 
+        var f16_rsqrt = try f16_mat_lhs.rsqrt();
+        defer f16_rsqrt.deinit();
+        var f16_rsqrt_back = try f16_rsqrt.cpu();
+        defer f16_rsqrt_back.deinit();
+        var f16_leaky = try f16_shifted_for_max.leakyRelu(@as(f16, 0.1));
+        defer f16_leaky.deinit();
+        var f16_leaky_back = try f16_leaky.cpu();
+        defer f16_leaky_back.deinit();
+        var f16_silu = try f16_shifted_for_max.silu();
+        defer f16_silu.deinit();
+        var f16_silu_back = try f16_silu.cpu();
+        defer f16_silu_back.deinit();
+        var f16_hardsigmoid = try f16_shifted_for_max.hardsigmoid();
+        defer f16_hardsigmoid.deinit();
+        var f16_hardsigmoid_back = try f16_hardsigmoid.cpu();
+        defer f16_hardsigmoid_back.deinit();
+        var f16_hardswish = try f16_shifted_for_max.hardswish();
+        defer f16_hardswish.deinit();
+        var f16_hardswish_back = try f16_hardswish.cpu();
+        defer f16_hardswish_back.deinit();
+        var f16_softshrink = try f16_shifted_for_max.softshrink(@as(f16, 0.5));
+        defer f16_softshrink.deinit();
+        var f16_softshrink_back = try f16_softshrink.cpu();
+        defer f16_softshrink_back.deinit();
+        var f16_elu = try f16_shifted_for_max.elu(@as(f16, 1.0));
+        defer f16_elu.deinit();
+        var f16_elu_back = try f16_elu.cpu();
+        defer f16_elu_back.deinit();
+        var f16_celu = try f16_shifted_for_max.celu(@as(f16, 2.0));
+        defer f16_celu.deinit();
+        var f16_celu_back = try f16_celu.cpu();
+        defer f16_celu_back.deinit();
+        f16_activation_compose_ok = f16_rsqrt.device.isMps() and f16_rsqrt.device_storage != null and
+            f16_leaky.device.isMps() and f16_leaky.device_storage != null and
+            f16_silu.device.isMps() and f16_silu.device_storage != null and
+            f16_hardsigmoid.device.isMps() and f16_hardsigmoid.device_storage != null and
+            f16_hardswish.device.isMps() and f16_hardswish.device_storage != null and
+            f16_softshrink.device.isMps() and f16_softshrink.device_storage != null and
+            f16_elu.device.isMps() and f16_elu.device_storage != null and
+            f16_celu.device.isMps() and f16_celu.device_storage != null and
+            closeF16(f16_rsqrt_back.data, &.{ 1.0, 1.0 / std.math.sqrt(@as(f32, 2.0)), 1.0 / std.math.sqrt(@as(f32, 3.0)), 0.5, 1.0 / std.math.sqrt(@as(f32, 5.0)), 1.0 / std.math.sqrt(@as(f32, 6.0)) }, 0.02) and
+            closeF16(f16_leaky_back.data, &.{ -0.2, -0.1, 0, 1, 2, 3 }, 0.02) and
+            closeF16(f16_silu_back.data, &.{ -2.0 * sigmoid_neg2, -1.0 / (@as(f32, 1.0) + std.math.e), 0, @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0))), @as(f32, 2.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -2.0))), @as(f32, 3.0) * sigmoid_pos3 }, 0.03) and
+            closeF16(f16_hardsigmoid_back.data, &.{ 1.0 / 6.0, 2.0 / 6.0, 0.5, 4.0 / 6.0, 5.0 / 6.0, 1.0 }, 0.02) and
+            closeF16(f16_hardswish_back.data, &.{ -2.0 / 6.0, -2.0 / 6.0, 0, 4.0 / 6.0, 10.0 / 6.0, 3.0 }, 0.03) and
+            closeF16(f16_softshrink_back.data, &.{ -1.5, -0.5, 0, 0.5, 1.5, 2.5 }, 0.02) and
+            closeF16(f16_elu_back.data, &.{ std.math.exp(@as(f32, -2.0)) - 1.0, std.math.exp(@as(f32, -1.0)) - 1.0, 0, 1, 2, 3 }, 0.03) and
+            closeF16(f16_celu_back.data, &.{ 2.0 * (std.math.exp(@as(f32, -1.0)) - 1.0), 2.0 * (std.math.exp(@as(f32, -0.5)) - 1.0), 0, 1, 2, 3 }, 0.03);
+
         var f16_ternary_base = try vx.Array(f16).fromSliceOn(allocator, &.{ @as(f16, 1), @as(f16, 2), @as(f16, 3), @as(f16, 4) }, &.{ 2, 2 }, vx.mps(0));
         defer f16_ternary_base.deinit();
         var f16_ternary_lhs = try vx.Array(f16).fromSliceOn(allocator, &.{ @as(f16, 1), @as(f16, 1), @as(f16, 1), @as(f16, 1) }, &.{ 2, 2 }, vx.mps(0));
@@ -601,6 +653,55 @@ pub fn main(init: std.process.Init) !void {
             closeBF16(bf16_sigmoid_back.data, &.{ sigmoid_neg2, @as(f32, 1.0) / (@as(f32, 1.0) + std.math.e), 0.5, @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0))), @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -2.0))), sigmoid_pos3 }, 0.05) and
             closeBF16(bf16_softsign_back.data, &.{ -2.0 / 3.0, -0.5, 0, 0.5, 2.0 / 3.0, 0.75 }, 0.05);
 
+        var bf16_rsqrt = try bf16_mat_lhs.rsqrt();
+        defer bf16_rsqrt.deinit();
+        var bf16_rsqrt_back = try bf16_rsqrt.cpu();
+        defer bf16_rsqrt_back.deinit();
+        var bf16_leaky = try bf16_shifted_for_max.leakyRelu(vx.BFloat16.fromF32(0.1));
+        defer bf16_leaky.deinit();
+        var bf16_leaky_back = try bf16_leaky.cpu();
+        defer bf16_leaky_back.deinit();
+        var bf16_silu = try bf16_shifted_for_max.silu();
+        defer bf16_silu.deinit();
+        var bf16_silu_back = try bf16_silu.cpu();
+        defer bf16_silu_back.deinit();
+        var bf16_hardsigmoid = try bf16_shifted_for_max.hardsigmoid();
+        defer bf16_hardsigmoid.deinit();
+        var bf16_hardsigmoid_back = try bf16_hardsigmoid.cpu();
+        defer bf16_hardsigmoid_back.deinit();
+        var bf16_hardswish = try bf16_shifted_for_max.hardswish();
+        defer bf16_hardswish.deinit();
+        var bf16_hardswish_back = try bf16_hardswish.cpu();
+        defer bf16_hardswish_back.deinit();
+        var bf16_softshrink = try bf16_shifted_for_max.softshrink(vx.BFloat16.fromF32(0.5));
+        defer bf16_softshrink.deinit();
+        var bf16_softshrink_back = try bf16_softshrink.cpu();
+        defer bf16_softshrink_back.deinit();
+        var bf16_elu = try bf16_shifted_for_max.elu(vx.BFloat16.fromF32(1.0));
+        defer bf16_elu.deinit();
+        var bf16_elu_back = try bf16_elu.cpu();
+        defer bf16_elu_back.deinit();
+        var bf16_celu = try bf16_shifted_for_max.celu(vx.BFloat16.fromF32(2.0));
+        defer bf16_celu.deinit();
+        var bf16_celu_back = try bf16_celu.cpu();
+        defer bf16_celu_back.deinit();
+        bf16_activation_compose_ok = bf16_rsqrt.device.isMps() and bf16_rsqrt.device_storage != null and
+            bf16_leaky.device.isMps() and bf16_leaky.device_storage != null and
+            bf16_silu.device.isMps() and bf16_silu.device_storage != null and
+            bf16_hardsigmoid.device.isMps() and bf16_hardsigmoid.device_storage != null and
+            bf16_hardswish.device.isMps() and bf16_hardswish.device_storage != null and
+            bf16_softshrink.device.isMps() and bf16_softshrink.device_storage != null and
+            bf16_elu.device.isMps() and bf16_elu.device_storage != null and
+            bf16_celu.device.isMps() and bf16_celu.device_storage != null and
+            closeBF16(bf16_rsqrt_back.data, &.{ 1.0, 1.0 / std.math.sqrt(@as(f32, 2.0)), 1.0 / std.math.sqrt(@as(f32, 3.0)), 0.5, 1.0 / std.math.sqrt(@as(f32, 5.0)), 1.0 / std.math.sqrt(@as(f32, 6.0)) }, 0.05) and
+            closeBF16(bf16_leaky_back.data, &.{ -0.2, -0.1, 0, 1, 2, 3 }, 0.125) and
+            closeBF16(bf16_silu_back.data, &.{ -2.0 * sigmoid_neg2, -1.0 / (@as(f32, 1.0) + std.math.e), 0, @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0))), @as(f32, 2.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -2.0))), @as(f32, 3.0) * sigmoid_pos3 }, 0.08) and
+            closeBF16(bf16_hardsigmoid_back.data, &.{ 1.0 / 6.0, 2.0 / 6.0, 0.5, 4.0 / 6.0, 5.0 / 6.0, 1.0 }, 0.05) and
+            closeBF16(bf16_hardswish_back.data, &.{ -2.0 / 6.0, -2.0 / 6.0, 0, 4.0 / 6.0, 10.0 / 6.0, 3.0 }, 0.125) and
+            closeBF16(bf16_softshrink_back.data, &.{ -1.5, -0.5, 0, 0.5, 1.5, 2.5 }, 0.125) and
+            closeBF16(bf16_elu_back.data, &.{ std.math.exp(@as(f32, -2.0)) - 1.0, std.math.exp(@as(f32, -1.0)) - 1.0, 0, 1, 2, 3 }, 0.125) and
+            closeBF16(bf16_celu_back.data, &.{ 2.0 * (std.math.exp(@as(f32, -1.0)) - 1.0), 2.0 * (std.math.exp(@as(f32, -0.5)) - 1.0), 0, 1, 2, 3 }, 0.125);
+
         var bf16_ternary_base = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{ vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(2), vx.BFloat16.fromF32(3), vx.BFloat16.fromF32(4) }, &.{ 2, 2 }, vx.mps(0));
         defer bf16_ternary_base.deinit();
         var bf16_ternary_lhs = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{ vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(1) }, &.{ 2, 2 }, vx.mps(0));
@@ -793,6 +894,56 @@ pub fn main(init: std.process.Init) !void {
             closeF32(sigmoid_back.data, &.{ sigmoid_neg2, @as(f32, 1.0) / (@as(f32, 1.0) + std.math.e), 0.5, @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0))), @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -2.0))), sigmoid_pos3 }, 0.01) and
             closeF32(softsign_back.data, &.{ -2.0 / 3.0, -0.5, 0, 0.5, 2.0 / 3.0, 0.75 }, 0.01);
 
+        var rsqrt = try mat_lhs.rsqrt();
+        defer rsqrt.deinit();
+        var rsqrt_back = try rsqrt.cpu();
+        defer rsqrt_back.deinit();
+        var leaky = try shifted_for_max.leakyRelu(0.1);
+        defer leaky.deinit();
+        var leaky_back = try leaky.cpu();
+        defer leaky_back.deinit();
+        var silu = try shifted_for_max.silu();
+        defer silu.deinit();
+        var silu_back = try silu.cpu();
+        defer silu_back.deinit();
+        var hardsigmoid = try shifted_for_max.hardsigmoid();
+        defer hardsigmoid.deinit();
+        var hardsigmoid_back = try hardsigmoid.cpu();
+        defer hardsigmoid_back.deinit();
+        var hardswish = try shifted_for_max.hardswish();
+        defer hardswish.deinit();
+        var hardswish_back = try hardswish.cpu();
+        defer hardswish_back.deinit();
+        var softshrink = try shifted_for_max.softshrink(0.5);
+        defer softshrink.deinit();
+        var softshrink_back = try softshrink.cpu();
+        defer softshrink_back.deinit();
+        var elu = try shifted_for_max.elu(1.0);
+        defer elu.deinit();
+        var elu_back = try elu.cpu();
+        defer elu_back.deinit();
+        var celu = try shifted_for_max.celu(2.0);
+        defer celu.deinit();
+        var celu_back = try celu.cpu();
+        defer celu_back.deinit();
+        activation_compose_ok = f16_activation_compose_ok and bf16_activation_compose_ok and
+            rsqrt.device.isMps() and rsqrt.device_storage != null and
+            leaky.device.isMps() and leaky.device_storage != null and
+            silu.device.isMps() and silu.device_storage != null and
+            hardsigmoid.device.isMps() and hardsigmoid.device_storage != null and
+            hardswish.device.isMps() and hardswish.device_storage != null and
+            softshrink.device.isMps() and softshrink.device_storage != null and
+            elu.device.isMps() and elu.device_storage != null and
+            celu.device.isMps() and celu.device_storage != null and
+            closeF32(rsqrt_back.data, &.{ 1.0, 1.0 / std.math.sqrt(@as(f32, 2.0)), 1.0 / std.math.sqrt(@as(f32, 3.0)), 0.5, 1.0 / std.math.sqrt(@as(f32, 5.0)), 1.0 / std.math.sqrt(@as(f32, 6.0)) }, 0.001) and
+            closeF32(leaky_back.data, &.{ -0.2, -0.1, 0, 1, 2, 3 }, 0.001) and
+            closeF32(silu_back.data, &.{ -2.0 * sigmoid_neg2, -1.0 / (@as(f32, 1.0) + std.math.e), 0, @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0))), @as(f32, 2.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -2.0))), @as(f32, 3.0) * sigmoid_pos3 }, 0.01) and
+            closeF32(hardsigmoid_back.data, &.{ 1.0 / 6.0, 2.0 / 6.0, 0.5, 4.0 / 6.0, 5.0 / 6.0, 1.0 }, 0.001) and
+            closeF32(hardswish_back.data, &.{ -2.0 / 6.0, -2.0 / 6.0, 0, 4.0 / 6.0, 10.0 / 6.0, 3.0 }, 0.001) and
+            closeF32(softshrink_back.data, &.{ -1.5, -0.5, 0, 0.5, 1.5, 2.5 }, 0.001) and
+            closeF32(elu_back.data, &.{ std.math.exp(@as(f32, -2.0)) - 1.0, std.math.exp(@as(f32, -1.0)) - 1.0, 0, 1, 2, 3 }, 0.01) and
+            closeF32(celu_back.data, &.{ 2.0 * (std.math.exp(@as(f32, -1.0)) - 1.0), 2.0 * (std.math.exp(@as(f32, -0.5)) - 1.0), 0, 1, 2, 3 }, 0.01);
+
         var ternary_base = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 }, vx.mps(0));
         defer ternary_base.deinit();
         var ternary_lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 1, 1, 1 }, &.{ 2, 2 }, vx.mps(0));
@@ -883,13 +1034,13 @@ pub fn main(init: std.process.Init) !void {
             closeF32(log_softmax_row_back.data, &.{ -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom, -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom }, 0.03) and
             closeF32(log_softmax_col_back.data, &.{ -3.0 - col_log_denom, -3.0 - col_log_denom, -3.0 - col_log_denom, -col_log_denom, -col_log_denom, -col_log_denom }, 0.03);
 
-        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(log_back.data) ^ hashF32(exp2_back.data) ^ hashF32(expm1_back.data) ^ hashF32(log1p_back.data) ^ hashF32(log2_back.data) ^ hashF32(log10_back.data) ^ hashF32(sin_back.data) ^ hashF32(cos_back.data) ^ hashF32(tan_back.data) ^ hashF16(f16_add_back.data) ^ hashF16(f16_div_back.data) ^ hashF16(f16_scaled_back.data) ^ hashF16(f16_rsub_back.data) ^ hashF16(f16_abs_back.data) ^ hashF16(f16_sqrt_back.data) ^ hashF16(f16_exp_back.data) ^ hashF16(f16_mat_back.data) ^ hashF16(f16_transposed_back.data) ^ hashF16(f16_row_added_back.data) ^ hashF16(f16_col_added_back.data) ^ hashF16(f16_row_sum_back.data) ^ hashF16(f16_col_max_back.data) ^ hashF16(f16_row_prod_keep_back.data) ^ hashF16(f16_maximum_back.data) ^ hashF16(f16_minimum_back.data) ^ hashF16(f16_maximum_scalar_back.data) ^ hashF16(f16_minimum_scalar_back.data) ^ hashF16(f16_relu_back.data) ^ hashF16(f16_threshold_back.data) ^ hashF16(f16_clip_back.data) ^ hashF16(f16_sigmoid_back.data) ^ hashF16(f16_softsign_back.data) ^ hashF16(f16_addcmul_back.data) ^ hashF16(f16_addcdiv_back.data) ^ hashF16(f16_lerp_scalar_back.data) ^ hashF16(f16_lerp_array_back.data) ^ hashF16(f16_mse_back.data) ^ hashF16(f16_l1_back.data) ^ hashF16(f16_smooth_l1_back.data) ^ hashF16(f16_huber_back.data) ^ hashF16(f16_softmax_row_back.data) ^ hashF16(f16_softmax_col_back.data) ^ hashF16(f16_log_softmax_row_back.data) ^ hashF16(f16_log_softmax_col_back.data) ^ hashBF16(bf16_add_back.data) ^ hashBF16(bf16_div_back.data) ^ hashBF16(bf16_scaled_back.data) ^ hashBF16(bf16_rsub_back.data) ^ hashBF16(bf16_abs_back.data) ^ hashBF16(bf16_sqrt_back.data) ^ hashBF16(bf16_exp_back.data) ^ hashBF16(bf16_mat_back.data) ^ hashBF16(bf16_transposed_back.data) ^ hashBF16(bf16_row_added_back.data) ^ hashBF16(bf16_col_added_back.data) ^ hashBF16(bf16_row_sum_back.data) ^ hashBF16(bf16_col_max_back.data) ^ hashBF16(bf16_col_min_back.data) ^ hashBF16(bf16_row_prod_keep_back.data) ^ hashBF16(bf16_maximum_back.data) ^ hashBF16(bf16_minimum_back.data) ^ hashBF16(bf16_maximum_scalar_back.data) ^ hashBF16(bf16_minimum_scalar_back.data) ^ hashBF16(bf16_relu_back.data) ^ hashBF16(bf16_threshold_back.data) ^ hashBF16(bf16_clip_back.data) ^ hashBF16(bf16_sigmoid_back.data) ^ hashBF16(bf16_softsign_back.data) ^ hashBF16(bf16_addcmul_back.data) ^ hashBF16(bf16_addcdiv_back.data) ^ hashBF16(bf16_lerp_scalar_back.data) ^ hashBF16(bf16_lerp_array_back.data) ^ hashBF16(bf16_softmax_row_back.data) ^ hashBF16(bf16_softmax_col_back.data) ^ hashBF16(bf16_log_softmax_row_back.data) ^ hashBF16(bf16_log_softmax_col_back.data) ^ hashF32(mat_back.data) ^ hashF32(mat_add_back.data) ^ hashF32(mat_scaled_add_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(maximum_back.data) ^ hashF32(minimum_back.data) ^ hashF32(maximum_scalar_back.data) ^ hashF32(minimum_scalar_back.data) ^ hashF32(relu_back.data) ^ hashF32(threshold_back.data) ^ hashF32(clip_back.data) ^ hashF32(sigmoid_back.data) ^ hashF32(softsign_back.data) ^ hashF32(addcmul_back.data) ^ hashF32(addcdiv_back.data) ^ hashF32(lerp_scalar_back.data) ^ hashF32(lerp_array_back.data) ^ hashF32(mse_back.data) ^ hashF32(l1_back.data) ^ hashF32(smooth_l1_back.data) ^ hashF32(huber_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data);
+        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(log_back.data) ^ hashF32(exp2_back.data) ^ hashF32(expm1_back.data) ^ hashF32(log1p_back.data) ^ hashF32(log2_back.data) ^ hashF32(log10_back.data) ^ hashF32(sin_back.data) ^ hashF32(cos_back.data) ^ hashF32(tan_back.data) ^ hashF16(f16_add_back.data) ^ hashF16(f16_div_back.data) ^ hashF16(f16_scaled_back.data) ^ hashF16(f16_rsub_back.data) ^ hashF16(f16_abs_back.data) ^ hashF16(f16_sqrt_back.data) ^ hashF16(f16_exp_back.data) ^ hashF16(f16_mat_back.data) ^ hashF16(f16_transposed_back.data) ^ hashF16(f16_row_added_back.data) ^ hashF16(f16_col_added_back.data) ^ hashF16(f16_row_sum_back.data) ^ hashF16(f16_col_max_back.data) ^ hashF16(f16_row_prod_keep_back.data) ^ hashF16(f16_maximum_back.data) ^ hashF16(f16_minimum_back.data) ^ hashF16(f16_maximum_scalar_back.data) ^ hashF16(f16_minimum_scalar_back.data) ^ hashF16(f16_relu_back.data) ^ hashF16(f16_threshold_back.data) ^ hashF16(f16_clip_back.data) ^ hashF16(f16_sigmoid_back.data) ^ hashF16(f16_softsign_back.data) ^ hashF16(f16_rsqrt_back.data) ^ hashF16(f16_leaky_back.data) ^ hashF16(f16_silu_back.data) ^ hashF16(f16_hardsigmoid_back.data) ^ hashF16(f16_hardswish_back.data) ^ hashF16(f16_softshrink_back.data) ^ hashF16(f16_elu_back.data) ^ hashF16(f16_celu_back.data) ^ hashF16(f16_addcmul_back.data) ^ hashF16(f16_addcdiv_back.data) ^ hashF16(f16_lerp_scalar_back.data) ^ hashF16(f16_lerp_array_back.data) ^ hashF16(f16_mse_back.data) ^ hashF16(f16_l1_back.data) ^ hashF16(f16_smooth_l1_back.data) ^ hashF16(f16_huber_back.data) ^ hashF16(f16_softmax_row_back.data) ^ hashF16(f16_softmax_col_back.data) ^ hashF16(f16_log_softmax_row_back.data) ^ hashF16(f16_log_softmax_col_back.data) ^ hashBF16(bf16_add_back.data) ^ hashBF16(bf16_div_back.data) ^ hashBF16(bf16_scaled_back.data) ^ hashBF16(bf16_rsub_back.data) ^ hashBF16(bf16_abs_back.data) ^ hashBF16(bf16_sqrt_back.data) ^ hashBF16(bf16_exp_back.data) ^ hashBF16(bf16_mat_back.data) ^ hashBF16(bf16_transposed_back.data) ^ hashBF16(bf16_row_added_back.data) ^ hashBF16(bf16_col_added_back.data) ^ hashBF16(bf16_row_sum_back.data) ^ hashBF16(bf16_col_max_back.data) ^ hashBF16(bf16_col_min_back.data) ^ hashBF16(bf16_row_prod_keep_back.data) ^ hashBF16(bf16_maximum_back.data) ^ hashBF16(bf16_minimum_back.data) ^ hashBF16(bf16_maximum_scalar_back.data) ^ hashBF16(bf16_minimum_scalar_back.data) ^ hashBF16(bf16_relu_back.data) ^ hashBF16(bf16_threshold_back.data) ^ hashBF16(bf16_clip_back.data) ^ hashBF16(bf16_sigmoid_back.data) ^ hashBF16(bf16_softsign_back.data) ^ hashBF16(bf16_rsqrt_back.data) ^ hashBF16(bf16_leaky_back.data) ^ hashBF16(bf16_silu_back.data) ^ hashBF16(bf16_hardsigmoid_back.data) ^ hashBF16(bf16_hardswish_back.data) ^ hashBF16(bf16_softshrink_back.data) ^ hashBF16(bf16_elu_back.data) ^ hashBF16(bf16_celu_back.data) ^ hashBF16(bf16_addcmul_back.data) ^ hashBF16(bf16_addcdiv_back.data) ^ hashBF16(bf16_lerp_scalar_back.data) ^ hashBF16(bf16_lerp_array_back.data) ^ hashBF16(bf16_softmax_row_back.data) ^ hashBF16(bf16_softmax_col_back.data) ^ hashBF16(bf16_log_softmax_row_back.data) ^ hashBF16(bf16_log_softmax_col_back.data) ^ hashF32(mat_back.data) ^ hashF32(mat_add_back.data) ^ hashF32(mat_scaled_add_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(maximum_back.data) ^ hashF32(minimum_back.data) ^ hashF32(maximum_scalar_back.data) ^ hashF32(minimum_scalar_back.data) ^ hashF32(relu_back.data) ^ hashF32(threshold_back.data) ^ hashF32(clip_back.data) ^ hashF32(sigmoid_back.data) ^ hashF32(softsign_back.data) ^ hashF32(rsqrt_back.data) ^ hashF32(leaky_back.data) ^ hashF32(silu_back.data) ^ hashF32(hardsigmoid_back.data) ^ hashF32(hardswish_back.data) ^ hashF32(softshrink_back.data) ^ hashF32(elu_back.data) ^ hashF32(celu_back.data) ^ hashF32(addcmul_back.data) ^ hashF32(addcdiv_back.data) ^ hashF32(lerp_scalar_back.data) ^ hashF32(lerp_array_back.data) ^ hashF32(mse_back.data) ^ hashF32(l1_back.data) ^ hashF32(smooth_l1_back.data) ^ hashF32(huber_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data);
     }
 
     const ok = if (available)
-        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and f16_elementwise_ok and f16_scalar_ok and f16_unary_ok and f16_matmul_ok and f16_transpose_ok and f16_broadcast_ok and f16_reduction_ok and f16_softmax_ok and f16_log_softmax_ok and f16_activation_ok and f16_loss_ok and bf16_elementwise_ok and bf16_scalar_ok and bf16_unary_ok and bf16_matmul_ok and bf16_transpose_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_softmax_ok and bf16_log_softmax_ok and bf16_activation_ok and matmul_ok and matmul_add_ok and transpose_ok and broadcast_ok and reduction_ok and minmax_ok and activation_ok and ternary_ok and loss_ok and softmax_ok and log_softmax_ok and bytes != 0
+        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and f16_elementwise_ok and f16_scalar_ok and f16_unary_ok and f16_matmul_ok and f16_transpose_ok and f16_broadcast_ok and f16_reduction_ok and f16_softmax_ok and f16_log_softmax_ok and f16_activation_ok and f16_activation_compose_ok and f16_loss_ok and bf16_elementwise_ok and bf16_scalar_ok and bf16_unary_ok and bf16_matmul_ok and bf16_transpose_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_softmax_ok and bf16_log_softmax_ok and bf16_activation_ok and bf16_activation_compose_ok and matmul_ok and matmul_add_ok and transpose_ok and broadcast_ok and reduction_ok and minmax_ok and activation_ok and activation_compose_ok and ternary_ok and loss_ok and softmax_ok and log_softmax_ok and bytes != 0
     else
-        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and f16_elementwise_ok and f16_scalar_ok and f16_unary_ok and f16_matmul_ok and f16_transpose_ok and f16_broadcast_ok and f16_reduction_ok and f16_softmax_ok and f16_log_softmax_ok and f16_activation_ok and f16_loss_ok and bf16_elementwise_ok and bf16_scalar_ok and bf16_unary_ok and bf16_matmul_ok and bf16_transpose_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_softmax_ok and bf16_log_softmax_ok and bf16_activation_ok and matmul_ok and matmul_add_ok and transpose_ok and broadcast_ok and reduction_ok and minmax_ok and activation_ok and ternary_ok and loss_ok and softmax_ok and log_softmax_ok;
+        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and f16_elementwise_ok and f16_scalar_ok and f16_unary_ok and f16_matmul_ok and f16_transpose_ok and f16_broadcast_ok and f16_reduction_ok and f16_softmax_ok and f16_log_softmax_ok and f16_activation_ok and f16_activation_compose_ok and f16_loss_ok and bf16_elementwise_ok and bf16_scalar_ok and bf16_unary_ok and bf16_matmul_ok and bf16_transpose_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_softmax_ok and bf16_log_softmax_ok and bf16_activation_ok and bf16_activation_compose_ok and matmul_ok and matmul_add_ok and transpose_ok and broadcast_ok and reduction_ok and minmax_ok and activation_ok and activation_compose_ok and ternary_ok and loss_ok and softmax_ok and log_softmax_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
@@ -898,12 +1049,12 @@ pub fn main(init: std.process.Init) !void {
         .{ ok, available, report.status.label(), report.backend_label },
     );
     try stdout.interface.print(
-        ",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"f16_elementwise_ok\":{},\"f16_scalar_ok\":{},\"f16_unary_ok\":{},\"f16_matmul_ok\":{},\"f16_transpose_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_loss_ok\":{}",
-        .{ roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, f16_elementwise_ok, f16_scalar_ok, f16_unary_ok, f16_matmul_ok, f16_transpose_ok, f16_broadcast_ok, f16_reduction_ok, f16_softmax_ok, f16_log_softmax_ok, f16_activation_ok, f16_loss_ok },
+        ",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"f16_elementwise_ok\":{},\"f16_scalar_ok\":{},\"f16_unary_ok\":{},\"f16_matmul_ok\":{},\"f16_transpose_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_activation_compose_ok\":{},\"f16_loss_ok\":{}",
+        .{ roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, f16_elementwise_ok, f16_scalar_ok, f16_unary_ok, f16_matmul_ok, f16_transpose_ok, f16_broadcast_ok, f16_reduction_ok, f16_softmax_ok, f16_log_softmax_ok, f16_activation_ok, f16_activation_compose_ok, f16_loss_ok },
     );
     try stdout.interface.print(
-        ",\"bf16_elementwise_ok\":{},\"bf16_scalar_ok\":{},\"bf16_unary_ok\":{},\"bf16_matmul_ok\":{},\"bf16_transpose_ok\":{},\"bf16_broadcast_ok\":{},\"bf16_reduction_ok\":{},\"bf16_softmax_ok\":{},\"bf16_log_softmax_ok\":{},\"bf16_activation_ok\":{},\"matmul_ok\":{},\"matmul_add_ok\":{},\"transpose_ok\":{},\"broadcast_ok\":{},\"reduction_ok\":{},\"minmax_ok\":{},\"activation_ok\":{},\"ternary_ok\":{},\"loss_ok\":{},\"softmax_ok\":{},\"log_softmax_ok\":{}",
-        .{ bf16_elementwise_ok, bf16_scalar_ok, bf16_unary_ok, bf16_matmul_ok, bf16_transpose_ok, bf16_broadcast_ok, bf16_reduction_ok, bf16_softmax_ok, bf16_log_softmax_ok, bf16_activation_ok, matmul_ok, matmul_add_ok, transpose_ok, broadcast_ok, reduction_ok, minmax_ok, activation_ok, ternary_ok, loss_ok, softmax_ok, log_softmax_ok },
+        ",\"bf16_elementwise_ok\":{},\"bf16_scalar_ok\":{},\"bf16_unary_ok\":{},\"bf16_matmul_ok\":{},\"bf16_transpose_ok\":{},\"bf16_broadcast_ok\":{},\"bf16_reduction_ok\":{},\"bf16_softmax_ok\":{},\"bf16_log_softmax_ok\":{},\"bf16_activation_ok\":{},\"bf16_activation_compose_ok\":{},\"matmul_ok\":{},\"matmul_add_ok\":{},\"transpose_ok\":{},\"broadcast_ok\":{},\"reduction_ok\":{},\"minmax_ok\":{},\"activation_ok\":{},\"activation_compose_ok\":{},\"ternary_ok\":{},\"loss_ok\":{},\"softmax_ok\":{},\"log_softmax_ok\":{}",
+        .{ bf16_elementwise_ok, bf16_scalar_ok, bf16_unary_ok, bf16_matmul_ok, bf16_transpose_ok, bf16_broadcast_ok, bf16_reduction_ok, bf16_softmax_ok, bf16_log_softmax_ok, bf16_activation_ok, bf16_activation_compose_ok, matmul_ok, matmul_add_ok, transpose_ok, broadcast_ok, reduction_ok, minmax_ok, activation_ok, activation_compose_ok, ternary_ok, loss_ok, softmax_ok, log_softmax_ok },
     );
     try stdout.interface.print(
         ",\"bytes\":{d},\"fingerprint\":{d}}}\n",
