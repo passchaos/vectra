@@ -187,8 +187,23 @@ pub const CpuScalarElementwiseReportSnapshot = struct {
 
 threadlocal var last_cpu_scalar_elementwise_report: CpuScalarElementwiseReportSnapshot = .{};
 
+pub const CpuViewElementwiseReportSnapshot = struct {
+    ok: bool = false,
+    operation: []const u8 = "",
+    len: usize = 0,
+    spec_fingerprint: u64 = 0,
+    report_fingerprint: u64 = 0,
+
+    pub fn valid(report: CpuViewElementwiseReportSnapshot) bool {
+        return report.ok and report.operation.len != 0 and report.len != 0 and report.spec_fingerprint != 0 and report.report_fingerprint != 0;
+    }
+};
+
+threadlocal var last_cpu_view_elementwise_report: CpuViewElementwiseReportSnapshot = .{};
+
 pub const cpu = struct {
     pub const ScalarElementwiseReportSnapshot = CpuScalarElementwiseReportSnapshot;
+    pub const ViewElementwiseReportSnapshot = CpuViewElementwiseReportSnapshot;
 
     pub fn enabled() bool {
         return axiom_cpu.enabled();
@@ -200,6 +215,14 @@ pub const cpu = struct {
 
     pub fn lastScalarElementwiseReport() ScalarElementwiseReportSnapshot {
         return last_cpu_scalar_elementwise_report;
+    }
+
+    pub fn resetLastViewElementwiseReport() void {
+        last_cpu_view_elementwise_report = .{};
+    }
+
+    pub fn lastViewElementwiseReport() ViewElementwiseReportSnapshot {
+        return last_cpu_view_elementwise_report;
     }
 };
 
@@ -2855,7 +2878,8 @@ pub fn executeViewElementwise(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!lhs.device.sameDevice(rhs.device) or !targetCanAccessDevice(target, lhs.device)) return null;
     return switch (target) {
-        .cpu, .mps => null,
+        .cpu => executeCpuViewElementwise(T, op, lhs, rhs),
+        .mps => null,
         .cuda => executeCudaViewElementwise(T, op, lhs, rhs),
     };
 }
@@ -2874,7 +2898,8 @@ pub fn executeViewElementwiseScalar(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!targetCanAccessDevice(target, input.device)) return null;
     return switch (target) {
-        .cpu, .mps => null,
+        .cpu => executeCpuViewElementwiseScalar(T, op, input, scalar, scalar_side),
+        .mps => null,
         .cuda => executeCudaViewElementwiseScalar(T, op, input, scalar, scalar_side),
     };
 }
@@ -2898,6 +2923,149 @@ pub fn executeViewUnary(
 
 pub fn executeViewUnaryDefault(comptime T: type, op: ExecutionUnaryOp, input: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
     return executeViewUnary(T, op, defaultTargetForDevice(input.device), input);
+}
+
+fn recordCpuViewElementwiseReport(report: anytype) void {
+    last_cpu_view_elementwise_report = .{
+        .ok = report.ok(),
+        .operation = report.op.label(),
+        .len = report.len,
+        .spec_fingerprint = report.spec_fingerprint,
+        .report_fingerprint = report.fingerprint(),
+    };
+}
+
+fn hostViewBackingSlice(comptime T: type, view: array_mod.ArrayView(T)) ?[]const T {
+    if (!view.device.isCpu() or view.shape.len != 1 or view.shape[0] == 0 or view.strides.len != 1 or view.strides[0] == 0) return null;
+    const last_delta = std.math.mul(usize, view.shape[0] - 1, view.strides[0]) catch return null;
+    const end_index = std.math.add(usize, view.offset, last_delta) catch return null;
+    if (end_index >= view.data.len) return null;
+    return view.data[view.offset .. end_index + 1];
+}
+
+fn executeCpuViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.ArrayView(T), rhs: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!lhs.device.isCpu() or !std.mem.eql(usize, lhs.shape, rhs.shape) or lhs.shape.len != 1) return null;
+    if (T != f32 and T != f64) return null;
+    const lhs_slice = hostViewBackingSlice(T, lhs) orelse return null;
+    const rhs_slice = hostViewBackingSlice(T, rhs) orelse return null;
+    var out = try array_mod.Array(T).empty(lhs.allocator, lhs.shape);
+    errdefer out.deinit();
+    const lhs_descriptor = describeViewMemRef(T, lhs, "lhs") catch {
+        out.deinit();
+        return null;
+    };
+    const rhs_descriptor = describeViewMemRef(T, rhs, "rhs") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeArrayMemRef(T, out, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetElementwiseMemRefsF32(
+            .cpu,
+            tensorBinaryOp(op),
+            lhs_descriptor,
+            rhs_descriptor,
+            out_descriptor,
+            @as([]const f32, lhs_slice),
+            @as([]const f32, rhs_slice),
+            out.data,
+        ) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetElementwiseMemRefsF64(
+            .cpu,
+            tensorBinaryOp(op),
+            lhs_descriptor,
+            rhs_descriptor,
+            out_descriptor,
+            @as([]const f64, lhs_slice),
+            @as([]const f64, rhs_slice),
+            out.data,
+        ) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    recordCpuViewElementwiseReport(report);
+    return out;
+}
+
+fn executeCpuViewElementwiseScalar(comptime T: type, op: ElementwiseOp, input: array_mod.ArrayView(T), scalar: T, scalar_side: ScalarSide) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!input.device.isCpu() or input.shape.len != 1) return null;
+    if (T != f32 and T != f64) return null;
+    const input_slice = hostViewBackingSlice(T, input) orelse return null;
+    const scalar_values = [_]T{scalar};
+    const scalar_shape = [_]usize{input.shape[0]};
+    const scalar_strides = [_]isize{0};
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    const input_descriptor = describeViewMemRef(T, input, "input") catch {
+        out.deinit();
+        return null;
+    };
+    const scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init(
+        "scalar",
+        @intCast(@intFromPtr(&scalar_values[0])),
+        tensorElementType(T) orelse {
+            out.deinit();
+            return null;
+        },
+        .host,
+        0,
+        scalar_shape[0..],
+        scalar_strides[0..],
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeArrayMemRef(T, out, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const lhs_descriptor = if (scalar_side == .lhs) scalar_descriptor else input_descriptor;
+    const rhs_descriptor = if (scalar_side == .lhs) input_descriptor else scalar_descriptor;
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetElementwiseMemRefsF32(
+            .cpu,
+            tensorBinaryOp(op),
+            lhs_descriptor,
+            rhs_descriptor,
+            out_descriptor,
+            if (scalar_side == .lhs) scalar_values[0..] else @as([]const f32, input_slice),
+            if (scalar_side == .lhs) @as([]const f32, input_slice) else scalar_values[0..],
+            out.data,
+        ) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetElementwiseMemRefsF64(
+            .cpu,
+            tensorBinaryOp(op),
+            lhs_descriptor,
+            rhs_descriptor,
+            out_descriptor,
+            if (scalar_side == .lhs) scalar_values[0..] else @as([]const f64, input_slice),
+            if (scalar_side == .lhs) @as([]const f64, input_slice) else scalar_values[0..],
+            out.data,
+        ) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    recordCpuViewElementwiseReport(report);
+    return out;
 }
 
 fn executeCudaViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.ArrayView(T), rhs: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {

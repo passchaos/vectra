@@ -67,6 +67,13 @@ pub fn main(init: std.process.Init) !void {
     defer lhs_view.deinit();
     var rhs_view = try strided_rhs.asStrided(&.{4}, &.{2}, 0);
     defer rhs_view.deinit();
+    vx.axiom_backend.cpu.resetLastViewElementwiseReport();
+    var cpu_view_add = try lhs_view.add(rhs_view);
+    defer cpu_view_add.deinit();
+    const cpu_view_add_report = vx.axiom_backend.cpu.lastViewElementwiseReport();
+    var cpu_view_scalar_mul = try lhs_view.mulScalar(2.0);
+    defer cpu_view_scalar_mul.deinit();
+    const cpu_view_scalar_report = vx.axiom_backend.cpu.lastViewElementwiseReport();
     vx.setDefaultDialectBackend(.cuda);
     var view_add = try lhs_view.add(rhs_view);
     defer view_add.deinit();
@@ -235,6 +242,12 @@ pub fn main(init: std.process.Init) !void {
     const scalar_ok = scalar64_report.ok() and scalar64_cuda_report.ok() and
         scalar64_cuda_report.selected == .axiom_cuda and
         equalF64(scalar64.data, &.{ 6, 4, 2, 0 });
+    const cpu_view_runtime_ok = cpu_view_add_report.valid() and
+        std.mem.eql(u8, cpu_view_add_report.operation, "add") and
+        cpu_view_scalar_report.valid() and
+        std.mem.eql(u8, cpu_view_scalar_report.operation, "mul") and
+        equalF32(cpu_view_add.data, &.{ 11, 22, 33, 44 }) and
+        equalF32(cpu_view_scalar_mul.data, &.{ 2, 4, 6, 8 });
     const view_ok = equalF32(view_add.data, &.{ 11, 22, 33, 44 }) and
         equalF32(view_sub.data, &.{ 9, 18, 27, 36 }) and
         equalF32(view_mul.data, &.{ 10, 40, 90, 160 }) and
@@ -306,7 +319,7 @@ pub fn main(init: std.process.Init) !void {
         equalF32(eager_cpu.data, &.{ 58, 64, 139, 154 }) and
         equalF32(eager_cuda_default.data, eager_cpu.data) and
         equalF32(eager_mps_default.data, eager_cpu.data);
-    const ok = matmul_ok and elementwise_ok and scalar_ok and view_ok and view_scalar_ok and view64_ok and view64_scalar_ok and view16_ok and view16_scalar_ok and view_bf16_ok and view_bf16_scalar_ok and view_unary_ok and default_policy_ok and dynamic_execution_ok;
+    const ok = matmul_ok and elementwise_ok and scalar_ok and cpu_view_runtime_ok and view_ok and view_scalar_ok and view64_ok and view64_scalar_ok and view16_ok and view16_scalar_ok and view_bf16_ok and view_bf16_scalar_ok and view_unary_ok and default_policy_ok and dynamic_execution_ok;
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
@@ -314,8 +327,8 @@ pub fn main(init: std.process.Init) !void {
         .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view_scalar_ok, view64_ok, view64_scalar_ok, view16_ok, view16_scalar_ok, view_bf16_ok, view_bf16_scalar_ok, view_unary_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled },
     );
     try stdout.interface.print(
-        ",\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view_scalar_fingerprint\":{d},\"view64_fingerprint\":{d},\"view64_scalar_fingerprint\":{d},\"view16_fingerprint\":{d},\"view16_scalar_fingerprint\":{d},\"view_bf16_fingerprint\":{d},\"view_bf16_scalar_fingerprint\":{d},\"view_unary_fingerprint\":{d}}}\n",
-        .{ report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF32(view_scalar_add.data) ^ hashF32(view_scalar_sub.data) ^ hashF32(view_scalar_mul.data) ^ hashF32(view_scalar_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF64(f64_view_scalar_add.data) ^ hashF64(f64_view_scalar_sub.data) ^ hashF64(f64_view_scalar_mul.data) ^ hashF64(f64_view_scalar_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data), hashF16(f16_view_scalar_add.data) ^ hashF16(f16_view_scalar_sub.data) ^ hashF16(f16_view_scalar_mul.data) ^ hashF16(f16_view_scalar_div.data), hashBF16(bf16_view_add.data) ^ hashBF16(bf16_view_sub.data) ^ hashBF16(bf16_view_mul.data) ^ hashBF16(bf16_view_div.data), hashBF16(bf16_view_scalar_add.data) ^ hashBF16(bf16_view_scalar_sub.data) ^ hashBF16(bf16_view_scalar_mul.data) ^ hashBF16(bf16_view_scalar_div.data), hashF32(view_neg.data) ^ hashF32(view_log.data) ^ hashF32(view_exp2.data) ^ hashF32(view_expm1.data) ^ hashF32(view_log1p.data) ^ hashF32(view_log2.data) ^ hashF32(view_log10.data) ^ hashF32(view_sin.data) ^ hashF32(view_cos.data) ^ hashF32(view_tan.data) ^ hashF32(view_square.data) ^ hashF32(view_reciprocal.data) ^ hashF64(f64_view_neg.data) ^ hashF64(f64_view_square.data) ^ hashF64(f64_view_reciprocal.data) ^ hashF16(f16_view_neg.data) ^ hashF16(f16_view_square.data) ^ hashF16(f16_view_reciprocal.data) ^ hashBF16(bf16_view_neg.data) ^ hashBF16(bf16_view_square.data) ^ hashBF16(bf16_view_reciprocal.data) },
+        ",\"cpu_view_runtime_ok\":{},\"cpu_view_runtime_fingerprint\":{d},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view_scalar_fingerprint\":{d},\"view64_fingerprint\":{d},\"view64_scalar_fingerprint\":{d},\"view16_fingerprint\":{d},\"view16_scalar_fingerprint\":{d},\"view_bf16_fingerprint\":{d},\"view_bf16_scalar_fingerprint\":{d},\"view_unary_fingerprint\":{d}}}\n",
+        .{ cpu_view_runtime_ok, cpu_view_add_report.report_fingerprint ^ cpu_view_scalar_report.report_fingerprint, report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF32(view_scalar_add.data) ^ hashF32(view_scalar_sub.data) ^ hashF32(view_scalar_mul.data) ^ hashF32(view_scalar_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF64(f64_view_scalar_add.data) ^ hashF64(f64_view_scalar_sub.data) ^ hashF64(f64_view_scalar_mul.data) ^ hashF64(f64_view_scalar_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data), hashF16(f16_view_scalar_add.data) ^ hashF16(f16_view_scalar_sub.data) ^ hashF16(f16_view_scalar_mul.data) ^ hashF16(f16_view_scalar_div.data), hashBF16(bf16_view_add.data) ^ hashBF16(bf16_view_sub.data) ^ hashBF16(bf16_view_mul.data) ^ hashBF16(bf16_view_div.data), hashBF16(bf16_view_scalar_add.data) ^ hashBF16(bf16_view_scalar_sub.data) ^ hashBF16(bf16_view_scalar_mul.data) ^ hashBF16(bf16_view_scalar_div.data), hashF32(view_neg.data) ^ hashF32(view_log.data) ^ hashF32(view_exp2.data) ^ hashF32(view_expm1.data) ^ hashF32(view_log1p.data) ^ hashF32(view_log2.data) ^ hashF32(view_log10.data) ^ hashF32(view_sin.data) ^ hashF32(view_cos.data) ^ hashF32(view_tan.data) ^ hashF32(view_square.data) ^ hashF32(view_reciprocal.data) ^ hashF64(f64_view_neg.data) ^ hashF64(f64_view_square.data) ^ hashF64(f64_view_reciprocal.data) ^ hashF16(f16_view_neg.data) ^ hashF16(f16_view_square.data) ^ hashF16(f16_view_reciprocal.data) ^ hashBF16(bf16_view_neg.data) ^ hashBF16(bf16_view_square.data) ^ hashBF16(bf16_view_reciprocal.data) },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
