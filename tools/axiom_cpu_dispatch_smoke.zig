@@ -48,6 +48,12 @@ pub fn main(init: std.process.Init) !void {
     defer log2_32.deinit();
     var log10_32 = try a32.log10();
     defer log10_32.deinit();
+    var sin32 = try a32.sin();
+    defer sin32.deinit();
+    var cos32 = try a32.cos();
+    defer cos32.deinit();
+    var tan32 = try a32.tan();
+    defer tan32.deinit();
     var square32 = try a32.square();
     defer square32.deinit();
     var pow_cube32 = try a32.powScalar(3);
@@ -126,6 +132,12 @@ pub fn main(init: std.process.Init) !void {
     defer log2_64.deinit();
     var log10_64 = try a64.log10();
     defer log10_64.deinit();
+    var sin64 = try a64.sin();
+    defer sin64.deinit();
+    var cos64 = try a64.cos();
+    defer cos64.deinit();
+    var tan64 = try a64.tan();
+    defer tan64.deinit();
     var square64 = try a64.square();
     defer square64.deinit();
     var pow_zero64 = try a64.powScalar(0);
@@ -266,6 +278,9 @@ pub fn main(init: std.process.Init) !void {
         approxF32(log1p_32.data[0], std.math.log1p(@as(f32, 1.0)), 0.001) and
         approxF32(log2_32.data[3], 2.0, 0.001) and
         approxF32(log10_32.data[0], 0.0, 0.001) and
+        approxF32(sin32.data[0], std.math.sin(@as(f32, 1.0)), 0.001) and
+        approxF32(cos32.data[1], std.math.cos(@as(f32, 2.0)), 0.001) and
+        approxF32(tan32.data[2], std.math.tan(@as(f32, 3.0)), 0.001) and
         equalF32(pow_cube32.data, &.{ 1, 8, 27, 64, 125, 216 }) and
         equalF64(add64.data, &.{ 2, 4, 6, 8, 10, 12 }) and
         equalF64(sub64.data, &.{ 0, 0, 0, 0, 0, 0 }) and
@@ -280,7 +295,10 @@ pub fn main(init: std.process.Init) !void {
         approxF64(log64.data[1], std.math.log(f64, std.math.e, 2.0), 1e-12) and
         approxF64(log1p_64.data[0], std.math.log1p(@as(f64, 1.0)), 1e-12) and
         approxF64(log2_64.data[3], 2.0, 1e-12) and
-        approxF64(log10_64.data[0], 0.0, 1e-12);
+        approxF64(log10_64.data[0], 0.0, 1e-12) and
+        approxF64(sin64.data[0], std.math.sin(@as(f64, 1.0)), 1e-12) and
+        approxF64(cos64.data[1], std.math.cos(@as(f64, 2.0)), 1e-12) and
+        approxF64(tan64.data[2], std.math.tan(@as(f64, 3.0)), 1e-12);
     const scalar_ok = equalF32(add_scalar32.data, &.{ 3, 4, 5, 6, 7, 8 }) and
         equalF32(sub_scalar32.data, &.{ -1, 0, 1, 2, 3, 4 }) and
         equalF32(mul_scalar32.data, &.{ 2, 4, 6, 8, 10, 12 }) and
@@ -337,8 +355,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_buffer: [4096]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print("{{\"kind\":\"vectra_axiom_cpu_dispatch_smoke\",\"enabled\":{},\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"reduction_ok\":{},\"transpose_ok\":{},\"vector_ok\":{},\"dense_linalg_ok\":{},\"cpu_fusion_status32_ok\":{},\"cpu_fusion_status64_ok\":{},", .{ vx.axiom_cpu.enabled(), ok, matmul_ok, elementwise_ok, scalar_ok, reduction_ok, transpose_ok, vector_ok, dense_linalg_ok, cpu_fusion_status32_ok, cpu_fusion_status64_ok });
-    try stdout.interface.print("\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"sqrt32_3\":{d},\"exp32_0\":{d},\"exp2_32_2\":{d},\"expm1_32_0\":{d},\"log32_1\":{d},\"log1p_32_0\":{d},\"log2_32_3\":{d},\"log10_32_0\":{d},\"square32_5\":{d},\"pow_cube32_5\":{d},", .{ out32.data[0], out64.data[3], add32.data[5], sqrt32.data[3], exp32.data[0], exp2_32.data[2], expm1_32.data[0], log32.data[1], log1p_32.data[0], log2_32.data[3], log10_32.data[0], square32.data[5], pow_cube32.data[5] });
-    try stdout.interface.print("\"div64_0\":{d},\"sqrt64_3\":{d},\"exp64_0\":{d},\"exp2_64_2\":{d},\"expm1_64_0\":{d},\"log64_1\":{d},\"log1p_64_0\":{d},\"log2_64_3\":{d},\"log10_64_0\":{d},\"square64_5\":{d},\"pow_zero64_0\":{d},\"sub_scalar64_0\":{d},", .{ div64.data[0], sqrt64.data[3], exp64.data[0], exp2_64.data[2], expm1_64.data[0], log64.data[1], log1p_64.data[0], log2_64.data[3], log10_64.data[0], square64.data[5], pow_zero64.data[0], sub_scalar64.data[0] });
+    try stdout.interface.print("\"f32_0\":{d},\"f64_3\":{d},\"add32_5\":{d},\"sqrt32_3\":{d},\"exp32_0\":{d},\"exp2_32_2\":{d},\"expm1_32_0\":{d},\"log32_1\":{d},\"log1p_32_0\":{d},\"log2_32_3\":{d},\"log10_32_0\":{d},\"sin32_0\":{d},\"cos32_1\":{d},\"tan32_2\":{d},\"square32_5\":{d},\"pow_cube32_5\":{d},", .{ out32.data[0], out64.data[3], add32.data[5], sqrt32.data[3], exp32.data[0], exp2_32.data[2], expm1_32.data[0], log32.data[1], log1p_32.data[0], log2_32.data[3], log10_32.data[0], sin32.data[0], cos32.data[1], tan32.data[2], square32.data[5], pow_cube32.data[5] });
+    try stdout.interface.print("\"div64_0\":{d},\"sqrt64_3\":{d},\"exp64_0\":{d},\"exp2_64_2\":{d},\"expm1_64_0\":{d},\"log64_1\":{d},\"log1p_64_0\":{d},\"log2_64_3\":{d},\"log10_64_0\":{d},\"sin64_0\":{d},\"cos64_1\":{d},\"tan64_2\":{d},\"square64_5\":{d},\"pow_zero64_0\":{d},\"sub_scalar64_0\":{d},", .{ div64.data[0], sqrt64.data[3], exp64.data[0], exp2_64.data[2], expm1_64.data[0], log64.data[1], log1p_64.data[0], log2_64.data[3], log10_64.data[0], sin64.data[0], cos64.data[1], tan64.data[2], square64.data[5], pow_zero64.data[0], sub_scalar64.data[0] });
     try stdout.interface.print("\"row_sum32_1\":{d},\"col_max32_2\":{d},\"row_broadcast32_5\":{d},\"column_broadcast64_3\":{d},\"column_broadcast64_rank\":{d},\"row_prod64_1\":{d},\"col_min64_0\":{d},\"transpose32_5\":{d},\"transpose64_5\":{d},\"matvec32_1\":{d},\"vecmat64_2\":{d},\"trace64\":{d},\"det64\":{d},\"solve64_1\":{d},\"chol64_0\":{d},\"qr64_r00\":{d},\"lu64_u00\":{d},\"tri64_2\":{d},\"fro64\":{d},\"svd64_s0\":{d},\"singular64_s0\":{d},\"rank64\":{},\"cond64\":{d},\"two_norm64\":{d},\"nuclear64\":{d},\"pinv64_0\":{d},\"lstsq64_0\":{d},\"eigh64_0\":{d},\"eigh64_1\":{d}}}\n", .{ row_sum32.data[1], col_max32.data[2], row_broadcast32.data[5], column_broadcast64.data[3], column_bias64.shape.len, row_prod64.data[1], col_min64.data[0], transpose32.data[5], transpose64.data[5], matvec32.data[1], vecmat64.data[2], trace64, det64, solve64.data[1], cholesky64.data[0], qr64.r.data[0], lu64.u.data[0], triangular_solve64.data[2], fro64, svd64.s.data[0], singular_values64.data[0], rank64, cond64, two_norm64, nuclear_norm64, pinv64.data[0], lstsq64.data[0], eigen64.values.data[0], eigen64.values.data[1] });
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

@@ -16797,16 +16797,25 @@ pub fn Array(comptime T: type) type {
 
         pub fn sin(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .sin, self)) |out| return out;
+            }
             return self.unary(opSin);
         }
 
         pub fn cos(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .cos, self)) |out| return out;
+            }
             return self.unary(opCos);
         }
 
         pub fn tan(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .tan, self)) |out| return out;
+            }
             return self.unary(opTan);
         }
 

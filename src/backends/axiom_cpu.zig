@@ -30,6 +30,9 @@ pub const UnaryOp = enum {
     log1p,
     log2,
     log10,
+    sin,
+    cos,
+    tan,
 };
 
 pub const ReductionOp = enum {
@@ -100,6 +103,18 @@ pub fn tryLog10F32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.
     return tryUnaryElementwise(f32, .log10, input);
 }
 
+pub fn trySinF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .sin, input);
+}
+
+pub fn tryCosF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .cos, input);
+}
+
+pub fn tryTanF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .tan, input);
+}
+
 pub fn trySqrtF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryUnaryElementwise(f64, .sqrt, input);
 }
@@ -134,6 +149,18 @@ pub fn tryLog2F64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.A
 
 pub fn tryLog10F64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryUnaryElementwise(f64, .log10, input);
+}
+
+pub fn trySinF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .sin, input);
+}
+
+pub fn tryCosF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .cos, input);
+}
+
+pub fn tryTanF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .tan, input);
 }
 
 pub fn trySumF32(input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -222,6 +249,9 @@ fn tryUnaryElementwise(comptime T: type, op: UnaryOp, input: array_mod.Array(T))
             .log1p => .log1p,
             .log2 => .log2,
             .log10 => .log10,
+            .sin => .sin,
+            .cos => .cos,
+            .tan => .tan,
         };
         const report = if (T == f32)
             axiom.accelerator.cpu_veyra.runUnaryElementwiseF32(axiom_op, input.data, out.data) catch {
