@@ -253,6 +253,10 @@ pub fn main(init: std.process.Init) !void {
         defer all_axes_var.deinit();
         var all_axes_var_host = try all_axes_var.cpu();
         defer all_axes_var_host.deinit();
+        var all_axes_std_keep = try lhs.stddevAxes(&.{ 0, 1 }, true, 0.0);
+        defer all_axes_std_keep.deinit();
+        var all_axes_std_keep_host = try all_axes_std_keep.cpu();
+        defer all_axes_std_keep_host.deinit();
         var row_var = try lhs.variance(1, false, 0.0);
         defer row_var.deinit();
         var row_var_host = try row_var.cpu();
@@ -313,6 +317,9 @@ pub fn main(init: std.process.Init) !void {
             all_axes_var.device.isCuda() and all_axes_var.device_storage != null and
             std.mem.eql(usize, all_axes_var_host.shape, &.{}) and
             approxF32(all_axes_var_host.data[0], 1.25, 0.0001) and
+            all_axes_std_keep.device.isCuda() and all_axes_std_keep.device_storage != null and
+            std.mem.eql(usize, all_axes_std_keep_host.shape, &.{ 1, 1 }) and
+            approxF32(all_axes_std_keep_host.data[0], std.math.sqrt(@as(f32, 1.25)), 0.0001) and
             row_var.device.isCuda() and row_var.device_storage != null and
             std.mem.eql(usize, row_var_host.shape, &.{2}) and
             approxF32(row_var_host.data[0], 0.25, 0.0001) and

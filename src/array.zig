@@ -5438,6 +5438,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             if (axes.len == 0) return self.toArray();
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.variance(null, keepdims, correction);
             const normalized_axes = try normalizeAxesDescending(self.allocator, axes, self.shape.len);
             defer self.allocator.free(normalized_axes);
             var current = try self.variance(@intCast(normalized_axes[0]), keepdims, correction);
@@ -27355,14 +27356,14 @@ test "array view object statistics wrappers" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, noncontig_quantile_no_axes.data);
     var noncontig_var_axes = try noncontig_axes.varianceAxes(&.{ 0, 1 }, false, 0);
     defer noncontig_var_axes.deinit();
-    try std.testing.expectApproxEqAbs(@as(f64, 0), noncontig_var_axes.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), noncontig_var_axes.data[0], 1e-12);
     var noncontig_std_axes = try noncontig_axes.stddevAxes(&.{ 0, 1 }, false, 0);
     defer noncontig_std_axes.deinit();
-    try std.testing.expectApproxEqAbs(@as(f64, 0), noncontig_std_axes.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1.25)), noncontig_std_axes.data[0], 1e-12);
     var noncontig_std_axes_keep = try noncontig_axes.std_dims(&.{ 0, 1 }, true, 0);
     defer noncontig_std_axes_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, noncontig_std_axes_keep.shape);
-    try std.testing.expectApproxEqAbs(@as(f64, 0), noncontig_std_axes_keep.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1.25)), noncontig_std_axes_keep.data[0], 1e-12);
     var view_var_axes = try view.varianceAxes(&.{ 0, 1 }, false, 0);
     defer view_var_axes.deinit();
     try std.testing.expect(std.math.isNan(view_var_axes.data[0]));
