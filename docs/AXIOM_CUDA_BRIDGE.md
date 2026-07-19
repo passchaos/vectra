@@ -50,8 +50,9 @@ routing through another facade or pretending CUDA/CPU execution occurred.
 
 - `Device.cuda(index).isAvailable()` is true when Axiom can load the CUDA driver
   and retain that device's primary context. `Device.mps(index)` is part of the
-  public backend selector surface, but `isAvailable()` is false until Axiom owns
-  a real Metal/MPS storage/runtime ABI.
+  public backend selector surface and can be available on macOS through Axiom's
+  Metal shared-buffer storage ABI; MPS operation kernels remain capability-gated
+  until MPSGraph/Metal runtimes land.
 - `Array.*On(..., vx.cuda(i))`, deterministic `Context.*With(vx.onDevice(...))`
   creation helpers, and `.cuda(i)` allocate/copy real device storage.
 - `.cpu()` explicitly downloads CUDA storage.

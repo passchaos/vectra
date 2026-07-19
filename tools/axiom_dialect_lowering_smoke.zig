@@ -59,6 +59,7 @@ pub fn main(init: std.process.Init) !void {
     vx.resetDefaultDialectBackend();
     const platform_default_backend = vx.defaultDialectBackend();
     const expected_platform_default_backend: vx.DialectBackend = if (builtin.os.tag == .macos) .mps else .cpu;
+    const expected_mps_runtime_status: vx.axiom_backend.MpsRuntimeAbiStatus = if (builtin.os.tag == .macos) .available else .unavailable;
     const ok = cpu_report.ok() and cuda_report.ok() and mps_report.ok() and
         default_cuda_report.ok() and default_mps_report.ok() and
         elementwise_cuda_report.ok() and elementwise_mps_report.ok() and
@@ -109,8 +110,7 @@ pub fn main(init: std.process.Init) !void {
         std.mem.eql(u8, mps_report.launch_backend, "mps_planned") and
         std.mem.eql(u8, elementwise_mps_report.launch_backend, "mps_planned") and
         std.mem.eql(u8, reduction_mps_report.launch_backend, "mps_planned") and
-        mps_runtime.status == .planned and
-        !mps_runtime.ok() and
+        mps_runtime.status == expected_mps_runtime_status and
         platform_default_backend == expected_platform_default_backend and
         cpu_report.registration.ok() and
         cuda_report.cuda_tile_projection_fingerprint != 0;

@@ -61,8 +61,8 @@ CAPABILITIES: tuple[Capability, ...] = (
 
 KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     {
-        "name": "true_mps_runtime_abi",
-        "reason": "MPS lowering is intentionally planned and runtime capabilities remain non-executable until Axiom owns Metal/MPS storage and runtime ABI.",
+        "name": "mps_kernel_runtime_parity",
+        "reason": "Axiom now owns a real Metal/MPS device, command-queue, and shared-buffer storage ABI covered by axiom-mps-storage-smoke; MPSGraph/Metal kernels for Array operations remain planned and non-executable until operation runtimes are implemented.",
         "target_layer": "axiom",
     },
     {
@@ -104,6 +104,7 @@ REQUIRED_BUILD_SNIPPETS = (
     "axiom-descriptor-smoke",
     "axiom-gemm-layout-smoke",
     "axiom-dialect-lowering-smoke",
+    "axiom-mps-storage-smoke",
     "axiom-cuda-device-smoke",
     "axiom-backend-policy-smoke",
 )

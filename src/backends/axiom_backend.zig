@@ -13,6 +13,7 @@ const array_mod = @import("../array.zig");
 const axiom = @import("axiom");
 const axiom_cpu = @import("axiom_cpu.zig");
 const axiom_cuda = @import("axiom_cuda.zig");
+const axiom_mps = @import("axiom_mps.zig");
 
 pub const BackendRoute = enum(u8) {
     direct_cpu,
@@ -349,7 +350,7 @@ pub fn deviceAvailable(device: array_mod.Device) bool {
     return switch (device.backend) {
         .cpu => true,
         .cuda => build_options.enable_axiom_cuda and axiom_cuda.deviceAvailable(device.index),
-        .mps => mpsDeviceAvailable(device.index),
+        .mps => axiom_mps.deviceAvailable(device.index),
     };
 }
 
@@ -357,7 +358,7 @@ pub fn allocateStorage(device: array_mod.Device, len: usize, element_size: usize
     return switch (executionTargetForDevice(device)) {
         .cpu => null,
         .cuda => axiom_cuda.allocateStorage(device, len, element_size),
-        .mps => null,
+        .mps => axiom_mps.allocateStorage(device, len, element_size),
     };
 }
 
@@ -376,7 +377,7 @@ pub fn freeStorage(storage: array_mod.DeviceStorage) void {
     switch (executionTargetForDevice(storage.device)) {
         .cpu => {},
         .cuda => axiom_cuda.freeStorage(storage),
-        .mps => {},
+        .mps => axiom_mps.freeStorage(storage),
     }
 }
 
@@ -384,7 +385,7 @@ pub fn fillStorage(comptime T: type, storage: array_mod.DeviceStorage, value: T)
     return switch (executionTargetForDevice(storage.device)) {
         .cpu => error.InvalidDevice,
         .cuda => axiom_cuda.fillStorage(T, storage, value),
-        .mps => error.InvalidDevice,
+        .mps => axiom_mps.fillStorage(T, storage, value),
     };
 }
 
@@ -401,7 +402,7 @@ pub fn uploadStorage(storage: array_mod.DeviceStorage, bytes: []const u8) array_
     return switch (executionTargetForDevice(storage.device)) {
         .cpu => error.InvalidDevice,
         .cuda => axiom_cuda.uploadStorage(storage, bytes),
-        .mps => error.InvalidDevice,
+        .mps => axiom_mps.uploadStorage(storage, bytes),
     };
 }
 
@@ -409,7 +410,7 @@ pub fn downloadStorage(storage: array_mod.DeviceStorage, bytes: []u8) array_mod.
     return switch (executionTargetForDevice(storage.device)) {
         .cpu => error.InvalidDevice,
         .cuda => axiom_cuda.downloadStorage(storage, bytes),
-        .mps => error.InvalidDevice,
+        .mps => axiom_mps.downloadStorage(storage, bytes),
     };
 }
 
@@ -418,7 +419,7 @@ pub fn copyStorage(dst: array_mod.DeviceStorage, src: array_mod.DeviceStorage) a
     return switch (executionTargetForDevice(dst.device)) {
         .cpu => error.InvalidDevice,
         .cuda => axiom_cuda.copyStorage(dst, src),
-        .mps => error.InvalidDevice,
+        .mps => axiom_mps.copyStorage(dst, src),
     };
 }
 
@@ -440,8 +441,8 @@ pub const StorageDestination = struct {
 /// destination devices to this facade instead of spelling out CPU↔CUDA cases.
 /// That keeps the public array layer target-oriented while this backend module
 /// remains the only place that knows which Axiom runtime ABI currently backs a
-/// target.  MPS deliberately stays unsupported here until Axiom exposes real
-/// Metal/MPS storage semantics.
+/// target.  MPS storage is backed by Axiom-owned Metal shared buffers; eager
+/// kernel execution remains capability-gated until MPSGraph/Metal kernels land.
 pub fn transferStorage(dst: StorageDestination, src: StorageSource) array_mod.ArrayError!void {
     return switch (executionTargetForDevice(src.device)) {
         .cpu => switch (executionTargetForDevice(dst.device)) {
@@ -453,7 +454,10 @@ pub fn transferStorage(dst: StorageDestination, src: StorageSource) array_mod.Ar
                 const dst_storage = dst.storage orelse return error.InvalidDevice;
                 try uploadStorage(dst_storage, src.host_bytes);
             },
-            .mps => error.InvalidDevice,
+            .mps => {
+                const dst_storage = dst.storage orelse return error.InvalidDevice;
+                try uploadStorage(dst_storage, src.host_bytes);
+            },
         },
         .cuda => switch (executionTargetForDevice(dst.device)) {
             .cpu => {
@@ -467,7 +471,18 @@ pub fn transferStorage(dst: StorageDestination, src: StorageSource) array_mod.Ar
             },
             .mps => error.InvalidDevice,
         },
-        .mps => error.InvalidDevice,
+        .mps => switch (executionTargetForDevice(dst.device)) {
+            .cpu => {
+                const src_storage = src.storage orelse return error.InvalidDevice;
+                try downloadStorage(src_storage, dst.host_bytes);
+            },
+            .cuda => error.InvalidDevice,
+            .mps => {
+                const src_storage = src.storage orelse return error.InvalidDevice;
+                const dst_storage = dst.storage orelse return error.InvalidDevice;
+                try copyStorage(dst_storage, src_storage);
+            },
+        },
     };
 }
 
@@ -635,10 +650,9 @@ pub fn defaultBackendPolicy() BackendPolicy {
     return switch (defaultDialectBackend()) {
         .cpu => .prefer_axiom_cpu,
         .cuda => .prefer_cuda,
-        // Axiom's MPS runtime ABI is currently planned/unavailable.  A default
-        // MPS selection should still be legal for planning evidence, but eager
-        // CPU arrays must keep a real execution fallback rather than pretending
-        // MPS ran.
+        // MPS has real Metal storage on macOS, but operation kernels are still
+        // capability-gated. Eager CPU arrays keep a real CPU fallback rather
+        // than pretending MPS kernels ran.
         .mps => .prefer_axiom_cpu,
     };
 }
@@ -2866,7 +2880,7 @@ pub fn executeElementwise(
     return switch (target) {
         .cpu => executeCpuElementwiseTarget(T, op, lhs, rhs),
         .cuda => executeCudaElementwise(T, op, lhs, rhs),
-        .mps => null,
+        .mps => executeMpsElementwise(T, op, lhs, rhs),
     };
 }
 
@@ -3281,7 +3295,23 @@ fn executeCudaElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Ar
     return null;
 }
 
+fn executeMpsElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.tryBinaryF32(mpsBinaryOp(op), @as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 fn cudaBinaryOp(op: ElementwiseOp) axiom_cuda.BinaryOp {
+    return switch (op) {
+        .add => .add,
+        .sub => .sub,
+        .mul => .mul,
+        .div => .div,
+    };
+}
+
+fn mpsBinaryOp(op: ElementwiseOp) axiom.accelerator.MpsBinaryOp {
     return switch (op) {
         .add => .add,
         .sub => .sub,
@@ -3750,7 +3780,7 @@ fn supportedScalarElementwise(comptime T: type, input: array_mod.Array(T)) bool 
 }
 
 fn nonEmptyAccessibleData(comptime T: type, input: array_mod.Array(T)) bool {
-    if (input.device.isCuda()) {
+    if (input.device.isCuda() or input.device.isMps()) {
         const storage = input.device_storage orelse return false;
         return storage.len != 0;
     }
@@ -4022,7 +4052,7 @@ test "Axiom dialect lowering reports transpose generic route" {
     resetDefaultDialectBackend();
 }
 
-test "Axiom runtime capability reports keep MPS planned and non-executable" {
+test "Axiom runtime capability reports keep MPS kernels planned while storage ABI is available" {
     const mps_reduction = reductionRuntimeCapability(.mps);
     try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_reduction.status);
     try std.testing.expect(!mps_reduction.executable());
@@ -4049,8 +4079,15 @@ test "Axiom runtime capability reports keep MPS planned and non-executable" {
     try std.testing.expect(!mps_log_softmax.executable());
 
     const mps_runtime = mpsDeviceReport(0);
-    try std.testing.expectEqual(MpsRuntimeAbiStatus.planned, mps_runtime.status);
-    try std.testing.expect(!mps_runtime.ok());
+    if (builtin.os.tag == .macos) {
+        try std.testing.expectEqual(MpsRuntimeAbiStatus.available, mps_runtime.status);
+        try std.testing.expect(mps_runtime.ok());
+        try std.testing.expect(mpsDeviceAvailable(0));
+    } else {
+        try std.testing.expectEqual(MpsRuntimeAbiStatus.unavailable, mps_runtime.status);
+        try std.testing.expect(!mps_runtime.ok());
+        try std.testing.expect(!mpsDeviceAvailable(0));
+    }
 }
 
 test "Axiom backend policy reports matmul route" {

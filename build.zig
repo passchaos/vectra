@@ -73,6 +73,11 @@ pub fn build(b: *std.Build) void {
     });
     mod.addOptions("vectra_build_options", build_options);
     mod.addImport("axiom", axiom_dep.module("axiom"));
+    if (target.result.os.tag == .macos) {
+        mod.linkSystemLibrary("objc", .{});
+        mod.linkFramework("Metal", .{});
+        mod.linkFramework("Foundation", .{});
+    }
 
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function
@@ -499,6 +504,21 @@ pub fn build(b: *std.Build) void {
     const axiom_cpu_dispatch_smoke_cmd = b.addRunArtifact(axiom_cpu_dispatch_smoke_exe);
     const axiom_cpu_dispatch_smoke_step = b.step("axiom-cpu-dispatch-smoke", "Run ordinary Array(f32/f64).matmul through Axiom CPU-to-Veyra dispatch");
     axiom_cpu_dispatch_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
+
+    const axiom_mps_storage_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-mps-storage-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/axiom_mps_storage_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_mps_storage_smoke_cmd = b.addRunArtifact(axiom_mps_storage_smoke_exe);
+    const axiom_mps_storage_smoke_step = b.step("axiom-mps-storage-smoke", "Run MPS device storage creation/copy/download smoke");
+    axiom_mps_storage_smoke_step.dependOn(&axiom_mps_storage_smoke_cmd.step);
 
     const fusion_smoke_step = b.step("fusion-smoke", "Run CPU/CUDA fusion correctness, status, and quick performance smoke gates");
     fusion_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);

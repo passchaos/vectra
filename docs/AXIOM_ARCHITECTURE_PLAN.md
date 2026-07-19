@@ -186,7 +186,7 @@ from the relevant subset of:
 - `zig build axiom-cpu-dispatch-smoke` for CPU runtime paths;
 - `zig build axiom-cuda-dispatch-smoke`, `axiom-cuda-device-smoke`, and
   `axiom-cuda-smoke -- --json` for CUDA runtime paths;
-- explicit planned/unavailable evidence for MPS until the ABI exists.
+- real Metal/MPS storage ABI evidence plus planned kernel-runtime evidence until MPSGraph/Metal operation runtimes exist.
 
 ## Current gaps vs. the target state
 
@@ -196,7 +196,7 @@ from the relevant subset of:
   cases, but full device view storage and `ArrayView.cuda()` remain unimplemented.
 - Fusion is mostly ad hoc (for example matmul epilogues) rather than a general
   Axiom pass over linalg IR.
-- MPS is intentionally planned/unavailable, not executable.
+- MPS has real Metal storage on macOS, while operation kernels remain planned/non-executable until MPSGraph/Metal runtimes land.
 - NumPy/PyTorch API surface breadth is large; parity must be measured by
   descriptor/lowering coverage, runtime capability, and correctness/performance
   gates rather than by counting isolated method names.

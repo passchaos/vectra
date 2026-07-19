@@ -141,8 +141,8 @@ pub const Device = struct {
             // becoming a CPU array otherwise.
             .cuda => axiom_backend.deviceAvailable(self),
             // MPS availability is delegated to Axiom's MPS runtime ABI report.
-            // Today that report is an honest planned/unavailable contract rather
-            // than a fake CPU/CUDA allocation path.
+            // On macOS this now reports real Metal shared-buffer storage
+            // availability; operation kernels remain separately capability-gated.
             .mps => axiom_backend.mpsDeviceAvailable(self.index),
         };
     }
@@ -25685,7 +25685,11 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expect(!mps_device.isCpu());
     try std.testing.expect(!mps_device.isCuda());
     try std.testing.expectEqualStrings("mps", mps_device.backendName());
-    try std.testing.expect(!mps_device.isAvailable());
+    if (@import("builtin").os.tag == .macos) {
+        try std.testing.expect(mps_device.isAvailable());
+    } else {
+        try std.testing.expect(!mps_device.isAvailable());
+    }
     try std.testing.expectEqual(Backend.cpu, a.deviceBackend());
     try std.testing.expectEqual(Backend.cpu, a.device_backend());
     try std.testing.expectEqual(@as(usize, 0), a.deviceIndex());
@@ -25715,7 +25719,17 @@ test "array pytorch numpy shape indexing and layout helpers" {
     } else {
         try std.testing.expectError(error.InvalidDevice, a.cuda(0));
     }
-    try std.testing.expectError(error.InvalidDevice, a.mps(0));
+    if (Device.mps(0).isAvailable()) {
+        var mps_clone = try a.mps(0);
+        defer mps_clone.deinit();
+        try std.testing.expect(mps_clone.isMps());
+        try std.testing.expect(mps_clone.device_storage != null);
+        var mps_back = try mps_clone.cpu();
+        defer mps_back.deinit();
+        try std.testing.expectEqualSlices(f64, a.data, mps_back.data);
+    } else {
+        try std.testing.expectError(error.InvalidDevice, a.mps(0));
+    }
     try std.testing.expectEqual(@as(f64, 5), try a.at(&.{ 1, 1 }));
     var empty_meta = try Array(f64).zeros(gpa, &.{ 0, 3 });
     defer empty_meta.deinit();
@@ -31644,7 +31658,17 @@ test "array dtype metadata and casts cover common numeric types" {
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
-    try std.testing.expectError(error.InvalidDevice, cpu_source.mps(0));
+    if (Device.mps(0).isAvailable()) {
+        var mps_copy = try cpu_source.mps(0);
+        defer mps_copy.deinit();
+        try std.testing.expectEqual(Backend.mps, mps_copy.device.backend);
+        try std.testing.expect(mps_copy.device_storage != null);
+        var mps_roundtrip = try mps_copy.cpu();
+        defer mps_roundtrip.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, mps_roundtrip.data);
+    } else {
+        try std.testing.expectError(error.InvalidDevice, cpu_source.mps(0));
+    }
 
     var cpu_view = try cpu_source.sliceAxisView(1, .{ .start = 0, .stop = 2, .step = 1 });
     defer cpu_view.deinit();

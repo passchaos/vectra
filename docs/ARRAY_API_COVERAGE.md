@@ -49,9 +49,10 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
 
 ## Known gaps
 
-- True MPS runtime ABI: MPS lowering remains planned and runtime capabilities
-  remain non-executable until Axiom owns real Metal/MPS storage and runtime
-  execution.
+- MPS kernel runtime parity: Axiom now owns a real Metal/MPS device,
+  command-queue, and shared-buffer storage ABI, covered by
+  `axiom-mps-storage-smoke`.  MPSGraph/Metal kernels for Array operations remain
+  planned/non-executable until operation runtimes are implemented.
 - Strided/transposed device GEMM lowering: Axiom now supports contiguous and
   padded row-major f32/f64/f16/BFloat16 GEMM and matmul-add memrefs through
   cuBLAS/cuBLASLt leading dimensions, plus f32/f64/f16/BFloat16
@@ -86,6 +87,7 @@ Backend correctness and policy are covered by separate gates:
 - `zig build axiom-descriptor-smoke`
 - `zig build axiom-gemm-layout-smoke`
 - `zig build axiom-dialect-lowering-smoke`
+- `zig build axiom-mps-storage-smoke`
 - `zig build axiom-backend-policy-smoke`
 - `zig build axiom-cpu-dispatch-smoke`
 - `zig build axiom-cuda-dispatch-smoke`
