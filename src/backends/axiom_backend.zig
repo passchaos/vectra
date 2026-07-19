@@ -929,7 +929,15 @@ pub fn unaryRuntimeCapability(target: DialectBackend, op: DialectUnaryOp) Runtim
             else
                 "Axiom CUDA unary dialect lowering exists for this op, but Vectra has no dedicated eager CUDA runtime ABI for it yet.",
         },
-        .mps => plannedMpsRuntimeCapability(dialectUnaryRuntimeOperation(op)),
+        .mps => .{
+            .target = target,
+            .operation = dialectUnaryRuntimeOperation(op),
+            .status = if (dialectUnaryRuntimeExecutable(.mps, op)) .executable else .planned,
+            .reason = if (dialectUnaryRuntimeExecutable(.mps, op))
+                "Axiom MPS unary runtime is available for supported f32 contiguous arrays through Metal kernels."
+            else
+                "This MPS unary op is not in the current executable Metal kernel slice.",
+        },
     };
 }
 
@@ -952,7 +960,10 @@ fn dialectUnaryRuntimeExecutable(target: DialectBackend, op: DialectUnaryOp) boo
             .abs, .square, .sqrt, .exp, .log => true,
             .copy, .cube => false,
         },
-        .mps => false,
+        .mps => switch (op) {
+            .abs, .square, .sqrt, .exp, .log => true,
+            .copy, .cube => false,
+        },
     };
 }
 
@@ -3408,6 +3419,15 @@ fn mpsUnaryOp(op: ExecutionUnaryOp) ?axiom.accelerator.MpsUnaryOp {
         .square => .square,
         .sqrt => .sqrt,
         .exp => .exp,
+        .log => .log,
+        .exp2 => .exp2,
+        .expm1 => .expm1,
+        .log1p => .log1p,
+        .log2 => .log2,
+        .log10 => .log10,
+        .sin => .sin,
+        .cos => .cos,
+        .tan => .tan,
         else => null,
     };
 }
@@ -4192,8 +4212,12 @@ test "Axiom runtime capability reports MPS executable and planned kernel slices"
     try std.testing.expect(mps_broadcast.executable());
 
     const mps_unary = unaryRuntimeCapability(.mps, .log);
-    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_unary.status);
-    try std.testing.expect(!mps_unary.executable());
+    try std.testing.expectEqual(RuntimeCapabilityStatus.executable, mps_unary.status);
+    try std.testing.expect(mps_unary.executable());
+
+    const mps_unary_unimplemented = unaryRuntimeCapability(.mps, .cube);
+    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_unary_unimplemented.status);
+    try std.testing.expect(!mps_unary_unimplemented.executable());
 
     const mps_transpose = transposeRuntimeCapability(.mps);
     try std.testing.expectEqual(RuntimeCapabilityStatus.executable, mps_transpose.status);

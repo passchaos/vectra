@@ -51,9 +51,11 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
 
 - MPS kernel runtime parity: Axiom now owns a real Metal/MPS device,
   command-queue, shared-buffer storage ABI, and executable f32 2D Metal kernels
-  for elementwise/scalar/unary, matmul, transpose, broadcast-add, reductions,
-  softmax, and logSoftmax, covered by `axiom-mps-storage-smoke`.  Remaining MPS
-  dtypes/shapes still need runtime parity.
+  for same-shape elementwise/scalar, unary math
+  (`abs/square/sqrt/exp/log/exp2/expm1/log1p/log2/log10/sin/cos/tan`), matmul,
+  transpose, broadcast-add, reductions, softmax, and logSoftmax, covered by
+  `axiom-mps-storage-smoke`.  Remaining MPS dtypes/shapes still need runtime
+  parity.
 - Strided/transposed device GEMM lowering: Axiom now supports contiguous and
   padded row-major f32/f64/f16/BFloat16 GEMM and matmul-add memrefs through
   cuBLAS/cuBLASLt leading dimensions, plus f32/f64/f16/BFloat16

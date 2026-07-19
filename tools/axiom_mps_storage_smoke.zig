@@ -84,12 +84,70 @@ pub fn main(init: std.process.Init) !void {
         defer exp_values.deinit();
         var exp_back = try exp_values.cpu();
         defer exp_back.deinit();
+        var log_values = try device.log();
+        defer log_values.deinit();
+        var log_back = try log_values.cpu();
+        defer log_back.deinit();
+        var exp2_values = try device.exp2();
+        defer exp2_values.deinit();
+        var exp2_back = try exp2_values.cpu();
+        defer exp2_back.deinit();
+        var expm1_values = try device.expm1();
+        defer expm1_values.deinit();
+        var expm1_back = try expm1_values.cpu();
+        defer expm1_back.deinit();
+        var log1p_values = try device.log1p();
+        defer log1p_values.deinit();
+        var log1p_back = try log1p_values.cpu();
+        defer log1p_back.deinit();
+        var log2_values = try device.log2();
+        defer log2_values.deinit();
+        var log2_back = try log2_values.cpu();
+        defer log2_back.deinit();
+        var log10_values = try device.log10();
+        defer log10_values.deinit();
+        var log10_back = try log10_values.cpu();
+        defer log10_back.deinit();
+        var trig_host = try vx.Array(f32).fromSlice(allocator, &.{ 0.0, 0.5, 1.0, -0.5 }, &.{ 2, 2 });
+        defer trig_host.deinit();
+        var trig_device = try trig_host.mps(0);
+        defer trig_device.deinit();
+        var sin_values = try trig_device.sin();
+        defer sin_values.deinit();
+        var sin_back = try sin_values.cpu();
+        defer sin_back.deinit();
+        var cos_values = try trig_device.cos();
+        defer cos_values.deinit();
+        var cos_back = try cos_values.cpu();
+        defer cos_back.deinit();
+        var tan_values = try trig_device.tan();
+        defer tan_values.deinit();
+        var tan_back = try tan_values.cpu();
+        defer tan_back.deinit();
         unary_ok = square.device.isMps() and square.device_storage != null and
             sqrt.device.isMps() and sqrt.device_storage != null and
             exp_values.device.isMps() and exp_values.device_storage != null and
+            log_values.device.isMps() and log_values.device_storage != null and
+            exp2_values.device.isMps() and exp2_values.device_storage != null and
+            expm1_values.device.isMps() and expm1_values.device_storage != null and
+            log1p_values.device.isMps() and log1p_values.device_storage != null and
+            log2_values.device.isMps() and log2_values.device_storage != null and
+            log10_values.device.isMps() and log10_values.device_storage != null and
+            sin_values.device.isMps() and sin_values.device_storage != null and
+            cos_values.device.isMps() and cos_values.device_storage != null and
+            tan_values.device.isMps() and tan_values.device_storage != null and
             equalF32(square_back.data, &.{ 1, 4, 9, 16 }) and
             equalF32(sqrt_back.data, &.{ 1, 2, 3, 4 }) and
-            closeF32(exp_back.data, &.{ std.math.exp(@as(f32, 1)), std.math.exp(@as(f32, 2)), std.math.exp(@as(f32, 3)), std.math.exp(@as(f32, 4)) }, 0.01);
+            closeF32(exp_back.data, &.{ std.math.exp(@as(f32, 1)), std.math.exp(@as(f32, 2)), std.math.exp(@as(f32, 3)), std.math.exp(@as(f32, 4)) }, 0.01) and
+            closeF32(log_back.data, &.{ 0.0, std.math.log(f32, std.math.e, 2.0), std.math.log(f32, std.math.e, 3.0), std.math.log(f32, std.math.e, 4.0) }, 0.01) and
+            closeF32(exp2_back.data, &.{ 2.0, 4.0, 8.0, 16.0 }, 0.01) and
+            closeF32(expm1_back.data, &.{ std.math.exp(@as(f32, 1)) - 1.0, std.math.exp(@as(f32, 2)) - 1.0, std.math.exp(@as(f32, 3)) - 1.0, std.math.exp(@as(f32, 4)) - 1.0 }, 0.01) and
+            closeF32(log1p_back.data, &.{ std.math.log(f32, std.math.e, 2.0), std.math.log(f32, std.math.e, 3.0), std.math.log(f32, std.math.e, 4.0), std.math.log(f32, std.math.e, 5.0) }, 0.01) and
+            closeF32(log2_back.data, &.{ 0.0, 1.0, std.math.log2(@as(f32, 3.0)), 2.0 }, 0.01) and
+            closeF32(log10_back.data, &.{ 0.0, std.math.log10(@as(f32, 2.0)), std.math.log10(@as(f32, 3.0)), std.math.log10(@as(f32, 4.0)) }, 0.01) and
+            closeF32(sin_back.data, &.{ std.math.sin(@as(f32, 0.0)), std.math.sin(@as(f32, 0.5)), std.math.sin(@as(f32, 1.0)), std.math.sin(@as(f32, -0.5)) }, 0.01) and
+            closeF32(cos_back.data, &.{ std.math.cos(@as(f32, 0.0)), std.math.cos(@as(f32, 0.5)), std.math.cos(@as(f32, 1.0)), std.math.cos(@as(f32, -0.5)) }, 0.01) and
+            closeF32(tan_back.data, &.{ std.math.tan(@as(f32, 0.0)), std.math.tan(@as(f32, 0.5)), std.math.tan(@as(f32, 1.0)), std.math.tan(@as(f32, -0.5)) }, 0.03);
 
         var mat_lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 }, vx.mps(0));
         defer mat_lhs.deinit();
@@ -175,7 +233,7 @@ pub fn main(init: std.process.Init) !void {
             closeF32(log_softmax_row_back.data, &.{ -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom, -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom }, 0.03) and
             closeF32(log_softmax_col_back.data, &.{ -3.0 - col_log_denom, -3.0 - col_log_denom, -3.0 - col_log_denom, -col_log_denom, -col_log_denom, -col_log_denom }, 0.03);
 
-        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(mat_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data);
+        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(log_back.data) ^ hashF32(exp2_back.data) ^ hashF32(expm1_back.data) ^ hashF32(log1p_back.data) ^ hashF32(log2_back.data) ^ hashF32(log10_back.data) ^ hashF32(sin_back.data) ^ hashF32(cos_back.data) ^ hashF32(tan_back.data) ^ hashF32(mat_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data);
     }
 
     const ok = if (available)

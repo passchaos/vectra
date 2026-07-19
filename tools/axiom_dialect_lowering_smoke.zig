@@ -51,7 +51,8 @@ pub fn main(init: std.process.Init) !void {
     const broadcast_mps_report = try vx.axiom_backend.lowerBroadcastAddDialectDefault(f32, lhs, col_bias, .column);
     const broadcast_mps_runtime = vx.axiom_backend.broadcastAddRuntimeCapability(.mps);
     const unary_mps_report = try vx.axiom_backend.lowerUnaryDialectDefault(f32, lhs, .cube);
-    const unary_mps_runtime = vx.axiom_backend.unaryRuntimeCapability(.mps, .cube);
+    const unary_mps_runtime = vx.axiom_backend.unaryRuntimeCapability(.mps, .log);
+    const unary_mps_planned_runtime = vx.axiom_backend.unaryRuntimeCapability(.mps, .cube);
     const transpose_mps_report = try vx.axiom_backend.lowerTransposeDialectDefault(f32, lhs);
     const transpose_mps_runtime = vx.axiom_backend.transposeRuntimeCapability(.mps);
     const softmax_mps_runtime = vx.axiom_backend.softmaxRuntimeCapability(.mps);
@@ -88,7 +89,8 @@ pub fn main(init: std.process.Init) !void {
         unary_log_cuda_runtime.status == .executable and
         unary_log_cpu_runtime.status == .executable and
         unary_mps_report.status == .planned_mps and
-        unary_mps_runtime.status == .planned and
+        unary_mps_runtime.status == .executable and
+        unary_mps_planned_runtime.status == .planned and
         transpose_cuda_report.status == .lowered_cuda and
         transpose_cuda_runtime.status == .executable and
         device_matmul_cuda_report.status == .lowered_cuda and
@@ -103,7 +105,8 @@ pub fn main(init: std.process.Init) !void {
         log_softmax_mps_runtime.status == .executable and
         reduction_mps_runtime.executable() and
         broadcast_mps_runtime.executable() and
-        !unary_mps_runtime.executable() and
+        unary_mps_runtime.executable() and
+        !unary_mps_planned_runtime.executable() and
         transpose_mps_runtime.executable() and
         softmax_mps_runtime.executable() and
         log_softmax_mps_runtime.executable() and
@@ -153,7 +156,7 @@ pub fn main(init: std.process.Init) !void {
         },
     );
     try stdout.interface.print(
-        ",\"unary_cuda_status\":\"{s}\",\"unary_cuda_runtime_status\":\"{s}\",\"unary_cuda_runtime_fingerprint\":{d},\"unary_log_cuda_status\":\"{s}\",\"unary_log_cuda_runtime_status\":\"{s}\",\"unary_log_cpu_runtime_status\":\"{s}\",\"unary_mps_status\":\"{s}\",\"unary_mps_runtime_status\":\"{s}\",\"unary_mps_runtime_fingerprint\":{d},\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"device_matmul_cuda_status\":\"{s}\",\"device_elementwise_cuda_status\":\"{s}\",\"device_reduction_cuda_status\":\"{s}\",\"device_broadcast_cuda_status\":\"{s}\",\"device_unary_cuda_status\":\"{s}\",\"device_transpose_cuda_status\":\"{s}\",\"transpose_mps_status\":\"{s}\",\"transpose_mps_runtime_status\":\"{s}\",\"transpose_mps_runtime_fingerprint\":{d},\"softmax_mps_runtime_status\":\"{s}\",\"log_softmax_mps_runtime_status\":\"{s}\",\"fingerprint\":{d}}}\n",
+        ",\"unary_cuda_status\":\"{s}\",\"unary_cuda_runtime_status\":\"{s}\",\"unary_cuda_runtime_fingerprint\":{d},\"unary_log_cuda_status\":\"{s}\",\"unary_log_cuda_runtime_status\":\"{s}\",\"unary_log_cpu_runtime_status\":\"{s}\",\"unary_mps_status\":\"{s}\",\"unary_mps_runtime_status\":\"{s}\",\"unary_mps_planned_runtime_status\":\"{s}\",\"unary_mps_runtime_fingerprint\":{d},\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"device_matmul_cuda_status\":\"{s}\",\"device_elementwise_cuda_status\":\"{s}\",\"device_reduction_cuda_status\":\"{s}\",\"device_broadcast_cuda_status\":\"{s}\",\"device_unary_cuda_status\":\"{s}\",\"device_transpose_cuda_status\":\"{s}\",\"transpose_mps_status\":\"{s}\",\"transpose_mps_runtime_status\":\"{s}\",\"transpose_mps_runtime_fingerprint\":{d},\"softmax_mps_runtime_status\":\"{s}\",\"log_softmax_mps_runtime_status\":\"{s}\",\"fingerprint\":{d}}}\n",
         .{
             unary_cuda_report.status.label(),
             unary_cuda_runtime.status.label(),
@@ -163,6 +166,7 @@ pub fn main(init: std.process.Init) !void {
             unary_log_cpu_runtime.status.label(),
             unary_mps_report.status.label(),
             unary_mps_runtime.status.label(),
+            unary_mps_planned_runtime.status.label(),
             unary_mps_runtime.fingerprint(),
             transpose_cuda_report.status.label(),
             transpose_cuda_runtime.status.label(),

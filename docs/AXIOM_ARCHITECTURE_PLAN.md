@@ -197,9 +197,11 @@ from the relevant subset of:
   cases, but full device view storage and `ArrayView.cuda()` remain unimplemented.
 - Fusion is mostly ad hoc (for example matmul epilogues) rather than a general
   Axiom pass over linalg IR.
-- MPS has real Metal storage on macOS plus f32 2D kernels for
-  elementwise/scalar/unary, matmul, transpose, broadcast-add, reductions,
-  softmax, and logSoftmax; remaining MPS dtypes/shapes still need parity.
+- MPS has real Metal storage on macOS plus f32 2D kernels for same-shape
+  elementwise/scalar, unary math
+  (`abs/square/sqrt/exp/log/exp2/expm1/log1p/log2/log10/sin/cos/tan`), matmul,
+  transpose, broadcast-add, reductions, softmax, and logSoftmax; remaining MPS
+  dtypes/shapes still need parity.
 - NumPy/PyTorch API surface breadth is large; parity must be measured by
   descriptor/lowering coverage, runtime capability, and correctness/performance
   gates rather than by counting isolated method names.
