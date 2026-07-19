@@ -137,6 +137,20 @@ pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayErro
     // `...ij,...jk->...ik`, by forwarding to Array.matmul so backend selection
     // still flows through Axiom instead of a special einsum backend.
     if (ellipsisBatchedMatmulLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) return lhs.matmul(rhs);
+    if (ellipsisBatchedMatvecLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) {
+        var rhs_expanded = try rhs.unsqueeze(-2);
+        defer rhs_expanded.deinit();
+        var product = try lhs.mul(rhs_expanded);
+        defer product.deinit();
+        return product.sum(-1, false);
+    }
+    if (ellipsisBatchedVecmatLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) {
+        var lhs_expanded = try lhs.unsqueeze(-1);
+        defer lhs_expanded.deinit();
+        var product = try lhs_expanded.mul(rhs);
+        defer product.deinit();
+        return product.sum(-2, false);
+    }
     if (ellipsisBatchedDotLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) {
         var product = try lhs.mul(rhs);
         defer product.deinit();
@@ -219,6 +233,48 @@ fn ellipsisBatchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, 
         !hasRepeatedLabels(out_tail) and
         out_tail[0] == lhs_tail[0] and
         out_tail[1] == rhs_tail[1];
+}
+
+fn ellipsisBatchedMatvecLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
+    if (lhs_rank < 1 or rhs_rank < 1) return false;
+    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse subscripts.len;
+    const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return false;
+    const lhs = subscripts[0..comma];
+    const rhs = subscripts[comma + 1 .. arrow];
+    const out = if (arrow == subscripts.len) "" else subscripts[arrow + 2 ..];
+    if (!std.mem.startsWith(u8, lhs, "...") or !std.mem.startsWith(u8, rhs, "...")) return false;
+    const lhs_tail = lhs[3..];
+    const rhs_tail = rhs[3..];
+    if (!allEinsumLabels(lhs_tail) or !allEinsumLabels(rhs_tail)) return false;
+    if (hasRepeatedLabels(lhs_tail) or hasRepeatedLabels(rhs_tail)) return false;
+    if (!(lhs_tail.len == 2 and rhs_tail.len == 1 and lhs_tail[1] == rhs_tail[0])) return false;
+    if (out.len == 0) return true;
+    if (!std.mem.startsWith(u8, out, "...")) return false;
+    const out_tail = out[3..];
+    return out_tail.len == 1 and
+        allEinsumLabels(out_tail) and
+        out_tail[0] == lhs_tail[0];
+}
+
+fn ellipsisBatchedVecmatLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
+    if (lhs_rank < 1 or rhs_rank < 1) return false;
+    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse subscripts.len;
+    const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return false;
+    const lhs = subscripts[0..comma];
+    const rhs = subscripts[comma + 1 .. arrow];
+    const out = if (arrow == subscripts.len) "" else subscripts[arrow + 2 ..];
+    if (!std.mem.startsWith(u8, lhs, "...") or !std.mem.startsWith(u8, rhs, "...")) return false;
+    const lhs_tail = lhs[3..];
+    const rhs_tail = rhs[3..];
+    if (!allEinsumLabels(lhs_tail) or !allEinsumLabels(rhs_tail)) return false;
+    if (hasRepeatedLabels(lhs_tail) or hasRepeatedLabels(rhs_tail)) return false;
+    if (!(lhs_tail.len == 1 and rhs_tail.len == 2 and lhs_tail[0] == rhs_tail[0])) return false;
+    if (out.len == 0) return true;
+    if (!std.mem.startsWith(u8, out, "...")) return false;
+    const out_tail = out[3..];
+    return out_tail.len == 1 and
+        allEinsumLabels(out_tail) and
+        out_tail[0] == rhs_tail[1];
 }
 
 fn ellipsisBatchedDotLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
