@@ -100,3 +100,61 @@ pub fn tryBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f32)
     };
     return out;
 }
+
+pub fn tryScalarF32(op: axiom.accelerator.MpsBinaryOp, input: array_mod.Array(f32), scalar: f32, scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!input.device.isMps() or !input.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+
+    var out = try array_mod.Array(f32).emptyOn(input.allocator, input.shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runScalarF32(
+        op,
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        scalar,
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        input_storage.len,
+        scalar_left,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryUnaryF32(op: axiom.accelerator.MpsUnaryOp, input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!input.device.isMps() or !input.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+
+    var out = try array_mod.Array(f32).emptyOn(input.allocator, input.shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runUnaryF32(
+        op,
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        input_storage.len,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}

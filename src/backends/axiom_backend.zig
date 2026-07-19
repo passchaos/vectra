@@ -1678,7 +1678,7 @@ pub fn executeUnary(
     return switch (target) {
         .cpu => executeCpuUnary(T, op, input),
         .cuda => executeCudaUnary(T, op, input),
-        .mps => null,
+        .mps => executeMpsUnary(T, op, input),
     };
 }
 
@@ -2472,6 +2472,15 @@ fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arr
         if (try axiom_cuda.tryDeviceUnaryF64(cuda_op, @as(array_mod.Array(f64), input))) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
         if (try axiom_cuda.tryDeviceUnaryBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), input))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeMpsUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (mpsUnaryOp(op)) |mps_op| {
+            if (try axiom_mps.tryUnaryF32(mps_op, @as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+        }
     }
     return null;
 }
@@ -3320,6 +3329,16 @@ fn mpsBinaryOp(op: ElementwiseOp) axiom.accelerator.MpsBinaryOp {
     };
 }
 
+fn mpsUnaryOp(op: ExecutionUnaryOp) ?axiom.accelerator.MpsUnaryOp {
+    return switch (op) {
+        .abs => .abs,
+        .square => .square,
+        .sqrt => .sqrt,
+        .exp => .exp,
+        else => null,
+    };
+}
+
 pub fn selectMatmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) BackendReport {
     const supported = supportedMatmul2d(T, lhs, rhs);
     const selected: BackendRoute = if (!supported)
@@ -3401,6 +3420,7 @@ pub fn executeElementwiseScalar(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!supportedScalarElementwise(T, input)) return null;
     if (try executeCudaElementwiseScalar(T, op, target, input, scalar, scalar_side)) |out| return out;
+    if (try executeMpsElementwiseScalar(T, op, target, input, scalar, scalar_side)) |out| return out;
     if (try executeCpuElementwiseScalar(T, target, op, input, scalar, scalar_side)) |out| return out;
     var scalar_array = try array_mod.Array(T).fullOn(input.allocator, input.shape, scalar, input.device);
     defer scalar_array.deinit();
@@ -3457,6 +3477,21 @@ fn executeCudaElementwiseScalar(
         .lhs => tryCudaDeviceScalarArrayBroadcast(T, op, target, scalar_array, input),
         .rhs => tryCudaDeviceScalarArrayBroadcast(T, op, target, input, scalar_array),
     };
+}
+
+fn executeMpsElementwiseScalar(
+    comptime T: type,
+    op: ElementwiseOp,
+    target: DialectBackend,
+    input: array_mod.Array(T),
+    scalar: T,
+    scalar_side: ScalarSide,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .mps or !input.device.isMps() or input.shape.len == 0) return null;
+    if (T == f32) {
+        if (try axiom_mps.tryScalarF32(mpsBinaryOp(op), @as(array_mod.Array(f32), input), @as(f32, scalar), scalar_side == .lhs)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
 }
 
 pub fn tryElementwiseScalarBroadcastDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -3669,7 +3704,7 @@ fn supportedLstsqExecution(comptime T: type, matrix: array_mod.Array(T), rhs: ar
 
 fn supportedUnaryExecution(comptime T: type, input: array_mod.Array(T)) bool {
     if (!(T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16)) return false;
-    return (input.device.isCpu() or input.device.isCuda()) and
+    return (input.device.isCpu() or input.device.isCuda() or input.device.isMps()) and
         nonEmptyAccessibleData(T, input) and
         input.isContiguous();
 }
@@ -3774,7 +3809,7 @@ fn supportsAxiomCudaMatmul(comptime T: type) bool {
 
 fn supportedScalarElementwise(comptime T: type, input: array_mod.Array(T)) bool {
     return supportsAxiomElementwise(T) and
-        (input.device.isCpu() or input.device.isCuda()) and
+        (input.device.isCpu() or input.device.isCuda() or input.device.isMps()) and
         nonEmptyAccessibleData(T, input) and
         input.isContiguous();
 }

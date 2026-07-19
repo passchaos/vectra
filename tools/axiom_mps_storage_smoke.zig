@@ -10,6 +10,8 @@ pub fn main(init: std.process.Init) !void {
     var copy_ok = !available;
     var fill_ok = !available;
     var elementwise_ok = !available;
+    var scalar_ok = !available;
+    var unary_ok = !available;
     var bytes: usize = 0;
     var fingerprint = report.fingerprint();
 
@@ -51,19 +53,51 @@ pub fn main(init: std.process.Init) !void {
             equalF32(add_back.data, &.{ 11, 22, 33, 44 }) and
             equalF32(div_back.data, &.{ 10, 10, 10, 10 });
 
-        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data);
+        var scaled = try device.mulScalar(2.0);
+        defer scaled.deinit();
+        var scaled_back = try scaled.cpu();
+        defer scaled_back.deinit();
+        var rsub = try device.subScalar(10.0);
+        defer rsub.deinit();
+        var rsub_back = try rsub.cpu();
+        defer rsub_back.deinit();
+        scalar_ok = scaled.device.isMps() and scaled.device_storage != null and
+            rsub.device.isMps() and rsub.device_storage != null and
+            equalF32(scaled_back.data, &.{ 2, 4, 6, 8 }) and
+            equalF32(rsub_back.data, &.{ -9, -8, -7, -6 });
+
+        var square = try device.square();
+        defer square.deinit();
+        var square_back = try square.cpu();
+        defer square_back.deinit();
+        var sqrt = try square.sqrt();
+        defer sqrt.deinit();
+        var sqrt_back = try sqrt.cpu();
+        defer sqrt_back.deinit();
+        var exp_values = try device.exp();
+        defer exp_values.deinit();
+        var exp_back = try exp_values.cpu();
+        defer exp_back.deinit();
+        unary_ok = square.device.isMps() and square.device_storage != null and
+            sqrt.device.isMps() and sqrt.device_storage != null and
+            exp_values.device.isMps() and exp_values.device_storage != null and
+            equalF32(square_back.data, &.{ 1, 4, 9, 16 }) and
+            equalF32(sqrt_back.data, &.{ 1, 2, 3, 4 }) and
+            closeF32(exp_back.data, &.{ std.math.exp(@as(f32, 1)), std.math.exp(@as(f32, 2)), std.math.exp(@as(f32, 3)), std.math.exp(@as(f32, 4)) }, 0.01);
+
+        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data);
     }
 
     const ok = if (available)
-        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and bytes != 0
+        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and bytes != 0
     else
-        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok;
+        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
-        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, bytes, fingerprint },
+        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
+        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, bytes, fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
@@ -73,6 +107,14 @@ fn equalF32(actual: []const f32, expected: []const f32) bool {
     if (actual.len != expected.len) return false;
     for (actual, expected) |a, e| {
         if (a != e) return false;
+    }
+    return true;
+}
+
+fn closeF32(actual: []const f32, expected: []const f32, tolerance: f32) bool {
+    if (actual.len != expected.len) return false;
+    for (actual, expected) |a, e| {
+        if (@abs(a - e) > tolerance) return false;
     }
     return true;
 }
