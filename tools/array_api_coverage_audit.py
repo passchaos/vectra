@@ -62,7 +62,7 @@ CAPABILITIES: tuple[Capability, ...] = (
 KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     {
         "name": "mps_kernel_runtime_parity",
-        "reason": "Axiom now owns a real Metal/MPS device, command-queue, shared-buffer storage ABI, executable f32 2D Metal kernels for same-shape elementwise/scalar, unary math (abs/square/sqrt/exp/log/exp2/expm1/log1p/log2/log10/sin/cos/tan), matmul/matmulAdd, transpose, broadcast-add, reductions, softmax, and logSoftmax, plus f16 same-shape elementwise/scalar/abs/square/sqrt/exp covered by axiom-mps-storage-smoke; remaining MPS dtypes/shapes still need runtime parity.",
+        "reason": "Axiom now owns a real Metal/MPS device, command-queue, shared-buffer storage ABI, executable f32 2D Metal kernels for same-shape elementwise/scalar, unary math (abs/square/sqrt/exp/log/exp2/expm1/log1p/log2/log10/sin/cos/tan), matmul/matmulAdd, transpose, broadcast-add, reductions, softmax, and logSoftmax, plus f16 same-shape elementwise/scalar/abs/square/sqrt/exp and 2D matmul covered by axiom-mps-storage-smoke; remaining MPS dtypes/shapes still need runtime parity.",
         "target_layer": "axiom",
     },
     {

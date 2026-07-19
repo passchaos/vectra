@@ -285,6 +285,42 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
     return out;
 }
 
+pub fn tryMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len != 2 or rhs.shape.len != 2 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    if (lhs.shape[1] != rhs.shape[0]) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+
+    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runMatmulF16(
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        m,
+        k,
+        n,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
 pub fn tryMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!lhs.device.isMps() or !rhs.device.isMps() or !addend.device.isMps()) return null;
     if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(addend.device)) return null;

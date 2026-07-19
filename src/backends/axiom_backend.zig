@@ -1434,6 +1434,8 @@ fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
 fn executeMpsMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32 and lhs.shape.len == 2 and rhs.shape.len == 2) {
         if (try axiom_mps.tryMatmulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16 and lhs.shape.len == 2 and rhs.shape.len == 2) {
+        if (try axiom_mps.tryMatmulF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3732,7 +3734,7 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
             (rhs.shape.len == 1 or rhs.shape.len == 2);
     }
     if (lhs.device.isMps()) {
-        return T == f32 and lhs.shape.len == 2 and rhs.shape.len == 2;
+        return (T == f32 or T == f16) and lhs.shape.len == 2 and rhs.shape.len == 2;
     }
     if (!lhs.device.isCuda() or (T != f32 and T != f64 and T != f16 and T != array_mod.BFloat16)) return false;
     return (lhs.shape.len == 1 and rhs.shape.len == 1) or

@@ -47,8 +47,8 @@ that can execute today.  On macOS that means real shared-buffer storage plus f32
 2D Metal kernels for same-shape elementwise/scalar, unary math
 (`abs/square/sqrt/exp/log/exp2/expm1/log1p/log2/log10/sin/cos/tan`), matmul,
 transpose, broadcast-add, reductions, softmax, and logSoftmax, plus f16
-same-shape elementwise/scalar/abs/square/sqrt/exp; remaining MPS dtype/shape
-coverage stays capability-gated.
+same-shape elementwise/scalar/abs/square/sqrt/exp and 2D matmul; remaining MPS
+dtype/shape coverage stays capability-gated.
 
 ## CUDA owning-array behavior
 
