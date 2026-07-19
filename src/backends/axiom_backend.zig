@@ -2235,13 +2235,12 @@ fn executeCpuTrace(comptime T: type, input: array_mod.Array(T), offset: isize) a
 }
 
 fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    if (op == .log) return null;
     const cpu_op: axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp = switch (op) {
         .abs => .abs,
         .square => .square,
         .sqrt => .sqrt,
         .exp => .exp,
-        .log => unreachable,
+        .log => .log,
     };
     if (T == f32) {
         var out = try array_mod.Array(f32).empty(input.allocator, input.shape);

@@ -2,7 +2,7 @@
 
 Vectra imports the sibling Axiom compiler/runtime package by default for the
 supported CPU and CUDA tensor paths. CPU-backed `Array(f32/f64)`
-elementwise/scalar/matmul, matrix-vector, vector-matrix, dot/vdot, trace,
+elementwise/scalar/unary (`sqrt/exp/log/square`)/matmul, matrix-vector, vector-matrix, dot/vdot, trace,
 determinant, inverse, solve, Cholesky, QR, LU, and triangular-solve operations
 plus Frobenius/one/inf/two/nuclear matrix norms, SVD, singular values, matrix rank, condition number, pseudo-inverse, and least-squares route through Axiom CPU lowering to
 Veyra. CUDA-owning `Array(f32)` values allocate real device storage when the CUDA
@@ -96,7 +96,7 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
 - `tryElementwiseScalarBroadcast(T, op, policy, lhs, rhs)`
 - `selectMatmul(T, policy, lhs, rhs)` / `matmul(...)`
 
-Supported CPU routes currently cover f32/f64 same-shape add/sub/mul/div, scalar
+Supported CPU routes currently cover f32/f64 same-shape add/sub/mul/div, sqrt/exp/log/square, scalar
 and one-element scalar-broadcast add/sub/mul/div, 2D matmul, matrix-vector,
 vector-matrix, dot/vdot, trace, determinant, inverse, solve, Cholesky, QR, LU,
 triangular solve, Frobenius/one/inf/two/nuclear matrix norms, SVD, singular values, matrix rank, condition number, pseudo-inverse, and least-squares through Axiom
@@ -138,7 +138,7 @@ where Vectra still has a non-Axiom generic implementation.
 ## Current limits
 
 - Automatic Axiom dispatch covers contiguous same-shape elementwise,
-  CPU f32/f64 square, scalar/one-element scalar-broadcast, CPU f32/f64
+  CPU f32/f64 sqrt/exp/log/square, scalar/one-element scalar-broadcast, CPU f32/f64
   row/column-bias broadcast add, CPU f32/f64 2D axis reductions
   (`sum/prod/min/max`), CPU f32/f64 2D transpose, and contiguous 2D matmul for the dtypes
   listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).

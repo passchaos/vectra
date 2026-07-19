@@ -16617,7 +16617,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn log(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32) {
+            if (comptime T == f32 or T == f64) {
                 if (try axiom_backend.executeUnaryDefault(T, .log, self)) |out| return out;
                 if (self.device.isCuda()) return error.BackendFailure;
             }
