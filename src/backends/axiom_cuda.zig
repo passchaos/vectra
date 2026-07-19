@@ -3167,32 +3167,46 @@ fn tryDeviceBatchedMatmul(
     const lhs_batch_stride = std.math.mul(usize, m, k) catch return error.InvalidShape;
     const rhs_batch_stride = std.math.mul(usize, k, n) catch return error.InvalidShape;
     const out_batch_stride = std.math.mul(usize, m, n) catch return error.InvalidShape;
-    const lhs_memref_batch_stride = (try flattenedBatchStride(lhs_batch, out_batch, lhs_batch_stride)) orelse return null;
-    const rhs_memref_batch_stride = (try flattenedBatchStride(rhs_batch, out_batch, rhs_batch_stride)) orelse return null;
-    const lhs_shape: [3]usize = .{ batch_count, m, k };
-    const rhs_shape: [3]usize = .{ batch_count, k, n };
-    const out_memref_shape: [3]usize = .{ batch_count, m, n };
-    const lhs_strides: [3]usize = .{ lhs_memref_batch_stride, k, 1 };
-    const rhs_strides: [3]usize = .{ rhs_memref_batch_stride, n, 1 };
-    const out_strides: [3]usize = .{ out_batch_stride, n, 1 };
-
-    // General NumPy/PyTorch-style matmul flattens representable leading batch
-    // dimensions into one Axiom batch.  Whole-operand batch broadcasts become a
-    // zero batch stride, while the public Array result keeps its original
-    // higher-rank broadcasted shape.  Mixed per-axis broadcasts still require a
-    // future gather/pack legalization because they cannot be represented by one
-    // affine batch stride.
-    const lhs_desc = describeDeviceBufferMemRef(T, lhs_storage, &lhs_shape, &lhs_strides, lhs_name) catch {
-        out.deinit();
-        return null;
-    };
-    const rhs_desc = describeDeviceBufferMemRef(T, rhs_storage, &rhs_shape, &rhs_strides, rhs_name) catch {
-        out.deinit();
-        return null;
-    };
-    const out_desc = describeDeviceBufferMemRef(T, out_storage, &out_memref_shape, &out_strides, out_name) catch {
-        out.deinit();
-        return null;
+    const lhs_flat_batch_stride = try flattenedBatchStride(lhs_batch, out_batch, lhs_batch_stride);
+    const rhs_flat_batch_stride = try flattenedBatchStride(rhs_batch, out_batch, rhs_batch_stride);
+    const lhs_desc, const rhs_desc, const out_desc = if (lhs_flat_batch_stride != null and rhs_flat_batch_stride != null) blk: {
+        const lhs_shape: [3]usize = .{ batch_count, m, k };
+        const rhs_shape: [3]usize = .{ batch_count, k, n };
+        const out_memref_shape: [3]usize = .{ batch_count, m, n };
+        const lhs_strides: [3]usize = .{ lhs_flat_batch_stride.?, k, 1 };
+        const rhs_strides: [3]usize = .{ rhs_flat_batch_stride.?, n, 1 };
+        const out_strides: [3]usize = .{ out_batch_stride, n, 1 };
+        const lhs_desc = describeDeviceBufferMemRef(T, lhs_storage, &lhs_shape, &lhs_strides, lhs_name) catch {
+            out.deinit();
+            return null;
+        };
+        const rhs_desc = describeDeviceBufferMemRef(T, rhs_storage, &rhs_shape, &rhs_strides, rhs_name) catch {
+            out.deinit();
+            return null;
+        };
+        const out_desc = describeDeviceBufferMemRef(T, out_storage, &out_memref_shape, &out_strides, out_name) catch {
+            out.deinit();
+            return null;
+        };
+        break :blk .{ lhs_desc, rhs_desc, out_desc };
+    } else blk: {
+        // Mixed per-axis batch broadcasts cannot be expressed as one affine
+        // batch stride.  Use Axiom's higher-rank batched GEMM memref contract
+        // instead: broadcasted axes get zero strides, and Axiom's runtime loop
+        // maps each flattened batch index back through those per-axis strides.
+        const lhs_desc = describeBroadcastedBatchedMatmulMemRef(T, lhs, lhs_storage, out_batch, m, k, lhs_name) catch {
+            out.deinit();
+            return null;
+        };
+        const rhs_desc = describeBroadcastedBatchedMatmulMemRef(T, rhs, rhs_storage, out_batch, k, n, rhs_name) catch {
+            out.deinit();
+            return null;
+        };
+        const out_desc = describeDeviceArrayMemRef(T, out, out_storage, out_name) catch {
+            out.deinit();
+            return null;
+        };
+        break :blk .{ lhs_desc, rhs_desc, out_desc };
     };
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
     const report = runtime.runCudaDeviceBatchedGemmMemRefs(lhs.device.index, lhs_desc, rhs_desc, out_desc) catch null;
@@ -3224,6 +3238,45 @@ fn flattenedBatchStride(input_batch: []const usize, out_batch: []const usize, co
     if (std.mem.eql(usize, input_batch, out_batch)) return contiguous_matrix_stride;
     if ((try array_mod.numelFrom(input_batch)) == 1) return 0;
     return null;
+}
+
+fn describeBroadcastedBatchedMatmulMemRef(
+    comptime T: type,
+    input: array_mod.Array(T),
+    storage: array_mod.DeviceStorage,
+    out_batch: []const usize,
+    rows: usize,
+    cols: usize,
+    name: []const u8,
+) array_mod.ArrayError!axiom.accelerator.TensorMemRefDescriptor {
+    const rank = out_batch.len + 2;
+    if (rank > 4) return error.InvalidShape;
+    const input_batch = input.shape[0 .. input.shape.len - 2];
+    if (input_batch.len > out_batch.len) return error.InvalidShape;
+    var shape_buf: [4]usize = .{ 1, 1, 1, 1 };
+    var stride_buf: [4]usize = .{ 1, 1, 1, 1 };
+    const leading = out_batch.len - input_batch.len;
+    for (out_batch, 0..) |out_dim, axis| {
+        shape_buf[axis] = out_dim;
+        if (axis < leading) {
+            stride_buf[axis] = 0;
+        } else {
+            const input_axis = axis - leading;
+            const input_dim = input_batch[input_axis];
+            if (input_dim == out_dim) {
+                stride_buf[axis] = input.strides[input_axis];
+            } else if (input_dim == 1) {
+                stride_buf[axis] = 0;
+            } else {
+                return error.ShapeMismatch;
+            }
+        }
+    }
+    shape_buf[rank - 2] = rows;
+    shape_buf[rank - 1] = cols;
+    stride_buf[rank - 2] = input.strides[input.shape.len - 2];
+    stride_buf[rank - 1] = input.strides[input.shape.len - 1];
+    return describeDeviceBufferMemRef(T, storage, shape_buf[0..rank], stride_buf[0..rank], name);
 }
 
 pub fn runPendingMatmulF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
