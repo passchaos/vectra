@@ -18702,6 +18702,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn sumAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.sum(null, keepdims);
             return self.reduceAxes(axes, keepdims, Self.sum);
         }
 
@@ -18764,6 +18765,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.prod(null, keepdims);
             return self.reduceAxes(axes, keepdims, Self.prod);
         }
 
@@ -18789,6 +18791,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.min(null, keepdims);
             return self.reduceAxes(axes, keepdims, Self.min);
         }
 
@@ -18838,6 +18841,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn maxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.max(null, keepdims);
             return self.reduceAxes(axes, keepdims, Self.max);
         }
 

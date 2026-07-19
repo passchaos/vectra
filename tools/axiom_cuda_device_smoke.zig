@@ -217,6 +217,14 @@ pub fn main(init: std.process.Init) !void {
         defer flat_max_keep.deinit();
         var flat_max_keep_host = try flat_max_keep.cpu();
         defer flat_max_keep_host.deinit();
+        var all_axes_sum = try lhs.sumAxes(&.{ 0, 1 }, false);
+        defer all_axes_sum.deinit();
+        var all_axes_sum_host = try all_axes_sum.cpu();
+        defer all_axes_sum_host.deinit();
+        var all_axes_max_keep = try lhs.maxAxes(&.{ 0, 1 }, true);
+        defer all_axes_max_keep.deinit();
+        var all_axes_max_keep_host = try all_axes_max_keep.cpu();
+        defer all_axes_max_keep_host.deinit();
         const reduction_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         var row_mean = try lhs.mean(1, false);
         defer row_mean.deinit();
@@ -292,6 +300,12 @@ pub fn main(init: std.process.Init) !void {
             flat_max_keep.device.isCuda() and flat_max_keep.device_storage != null and
             std.mem.eql(usize, flat_max_keep_host.shape, &.{ 1, 1 }) and
             equalF32(flat_max_keep_host.data, &.{4}) and
+            all_axes_sum.device.isCuda() and all_axes_sum.device_storage != null and
+            std.mem.eql(usize, all_axes_sum_host.shape, &.{}) and
+            equalF32(all_axes_sum_host.data, &.{10}) and
+            all_axes_max_keep.device.isCuda() and all_axes_max_keep.device_storage != null and
+            std.mem.eql(usize, all_axes_max_keep_host.shape, &.{ 1, 1 }) and
+            equalF32(all_axes_max_keep_host.data, &.{4}) and
             row_mean.device.isCuda() and row_mean.device_storage != null and
             equalF32(row_mean_host.data, &.{ 1.5, 3.5 }) and
             col_mean_keep.device.isCuda() and col_mean_keep.device_storage != null and
