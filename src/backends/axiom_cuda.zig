@@ -2123,22 +2123,38 @@ fn tryDeviceReduction(comptime T: type, op: axiom.accelerator.DialectReductionOp
 }
 
 pub fn tryDeviceBroadcastAddF32(input: array_mod.Array(f32), bias: array_mod.Array(f32), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceBroadcastAdd(f32, input, bias, axis);
+    return tryDeviceBroadcastBinary(f32, .add, input, bias, axis);
+}
+
+pub fn tryDeviceBroadcastBinaryF32(op: BinaryOp, input: array_mod.Array(f32), bias: array_mod.Array(f32), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceBroadcastBinary(f32, op, input, bias, axis);
 }
 
 pub fn tryDeviceBroadcastAddF64(input: array_mod.Array(f64), bias: array_mod.Array(f64), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceBroadcastAdd(f64, input, bias, axis);
+    return tryDeviceBroadcastBinary(f64, .add, input, bias, axis);
+}
+
+pub fn tryDeviceBroadcastBinaryF64(op: BinaryOp, input: array_mod.Array(f64), bias: array_mod.Array(f64), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceBroadcastBinary(f64, op, input, bias, axis);
 }
 
 pub fn tryDeviceBroadcastAddF16(input: array_mod.Array(f16), bias: array_mod.Array(f16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceBroadcastAdd(f16, input, bias, axis);
+    return tryDeviceBroadcastBinary(f16, .add, input, bias, axis);
+}
+
+pub fn tryDeviceBroadcastBinaryF16(op: BinaryOp, input: array_mod.Array(f16), bias: array_mod.Array(f16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceBroadcastBinary(f16, op, input, bias, axis);
 }
 
 pub fn tryDeviceBroadcastAddBF16(input: array_mod.Array(BFloat16), bias: array_mod.Array(BFloat16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceBroadcastAdd(BFloat16, input, bias, axis);
+    return tryDeviceBroadcastBinary(BFloat16, .add, input, bias, axis);
 }
 
-fn tryDeviceBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+pub fn tryDeviceBroadcastBinaryBF16(op: BinaryOp, input: array_mod.Array(BFloat16), bias: array_mod.Array(BFloat16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceBroadcastBinary(BFloat16, op, input, bias, axis);
+}
+
+fn tryDeviceBroadcastBinary(comptime T: type, op: BinaryOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
     if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or !bias.device.isCuda() or !input.device.sameDevice(bias.device)) return null;
@@ -2170,7 +2186,8 @@ fn tryDeviceBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
         out.deinit();
         return null;
     };
-    const spec = axiom.accelerator.TensorBroadcastAdd2DSpec.fromMemRefs(
+    const spec = axiom.accelerator.TensorBroadcastBinary2DSpec.fromMemRefsWithOp(
+        axiomBinaryOp(op),
         broadcastAxisFromDialect(axis),
         input_descriptor,
         bias_descriptor,
@@ -2188,7 +2205,7 @@ fn tryDeviceBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
         out.deinit();
         return null;
     }
-    recordCudaDeviceMemRefReport("broadcast_add2d", report);
+    recordCudaDeviceMemRefReport(if (op == .add) "broadcast_add2d" else "broadcast_binary2d", report);
     return out;
 }
 

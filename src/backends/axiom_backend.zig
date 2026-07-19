@@ -806,16 +806,34 @@ pub fn executeBroadcastAdd(
     bias: array_mod.Array(T),
     axis: DialectBroadcastAxis,
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    if (!supportedBroadcastAddExecution(T, target, input, bias, axis)) return null;
-    return switch (target) {
-        .cpu => executeCpuBroadcastAdd(T, input, bias, axis),
-        .cuda => executeCudaBroadcastAdd(T, input, bias, axis),
-        .mps => null,
-    };
+    return executeBroadcastBinary(T, .add, target, input, bias, axis);
 }
 
 pub fn executeBroadcastAddDefault(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     return executeBroadcastAdd(T, defaultTargetForDevice(input.device), input, bias, axis);
+}
+
+pub fn executeBroadcastBinary(
+    comptime T: type,
+    op: ElementwiseOp,
+    target: DialectBackend,
+    input: array_mod.Array(T),
+    bias: array_mod.Array(T),
+    axis: DialectBroadcastAxis,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!supportedBroadcastBinaryExecution(T, op, target, input, bias, axis)) return null;
+    return switch (target) {
+        // Veyra currently exposes only row/column broadcast add.  Other CPU
+        // broadcast ops intentionally fall back to Array's generic CPU path
+        // rather than pretending they went through the Axiom runtime.
+        .cpu => if (op == .add) executeCpuBroadcastAdd(T, input, bias, axis) else null,
+        .cuda => executeCudaBroadcastBinary(T, op, input, bias, axis),
+        .mps => null,
+    };
+}
+
+pub fn executeBroadcastBinaryDefault(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeBroadcastBinary(T, op, defaultTargetForDevice(input.device), input, bias, axis);
 }
 
 pub fn tryBroadcastAdd(
@@ -824,20 +842,37 @@ pub fn tryBroadcastAdd(
     lhs: array_mod.Array(T),
     rhs: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
+    return tryBroadcastBinary(T, .add, target, lhs, rhs);
+}
+
+pub fn tryBroadcastBinary(
+    comptime T: type,
+    op: ElementwiseOp,
+    target: DialectBackend,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
     if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
     if (lhs.shape.len == 2) {
-        if (broadcastBiasMatchesArrayAdd(T, lhs, rhs, .row)) return executeBroadcastAdd(T, target, lhs, rhs, .row);
-        if (broadcastBiasMatchesArrayAdd(T, lhs, rhs, .column)) return executeBroadcastAdd(T, target, lhs, rhs, .column);
+        if (broadcastBiasMatchesArrayAdd(T, lhs, rhs, .row)) return executeBroadcastBinary(T, op, target, lhs, rhs, .row);
+        if (broadcastBiasMatchesArrayAdd(T, lhs, rhs, .column)) return executeBroadcastBinary(T, op, target, lhs, rhs, .column);
     }
-    if (rhs.shape.len == 2) {
-        if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .row)) return executeBroadcastAdd(T, target, rhs, lhs, .row);
-        if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .column)) return executeBroadcastAdd(T, target, rhs, lhs, .column);
+    if ((op == .add or op == .mul) and rhs.shape.len == 2) {
+        // Only commute operations whose semantics survive swapping matrix and
+        // bias operands.  Sub/div need a distinct reversed-broadcast lowering,
+        // so they stay capability-gated instead of silently changing meaning.
+        if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .row)) return executeBroadcastBinary(T, op, target, rhs, lhs, .row);
+        if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .column)) return executeBroadcastBinary(T, op, target, rhs, lhs, .column);
     }
     return null;
 }
 
 pub fn tryBroadcastAddDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     return tryBroadcastAdd(T, defaultTargetForDevice(lhs.device), lhs, rhs);
+}
+
+pub fn tryBroadcastBinaryDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return tryBroadcastBinary(T, op, defaultTargetForDevice(lhs.device), lhs, rhs);
 }
 
 pub fn lowerUnaryDialect(comptime T: type, input: array_mod.Array(T), op: DialectUnaryOp, backend: DialectBackend) array_mod.ArrayError!DialectUnaryLoweringReport {
@@ -2423,14 +2458,19 @@ fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arr
 }
 
 fn executeCudaBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeCudaBroadcastBinary(T, .add, input, bias, axis);
+}
+
+fn executeCudaBroadcastBinary(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    const cuda_op = cudaBinaryOp(op);
     if (T == f32) {
-        if (try axiom_cuda.tryDeviceBroadcastAddF32(@as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceBroadcastBinaryF32(cuda_op, @as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f64) {
-        if (try axiom_cuda.tryDeviceBroadcastAddF64(@as(array_mod.Array(f64), input), @as(array_mod.Array(f64), bias), axis)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceBroadcastBinaryF64(cuda_op, @as(array_mod.Array(f64), input), @as(array_mod.Array(f64), bias), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
-        if (try axiom_cuda.tryDeviceBroadcastAddF16(@as(array_mod.Array(f16), input), @as(array_mod.Array(f16), bias), axis)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceBroadcastBinaryF16(cuda_op, @as(array_mod.Array(f16), input), @as(array_mod.Array(f16), bias), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
-        if (try axiom_cuda.tryDeviceBroadcastAddBF16(@as(array_mod.Array(array_mod.BFloat16), input), @as(array_mod.Array(array_mod.BFloat16), bias), axis)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceBroadcastBinaryBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), input), @as(array_mod.Array(array_mod.BFloat16), bias), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3057,11 +3097,15 @@ fn supportedBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arra
 }
 
 fn supportedBroadcastAddExecution(comptime T: type, target: DialectBackend, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
+    return supportedBroadcastBinaryExecution(T, .add, target, input, bias, axis);
+}
+
+fn supportedBroadcastBinaryExecution(comptime T: type, op: ElementwiseOp, target: DialectBackend, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
     return broadcastAddRuntimeCapability(target).executable() and
         targetCanAccessDevice(target, input.device) and
         input.device.sameDevice(bias.device) and
         switch (target) {
-            .cpu => supportedBroadcastAdd(T, input, bias, axis),
+            .cpu => op == .add and supportedBroadcastAdd(T, input, bias, axis),
             .cuda => (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
             .mps => false,
         };

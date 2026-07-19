@@ -15369,9 +15369,7 @@ pub fn Array(comptime T: type) type {
                     if (std.mem.eql(usize, self.shape, other.shape)) {
                         if (try axiom_backend.executeElementwiseDefault(T, op_value, self, other)) |out| return out;
                     } else {
-                        if (comptime op == opAdd) {
-                            if (try axiom_backend.tryBroadcastAddDefault(T, self, other)) |out| return out;
-                        }
+                        if (try axiom_backend.tryBroadcastBinaryDefault(T, op_value, self, other)) |out| return out;
                         if (try axiom_backend.tryElementwiseScalarBroadcastDefault(T, op_value, self, other)) |out| return out;
                     }
                 } else if (!axiom_backend.hostFallbackAllowed(self.device)) {

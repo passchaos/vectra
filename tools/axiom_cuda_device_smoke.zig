@@ -393,10 +393,23 @@ pub fn main(init: std.process.Init) !void {
         defer row_norm.deinit();
         var row_norm_host = try row_norm.cpu();
         defer row_norm_host.deinit();
+        var normalized = try lhs.normalize(2.0, 1, 1e-12);
+        defer normalized.deinit();
+        var normalized_host = try normalized.cpu();
+        defer normalized_host.deinit();
+        const normalize_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         direct_norm_ok = row_norm.device.isCuda() and
             row_norm.device_storage != null and
             approxF32(row_norm_host.data[0], std.math.sqrt(@as(f32, 5.0)), 0.01) and
-            approxF32(row_norm_host.data[1], 5.0, 0.01);
+            approxF32(row_norm_host.data[1], 5.0, 0.01) and
+            normalized.device.isCuda() and
+            normalized.device_storage != null and
+            normalize_report.valid() and
+            std.mem.eql(u8, normalize_report.operation, "broadcast_binary2d") and
+            approxF32(normalized_host.data[0], @as(f32, 1.0) / std.math.sqrt(@as(f32, 5.0)), 0.01) and
+            approxF32(normalized_host.data[1], @as(f32, 2.0) / std.math.sqrt(@as(f32, 5.0)), 0.01) and
+            approxF32(normalized_host.data[2], 0.6, 0.01) and
+            approxF32(normalized_host.data[3], 0.8, 0.01);
         const sigmoid_neg2 = @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, 2.0)));
         const sigmoid_pos1 = @as(f32, 1.0) / (@as(f32, 1.0) + std.math.exp(@as(f32, -1.0)));
         direct_unary_scalar_ok = negated.device.isCuda() and negated.device_storage != null and

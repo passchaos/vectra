@@ -60,9 +60,9 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
   lowers those specs to Axiom's cached compact CUDA elementwise ABI.  This keeps
   the Array API behind the Axiom descriptor/lowering boundary while retaining
   cached-kernel performance for contiguous device arrays.
-- CUDA `Array(f32).add/sub/mul/div/sum/prod/min/max(axis=0/1)/broadcast-add(row/column)/transpose/softmax(axis=0/1)/logSoftmax(axis=0/1)/maximum/minimum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` and `Array(f64).logSoftmax(axis=0/1)/sum/prod/min/max(axis=0/1)/broadcast-add(row/column)/transpose/maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` use Axiom device unary/elementwise
+- CUDA `Array(f32).add/sub/mul/div/sum/prod/min/max(axis=0/1)/broadcast-add/sub/mul/div(row/column)/transpose/softmax(axis=0/1)/logSoftmax(axis=0/1)/maximum/minimum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` and `Array(f64).logSoftmax(axis=0/1)/sum/prod/min/max(axis=0/1)/broadcast-add/sub/mul/div(row/column)/transpose/maximum/addcmul/addcdiv/lerp/neg/abs/reciprocal/square/sqrt/rsqrt/exp/relu/threshold/leakyRelu/relu6/clip/clipArray/elu/celu/sigmoid/silu/hardsigmoid/hardswish/softsign/softshrink/powScalar(-1/-0.5/0/0.5/1/2/3)/mseLoss(.none)/l1Loss(.none)/smoothL1Loss(.none)/huberLoss(.none)` use Axiom device unary/elementwise
   kernels through descriptor-backed specs where the current runtime ABI has a
-  matching lowering. f16 and BFloat16 2D `sum/prod/min/max(axis=0/1)` reductions, row/column broadcast-add, transpose, softmax(axis=0/1), logSoftmax(axis=0/1), plus widened activation/powScalar combinations such as `relu/sigmoid/softsign/clip/powScalar(-1/-0.5/0/0.5/1/2/3)` are covered by the CUDA device smoke.
+  matching lowering. f16 and BFloat16 2D `sum/prod/min/max(axis=0/1)` reductions, row/column broadcast binary, transpose, softmax(axis=0/1), logSoftmax(axis=0/1), plus widened activation/powScalar combinations such as `relu/sigmoid/softsign/clip/powScalar(-1/-0.5/0/0.5/1/2/3)` are covered by the CUDA device smoke.
 - CUDA `Array(f32/f64/f16/BFloat16).matmul` builds an Axiom memref-backed
   `TensorGemmSpec` from device descriptors before lowering to Axiom's cached
   cuBLAS-backed GEMM runtime for PyTorch-class throughput.  Axiom also accepts
@@ -152,7 +152,7 @@ where Vectra still has a non-Axiom generic implementation.
   MLIR-like: array operations are described once and lowered for the requested
   Axiom target (`.cpu/.cuda/.mps`), while eager execution remains gated by the
   runtime capability reports above.
-- f16 and BFloat16 reductions, broadcast-add, and transpose use Axiom typed CUDA kernels for contiguous 2D `sum/prod/min/max(axis=0/1)`, row/column bias-add, and 2D transpose. Their matmul paths call Axiom typed SIMT GEMM seed entry points, which
+- f16 and BFloat16 reductions, broadcast binary, and transpose use Axiom typed CUDA kernels for contiguous 2D `sum/prod/min/max(axis=0/1)`, row/column bias binary, and 2D transpose. Their matmul paths call Axiom typed SIMT GEMM seed entry points, which
   report typed launch/readiness metadata while using widened f32 compute today.
 - f64 CUDA same-shape/scalar elementwise, square/sqrt/exp, matmul, and matmulAdd/fusion
   are exposed for owning CUDA arrays; broader CUDA dtype reductions/broadcast/view
