@@ -70,6 +70,7 @@ pub fn main(init: std.process.Init) !void {
     var elementwise_unary_memref_fingerprint: u64 = 0;
     var gemm_memref_fingerprint: u64 = 0;
     var batched_gemm_fingerprint: u64 = 0;
+    var batched_gemm_backend: []const u8 = "";
     var f64_gemm_memref_fingerprint: u64 = 0;
     var matmul_add_memref_fingerprint: u64 = 0;
     var matmul_add_unary_memref_fingerprint: u64 = 0;
@@ -488,6 +489,7 @@ pub fn main(init: std.process.Init) !void {
         defer batch_product_host.deinit();
         const batched_gemm_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
         batched_gemm_fingerprint = batched_gemm_report.fingerprint;
+        batched_gemm_backend = batched_gemm_report.backend;
         direct_bmm_ok = batch_product.device.isCuda() and
             batch_product.device_storage != null and
             batched_gemm_report.valid() and
@@ -1399,8 +1401,8 @@ pub fn main(init: std.process.Init) !void {
         .{ bf16_bmm_ok, bf16_log_softmax_ok, f16_activation_ok, f16_bmm_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_bmm_ok, direct_bmm_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
     );
     try stdout.interface.print(
-        ",\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
-        .{ memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, batched_gemm_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
+        ",\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_backend\":\"{s}\",\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
+        .{ memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, batched_gemm_backend, batched_gemm_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

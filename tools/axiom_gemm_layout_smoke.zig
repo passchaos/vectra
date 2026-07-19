@@ -109,7 +109,7 @@ pub fn main(init: std.process.Init) !void {
     // Keep the rank-3 batch dimension observable across the Vectra/Axiom
     // boundary.  This gate intentionally checks lowering evidence rather than
     // eager execution so Vectra cannot regress to flattening or materializing
-    // batched views before Axiom owns the loop/strided-batched runtime choice.
+    // batched views before Axiom owns the native/loop batched runtime choice.
     const batched = try vx.axiom_backend.planBatchedGemmMemRefLowering(f32, batched_lhs, batched_rhs, batched_out);
 
     var broadcast_scalar = try vx.Array(f32).fromSlice(allocator, &.{1}, &.{1});
@@ -151,7 +151,8 @@ pub fn main(init: std.process.Init) !void {
         device_bufferized64.deviceRuntimeExecutable() and
         device_bufferized64.status == .executable_device_copy_pack_unpack and
         batched.ok() and
-        batched.status == .planned_loop_over_gemm and
+        (batched.status == .planned_strided_batched_gemm or
+            batched.status == .planned_loop_over_gemm) and
         batched.batch_count == 2 and
         batched.m == 2 and
         batched.n == 2 and
