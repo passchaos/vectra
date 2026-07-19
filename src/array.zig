@@ -18653,9 +18653,35 @@ pub fn Array(comptime T: type) type {
                 reduced.deinit();
                 return reshaped;
             }
-            if (self.shape.len != 2) return null;
-
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape.len != 2) {
+                if (self.data.len != 0 or self.numel() == 0 or !self.isContiguous()) return null;
+                var matrix_shape: [2]usize = undefined;
+                const matrix_axis: u1 = if (axis == 0) axis_blk: {
+                    matrix_shape = .{ self.shape[0], self.numel() / self.shape[0] };
+                    break :axis_blk 0;
+                } else if (axis + 1 == self.shape.len) axis_blk: {
+                    matrix_shape = .{ self.numel() / self.shape[axis], self.shape[axis] };
+                    break :axis_blk 1;
+                } else return null;
+                var matrix = try self.reshape(&matrix_shape);
+                defer matrix.deinit();
+                var reduced = (try axiom_backend.executeReductionDefault(T, op, matrix, matrix_axis, false)) orelse return null;
+                errdefer reduced.deinit();
+                var out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - 1);
+                defer self.allocator.free(out_shape);
+                if (keepdims) {
+                    @memcpy(out_shape, self.shape);
+                    out_shape[axis] = 1;
+                } else {
+                    for (self.shape[0..axis], 0..) |extent, i| out_shape[i] = extent;
+                    for (self.shape[axis + 1 ..], axis..) |extent, i| out_shape[i] = extent;
+                }
+                const reshaped = try reduced.reshape(out_shape);
+                reduced.deinit();
+                return reshaped;
+            }
+
             const axis_u1: u1 = std.math.cast(u1, axis) orelse return null;
             return axiom_backend.executeReductionDefault(T, op, self, axis_u1, keepdims);
         }
@@ -19185,6 +19211,21 @@ pub fn Array(comptime T: type) type {
                 if (self.shape[axis] == 0) return error.EmptyArray;
                 reduce_shape[i] = self.shape[axis];
                 reduce_count = std.math.mul(usize, reduce_count, self.shape[axis]) catch return error.InvalidShape;
+            }
+
+            if (self.data.len == 0) {
+                var means = try self.meanAxes(axes, true);
+                defer means.deinit();
+                var centered = try self.sub(means);
+                defer centered.deinit();
+                var squared = try centered.square();
+                defer squared.deinit();
+                var summed = try squared.sumAxes(axes, keepdims);
+                errdefer summed.deinit();
+                const denom = castValue(T, reduce_count) - correction;
+                const scaled = try summed.divScalar(denom);
+                summed.deinit();
+                return scaled;
             }
 
             const out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - normalized_axes.len);
