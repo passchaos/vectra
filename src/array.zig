@@ -17796,16 +17796,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn smoothL1Loss(self: Self, targets: Self, beta_value: T, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
-            if (!(beta_value >= zero(T))) return error.InvalidShape;
+            if (lessValue(T, beta_value, zero(T))) return error.InvalidShape;
             if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
             var diff_values = try self.sub(targets);
             defer diff_values.deinit();
             var abs_values = try diff_values.abs();
             defer abs_values.deinit();
-            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+            if (comptime T == f32 or T == f64 or T == f16) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     if (reduction != .none) return error.BackendFailure;
-                    if (beta_value == zero(T)) return abs_values.clone();
+                    if (eqlValue(T, beta_value, zero(T))) return abs_values.clone();
                     var quadratic_input = try abs_values.minimumScalar(beta_value);
                     defer quadratic_input.deinit();
                     var quadratic = try quadratic_input.square();
@@ -17837,14 +17837,14 @@ pub fn Array(comptime T: type) type {
 
         pub fn huberLoss(self: Self, targets: Self, delta: T, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
-            if (!(delta > zero(T))) return error.InvalidShape;
+            if (!lessValue(T, zero(T), delta)) return error.InvalidShape;
             if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
             var diff_values = try self.sub(targets);
             defer diff_values.deinit();
             var abs_values = try diff_values.abs();
             defer abs_values.deinit();
-            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+            if (comptime T == f32 or T == f64 or T == f16) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     if (reduction != .none) return error.BackendFailure;
                     var quadratic_input = try abs_values.minimumScalar(delta);
                     defer quadratic_input.deinit();
