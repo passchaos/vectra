@@ -137,6 +137,14 @@ pub fn main(init: std.process.Init) !void {
         defer vector_scalar_div.deinit();
         var vector_scalar_div_host = try vector_scalar_div.cpu();
         defer vector_scalar_div_host.deinit();
+        var scalar_vector_sub = try vector_scalar.sub(vector);
+        defer scalar_vector_sub.deinit();
+        var scalar_vector_sub_host = try scalar_vector_sub.cpu();
+        defer scalar_vector_sub_host.deinit();
+        var scalar_vector_div = try vector_scalar.div(vector);
+        defer scalar_vector_div.deinit();
+        var scalar_vector_div_host = try scalar_vector_div.cpu();
+        defer scalar_vector_div_host.deinit();
         const vector_scalar_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         direct_add_ok = sum.device.isCuda() and sum.device_storage != null and
             equalF32(sum_host.data, &.{ 2, 3, 4, 5 }) and
@@ -147,7 +155,16 @@ pub fn main(init: std.process.Init) !void {
             approxF32(vector_scalar_div_host.data[0], 0.5, 0.0001) and
             approxF32(vector_scalar_div_host.data[1], 1.0, 0.0001) and
             approxF32(vector_scalar_div_host.data[2], 1.5, 0.0001) and
-            approxF32(vector_scalar_div_host.data[3], 2.0, 0.0001);
+            approxF32(vector_scalar_div_host.data[3], 2.0, 0.0001) and
+            scalar_vector_sub.device.isCuda() and
+            scalar_vector_sub.device_storage != null and
+            equalF32(scalar_vector_sub_host.data, &.{ 1, 0, -1, -2 }) and
+            scalar_vector_div.device.isCuda() and
+            scalar_vector_div.device_storage != null and
+            approxF32(scalar_vector_div_host.data[0], 2.0, 0.0001) and
+            approxF32(scalar_vector_div_host.data[1], 1.0, 0.0001) and
+            approxF32(scalar_vector_div_host.data[2], 2.0 / 3.0, 0.0001) and
+            approxF32(scalar_vector_div_host.data[3], 0.5, 0.0001);
 
         var squared = try lhs.square();
         defer squared.deinit();

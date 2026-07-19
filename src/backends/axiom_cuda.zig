@@ -2176,9 +2176,6 @@ fn tryDeviceVectorScalarBroadcast(comptime T: type, op: BinaryOp, vector: array_
     if (!vector.device.isCuda() or !scalar.device.isCuda() or !vector.device.sameDevice(scalar.device)) return null;
     if (vector.shape.len != 1 or scalar.numel() != 1) return null;
     if (vector.data.len != 0 or scalar.data.len != 0 or !vector.isContiguous() or !scalar.isContiguous()) return null;
-    // The row-broadcast runtime computes `matrix op bias`.  For a scalar on the
-    // left, only commute operations whose mathematical meaning is preserved.
-    if (scalar_left and op != .add and op != .mul) return null;
     const vector_storage = vector.device_storage orelse return null;
     const scalar_storage = scalar.device_storage orelse return null;
     if (vector_storage.len == 0 or scalar_storage.len != 1) return null;
@@ -2206,8 +2203,9 @@ fn tryDeviceVectorScalarBroadcast(comptime T: type, op: BinaryOp, vector: array_
         out.deinit();
         return null;
     };
-    const spec = axiom.accelerator.TensorBroadcastBinary2DSpec.fromMemRefsWithOp(
+    const spec = axiom.accelerator.TensorBroadcastBinary2DSpec.fromMemRefsWithOpOrder(
         axiomBinaryOp(op),
+        scalar_left,
         .row,
         input_descriptor,
         bias_descriptor,
