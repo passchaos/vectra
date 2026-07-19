@@ -16122,7 +16122,7 @@ pub fn Array(comptime T: type) type {
         pub fn lerp(self: Self, end: Self, weight: Self) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, end.device) and self.device.sameDevice(weight.device)) {
+                if (axiom_backend.composableElementwiseSameDeviceSupported(T, self.device, end.device) and self.device.sameDevice(weight.device)) {
                     var delta = try end.sub(self);
                     defer delta.deinit();
                     var weighted_delta = try delta.mul(weight);
@@ -16136,7 +16136,7 @@ pub fn Array(comptime T: type) type {
         pub fn lerpScalar(self: Self, end: Self, weight: T) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, end.device)) {
+                if (axiom_backend.composableElementwiseSameDeviceSupported(T, self.device, end.device)) {
                     var delta = try end.sub(self);
                     defer delta.deinit();
                     var weighted_delta = try delta.mulScalar(weight);
@@ -16150,7 +16150,7 @@ pub fn Array(comptime T: type) type {
         pub fn addcmul(self: Self, input1: Self, input2: Self, value: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, input1.device) and self.device.sameDevice(input2.device)) {
+                if (axiom_backend.composableElementwiseSameDeviceSupported(T, self.device, input1.device) and self.device.sameDevice(input2.device)) {
                     var pair_product = try input1.mul(input2);
                     defer pair_product.deinit();
                     var scaled = try pair_product.mulScalar(value);
@@ -16168,7 +16168,7 @@ pub fn Array(comptime T: type) type {
         pub fn addcdiv(self: Self, input1: Self, input2: Self, value: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, input1.device) and self.device.sameDevice(input2.device)) {
+                if (axiom_backend.composableElementwiseSameDeviceSupported(T, self.device, input1.device) and self.device.sameDevice(input2.device)) {
                     var quotient = try input1.div(input2);
                     defer quotient.deinit();
                     var scaled = try quotient.mulScalar(value);
