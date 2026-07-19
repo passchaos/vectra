@@ -746,6 +746,12 @@ fn normalizeAxesDescending(allocator: std.mem.Allocator, axes: []const isize, ra
     return normalized;
 }
 
+fn axesCoverAllDims(allocator: std.mem.Allocator, axes: []const isize, rank: usize) ArrayError!bool {
+    const normalized = try normalizeUniqueAxes(allocator, axes, rank);
+    defer allocator.free(normalized);
+    return normalized.len == rank;
+}
+
 fn normalizeInsertAxesAscending(allocator: std.mem.Allocator, axes: []const isize, out_rank: usize) ArrayError![]usize {
     const normalized = try allocator.alloc(usize, axes.len);
     errdefer allocator.free(normalized);
@@ -5337,6 +5343,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn meanAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.mean(null, keepdims);
             return self.reduceAxesViewAware(axes, keepdims, Self.mean, Array(T).mean);
         }
 
@@ -19018,6 +19025,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn meanAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.mean(null, keepdims);
             return self.reduceAxes(axes, keepdims, Self.mean);
         }
 
