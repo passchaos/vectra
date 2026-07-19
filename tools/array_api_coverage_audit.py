@@ -102,6 +102,7 @@ REQUIRED_BUILD_SNIPPETS = (
     "indexing-smoke",
     "shape-view-smoke",
     "axiom-descriptor-smoke",
+    "axiom-gemm-layout-smoke",
     "axiom-dialect-lowering-smoke",
     "axiom-cuda-device-smoke",
     "axiom-backend-policy-smoke",

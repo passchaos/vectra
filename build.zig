@@ -556,6 +556,21 @@ pub fn build(b: *std.Build) void {
     const axiom_descriptor_smoke_step = b.step("axiom-descriptor-smoke", "Run Vectra Array/ArrayView to Axiom descriptor smoke");
     axiom_descriptor_smoke_step.dependOn(&axiom_descriptor_smoke_cmd.step);
 
+    const axiom_gemm_layout_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-gemm-layout-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/axiom_gemm_layout_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_gemm_layout_smoke_cmd = b.addRunArtifact(axiom_gemm_layout_smoke_exe);
+    const axiom_gemm_layout_smoke_step = b.step("axiom-gemm-layout-smoke", "Run Vectra view to Axiom GEMM memref layout planning smoke");
+    axiom_gemm_layout_smoke_step.dependOn(&axiom_gemm_layout_smoke_cmd.step);
+
     // Creates an executable that will run `test` blocks from the provided module.
     // Here `mod` needs to define a target, which is why earlier we made sure to
     // set the releative field.

@@ -66,6 +66,8 @@ pub const ExecutionUnaryOp = enum(u8) {
 
 pub const TensorMemRefDescriptor = axiom.accelerator.TensorMemRefDescriptor;
 pub const TensorMemRefAddressSpace = axiom.accelerator.TensorMemRefAddressSpace;
+pub const TensorGemmMemRefLoweringPlan = axiom.accelerator.TensorGemmMemRefLoweringPlan;
+pub const TensorGemmMemRefLoweringStatus = axiom.accelerator.TensorGemmMemRefLoweringStatus;
 
 pub fn QrResult(comptime T: type) type {
     return struct {
@@ -396,6 +398,20 @@ pub fn describeViewMemRef(comptime T: type, input: array_mod.ArrayView(T), name:
         input.shape,
         strides[0..input.strides.len],
     ) catch mapTensorViewError();
+}
+
+pub fn planGemmMemRefLowering(
+    comptime T: type,
+    lhs: array_mod.ArrayView(T),
+    rhs: array_mod.ArrayView(T),
+    out: array_mod.ArrayView(T),
+) array_mod.ArrayError!TensorGemmMemRefLoweringPlan {
+    const lhs_desc = try describeViewMemRef(T, lhs, "lhs");
+    const rhs_desc = try describeViewMemRef(T, rhs, "rhs");
+    const out_desc = try describeViewMemRef(T, out, "out");
+    const plan = TensorGemmMemRefLoweringPlan.fromMemRefs(lhs_desc, rhs_desc, out_desc);
+    if (plan.status == .invalid) return error.InvalidShape;
+    return plan;
 }
 
 fn usizeStridesToIsize(strides: []const usize) array_mod.ArrayError![4]isize {

@@ -72,6 +72,7 @@ Backend correctness and policy are covered by separate gates:
 
 - `zig build api-boundary-audit`
 - `zig build axiom-descriptor-smoke`
+- `zig build axiom-gemm-layout-smoke`
 - `zig build axiom-dialect-lowering-smoke`
 - `zig build axiom-backend-policy-smoke`
 - `zig build axiom-cpu-dispatch-smoke`
@@ -80,3 +81,7 @@ Backend correctness and policy are covered by separate gates:
 
 The CUDA device smoke reports memref fingerprints for eager/pending CUDA paths
 so CI can detect regressions back to raw pointer/shape ABI calls.
+The GEMM layout smoke checks that Vectra ArrayView descriptors carry
+transposed/non-row-major layouts into Axiom's memref lowering plan as explicit
+pack/unpack bufferization work instead of materializing those views before the
+backend boundary.
