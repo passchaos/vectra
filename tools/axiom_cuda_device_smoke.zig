@@ -90,6 +90,7 @@ pub fn main(init: std.process.Init) !void {
     var f64_gemm_memref_fingerprint: u64 = 0;
     var matmul_add_memref_fingerprint: u64 = 0;
     var matmul_add_unary_memref_fingerprint: u64 = 0;
+    var scalar_api_memref_fingerprint: u64 = 0;
     var reduction_memref_fingerprint: u64 = 0;
     var broadcast_memref_fingerprint: u64 = 0;
     var transpose_memref_fingerprint: u64 = 0;
@@ -680,6 +681,8 @@ pub fn main(init: std.process.Init) !void {
         defer rsqrt_host.deinit();
         var shifted_for_relu = try lhs.subScalar(3);
         defer shifted_for_relu.deinit();
+        const scalar_api_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
+        scalar_api_memref_fingerprint = scalar_api_report.memref_spec_fingerprint;
         var relu_out = try shifted_for_relu.relu();
         defer relu_out.deinit();
         var relu_host = try relu_out.cpu();
@@ -822,6 +825,9 @@ pub fn main(init: std.process.Init) !void {
             approxF32(log2_values_host.data[3], 2.0, 0.01) and
             log10_values.device.isCuda() and log10_values.device_storage != null and
             approxF32(log10_values_host.data[0], 0.0, 0.01) and
+            shifted_for_relu.device.isCuda() and shifted_for_relu.device_storage != null and
+            scalar_api_report.valid() and
+            std.mem.eql(u8, scalar_api_report.operation, "broadcast_binary2d") and
             reciprocal.device.isCuda() and reciprocal.device_storage != null and
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
             approxF32(reciprocal_host.data[3], 0.25, 1e-6) and
@@ -2104,6 +2110,7 @@ pub fn main(init: std.process.Init) !void {
             f64_gemm_memref_fingerprint != 0 and
             matmul_add_memref_fingerprint != 0 and
             matmul_add_unary_memref_fingerprint != 0 and
+            scalar_api_memref_fingerprint != 0 and
             reduction_memref_fingerprint != 0 and
             broadcast_memref_fingerprint != 0 and
             transpose_memref_fingerprint != 0 and
@@ -2124,8 +2131,8 @@ pub fn main(init: std.process.Init) !void {
         .{ direct_rank3_scalar_broadcast_ok, direct_rank3_lastdim_broadcast_ok, bf16_transpose_ok, bf16_softmax_ok, bf16_bmm_ok, bf16_log_softmax_ok, f16_activation_ok, f16_bmm_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_bmm_ok, direct_bmm_ok, direct_batched_matmul_ok, direct_higher_rank_batched_matmul_ok, direct_broadcasted_batched_matmul_ok, direct_mixed_batched_matmul_ok, direct_batched_matvec_ok, direct_batched_vecmat_ok, direct_dot_ok, direct_inner_ok, direct_outer_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
     );
     try stdout.interface.print(
-        ",\"direct_rank3_middle_broadcast_ok\":{},\"direct_rank3_reduction_ok\":{},\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_backend\":\"{s}\",\"mixed_batched_gemm_backend\":\"{s}\",\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
-        .{ direct_rank3_middle_broadcast_ok, direct_rank3_reduction_ok, memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, batched_gemm_backend, mixed_batched_gemm_backend, batched_gemm_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
+        ",\"direct_rank3_middle_broadcast_ok\":{},\"direct_rank3_reduction_ok\":{},\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_backend\":\"{s}\",\"mixed_batched_gemm_backend\":\"{s}\",\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"scalar_api_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
+        .{ direct_rank3_middle_broadcast_ok, direct_rank3_reduction_ok, memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, batched_gemm_backend, mixed_batched_gemm_backend, batched_gemm_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, scalar_api_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

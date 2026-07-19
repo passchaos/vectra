@@ -3042,6 +3042,7 @@ pub fn executeElementwiseScalar(
     scalar_side: ScalarSide,
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!supportedScalarElementwise(T, input)) return null;
+    if (try executeCudaElementwiseScalar(T, op, target, input, scalar, scalar_side)) |out| return out;
     var scalar_array = try array_mod.Array(T).fullOn(input.allocator, input.shape, scalar, input.device);
     defer scalar_array.deinit();
     return switch (scalar_side) {
@@ -3072,6 +3073,31 @@ pub fn elementwiseScalar(
     if (try executeElementwiseScalar(T, op, target, input, scalar, scalar_side)) |out| return out;
     if (!input.device.isCpu()) return error.BackendFailure;
     return directScalarElementwise(T, op, input, scalar, scalar_side);
+}
+
+fn executeCudaElementwiseScalar(
+    comptime T: type,
+    op: ElementwiseOp,
+    target: DialectBackend,
+    input: array_mod.Array(T),
+    scalar: T,
+    scalar_side: ScalarSide,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .cuda or !input.device.isCuda() or input.shape.len == 0) return null;
+    if (T != f32 and T != f64 and T != f16 and T != array_mod.BFloat16) return null;
+
+    // Preserve the Axiom memref/runtime boundary for scalar Array APIs without
+    // materializing a same-shape device buffer full of repeated scalar values.
+    // A one-element device array is lowered as a zero-stride row-broadcast
+    // memref by `tryCudaDeviceScalarArrayBroadcast`, matching NumPy/PyTorch
+    // scalar-array semantics while keeping allocation and launch provenance in
+    // Axiom's descriptor-backed CUDA path.
+    var scalar_array = try array_mod.Array(T).fullOn(input.allocator, &.{1}, scalar, input.device);
+    defer scalar_array.deinit();
+    return switch (scalar_side) {
+        .lhs => tryCudaDeviceScalarArrayBroadcast(T, op, target, scalar_array, input),
+        .rhs => tryCudaDeviceScalarArrayBroadcast(T, op, target, input, scalar_array),
+    };
 }
 
 pub fn tryElementwiseScalarBroadcastDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
