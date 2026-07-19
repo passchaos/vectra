@@ -829,13 +829,13 @@ pub fn broadcastAddRuntimeCapability(target: DialectBackend) RuntimeCapabilityRe
             .target = target,
             .operation = "broadcast_add",
             .status = .executable,
-            .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D row/column broadcast-add runtimes; other broadcast dtypes/shapes remain capability-gated.",
+            .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D row/column broadcast add/sub/mul/div runtimes; other broadcast dtypes/shapes remain capability-gated.",
         },
         .mps => .{
             .target = target,
             .operation = "broadcast_add",
             .status = .executable,
-            .reason = "Axiom MPS exposes eager f32/f16/BFloat16 2D row/column broadcast-add over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+            .reason = "Axiom MPS exposes eager f32/f16/BFloat16 2D row/column broadcast add/sub/mul/div over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
         },
     };
 }
@@ -1025,7 +1025,7 @@ pub fn executeBroadcastBinary(
         // rather than pretending they went through the Axiom runtime.
         .cpu => if (op == .add) executeCpuBroadcastAdd(T, input, bias, axis) else null,
         .cuda => executeCudaBroadcastBinary(T, op, input, bias, axis),
-        .mps => if (op == .add) executeMpsBroadcastAdd(T, input, bias, axis) else null,
+        .mps => executeMpsBroadcastBinary(T, op, input, bias, axis),
     };
 }
 
@@ -2832,12 +2832,17 @@ fn executeCudaBroadcastBinary(comptime T: type, op: ElementwiseOp, input: array_
 }
 
 fn executeMpsBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeMpsBroadcastBinary(T, .add, input, bias, axis);
+}
+
+fn executeMpsBroadcastBinary(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    const mps_op = mpsBinaryOp(op);
     if (T == f32) {
-        if (try axiom_mps.tryBroadcastAddF32(@as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_mps.tryBroadcastBinaryF32(mps_op, @as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
-        if (try axiom_mps.tryBroadcastAddF16(@as(array_mod.Array(f16), input), @as(array_mod.Array(f16), bias), axis)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_mps.tryBroadcastBinaryF16(mps_op, @as(array_mod.Array(f16), input), @as(array_mod.Array(f16), bias), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
-        if (try axiom_mps.tryBroadcastAddBF16(@as(array_mod.Array(array_mod.BFloat16), input), @as(array_mod.Array(array_mod.BFloat16), bias), axis)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_mps.tryBroadcastBinaryBF16(mps_op, @as(array_mod.Array(array_mod.BFloat16), input), @as(array_mod.Array(array_mod.BFloat16), bias), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }

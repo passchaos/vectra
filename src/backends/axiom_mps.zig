@@ -519,7 +519,7 @@ pub fn tryTransposeF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_
     return out;
 }
 
-pub fn tryBroadcastAddF32(input: array_mod.Array(f32), bias: array_mod.Array(f32), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f32) {
+pub fn tryBroadcastBinaryF32(op: axiom.accelerator.MpsBinaryOp, input: array_mod.Array(f32), bias: array_mod.Array(f32), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!input.device.isMps() or !bias.device.isMps() or !input.device.sameDevice(bias.device)) return null;
     if (input.shape.len != 2 or !input.isContiguous() or !bias.isContiguous()) return null;
     const input_storage = input.device_storage orelse return null;
@@ -544,7 +544,8 @@ pub fn tryBroadcastAddF32(input: array_mod.Array(f32), bias: array_mod.Array(f32
         return null;
     };
     defer runtime.close();
-    runtime.runBroadcastAddF32(
+    runtime.runBroadcastBinaryF32(
+        op,
         .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
         .{ .ptr = bias_storage.ptr, .bytes = bias_storage.bytes },
         .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
@@ -560,6 +561,10 @@ pub fn tryBroadcastAddF32(input: array_mod.Array(f32), bias: array_mod.Array(f32
         return null;
     };
     return out;
+}
+
+pub fn tryBroadcastAddF32(input: array_mod.Array(f32), bias: array_mod.Array(f32), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryBroadcastBinaryF32(.add, input, bias, axis);
 }
 
 pub fn tryReductionF32(op: axiom.accelerator.MpsReductionOp, input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -635,7 +640,7 @@ pub fn tryTransposeF16(input: array_mod.Array(f16)) array_mod.ArrayError!?array_
     return out;
 }
 
-pub fn tryBroadcastAddF16(input: array_mod.Array(f16), bias: array_mod.Array(f16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f16) {
+pub fn tryBroadcastBinaryF16(op: axiom.accelerator.MpsBinaryOp, input: array_mod.Array(f16), bias: array_mod.Array(f16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f16) {
     if (!input.device.isMps() or !bias.device.isMps() or !input.device.sameDevice(bias.device)) return null;
     if (input.shape.len != 2 or !input.isContiguous() or !bias.isContiguous()) return null;
     const input_storage = input.device_storage orelse return null;
@@ -660,7 +665,8 @@ pub fn tryBroadcastAddF16(input: array_mod.Array(f16), bias: array_mod.Array(f16
         return null;
     };
     defer runtime.close();
-    runtime.runBroadcastAddF16(
+    runtime.runBroadcastBinaryF16(
+        op,
         .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
         .{ .ptr = bias_storage.ptr, .bytes = bias_storage.bytes },
         .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
@@ -676,6 +682,10 @@ pub fn tryBroadcastAddF16(input: array_mod.Array(f16), bias: array_mod.Array(f16
         return null;
     };
     return out;
+}
+
+pub fn tryBroadcastAddF16(input: array_mod.Array(f16), bias: array_mod.Array(f16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryBroadcastBinaryF16(.add, input, bias, axis);
 }
 
 pub fn tryReductionF16(op: axiom.accelerator.MpsReductionOp, input: array_mod.Array(f16), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f16) {
@@ -751,7 +761,7 @@ pub fn tryTransposeBF16(input: array_mod.Array(array_mod.BFloat16)) array_mod.Ar
     return out;
 }
 
-pub fn tryBroadcastAddBF16(input: array_mod.Array(array_mod.BFloat16), bias: array_mod.Array(array_mod.BFloat16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+pub fn tryBroadcastBinaryBF16(op: axiom.accelerator.MpsBinaryOp, input: array_mod.Array(array_mod.BFloat16), bias: array_mod.Array(array_mod.BFloat16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
     if (!input.device.isMps() or !bias.device.isMps() or !input.device.sameDevice(bias.device)) return null;
     if (input.shape.len != 2 or !input.isContiguous() or !bias.isContiguous()) return null;
     const input_storage = input.device_storage orelse return null;
@@ -776,7 +786,8 @@ pub fn tryBroadcastAddBF16(input: array_mod.Array(array_mod.BFloat16), bias: arr
         return null;
     };
     defer runtime.close();
-    runtime.runBroadcastAddBF16(
+    runtime.runBroadcastBinaryBF16(
+        op,
         .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
         .{ .ptr = bias_storage.ptr, .bytes = bias_storage.bytes },
         .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
@@ -792,6 +803,10 @@ pub fn tryBroadcastAddBF16(input: array_mod.Array(array_mod.BFloat16), bias: arr
         return null;
     };
     return out;
+}
+
+pub fn tryBroadcastAddBF16(input: array_mod.Array(array_mod.BFloat16), bias: array_mod.Array(array_mod.BFloat16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    return tryBroadcastBinaryBF16(.add, input, bias, axis);
 }
 
 pub fn tryReductionBF16(op: axiom.accelerator.MpsReductionOp, input: array_mod.Array(array_mod.BFloat16), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
