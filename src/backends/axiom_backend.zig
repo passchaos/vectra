@@ -173,6 +173,91 @@ pub const DialectTransposeLoweringStatus = axiom.accelerator.DialectTransposeLow
 pub const MpsRuntimeAbiStatus = axiom.accelerator.MpsRuntimeAbiStatus;
 pub const MpsRuntimeAbiReport = axiom.accelerator.MpsRuntimeAbiReport;
 
+pub const cpu = struct {
+    pub fn enabled() bool {
+        return axiom_cpu.enabled();
+    }
+};
+
+pub const cuda = struct {
+    pub const Status = axiom_cuda.Status;
+    pub const SmokeReport = axiom_cuda.SmokeReport;
+    pub const DeviceArrayF32 = axiom_cuda.DeviceArrayF32;
+    pub const CudaDeviceMemRefReportSnapshot = axiom_cuda.CudaDeviceMemRefReportSnapshot;
+    pub const CudaDeviceGemmReportSnapshot = axiom_cuda.CudaDeviceGemmReportSnapshot;
+    pub const CudaDeviceBatchedGemmReportSnapshot = axiom_cuda.CudaDeviceBatchedGemmReportSnapshot;
+    pub const CudaDTypeBridgeStatus = axiom_cuda.CudaDTypeBridgeStatus;
+    pub const CudaDTypeSupportRecord = axiom_cuda.CudaDTypeSupportRecord;
+
+    pub fn enabled() bool {
+        return axiom_cuda.enabled();
+    }
+
+    pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
+        return axiom_cuda.runSmoke(allocator);
+    }
+
+    pub fn cudaDTypeSupportRecords() []const CudaDTypeSupportRecord {
+        return axiom_cuda.cudaDTypeSupportRecords();
+    }
+
+    pub fn findCudaDTypeSupport(cuda_name: []const u8) ?CudaDTypeSupportRecord {
+        return axiom_cuda.findCudaDTypeSupport(cuda_name);
+    }
+
+    pub fn findVectraDTypeSupport(dtype: array_mod.DType) ?CudaDTypeSupportRecord {
+        return axiom_cuda.findVectraDTypeSupport(dtype);
+    }
+
+    pub fn cudaDTypeNativeSeedCount() usize {
+        return axiom_cuda.cudaDTypeNativeSeedCount();
+    }
+
+    pub fn cudaDTypeWidenedSeedCount() usize {
+        return axiom_cuda.cudaDTypeWidenedSeedCount();
+    }
+
+    pub fn cudaDTypeBridgeCount() usize {
+        return axiom_cuda.cudaDTypeBridgeCount();
+    }
+
+    pub fn cudaDTypeSupportFingerprint() u64 {
+        return axiom_cuda.cudaDTypeSupportFingerprint();
+    }
+
+    pub fn toDeviceF32(allocator: std.mem.Allocator, host: array_mod.Array(f32)) array_mod.ArrayError!?DeviceArrayF32 {
+        return axiom_cuda.toDeviceF32(allocator, host);
+    }
+
+    pub fn synchronizeDevice(allocator: std.mem.Allocator, device: array_mod.Device) array_mod.ArrayError!void {
+        return axiom_cuda.synchronizeDevice(allocator, device);
+    }
+
+    pub fn resetLastCudaDeviceMemRefReport() void {
+        axiom_cuda.resetLastCudaDeviceMemRefReport();
+    }
+
+    pub fn lastCudaDeviceMemRefReport() CudaDeviceMemRefReportSnapshot {
+        return axiom_cuda.lastCudaDeviceMemRefReport();
+    }
+
+    pub fn resetLastCudaDeviceGemmReport() void {
+        axiom_cuda.resetLastCudaDeviceGemmReport();
+    }
+
+    pub fn lastCudaDeviceGemmReport() CudaDeviceGemmReportSnapshot {
+        return axiom_cuda.lastCudaDeviceGemmReport();
+    }
+
+    pub fn resetLastCudaDeviceBatchedGemmReport() void {
+        axiom_cuda.resetLastCudaDeviceBatchedGemmReport();
+    }
+
+    pub fn lastCudaDeviceBatchedGemmReport() CudaDeviceBatchedGemmReportSnapshot {
+        return axiom_cuda.lastCudaDeviceBatchedGemmReport();
+    }
+};
+
 pub const RuntimeCapabilityStatus = enum(u8) {
     unavailable,
     lowering_only,

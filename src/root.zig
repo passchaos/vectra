@@ -8,6 +8,9 @@
 //! available through the default Axiom backend when a CUDA device is
 //! present; CUDA arrays own device-resident storage and dispatch supported f32/f64
 //! operations without staging through host arrays.
+//! Public backend diagnostics intentionally flow through `axiom_backend` so
+//! callers choose targets and inspect capability reports instead of binding to a
+//! target-specific bridge module.
 
 const std = @import("std");
 const array_mod = @import("array.zig");
@@ -18,7 +21,6 @@ const forge_interop_mod = @import("forge_interop.zig");
 pub const linalg = @import("linalg.zig");
 pub const stats = @import("stats.zig");
 pub const sparse = @import("sparse.zig");
-pub const axiom_cuda = @import("backends/axiom_cuda.zig");
 pub const forge_interop = forge_interop_mod;
 pub const ForgeInteropBoundary = forge_interop_mod.InteropBoundary;
 pub const forgeArrayInteropBoundary = forge_interop_mod.forge_array_interop_boundary;
@@ -45,7 +47,6 @@ pub const MeshGridIndexing = array_mod.MeshGridIndexing;
 pub const ConvMode = array_mod.ConvMode;
 pub const LossReduction = array_mod.LossReduction;
 pub const ArrayError = array_mod.ArrayError;
-pub const axiom_cpu = @import("backends/axiom_cpu.zig");
 pub const axiom_backend = @import("backends/axiom_backend.zig");
 pub const DialectBackend = axiom_backend.DialectBackend;
 pub const setDefaultDialectBackend = axiom_backend.setDefaultDialectBackend;
@@ -479,7 +480,6 @@ test "top-level ops respect device dispatch" {
 
 test {
     _ = array_mod;
-    _ = axiom_cpu;
     _ = axiom_backend;
     _ = series_mod;
     _ = dataframe_mod;
@@ -488,5 +488,4 @@ test {
     _ = linalg;
     _ = stats;
     _ = sparse;
-    _ = axiom_cuda;
 }

@@ -103,37 +103,33 @@ triangular solve, Frobenius/one/inf/two/nuclear matrix norms, SVD, singular valu
 CPU→Veyra. Unsupported shapes or dtypes return explicit errors or fall back only
 where Vectra still has a non-Axiom generic implementation.
 
-## `vx.axiom_cuda` API surface
+## Public Axiom facade diagnostics
 
-- `enabled()`
-- `planArrayF32(array, name)`
-- `tryAddF32(lhs, rhs)` / `trySubF32` / `tryMulF32` / `tryDivF32`
-- `tryAddF16(lhs, rhs)` / `trySubF16` / `tryMulF16` / `tryDivF16`
-- `tryAddBF16(lhs, rhs)` / `trySubBF16` / `tryMulBF16` / `tryDivBF16`
-- `tryAddViewF32(lhs_view, rhs_view)` / `trySubViewF32` / `tryMulViewF32` /
-  `tryDivViewF32` / `tryAbsViewF32` / `trySqrtViewF32` / `tryExpViewF32`; f64 also exposes `tryAbsViewF64` / `trySqrtViewF64` / `tryExpViewF64`
-- `trySaxpyF32(alpha, x, y)`
-- `tryAddScalarF32(input, scalar)` / `tryMulScalarF32` / `tryDivScalarF32`
-- `trySaxpyScalarF32(alpha, scalar_x, y)`
-- `tryMatmulF32(lhs, rhs)` / `tryMatmulF16(lhs, rhs)` /
-  `tryMatmulBF16(lhs, rhs)`
-- `tryDeviceBmmF32(lhs, rhs)` / `tryDeviceBmmF64(lhs, rhs)` /
-  `tryDeviceBmmF16(lhs, rhs)` / `tryDeviceBmmBF16(lhs, rhs)` plus
-  `lastCudaDeviceBatchedGemmReport()` for Axiom rank-3 batched GEMM runtime
-  fingerprints
-- `vx.axiom_cpu.tryMatvecF32/F64`, `tryVecmatF32/F64`, `tryDotF32/F64`,
-  `tryTraceF32/F64`, `tryDetF32/F64`, `tryInverseF32/F64`, and
-  `trySolveF32/F64`, `tryCholeskyF32/F64`, `tryQrF32/F64`, `tryLuF32/F64`,
-  `trySolveTriangularF32/F64`, `tryMatrixNormF32/F64`, `trySvdF32/F64`,
-  `trySingularValuesF32/F64`, `tryMatrixRankF32/F64`, `tryCondF32/F64`, `tryPinvF32/F64`, `tryLstsqF32/F64` for CPU
-  matrix-vector, vector-matrix, dot/vdot, trace, determinant, inverse, solve,
-  Cholesky, QR, LU, triangular-solve, Frobenius/one/inf/two/nuclear matrix-norm, SVD, singular-value, matrix-rank, condition-number, pseudo-inverse, and least-squares
-  lowering through Axiom CPU→Veyra
-- `tryDeviceBinaryF32(op, lhs, rhs)`
-- `tryDeviceMatmulF32(lhs, rhs)`
-- `tryDeviceMatmulAddF32(lhs, rhs, addend)`
-- `toDeviceF32(allocator, host)` and `DeviceArrayF32`
-- `runSmoke(allocator)`
+User code should select targets and inspect backend state through
+`vx.axiom_backend` instead of binding to target-specific bridge modules.  The
+low-level CPU/CUDA helper files under `src/backends/` are internal
+implementation details used by the facade while Axiom's public execution ABI is
+still growing.
+
+The public diagnostic subset intentionally remains small:
+
+- `vx.axiom_backend.cpu.enabled()`
+- `vx.axiom_backend.cuda.enabled()`
+- `vx.axiom_backend.cuda.runSmoke(allocator)`
+- `vx.axiom_backend.cuda.toDeviceF32(allocator, host)` and
+  `vx.axiom_backend.cuda.DeviceArrayF32` for smoke/provenance coverage
+- `vx.axiom_backend.cuda.synchronizeDevice(allocator, device)`
+- `vx.axiom_backend.cuda.lastCudaDeviceMemRefReport()`
+- `vx.axiom_backend.cuda.lastCudaDeviceGemmReport()`
+- `vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport()`
+- `vx.axiom_backend.cuda.cudaDTypeSupportRecords()` and related dtype registry
+  helpers for CUDA dtype capability evidence
+
+All eager Array execution should continue to call target-level facade helpers
+such as `executeElementwise`, `executeUnary`, `executeMatmul`,
+`executeReduction`, `executeBroadcastBinary`, `executeTranspose`,
+`executeSoftmax`, and `transferStorage`.  This keeps Vectra from becoming a
+second backend framework while Axiom owns the runtime/lowering details.
 
 ## Current limits
 

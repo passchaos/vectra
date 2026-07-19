@@ -107,8 +107,9 @@ CUDA when a CUDA device is available, and mixed-device operations fail with
 `InvalidDevice`. CUDA-resident Array storage is available for owning `Array`
 values; supported f32 CUDA kernels consume those device pointers directly, while
 unsupported operations return explicit errors or require an explicit `.cpu()`
-transfer. Axiom host-slice bridge paths remain exposed through `vx.axiom_cuda` /
-`vx.axiom_backend` for smoke coverage and provenance.
+transfer. Public backend capability reports and smoke/provenance diagnostics are
+exposed through `vx.axiom_backend`; target-specific bridge modules remain an
+internal implementation detail behind that facade.
 
 More runnable examples live under [`examples/`](examples):
 

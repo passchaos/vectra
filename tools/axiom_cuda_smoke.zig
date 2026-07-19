@@ -7,7 +7,7 @@ const OutputFormat = enum { text, json };
 
 const Args = struct {
     format: OutputFormat = .text,
-    expect: ?vx.axiom_cuda.Status = null,
+    expect: ?vx.axiom_backend.cuda.Status = null,
 };
 
 pub fn main(init: std.process.Init) !void {
@@ -19,7 +19,7 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(2);
     };
 
-    const report = vx.axiom_cuda.runSmoke(std.heap.smp_allocator);
+    const report = vx.axiom_backend.cuda.runSmoke(std.heap.smp_allocator);
     const expectation_ok = if (args.expect) |expected| report.status == expected else true;
 
     var stdout_buffer: [4096]u8 = undefined;
@@ -65,8 +65,8 @@ fn parseArgs(init: std.process.Init) !Args {
     return parsed;
 }
 
-fn parseStatus(value: []const u8) ?vx.axiom_cuda.Status {
-    const statuses = [_]vx.axiom_cuda.Status{ .disabled, .skipped, .ran, .failed };
+fn parseStatus(value: []const u8) ?vx.axiom_backend.cuda.Status {
+    const statuses = [_]vx.axiom_backend.cuda.Status{ .disabled, .skipped, .ran, .failed };
     for (statuses) |status| {
         if (std.mem.eql(u8, value, status.label())) return status;
     }

@@ -32,7 +32,8 @@ Local CUDA evidence: `/usr/local/cuda/include/library_types.h` declares
 | `CUDA_R_6F_E2M3` / `CUDA_R_6F_E3M2` | fp6 formats | Not exposed | Planned. |
 | `CUDA_R_4F_E2M1` | fp4 format | Not exposed | Planned. |
 
-The same data is available to code through `vx.axiom_cuda`:
+The same data is available to code through the Axiom target facade
+(`vx.axiom_backend`) rather than through public target-specific bridge modules:
 
 - `cudaDTypeSupportRecords()`
 - `findCudaDTypeSupport(cuda_name)`

@@ -374,11 +374,11 @@ fn runBenchmark(
 ) !void {
     if (!opIncluded(op_filter, op)) return;
     for (0..warmup) |_| {
-        vx.axiom_cuda.resetLastCudaDeviceGemmReport();
+        vx.axiom_backend.cuda.resetLastCudaDeviceGemmReport();
         var warm = try computeOp(T, op, a, b, c);
         warm.deinit();
     }
-    if (a.device.isCuda()) try vx.axiom_cuda.synchronizeDevice(allocator, a.device);
+    if (a.device.isCuda()) try vx.axiom_backend.cuda.synchronizeDevice(allocator, a.device);
 
     if (retain_outputs) {
         const begin = std.Io.Timestamp.now(init.io, .real);
@@ -391,10 +391,10 @@ fn runBenchmark(
             }
         }
         for (0..iters) |i| {
-            vx.axiom_cuda.resetLastCudaDeviceGemmReport();
+            vx.axiom_backend.cuda.resetLastCudaDeviceGemmReport();
             retained[i] = try computeOp(T, op, a, b, c);
         }
-        if (a.device.isCuda()) try vx.axiom_cuda.synchronizeDevice(allocator, a.device);
+        if (a.device.isCuda()) try vx.axiom_backend.cuda.synchronizeDevice(allocator, a.device);
         const elapsed_us = begin.untilNow(init.io, .real).toMicroseconds();
         try printResult(T, writer, backend, route, dtype_name, op.label(), retained[iters - 1].?, elapsed_us, iters, retain_outputs);
     } else {
@@ -407,10 +407,10 @@ fn runBenchmark(
                 out.deinit();
                 y = null;
             }
-            vx.axiom_cuda.resetLastCudaDeviceGemmReport();
+            vx.axiom_backend.cuda.resetLastCudaDeviceGemmReport();
             y = try computeOp(T, op, a, b, c);
         }
-        if (a.device.isCuda()) try vx.axiom_cuda.synchronizeDevice(allocator, a.device);
+        if (a.device.isCuda()) try vx.axiom_backend.cuda.synchronizeDevice(allocator, a.device);
 
         const elapsed_us = begin.untilNow(init.io, .real).toMicroseconds();
         try printResult(T, writer, backend, route, dtype_name, op.label(), y.?, elapsed_us, iters, retain_outputs);
@@ -464,7 +464,7 @@ fn printPlan(writer: *std.Io.Writer, mode: Mode, backend: Backend, dtype_filter:
     const op_name = if (op_filter) |op| op.label() else "all";
     try writer.print(
         "{{\"example\":\"large_matmul_add\",\"mode\":\"{s}\",\"backend\":\"{s}\",\"dtype\":\"{s}\",\"op_filter\":\"{s}\",\"m\":{d},\"n\":{d},\"k\":{d},\"expressions\":[\"Y=A@B\",\"Y=A@B+C\",\"tmp=A@B;Y=tmp+C\",\"tmp=A@B;Y=tmp-C\",\"tmp=A@B;Y=sqrt(tmp+C)\",\"tmp=A@B;Y=exp(chain)\"],\"axiom_enabled\":{},\"cuda_available\":{},\"warmup\":{d},\"iters\":{d},\"retain_outputs\":{},\"dry_run\":{}}}\n",
-        .{ @tagName(mode), @tagName(backend), @tagName(dtype_filter), op_name, shape.m, shape.n, shape.k, vx.axiom_cuda.enabled(), vx.cuda(0).isAvailable(), warmup, iters, retain_outputs, mode == .dry_run },
+        .{ @tagName(mode), @tagName(backend), @tagName(dtype_filter), op_name, shape.m, shape.n, shape.k, vx.axiom_backend.cuda.enabled(), vx.cuda(0).isAvailable(), warmup, iters, retain_outputs, mode == .dry_run },
     );
 }
 
@@ -483,7 +483,7 @@ fn printSkipped(writer: *std.Io.Writer, backend: []const u8, dtype_name: []const
 fn printResult(comptime T: type, writer: *std.Io.Writer, backend: []const u8, route: []const u8, dtype_name: []const u8, op: []const u8, y: vx.Array(T), elapsed_us: i64, iters: usize, retain_outputs: bool) !void {
     const sample = try y.toOwnedSlice(y.allocator);
     defer y.allocator.free(sample);
-    const gemm_report: vx.axiom_cuda.CudaDeviceGemmReportSnapshot = if (std.mem.eql(u8, backend, "cuda")) vx.axiom_cuda.lastCudaDeviceGemmReport() else .{};
+    const gemm_report: vx.axiom_backend.cuda.CudaDeviceGemmReportSnapshot = if (std.mem.eql(u8, backend, "cuda")) vx.axiom_backend.cuda.lastCudaDeviceGemmReport() else .{};
     try writer.print(
         "{{\"backend\":\"{s}\",\"route\":\"{s}\",\"dtype\":\"{s}\",\"op\":\"{s}\",\"shape\":[{d},{d}],\"iters\":{d},\"elapsed_us\":{d},\"avg_us\":{d:.3},\"retain_outputs\":{},\"axiom_gemm_report_valid\":{},\"axiom_gemm_backend\":\"{s}\",\"axiom_cache_hit\":{},\"lt_plan_cache_hit\":{},\"lt_algo_cache_hit\":{},\"axiom_gemm_report_fingerprint\":{d},\"first\":{d:.6},\"sample_checksum\":{d:.6},\"ok\":true}}\n",
         .{

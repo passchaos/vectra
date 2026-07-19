@@ -8,9 +8,9 @@ pub fn main(init: std.process.Init) !void {
     var host = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3, 4 }, &.{4});
     defer host.deinit();
 
-    var maybe_device = try vx.axiom_cuda.toDeviceF32(allocator, host);
-    const status: []const u8 = if (maybe_device != null) "allocated" else if (vx.axiom_cuda.enabled()) "unavailable" else "disabled";
-    var ok = !vx.axiom_cuda.enabled() or maybe_device != null;
+    var maybe_device = try vx.axiom_backend.cuda.toDeviceF32(allocator, host);
+    const status: []const u8 = if (maybe_device != null) "allocated" else if (vx.axiom_backend.cuda.enabled()) "unavailable" else "disabled";
+    var ok = !vx.axiom_backend.cuda.enabled() or maybe_device != null;
     var fingerprint: u64 = 0;
     var bytes: usize = 0;
     if (maybe_device) |*device| {
@@ -20,67 +20,67 @@ pub fn main(init: std.process.Init) !void {
         bytes = device.required_bytes;
     }
 
-    var direct_storage_ok = !vx.axiom_cuda.enabled();
-    var direct_shape_view_ok = !vx.axiom_cuda.enabled();
-    var direct_add_ok = !vx.axiom_cuda.enabled();
-    var direct_square_ok = !vx.axiom_cuda.enabled();
-    var direct_unary_scalar_ok = !vx.axiom_cuda.enabled();
-    var direct_norm_ok = !vx.axiom_cuda.enabled();
-    var direct_reduction_ok = !vx.axiom_cuda.enabled();
-    var direct_broadcast_ok = !vx.axiom_cuda.enabled();
-    var direct_transpose_ok = !vx.axiom_cuda.enabled();
-    var direct_softmax_ok = !vx.axiom_cuda.enabled();
-    var direct_log_softmax_ok = !vx.axiom_cuda.enabled();
-    var direct_ternary_ok = !vx.axiom_cuda.enabled();
-    var direct_matmul_ok = !vx.axiom_cuda.enabled();
-    var direct_bmm_ok = !vx.axiom_cuda.enabled();
-    var direct_batched_matmul_ok = !vx.axiom_cuda.enabled();
-    var direct_higher_rank_batched_matmul_ok = !vx.axiom_cuda.enabled();
-    var direct_broadcasted_batched_matmul_ok = !vx.axiom_cuda.enabled();
-    var direct_mixed_batched_matmul_ok = !vx.axiom_cuda.enabled();
-    var direct_rank3_scalar_broadcast_ok = !vx.axiom_cuda.enabled();
-    var direct_rank3_lastdim_broadcast_ok = !vx.axiom_cuda.enabled();
-    var direct_rank3_middle_broadcast_ok = !vx.axiom_cuda.enabled();
-    var direct_rank3_reduction_ok = !vx.axiom_cuda.enabled();
-    var direct_batched_matvec_ok = !vx.axiom_cuda.enabled();
-    var direct_batched_vecmat_ok = !vx.axiom_cuda.enabled();
-    var direct_dot_ok = !vx.axiom_cuda.enabled();
-    var direct_inner_ok = !vx.axiom_cuda.enabled();
-    var direct_outer_ok = !vx.axiom_cuda.enabled();
-    var direct_matmul_add_ok = !vx.axiom_cuda.enabled();
-    var scaled_matmul_add_ok = !vx.axiom_cuda.enabled();
-    var chained_matmul_add_ok = !vx.axiom_cuda.enabled();
-    var chained_matmul_sub_ok = !vx.axiom_cuda.enabled();
-    var chained_sqrt_ok = !vx.axiom_cuda.enabled();
-    var chained_exp_ok = !vx.axiom_cuda.enabled();
-    var reversed_add_fusion_ok = !vx.axiom_cuda.enabled();
-    var reversed_sub_fusion_ok = !vx.axiom_cuda.enabled();
-    var pending_fusion_status_ok = !vx.axiom_cuda.enabled();
-    var bf16_chained_sqrt_ok = !vx.axiom_cuda.enabled();
-    var bf16_chained_exp_ok = !vx.axiom_cuda.enabled();
-    var bf16_bmm_ok = !vx.axiom_cuda.enabled();
-    var bf16_scalar_mul_ok = !vx.axiom_cuda.enabled();
-    var bf16_broadcast_ok = !vx.axiom_cuda.enabled();
-    var bf16_reduction_ok = !vx.axiom_cuda.enabled();
-    var bf16_transpose_ok = !vx.axiom_cuda.enabled();
-    var bf16_softmax_ok = !vx.axiom_cuda.enabled();
-    var bf16_log_softmax_ok = !vx.axiom_cuda.enabled();
-    var f16_activation_ok = !vx.axiom_cuda.enabled();
-    var f16_bmm_ok = !vx.axiom_cuda.enabled();
-    var f16_broadcast_ok = !vx.axiom_cuda.enabled();
-    var f16_reduction_ok = !vx.axiom_cuda.enabled();
-    var f16_transpose_ok = !vx.axiom_cuda.enabled();
-    var f16_softmax_ok = !vx.axiom_cuda.enabled();
-    var f16_log_softmax_ok = !vx.axiom_cuda.enabled();
-    var f64_matmul_ok = !vx.axiom_cuda.enabled();
-    var f64_bmm_ok = !vx.axiom_cuda.enabled();
-    var f64_elementwise_ok = !vx.axiom_cuda.enabled();
-    var f64_transpose_ok = !vx.axiom_cuda.enabled();
-    var f64_broadcast_ok = !vx.axiom_cuda.enabled();
-    var f64_reduction_ok = !vx.axiom_cuda.enabled();
-    var f64_softmax_ok = !vx.axiom_cuda.enabled();
-    var f64_log_softmax_ok = !vx.axiom_cuda.enabled();
-    var f64_matmul_add_ok = !vx.axiom_cuda.enabled();
+    var direct_storage_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_shape_view_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_add_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_square_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_unary_scalar_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_norm_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_reduction_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_broadcast_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_transpose_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_softmax_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_log_softmax_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_ternary_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_matmul_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_bmm_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_batched_matmul_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_higher_rank_batched_matmul_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_broadcasted_batched_matmul_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_mixed_batched_matmul_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_rank3_scalar_broadcast_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_rank3_lastdim_broadcast_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_rank3_middle_broadcast_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_rank3_reduction_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_batched_matvec_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_batched_vecmat_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_dot_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_inner_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_outer_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_matmul_add_ok = !vx.axiom_backend.cuda.enabled();
+    var scaled_matmul_add_ok = !vx.axiom_backend.cuda.enabled();
+    var chained_matmul_add_ok = !vx.axiom_backend.cuda.enabled();
+    var chained_matmul_sub_ok = !vx.axiom_backend.cuda.enabled();
+    var chained_sqrt_ok = !vx.axiom_backend.cuda.enabled();
+    var chained_exp_ok = !vx.axiom_backend.cuda.enabled();
+    var reversed_add_fusion_ok = !vx.axiom_backend.cuda.enabled();
+    var reversed_sub_fusion_ok = !vx.axiom_backend.cuda.enabled();
+    var pending_fusion_status_ok = !vx.axiom_backend.cuda.enabled();
+    var bf16_chained_sqrt_ok = !vx.axiom_backend.cuda.enabled();
+    var bf16_chained_exp_ok = !vx.axiom_backend.cuda.enabled();
+    var bf16_bmm_ok = !vx.axiom_backend.cuda.enabled();
+    var bf16_scalar_mul_ok = !vx.axiom_backend.cuda.enabled();
+    var bf16_broadcast_ok = !vx.axiom_backend.cuda.enabled();
+    var bf16_reduction_ok = !vx.axiom_backend.cuda.enabled();
+    var bf16_transpose_ok = !vx.axiom_backend.cuda.enabled();
+    var bf16_softmax_ok = !vx.axiom_backend.cuda.enabled();
+    var bf16_log_softmax_ok = !vx.axiom_backend.cuda.enabled();
+    var f16_activation_ok = !vx.axiom_backend.cuda.enabled();
+    var f16_bmm_ok = !vx.axiom_backend.cuda.enabled();
+    var f16_broadcast_ok = !vx.axiom_backend.cuda.enabled();
+    var f16_reduction_ok = !vx.axiom_backend.cuda.enabled();
+    var f16_transpose_ok = !vx.axiom_backend.cuda.enabled();
+    var f16_softmax_ok = !vx.axiom_backend.cuda.enabled();
+    var f16_log_softmax_ok = !vx.axiom_backend.cuda.enabled();
+    var f64_matmul_ok = !vx.axiom_backend.cuda.enabled();
+    var f64_bmm_ok = !vx.axiom_backend.cuda.enabled();
+    var f64_elementwise_ok = !vx.axiom_backend.cuda.enabled();
+    var f64_transpose_ok = !vx.axiom_backend.cuda.enabled();
+    var f64_broadcast_ok = !vx.axiom_backend.cuda.enabled();
+    var f64_reduction_ok = !vx.axiom_backend.cuda.enabled();
+    var f64_softmax_ok = !vx.axiom_backend.cuda.enabled();
+    var f64_log_softmax_ok = !vx.axiom_backend.cuda.enabled();
+    var f64_matmul_add_ok = !vx.axiom_backend.cuda.enabled();
     var elementwise_binary_memref_fingerprint: u64 = 0;
     var elementwise_unary_memref_fingerprint: u64 = 0;
     var gemm_memref_fingerprint: u64 = 0;
@@ -149,7 +149,7 @@ pub fn main(init: std.process.Init) !void {
         defer scalar_vector_div.deinit();
         var scalar_vector_div_host = try scalar_vector_div.cpu();
         defer scalar_vector_div_host.deinit();
-        const vector_scalar_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const vector_scalar_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         direct_add_ok = sum.device.isCuda() and sum.device_storage != null and
             equalF32(sum_host.data, &.{ 2, 3, 4, 5 }) and
             vector_scalar_div.device.isCuda() and
@@ -174,7 +174,7 @@ pub fn main(init: std.process.Init) !void {
         defer squared.deinit();
         var squared_host = try squared.cpu();
         defer squared_host.deinit();
-        const elementwise_binary_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const elementwise_binary_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         elementwise_binary_memref_fingerprint = elementwise_binary_report.memref_spec_fingerprint;
         direct_square_ok = squared.device.isCuda() and squared.device_storage != null and
             elementwise_binary_report.valid() and
@@ -225,7 +225,7 @@ pub fn main(init: std.process.Init) !void {
         defer all_axes_max_keep.deinit();
         var all_axes_max_keep_host = try all_axes_max_keep.cpu();
         defer all_axes_max_keep_host.deinit();
-        const reduction_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const reduction_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         var row_mean = try lhs.mean(1, false);
         defer row_mean.deinit();
         var row_mean_host = try row_mean.cpu();
@@ -377,7 +377,7 @@ pub fn main(init: std.process.Init) !void {
         defer row_keepdims_div.deinit();
         var row_keepdims_div_host = try row_keepdims_div.cpu();
         defer row_keepdims_div_host.deinit();
-        const row_keepdims_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const row_keepdims_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         var device_scalar = try vx.Array(f32).fromSliceOn(allocator, &.{2}, &.{1}, vx.cuda(0));
         defer device_scalar.deinit();
         var scalar_broadcast_div = try lhs.div(device_scalar);
@@ -392,7 +392,7 @@ pub fn main(init: std.process.Init) !void {
         defer scalar_matrix_div.deinit();
         var scalar_matrix_div_host = try scalar_matrix_div.cpu();
         defer scalar_matrix_div_host.deinit();
-        const scalar_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const scalar_broadcast_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         var rank3 = try lhs.reshape(&.{ 1, 2, 2 });
         defer rank3.deinit();
         var rank3_sum_last = try rank3.sum(2, false);
@@ -425,7 +425,7 @@ pub fn main(init: std.process.Init) !void {
         defer rank3_scalar_div.deinit();
         var rank3_scalar_div_host = try rank3_scalar_div.cpu();
         defer rank3_scalar_div_host.deinit();
-        const rank3_scalar_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const rank3_scalar_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         direct_rank3_scalar_broadcast_ok = rank3_scalar_div.device.isCuda() and
             rank3_scalar_div.device_storage != null and
             rank3_scalar_report.valid() and
@@ -451,7 +451,7 @@ pub fn main(init: std.process.Init) !void {
         defer rank3_lastdim_keepdims_div.deinit();
         var rank3_lastdim_keepdims_div_host = try rank3_lastdim_keepdims_div.cpu();
         defer rank3_lastdim_keepdims_div_host.deinit();
-        const rank3_lastdim_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const rank3_lastdim_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         direct_rank3_lastdim_broadcast_ok = rank3_lastdim_div.device.isCuda() and
             rank3_lastdim_div.device_storage != null and
             rank3_lastdim_report.valid() and
@@ -479,7 +479,7 @@ pub fn main(init: std.process.Init) !void {
         defer middle_broadcast.deinit();
         var middle_broadcast_host = try middle_broadcast.cpu();
         defer middle_broadcast_host.deinit();
-        const middle_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const middle_broadcast_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         direct_rank3_middle_broadcast_ok = middle_broadcast.device.isCuda() and
             middle_broadcast.device_storage != null and
             middle_broadcast_report.valid() and
@@ -492,7 +492,7 @@ pub fn main(init: std.process.Init) !void {
         defer column_broadcast.deinit();
         var column_broadcast_host = try column_broadcast.cpu();
         defer column_broadcast_host.deinit();
-        const broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const broadcast_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         broadcast_memref_fingerprint = broadcast_report.memref_spec_fingerprint;
         direct_broadcast_ok = row_broadcast.device.isCuda() and row_broadcast.device_storage != null and
             broadcast_report.valid() and
@@ -526,7 +526,7 @@ pub fn main(init: std.process.Init) !void {
         defer transposed.deinit();
         var transposed_host = try transposed.cpu();
         defer transposed_host.deinit();
-        const transpose_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const transpose_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         transpose_memref_fingerprint = transpose_report.memref_spec_fingerprint;
         direct_transpose_ok = transposed.device.isCuda() and transposed.device_storage != null and
             transpose_report.valid() and
@@ -542,7 +542,7 @@ pub fn main(init: std.process.Init) !void {
         defer softmax_col.deinit();
         var softmax_col_host = try softmax_col.cpu();
         defer softmax_col_host.deinit();
-        const softmax_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const softmax_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         softmax_memref_fingerprint = softmax_report.memref_spec_fingerprint;
         const row_denom = std.math.exp(@as(f32, -1)) + 1.0;
         const col_denom = std.math.exp(@as(f32, -2)) + 1.0;
@@ -565,7 +565,7 @@ pub fn main(init: std.process.Init) !void {
         defer log_softmax_col.deinit();
         var log_softmax_col_host = try log_softmax_col.cpu();
         defer log_softmax_col_host.deinit();
-        const log_softmax_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const log_softmax_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         log_softmax_memref_fingerprint = log_softmax_report.memref_spec_fingerprint;
         var logsumexp_row = try lhs.logsumexp(1, false);
         defer logsumexp_row.deinit();
@@ -648,7 +648,7 @@ pub fn main(init: std.process.Init) !void {
         defer log10_values.deinit();
         var log10_values_host = try log10_values.cpu();
         defer log10_values_host.deinit();
-        const elementwise_unary_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const elementwise_unary_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         elementwise_unary_memref_fingerprint = elementwise_unary_report.memref_spec_fingerprint;
         var reciprocal = try lhs.reciprocal();
         defer reciprocal.deinit();
@@ -780,7 +780,7 @@ pub fn main(init: std.process.Init) !void {
         defer normalized.deinit();
         var normalized_host = try normalized.cpu();
         defer normalized_host.deinit();
-        const normalize_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const normalize_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         direct_norm_ok = row_norm.device.isCuda() and
             row_norm.device_storage != null and
             approxF32(row_norm_host.data[0], std.math.sqrt(@as(f32, 5.0)), 0.01) and
@@ -922,7 +922,7 @@ pub fn main(init: std.process.Init) !void {
         defer product.deinit();
         var product_host = try product.cpu();
         defer product_host.deinit();
-        const gemm_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        const gemm_report = vx.axiom_backend.cuda.lastCudaDeviceGemmReport();
         gemm_memref_fingerprint = gemm_report.memref_spec_fingerprint;
         direct_matmul_ok = product.device.isCuda() and
             gemm_report.valid() and
@@ -949,7 +949,7 @@ pub fn main(init: std.process.Init) !void {
         defer batch_product.deinit();
         var batch_product_host = try batch_product.cpu();
         defer batch_product_host.deinit();
-        const batched_gemm_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const batched_gemm_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         batched_gemm_fingerprint = batched_gemm_report.fingerprint;
         batched_gemm_backend = batched_gemm_report.backend;
         direct_bmm_ok = batch_product.device.isCuda() and
@@ -967,7 +967,7 @@ pub fn main(init: std.process.Init) !void {
         defer batch_matmul_product.deinit();
         var batch_matmul_host = try batch_matmul_product.cpu();
         defer batch_matmul_host.deinit();
-        const batched_matmul_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const batched_matmul_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         direct_batched_matmul_ok = batch_matmul_product.device.isCuda() and
             batch_matmul_product.device_storage != null and
             batched_matmul_report.valid() and
@@ -1001,7 +1001,7 @@ pub fn main(init: std.process.Init) !void {
         defer higher_batch_product.deinit();
         var higher_batch_host = try higher_batch_product.cpu();
         defer higher_batch_host.deinit();
-        const higher_rank_batched_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const higher_rank_batched_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         direct_higher_rank_batched_matmul_ok = higher_batch_product.device.isCuda() and
             higher_batch_product.device_storage != null and
             higher_rank_batched_report.valid() and
@@ -1027,7 +1027,7 @@ pub fn main(init: std.process.Init) !void {
         defer broadcast_batch_product.deinit();
         var broadcast_batch_host = try broadcast_batch_product.cpu();
         defer broadcast_batch_host.deinit();
-        const broadcasted_batched_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const broadcasted_batched_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         direct_broadcasted_batched_matmul_ok = broadcast_batch_product.device.isCuda() and
             broadcast_batch_product.device_storage != null and
             broadcasted_batched_report.valid() and
@@ -1059,7 +1059,7 @@ pub fn main(init: std.process.Init) !void {
         defer mixed_batch_product.deinit();
         var mixed_batch_host = try mixed_batch_product.cpu();
         defer mixed_batch_host.deinit();
-        const mixed_batched_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const mixed_batched_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         mixed_batched_gemm_backend = mixed_batched_report.backend;
         direct_mixed_batched_matmul_ok = mixed_batch_product.device.isCuda() and
             mixed_batch_product.device_storage != null and
@@ -1082,7 +1082,7 @@ pub fn main(init: std.process.Init) !void {
         defer batched_matvec.deinit();
         var batched_matvec_host = try batched_matvec.cpu();
         defer batched_matvec_host.deinit();
-        const batched_matvec_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const batched_matvec_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         direct_batched_matvec_ok = batched_matvec.device.isCuda() and
             batched_matvec.device_storage != null and
             batched_matvec_report.valid() and
@@ -1095,7 +1095,7 @@ pub fn main(init: std.process.Init) !void {
         defer batched_vecmat.deinit();
         var batched_vecmat_host = try batched_vecmat.cpu();
         defer batched_vecmat_host.deinit();
-        const batched_vecmat_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const batched_vecmat_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         direct_batched_vecmat_ok = batched_vecmat.device.isCuda() and
             batched_vecmat.device_storage != null and
             batched_vecmat_report.valid() and
@@ -1112,12 +1112,12 @@ pub fn main(init: std.process.Init) !void {
         defer dot_out.deinit();
         var dot_host = try dot_out.cpu();
         defer dot_host.deinit();
-        const dot_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        const dot_report = vx.axiom_backend.cuda.lastCudaDeviceGemmReport();
         var vdot_out = try dot_lhs.vdot(dot_rhs);
         defer vdot_out.deinit();
         var vdot_host = try vdot_out.cpu();
         defer vdot_host.deinit();
-        const vdot_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        const vdot_report = vx.axiom_backend.cuda.lastCudaDeviceGemmReport();
         direct_dot_ok = dot_out.device.isCuda() and
             dot_out.device_storage != null and
             dot_report.valid() and
@@ -1144,7 +1144,7 @@ pub fn main(init: std.process.Init) !void {
         defer inner_out.deinit();
         var inner_host = try inner_out.cpu();
         defer inner_host.deinit();
-        const inner_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        const inner_report = vx.axiom_backend.cuda.lastCudaDeviceGemmReport();
         direct_inner_ok = inner_out.device.isCuda() and
             inner_out.device_storage != null and
             inner_report.valid() and
@@ -1160,7 +1160,7 @@ pub fn main(init: std.process.Init) !void {
         defer outer_out.deinit();
         var outer_host = try outer_out.cpu();
         defer outer_host.deinit();
-        const outer_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        const outer_report = vx.axiom_backend.cuda.lastCudaDeviceGemmReport();
         direct_outer_ok = outer_out.device.isCuda() and
             outer_out.device_storage != null and
             outer_report.valid() and
@@ -1188,7 +1188,7 @@ pub fn main(init: std.process.Init) !void {
         defer batch64_product.deinit();
         var batch64_host = try batch64_product.cpu();
         defer batch64_host.deinit();
-        const batched64_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const batched64_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         f64_bmm_ok = batch64_product.device.isCuda() and
             batch64_product.device_storage != null and
             batched64_report.valid() and
@@ -1214,7 +1214,7 @@ pub fn main(init: std.process.Init) !void {
         defer batch16_product.deinit();
         var batch16_host = try batch16_product.cpu();
         defer batch16_host.deinit();
-        const batched16_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const batched16_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         f16_bmm_ok = batch16_product.device.isCuda() and
             batch16_product.device_storage != null and
             batched16_report.valid() and
@@ -1243,7 +1243,7 @@ pub fn main(init: std.process.Init) !void {
         defer batch_bf16_product.deinit();
         var batch_bf16_host = try batch_bf16_product.cpu();
         defer batch_bf16_host.deinit();
-        const batched_bf16_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        const batched_bf16_report = vx.axiom_backend.cuda.lastCudaDeviceBatchedGemmReport();
         bf16_bmm_ok = batch_bf16_product.device.isCuda() and
             batch_bf16_product.device_storage != null and
             batched_bf16_report.valid() and
@@ -1288,7 +1288,7 @@ pub fn main(init: std.process.Init) !void {
         const chained_sqrt_status_ok = chained_sqrt.fusionStatus() == .cuda_matmul_add_sqrt;
         var chained_sqrt_host = try chained_sqrt.cpu();
         defer chained_sqrt_host.deinit();
-        const matmul_add_unary_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        const matmul_add_unary_report = vx.axiom_backend.cuda.lastCudaDeviceGemmReport();
         matmul_add_unary_memref_fingerprint = matmul_add_unary_report.memref_spec_fingerprint;
         chained_sqrt_ok = chained_sqrt.device.isCuda() and
             matmul_add_unary_report.valid() and
@@ -1315,7 +1315,7 @@ pub fn main(init: std.process.Init) !void {
         defer fused.deinit();
         var fused_host = try fused.cpu();
         defer fused_host.deinit();
-        const matmul_add_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        const matmul_add_report = vx.axiom_backend.cuda.lastCudaDeviceGemmReport();
         matmul_add_memref_fingerprint = matmul_add_report.memref_spec_fingerprint;
         direct_matmul_add_ok = fused.device.isCuda() and fused.device_storage != null and
             matmul_add_report.valid() and
@@ -1381,7 +1381,7 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_middle_broadcast.deinit();
         var bf16_middle_broadcast_host = try bf16_middle_broadcast.cpu();
         defer bf16_middle_broadcast_host.deinit();
-        const bf16_middle_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const bf16_middle_broadcast_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         bf16_broadcast_ok = bf16_row_broadcast.device.isCuda() and bf16_row_broadcast.device_storage != null and
             approxF32(bf16_row_broadcast_host.data[0].toF32(), 11, 0.05) and
             approxF32(bf16_row_broadcast_host.data[1].toF32(), 22, 0.05) and
@@ -1551,7 +1551,7 @@ pub fn main(init: std.process.Init) !void {
         defer f16_middle_broadcast.deinit();
         var f16_middle_broadcast_host = try f16_middle_broadcast.cpu();
         defer f16_middle_broadcast_host.deinit();
-        const f16_middle_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const f16_middle_broadcast_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         f16_broadcast_ok = f16_row_broadcast.device.isCuda() and f16_row_broadcast.device_storage != null and
             approxF16(f16_row_broadcast_host.data[0], 11, 0.05) and
             approxF16(f16_row_broadcast_host.data[1], 22, 0.05) and
@@ -1730,7 +1730,7 @@ pub fn main(init: std.process.Init) !void {
         defer f64_product.deinit();
         var f64_product_host = try f64_product.cpu();
         defer f64_product_host.deinit();
-        const f64_gemm_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        const f64_gemm_report = vx.axiom_backend.cuda.lastCudaDeviceGemmReport();
         f64_gemm_memref_fingerprint = f64_gemm_report.memref_spec_fingerprint;
         var f64_target_product = (try vx.axiom_backend.executeMatmul(f64, .cuda, f64_lhs, f64_rhs)) orelse return error.BackendFailure;
         defer f64_target_product.deinit();
@@ -1773,7 +1773,7 @@ pub fn main(init: std.process.Init) !void {
         defer f64_middle_broadcast.deinit();
         var f64_middle_broadcast_host = try f64_middle_broadcast.cpu();
         defer f64_middle_broadcast_host.deinit();
-        const f64_middle_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        const f64_middle_broadcast_report = vx.axiom_backend.cuda.lastCudaDeviceMemRefReport();
         f64_broadcast_ok = f64_row_broadcast.device.isCuda() and f64_row_broadcast.device_storage != null and
             equalF64(f64_row_broadcast_host.data, &.{ 11, 22, 13, 24 }) and
             f64_column_broadcast.device.isCuda() and f64_column_broadcast.device_storage != null and
@@ -2117,7 +2117,7 @@ pub fn main(init: std.process.Init) !void {
     // keep the smoke JSON evidence split across contiguous writes as coverage grows.
     try stdout.interface.print(
         "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_shape_view_ok\":{},\"direct_add_ok\":{},\"direct_square_ok\":{},\"direct_unary_scalar_ok\":{},\"direct_norm_ok\":{},\"direct_reduction_ok\":{},\"direct_broadcast_ok\":{},\"direct_transpose_ok\":{},\"direct_softmax_ok\":{},\"direct_log_softmax_ok\":{},\"direct_ternary_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"scaled_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"reversed_add_fusion_ok\":{},\"reversed_sub_fusion_ok\":{},\"pending_fusion_status_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{},\"bf16_broadcast_ok\":{},\"bf16_reduction_ok\":{}",
-        .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_shape_view_ok, direct_add_ok, direct_square_ok, direct_unary_scalar_ok, direct_norm_ok, direct_reduction_ok, direct_broadcast_ok, direct_transpose_ok, direct_softmax_ok, direct_log_softmax_ok, direct_ternary_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, bf16_broadcast_ok, bf16_reduction_ok },
+        .{ vx.axiom_backend.cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_shape_view_ok, direct_add_ok, direct_square_ok, direct_unary_scalar_ok, direct_norm_ok, direct_reduction_ok, direct_broadcast_ok, direct_transpose_ok, direct_softmax_ok, direct_log_softmax_ok, direct_ternary_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, bf16_broadcast_ok, bf16_reduction_ok },
     );
     try stdout.interface.print(
         ",\"direct_rank3_scalar_broadcast_ok\":{},\"direct_rank3_lastdim_broadcast_ok\":{},\"bf16_transpose_ok\":{},\"bf16_softmax_ok\":{},\"bf16_bmm_ok\":{},\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_bmm_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_bmm_ok\":{},\"direct_bmm_ok\":{},\"direct_batched_matmul_ok\":{},\"direct_higher_rank_batched_matmul_ok\":{},\"direct_broadcasted_batched_matmul_ok\":{},\"direct_mixed_batched_matmul_ok\":{},\"direct_batched_matvec_ok\":{},\"direct_batched_vecmat_ok\":{},\"direct_dot_ok\":{},\"direct_inner_ok\":{},\"direct_outer_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}",

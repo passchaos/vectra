@@ -28,9 +28,8 @@ ZON = REPO / "build.zig.zon"
 PUBLIC_SOURCE_FILES = (ROOT, ARRAY)
 AXIAL_GUARD_FILES = (BUILD, ZON, ROOT, ARRAY, AXIOM_BACKEND)
 # Array implementation code must not bypass the Axiom target facade.  The root
-# module still re-exports low-level bridge modules for explicit smoke/provenance
-# tools, so this guard is intentionally scoped to the eager Array execution
-# client rather than every public export surface.
+# module should likewise expose backend diagnostics through axiom_backend rather
+# than publishing target-specific bridge modules as API surface.
 TARGET_FACADE_CLIENT_FILES = (ARRAY,)
 
 BANNED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -76,6 +75,8 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn executeDet(",
     "pub fn executeEigh(",
     "pub fn executeEigvalsh(",
+    "pub const cpu = struct",
+    "pub const cuda = struct",
     "pub fn transferStorage(",
     "pub fn hostElementCapacity(",
     "pub fn fillAllocated(",
@@ -92,6 +93,11 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
 FORBIDDEN_ROOT_TARGET_SPLIT_SNIPPETS = (
     "tryCpuMatmulAdd",
     "tryCudaMatmulAdd",
+)
+
+FORBIDDEN_ROOT_BACKEND_EXPORT_SNIPPETS = (
+    'pub const axiom_cpu = @import("backends/axiom_cpu.zig");',
+    'pub const axiom_cuda = @import("backends/axiom_cuda.zig");',
 )
 
 FORBIDDEN_ARRAY_TARGET_SPLIT_SNIPPETS = (
@@ -156,6 +162,9 @@ def main() -> int:
     for snippet in FORBIDDEN_ROOT_TARGET_SPLIT_SNIPPETS:
         if snippet in root_text:
             issues.append({"kind": "target_split_public_helper", "path": "src/root.zig", "snippet": snippet})
+    for snippet in FORBIDDEN_ROOT_BACKEND_EXPORT_SNIPPETS:
+        if snippet in root_text:
+            issues.append({"kind": "target_specific_backend_public_export", "path": "src/root.zig", "snippet": snippet})
 
     readme_text = read(README)
     for snippet in REQUIRED_README_SNIPPETS:

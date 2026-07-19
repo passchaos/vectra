@@ -1,6 +1,6 @@
-//! Explicit Axiom CUDA bridge example.
+//! Explicit Axiom backend CUDA diagnostic example.
 //!
-//! Prints Axiom's smoke report and buffer-plan metadata:
+//! Prints Axiom's facade-owned CUDA smoke and dtype metadata:
 //!   zig build example-axiom-cuda-bridge
 
 const std = @import("std");
@@ -14,18 +14,12 @@ pub fn main(init: std.process.Init) !void {
     var rhs = try vx.Array(f32).fromSlice(allocator, &.{ 10, 20, 30, 40 }, &.{4});
     defer rhs.deinit();
 
-    const plan = vx.axiom_cuda.planArrayF32(lhs, "lhs");
-    const smoke = vx.axiom_cuda.runSmoke(allocator);
+    const smoke = vx.axiom_backend.cuda.runSmoke(allocator);
+    const route = vx.axiom_backend.selectElementwise(f32, .add, .prefer_cuda, lhs, rhs);
 
-    var out = try vx.axiom_cuda.tryAddF32(lhs, rhs);
-    if (out) |*accelerated| {
-        defer accelerated.deinit();
-        try expectSlice(f32, accelerated.data, &.{ 11, 22, 33, 44 });
-    } else {
-        var fallback = try lhs.add(rhs);
-        defer fallback.deinit();
-        try expectSlice(f32, fallback.data, &.{ 11, 22, 33, 44 });
-    }
+    var out = try vx.axiom_backend.elementwise(f32, .add, .prefer_cuda, lhs, rhs);
+    defer out.deinit();
+    try expectSlice(f32, out.data, &.{ 11, 22, 33, 44 });
 
     var stdout_buffer: [4096]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
@@ -39,24 +33,22 @@ pub fn main(init: std.process.Init) !void {
         \\  "dtype_support_count": {d},
         \\  "dtype_bridge_count": {d},
         \\  "dtype_native_seed_count": {d},
-        \\  "buffer_plan_ok": {},
-        \\  "buffer_plan_elements": {d},
-        \\  "buffer_plan_fingerprint": {d},
+        \\  "dtype_support_fingerprint": {d},
+        \\  "selected_route": "{s}",
         \\  "used_accelerated_add": {},
         \\  "ok": true
         \\}}
         \\
     , .{
-        vx.axiom_cuda.enabled(),
+        vx.axiom_backend.cuda.enabled(),
         smoke.status.label(),
         smoke.ok(),
-        smoke.dtype_support_count,
-        smoke.dtype_bridge_count,
-        smoke.dtype_native_seed_count,
-        plan.ok,
-        plan.logical_elements,
-        plan.fingerprint,
-        out != null,
+        vx.axiom_backend.cuda.cudaDTypeSupportRecords().len,
+        vx.axiom_backend.cuda.cudaDTypeBridgeCount(),
+        vx.axiom_backend.cuda.cudaDTypeNativeSeedCount(),
+        vx.axiom_backend.cuda.cudaDTypeSupportFingerprint(),
+        route.selected.label(),
+        route.selected == .axiom_cuda and smoke.status == .ran,
     });
     try stdout.interface.flush();
 }
