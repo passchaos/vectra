@@ -82,6 +82,36 @@ pub fn main(init: std.process.Init) !void {
     defer out64_transposed.deinit();
     const device_bufferized64 = try vx.axiom_backend.planGemmMemRefDeviceBufferization(f64, lhs64_transposed, rhs64_transposed, out64_transposed);
 
+    var batched_lhs_storage = try vx.Array(f32).fromSlice(allocator, &.{
+        1, 2,
+        3, 4,
+
+        5, 6,
+        7, 8,
+    }, &.{ 2, 2, 2 });
+    defer batched_lhs_storage.deinit();
+    var batched_rhs_storage = try vx.Array(f32).fromSlice(allocator, &.{
+        1, 0,
+        0, 1,
+
+        2, 1,
+        1, 2,
+    }, &.{ 2, 2, 2 });
+    defer batched_rhs_storage.deinit();
+    var batched_out_storage = try vx.Array(f32).zeros(allocator, &.{ 2, 2, 2 });
+    defer batched_out_storage.deinit();
+    var batched_lhs = try batched_lhs_storage.asView();
+    defer batched_lhs.deinit();
+    var batched_rhs = try batched_rhs_storage.asView();
+    defer batched_rhs.deinit();
+    var batched_out = try batched_out_storage.asView();
+    defer batched_out.deinit();
+    // Keep the rank-3 batch dimension observable across the Vectra/Axiom
+    // boundary.  This gate intentionally checks lowering evidence rather than
+    // eager execution so Vectra cannot regress to flattening or materializing
+    // batched views before Axiom owns the loop/strided-batched runtime choice.
+    const batched = try vx.axiom_backend.planBatchedGemmMemRefLowering(f32, batched_lhs, batched_rhs, batched_out);
+
     var broadcast_scalar = try vx.Array(f32).fromSlice(allocator, &.{1}, &.{1});
     defer broadcast_scalar.deinit();
     var broadcast_lhs = try broadcast_scalar.asStrided(&.{ 2, 3 }, &.{ 0, 0 }, 0);
@@ -120,13 +150,24 @@ pub fn main(init: std.process.Init) !void {
         device_bufferized64.usesDeviceCopyPackRuntime() and
         device_bufferized64.deviceRuntimeExecutable() and
         device_bufferized64.status == .executable_device_copy_pack_unpack and
+        batched.ok() and
+        batched.status == .planned_loop_over_gemm and
+        batched.batch_count == 2 and
+        batched.m == 2 and
+        batched.n == 2 and
+        batched.k == 2 and
+        batched.a_batch_stride == 4 and
+        batched.b_batch_stride == 4 and
+        batched.c_batch_stride == 4 and
+        batched.per_batch_gemm_fingerprint != 0 and
+        batched.fingerprint() != 0 and
         std.mem.eql(f32, out_transposed_storage.data, &.{ 22, 49, 28, 64 }) and
         broadcast_rejected;
 
-    var stdout_buffer: [1536]u8 = undefined;
+    var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_gemm_layout_smoke\",\"ok\":{},\"executable_status\":\"{s}\",\"pack_a_status\":\"{s}\",\"pack_b_status\":\"{s}\",\"unpack_c_status\":\"{s}\",\"bufferized_ok\":{},\"device_bufferized_status\":\"{s}\",\"device_bufferized64_status\":\"{s}\",\"bufferized_fp\":{d},\"device_bufferized_fp\":{d},\"device_bufferized64_fp\":{d},\"bufferized_output_fp\":{d},\"broadcast_rejected\":{},\"executable_fp\":{d},\"pack_a_fp\":{d},\"pack_b_fp\":{d},\"unpack_c_fp\":{d}}}\n",
+        "{{\"kind\":\"vectra_axiom_gemm_layout_smoke\",\"ok\":{},\"executable_status\":\"{s}\",\"pack_a_status\":\"{s}\",\"pack_b_status\":\"{s}\",\"unpack_c_status\":\"{s}\",\"bufferized_ok\":{},\"device_bufferized_status\":\"{s}\",\"device_bufferized64_status\":\"{s}\",\"batched_status\":\"{s}\",\"batched_batch_count\":{d},\"batched_m\":{d},\"batched_n\":{d},\"batched_k\":{d},\"bufferized_fp\":{d},\"device_bufferized_fp\":{d},\"device_bufferized64_fp\":{d},\"batched_per_batch_fp\":{d},\"batched_fp\":{d},\"bufferized_output_fp\":{d},\"broadcast_rejected\":{},\"executable_fp\":{d},\"pack_a_fp\":{d},\"pack_b_fp\":{d},\"unpack_c_fp\":{d}}}\n",
         .{
             ok,
             executable.status.label(),
@@ -136,9 +177,16 @@ pub fn main(init: std.process.Init) !void {
             bufferized.ok(),
             device_bufferized.status.label(),
             device_bufferized64.status.label(),
+            batched.status.label(),
+            batched.batch_count,
+            batched.m,
+            batched.n,
+            batched.k,
             bufferized.fingerprint(),
             device_bufferized.fingerprint(),
             device_bufferized64.fingerprint(),
+            batched.per_batch_gemm_fingerprint,
+            batched.fingerprint(),
             bufferized.output_fingerprint,
             broadcast_rejected,
             executable.fingerprint(),
