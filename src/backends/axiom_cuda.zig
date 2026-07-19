@@ -2154,6 +2154,81 @@ pub fn tryDeviceBroadcastBinaryBF16(op: BinaryOp, input: array_mod.Array(BFloat1
     return tryDeviceBroadcastBinary(BFloat16, op, input, bias, axis);
 }
 
+pub fn tryDeviceVectorScalarBroadcastF32(op: BinaryOp, vector: array_mod.Array(f32), scalar: array_mod.Array(f32), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceVectorScalarBroadcast(f32, op, vector, scalar, scalar_left);
+}
+
+pub fn tryDeviceVectorScalarBroadcastF64(op: BinaryOp, vector: array_mod.Array(f64), scalar: array_mod.Array(f64), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceVectorScalarBroadcast(f64, op, vector, scalar, scalar_left);
+}
+
+pub fn tryDeviceVectorScalarBroadcastF16(op: BinaryOp, vector: array_mod.Array(f16), scalar: array_mod.Array(f16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceVectorScalarBroadcast(f16, op, vector, scalar, scalar_left);
+}
+
+pub fn tryDeviceVectorScalarBroadcastBF16(op: BinaryOp, vector: array_mod.Array(BFloat16), scalar: array_mod.Array(BFloat16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceVectorScalarBroadcast(BFloat16, op, vector, scalar, scalar_left);
+}
+
+fn tryDeviceVectorScalarBroadcast(comptime T: type, op: BinaryOp, vector: array_mod.Array(T), scalar: array_mod.Array(T), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
+    if (!vector.device.isCuda() or !scalar.device.isCuda() or !vector.device.sameDevice(scalar.device)) return null;
+    if (vector.shape.len != 1 or scalar.numel() != 1) return null;
+    if (vector.data.len != 0 or scalar.data.len != 0 or !vector.isContiguous() or !scalar.isContiguous()) return null;
+    // The row-broadcast runtime computes `matrix op bias`.  For a scalar on the
+    // left, only commute operations whose mathematical meaning is preserved.
+    if (scalar_left and op != .add and op != .mul) return null;
+    const vector_storage = vector.device_storage orelse return null;
+    const scalar_storage = scalar.device_storage orelse return null;
+    if (vector_storage.len == 0 or scalar_storage.len != 1) return null;
+
+    var out = try array_mod.Array(T).emptyOn(vector.allocator, vector.shape, vector.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+    const n = vector.shape[0];
+    const matrix_shape = [_]usize{ 1, n };
+    const matrix_strides = [_]usize{ n, 1 };
+    const bias_shape = [_]usize{n};
+    const bias_strides = [_]usize{0};
+    const input_descriptor = describeDeviceBufferMemRef(T, vector_storage, matrix_shape[0..], matrix_strides[0..], "input") catch {
+        out.deinit();
+        return null;
+    };
+    const bias_descriptor = describeDeviceBufferMemRef(T, scalar_storage, bias_shape[0..], bias_strides[0..], "bias") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeDeviceBufferMemRef(T, out_storage, matrix_shape[0..], matrix_strides[0..], "out") catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorBroadcastBinary2DSpec.fromMemRefsWithOp(
+        axiomBinaryOp(op),
+        .row,
+        input_descriptor,
+        bias_descriptor,
+        out_descriptor,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(vector.allocator);
+    const report = runtime.runCudaDeviceBroadcastBinaryMemRefs(vector.device.index, spec) catch {
+        out.deinit();
+        return null;
+    };
+    if (!report.valid()) {
+        out.deinit();
+        return null;
+    }
+    recordCudaDeviceMemRefReport("broadcast_binary2d", report);
+    return out;
+}
+
 fn tryDeviceBroadcastBinary(comptime T: type, op: BinaryOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
     if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;

@@ -2908,6 +2908,7 @@ pub fn elementwiseScalar(
 }
 
 pub fn tryElementwiseScalarBroadcastDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try tryCudaDeviceScalarArrayBroadcast(T, op, defaultTargetForDevice(lhs.device), lhs, rhs)) |out| return out;
     if (lhs.data.len == rhs.data.len) return null;
     if (lhs.data.len == 1 and rhs.data.len != 0 and scalarBroadcastPreservesVectorShape(lhs.shape, rhs.shape)) return try executeElementwiseScalarDefault(T, op, rhs, lhs.data[0], .lhs);
     if (rhs.data.len == 1 and lhs.data.len != 0 and scalarBroadcastPreservesVectorShape(rhs.shape, lhs.shape)) return try executeElementwiseScalarDefault(T, op, lhs, rhs.data[0], .rhs);
@@ -2916,9 +2917,32 @@ pub fn tryElementwiseScalarBroadcastDefault(comptime T: type, op: ElementwiseOp,
 
 pub fn tryElementwiseScalarBroadcast(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     const target = policyExecutionTarget(policy);
+    if (try tryCudaDeviceScalarArrayBroadcast(T, op, target, lhs, rhs)) |out| return out;
     if (lhs.data.len == rhs.data.len) return null;
     if (lhs.data.len == 1 and rhs.data.len != 0 and scalarBroadcastPreservesVectorShape(lhs.shape, rhs.shape)) return try executeElementwiseScalar(T, op, target, rhs, lhs.data[0], .lhs);
     if (rhs.data.len == 1 and lhs.data.len != 0 and scalarBroadcastPreservesVectorShape(rhs.shape, lhs.shape)) return try executeElementwiseScalar(T, op, target, lhs, rhs.data[0], .rhs);
+    return null;
+}
+
+fn tryCudaDeviceScalarArrayBroadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .cuda or !lhs.device.sameDevice(rhs.device) or !lhs.device.isCuda()) return null;
+    const lhs_scalar = lhs.numel() == 1;
+    const rhs_scalar = rhs.numel() == 1;
+    if (lhs_scalar == rhs_scalar) return null;
+    const scalar_left = lhs_scalar;
+    const vector = if (scalar_left) rhs else lhs;
+    const scalar = if (scalar_left) lhs else rhs;
+    if (vector.shape.len != 1) return null;
+    const cuda_op = cudaBinaryOp(op);
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceVectorScalarBroadcastF32(cuda_op, @as(array_mod.Array(f32), vector), @as(array_mod.Array(f32), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceVectorScalarBroadcastF64(cuda_op, @as(array_mod.Array(f64), vector), @as(array_mod.Array(f64), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_cuda.tryDeviceVectorScalarBroadcastF16(cuda_op, @as(array_mod.Array(f16), vector), @as(array_mod.Array(f16), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_cuda.tryDeviceVectorScalarBroadcastBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), vector), @as(array_mod.Array(array_mod.BFloat16), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
+    }
     return null;
 }
 

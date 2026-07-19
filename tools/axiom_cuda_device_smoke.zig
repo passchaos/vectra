@@ -129,7 +129,25 @@ pub fn main(init: std.process.Init) !void {
         defer sum.deinit();
         var sum_host = try sum.cpu();
         defer sum_host.deinit();
-        direct_add_ok = sum.device.isCuda() and sum.device_storage != null and equalF32(sum_host.data, &.{ 2, 3, 4, 5 });
+        var vector = try lhs.reshape(&.{4});
+        defer vector.deinit();
+        var vector_scalar = try vx.Array(f32).fromSliceOn(allocator, &.{2}, &.{1}, vx.cuda(0));
+        defer vector_scalar.deinit();
+        var vector_scalar_div = try vector.div(vector_scalar);
+        defer vector_scalar_div.deinit();
+        var vector_scalar_div_host = try vector_scalar_div.cpu();
+        defer vector_scalar_div_host.deinit();
+        const vector_scalar_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        direct_add_ok = sum.device.isCuda() and sum.device_storage != null and
+            equalF32(sum_host.data, &.{ 2, 3, 4, 5 }) and
+            vector_scalar_div.device.isCuda() and
+            vector_scalar_div.device_storage != null and
+            vector_scalar_report.valid() and
+            std.mem.eql(u8, vector_scalar_report.operation, "broadcast_binary2d") and
+            approxF32(vector_scalar_div_host.data[0], 0.5, 0.0001) and
+            approxF32(vector_scalar_div_host.data[1], 1.0, 0.0001) and
+            approxF32(vector_scalar_div_host.data[2], 1.5, 0.0001) and
+            approxF32(vector_scalar_div_host.data[3], 2.0, 0.0001);
 
         var squared = try lhs.square();
         defer squared.deinit();
