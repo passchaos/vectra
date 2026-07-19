@@ -55,7 +55,7 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
   (`abs/square/sqrt/exp/log/exp2/expm1/log1p/log2/log10/sin/cos/tan`), matmul/matmulAdd,
   transpose, broadcast-add, reductions, softmax, and logSoftmax, plus f16
   same-shape elementwise/scalar/abs/square/sqrt/exp, 2D matmul, transpose,
-  broadcast-add, and sum/prod/min/max reductions, covered by
+  broadcast-add, sum/prod/min/max reductions, softmax, and logSoftmax, covered by
   `axiom-mps-storage-smoke`.  Remaining MPS dtypes/shapes still need runtime
   parity.
 - Strided/transposed device GEMM lowering: Axiom now supports contiguous and

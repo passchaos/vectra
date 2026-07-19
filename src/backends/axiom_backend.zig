@@ -2683,6 +2683,8 @@ fn executeCudaSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) arr
 fn executeMpsLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_mps.trySoftmaxF32(.log_softmax, @as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.trySoftmaxF16(.log_softmax, @as(array_mod.Array(f16), input), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2690,6 +2692,8 @@ fn executeMpsLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) a
 fn executeMpsSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_mps.trySoftmaxF32(.softmax, @as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.trySoftmaxF16(.softmax, @as(array_mod.Array(f16), input), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3797,7 +3801,7 @@ fn supportedSoftmaxExecution(comptime T: type, target: DialectBackend, input: ar
     return switch (target) {
         .cpu => false,
         .cuda => input.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
-        .mps => input.device.isMps() and T == f32 and input.device_storage != null,
+        .mps => input.device.isMps() and (T == f32 or T == f16) and input.device_storage != null,
     };
 }
 

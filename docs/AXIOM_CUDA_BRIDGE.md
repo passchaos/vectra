@@ -48,7 +48,7 @@ that can execute today.  On macOS that means real shared-buffer storage plus f32
 (`abs/square/sqrt/exp/log/exp2/expm1/log1p/log2/log10/sin/cos/tan`), matmul,
 transpose, broadcast-add, reductions, softmax, and logSoftmax, plus f16
 same-shape elementwise/scalar/abs/square/sqrt/exp, 2D matmul, transpose,
-broadcast-add, and sum/prod/min/max reductions; remaining MPS dtype/shape
+broadcast-add, sum/prod/min/max reductions, softmax, and logSoftmax; remaining MPS dtype/shape
 coverage stays capability-gated.
 
 ## CUDA owning-array behavior
