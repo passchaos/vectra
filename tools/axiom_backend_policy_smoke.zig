@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const vx = @import("vectra");
 
 pub fn main(init: std.process.Init) !void {
@@ -8,7 +9,9 @@ pub fn main(init: std.process.Init) !void {
     var b = try vx.Array(f32).fromSlice(allocator, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
     defer b.deinit();
     vx.resetDefaultDialectBackend();
-    const default_cpu_policy = vx.axiom_backend.defaultBackendPolicy();
+    const platform_default_backend = vx.defaultDialectBackend();
+    const platform_default_policy = vx.axiom_backend.defaultBackendPolicy();
+    const platform_default_execution_target = vx.defaultExecutionTarget();
     vx.setDefaultDialectBackend(.cuda);
     const default_cuda_policy = vx.axiom_backend.defaultBackendPolicy();
     vx.setDefaultDialectBackend(.mps);
@@ -313,10 +316,13 @@ pub fn main(init: std.process.Init) !void {
         equalBF16(bf16_view_neg.data, &.{ -1, -2, -3, -4 }, 0.125) and
         equalBF16(bf16_view_square.data, &.{ 1, 4, 9, 16 }, 0.125) and
         equalBF16(bf16_view_reciprocal.data, &.{ 1, 0.5, 0.33333334, 0.25 }, 0.01);
-    const default_policy_ok = default_cpu_policy == .prefer_axiom_cpu and
+    const expected_platform_default_backend: vx.DialectBackend = if (builtin.os.tag == .macos) .mps else .cpu;
+    const default_policy_ok = platform_default_backend == expected_platform_default_backend and
+        platform_default_policy == .prefer_axiom_cpu and
         default_cuda_policy == .prefer_cuda and
         default_mps_policy == .prefer_axiom_cpu;
     const dynamic_execution_ok = default_cuda_execution_target == .cuda and
+        platform_default_execution_target == .cpu and
         default_mps_execution_target == .cpu and
         default_mps_fallback_execution_target == .cpu and
         cpu_device_target == .cpu and
@@ -329,8 +335,12 @@ pub fn main(init: std.process.Init) !void {
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"view_scalar_ok\":{},\"view64_ok\":{},\"view64_scalar_ok\":{},\"view16_ok\":{},\"view16_scalar_ok\":{},\"view_bf16_ok\":{},\"view_bf16_scalar_ok\":{},\"view_unary_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"default_cpu_policy\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{}",
-        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view_scalar_ok, view64_ok, view64_scalar_ok, view16_ok, view16_scalar_ok, view_bf16_ok, view_bf16_scalar_ok, view_unary_ok, default_policy_ok, dynamic_execution_ok, default_cpu_policy.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label(), cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled },
+        "{{\"kind\":\"vectra_axiom_backend_policy_smoke\",\"ok\":{},\"matmul_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"view_ok\":{},\"view_scalar_ok\":{},\"view64_ok\":{},\"view64_scalar_ok\":{},\"view16_ok\":{},\"view16_scalar_ok\":{},\"view_bf16_ok\":{},\"view_bf16_scalar_ok\":{},\"view_unary_ok\":{},\"default_policy_ok\":{},\"dynamic_execution_ok\":{},\"platform_default_backend\":\"{s}\",\"platform_default_policy\":\"{s}\",\"platform_default_execution_target\":\"{s}\",\"default_cuda_policy\":\"{s}\",\"default_mps_policy\":\"{s}\",\"default_cuda_execution_target\":\"{s}\",\"default_mps_execution_target\":\"{s}\"",
+        .{ ok, matmul_ok, elementwise_ok, scalar_ok, view_ok, view_scalar_ok, view64_ok, view64_scalar_ok, view16_ok, view16_scalar_ok, view_bf16_ok, view_bf16_scalar_ok, view_unary_ok, default_policy_ok, dynamic_execution_ok, platform_default_backend.label(), platform_default_policy.label(), platform_default_execution_target.label(), default_cuda_policy.label(), default_mps_policy.label(), default_cuda_execution_target.label(), default_mps_fallback_execution_target.label() },
+    );
+    try stdout.interface.print(
+        ",\"cpu_device_target\":\"{s}\",\"cuda_device_target\":\"{s}\",\"mps_device_target\":\"{s}\",\"selected\":\"{s}\",\"matmul64_selected\":\"{s}\",\"elementwise32_selected\":\"{s}\",\"elementwise64_selected\":\"{s}\",\"elementwise64_cuda_selected\":\"{s}\",\"scalar64_selected\":\"{s}\",\"scalar64_cuda_selected\":\"{s}\",\"cpu_enabled\":{},\"cuda_enabled\":{}",
+        .{ cpu_device_target.label(), cuda_device_target.label(), mps_device_target.label(), report.selected.label(), matmul64_report.selected.label(), ew32_report.selected.label(), ew64_report.selected.label(), ew64_cuda_report.selected.label(), scalar64_report.selected.label(), scalar64_cuda_report.selected.label(), report.axiom_cpu_enabled, report.axiom_cuda_enabled },
     );
     try stdout.interface.print(
         ",\"cpu_view_runtime_ok\":{},\"cpu_view_runtime_fingerprint\":{d},\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view_scalar_fingerprint\":{d},\"view64_fingerprint\":{d},\"view64_scalar_fingerprint\":{d},\"view16_fingerprint\":{d},\"view16_scalar_fingerprint\":{d},\"view_bf16_fingerprint\":{d},\"view_bf16_scalar_fingerprint\":{d},\"view_unary_fingerprint\":{d}}}\n",

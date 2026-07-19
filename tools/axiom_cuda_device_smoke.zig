@@ -8,9 +8,10 @@ pub fn main(init: std.process.Init) !void {
     var host = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3, 4 }, &.{4});
     defer host.deinit();
 
+    const cuda_available = vx.Device.cuda(0).isAvailable();
     var maybe_device = try vx.axiom_backend.cuda.toDeviceF32(allocator, host);
     const status: []const u8 = if (maybe_device != null) "allocated" else if (vx.axiom_backend.cuda.enabled()) "unavailable" else "disabled";
-    var ok = !vx.axiom_backend.cuda.enabled() or maybe_device != null;
+    var ok = !cuda_available or maybe_device != null;
     var fingerprint: u64 = 0;
     var bytes: usize = 0;
     if (maybe_device) |*device| {
@@ -20,67 +21,67 @@ pub fn main(init: std.process.Init) !void {
         bytes = device.required_bytes;
     }
 
-    var direct_storage_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_shape_view_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_add_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_square_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_unary_scalar_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_norm_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_reduction_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_broadcast_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_transpose_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_softmax_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_log_softmax_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_ternary_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_matmul_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_bmm_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_batched_matmul_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_higher_rank_batched_matmul_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_broadcasted_batched_matmul_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_mixed_batched_matmul_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_rank3_scalar_broadcast_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_rank3_lastdim_broadcast_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_rank3_middle_broadcast_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_rank3_reduction_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_batched_matvec_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_batched_vecmat_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_dot_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_inner_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_outer_ok = !vx.axiom_backend.cuda.enabled();
-    var direct_matmul_add_ok = !vx.axiom_backend.cuda.enabled();
-    var scaled_matmul_add_ok = !vx.axiom_backend.cuda.enabled();
-    var chained_matmul_add_ok = !vx.axiom_backend.cuda.enabled();
-    var chained_matmul_sub_ok = !vx.axiom_backend.cuda.enabled();
-    var chained_sqrt_ok = !vx.axiom_backend.cuda.enabled();
-    var chained_exp_ok = !vx.axiom_backend.cuda.enabled();
-    var reversed_add_fusion_ok = !vx.axiom_backend.cuda.enabled();
-    var reversed_sub_fusion_ok = !vx.axiom_backend.cuda.enabled();
-    var pending_fusion_status_ok = !vx.axiom_backend.cuda.enabled();
-    var bf16_chained_sqrt_ok = !vx.axiom_backend.cuda.enabled();
-    var bf16_chained_exp_ok = !vx.axiom_backend.cuda.enabled();
-    var bf16_bmm_ok = !vx.axiom_backend.cuda.enabled();
-    var bf16_scalar_mul_ok = !vx.axiom_backend.cuda.enabled();
-    var bf16_broadcast_ok = !vx.axiom_backend.cuda.enabled();
-    var bf16_reduction_ok = !vx.axiom_backend.cuda.enabled();
-    var bf16_transpose_ok = !vx.axiom_backend.cuda.enabled();
-    var bf16_softmax_ok = !vx.axiom_backend.cuda.enabled();
-    var bf16_log_softmax_ok = !vx.axiom_backend.cuda.enabled();
-    var f16_activation_ok = !vx.axiom_backend.cuda.enabled();
-    var f16_bmm_ok = !vx.axiom_backend.cuda.enabled();
-    var f16_broadcast_ok = !vx.axiom_backend.cuda.enabled();
-    var f16_reduction_ok = !vx.axiom_backend.cuda.enabled();
-    var f16_transpose_ok = !vx.axiom_backend.cuda.enabled();
-    var f16_softmax_ok = !vx.axiom_backend.cuda.enabled();
-    var f16_log_softmax_ok = !vx.axiom_backend.cuda.enabled();
-    var f64_matmul_ok = !vx.axiom_backend.cuda.enabled();
-    var f64_bmm_ok = !vx.axiom_backend.cuda.enabled();
-    var f64_elementwise_ok = !vx.axiom_backend.cuda.enabled();
-    var f64_transpose_ok = !vx.axiom_backend.cuda.enabled();
-    var f64_broadcast_ok = !vx.axiom_backend.cuda.enabled();
-    var f64_reduction_ok = !vx.axiom_backend.cuda.enabled();
-    var f64_softmax_ok = !vx.axiom_backend.cuda.enabled();
-    var f64_log_softmax_ok = !vx.axiom_backend.cuda.enabled();
-    var f64_matmul_add_ok = !vx.axiom_backend.cuda.enabled();
+    var direct_storage_ok = !cuda_available;
+    var direct_shape_view_ok = !cuda_available;
+    var direct_add_ok = !cuda_available;
+    var direct_square_ok = !cuda_available;
+    var direct_unary_scalar_ok = !cuda_available;
+    var direct_norm_ok = !cuda_available;
+    var direct_reduction_ok = !cuda_available;
+    var direct_broadcast_ok = !cuda_available;
+    var direct_transpose_ok = !cuda_available;
+    var direct_softmax_ok = !cuda_available;
+    var direct_log_softmax_ok = !cuda_available;
+    var direct_ternary_ok = !cuda_available;
+    var direct_matmul_ok = !cuda_available;
+    var direct_bmm_ok = !cuda_available;
+    var direct_batched_matmul_ok = !cuda_available;
+    var direct_higher_rank_batched_matmul_ok = !cuda_available;
+    var direct_broadcasted_batched_matmul_ok = !cuda_available;
+    var direct_mixed_batched_matmul_ok = !cuda_available;
+    var direct_rank3_scalar_broadcast_ok = !cuda_available;
+    var direct_rank3_lastdim_broadcast_ok = !cuda_available;
+    var direct_rank3_middle_broadcast_ok = !cuda_available;
+    var direct_rank3_reduction_ok = !cuda_available;
+    var direct_batched_matvec_ok = !cuda_available;
+    var direct_batched_vecmat_ok = !cuda_available;
+    var direct_dot_ok = !cuda_available;
+    var direct_inner_ok = !cuda_available;
+    var direct_outer_ok = !cuda_available;
+    var direct_matmul_add_ok = !cuda_available;
+    var scaled_matmul_add_ok = !cuda_available;
+    var chained_matmul_add_ok = !cuda_available;
+    var chained_matmul_sub_ok = !cuda_available;
+    var chained_sqrt_ok = !cuda_available;
+    var chained_exp_ok = !cuda_available;
+    var reversed_add_fusion_ok = !cuda_available;
+    var reversed_sub_fusion_ok = !cuda_available;
+    var pending_fusion_status_ok = !cuda_available;
+    var bf16_chained_sqrt_ok = !cuda_available;
+    var bf16_chained_exp_ok = !cuda_available;
+    var bf16_bmm_ok = !cuda_available;
+    var bf16_scalar_mul_ok = !cuda_available;
+    var bf16_broadcast_ok = !cuda_available;
+    var bf16_reduction_ok = !cuda_available;
+    var bf16_transpose_ok = !cuda_available;
+    var bf16_softmax_ok = !cuda_available;
+    var bf16_log_softmax_ok = !cuda_available;
+    var f16_activation_ok = !cuda_available;
+    var f16_bmm_ok = !cuda_available;
+    var f16_broadcast_ok = !cuda_available;
+    var f16_reduction_ok = !cuda_available;
+    var f16_transpose_ok = !cuda_available;
+    var f16_softmax_ok = !cuda_available;
+    var f16_log_softmax_ok = !cuda_available;
+    var f64_matmul_ok = !cuda_available;
+    var f64_bmm_ok = !cuda_available;
+    var f64_elementwise_ok = !cuda_available;
+    var f64_transpose_ok = !cuda_available;
+    var f64_broadcast_ok = !cuda_available;
+    var f64_reduction_ok = !cuda_available;
+    var f64_softmax_ok = !cuda_available;
+    var f64_log_softmax_ok = !cuda_available;
+    var f64_matmul_add_ok = !cuda_available;
     var elementwise_binary_memref_fingerprint: u64 = 0;
     var elementwise_unary_memref_fingerprint: u64 = 0;
     var gemm_memref_fingerprint: u64 = 0;
@@ -96,7 +97,7 @@ pub fn main(init: std.process.Init) !void {
     var transpose_memref_fingerprint: u64 = 0;
     var softmax_memref_fingerprint: u64 = 0;
     var log_softmax_memref_fingerprint: u64 = 0;
-    if (vx.Device.cuda(0).isAvailable()) {
+    if (cuda_available) {
         var lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 }, vx.cuda(0));
         defer lhs.deinit();
         var rhs = try vx.Array(f32).onesOn(allocator, &.{ 2, 2 }, vx.cuda(0));
@@ -2101,7 +2102,6 @@ pub fn main(init: std.process.Init) !void {
             f64_chained.fusionStatus() == .cuda_matmul_add and
             equalF64(f64_chained_host.data, &.{ 4, 4, 8, 8 });
     }
-    const cuda_available = vx.Device.cuda(0).isAvailable();
     const memref_fingerprints_ok = !cuda_available or
         (elementwise_binary_memref_fingerprint != 0 and
             elementwise_unary_memref_fingerprint != 0 and

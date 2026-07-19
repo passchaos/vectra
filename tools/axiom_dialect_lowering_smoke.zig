@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const vx = @import("vectra");
 
 pub fn main(init: std.process.Init) !void {
@@ -56,6 +57,8 @@ pub fn main(init: std.process.Init) !void {
     const softmax_mps_runtime = vx.axiom_backend.softmaxRuntimeCapability(.mps);
     const log_softmax_mps_runtime = vx.axiom_backend.logSoftmaxRuntimeCapability(.mps);
     vx.resetDefaultDialectBackend();
+    const platform_default_backend = vx.defaultDialectBackend();
+    const expected_platform_default_backend: vx.DialectBackend = if (builtin.os.tag == .macos) .mps else .cpu;
     const ok = cpu_report.ok() and cuda_report.ok() and mps_report.ok() and
         default_cuda_report.ok() and default_mps_report.ok() and
         elementwise_cuda_report.ok() and elementwise_mps_report.ok() and
@@ -108,16 +111,17 @@ pub fn main(init: std.process.Init) !void {
         std.mem.eql(u8, reduction_mps_report.launch_backend, "mps_planned") and
         mps_runtime.status == .planned and
         !mps_runtime.ok() and
-        vx.defaultDialectBackend() == .cpu and
+        platform_default_backend == expected_platform_default_backend and
         cpu_report.registration.ok() and
         cuda_report.cuda_tile_projection_fingerprint != 0;
 
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_cuda_runtime_status\":\"{s}\",\"reduction_cuda_runtime_fingerprint\":{d},\"reduction_mps_status\":\"{s}\",\"reduction_mps_runtime_status\":\"{s}\",\"reduction_mps_runtime_fingerprint\":{d},\"mps_launch_backend\":\"{s}\",\"mps_runtime_status\":\"{s}\",\"mps_runtime_fingerprint\":{d},\"broadcast_cuda_status\":\"{s}\",\"broadcast_cuda_runtime_status\":\"{s}\",\"broadcast_cuda_runtime_fingerprint\":{d},\"broadcast_mps_status\":\"{s}\",\"broadcast_mps_runtime_status\":\"{s}\",\"broadcast_mps_runtime_fingerprint\":{d}",
+        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"platform_default_backend\":\"{s}\",\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_cuda_runtime_status\":\"{s}\",\"reduction_cuda_runtime_fingerprint\":{d},\"reduction_mps_status\":\"{s}\",\"reduction_mps_runtime_status\":\"{s}\",\"reduction_mps_runtime_fingerprint\":{d},\"mps_launch_backend\":\"{s}\",\"mps_runtime_status\":\"{s}\",\"mps_runtime_fingerprint\":{d},\"broadcast_cuda_status\":\"{s}\",\"broadcast_cuda_runtime_status\":\"{s}\",\"broadcast_cuda_runtime_fingerprint\":{d},\"broadcast_mps_status\":\"{s}\",\"broadcast_mps_runtime_status\":\"{s}\",\"broadcast_mps_runtime_fingerprint\":{d}",
         .{
             ok,
+            platform_default_backend.label(),
             cpu_report.status.label(),
             cuda_report.status.label(),
             mps_report.status.label(),

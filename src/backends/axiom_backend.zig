@@ -7,6 +7,7 @@
 //! grows a fully public execution ABI for every operation.
 
 const std = @import("std");
+const builtin = @import("builtin");
 const build_options = @import("vectra_build_options");
 const array_mod = @import("../array.zig");
 const axiom = @import("axiom");
@@ -470,7 +471,11 @@ pub fn transferStorage(dst: StorageDestination, src: StorageSource) array_mod.Ar
     };
 }
 
-threadlocal var default_dialect_backend: DialectBackend = .cpu;
+fn platformDefaultDialectBackend() DialectBackend {
+    return if (builtin.os.tag == .macos) .mps else .cpu;
+}
+
+threadlocal var default_dialect_backend: DialectBackend = platformDefaultDialectBackend();
 
 pub fn setDefaultDialectBackend(backend: DialectBackend) void {
     default_dialect_backend = backend;
@@ -481,7 +486,7 @@ pub fn defaultDialectBackend() DialectBackend {
 }
 
 pub fn resetDefaultDialectBackend() void {
-    default_dialect_backend = .cpu;
+    default_dialect_backend = platformDefaultDialectBackend();
 }
 
 pub fn tensorElementType(comptime T: type) ?axiom.accelerator.TensorElementType {
@@ -3879,7 +3884,11 @@ test "Axiom dialect lowering reports linalg memref gpu route" {
     try std.testing.expectEqual(DialectMatmulLoweringStatus.planned_mps, mps_report.status);
 
     resetDefaultDialectBackend();
-    try std.testing.expectEqual(DialectBackend.cpu, defaultDialectBackend());
+    const platform_default = if (builtin.os.tag == .macos) DialectBackend.mps else DialectBackend.cpu;
+    try std.testing.expectEqual(platform_default, defaultDialectBackend());
+    const platform_default_report = try lowerMatmulDialectDefault(f32, a, b);
+    try std.testing.expect(platform_default_report.ok());
+    try std.testing.expectEqual(if (builtin.os.tag == .macos) DialectMatmulLoweringStatus.planned_mps else DialectMatmulLoweringStatus.lowered_cpu, platform_default_report.status);
     setDefaultDialectBackend(.cuda);
     const default_cuda_report = try lowerMatmulDialectDefault(f32, a, b);
     try std.testing.expect(default_cuda_report.ok());
@@ -4095,10 +4104,17 @@ test "Axiom backend policy reports elementwise route" {
     var scalar_lhs = try array_mod.Array(f32).fromSlice(gpa, &.{2}, &.{1});
     defer scalar_lhs.deinit();
     const scalar_broadcast = try tryElementwiseScalarBroadcast(f32, .sub, .prefer_cuda, scalar_lhs, rhs32);
-    try std.testing.expect(scalar_broadcast != null);
-    var scalar_broadcast_out = scalar_broadcast.?;
-    defer scalar_broadcast_out.deinit();
-    try std.testing.expectEqualSlices(f32, &.{ -8, -18, -28, -38 }, scalar_broadcast_out.data);
+    if (array_mod.Device.cuda(0).isAvailable()) {
+        try std.testing.expect(scalar_broadcast != null);
+        var scalar_broadcast_out = scalar_broadcast.?;
+        defer scalar_broadcast_out.deinit();
+        try std.testing.expectEqualSlices(f32, &.{ -8, -18, -28, -38 }, scalar_broadcast_out.data);
+    } else {
+        try std.testing.expect(scalar_broadcast == null);
+        var scalar_broadcast_cpu = try elementwiseScalar(f32, .sub, .prefer_axiom_cpu, rhs32, 2.0, .lhs);
+        defer scalar_broadcast_cpu.deinit();
+        try std.testing.expectEqualSlices(f32, &.{ -8, -18, -28, -38 }, scalar_broadcast_cpu.data);
+    }
 
     var leading_singleton = try array_mod.Array(f32).fromSlice(gpa, &.{2}, &.{ 1, 1, 1 });
     defer leading_singleton.deinit();
