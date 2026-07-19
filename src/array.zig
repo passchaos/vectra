@@ -19110,7 +19110,29 @@ pub fn Array(comptime T: type) type {
                 return out;
             }
 
-            if (self.data.len == 0) return error.EmptyArray;
+            if (self.numel() == 0) return error.EmptyArray;
+            if (self.data.len == 0) {
+                var mean_value = try self.mean(null, false);
+                defer mean_value.deinit();
+                var centered = try self.sub(mean_value);
+                defer centered.deinit();
+                var squared = try centered.square();
+                defer squared.deinit();
+                var total = try squared.sum(null, false);
+                errdefer total.deinit();
+                const denom = castValue(T, self.numel()) - correction;
+                var scaled = try total.divScalar(denom);
+                total.deinit();
+                errdefer scaled.deinit();
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    const reshaped = try scaled.reshape(out_shape);
+                    scaled.deinit();
+                    return reshaped;
+                }
+                return scaled;
+            }
             var mean_value: T = zero(T);
             for (self.data) |v| mean_value += v;
             mean_value /= castValue(T, self.data.len);
@@ -19136,6 +19158,7 @@ pub fn Array(comptime T: type) type {
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
             if (axes.len == 0) return self.clone();
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.variance(null, keepdims, correction);
             const normalized_axes = try normalizeUniqueAxes(self.allocator, axes, self.shape.len);
             defer self.allocator.free(normalized_axes);
             var reduce_mask = try self.allocator.alloc(bool, self.shape.len);
@@ -19242,14 +19265,24 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
-            const out = try self.variance(axis_opt, keepdims, correction);
+            var out = try self.variance(axis_opt, keepdims, correction);
+            if (out.data.len == 0) {
+                const result = try out.sqrt();
+                out.deinit();
+                return result;
+            }
             for (out.data) |*v| v.* = std.math.sqrt(v.*);
             return out;
         }
 
         pub fn stddevAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
-            const out = try self.varianceAxes(axes, keepdims, correction);
+            var out = try self.varianceAxes(axes, keepdims, correction);
+            if (out.data.len == 0) {
+                const result = try out.sqrt();
+                out.deinit();
+                return result;
+            }
             for (out.data) |*value| value.* = std.math.sqrt(value.*);
             return out;
         }

@@ -241,6 +241,18 @@ pub fn main(init: std.process.Init) !void {
         defer all_axes_mean_keep.deinit();
         var all_axes_mean_keep_host = try all_axes_mean_keep.cpu();
         defer all_axes_mean_keep_host.deinit();
+        var flat_var = try lhs.variance(null, false, 0.0);
+        defer flat_var.deinit();
+        var flat_var_host = try flat_var.cpu();
+        defer flat_var_host.deinit();
+        var flat_std_keep = try lhs.stddev(null, true, 0.0);
+        defer flat_std_keep.deinit();
+        var flat_std_keep_host = try flat_std_keep.cpu();
+        defer flat_std_keep_host.deinit();
+        var all_axes_var = try lhs.varianceAxes(&.{ 0, 1 }, false, 0.0);
+        defer all_axes_var.deinit();
+        var all_axes_var_host = try all_axes_var.cpu();
+        defer all_axes_var_host.deinit();
         reduction_memref_fingerprint = reduction_report.memref_spec_fingerprint;
         direct_reduction_ok = row_sum.device.isCuda() and row_sum.device_storage != null and
             reduction_report.valid() and
@@ -283,7 +295,16 @@ pub fn main(init: std.process.Init) !void {
             equalF32(all_axes_mean_host.data, &.{2.5}) and
             all_axes_mean_keep.device.isCuda() and all_axes_mean_keep.device_storage != null and
             std.mem.eql(usize, all_axes_mean_keep_host.shape, &.{ 1, 1 }) and
-            equalF32(all_axes_mean_keep_host.data, &.{2.5});
+            equalF32(all_axes_mean_keep_host.data, &.{2.5}) and
+            flat_var.device.isCuda() and flat_var.device_storage != null and
+            std.mem.eql(usize, flat_var_host.shape, &.{}) and
+            approxF32(flat_var_host.data[0], 1.25, 0.0001) and
+            flat_std_keep.device.isCuda() and flat_std_keep.device_storage != null and
+            std.mem.eql(usize, flat_std_keep_host.shape, &.{ 1, 1 }) and
+            approxF32(flat_std_keep_host.data[0], std.math.sqrt(@as(f32, 1.25)), 0.0001) and
+            all_axes_var.device.isCuda() and all_axes_var.device_storage != null and
+            std.mem.eql(usize, all_axes_var_host.shape, &.{}) and
+            approxF32(all_axes_var_host.data[0], 1.25, 0.0001);
 
         var row_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 10, 20 }, &.{2}, vx.cuda(0));
         defer row_bias.deinit();
