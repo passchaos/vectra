@@ -2170,6 +2170,11 @@ pub fn tryDeviceLastDimBroadcastF32(op: BinaryOp, input: array_mod.Array(f32), b
     return tryDeviceLastDimBroadcast(f32, op, input, bias, bias_left);
 }
 
+pub fn tryDeviceBroadcastF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (try tryDeviceGenericBroadcastF32(op, lhs, rhs)) |out| return out;
+    return null;
+}
+
 pub fn tryDeviceVectorScalarBroadcastF64(op: BinaryOp, vector: array_mod.Array(f64), scalar: array_mod.Array(f64), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryDeviceContiguousScalarBroadcast(f64, op, vector, scalar, scalar_left);
 }
@@ -2344,6 +2349,127 @@ fn tryDeviceLastDimBroadcast(comptime T: type, op: BinaryOp, input: array_mod.Ar
     }
     recordCudaDeviceMemRefReport(if (op == .add and !bias_left) "broadcast_add2d" else "broadcast_binary2d", report);
     return out;
+}
+
+fn tryDeviceGenericBroadcastF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const out_shape = broadcastShapeStack(lhs.shape, rhs.shape) orelse return null;
+    if (out_shape.rank == 0 or out_shape.rank > 4) return null;
+    var out_dims = [_]usize{ 1, 1, 1, 1 };
+    alignTrailingDims(out_shape.dims[0..out_shape.rank], &out_dims);
+    const lhs_strides = broadcastDeviceStrides(lhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
+    const rhs_strides = broadcastDeviceStrides(rhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
+    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, out_shape.dims[0..out_shape.rank], lhs.device);
+    errdefer out.deinit();
+    const lhs_storage = lhs.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+    const rhs_storage = rhs.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+    if (lhs_storage.len == 0 or rhs_storage.len == 0 or out_storage.len == 0) {
+        out.deinit();
+        return null;
+    }
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const report = runtime.runCudaDeviceBroadcast4F32(
+        lhs.device.index,
+        axiomBinaryOp(op),
+        false,
+        out_shape.rank,
+        out_dims,
+        lhs_strides,
+        rhs_strides,
+        lhs_storage.ptr,
+        rhs_storage.ptr,
+        out_storage.ptr,
+        broadcast4SpecFingerprint(op, out_dims, lhs_strides, rhs_strides),
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    if (!report.valid()) {
+        out.deinit();
+        return null;
+    }
+    recordCudaDeviceMemRefReport("broadcast4_f32", report);
+    return out;
+}
+
+const StackBroadcastShape = struct {
+    rank: u8 = 0,
+    dims: [4]usize = .{ 1, 1, 1, 1 },
+};
+
+fn broadcastShapeStack(lhs_shape: []const usize, rhs_shape: []const usize) ?StackBroadcastShape {
+    const rank = @max(lhs_shape.len, rhs_shape.len);
+    if (rank == 0 or rank > 4) return null;
+    var shape: StackBroadcastShape = .{ .rank = @intCast(rank) };
+    var index: usize = 0;
+    while (index < rank) : (index += 1) {
+        const lhs_dim: usize = if (index >= rank - lhs_shape.len) lhs_shape[index - (rank - lhs_shape.len)] else 1;
+        const rhs_dim: usize = if (index >= rank - rhs_shape.len) rhs_shape[index - (rank - rhs_shape.len)] else 1;
+        if (lhs_dim != rhs_dim and lhs_dim != 1 and rhs_dim != 1) return null;
+        shape.dims[index] = @max(lhs_dim, rhs_dim);
+    }
+    return shape;
+}
+
+fn broadcastDeviceStrides(input_shape: []const usize, out_shape: []const usize) ?[4]usize {
+    if (input_shape.len == 0 or input_shape.len > out_shape.len or out_shape.len > 4) return null;
+    var dense_strides = [_]usize{ 0, 0, 0, 0 };
+    var stride: usize = 1;
+    var dim_index: usize = input_shape.len;
+    while (dim_index > 0) {
+        dim_index -= 1;
+        dense_strides[dim_index] = stride;
+        stride = std.math.mul(usize, stride, input_shape[dim_index]) catch return null;
+    }
+    var out_strides = [_]usize{ 0, 0, 0, 0 };
+    const rank_delta = out_shape.len - input_shape.len;
+    var out_index: usize = 0;
+    while (out_index < out_shape.len) : (out_index += 1) {
+        if (out_index < rank_delta) {
+            out_strides[out_index] = 0;
+            continue;
+        }
+        const input_index = out_index - rank_delta;
+        const input_dim = input_shape[input_index];
+        const out_dim = out_shape[out_index];
+        if (input_dim == out_dim) {
+            out_strides[out_index] = dense_strides[input_index];
+        } else if (input_dim == 1) {
+            out_strides[out_index] = 0;
+        } else {
+            return null;
+        }
+    }
+    var aligned = [_]usize{ 0, 0, 0, 0 };
+    alignTrailingDims(out_strides[0..out_shape.len], &aligned);
+    return aligned;
+}
+
+fn alignTrailingDims(values: []const usize, out: *[4]usize) void {
+    out.* = .{ 1, 1, 1, 1 };
+    const offset = 4 - values.len;
+    for (values, 0..) |value, index| out[offset + index] = value;
+}
+
+fn broadcast4SpecFingerprint(op: BinaryOp, dims: [4]usize, lhs_strides: [4]usize, rhs_strides: [4]usize) u64 {
+    var hasher = std.hash.Wyhash.init(0x0b20_a4f3_0001);
+    hashBytes(&hasher, @tagName(op));
+    for (dims) |dim| hashU64(&hasher, dim);
+    for (lhs_strides) |stride| hashU64(&hasher, stride);
+    for (rhs_strides) |stride| hashU64(&hasher, stride);
+    return hasher.final();
 }
 
 fn lastDimBiasMatches(input_shape: []const usize, bias_shape: []const usize) bool {

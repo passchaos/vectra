@@ -865,6 +865,7 @@ pub fn tryBroadcastBinary(
         if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .row)) return executeBroadcastBinary(T, op, target, rhs, lhs, .row);
         if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .column)) return executeBroadcastBinary(T, op, target, rhs, lhs, .column);
     }
+    if (try tryCudaGenericBroadcast(T, op, target, lhs, rhs)) |out| return out;
     return null;
 }
 
@@ -874,6 +875,15 @@ pub fn tryBroadcastAddDefault(comptime T: type, lhs: array_mod.Array(T), rhs: ar
 
 pub fn tryBroadcastBinaryDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     return tryBroadcastBinary(T, op, defaultTargetForDevice(lhs.device), lhs, rhs);
+}
+
+fn tryCudaGenericBroadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .cuda or !lhs.device.sameDevice(rhs.device) or !lhs.device.isCuda()) return null;
+    if (lhs.numel() == 1 or rhs.numel() == 1) return null;
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceBroadcastF32(cudaBinaryOp(op), @as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
 }
 
 fn tryCudaLastDimBroadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {

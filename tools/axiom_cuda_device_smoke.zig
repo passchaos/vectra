@@ -40,6 +40,7 @@ pub fn main(init: std.process.Init) !void {
     var direct_mixed_batched_matmul_ok = !vx.axiom_cuda.enabled();
     var direct_rank3_scalar_broadcast_ok = !vx.axiom_cuda.enabled();
     var direct_rank3_lastdim_broadcast_ok = !vx.axiom_cuda.enabled();
+    var direct_rank3_middle_broadcast_ok = !vx.axiom_cuda.enabled();
     var direct_batched_matvec_ok = !vx.axiom_cuda.enabled();
     var direct_batched_vecmat_ok = !vx.axiom_cuda.enabled();
     var direct_dot_ok = !vx.axiom_cuda.enabled();
@@ -295,6 +296,21 @@ pub fn main(init: std.process.Init) !void {
             approxF32(rank3_lastdim_keepdims_div_host.data[1], 0.1, 0.0001) and
             approxF32(rank3_lastdim_keepdims_div_host.data[2], 0.3, 0.0001) and
             approxF32(rank3_lastdim_keepdims_div_host.data[3], 0.2, 0.0001);
+        var middle_lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 1, 2 }, vx.cuda(0));
+        defer middle_lhs.deinit();
+        var middle_rhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 10, 20, 30, 40 }, &.{ 1, 2, 2 }, vx.cuda(0));
+        defer middle_rhs.deinit();
+        var middle_broadcast = try middle_lhs.add(middle_rhs);
+        defer middle_broadcast.deinit();
+        var middle_broadcast_host = try middle_broadcast.cpu();
+        defer middle_broadcast_host.deinit();
+        const middle_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        direct_rank3_middle_broadcast_ok = middle_broadcast.device.isCuda() and
+            middle_broadcast.device_storage != null and
+            middle_broadcast_report.valid() and
+            std.mem.eql(u8, middle_broadcast_report.operation, "broadcast4_f32") and
+            std.mem.eql(usize, middle_broadcast_host.shape, &.{ 2, 2, 2 }) and
+            equalF32(middle_broadcast_host.data, &.{ 11, 22, 31, 42, 13, 24, 33, 44 });
         var column_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 100, 200 }, &.{ 2, 1 }, vx.cuda(0));
         defer column_bias.deinit();
         var column_broadcast = try lhs.add(column_bias);
@@ -1781,7 +1797,7 @@ pub fn main(init: std.process.Init) !void {
             transpose_memref_fingerprint != 0 and
             softmax_memref_fingerprint != 0 and
             log_softmax_memref_fingerprint != 0);
-    ok = ok and memref_fingerprints_ok and direct_storage_ok and direct_shape_view_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_norm_ok and direct_reduction_ok and direct_broadcast_ok and direct_rank3_scalar_broadcast_ok and direct_rank3_lastdim_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_bmm_ok and direct_batched_matmul_ok and direct_higher_rank_batched_matmul_ok and direct_broadcasted_batched_matmul_ok and direct_mixed_batched_matmul_ok and direct_batched_matvec_ok and direct_batched_vecmat_ok and direct_dot_ok and direct_inner_ok and direct_outer_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_bmm_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_bmm_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_bmm_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
+    ok = ok and memref_fingerprints_ok and direct_storage_ok and direct_shape_view_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_norm_ok and direct_reduction_ok and direct_broadcast_ok and direct_rank3_scalar_broadcast_ok and direct_rank3_lastdim_broadcast_ok and direct_rank3_middle_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_bmm_ok and direct_batched_matmul_ok and direct_higher_rank_batched_matmul_ok and direct_broadcasted_batched_matmul_ok and direct_mixed_batched_matmul_ok and direct_batched_matvec_ok and direct_batched_vecmat_ok and direct_dot_ok and direct_inner_ok and direct_outer_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_bmm_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_bmm_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_bmm_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
@@ -1796,8 +1812,8 @@ pub fn main(init: std.process.Init) !void {
         .{ direct_rank3_scalar_broadcast_ok, direct_rank3_lastdim_broadcast_ok, bf16_transpose_ok, bf16_softmax_ok, bf16_bmm_ok, bf16_log_softmax_ok, f16_activation_ok, f16_bmm_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_bmm_ok, direct_bmm_ok, direct_batched_matmul_ok, direct_higher_rank_batched_matmul_ok, direct_broadcasted_batched_matmul_ok, direct_mixed_batched_matmul_ok, direct_batched_matvec_ok, direct_batched_vecmat_ok, direct_dot_ok, direct_inner_ok, direct_outer_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
     );
     try stdout.interface.print(
-        ",\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_backend\":\"{s}\",\"mixed_batched_gemm_backend\":\"{s}\",\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
-        .{ memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, batched_gemm_backend, mixed_batched_gemm_backend, batched_gemm_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
+        ",\"direct_rank3_middle_broadcast_ok\":{},\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_backend\":\"{s}\",\"mixed_batched_gemm_backend\":\"{s}\",\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
+        .{ direct_rank3_middle_broadcast_ok, memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, batched_gemm_backend, mixed_batched_gemm_backend, batched_gemm_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
