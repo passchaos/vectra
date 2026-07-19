@@ -31,6 +31,9 @@ pub fn main(init: std.process.Init) !void {
     const broadcast_cuda_runtime = vx.axiom_backend.broadcastAddRuntimeCapability(.cuda);
     const unary_cuda_report = try vx.axiom_backend.lowerUnaryDialectDefault(f32, lhs, .square);
     const unary_cuda_runtime = vx.axiom_backend.unaryRuntimeCapability(.cuda, .square);
+    const unary_log_cuda_report = try vx.axiom_backend.lowerUnaryDialectDefault(f32, lhs, .log);
+    const unary_log_cuda_runtime = vx.axiom_backend.unaryRuntimeCapability(.cuda, .log);
+    const unary_log_cpu_runtime = vx.axiom_backend.unaryRuntimeCapability(.cpu, .log);
     const transpose_cuda_report = try vx.axiom_backend.lowerTransposeDialectDefault(f32, lhs);
     const transpose_cuda_runtime = vx.axiom_backend.transposeRuntimeCapability(.cuda);
     const device_matmul_cuda_report = try vx.axiom_backend.lowerMatmulDialect(f32, lhs_cuda_lowering, rhs_cuda_lowering, .cuda);
@@ -69,6 +72,9 @@ pub fn main(init: std.process.Init) !void {
         broadcast_mps_report.status == .planned_mps and
         unary_cuda_report.status == .lowered_cuda and
         unary_cuda_runtime.status == .executable and
+        unary_log_cuda_report.status == .lowered_cuda and
+        unary_log_cuda_runtime.status == .executable and
+        unary_log_cpu_runtime.status == .executable and
         unary_mps_report.status == .planned_mps and
         transpose_cuda_report.status == .lowered_cuda and
         transpose_cuda_runtime.status == .executable and
@@ -121,11 +127,14 @@ pub fn main(init: std.process.Init) !void {
         },
     );
     try stdout.interface.print(
-        ",\"unary_cuda_status\":\"{s}\",\"unary_cuda_runtime_status\":\"{s}\",\"unary_cuda_runtime_fingerprint\":{d},\"unary_mps_status\":\"{s}\",\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"device_matmul_cuda_status\":\"{s}\",\"device_elementwise_cuda_status\":\"{s}\",\"device_reduction_cuda_status\":\"{s}\",\"device_broadcast_cuda_status\":\"{s}\",\"device_unary_cuda_status\":\"{s}\",\"device_transpose_cuda_status\":\"{s}\",\"transpose_mps_status\":\"{s}\",\"fingerprint\":{d}}}\n",
+        ",\"unary_cuda_status\":\"{s}\",\"unary_cuda_runtime_status\":\"{s}\",\"unary_cuda_runtime_fingerprint\":{d},\"unary_log_cuda_status\":\"{s}\",\"unary_log_cuda_runtime_status\":\"{s}\",\"unary_log_cpu_runtime_status\":\"{s}\",\"unary_mps_status\":\"{s}\",\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"device_matmul_cuda_status\":\"{s}\",\"device_elementwise_cuda_status\":\"{s}\",\"device_reduction_cuda_status\":\"{s}\",\"device_broadcast_cuda_status\":\"{s}\",\"device_unary_cuda_status\":\"{s}\",\"device_transpose_cuda_status\":\"{s}\",\"transpose_mps_status\":\"{s}\",\"fingerprint\":{d}}}\n",
         .{
             unary_cuda_report.status.label(),
             unary_cuda_runtime.status.label(),
             unary_cuda_runtime.fingerprint(),
+            unary_log_cuda_report.status.label(),
+            unary_log_cuda_runtime.status.label(),
+            unary_log_cpu_runtime.status.label(),
             unary_mps_report.status.label(),
             transpose_cuda_report.status.label(),
             transpose_cuda_runtime.status.label(),

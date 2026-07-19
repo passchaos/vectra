@@ -751,18 +751,18 @@ pub fn unaryRuntimeCapability(target: DialectBackend, op: DialectUnaryOp) Runtim
         .cpu => .{
             .target = target,
             .operation = dialectUnaryRuntimeOperation(op),
-            .status = if (op == .square) .executable else .lowering_only,
-            .reason = if (op == .square)
-                "Axiom CPU square runtime is routed through Veyra unary elementwise execution."
+            .status = if (dialectUnaryRuntimeExecutable(.cpu, op)) .executable else .lowering_only,
+            .reason = if (dialectUnaryRuntimeExecutable(.cpu, op))
+                "Axiom CPU unary runtime is routed through Veyra unary elementwise execution for f32/f64 arrays."
             else
                 "Axiom CPU unary dialect lowering exists for this op, but Vectra has no dedicated eager Axiom runtime ABI for it yet.",
         },
         .cuda => .{
             .target = target,
             .operation = dialectUnaryRuntimeOperation(op),
-            .status = if (op == .square) .executable else .lowering_only,
-            .reason = if (op == .square)
-                "Axiom CUDA square eager execution is routed through the device elementwise multiply runtime."
+            .status = if (dialectUnaryRuntimeExecutable(.cuda, op)) .executable else .lowering_only,
+            .reason = if (dialectUnaryRuntimeExecutable(.cuda, op))
+                "Axiom CUDA unary runtime is available for supported dtypes through typed device unary or elementwise routes; log is currently executable for f32."
             else
                 "Axiom CUDA unary dialect lowering exists for this op, but Vectra has no dedicated eager CUDA runtime ABI for it yet.",
         },
@@ -775,11 +775,29 @@ pub fn unaryRuntimeCapability(target: DialectBackend, op: DialectUnaryOp) Runtim
     };
 }
 
+fn dialectUnaryRuntimeExecutable(target: DialectBackend, op: DialectUnaryOp) bool {
+    return switch (target) {
+        .cpu => switch (op) {
+            .abs, .square, .sqrt, .exp, .log => true,
+            .copy, .cube => false,
+        },
+        .cuda => switch (op) {
+            .abs, .square, .sqrt, .exp, .log => true,
+            .copy, .cube => false,
+        },
+        .mps => false,
+    };
+}
+
 fn dialectUnaryRuntimeOperation(op: DialectUnaryOp) []const u8 {
     return switch (op) {
         .copy => "unary.copy",
         .square => "unary.square",
         .cube => "unary.cube",
+        .abs => "unary.abs",
+        .sqrt => "unary.sqrt",
+        .exp => "unary.exp",
+        .log => "unary.log",
     };
 }
 
@@ -1528,7 +1546,11 @@ pub fn executeUnaryDefault(comptime T: type, op: ExecutionUnaryOp, input: array_
 
 pub fn executeDialectUnaryDefault(comptime T: type, op: DialectUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     return executeUnaryDefault(T, switch (op) {
+        .abs => .abs,
         .square => .square,
+        .sqrt => .sqrt,
+        .exp => .exp,
+        .log => .log,
         else => return null,
     }, input);
 }
@@ -3505,6 +3527,13 @@ test "Axiom dialect lowering reports unary generic route" {
     try std.testing.expectEqual(DialectUnaryLoweringStatus.lowered_cuda, cuda_report.status);
     try std.testing.expect(cuda_report.vector_fragment_fingerprint != 0);
     try std.testing.expect(cuda_report.gpu_mapping_fingerprint != 0);
+
+    const log_report = try lowerUnaryDialect(f32, input, .log, .cuda);
+    try std.testing.expect(log_report.ok());
+    try std.testing.expectEqual(DialectUnaryLoweringStatus.lowered_cuda, log_report.status);
+    try std.testing.expect(log_report.linalg_generic_fingerprint != cuda_report.linalg_generic_fingerprint);
+    try std.testing.expect(unaryRuntimeCapability(.cuda, .log).executable());
+    try std.testing.expect(unaryRuntimeCapability(.cpu, .log).executable());
 
     setDefaultDialectBackend(.mps);
     const default_mps_report = try lowerUnaryDialectDefault(f32, input, .cube);
