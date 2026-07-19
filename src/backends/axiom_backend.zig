@@ -650,9 +650,9 @@ pub fn defaultBackendPolicy() BackendPolicy {
     return switch (defaultDialectBackend()) {
         .cpu => .prefer_axiom_cpu,
         .cuda => .prefer_cuda,
-        // MPS has real Metal storage on macOS, but operation kernels are still
-        // capability-gated. Eager CPU arrays keep a real CPU fallback rather
-        // than pretending MPS kernels ran.
+        // CPU arrays cannot execute on MPS without an explicit device transfer.
+        // Keep default eager CPU execution on CPU; MPS-resident arrays use the
+        // MPS target through defaultTargetForDevice().
         .mps => .prefer_axiom_cpu,
     };
 }
@@ -661,8 +661,8 @@ pub fn defaultExecutionTarget() DialectBackend {
     return switch (defaultDialectBackend()) {
         .cpu => .cpu,
         .cuda => .cuda,
-        // MPS remains a valid dialect-lowering target, but eager execution must
-        // keep a real runtime path until Axiom owns a Metal/MPS storage ABI.
+        // MPS remains a valid dialect-lowering target, while eager CPU arrays
+        // keep a real CPU runtime path unless they are explicitly moved to MPS.
         // Centralizing the fallback here prevents Array methods from scattering
         // ad-hoc `.mps -> .cpu` branches.
         .mps => .cpu,
@@ -877,7 +877,12 @@ pub fn logSoftmaxRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepo
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D axis logSoftmax runtimes; other logSoftmax dtypes/shapes remain capability-gated.",
         },
-        .mps => plannedMpsRuntimeCapability("log_softmax2d"),
+        .mps => .{
+            .target = target,
+            .operation = "log_softmax2d",
+            .status = .executable,
+            .reason = "Axiom MPS exposes eager f32 2D axis logSoftmax over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+        },
     };
 }
 
@@ -895,7 +900,12 @@ pub fn softmaxRuntimeCapability(target: DialectBackend) RuntimeCapabilityReport 
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D axis softmax runtimes; other softmax dtypes/shapes remain capability-gated.",
         },
-        .mps => plannedMpsRuntimeCapability("softmax2d"),
+        .mps => .{
+            .target = target,
+            .operation = "softmax2d",
+            .status = .executable,
+            .reason = "Axiom MPS exposes eager f32 2D axis softmax over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+        },
     };
 }
 
@@ -928,7 +938,7 @@ fn plannedMpsRuntimeCapability(operation: []const u8) RuntimeCapabilityReport {
         .target = .mps,
         .operation = operation,
         .status = .planned,
-        .reason = "Axiom MPS is a planned target; eager execution stays disabled until Axiom owns Metal/MPS storage, command queues, kernels, synchronization, and runtime ABI.",
+        .reason = "This MPS operation is not in the current executable Metal kernel slice; remaining MPS dtype/shape coverage stays capability-gated.",
     };
 }
 
@@ -1727,11 +1737,11 @@ pub fn executeLogSoftmax(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!logSoftmaxRuntimeCapability(target).executable()) return null;
     if (!targetCanAccessDevice(target, input.device)) return null;
-    if (input.shape.len != 2 or !input.isContiguous()) return null;
+    if (!supportedSoftmaxExecution(T, target, input)) return null;
     return switch (target) {
         .cpu => null,
         .cuda => executeCudaLogSoftmax(T, input, axis),
-        .mps => null,
+        .mps => executeMpsLogSoftmax(T, input, axis),
     };
 }
 
@@ -1747,11 +1757,11 @@ pub fn executeSoftmax(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!softmaxRuntimeCapability(target).executable()) return null;
     if (!targetCanAccessDevice(target, input.device)) return null;
-    if (input.shape.len != 2 or !input.isContiguous()) return null;
+    if (!supportedSoftmaxExecution(T, target, input)) return null;
     return switch (target) {
         .cpu => null,
         .cuda => executeCudaSoftmax(T, input, axis),
-        .mps => null,
+        .mps => executeMpsSoftmax(T, input, axis),
     };
 }
 
@@ -2638,6 +2648,20 @@ fn executeCudaSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) arr
         if (try axiom_cuda.tryDeviceSoftmaxF16(@as(array_mod.Array(f16), input), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
         if (try axiom_cuda.tryDeviceSoftmaxBF16(@as(array_mod.Array(array_mod.BFloat16), input), axis)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeMpsLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.trySoftmaxF32(.log_softmax, @as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeMpsSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.trySoftmaxF32(.softmax, @as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3710,6 +3734,15 @@ fn supportedReductionExecution(comptime T: type, target: DialectBackend, input: 
     };
 }
 
+fn supportedSoftmaxExecution(comptime T: type, target: DialectBackend, input: array_mod.Array(T)) bool {
+    if (input.shape.len != 2 or !input.isContiguous()) return false;
+    return switch (target) {
+        .cpu => false,
+        .cuda => input.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
+        .mps => input.device.isMps() and T == f32 and input.device_storage != null,
+    };
+}
+
 fn supportedReductionLowering2d(comptime T: type, input: array_mod.Array(T)) bool {
     return dialectElement(T) != null and input.shape.len == 2 and input.isContiguous();
 }
@@ -4167,12 +4200,12 @@ test "Axiom runtime capability reports MPS executable and planned kernel slices"
     try std.testing.expect(mps_transpose.executable());
 
     const mps_softmax = softmaxRuntimeCapability(.mps);
-    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_softmax.status);
-    try std.testing.expect(!mps_softmax.executable());
+    try std.testing.expectEqual(RuntimeCapabilityStatus.executable, mps_softmax.status);
+    try std.testing.expect(mps_softmax.executable());
 
     const mps_log_softmax = logSoftmaxRuntimeCapability(.mps);
-    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_log_softmax.status);
-    try std.testing.expect(!mps_log_softmax.executable());
+    try std.testing.expectEqual(RuntimeCapabilityStatus.executable, mps_log_softmax.status);
+    try std.testing.expect(mps_log_softmax.executable());
 
     const mps_runtime = mpsDeviceReport(0);
     if (builtin.os.tag == .macos) {

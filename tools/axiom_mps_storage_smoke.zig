@@ -16,6 +16,8 @@ pub fn main(init: std.process.Init) !void {
     var transpose_ok = !available;
     var broadcast_ok = !available;
     var reduction_ok = !available;
+    var softmax_ok = !available;
+    var log_softmax_ok = !available;
     var bytes: usize = 0;
     var fingerprint = report.fingerprint();
 
@@ -143,19 +145,49 @@ pub fn main(init: std.process.Init) !void {
             equalF32(col_max_back.data, &.{ 4, 5, 6 }) and
             equalF32(row_prod_keep_back.data, &.{ 6, 120 });
 
-        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(mat_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data);
+        var softmax_row = try mat_lhs.softmax(1);
+        defer softmax_row.deinit();
+        var softmax_row_back = try softmax_row.cpu();
+        defer softmax_row_back.deinit();
+        var softmax_col = try mat_lhs.softmax(0);
+        defer softmax_col.deinit();
+        var softmax_col_back = try softmax_col.cpu();
+        defer softmax_col_back.deinit();
+        const row_denom = std.math.exp(@as(f32, -2)) + std.math.exp(@as(f32, -1)) + 1.0;
+        const col_denom = std.math.exp(@as(f32, -3)) + 1.0;
+        softmax_ok = softmax_row.device.isMps() and softmax_row.device_storage != null and
+            softmax_col.device.isMps() and softmax_col.device_storage != null and
+            closeF32(softmax_row_back.data, &.{ std.math.exp(@as(f32, -2)) / row_denom, std.math.exp(@as(f32, -1)) / row_denom, 1.0 / row_denom, std.math.exp(@as(f32, -2)) / row_denom, std.math.exp(@as(f32, -1)) / row_denom, 1.0 / row_denom }, 0.01) and
+            closeF32(softmax_col_back.data, &.{ std.math.exp(@as(f32, -3)) / col_denom, std.math.exp(@as(f32, -3)) / col_denom, std.math.exp(@as(f32, -3)) / col_denom, 1.0 / col_denom, 1.0 / col_denom, 1.0 / col_denom }, 0.01);
+
+        var log_softmax_row = try mat_lhs.logSoftmax(1);
+        defer log_softmax_row.deinit();
+        var log_softmax_row_back = try log_softmax_row.cpu();
+        defer log_softmax_row_back.deinit();
+        var log_softmax_col = try mat_lhs.logSoftmax(0);
+        defer log_softmax_col.deinit();
+        var log_softmax_col_back = try log_softmax_col.cpu();
+        defer log_softmax_col_back.deinit();
+        const row_log_denom = std.math.log(f32, std.math.e, row_denom);
+        const col_log_denom = std.math.log(f32, std.math.e, col_denom);
+        log_softmax_ok = log_softmax_row.device.isMps() and log_softmax_row.device_storage != null and
+            log_softmax_col.device.isMps() and log_softmax_col.device_storage != null and
+            closeF32(log_softmax_row_back.data, &.{ -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom, -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom }, 0.03) and
+            closeF32(log_softmax_col_back.data, &.{ -3.0 - col_log_denom, -3.0 - col_log_denom, -3.0 - col_log_denom, -col_log_denom, -col_log_denom, -col_log_denom }, 0.03);
+
+        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(mat_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data);
     }
 
     const ok = if (available)
-        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and reduction_ok and bytes != 0
+        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and reduction_ok and softmax_ok and log_softmax_ok and bytes != 0
     else
-        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and reduction_ok;
+        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and reduction_ok and softmax_ok and log_softmax_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"matmul_ok\":{},\"transpose_ok\":{},\"broadcast_ok\":{},\"reduction_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
-        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, matmul_ok, transpose_ok, broadcast_ok, reduction_ok, bytes, fingerprint },
+        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"matmul_ok\":{},\"transpose_ok\":{},\"broadcast_ok\":{},\"reduction_ok\":{},\"softmax_ok\":{},\"log_softmax_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
+        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, matmul_ok, transpose_ok, broadcast_ok, reduction_ok, softmax_ok, log_softmax_ok, bytes, fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

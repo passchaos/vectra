@@ -33,7 +33,7 @@ Vectra uses Axiom directly as the compiler/runtime boundary.  Frontends should m
 - linalg/memref/gpu dialect registration and operation counts;
 - operation-store, memref-type, structured-linalg, and schedule fingerprints;
 - CUDA Tile/NVVM handoff fingerprints when the requested backend is CUDA;
-- explicit CPU, CUDA, and planned MPS backend statuses.
+- explicit CPU, CUDA, and MPS backend statuses.
 
 Validation:
 
@@ -41,24 +41,25 @@ Validation:
 zig build axiom-dialect-lowering-smoke
 ```
 
-MPS lowering is intentionally represented as `planned_mps`, and runtime
-capability reports use `planned` while remaining non-executable until Axiom owns
-a real Metal/MPS runtime ABI.  That keeps dynamic backend policy honest without
-routing through another facade or pretending CUDA/CPU execution occurred.
+MPS lowering is intentionally represented as `planned_mps` for the structural GPU
+route, while runtime capability reports separately expose the Metal/MPS slices
+that can execute today.  On macOS that means real shared-buffer storage plus f32
+2D Metal kernels for elementwise/scalar/unary, matmul, transpose, broadcast-add,
+reductions, softmax, and logSoftmax; remaining MPS dtype/shape coverage stays
+capability-gated.
 
 ## CUDA owning-array behavior
 
 - `Device.cuda(index).isAvailable()` is true when Axiom can load the CUDA driver
   and retain that device's primary context. `Device.mps(index)` is part of the
   public backend selector surface and can be available on macOS through Axiom's
-  Metal shared-buffer storage ABI; MPS operation kernels remain capability-gated
-  until MPSGraph/Metal runtimes land.
+  Metal shared-buffer storage ABI and current f32 Metal kernel slice.
 - `Array.*On(..., vx.cuda(i))`, deterministic `Context.*With(vx.onDevice(...))`
   creation helpers, and `.cuda(i)` allocate/copy real device storage.
 - `.cpu()` explicitly downloads CUDA storage.
 - `ArrayView.cuda()` remains unsupported until view/device storage semantics are
-  implemented; `Array.mps()` / `ArrayView.mps()` return `InvalidDevice` today while
-  dialect lowering reports the planned MPS route.
+  implemented; `Array.mps()` allocates real MPS storage on macOS, while
+  `ArrayView.mps()` remains unsupported until view/device storage semantics land.
 - CUDA `Array(f32/f64/f16/BFloat16).add/sub/mul/div` first builds Axiom
   memref-backed elementwise specs from Vectra device-storage descriptors, then
   lowers those specs to Axiom's cached compact CUDA elementwise ABI.  This keeps

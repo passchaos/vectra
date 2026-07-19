@@ -161,8 +161,8 @@ CPU path for CPU arrays, or return an explicit error.
 
 - Add Axiom Metal/MPS storage allocation, upload/download, command queue,
   kernel launch, synchronization, and runtime reports.
-- Only then make MPS eager execution executable.  Until then, keep MPS planned or
-  unavailable.
+- Make MPS eager execution executable slice by slice as the runtime ABI grows;
+  macOS must use MPS/Metal rather than CUDA paths.
 
 ### Milestone F: fusion and graph capture
 
@@ -186,7 +186,8 @@ from the relevant subset of:
 - `zig build axiom-cpu-dispatch-smoke` for CPU runtime paths;
 - `zig build axiom-cuda-dispatch-smoke`, `axiom-cuda-device-smoke`, and
   `axiom-cuda-smoke -- --json` for CUDA runtime paths;
-- real Metal/MPS storage ABI evidence plus planned kernel-runtime evidence until MPSGraph/Metal operation runtimes exist.
+- real Metal/MPS storage ABI evidence plus executable-kernel evidence for any
+  claimed MPS slice.
 
 ## Current gaps vs. the target state
 
@@ -196,7 +197,9 @@ from the relevant subset of:
   cases, but full device view storage and `ArrayView.cuda()` remain unimplemented.
 - Fusion is mostly ad hoc (for example matmul epilogues) rather than a general
   Axiom pass over linalg IR.
-- MPS has real Metal storage on macOS, while operation kernels remain planned/non-executable until MPSGraph/Metal runtimes land.
+- MPS has real Metal storage on macOS plus f32 2D kernels for
+  elementwise/scalar/unary, matmul, transpose, broadcast-add, reductions,
+  softmax, and logSoftmax; remaining MPS dtypes/shapes still need parity.
 - NumPy/PyTorch API surface breadth is large; parity must be measured by
   descriptor/lowering coverage, runtime capability, and correctness/performance
   gates rather than by counting isolated method names.
