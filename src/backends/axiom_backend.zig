@@ -1499,7 +1499,7 @@ pub fn executeMatmulAddScaled(
     if (!targetCanAccessDevice(target, lhs.device)) return null;
     if (!supportedMatmulAddExecution(T, lhs, rhs, addend)) return null;
     return switch (target) {
-        .cpu => executeCpuGemmScaledTarget(T, lhs, rhs, addend, alpha, beta),
+        .cpu => if (T == f32 or T == f64) executeCpuGemmScaledTarget(T, lhs, rhs, addend, alpha, beta) else null,
         .cuda => executeCudaMatmulAddScaled(T, lhs, rhs, addend, alpha, beta),
         .mps => executeMpsMatmulAddScaled(T, lhs, rhs, addend, alpha, beta),
     };
@@ -1730,6 +1730,10 @@ fn executeCudaMatmulAddScaled(comptime T: type, lhs: array_mod.Array(T), rhs: ar
 fn executeMpsMatmulAddScaled(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_mps.tryMatmulAddF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs), @as(array_mod.Array(f32), addend), alpha, beta)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryMatmulAddF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs), @as(array_mod.Array(f16), addend), alpha, beta)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryMatmulAddBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs), @as(array_mod.Array(array_mod.BFloat16), addend), alpha, beta)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3823,7 +3827,7 @@ fn supportedMatmulAddExecution(comptime T: type, lhs: array_mod.Array(T), rhs: a
     if (lhs.shape[1] != rhs.shape[0] or addend.shape[0] != lhs.shape[0] or addend.shape[1] != rhs.shape[1]) return false;
     if (!lhs.isContiguous() or !rhs.isContiguous() or !addend.isContiguous()) return false;
     if (lhs.device.isCpu()) return T == f32 or T == f64;
-    if (lhs.device.isMps()) return T == f32 and lhs.device_storage != null and rhs.device_storage != null and addend.device_storage != null;
+    if (lhs.device.isMps()) return (T == f32 or T == f16 or T == array_mod.BFloat16) and lhs.device_storage != null and rhs.device_storage != null and addend.device_storage != null;
     return lhs.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16);
 }
 
