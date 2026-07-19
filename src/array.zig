@@ -12399,7 +12399,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn reshape(self: Self, dims: []const usize) ArrayError!Self {
             const n = try numelFrom(dims);
-            if (n != self.data.len) return error.ShapeMismatch;
+            if (n != self.numel()) return error.ShapeMismatch;
             var out = try self.clone();
             out.allocator.free(out.shape);
             out.allocator.free(out.strides);
@@ -12409,7 +12409,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn reshapeInfer(self: Self, dims: []const isize) ArrayError!Self {
-            const inferred = try inferredShape(self.allocator, dims, self.data.len);
+            const inferred = try inferredShape(self.allocator, dims, self.numel());
             defer self.allocator.free(inferred);
             return self.reshape(inferred);
         }
@@ -12447,11 +12447,11 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn flatten(self: Self) ArrayError!Self {
-            return self.reshape(&.{self.data.len});
+            return self.reshape(&.{self.numel()});
         }
 
         pub fn flattenView(self: Self) ArrayError!ArrayView(T) {
-            return self.reshapeView(&.{self.data.len});
+            return self.reshapeView(&.{self.numel()});
         }
 
         pub fn flatten_view(self: Self) ArrayError!ArrayView(T) {
