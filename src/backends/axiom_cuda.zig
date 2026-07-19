@@ -3091,6 +3091,38 @@ pub fn tryLogViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?arra
     return tryUnaryViewF32(.log, input);
 }
 
+pub fn tryExp2ViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryViewF32(.exp2, input);
+}
+
+pub fn tryExpm1ViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryViewF32(.expm1, input);
+}
+
+pub fn tryLog1pViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryViewF32(.log1p, input);
+}
+
+pub fn tryLog2ViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryViewF32(.log2, input);
+}
+
+pub fn tryLog10ViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryViewF32(.log10, input);
+}
+
+pub fn trySinViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryViewF32(.sin, input);
+}
+
+pub fn tryCosViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryViewF32(.cos, input);
+}
+
+pub fn tryTanViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryViewF32(.tan, input);
+}
+
 pub fn tryAddViewF64(lhs: array_mod.ArrayView(f64), rhs: array_mod.ArrayView(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryBinaryViewF64(.add, lhs, rhs);
 }

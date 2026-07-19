@@ -2786,7 +2786,15 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .sqrt => try axiom_cuda.trySqrtViewF32(@as(array_mod.ArrayView(f32), input)),
             .exp => try axiom_cuda.tryExpViewF32(@as(array_mod.ArrayView(f32), input)),
             .log => try axiom_cuda.tryLogViewF32(@as(array_mod.ArrayView(f32), input)),
-            .square, .exp2, .expm1, .log1p, .log2, .log10, .sin, .cos, .tan => null,
+            .exp2 => try axiom_cuda.tryExp2ViewF32(@as(array_mod.ArrayView(f32), input)),
+            .expm1 => try axiom_cuda.tryExpm1ViewF32(@as(array_mod.ArrayView(f32), input)),
+            .log1p => try axiom_cuda.tryLog1pViewF32(@as(array_mod.ArrayView(f32), input)),
+            .log2 => try axiom_cuda.tryLog2ViewF32(@as(array_mod.ArrayView(f32), input)),
+            .log10 => try axiom_cuda.tryLog10ViewF32(@as(array_mod.ArrayView(f32), input)),
+            .sin => try axiom_cuda.trySinViewF32(@as(array_mod.ArrayView(f32), input)),
+            .cos => try axiom_cuda.tryCosViewF32(@as(array_mod.ArrayView(f32), input)),
+            .tan => try axiom_cuda.tryTanViewF32(@as(array_mod.ArrayView(f32), input)),
+            .square => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     } else if (T == f64) {

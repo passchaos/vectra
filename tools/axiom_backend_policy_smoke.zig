@@ -94,6 +94,22 @@ pub fn main(init: std.process.Init) !void {
     defer view_exp.deinit();
     var view_log = try lhs_view.log();
     defer view_log.deinit();
+    var view_exp2 = try lhs_view.exp2();
+    defer view_exp2.deinit();
+    var view_expm1 = try lhs_view.expm1();
+    defer view_expm1.deinit();
+    var view_log1p = try lhs_view.log1p();
+    defer view_log1p.deinit();
+    var view_log2 = try lhs_view.log2();
+    defer view_log2.deinit();
+    var view_log10 = try lhs_view.log10();
+    defer view_log10.deinit();
+    var view_sin = try lhs_view.sin();
+    defer view_sin.deinit();
+    var view_cos = try lhs_view.cos();
+    defer view_cos.deinit();
+    var view_tan = try lhs_view.tan();
+    defer view_tan.deinit();
     var view_square = try lhs_view.square();
     defer view_square.deinit();
     var view_reciprocal = try lhs_view.reciprocal();
@@ -256,6 +272,14 @@ pub fn main(init: std.process.Init) !void {
         closeF32(view_sqrt.data, &.{ 1, 1.4142135, 1.7320508, 2 }, 1e-5) and
         closeF32(view_exp.data, &.{ 2.7182817, 7.389056, 20.085537, 54.59815 }, 0.05) and
         closeF32(view_log.data, &.{ 0, std.math.log(f32, std.math.e, 2), std.math.log(f32, std.math.e, 3), std.math.log(f32, std.math.e, 4) }, 0.01) and
+        closeF32(view_exp2.data, &.{ 2, 4, 8, 16 }, 0.01) and
+        closeF32(view_expm1.data, &.{ std.math.expm1(@as(f32, 1)), std.math.expm1(@as(f32, 2)), std.math.expm1(@as(f32, 3)), std.math.expm1(@as(f32, 4)) }, 0.05) and
+        closeF32(view_log1p.data, &.{ std.math.log1p(@as(f32, 1)), std.math.log1p(@as(f32, 2)), std.math.log1p(@as(f32, 3)), std.math.log1p(@as(f32, 4)) }, 0.01) and
+        closeF32(view_log2.data, &.{ 0, 1, std.math.log2(@as(f32, 3)), 2 }, 0.01) and
+        closeF32(view_log10.data, &.{ 0, std.math.log10(@as(f32, 2)), std.math.log10(@as(f32, 3)), std.math.log10(@as(f32, 4)) }, 0.01) and
+        closeF32(view_sin.data, &.{ std.math.sin(@as(f32, 1)), std.math.sin(@as(f32, 2)), std.math.sin(@as(f32, 3)), std.math.sin(@as(f32, 4)) }, 0.01) and
+        closeF32(view_cos.data, &.{ std.math.cos(@as(f32, 1)), std.math.cos(@as(f32, 2)), std.math.cos(@as(f32, 3)), std.math.cos(@as(f32, 4)) }, 0.01) and
+        closeF32(view_tan.data, &.{ std.math.tan(@as(f32, 1)), std.math.tan(@as(f32, 2)), std.math.tan(@as(f32, 3)), std.math.tan(@as(f32, 4)) }, 0.01) and
         equalF32(view_square.data, &.{ 1, 4, 9, 16 }) and
         closeF32(view_reciprocal.data, &.{ 1, 0.5, 0.33333334, 0.25 }, 1e-6) and
         equalF64(f64_view_neg.data, &.{ -1, -2, -3, -4 }) and
@@ -291,7 +315,7 @@ pub fn main(init: std.process.Init) !void {
     );
     try stdout.interface.print(
         ",\"fingerprint\":{d},\"elementwise_fingerprint\":{d},\"scalar_fingerprint\":{d},\"view_fingerprint\":{d},\"view_scalar_fingerprint\":{d},\"view64_fingerprint\":{d},\"view64_scalar_fingerprint\":{d},\"view16_fingerprint\":{d},\"view16_scalar_fingerprint\":{d},\"view_bf16_fingerprint\":{d},\"view_bf16_scalar_fingerprint\":{d},\"view_unary_fingerprint\":{d}}}\n",
-        .{ report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF32(view_scalar_add.data) ^ hashF32(view_scalar_sub.data) ^ hashF32(view_scalar_mul.data) ^ hashF32(view_scalar_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF64(f64_view_scalar_add.data) ^ hashF64(f64_view_scalar_sub.data) ^ hashF64(f64_view_scalar_mul.data) ^ hashF64(f64_view_scalar_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data), hashF16(f16_view_scalar_add.data) ^ hashF16(f16_view_scalar_sub.data) ^ hashF16(f16_view_scalar_mul.data) ^ hashF16(f16_view_scalar_div.data), hashBF16(bf16_view_add.data) ^ hashBF16(bf16_view_sub.data) ^ hashBF16(bf16_view_mul.data) ^ hashBF16(bf16_view_div.data), hashBF16(bf16_view_scalar_add.data) ^ hashBF16(bf16_view_scalar_sub.data) ^ hashBF16(bf16_view_scalar_mul.data) ^ hashBF16(bf16_view_scalar_div.data), hashF32(view_neg.data) ^ hashF32(view_log.data) ^ hashF32(view_square.data) ^ hashF32(view_reciprocal.data) ^ hashF64(f64_view_neg.data) ^ hashF64(f64_view_square.data) ^ hashF64(f64_view_reciprocal.data) ^ hashF16(f16_view_neg.data) ^ hashF16(f16_view_square.data) ^ hashF16(f16_view_reciprocal.data) ^ hashBF16(bf16_view_neg.data) ^ hashBF16(bf16_view_square.data) ^ hashBF16(bf16_view_reciprocal.data) },
+        .{ report.fingerprint(), ew32_report.fingerprint() ^ ew64_report.fingerprint(), scalar64_report.fingerprint(), hashF32(view_add.data) ^ hashF32(view_sub.data) ^ hashF32(view_mul.data) ^ hashF32(view_div.data), hashF32(view_scalar_add.data) ^ hashF32(view_scalar_sub.data) ^ hashF32(view_scalar_mul.data) ^ hashF32(view_scalar_div.data), hashF64(f64_view_add.data) ^ hashF64(f64_view_sub.data) ^ hashF64(f64_view_mul.data) ^ hashF64(f64_view_div.data), hashF64(f64_view_scalar_add.data) ^ hashF64(f64_view_scalar_sub.data) ^ hashF64(f64_view_scalar_mul.data) ^ hashF64(f64_view_scalar_div.data), hashF16(f16_view_add.data) ^ hashF16(f16_view_sub.data) ^ hashF16(f16_view_mul.data) ^ hashF16(f16_view_div.data), hashF16(f16_view_scalar_add.data) ^ hashF16(f16_view_scalar_sub.data) ^ hashF16(f16_view_scalar_mul.data) ^ hashF16(f16_view_scalar_div.data), hashBF16(bf16_view_add.data) ^ hashBF16(bf16_view_sub.data) ^ hashBF16(bf16_view_mul.data) ^ hashBF16(bf16_view_div.data), hashBF16(bf16_view_scalar_add.data) ^ hashBF16(bf16_view_scalar_sub.data) ^ hashBF16(bf16_view_scalar_mul.data) ^ hashBF16(bf16_view_scalar_div.data), hashF32(view_neg.data) ^ hashF32(view_log.data) ^ hashF32(view_exp2.data) ^ hashF32(view_expm1.data) ^ hashF32(view_log1p.data) ^ hashF32(view_log2.data) ^ hashF32(view_log10.data) ^ hashF32(view_sin.data) ^ hashF32(view_cos.data) ^ hashF32(view_tan.data) ^ hashF32(view_square.data) ^ hashF32(view_reciprocal.data) ^ hashF64(f64_view_neg.data) ^ hashF64(f64_view_square.data) ^ hashF64(f64_view_reciprocal.data) ^ hashF16(f16_view_neg.data) ^ hashF16(f16_view_square.data) ^ hashF16(f16_view_reciprocal.data) ^ hashBF16(bf16_view_neg.data) ^ hashBF16(bf16_view_square.data) ^ hashBF16(bf16_view_reciprocal.data) },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
