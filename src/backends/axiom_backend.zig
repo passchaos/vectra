@@ -1552,6 +1552,15 @@ pub fn pendingMatmulSameDeviceSupported(lhs: array_mod.Device, rhs: array_mod.De
     return lhs.sameDevice(rhs) and pendingMatmulDeviceSupported(lhs);
 }
 
+pub fn composableElementwiseDeviceSupported(device: array_mod.Device) bool {
+    const target = executionTargetForDevice(device);
+    return target == .cuda or target == .mps;
+}
+
+pub fn composableElementwiseSameDeviceSupported(lhs: array_mod.Device, rhs: array_mod.Device) bool {
+    return lhs.sameDevice(rhs) and composableElementwiseDeviceSupported(lhs);
+}
+
 pub fn executePendingMatmul(
     comptime T: type,
     target: DialectBackend,

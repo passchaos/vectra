@@ -16186,7 +16186,7 @@ pub fn Array(comptime T: type) type {
         pub fn maximum(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, other.device)) {
+                if (axiom_backend.composableElementwiseSameDeviceSupported(self.device, other.device)) {
                     var delta = try self.sub(other);
                     defer delta.deinit();
                     var abs_delta = try delta.abs();
@@ -16208,7 +16208,7 @@ pub fn Array(comptime T: type) type {
         pub fn minimum(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulSameDeviceSupported(self.device, other.device)) {
+                if (axiom_backend.composableElementwiseSameDeviceSupported(self.device, other.device)) {
                     var delta = try self.sub(other);
                     defer delta.deinit();
                     var abs_delta = try delta.abs();
@@ -16417,7 +16417,7 @@ pub fn Array(comptime T: type) type {
         pub fn maximumScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(self.device)) {
                     var delta = try self.subScalar(scalar);
                     defer delta.deinit();
                     var abs_delta = try delta.abs();
@@ -16443,7 +16443,7 @@ pub fn Array(comptime T: type) type {
         pub fn minimumScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(self.device)) {
                     var delta = try self.subScalar(scalar);
                     defer delta.deinit();
                     var abs_delta = try delta.abs();
