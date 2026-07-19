@@ -37,6 +37,9 @@ pub const UnaryOp = enum {
     exp,
     abs,
     log,
+    sin,
+    cos,
+    tan,
 };
 
 pub const CudaDeviceGemmReportSnapshot = struct {
@@ -1966,6 +1969,18 @@ pub fn tryExpF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Ar
 
 pub fn tryLogF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryDeviceUnaryF32(.log, input);
+}
+
+pub fn trySinF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.sin, input);
+}
+
+pub fn tryCosF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.cos, input);
+}
+
+pub fn tryTanF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.tan, input);
 }
 
 pub fn trySqrtF16(input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
@@ -4000,7 +4015,7 @@ pub fn runPendingMatmulAddUnaryF32(
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
             .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
-            .abs, .log => return error.TypeUnsupported,
+            .abs, .log, .sin, .cos, .tan => return error.TypeUnsupported,
         },
         spec,
     ) catch return error.BackendFailure;
@@ -5330,6 +5345,9 @@ fn axiomUnaryOp(op: UnaryOp) axiom.accelerator.TensorUnaryElementwiseOp {
         .exp => .exp,
         .abs => .abs,
         .log => .log,
+        .sin => .sin,
+        .cos => .cos,
+        .tan => .tan,
     };
 }
 

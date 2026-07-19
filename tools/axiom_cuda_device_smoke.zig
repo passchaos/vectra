@@ -616,6 +616,18 @@ pub fn main(init: std.process.Init) !void {
         defer log_values.deinit();
         var log_values_host = try log_values.cpu();
         defer log_values_host.deinit();
+        var sin_values = try lhs.sin();
+        defer sin_values.deinit();
+        var sin_values_host = try sin_values.cpu();
+        defer sin_values_host.deinit();
+        var cos_values = try lhs.cos();
+        defer cos_values.deinit();
+        var cos_values_host = try cos_values.cpu();
+        defer cos_values_host.deinit();
+        var tan_values = try lhs.tan();
+        defer tan_values.deinit();
+        var tan_values_host = try tan_values.cpu();
+        defer tan_values_host.deinit();
         const elementwise_unary_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         elementwise_unary_memref_fingerprint = elementwise_unary_report.memref_spec_fingerprint;
         var reciprocal = try lhs.reciprocal();
@@ -773,6 +785,13 @@ pub fn main(init: std.process.Init) !void {
             approxF32(log_values_host.data[0], 0.0, 0.01) and
             approxF32(log_values_host.data[1], std.math.log(f32, std.math.e, 2.0), 0.01) and
             approxF32(log_values_host.data[3], std.math.log(f32, std.math.e, 4.0), 0.01) and
+            sin_values.device.isCuda() and sin_values.device_storage != null and
+            approxF32(sin_values_host.data[0], std.math.sin(@as(f32, 1.0)), 0.01) and
+            approxF32(sin_values_host.data[2], std.math.sin(@as(f32, 3.0)), 0.01) and
+            cos_values.device.isCuda() and cos_values.device_storage != null and
+            approxF32(cos_values_host.data[1], std.math.cos(@as(f32, 2.0)), 0.01) and
+            tan_values.device.isCuda() and tan_values.device_storage != null and
+            approxF32(tan_values_host.data[2], std.math.tan(@as(f32, 3.0)), 0.01) and
             reciprocal.device.isCuda() and reciprocal.device_storage != null and
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
             approxF32(reciprocal_host.data[3], 0.25, 1e-6) and
