@@ -81,7 +81,7 @@ pub fn main(init: std.process.Init) !void {
         broadcast_cuda_report.status == .lowered_cuda and
         broadcast_cuda_runtime.status == .executable and
         broadcast_mps_report.status == .planned_mps and
-        broadcast_mps_runtime.status == .planned and
+        broadcast_mps_runtime.status == .executable and
         unary_cuda_report.status == .lowered_cuda and
         unary_cuda_runtime.status == .executable and
         unary_log_cuda_report.status == .lowered_cuda and
@@ -98,13 +98,13 @@ pub fn main(init: std.process.Init) !void {
         device_unary_cuda_report.status == .lowered_cuda and
         device_transpose_cuda_report.status == .lowered_cuda and
         transpose_mps_report.status == .planned_mps and
-        transpose_mps_runtime.status == .planned and
+        transpose_mps_runtime.status == .executable and
         softmax_mps_runtime.status == .planned and
         log_softmax_mps_runtime.status == .planned and
         !reduction_mps_runtime.executable() and
-        !broadcast_mps_runtime.executable() and
+        broadcast_mps_runtime.executable() and
         !unary_mps_runtime.executable() and
-        !transpose_mps_runtime.executable() and
+        transpose_mps_runtime.executable() and
         !softmax_mps_runtime.executable() and
         !log_softmax_mps_runtime.executable() and
         std.mem.eql(u8, mps_report.launch_backend, "mps_planned") and

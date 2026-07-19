@@ -13,6 +13,8 @@ pub fn main(init: std.process.Init) !void {
     var scalar_ok = !available;
     var unary_ok = !available;
     var matmul_ok = !available;
+    var transpose_ok = !available;
+    var broadcast_ok = !available;
     var bytes: usize = 0;
     var fingerprint = report.fingerprint();
 
@@ -97,19 +99,43 @@ pub fn main(init: std.process.Init) !void {
         matmul_ok = mat_out.device.isMps() and mat_out.device_storage != null and
             equalF32(mat_back.data, &.{ 58, 64, 139, 154 });
 
-        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(mat_back.data);
+        var transposed = try mat_lhs.transpose();
+        defer transposed.deinit();
+        var transposed_back = try transposed.cpu();
+        defer transposed_back.deinit();
+        transpose_ok = transposed.device.isMps() and transposed.device_storage != null and
+            equalF32(transposed_back.data, &.{ 1, 4, 2, 5, 3, 6 });
+
+        var row_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 10, 20, 30 }, &.{3}, vx.mps(0));
+        defer row_bias.deinit();
+        var row_added = try mat_lhs.add(row_bias);
+        defer row_added.deinit();
+        var row_added_back = try row_added.cpu();
+        defer row_added_back.deinit();
+        var col_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 100, 200 }, &.{2}, vx.mps(0));
+        defer col_bias.deinit();
+        var col_added = try mat_lhs.add(col_bias);
+        defer col_added.deinit();
+        var col_added_back = try col_added.cpu();
+        defer col_added_back.deinit();
+        broadcast_ok = row_added.device.isMps() and row_added.device_storage != null and
+            col_added.device.isMps() and col_added.device_storage != null and
+            equalF32(row_added_back.data, &.{ 11, 22, 33, 14, 25, 36 }) and
+            equalF32(col_added_back.data, &.{ 101, 102, 103, 204, 205, 206 });
+
+        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(mat_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data);
     }
 
     const ok = if (available)
-        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and bytes != 0
+        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and bytes != 0
     else
-        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok;
+        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"matmul_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
-        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, matmul_ok, bytes, fingerprint },
+        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"matmul_ok\":{},\"transpose_ok\":{},\"broadcast_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
+        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, matmul_ok, transpose_ok, broadcast_ok, bytes, fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

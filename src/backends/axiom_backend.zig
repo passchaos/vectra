@@ -826,7 +826,12 @@ pub fn broadcastAddRuntimeCapability(target: DialectBackend) RuntimeCapabilityRe
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D row/column broadcast-add runtimes; other broadcast dtypes/shapes remain capability-gated.",
         },
-        .mps => plannedMpsRuntimeCapability("broadcast_add"),
+        .mps => .{
+            .target = target,
+            .operation = "broadcast_add",
+            .status = .executable,
+            .reason = "Axiom MPS exposes eager f32 2D row/column broadcast-add over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+        },
     };
 }
 
@@ -844,7 +849,12 @@ pub fn transposeRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D transpose runtimes; other transpose dtypes/shapes remain capability-gated.",
         },
-        .mps => plannedMpsRuntimeCapability("transpose2d"),
+        .mps => .{
+            .target = target,
+            .operation = "transpose2d",
+            .status = .executable,
+            .reason = "Axiom MPS exposes eager f32 2D transpose over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+        },
     };
 }
 
@@ -989,7 +999,7 @@ pub fn executeBroadcastBinary(
         // rather than pretending they went through the Axiom runtime.
         .cpu => if (op == .add) executeCpuBroadcastAdd(T, input, bias, axis) else null,
         .cuda => executeCudaBroadcastBinary(T, op, input, bias, axis),
-        .mps => null,
+        .mps => if (op == .add) executeMpsBroadcastAdd(T, input, bias, axis) else null,
     };
 }
 
@@ -1781,7 +1791,7 @@ pub fn executeTranspose(
     return switch (target) {
         .cpu => executeCpuTranspose(T, input),
         .cuda => executeCudaTranspose(T, input),
-        .mps => null,
+        .mps => executeMpsTranspose(T, input),
     };
 }
 
@@ -2724,6 +2734,13 @@ fn executeCudaBroadcastBinary(comptime T: type, op: ElementwiseOp, input: array_
     return null;
 }
 
+fn executeMpsBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.tryBroadcastAddF32(@as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         const input32 = @as(array_mod.Array(f32), input);
@@ -2780,6 +2797,13 @@ fn executeCudaTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.A
         if (try axiom_cuda.tryDeviceTransposeF16(@as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
         if (try axiom_cuda.tryDeviceTransposeBF16(@as(array_mod.Array(array_mod.BFloat16), input))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeMpsTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.tryTransposeF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3672,7 +3696,7 @@ fn supportedTransposeExecution(comptime T: type, target: DialectBackend, input: 
     return switch (target) {
         .cpu => supportedUnary2d(T, input),
         .cuda => input.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
-        .mps => false,
+        .mps => input.device.isMps() and T == f32 and input.device_storage != null,
     };
 }
 
@@ -3737,7 +3761,7 @@ fn supportedBroadcastBinaryExecution(comptime T: type, op: ElementwiseOp, target
         switch (target) {
             .cpu => op == .add and supportedBroadcastAdd(T, input, bias, axis),
             .cuda => (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
-            .mps => false,
+            .mps => T == f32 and input.device.isMps() and supportedBroadcastAddLowering(T, input, bias, axis),
         };
 }
 
@@ -4097,23 +4121,23 @@ test "Axiom dialect lowering reports transpose generic route" {
     resetDefaultDialectBackend();
 }
 
-test "Axiom runtime capability reports keep MPS kernels planned while storage ABI is available" {
+test "Axiom runtime capability reports MPS executable and planned kernel slices" {
     const mps_reduction = reductionRuntimeCapability(.mps);
     try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_reduction.status);
     try std.testing.expect(!mps_reduction.executable());
     try std.testing.expect(mps_reduction.fingerprint() != 0);
 
     const mps_broadcast = broadcastAddRuntimeCapability(.mps);
-    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_broadcast.status);
-    try std.testing.expect(!mps_broadcast.executable());
+    try std.testing.expectEqual(RuntimeCapabilityStatus.executable, mps_broadcast.status);
+    try std.testing.expect(mps_broadcast.executable());
 
     const mps_unary = unaryRuntimeCapability(.mps, .log);
     try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_unary.status);
     try std.testing.expect(!mps_unary.executable());
 
     const mps_transpose = transposeRuntimeCapability(.mps);
-    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_transpose.status);
-    try std.testing.expect(!mps_transpose.executable());
+    try std.testing.expectEqual(RuntimeCapabilityStatus.executable, mps_transpose.status);
+    try std.testing.expect(mps_transpose.executable());
 
     const mps_softmax = softmaxRuntimeCapability(.mps);
     try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_softmax.status);

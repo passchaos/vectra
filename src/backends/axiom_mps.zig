@@ -194,3 +194,76 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
     };
     return out;
 }
+
+pub fn tryTransposeF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!input.device.isMps() or input.shape.len != 2 or !input.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+    const rows = input.shape[0];
+    const cols = input.shape[1];
+
+    var out = try array_mod.Array(f32).emptyOn(input.allocator, &.{ cols, rows }, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runTransposeF32(
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        rows,
+        cols,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryBroadcastAddF32(input: array_mod.Array(f32), bias: array_mod.Array(f32), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!input.device.isMps() or !bias.device.isMps() or !input.device.sameDevice(bias.device)) return null;
+    if (input.shape.len != 2 or !input.isContiguous() or !bias.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+    const bias_storage = bias.device_storage orelse return null;
+    const rows = input.shape[0];
+    const cols = input.shape[1];
+    const expected_bias = switch (axis) {
+        .row => cols,
+        .column => rows,
+    };
+    if (bias.numel() != 1 and bias.numel() != expected_bias) return null;
+
+    var out = try array_mod.Array(f32).emptyOn(input.allocator, input.shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runBroadcastAddF32(
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        .{ .ptr = bias_storage.ptr, .bytes = bias_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        rows,
+        cols,
+        bias_storage.len,
+        switch (axis) {
+            .row => .row,
+            .column => .column,
+        },
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
