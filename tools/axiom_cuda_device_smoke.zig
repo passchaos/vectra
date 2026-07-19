@@ -612,6 +612,10 @@ pub fn main(init: std.process.Init) !void {
         defer abs_negated.deinit();
         var abs_negated_host = try abs_negated.cpu();
         defer abs_negated_host.deinit();
+        var log_values = try lhs.log();
+        defer log_values.deinit();
+        var log_values_host = try log_values.cpu();
+        defer log_values_host.deinit();
         const elementwise_unary_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         elementwise_unary_memref_fingerprint = elementwise_unary_report.memref_spec_fingerprint;
         var reciprocal = try lhs.reciprocal();
@@ -765,6 +769,10 @@ pub fn main(init: std.process.Init) !void {
             elementwise_unary_report.valid() and
             std.mem.eql(u8, elementwise_unary_report.operation, "elementwise_unary") and
             equalF32(abs_negated_host.data, &.{ 1, 2, 3, 4 }) and
+            log_values.device.isCuda() and log_values.device_storage != null and
+            approxF32(log_values_host.data[0], 0.0, 0.01) and
+            approxF32(log_values_host.data[1], std.math.log(f32, std.math.e, 2.0), 0.01) and
+            approxF32(log_values_host.data[3], std.math.log(f32, std.math.e, 4.0), 0.01) and
             reciprocal.device.isCuda() and reciprocal.device_storage != null and
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
             approxF32(reciprocal_host.data[3], 0.25, 1e-6) and

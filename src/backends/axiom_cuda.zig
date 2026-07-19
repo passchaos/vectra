@@ -36,6 +36,7 @@ pub const UnaryOp = enum {
     sqrt,
     exp,
     abs,
+    log,
 };
 
 pub const CudaDeviceGemmReportSnapshot = struct {
@@ -1954,6 +1955,10 @@ pub fn trySqrtF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.A
 
 pub fn tryExpF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryDeviceUnaryF32(.exp, input);
+}
+
+pub fn tryLogF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.log, input);
 }
 
 pub fn trySqrtF16(input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
@@ -3984,7 +3989,7 @@ pub fn runPendingMatmulAddUnaryF32(
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
             .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
-            .abs => return error.TypeUnsupported,
+            .abs, .log => return error.TypeUnsupported,
         },
         spec,
     ) catch return error.BackendFailure;
@@ -5302,6 +5307,7 @@ fn axiomUnaryOp(op: UnaryOp) axiom.accelerator.TensorUnaryElementwiseOp {
         .sqrt => .sqrt,
         .exp => .exp,
         .abs => .abs,
+        .log => .log,
     };
 }
 

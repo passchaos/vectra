@@ -58,6 +58,7 @@ pub const ExecutionUnaryOp = enum(u8) {
     square,
     sqrt,
     exp,
+    log,
 
     pub fn label(op: ExecutionUnaryOp) []const u8 {
         return @tagName(op);
@@ -1431,7 +1432,7 @@ fn runCudaPendingMatmulUnary(
             const cuda_unary: axiom_cuda.UnaryOp = switch (unary) {
                 .sqrt => .sqrt,
                 .exp => .exp,
-                .abs, .square => return false,
+                .abs, .square, .log => return false,
             };
             return axiom_cuda.runPendingMatmulAddUnaryF32(
                 allocator,
@@ -2234,11 +2235,13 @@ fn executeCpuTrace(comptime T: type, input: array_mod.Array(T), offset: isize) a
 }
 
 fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (op == .log) return null;
     const cpu_op: axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp = switch (op) {
         .abs => .abs,
         .square => .square,
         .sqrt => .sqrt,
         .exp => .exp,
+        .log => unreachable,
     };
     if (T == f32) {
         var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
@@ -2274,10 +2277,13 @@ fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arr
         .abs => .abs,
         .sqrt => .sqrt,
         .exp => .exp,
+        .log => .log,
         .square => unreachable,
     };
     if (T == f32) {
         if (try axiom_cuda.tryDeviceUnaryF32(cuda_op, @as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+    } else if (op == .log) {
+        return null;
     } else if (T == f16) {
         if (try axiom_cuda.tryDeviceUnaryF16(cuda_op, @as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);
     } else if (T == f64) {
@@ -2734,7 +2740,7 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .abs => try axiom_cuda.tryAbsViewF32(@as(array_mod.ArrayView(f32), input)),
             .sqrt => try axiom_cuda.trySqrtViewF32(@as(array_mod.ArrayView(f32), input)),
             .exp => try axiom_cuda.tryExpViewF32(@as(array_mod.ArrayView(f32), input)),
-            .square => null,
+            .square, .log => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     } else if (T == f64) {
@@ -2742,7 +2748,7 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .abs => try axiom_cuda.tryAbsViewF64(@as(array_mod.ArrayView(f64), input)),
             .sqrt => try axiom_cuda.trySqrtViewF64(@as(array_mod.ArrayView(f64), input)),
             .exp => try axiom_cuda.tryExpViewF64(@as(array_mod.ArrayView(f64), input)),
-            .square => null,
+            .square, .log => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     } else if (T == f16) {
@@ -2750,7 +2756,7 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .abs => try axiom_cuda.tryAbsViewF16(@as(array_mod.ArrayView(f16), input)),
             .sqrt => try axiom_cuda.trySqrtViewF16(@as(array_mod.ArrayView(f16), input)),
             .exp => try axiom_cuda.tryExpViewF16(@as(array_mod.ArrayView(f16), input)),
-            .square => null,
+            .square, .log => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     } else if (T == array_mod.BFloat16) {
@@ -2758,7 +2764,7 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .abs => try axiom_cuda.tryAbsViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), input)),
             .sqrt => try axiom_cuda.trySqrtViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), input)),
             .exp => try axiom_cuda.tryExpViewBF16(@as(array_mod.ArrayView(array_mod.BFloat16), input)),
-            .square => null,
+            .square, .log => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     }
