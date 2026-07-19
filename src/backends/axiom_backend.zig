@@ -1129,7 +1129,7 @@ pub fn executeMatmul(
     return switch (target) {
         .cpu => executeCpuMatmul(T, lhs, rhs),
         .cuda => executeCudaMatmul(T, lhs, rhs),
-        .mps => null,
+        .mps => executeMpsMatmul(T, lhs, rhs),
     };
 }
 
@@ -1391,6 +1391,13 @@ fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
         } else if (lhs.shape.len == 2 and rhs.shape.len == 2) {
             if (try axiom_cuda.tryMatmulBF16(lhs_bf16, rhs_bf16)) |out| return @as(array_mod.Array(T), out);
         }
+    }
+    return null;
+}
+
+fn executeMpsMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32 and lhs.shape.len == 2 and rhs.shape.len == 2) {
+        if (try axiom_mps.tryMatmulF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3599,6 +3606,9 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
         return (T == f32 or T == f64) and
             (lhs.shape.len == 1 or lhs.shape.len == 2) and
             (rhs.shape.len == 1 or rhs.shape.len == 2);
+    }
+    if (lhs.device.isMps()) {
+        return T == f32 and lhs.shape.len == 2 and rhs.shape.len == 2;
     }
     if (!lhs.device.isCuda() or (T != f32 and T != f64 and T != f16 and T != array_mod.BFloat16)) return false;
     return (lhs.shape.len == 1 and rhs.shape.len == 1) or
