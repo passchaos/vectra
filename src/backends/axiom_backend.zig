@@ -173,9 +173,33 @@ pub const DialectTransposeLoweringStatus = axiom.accelerator.DialectTransposeLow
 pub const MpsRuntimeAbiStatus = axiom.accelerator.MpsRuntimeAbiStatus;
 pub const MpsRuntimeAbiReport = axiom.accelerator.MpsRuntimeAbiReport;
 
+pub const CpuScalarElementwiseReportSnapshot = struct {
+    ok: bool = false,
+    operation: []const u8 = "",
+    len: usize = 0,
+    scalar_on_lhs: bool = false,
+    report_fingerprint: u64 = 0,
+
+    pub fn valid(report: CpuScalarElementwiseReportSnapshot) bool {
+        return report.ok and report.operation.len != 0 and report.len != 0 and report.report_fingerprint != 0;
+    }
+};
+
+threadlocal var last_cpu_scalar_elementwise_report: CpuScalarElementwiseReportSnapshot = .{};
+
 pub const cpu = struct {
+    pub const ScalarElementwiseReportSnapshot = CpuScalarElementwiseReportSnapshot;
+
     pub fn enabled() bool {
         return axiom_cpu.enabled();
+    }
+
+    pub fn resetLastScalarElementwiseReport() void {
+        last_cpu_scalar_elementwise_report = .{};
+    }
+
+    pub fn lastScalarElementwiseReport() ScalarElementwiseReportSnapshot {
+        return last_cpu_scalar_elementwise_report;
     }
 };
 
@@ -2740,6 +2764,69 @@ fn executeCpuElementwiseTarget(comptime T: type, op: ElementwiseOp, lhs: array_m
     return null;
 }
 
+fn recordCpuScalarElementwiseReport(report: anytype) void {
+    last_cpu_scalar_elementwise_report = .{
+        .ok = report.ok(),
+        .operation = report.op.label(),
+        .len = report.len,
+        .scalar_on_lhs = report.scalar_on_lhs,
+        .report_fingerprint = report.fingerprint(),
+    };
+}
+
+fn executeCpuElementwiseScalar(
+    comptime T: type,
+    target: DialectBackend,
+    op: ElementwiseOp,
+    input: array_mod.Array(T),
+    scalar: T,
+    scalar_side: ScalarSide,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .cpu or !input.device.isCpu()) return null;
+    if (T == f32) {
+        var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
+        errdefer out.deinit();
+        const report = axiom.accelerator.cpu_veyra.runTargetScalarElementwiseF32(
+            .cpu,
+            tensorBinaryOp(op),
+            @as(array_mod.Array(f32), input).data,
+            @as(f32, scalar),
+            scalar_side == .lhs,
+            out.data,
+        ) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        recordCpuScalarElementwiseReport(report);
+        return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        var out = try array_mod.Array(f64).empty(input.allocator, input.shape);
+        errdefer out.deinit();
+        const report = axiom.accelerator.cpu_veyra.runTargetScalarElementwiseF64(
+            .cpu,
+            tensorBinaryOp(op),
+            @as(array_mod.Array(f64), input).data,
+            @as(f64, scalar),
+            scalar_side == .lhs,
+            out.data,
+        ) catch {
+            out.deinit();
+            return null;
+        };
+        if (!report.ok()) {
+            out.deinit();
+            return null;
+        }
+        recordCpuScalarElementwiseReport(report);
+        return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 pub fn executeElementwise(
     comptime T: type,
     op: ElementwiseOp,
@@ -3043,6 +3130,7 @@ pub fn executeElementwiseScalar(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!supportedScalarElementwise(T, input)) return null;
     if (try executeCudaElementwiseScalar(T, op, target, input, scalar, scalar_side)) |out| return out;
+    if (try executeCpuElementwiseScalar(T, target, op, input, scalar, scalar_side)) |out| return out;
     var scalar_array = try array_mod.Array(T).fullOn(input.allocator, input.shape, scalar, input.device);
     defer scalar_array.deinit();
     return switch (scalar_side) {
