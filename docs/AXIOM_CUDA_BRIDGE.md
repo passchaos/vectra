@@ -138,6 +138,8 @@ second backend framework while Axiom owns the runtime/lowering details.
 
 - Automatic Axiom dispatch covers contiguous same-shape elementwise,
   CPU f32/f64 sqrt/exp/exp2/expm1/log/log1p/log2/log10/sin/cos/tan/asin/acos/atan/square, scalar/one-element scalar-broadcast, CPU f32/f64
+  1D positive-stride ArrayView add/sub/mul/div plus scalar add/sub/mul/div and
+  sqrt/exp through CPU→Veyra memref runtimes, CPU f32/f64
   row/column-bias broadcast add, CPU f32/f64 2D axis reductions
   (`sum/prod/min/max`), CPU f32/f64 2D transpose, and contiguous 2D matmul for the dtypes
   listed in [`CUDA_DTYPE_SUPPORT.md`](CUDA_DTYPE_SUPPORT.md).

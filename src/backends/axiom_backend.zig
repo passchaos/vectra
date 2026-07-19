@@ -2916,7 +2916,8 @@ pub fn executeViewUnary(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!targetCanAccessDevice(target, input.device)) return null;
     return switch (target) {
-        .cpu, .mps => null,
+        .cpu => executeCpuViewUnary(T, op, input),
+        .mps => null,
         .cuda => executeCudaViewUnary(T, op, input),
     };
 }
@@ -2941,6 +2942,27 @@ fn hostViewBackingSlice(comptime T: type, view: array_mod.ArrayView(T)) ?[]const
     const end_index = std.math.add(usize, view.offset, last_delta) catch return null;
     if (end_index >= view.data.len) return null;
     return view.data[view.offset .. end_index + 1];
+}
+
+fn cpuUnaryOp(op: ExecutionUnaryOp) axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp {
+    return switch (op) {
+        .abs => .abs,
+        .square => .square,
+        .sqrt => .sqrt,
+        .exp => .exp,
+        .log => .log,
+        .exp2 => .exp2,
+        .expm1 => .expm1,
+        .log1p => .log1p,
+        .log2 => .log2,
+        .log10 => .log10,
+        .sin => .sin,
+        .cos => .cos,
+        .tan => .tan,
+        .asin => .asin,
+        .acos => .acos,
+        .atan => .atan,
+    };
 }
 
 fn executeCpuViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.ArrayView(T), rhs: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -2985,6 +3007,52 @@ fn executeCpuViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod
             out_descriptor,
             @as([]const f64, lhs_slice),
             @as([]const f64, rhs_slice),
+            out.data,
+        ) catch {
+            out.deinit();
+            return null;
+        };
+    if (!report.ok()) {
+        out.deinit();
+        return null;
+    }
+    recordCpuViewElementwiseReport(report);
+    return out;
+}
+
+fn executeCpuViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!input.device.isCpu() or input.shape.len != 1) return null;
+    if (T != f32 and T != f64) return null;
+    const input_slice = hostViewBackingSlice(T, input) orelse return null;
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    const input_descriptor = describeViewMemRef(T, input, "input") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeArrayMemRef(T, out, "out") catch {
+        out.deinit();
+        return null;
+    };
+    const report = if (T == f32)
+        axiom.accelerator.cpu_veyra.runTargetUnaryElementwiseMemRefsF32(
+            .cpu,
+            cpuUnaryOp(op),
+            input_descriptor,
+            out_descriptor,
+            @as([]const f32, input_slice),
+            out.data,
+        ) catch {
+            out.deinit();
+            return null;
+        }
+    else
+        axiom.accelerator.cpu_veyra.runTargetUnaryElementwiseMemRefsF64(
+            .cpu,
+            cpuUnaryOp(op),
+            input_descriptor,
+            out_descriptor,
+            @as([]const f64, input_slice),
             out.data,
         ) catch {
             out.deinit();
