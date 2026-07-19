@@ -1266,6 +1266,15 @@ pub fn main(init: std.process.Init) !void {
         defer f16_column_broadcast.deinit();
         var f16_column_broadcast_host = try f16_column_broadcast.cpu();
         defer f16_column_broadcast_host.deinit();
+        var f16_middle_lhs = try vx.Array(f16).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 1, 2 }, vx.cuda(0));
+        defer f16_middle_lhs.deinit();
+        var f16_middle_rhs = try vx.Array(f16).fromSliceOn(allocator, &.{ 10, 20, 30, 40 }, &.{ 1, 2, 2 }, vx.cuda(0));
+        defer f16_middle_rhs.deinit();
+        var f16_middle_broadcast = try f16_middle_lhs.add(f16_middle_rhs);
+        defer f16_middle_broadcast.deinit();
+        var f16_middle_broadcast_host = try f16_middle_broadcast.cpu();
+        defer f16_middle_broadcast_host.deinit();
+        const f16_middle_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         f16_broadcast_ok = f16_row_broadcast.device.isCuda() and f16_row_broadcast.device_storage != null and
             approxF16(f16_row_broadcast_host.data[0], 11, 0.05) and
             approxF16(f16_row_broadcast_host.data[1], 22, 0.05) and
@@ -1275,7 +1284,19 @@ pub fn main(init: std.process.Init) !void {
             approxF16(f16_column_broadcast_host.data[0], 101, 0.05) and
             approxF16(f16_column_broadcast_host.data[1], 102, 0.05) and
             approxF16(f16_column_broadcast_host.data[2], 203, 0.05) and
-            approxF16(f16_column_broadcast_host.data[3], 204, 0.05);
+            approxF16(f16_column_broadcast_host.data[3], 204, 0.05) and
+            f16_middle_broadcast.device.isCuda() and f16_middle_broadcast.device_storage != null and
+            f16_middle_broadcast_report.valid() and
+            std.mem.eql(u8, f16_middle_broadcast_report.operation, "broadcast4_f16") and
+            std.mem.eql(usize, f16_middle_broadcast_host.shape, &.{ 2, 2, 2 }) and
+            approxF16(f16_middle_broadcast_host.data[0], 11, 0.05) and
+            approxF16(f16_middle_broadcast_host.data[1], 22, 0.05) and
+            approxF16(f16_middle_broadcast_host.data[2], 31, 0.05) and
+            approxF16(f16_middle_broadcast_host.data[3], 42, 0.05) and
+            approxF16(f16_middle_broadcast_host.data[4], 13, 0.05) and
+            approxF16(f16_middle_broadcast_host.data[5], 24, 0.05) and
+            approxF16(f16_middle_broadcast_host.data[6], 33, 0.05) and
+            approxF16(f16_middle_broadcast_host.data[7], 44, 0.05);
         var f16_transpose = try f16_lhs.transpose();
         defer f16_transpose.deinit();
         var f16_transpose_host = try f16_transpose.cpu();

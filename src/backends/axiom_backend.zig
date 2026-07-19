@@ -884,6 +884,8 @@ fn tryCudaGenericBroadcast(comptime T: type, op: ElementwiseOp, target: DialectB
         if (try axiom_cuda.tryDeviceBroadcastF32(cudaBinaryOp(op), @as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == f64) {
         if (try axiom_cuda.tryDeviceBroadcastF64(cudaBinaryOp(op), @as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_cuda.tryDeviceBroadcastF16(cudaBinaryOp(op), @as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
