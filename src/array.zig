@@ -21954,6 +21954,9 @@ pub fn Array(comptime T: type) type {
         pub fn outer(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.shape.len != 1 or other.shape.len != 1) return error.NonVectorArray;
+            if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
+            if (try self.tryAxiomOuter(other)) |accelerated| return accelerated;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.TypeUnsupported;
             const out = try Self.empty(self.allocator, &.{ self.shape[0], other.shape[0] });
             for (0..self.shape[0]) |i| {
                 for (0..other.shape[0]) |j| {
@@ -21961,6 +21964,19 @@ pub fn Array(comptime T: type) type {
                 }
             }
             return out;
+        }
+
+        fn tryAxiomOuter(self: Self, other: Self) ArrayError!?Self {
+            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
+            if (!self.device.isCuda() or !self.isContiguous() or !other.isContiguous()) return null;
+            if (self.shape[0] == 0 or other.shape[0] == 0) return null;
+            const lhs_shape = [_]usize{ self.shape[0], 1 };
+            const rhs_shape = [_]usize{ 1, other.shape[0] };
+            var lhs_matrix = try self.reshape(&lhs_shape);
+            defer lhs_matrix.deinit();
+            var rhs_matrix = try other.reshape(&rhs_shape);
+            defer rhs_matrix.deinit();
+            return (try axiom_backend.executeMatmulDefault(T, lhs_matrix, rhs_matrix)) orelse return null;
         }
 
         pub fn cross(self: Self, other: Self, axis_index: isize) ArrayError!Self {
