@@ -18634,8 +18634,25 @@ pub fn Array(comptime T: type) type {
         }
 
         fn tryAxiomReduction(self: Self, axis_opt: ?isize, keepdims: bool, op: axiom_backend.DialectReductionOp) ArrayError!?Self {
-            if (axis_opt == null or self.shape.len != 2) return null;
             if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
+            if (axis_opt == null) {
+                if (self.data.len != 0 or self.numel() == 0) return null;
+                var matrix = try self.reshape(&.{ 1, self.numel() });
+                defer matrix.deinit();
+                var reduced = (try axiom_backend.executeReductionDefault(T, op, matrix, 1, false)) orelse return null;
+                errdefer reduced.deinit();
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    const reshaped = try reduced.reshape(out_shape);
+                    reduced.deinit();
+                    return reshaped;
+                }
+                const reshaped = try reduced.reshape(&.{});
+                reduced.deinit();
+                return reshaped;
+            }
+            if (self.shape.len != 2) return null;
 
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
             const axis_u1: u1 = std.math.cast(u1, axis) orelse return null;

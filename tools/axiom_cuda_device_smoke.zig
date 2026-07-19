@@ -200,6 +200,22 @@ pub fn main(init: std.process.Init) !void {
         defer col_max.deinit();
         var col_max_host = try col_max.cpu();
         defer col_max_host.deinit();
+        var flat_sum = try lhs.sum(null, false);
+        defer flat_sum.deinit();
+        var flat_sum_host = try flat_sum.cpu();
+        defer flat_sum_host.deinit();
+        var flat_prod_keep = try lhs.prod(null, true);
+        defer flat_prod_keep.deinit();
+        var flat_prod_keep_host = try flat_prod_keep.cpu();
+        defer flat_prod_keep_host.deinit();
+        var flat_min = try lhs.min(null, false);
+        defer flat_min.deinit();
+        var flat_min_host = try flat_min.cpu();
+        defer flat_min_host.deinit();
+        var flat_max_keep = try lhs.max(null, true);
+        defer flat_max_keep.deinit();
+        var flat_max_keep_host = try flat_max_keep.cpu();
+        defer flat_max_keep_host.deinit();
         const reduction_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         var row_mean = try lhs.mean(1, false);
         defer row_mean.deinit();
@@ -239,6 +255,18 @@ pub fn main(init: std.process.Init) !void {
             equalF32(col_min_host.data, &.{ 1, 2 }) and
             col_max.device.isCuda() and col_max.device_storage != null and
             equalF32(col_max_host.data, &.{ 3, 4 }) and
+            flat_sum.device.isCuda() and flat_sum.device_storage != null and
+            std.mem.eql(usize, flat_sum_host.shape, &.{}) and
+            equalF32(flat_sum_host.data, &.{10}) and
+            flat_prod_keep.device.isCuda() and flat_prod_keep.device_storage != null and
+            std.mem.eql(usize, flat_prod_keep_host.shape, &.{ 1, 1 }) and
+            equalF32(flat_prod_keep_host.data, &.{24}) and
+            flat_min.device.isCuda() and flat_min.device_storage != null and
+            std.mem.eql(usize, flat_min_host.shape, &.{}) and
+            equalF32(flat_min_host.data, &.{1}) and
+            flat_max_keep.device.isCuda() and flat_max_keep.device_storage != null and
+            std.mem.eql(usize, flat_max_keep_host.shape, &.{ 1, 1 }) and
+            equalF32(flat_max_keep_host.data, &.{4}) and
             row_mean.device.isCuda() and row_mean.device_storage != null and
             equalF32(row_mean_host.data, &.{ 1.5, 3.5 }) and
             col_mean_keep.device.isCuda() and col_mean_keep.device_storage != null and
