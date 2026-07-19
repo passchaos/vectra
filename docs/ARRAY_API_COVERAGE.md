@@ -55,9 +55,10 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
   padded row-major f32/f64/f16/BFloat16 GEMM and matmul-add memrefs through
   cuBLAS/cuBLASLt leading dimensions, plus f32/f64/f16/BFloat16
   transposed/non-row-major GEMM via copy-pack/GEMM/copy-unpack runtime seeds.
-  It still needs fused pack/unpack kernels and batched device GEMM layout
-  lowering; negative-stride GEMM now enters the same copy-pack/GEMM/copy-unpack
-  runtime route in Axiom.
+  It still needs fused pack/unpack kernels and batched device GEMM runtime
+  execution; negative-stride GEMM now enters the same copy-pack/GEMM/copy-unpack
+  runtime route, and rank-3 batched GEMM memrefs have lowering-plan evidence in
+  Axiom.
 - Complete NumPy/PyTorch dtype promotion matrix: `dtype-promotion-smoke` now
   checks every pair in Vectra's current `DType` set plus representative promoted
   array and scalar value operations.  More NumPy/PyTorch scalar edge cases still
