@@ -25,6 +25,11 @@ pub const UnaryOp = enum {
     exp,
     square,
     log,
+    exp2,
+    expm1,
+    log1p,
+    log2,
+    log10,
 };
 
 pub const ReductionOp = enum {
@@ -75,6 +80,26 @@ pub fn tryLogF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Ar
     return tryUnaryElementwise(f32, .log, input);
 }
 
+pub fn tryExp2F32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .exp2, input);
+}
+
+pub fn tryExpm1F32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .expm1, input);
+}
+
+pub fn tryLog1pF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .log1p, input);
+}
+
+pub fn tryLog2F32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .log2, input);
+}
+
+pub fn tryLog10F32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryElementwise(f32, .log10, input);
+}
+
 pub fn trySqrtF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryUnaryElementwise(f64, .sqrt, input);
 }
@@ -89,6 +114,26 @@ pub fn trySquareF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod
 
 pub fn tryLogF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryUnaryElementwise(f64, .log, input);
+}
+
+pub fn tryExp2F64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .exp2, input);
+}
+
+pub fn tryExpm1F64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .expm1, input);
+}
+
+pub fn tryLog1pF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .log1p, input);
+}
+
+pub fn tryLog2F64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .log2, input);
+}
+
+pub fn tryLog10F64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryUnaryElementwise(f64, .log10, input);
 }
 
 pub fn trySumF32(input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -172,6 +217,11 @@ fn tryUnaryElementwise(comptime T: type, op: UnaryOp, input: array_mod.Array(T))
             .exp => .exp,
             .square => .square,
             .log => .log,
+            .exp2 => .exp2,
+            .expm1 => .expm1,
+            .log1p => .log1p,
+            .log2 => .log2,
+            .log10 => .log10,
         };
         const report = if (T == f32)
             axiom.accelerator.cpu_veyra.runUnaryElementwiseF32(axiom_op, input.data, out.data) catch {

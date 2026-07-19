@@ -16607,11 +16607,17 @@ pub fn Array(comptime T: type) type {
 
         pub fn exp2(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .exp2, self)) |out| return out;
+            }
             return self.unary(opExp2);
         }
 
         pub fn expm1(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .expm1, self)) |out| return out;
+            }
             return self.unary(opExpm1);
         }
 
@@ -16626,16 +16632,25 @@ pub fn Array(comptime T: type) type {
 
         pub fn log2(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .log2, self)) |out| return out;
+            }
             return self.unary(opLog2);
         }
 
         pub fn log10(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .log10, self)) |out| return out;
+            }
             return self.unary(opLog10);
         }
 
         pub fn log1p(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeUnaryDefault(T, .log1p, self)) |out| return out;
+            }
             return self.unary(opLog1p);
         }
 
