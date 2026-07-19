@@ -20708,9 +20708,9 @@ pub fn Array(comptime T: type) type {
             if (p == castValue(T, 2)) {
                 var squared = try abs_t.mul(abs_t);
                 defer squared.deinit();
-                const summed = try squared.sum(axis_opt, keepdims);
-                for (summed.data) |*v| v.* = std.math.sqrt(v.*);
-                return summed;
+                var summed = try squared.sum(axis_opt, keepdims);
+                defer summed.deinit();
+                return summed.sqrt();
             }
 
             var powered = try abs_t.powScalar(p);
@@ -20733,9 +20733,9 @@ pub fn Array(comptime T: type) type {
             if (p == castValue(T, 2)) {
                 var squared = try abs_t.mul(abs_t);
                 defer squared.deinit();
-                const summed = try squared.sumAxes(axes, keepdims);
-                for (summed.data) |*value| value.* = std.math.sqrt(value.*);
-                return summed;
+                var summed = try squared.sumAxes(axes, keepdims);
+                defer summed.deinit();
+                return summed.sqrt();
             }
 
             var powered = try abs_t.powScalar(p);

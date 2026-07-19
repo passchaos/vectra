@@ -56,7 +56,7 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
   cuBLAS/cuBLASLt leading dimensions, plus f32/f64/f16/BFloat16
   transposed/non-row-major GEMM via copy-pack/GEMM/copy-unpack runtime seeds.
   It still needs fused pack/unpack kernels; negative-stride GEMM enters the
-  copy-pack/GEMM/copy-unpack runtime route, and Vectra CUDA `dot/vdot`, common `inner/outer`, `bmm`,
+  copy-pack/GEMM/copy-unpack runtime route, and Vectra CUDA `dot/vdot`, common `inner/outer`, `norm(p=2)`, `bmm`,
   batched matvec/vecmat, plus N-D `matmul` with equal,
   whole-operand-broadcastable, or mixed per-axis broadcastable leading batch
   dimensions now call Axiom's batched/GEMM memref runtime.  The Axiom runtime
