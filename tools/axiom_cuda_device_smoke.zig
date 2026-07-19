@@ -1117,6 +1117,15 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_column_broadcast.deinit();
         var bf16_column_broadcast_host = try bf16_column_broadcast.cpu();
         defer bf16_column_broadcast_host.deinit();
+        var bf16_middle_lhs = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{ vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(2), vx.BFloat16.fromF32(3), vx.BFloat16.fromF32(4) }, &.{ 2, 1, 2 }, vx.cuda(0));
+        defer bf16_middle_lhs.deinit();
+        var bf16_middle_rhs = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{ vx.BFloat16.fromF32(10), vx.BFloat16.fromF32(20), vx.BFloat16.fromF32(30), vx.BFloat16.fromF32(40) }, &.{ 1, 2, 2 }, vx.cuda(0));
+        defer bf16_middle_rhs.deinit();
+        var bf16_middle_broadcast = try bf16_middle_lhs.add(bf16_middle_rhs);
+        defer bf16_middle_broadcast.deinit();
+        var bf16_middle_broadcast_host = try bf16_middle_broadcast.cpu();
+        defer bf16_middle_broadcast_host.deinit();
+        const bf16_middle_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         bf16_broadcast_ok = bf16_row_broadcast.device.isCuda() and bf16_row_broadcast.device_storage != null and
             approxF32(bf16_row_broadcast_host.data[0].toF32(), 11, 0.05) and
             approxF32(bf16_row_broadcast_host.data[1].toF32(), 22, 0.05) and
@@ -1126,7 +1135,19 @@ pub fn main(init: std.process.Init) !void {
             approxF32(bf16_column_broadcast_host.data[0].toF32(), 101, 0.05) and
             approxF32(bf16_column_broadcast_host.data[1].toF32(), 102, 0.05) and
             approxF32(bf16_column_broadcast_host.data[2].toF32(), 203, 0.05) and
-            approxF32(bf16_column_broadcast_host.data[3].toF32(), 204, 0.05);
+            approxF32(bf16_column_broadcast_host.data[3].toF32(), 204, 0.05) and
+            bf16_middle_broadcast.device.isCuda() and bf16_middle_broadcast.device_storage != null and
+            bf16_middle_broadcast_report.valid() and
+            std.mem.eql(u8, bf16_middle_broadcast_report.operation, "broadcast4_bf16") and
+            std.mem.eql(usize, bf16_middle_broadcast_host.shape, &.{ 2, 2, 2 }) and
+            approxF32(bf16_middle_broadcast_host.data[0].toF32(), 11, 0.1) and
+            approxF32(bf16_middle_broadcast_host.data[1].toF32(), 22, 0.1) and
+            approxF32(bf16_middle_broadcast_host.data[2].toF32(), 31, 0.1) and
+            approxF32(bf16_middle_broadcast_host.data[3].toF32(), 42, 0.1) and
+            approxF32(bf16_middle_broadcast_host.data[4].toF32(), 13, 0.1) and
+            approxF32(bf16_middle_broadcast_host.data[5].toF32(), 24, 0.1) and
+            approxF32(bf16_middle_broadcast_host.data[6].toF32(), 33, 0.1) and
+            approxF32(bf16_middle_broadcast_host.data[7].toF32(), 44, 0.1);
         var bf16_shifted = try bf16_lhs.subScalar(vx.BFloat16.fromF32(3));
         defer bf16_shifted.deinit();
         var bf16_relu = try bf16_shifted.relu();
