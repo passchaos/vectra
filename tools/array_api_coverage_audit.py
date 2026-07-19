@@ -67,7 +67,7 @@ KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "strided_transposed_device_gemm_lowering",
-        "reason": "Axiom supports contiguous and padded row-major f32/f64/f16/BF16 GEMM and matmul-add memrefs; transposed, negative-stride, and batched device GEMM layouts still need bufferization/layout-transform lowering.",
+        "reason": "Axiom supports contiguous/padded row-major f32/f64/f16/BF16 GEMM and matmul-add memrefs plus f32/f64/f16/BF16 transposed/non-row-major GEMM through copy-pack/GEMM/copy-unpack runtime seeds; fused pack/unpack kernels, negative-stride legality, and batched device GEMM layouts still need lowering.",
         "target_layer": "axiom",
     },
     {

@@ -59,6 +59,28 @@ pub fn main(init: std.process.Init) !void {
     defer out_transposed.deinit();
     const unpack_c = try vx.axiom_backend.planGemmMemRefLowering(f32, lhs, rhs, out_transposed);
     const bufferized = try vx.axiom_backend.computeGemmMemRefBufferizedReference(f32, allocator, lhs_transposed, rhs_transposed, out_transposed);
+    const device_bufferized = try vx.axiom_backend.planGemmMemRefDeviceBufferization(f32, lhs_transposed, rhs_transposed, out_transposed);
+
+    var lhs64_storage = try vx.Array(f64).fromSlice(allocator, &.{
+        1, 4,
+        2, 5,
+        3, 6,
+    }, &.{ 3, 2 });
+    defer lhs64_storage.deinit();
+    var rhs64_storage = try vx.Array(f64).fromSlice(allocator, &.{
+        1, 3, 5,
+        2, 4, 6,
+    }, &.{ 2, 3 });
+    defer rhs64_storage.deinit();
+    var out64_storage = try vx.Array(f64).zeros(allocator, &.{ 2, 2 });
+    defer out64_storage.deinit();
+    var lhs64_transposed = try lhs64_storage.transposeView();
+    defer lhs64_transposed.deinit();
+    var rhs64_transposed = try rhs64_storage.transposeView();
+    defer rhs64_transposed.deinit();
+    var out64_transposed = try out64_storage.transposeView();
+    defer out64_transposed.deinit();
+    const device_bufferized64 = try vx.axiom_backend.planGemmMemRefDeviceBufferization(f64, lhs64_transposed, rhs64_transposed, out64_transposed);
 
     var broadcast_scalar = try vx.Array(f32).fromSlice(allocator, &.{1}, &.{1});
     defer broadcast_scalar.deinit();
@@ -90,13 +112,21 @@ pub fn main(init: std.process.Init) !void {
         bufferized.b_packed and
         bufferized.c_unpacked and
         bufferized.output_fingerprint != 0 and
+        device_bufferized.ok() and
+        device_bufferized.usesDeviceCopyPackRuntime() and
+        device_bufferized.deviceRuntimeExecutable() and
+        device_bufferized.status == .executable_device_copy_pack_unpack and
+        device_bufferized64.ok() and
+        device_bufferized64.usesDeviceCopyPackRuntime() and
+        device_bufferized64.deviceRuntimeExecutable() and
+        device_bufferized64.status == .executable_device_copy_pack_unpack and
         std.mem.eql(f32, out_transposed_storage.data, &.{ 22, 49, 28, 64 }) and
         broadcast_rejected;
 
-    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_buffer: [1536]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_gemm_layout_smoke\",\"ok\":{},\"executable_status\":\"{s}\",\"pack_a_status\":\"{s}\",\"pack_b_status\":\"{s}\",\"unpack_c_status\":\"{s}\",\"bufferized_ok\":{},\"bufferized_fp\":{d},\"bufferized_output_fp\":{d},\"broadcast_rejected\":{},\"executable_fp\":{d},\"pack_a_fp\":{d},\"pack_b_fp\":{d},\"unpack_c_fp\":{d}}}\n",
+        "{{\"kind\":\"vectra_axiom_gemm_layout_smoke\",\"ok\":{},\"executable_status\":\"{s}\",\"pack_a_status\":\"{s}\",\"pack_b_status\":\"{s}\",\"unpack_c_status\":\"{s}\",\"bufferized_ok\":{},\"device_bufferized_status\":\"{s}\",\"device_bufferized64_status\":\"{s}\",\"bufferized_fp\":{d},\"device_bufferized_fp\":{d},\"device_bufferized64_fp\":{d},\"bufferized_output_fp\":{d},\"broadcast_rejected\":{},\"executable_fp\":{d},\"pack_a_fp\":{d},\"pack_b_fp\":{d},\"unpack_c_fp\":{d}}}\n",
         .{
             ok,
             executable.status.label(),
@@ -104,7 +134,11 @@ pub fn main(init: std.process.Init) !void {
             pack_b.status.label(),
             unpack_c.status.label(),
             bufferized.ok(),
+            device_bufferized.status.label(),
+            device_bufferized64.status.label(),
             bufferized.fingerprint(),
+            device_bufferized.fingerprint(),
+            device_bufferized64.fingerprint(),
             bufferized.output_fingerprint,
             broadcast_rejected,
             executable.fingerprint(),

@@ -69,6 +69,8 @@ pub const TensorMemRefAddressSpace = axiom.accelerator.TensorMemRefAddressSpace;
 pub const TensorGemmMemRefLoweringPlan = axiom.accelerator.TensorGemmMemRefLoweringPlan;
 pub const TensorGemmMemRefLoweringStatus = axiom.accelerator.TensorGemmMemRefLoweringStatus;
 pub const TensorGemmMemRefBufferizationReport = axiom.accelerator.TensorGemmMemRefBufferizationReport;
+pub const TensorGemmMemRefDeviceBufferizationPlan = axiom.accelerator.TensorGemmMemRefDeviceBufferizationPlan;
+pub const TensorGemmMemRefDeviceBufferizationStatus = axiom.accelerator.TensorGemmMemRefDeviceBufferizationStatus;
 
 pub fn QrResult(comptime T: type) type {
     return struct {
@@ -437,6 +439,19 @@ pub fn computeGemmMemRefBufferizedReference(
         @as([]const f32, out.data),
         @as([]f32, out.data),
     ) catch error.BackendFailure;
+}
+
+pub fn planGemmMemRefDeviceBufferization(
+    comptime T: type,
+    lhs: array_mod.ArrayView(T),
+    rhs: array_mod.ArrayView(T),
+    out: array_mod.ArrayView(T),
+) array_mod.ArrayError!TensorGemmMemRefDeviceBufferizationPlan {
+    const lhs_desc = try describeViewMemRef(T, lhs, "lhs");
+    const rhs_desc = try describeViewMemRef(T, rhs, "rhs");
+    const out_desc = try describeViewMemRef(T, out, "out");
+    const spec = axiom.accelerator.TensorGemmSpec.fromMemRefs(lhs_desc, rhs_desc, out_desc) catch return error.InvalidShape;
+    return axiom.accelerator.TensorGemmMemRefDeviceBufferizationPlan.fromSpec(spec) catch error.BackendFailure;
 }
 
 fn usizeStridesToIsize(strides: []const usize) array_mod.ArrayError![4]isize {
