@@ -31,6 +31,12 @@ AXIAL_GUARD_FILES = (BUILD, ZON, ROOT, ARRAY, AXIOM_BACKEND)
 # module should likewise expose backend diagnostics through axiom_backend rather
 # than publishing target-specific bridge modules as API surface.
 TARGET_FACADE_CLIENT_FILES = (ARRAY,)
+PUBLIC_TARGET_BRIDGE_GUARD_FILES = (
+    README,
+    *tuple(sorted((REPO / "docs").glob("*.md"))),
+    *tuple(sorted((REPO / "examples").glob("*.zig"))),
+    *tuple(sorted((REPO / "tools").glob("*.zig"))),
+)
 
 BANNED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("public_tensor_alias", re.compile(r"\bpub\s+const\s+Tensor\b")),
@@ -84,6 +90,7 @@ REQUIRED_AXIOM_BACKEND_SNIPPETS = (
     "pub fn broadcastAddRuntimeCapability(",
     "pub fn transposeRuntimeCapability(",
     "pub fn unaryRuntimeCapability(",
+    "plannedMpsRuntimeCapability(",
     "pub fn planPendingMatmul(",
     "pub fn hostFallbackAllowed(",
     "pub fn shouldRestoreDeviceAfterHostCast(",
@@ -98,6 +105,13 @@ FORBIDDEN_ROOT_TARGET_SPLIT_SNIPPETS = (
 FORBIDDEN_ROOT_BACKEND_EXPORT_SNIPPETS = (
     'pub const axiom_cpu = @import("backends/axiom_cpu.zig");',
     'pub const axiom_cuda = @import("backends/axiom_cuda.zig");',
+)
+
+FORBIDDEN_PUBLIC_TARGET_BRIDGE_SNIPPETS = (
+    "vx.axiom_cpu",
+    "vx.axiom_cuda",
+    '@import("backends/axiom_cpu.zig")',
+    '@import("backends/axiom_cuda.zig")',
 )
 
 FORBIDDEN_ARRAY_TARGET_SPLIT_SNIPPETS = (
@@ -213,10 +227,21 @@ def main() -> int:
             if snippet in text:
                 issues.append({"kind": "direct_storage_transfer_outside_axiom_backend", "path": str(path.relative_to(REPO)), "snippet": snippet})
 
+    # Docs, examples, and smoke tools are part of the practical public surface:
+    # users copy these snippets first.  Keep them target-facade-oriented so the
+    # lower-level CPU/CUDA bridge modules can continue shrinking behind
+    # `vx.axiom_backend` instead of becoming stable APIs.
+    for path in PUBLIC_TARGET_BRIDGE_GUARD_FILES:
+        text = read(path)
+        for snippet in FORBIDDEN_PUBLIC_TARGET_BRIDGE_SNIPPETS:
+            if snippet in text:
+                issues.append({"kind": "target_specific_bridge_public_usage", "path": str(path.relative_to(REPO)), "snippet": snippet})
+
     row = {
         "kind": "vectra_api_boundary_audit",
         "ok": not issues,
         "checked_public_sources": [str(path.relative_to(REPO)) for path in PUBLIC_SOURCE_FILES],
+        "checked_target_facade_surfaces": [str(path.relative_to(REPO)) for path in PUBLIC_TARGET_BRIDGE_GUARD_FILES],
         "boundary_doc": str(BOUNDARY_DOC.relative_to(REPO)),
         "issues": issues,
         "issue_count": len(issues),
