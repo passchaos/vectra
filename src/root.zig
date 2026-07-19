@@ -137,6 +137,11 @@ pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayErro
     // `...ij,...jk->...ik`, by forwarding to Array.matmul so backend selection
     // still flows through Axiom instead of a special einsum backend.
     if (ellipsisBatchedMatmulLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) return lhs.matmul(rhs);
+    if (ellipsisBatchedDotLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) {
+        var product = try lhs.mul(rhs);
+        defer product.deinit();
+        return product.sum(-1, false);
+    }
     if (batchedMatmulLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) return lhs.matmul(rhs);
     const plan = try parseBinaryEinsum(subscripts, lhs.shape.len, rhs.shape.len);
     if (plan.matmulLike()) return lhs.matmul(rhs);
@@ -214,6 +219,23 @@ fn ellipsisBatchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, 
         !hasRepeatedLabels(out_tail) and
         out_tail[0] == lhs_tail[0] and
         out_tail[1] == rhs_tail[1];
+}
+
+fn ellipsisBatchedDotLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
+    if (lhs_rank < 1 or rhs_rank < 1) return false;
+    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse subscripts.len;
+    const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return false;
+    const lhs = subscripts[0..comma];
+    const rhs = subscripts[comma + 1 .. arrow];
+    const out = if (arrow == subscripts.len) "" else subscripts[arrow + 2 ..];
+    if (!std.mem.startsWith(u8, lhs, "...") or !std.mem.startsWith(u8, rhs, "...")) return false;
+    const lhs_tail = lhs[3..];
+    const rhs_tail = rhs[3..];
+    if (lhs_tail.len != 1 or rhs_tail.len != 1) return false;
+    if (!allEinsumLabels(lhs_tail) or !allEinsumLabels(rhs_tail)) return false;
+    if (lhs_tail[0] != rhs_tail[0]) return false;
+    if (out.len == 0) return true;
+    return std.mem.eql(u8, out, "...");
 }
 
 const max_einsum_rank = 16;

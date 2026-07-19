@@ -62,9 +62,9 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
 - `einsum`/general contraction syntax: Vectra now has a bounded binary
   explicit-subscript `einsum-smoke` for common contractions, implicit output
   inference, and output reordering, including the common batched matmul forms
-  `bij,bjk->bik` and `...ij,...jk->...ik`, but full NumPy-compatible syntax
-  (general ellipsis, repeated labels, more than two operands, and optimized
-  path planning) is not covered yet.
+  `bij,bjk->bik`, `...ij,...jk->...ik`, and `...i,...i->...`, but full
+  NumPy-compatible syntax (general ellipsis, repeated labels, more than two
+  operands, and optimized path planning) is not covered yet.
 - Sparse tensor/array layouts are outside the current dense Array surface.
 
 ## Backend evidence
