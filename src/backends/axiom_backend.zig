@@ -2535,6 +2535,10 @@ fn executeMpsUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
         if (mpsUnaryOp(op)) |mps_op| {
             if (try axiom_mps.tryUnaryF32(mps_op, @as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
         }
+    } else if (T == f16) {
+        if (mpsUnaryOpF16(op)) |mps_op| {
+            if (try axiom_mps.tryUnaryF16(mps_op, @as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);
+        }
     }
     return null;
 }
@@ -3402,6 +3406,8 @@ fn executeCudaElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Ar
 fn executeMpsElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_mps.tryBinaryF32(mpsBinaryOp(op), @as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryBinaryF16(mpsBinaryOp(op), @as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3439,6 +3445,16 @@ fn mpsUnaryOp(op: ExecutionUnaryOp) ?axiom.accelerator.MpsUnaryOp {
         .sin => .sin,
         .cos => .cos,
         .tan => .tan,
+        else => null,
+    };
+}
+
+fn mpsUnaryOpF16(op: ExecutionUnaryOp) ?axiom.accelerator.MpsUnaryOp {
+    return switch (op) {
+        .abs => .abs,
+        .square => .square,
+        .sqrt => .sqrt,
+        .exp => .exp,
         else => null,
     };
 }
@@ -3603,6 +3619,8 @@ fn executeMpsElementwiseScalar(
     if (target != .mps or !input.device.isMps() or input.shape.len == 0) return null;
     if (T == f32) {
         if (try axiom_mps.tryScalarF32(mpsBinaryOp(op), @as(array_mod.Array(f32), input), @as(f32, scalar), scalar_side == .lhs)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryScalarF16(mpsBinaryOp(op), @as(array_mod.Array(f16), input), @as(f16, scalar), scalar_side == .lhs)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
