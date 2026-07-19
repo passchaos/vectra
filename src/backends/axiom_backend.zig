@@ -2725,6 +2725,8 @@ fn executeMpsReduction(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_mps.tryReductionF32(mpsReductionOp(op), @as(array_mod.Array(f32), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryReductionF16(mpsReductionOp(op), @as(array_mod.Array(f16), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2807,6 +2809,8 @@ fn executeCudaBroadcastBinary(comptime T: type, op: ElementwiseOp, input: array_
 fn executeMpsBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_mps.tryBroadcastAddF32(@as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryBroadcastAddF16(@as(array_mod.Array(f16), input), @as(array_mod.Array(f16), bias), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2874,6 +2878,8 @@ fn executeCudaTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.A
 fn executeMpsTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         if (try axiom_mps.tryTransposeF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryTransposeF16(@as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3782,7 +3788,7 @@ fn supportedReductionExecution(comptime T: type, target: DialectBackend, input: 
     return switch (target) {
         .cpu => supportedReduction2d(T, input),
         .cuda => input.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
-        .mps => input.device.isMps() and T == f32 and input.device_storage != null,
+        .mps => input.device.isMps() and (T == f32 or T == f16) and input.device_storage != null,
     };
 }
 
@@ -3808,7 +3814,7 @@ fn supportedTransposeExecution(comptime T: type, target: DialectBackend, input: 
     return switch (target) {
         .cpu => supportedUnary2d(T, input),
         .cuda => input.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
-        .mps => input.device.isMps() and T == f32 and input.device_storage != null,
+        .mps => input.device.isMps() and (T == f32 or T == f16) and input.device_storage != null,
     };
 }
 
@@ -3873,7 +3879,7 @@ fn supportedBroadcastBinaryExecution(comptime T: type, op: ElementwiseOp, target
         switch (target) {
             .cpu => op == .add and supportedBroadcastAdd(T, input, bias, axis),
             .cuda => (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
-            .mps => T == f32 and input.device.isMps() and supportedBroadcastAddLowering(T, input, bias, axis),
+            .mps => (T == f32 or T == f16) and input.device.isMps() and supportedBroadcastAddLowering(T, input, bias, axis),
         };
 }
 

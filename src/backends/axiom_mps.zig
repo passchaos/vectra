@@ -479,6 +479,122 @@ pub fn tryReductionF32(op: axiom.accelerator.MpsReductionOp, input: array_mod.Ar
     return out;
 }
 
+pub fn tryTransposeF16(input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!input.device.isMps() or input.shape.len != 2 or !input.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+    const rows = input.shape[0];
+    const cols = input.shape[1];
+
+    var out = try array_mod.Array(f16).emptyOn(input.allocator, &.{ cols, rows }, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runTransposeF16(
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        rows,
+        cols,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryBroadcastAddF16(input: array_mod.Array(f16), bias: array_mod.Array(f16), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!input.device.isMps() or !bias.device.isMps() or !input.device.sameDevice(bias.device)) return null;
+    if (input.shape.len != 2 or !input.isContiguous() or !bias.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+    const bias_storage = bias.device_storage orelse return null;
+    const rows = input.shape[0];
+    const cols = input.shape[1];
+    const expected_bias = switch (axis) {
+        .row => cols,
+        .column => rows,
+    };
+    if (bias.numel() != 1 and bias.numel() != expected_bias) return null;
+
+    var out = try array_mod.Array(f16).emptyOn(input.allocator, input.shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runBroadcastAddF16(
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        .{ .ptr = bias_storage.ptr, .bytes = bias_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        rows,
+        cols,
+        bias_storage.len,
+        switch (axis) {
+            .row => .row,
+            .column => .column,
+        },
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryReductionF16(op: axiom.accelerator.MpsReductionOp, input: array_mod.Array(f16), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!input.device.isMps() or input.shape.len != 2 or !input.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+    const rows = input.shape[0];
+    const cols = input.shape[1];
+    var out_shape_storage: [2]usize = undefined;
+    const out_shape = if (keepdims) shape: {
+        out_shape_storage = if (axis == 0)
+            .{ 1, cols }
+        else
+            .{ rows, 1 };
+        break :shape out_shape_storage[0..2];
+    } else shape: {
+        out_shape_storage[0] = if (axis == 0) cols else rows;
+        break :shape out_shape_storage[0..1];
+    };
+
+    var out = try array_mod.Array(f16).emptyOn(input.allocator, out_shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runReductionF16(
+        op,
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        rows,
+        cols,
+        axis,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
 pub fn trySoftmaxF32(op: axiom.accelerator.MpsSoftmaxOp, input: array_mod.Array(f32), axis: u1) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!input.device.isMps() or input.shape.len != 2 or !input.isContiguous()) return null;
     const input_storage = input.device_storage orelse return null;
