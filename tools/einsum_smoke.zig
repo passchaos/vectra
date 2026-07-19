@@ -66,6 +66,10 @@ pub fn main(init: std.process.Init) !void {
     defer batched.deinit();
     var batched_implicit = try vx.einsum("bij,bjk", batch_lhs, batch_rhs);
     defer batched_implicit.deinit();
+    var ellipsis_batched = try vx.einsum("...ij,...jk->...ik", batch_lhs, batch_rhs);
+    defer ellipsis_batched.deinit();
+    var ellipsis_batched_implicit = try vx.einsum("...ij,...jk", batch_lhs, batch_rhs);
+    defer ellipsis_batched_implicit.deinit();
 
     const unsupported_rejected = blk: {
         var bad = vx.einsum("ij->ji", a, b) catch |err| {
@@ -95,16 +99,18 @@ pub fn main(init: std.process.Init) !void {
         std.mem.eql(usize, batched.shape, &.{ 2, 2, 2 }) and
         eql(f32, batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }) and
         eql(f32, batched_implicit.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }) and
+        eql(f32, ellipsis_batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }) and
+        eql(f32, ellipsis_batched_implicit.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }) and
         unsupported_rejected;
 
-    var stdout_buffer: [512]u8 = undefined;
+    var stdout_buffer: [768]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"implicit_output_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"vecmat_ok\":{},\"reordered_ok\":{},\"generic_contract_ok\":{},\"batched_matmul_ok\":{},\"unsupported_rejected\":{}}}\n",
+        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"implicit_output_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"vecmat_ok\":{},\"reordered_ok\":{},\"generic_contract_ok\":{},\"batched_matmul_ok\":{},\"ellipsis_batched_matmul_ok\":{},\"unsupported_rejected\":{}}}\n",
         .{
             ok,
             eql(f32, mm.data, &.{ 58, 64, 139, 154 }),
-            eql(f32, mm_implicit.data, &.{ 58, 64, 139, 154 }) and eql(f32, dot_implicit.data, &.{220}) and eql(f32, outer_implicit.data, &.{ 10, 30, 50, 20, 60, 100, 30, 90, 150 }) and eql(f32, batched_implicit.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),
+            eql(f32, mm_implicit.data, &.{ 58, 64, 139, 154 }) and eql(f32, dot_implicit.data, &.{220}) and eql(f32, outer_implicit.data, &.{ 10, 30, 50, 20, 60, 100, 30, 90, 150 }) and eql(f32, batched_implicit.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }) and eql(f32, ellipsis_batched_implicit.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),
             eql(f32, dot.data, &.{220}),
             eql(f32, outer.data, &.{ 10, 30, 50, 20, 60, 100, 30, 90, 150 }),
             eql(f32, matvec.data, &.{ 14, 32 }),
@@ -112,6 +118,7 @@ pub fn main(init: std.process.Init) !void {
             eql(f32, transposed_outer.data, &.{ 10, 20, 30, 30, 60, 90, 50, 100, 150 }),
             eql(f32, generic_contract.data, &.{ 22, 28, 49, 64, 76, 100, 103, 136 }),
             eql(f32, batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),
+            eql(f32, ellipsis_batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),
             unsupported_rejected,
         },
     );

@@ -131,11 +131,12 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
 pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     // Bounded NumPy/PyTorch-style front-end syntax over existing Array
-    // primitives.  This parser intentionally supports only explicit binary
-    // subscript forms without ellipsis or repeated labels.  The dedicated
-    // batched-matmul fast path handles the common shared leading batch label;
-    // the generic fallback still rejects other shared output labels until a
-    // fuller einsum lowering exists.
+    // primitives.  This parser intentionally supports a bounded binary subset
+    // rather than full NumPy syntax.  The dedicated fast paths handle common
+    // batched matmul forms, including the PyTorch/NumPy spelling
+    // `...ij,...jk->...ik`, by forwarding to Array.matmul so backend selection
+    // still flows through Axiom instead of a special einsum backend.
+    if (ellipsisBatchedMatmulLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) return lhs.matmul(rhs);
     if (batchedMatmulLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) return lhs.matmul(rhs);
     const plan = try parseBinaryEinsum(subscripts, lhs.shape.len, rhs.shape.len);
     if (plan.matmulLike()) return lhs.matmul(rhs);
@@ -189,6 +190,30 @@ fn batchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank
         lhs[1] == out[1] and
         rhs[2] == out[2] and
         lhs[2] == rhs[1];
+}
+
+fn ellipsisBatchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
+    if (lhs_rank < 2 or rhs_rank < 2) return false;
+    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse subscripts.len;
+    const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return false;
+    const lhs = subscripts[0..comma];
+    const rhs = subscripts[comma + 1 .. arrow];
+    const out = if (arrow == subscripts.len) "" else subscripts[arrow + 2 ..];
+    if (!std.mem.startsWith(u8, lhs, "...") or !std.mem.startsWith(u8, rhs, "...")) return false;
+    const lhs_tail = lhs[3..];
+    const rhs_tail = rhs[3..];
+    if (lhs_tail.len != 2 or rhs_tail.len != 2) return false;
+    if (!allEinsumLabels(lhs_tail) or !allEinsumLabels(rhs_tail)) return false;
+    if (hasRepeatedLabels(lhs_tail) or hasRepeatedLabels(rhs_tail)) return false;
+    if (lhs_tail[1] != rhs_tail[0]) return false;
+    if (out.len == 0) return true;
+    if (!std.mem.startsWith(u8, out, "...")) return false;
+    const out_tail = out[3..];
+    return out_tail.len == 2 and
+        allEinsumLabels(out_tail) and
+        !hasRepeatedLabels(out_tail) and
+        out_tail[0] == lhs_tail[0] and
+        out_tail[1] == rhs_tail[1];
 }
 
 const max_einsum_rank = 16;
