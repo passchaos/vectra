@@ -567,6 +567,14 @@ pub fn main(init: std.process.Init) !void {
         defer log_softmax_col_host.deinit();
         const log_softmax_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         log_softmax_memref_fingerprint = log_softmax_report.memref_spec_fingerprint;
+        var logsumexp_row = try lhs.logsumexp(1, false);
+        defer logsumexp_row.deinit();
+        var logsumexp_row_host = try logsumexp_row.cpu();
+        defer logsumexp_row_host.deinit();
+        var logsumexp_col_keep = try lhs.logsumexp(0, true);
+        defer logsumexp_col_keep.deinit();
+        var logsumexp_col_keep_host = try logsumexp_col_keep.cpu();
+        defer logsumexp_col_keep_host.deinit();
         const row_log_denom = std.math.log(f32, std.math.e, row_denom);
         const col_log_denom = std.math.log(f32, std.math.e, col_denom);
         direct_log_softmax_ok = log_softmax_row.device.isCuda() and log_softmax_row.device_storage != null and
@@ -578,7 +586,15 @@ pub fn main(init: std.process.Init) !void {
             approxF32(log_softmax_row_host.data[3], -row_log_denom, 0.03) and
             log_softmax_col.device.isCuda() and log_softmax_col.device_storage != null and
             approxF32(log_softmax_col_host.data[0], -2.0 - col_log_denom, 0.03) and
-            approxF32(log_softmax_col_host.data[2], -col_log_denom, 0.03);
+            approxF32(log_softmax_col_host.data[2], -col_log_denom, 0.03) and
+            logsumexp_row.device.isCuda() and logsumexp_row.device_storage != null and
+            std.mem.eql(usize, logsumexp_row_host.shape, &.{2}) and
+            approxF32(logsumexp_row_host.data[0], 2.0 + row_log_denom, 0.03) and
+            approxF32(logsumexp_row_host.data[1], 4.0 + row_log_denom, 0.03) and
+            logsumexp_col_keep.device.isCuda() and logsumexp_col_keep.device_storage != null and
+            std.mem.eql(usize, logsumexp_col_keep_host.shape, &.{ 1, 2 }) and
+            approxF32(logsumexp_col_keep_host.data[0], 3.0 + col_log_denom, 0.03) and
+            approxF32(logsumexp_col_keep_host.data[1], 4.0 + col_log_denom, 0.03);
 
         var negated = try lhs.neg();
         defer negated.deinit();

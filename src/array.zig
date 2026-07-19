@@ -17383,6 +17383,18 @@ pub fn Array(comptime T: type) type {
 
         pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
+            const normalized_axis = try normalizeDim(axis_index, self.shape.len);
+            if (self.shape.len == 2 and (comptime T == f32 or T == f64 or T == f16 or T == BFloat16)) {
+                const axis_u1: u1 = std.math.cast(u1, normalized_axis) orelse return error.InvalidAxis;
+                if (try axiom_backend.executeLogSoftmaxDefault(T, self, axis_u1)) |log_softmax_values| {
+                    var log_softmax_owned = log_softmax_values;
+                    defer log_softmax_owned.deinit();
+                    var repeated_lse = try self.sub(log_softmax_owned);
+                    defer repeated_lse.deinit();
+                    return repeated_lse.min(@intCast(normalized_axis), keepdims);
+                }
+                if (self.device.isCuda()) return error.BackendFailure;
+            }
             var max_t = try self.max(axis_index, true);
             defer max_t.deinit();
             var shifted = try self.sub(max_t);
