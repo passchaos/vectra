@@ -2904,6 +2904,73 @@ pub fn tryDeviceVecmatBF16(vector: array_mod.Array(BFloat16), matrix: array_mod.
     return tryDeviceVecmat(BFloat16, vector, matrix, "vecmat_lhs_bf16", "vecmat_rhs_bf16", "vecmat_out_bf16");
 }
 
+pub fn tryDeviceDotF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceDot(f32, lhs, rhs, "dot_lhs_f32", "dot_rhs_f32", "dot_out_f32");
+}
+
+pub fn tryDeviceDotF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceDot(f64, lhs, rhs, "dot_lhs_f64", "dot_rhs_f64", "dot_out_f64");
+}
+
+pub fn tryDeviceDotF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceDot(f16, lhs, rhs, "dot_lhs_f16", "dot_rhs_f16", "dot_out_f16");
+}
+
+pub fn tryDeviceDotBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceDot(BFloat16, lhs, rhs, "dot_lhs_bf16", "dot_rhs_bf16", "dot_out_bf16");
+}
+
+fn tryDeviceDot(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    resetLastCudaDeviceGemmReport();
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0) return null;
+    if (lhs.shape.len != 1 or rhs.shape.len != 1 or lhs.shape[0] == 0 or lhs.shape[0] != rhs.shape[0]) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
+
+    var out = try array_mod.Array(T).emptyOn(lhs.allocator, &.{}, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+    const k = lhs.shape[0];
+    const lhs_desc = describeDeviceBufferMemRef(T, lhs_storage, &.{ 1, k }, &.{ k, 1 }, lhs_name) catch {
+        out.deinit();
+        return null;
+    };
+    const rhs_desc = describeDeviceBufferMemRef(T, rhs_storage, &.{ k, 1 }, &.{ 1, 1 }, rhs_name) catch {
+        out.deinit();
+        return null;
+    };
+    const out_desc = describeDeviceBufferMemRef(T, out_storage, &.{ 1, 1 }, &.{ 1, 1 }, out_name) catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorGemmSpec.fromMemRefs(lhs_desc, rhs_desc, out_desc) catch {
+        out.deinit();
+        return null;
+    };
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
+    if (report) |value| {
+        recordCudaDeviceGemmReport(value);
+        if (value.valid()) return out;
+    }
+    out.deinit();
+    return null;
+}
+
 pub fn tryDeviceBmmF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryDeviceBmm(f32, lhs, rhs, "bmm_lhs_f32", "bmm_rhs_f32", "bmm_out_f32");
 }

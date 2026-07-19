@@ -1114,7 +1114,9 @@ fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
     if (T == f32) {
         const lhs32 = @as(array_mod.Array(f32), lhs);
         const rhs32 = @as(array_mod.Array(f32), rhs);
-        if (lhs.shape.len >= 2 and rhs.shape.len == 1) {
+        if (lhs.shape.len == 1 and rhs.shape.len == 1) {
+            if (try axiom_cuda.tryDeviceDotF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
+        } else if (lhs.shape.len >= 2 and rhs.shape.len == 1) {
             if (try axiom_cuda.tryDeviceMatvecF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 1 and rhs.shape.len >= 2) {
             if (try axiom_cuda.tryDeviceVecmatF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
@@ -1124,7 +1126,9 @@ fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
     } else if (T == f64) {
         const lhs64 = @as(array_mod.Array(f64), lhs);
         const rhs64 = @as(array_mod.Array(f64), rhs);
-        if (lhs.shape.len >= 2 and rhs.shape.len == 1) {
+        if (lhs.shape.len == 1 and rhs.shape.len == 1) {
+            if (try axiom_cuda.tryDeviceDotF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
+        } else if (lhs.shape.len >= 2 and rhs.shape.len == 1) {
             if (try axiom_cuda.tryDeviceMatvecF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 1 and rhs.shape.len >= 2) {
             if (try axiom_cuda.tryDeviceVecmatF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
@@ -1134,7 +1138,9 @@ fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
     } else if (T == f16) {
         const lhs16 = @as(array_mod.Array(f16), lhs);
         const rhs16 = @as(array_mod.Array(f16), rhs);
-        if (lhs.shape.len >= 2 and rhs.shape.len == 1) {
+        if (lhs.shape.len == 1 and rhs.shape.len == 1) {
+            if (try axiom_cuda.tryDeviceDotF16(lhs16, rhs16)) |out| return @as(array_mod.Array(T), out);
+        } else if (lhs.shape.len >= 2 and rhs.shape.len == 1) {
             if (try axiom_cuda.tryDeviceMatvecF16(lhs16, rhs16)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 1 and rhs.shape.len >= 2) {
             if (try axiom_cuda.tryDeviceVecmatF16(lhs16, rhs16)) |out| return @as(array_mod.Array(T), out);
@@ -1144,7 +1150,9 @@ fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
     } else if (T == array_mod.BFloat16) {
         const lhs_bf16 = @as(array_mod.Array(array_mod.BFloat16), lhs);
         const rhs_bf16 = @as(array_mod.Array(array_mod.BFloat16), rhs);
-        if (lhs.shape.len >= 2 and rhs.shape.len == 1) {
+        if (lhs.shape.len == 1 and rhs.shape.len == 1) {
+            if (try axiom_cuda.tryDeviceDotBF16(lhs_bf16, rhs_bf16)) |out| return @as(array_mod.Array(T), out);
+        } else if (lhs.shape.len >= 2 and rhs.shape.len == 1) {
             if (try axiom_cuda.tryDeviceMatvecBF16(lhs_bf16, rhs_bf16)) |out| return @as(array_mod.Array(T), out);
         } else if (lhs.shape.len == 1 and rhs.shape.len >= 2) {
             if (try axiom_cuda.tryDeviceVecmatBF16(lhs_bf16, rhs_bf16)) |out| return @as(array_mod.Array(T), out);
@@ -2933,7 +2941,8 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
             (rhs.shape.len == 1 or rhs.shape.len == 2);
     }
     if (!lhs.device.isCuda() or (T != f32 and T != f64 and T != f16 and T != array_mod.BFloat16)) return false;
-    return (lhs.shape.len == 2 and rhs.shape.len == 2) or
+    return (lhs.shape.len == 1 and rhs.shape.len == 1) or
+        (lhs.shape.len == 2 and rhs.shape.len == 2) or
         (lhs.shape.len >= 2 and rhs.shape.len == 1) or
         (lhs.shape.len == 1 and rhs.shape.len >= 2);
 }

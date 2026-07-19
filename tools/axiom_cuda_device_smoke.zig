@@ -39,6 +39,7 @@ pub fn main(init: std.process.Init) !void {
     var direct_mixed_batched_matmul_ok = !vx.axiom_cuda.enabled();
     var direct_batched_matvec_ok = !vx.axiom_cuda.enabled();
     var direct_batched_vecmat_ok = !vx.axiom_cuda.enabled();
+    var direct_dot_ok = !vx.axiom_cuda.enabled();
     var direct_matmul_add_ok = !vx.axiom_cuda.enabled();
     var scaled_matmul_add_ok = !vx.axiom_cuda.enabled();
     var chained_matmul_add_ok = !vx.axiom_cuda.enabled();
@@ -674,6 +675,32 @@ pub fn main(init: std.process.Init) !void {
             std.mem.eql(u8, batched_vecmat_report.backend, batched_gemm_backend) and
             std.mem.eql(usize, batched_vecmat_host.shape, &.{ 2, 2 }) and
             equalF32(batched_vecmat_host.data, &.{ 10, 20, 40, 50 });
+
+        var dot_lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3 }, &.{3}, vx.cuda(0));
+        defer dot_lhs.deinit();
+        var dot_rhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 10, 20, 30 }, &.{3}, vx.cuda(0));
+        defer dot_rhs.deinit();
+        var dot_out = try dot_lhs.dot(dot_rhs);
+        defer dot_out.deinit();
+        var dot_host = try dot_out.cpu();
+        defer dot_host.deinit();
+        const dot_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        var vdot_out = try dot_lhs.vdot(dot_rhs);
+        defer vdot_out.deinit();
+        var vdot_host = try vdot_out.cpu();
+        defer vdot_host.deinit();
+        const vdot_report = vx.axiom_cuda.lastCudaDeviceGemmReport();
+        direct_dot_ok = dot_out.device.isCuda() and
+            dot_out.device_storage != null and
+            dot_report.valid() and
+            dot_report.memref_spec_fingerprint != 0 and
+            std.mem.eql(usize, dot_host.shape, &.{}) and
+            equalF32(dot_host.data, &.{140}) and
+            vdot_out.device.isCuda() and
+            vdot_out.device_storage != null and
+            vdot_report.valid() and
+            std.mem.eql(usize, vdot_host.shape, &.{}) and
+            equalF32(vdot_host.data, &.{140});
 
         var batch64_lhs = try vx.Array(f64).fromSliceOn(allocator, &.{
             1, 2,
@@ -1560,7 +1587,7 @@ pub fn main(init: std.process.Init) !void {
             transpose_memref_fingerprint != 0 and
             softmax_memref_fingerprint != 0 and
             log_softmax_memref_fingerprint != 0);
-    ok = ok and memref_fingerprints_ok and direct_storage_ok and direct_shape_view_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_reduction_ok and direct_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_bmm_ok and direct_batched_matmul_ok and direct_higher_rank_batched_matmul_ok and direct_broadcasted_batched_matmul_ok and direct_mixed_batched_matmul_ok and direct_batched_matvec_ok and direct_batched_vecmat_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_bmm_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_bmm_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_bmm_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
+    ok = ok and memref_fingerprints_ok and direct_storage_ok and direct_shape_view_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_reduction_ok and direct_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_bmm_ok and direct_batched_matmul_ok and direct_higher_rank_batched_matmul_ok and direct_broadcasted_batched_matmul_ok and direct_mixed_batched_matmul_ok and direct_batched_matvec_ok and direct_batched_vecmat_ok and direct_dot_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_bmm_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_bmm_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_bmm_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
@@ -1571,8 +1598,8 @@ pub fn main(init: std.process.Init) !void {
         .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_shape_view_ok, direct_add_ok, direct_square_ok, direct_unary_scalar_ok, direct_reduction_ok, direct_broadcast_ok, direct_transpose_ok, direct_softmax_ok, direct_log_softmax_ok, direct_ternary_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, bf16_broadcast_ok, bf16_reduction_ok, bf16_transpose_ok },
     );
     try stdout.interface.print(
-        ",\"bf16_softmax_ok\":{},\"bf16_bmm_ok\":{},\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_bmm_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_bmm_ok\":{},\"direct_bmm_ok\":{},\"direct_batched_matmul_ok\":{},\"direct_higher_rank_batched_matmul_ok\":{},\"direct_broadcasted_batched_matmul_ok\":{},\"direct_mixed_batched_matmul_ok\":{},\"direct_batched_matvec_ok\":{},\"direct_batched_vecmat_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}",
-        .{ bf16_softmax_ok, bf16_bmm_ok, bf16_log_softmax_ok, f16_activation_ok, f16_bmm_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_bmm_ok, direct_bmm_ok, direct_batched_matmul_ok, direct_higher_rank_batched_matmul_ok, direct_broadcasted_batched_matmul_ok, direct_mixed_batched_matmul_ok, direct_batched_matvec_ok, direct_batched_vecmat_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
+        ",\"bf16_softmax_ok\":{},\"bf16_bmm_ok\":{},\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_bmm_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_bmm_ok\":{},\"direct_bmm_ok\":{},\"direct_batched_matmul_ok\":{},\"direct_higher_rank_batched_matmul_ok\":{},\"direct_broadcasted_batched_matmul_ok\":{},\"direct_mixed_batched_matmul_ok\":{},\"direct_batched_matvec_ok\":{},\"direct_batched_vecmat_ok\":{},\"direct_dot_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}",
+        .{ bf16_softmax_ok, bf16_bmm_ok, bf16_log_softmax_ok, f16_activation_ok, f16_bmm_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_bmm_ok, direct_bmm_ok, direct_batched_matmul_ok, direct_higher_rank_batched_matmul_ok, direct_broadcasted_batched_matmul_ok, direct_mixed_batched_matmul_ok, direct_batched_matvec_ok, direct_batched_vecmat_ok, direct_dot_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
     );
     try stdout.interface.print(
         ",\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_backend\":\"{s}\",\"mixed_batched_gemm_backend\":\"{s}\",\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
