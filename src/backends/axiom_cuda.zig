@@ -1011,6 +1011,7 @@ pub const SmokeReport = struct {
     strided_abs_ok: bool = false,
     strided_sqrt_ok: bool = false,
     strided_exp_ok: bool = false,
+    strided_log_ok: bool = false,
     strided_memref_legality_fingerprint: u64 = 0,
     strided_unary_memref_legality_fingerprint: u64 = 0,
     strided_scalar_memref_legality_fingerprint: u64 = 0,
@@ -1123,6 +1124,7 @@ pub const SmokeReport = struct {
             report.strided_abs_ok and
             report.strided_sqrt_ok and
             report.strided_exp_ok and
+            report.strided_log_ok and
             report.strided_memref_legality_fingerprint != 0 and
             report.strided_unary_memref_legality_fingerprint != 0 and
             report.strided_scalar_memref_legality_fingerprint != 0 and
@@ -1206,6 +1208,7 @@ pub const SmokeReport = struct {
             @as(u8, @intFromBool(!report.strided_abs_ok)) +
             @as(u8, @intFromBool(!report.strided_sqrt_ok)) +
             @as(u8, @intFromBool(!report.strided_exp_ok)) +
+            @as(u8, @intFromBool(!report.strided_log_ok)) +
             @as(u8, @intFromBool(report.strided_memref_legality_fingerprint == 0)) +
             @as(u8, @intFromBool(report.strided_unary_memref_legality_fingerprint == 0)) +
             @as(u8, @intFromBool(report.strided_scalar_memref_legality_fingerprint == 0)) +
@@ -1284,6 +1287,7 @@ pub const SmokeReport = struct {
         hashBool(&hasher, report.strided_abs_ok);
         hashBool(&hasher, report.strided_sqrt_ok);
         hashBool(&hasher, report.strided_exp_ok);
+        hashBool(&hasher, report.strided_log_ok);
         hashU64(&hasher, report.strided_memref_legality_fingerprint);
         hashU64(&hasher, report.strided_unary_memref_legality_fingerprint);
         hashU64(&hasher, report.strided_scalar_memref_legality_fingerprint);
@@ -1392,7 +1396,7 @@ pub const SmokeReport = struct {
             },
         );
         try writer.print(
-            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_memref={x} strided_unary_memref={x} strided_scalar_memref={x} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_memref={x} f64_strided_unary_memref={x} f64_strided_scalar_memref={x} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
+            "vectra_axiom_cuda_strided_f32_f64 strided_add={} strided_sub={} strided_mul={} strided_div={} strided_abs={} strided_sqrt={} strided_exp={} strided_log={} strided_memref={x} strided_unary_memref={x} strided_scalar_memref={x} strided_scalar_add={} strided_scalar_sub={} strided_scalar_mul={} strided_scalar_div={} f64_strided_add={} f64_strided_sub={} f64_strided_mul={} f64_strided_div={} f64_strided_abs={} f64_strided_sqrt={} f64_strided_exp={} f64_strided_memref={x} f64_strided_unary_memref={x} f64_strided_scalar_memref={x} f64_strided_scalar_add={} f64_strided_scalar_sub={} f64_strided_scalar_mul={} f64_strided_scalar_div={}\n",
             .{
                 report.strided_add_ok,
                 report.strided_sub_ok,
@@ -1401,6 +1405,7 @@ pub const SmokeReport = struct {
                 report.strided_abs_ok,
                 report.strided_sqrt_ok,
                 report.strided_exp_ok,
+                report.strided_log_ok,
                 report.strided_memref_legality_fingerprint,
                 report.strided_unary_memref_legality_fingerprint,
                 report.strided_scalar_memref_legality_fingerprint,
@@ -1609,6 +1614,7 @@ pub const SmokeReport = struct {
                 "  \"strided_abs_ok\": {},\n" ++
                 "  \"strided_sqrt_ok\": {},\n" ++
                 "  \"strided_exp_ok\": {},\n" ++
+                "  \"strided_log_ok\": {},\n" ++
                 "  \"strided_memref_legality_fingerprint\": {d},\n" ++
                 "  \"strided_unary_memref_legality_fingerprint\": {d},\n" ++
                 "  \"strided_scalar_memref_legality_fingerprint\": {d},\n" ++
@@ -1641,6 +1647,7 @@ pub const SmokeReport = struct {
                 report.strided_abs_ok,
                 report.strided_sqrt_ok,
                 report.strided_exp_ok,
+                report.strided_log_ok,
                 report.strided_memref_legality_fingerprint,
                 report.strided_unary_memref_legality_fingerprint,
                 report.strided_scalar_memref_legality_fingerprint,
@@ -3040,6 +3047,10 @@ pub fn tryExpViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?arra
     return tryUnaryViewF32(.exp, input);
 }
 
+pub fn tryLogViewF32(input: array_mod.ArrayView(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryUnaryViewF32(.log, input);
+}
+
 pub fn tryAddViewF64(lhs: array_mod.ArrayView(f64), rhs: array_mod.ArrayView(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryBinaryViewF64(.add, lhs, rhs);
 }
@@ -4272,6 +4283,17 @@ pub fn runSmoke(allocator: std.mem.Allocator) SmokeReport {
     if (strided_exp) |*out| {
         defer out.deinit();
         report.strided_exp_ok = sliceClose(out.data, &.{ 2.7182817, 7.389056, 20.085537, 54.59815 }, 0.05);
+        report.output_fingerprint ^= hashF32Slice(out.data);
+    }
+    var strided_log = tryLogViewF32(lhs_view) catch return failedReport();
+    if (strided_log) |*out| {
+        defer out.deinit();
+        report.strided_log_ok = sliceClose(out.data, &.{
+            0,
+            std.math.log(f32, std.math.e, 2),
+            std.math.log(f32, std.math.e, 3),
+            std.math.log(f32, std.math.e, 4),
+        }, 0.01);
         report.output_fingerprint ^= hashF32Slice(out.data);
     }
     const scalar_descriptor = axiom.accelerator.TensorMemRefDescriptor.init("scalar", 0x4000, .f32, .host, 0, &.{4}, &.{0}) catch return failedReport();

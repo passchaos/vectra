@@ -2740,7 +2740,8 @@ fn executeCudaViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod
             .abs => try axiom_cuda.tryAbsViewF32(@as(array_mod.ArrayView(f32), input)),
             .sqrt => try axiom_cuda.trySqrtViewF32(@as(array_mod.ArrayView(f32), input)),
             .exp => try axiom_cuda.tryExpViewF32(@as(array_mod.ArrayView(f32), input)),
-            .square, .log => null,
+            .log => try axiom_cuda.tryLogViewF32(@as(array_mod.ArrayView(f32), input)),
+            .square => null,
         };
         if (out) |value| return @as(array_mod.Array(T), value);
     } else if (T == f64) {

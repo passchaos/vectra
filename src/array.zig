@@ -4078,6 +4078,11 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn log(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
+            if (comptime T == f32) {
+                if (self.shape.len == 1) {
+                    if (try axiom_backend.executeViewUnaryDefault(T, .log, self)) |out| return out;
+                }
+            }
             return self.unary(Array(T).opLog);
         }
 

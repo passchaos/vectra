@@ -138,7 +138,7 @@ CPU path for CPU arrays, or return an explicit error.
   `runTensorElementwiseBinaryMemRefsF32` and f64/f16/BFloat16 strided
   `ArrayView.add/sub/mul/div` plus scalar broadcast through Axiom's generic
   `runTensorElementwiseBinaryMemRefsNative` ABI, and f32/f64/f16/BFloat16 strided
-  `ArrayView.abs/sqrt/exp` through unary memref runtime ABIs;
+  `ArrayView.abs/sqrt/exp` plus f32 `ArrayView.log` through unary memref runtime ABIs;
   `axiom-cuda-smoke` must report non-zero f32/f64/f16/BFloat16 strided,
   unary, and scalar-broadcast memref legality fingerprints so
   the bridge cannot silently regress to stride-only host-slice calls.
