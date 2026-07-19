@@ -21859,9 +21859,12 @@ pub fn Array(comptime T: type) type {
         pub fn inner(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.shape.len == 0 or other.shape.len == 0) return self.mul(other);
+            if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             const lhs_contract = self.shape[self.shape.len - 1];
             const rhs_contract = other.shape[other.shape.len - 1];
             if (lhs_contract != rhs_contract) return error.ShapeMismatch;
+            if (try self.tryAxiomInner(other)) |accelerated| return accelerated;
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.TypeUnsupported;
 
             const out_rank = self.shape.len + other.shape.len - 2;
             const out_shape = try self.allocator.alloc(usize, out_rank);
@@ -21908,6 +21911,44 @@ pub fn Array(comptime T: type) type {
                 slot.* = acc;
             }
             return out;
+        }
+
+        fn tryAxiomInner(self: Self, other: Self) ArrayError!?Self {
+            if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
+            if (!self.device.isCuda() or !self.isContiguous() or !other.isContiguous()) return null;
+            const k = self.shape[self.shape.len - 1];
+            const lhs_outer = self.shape[0 .. self.shape.len - 1];
+            const rhs_outer = other.shape[0 .. other.shape.len - 1];
+            const lhs_rows = try numelFrom(lhs_outer);
+            const rhs_rows = try numelFrom(rhs_outer);
+            if (lhs_rows == 0 or rhs_rows == 0 or k == 0) return null;
+
+            const out_rank = lhs_outer.len + rhs_outer.len;
+            var out_shape = try self.allocator.alloc(usize, out_rank);
+            defer self.allocator.free(out_shape);
+            @memcpy(out_shape[0..lhs_outer.len], lhs_outer);
+            @memcpy(out_shape[lhs_outer.len..], rhs_outer);
+
+            if (self.shape.len == 1 and other.shape.len == 1) {
+                var dot_out = (try axiom_backend.executeMatmulDefault(T, self, other)) orelse return null;
+                errdefer dot_out.deinit();
+                if (out_rank == 0) return dot_out;
+                const reshaped = try dot_out.reshape(out_shape);
+                dot_out.deinit();
+                return reshaped;
+            }
+
+            const lhs_2d_shape = [_]usize{ lhs_rows, k };
+            const rhs_2d_shape = [_]usize{ rhs_rows, k };
+            var lhs_2d = try self.reshape(&lhs_2d_shape);
+            defer lhs_2d.deinit();
+            var rhs_2d = try other.reshape(&rhs_2d_shape);
+            defer rhs_2d.deinit();
+            var rhs_t = try rhs_2d.transpose();
+            defer rhs_t.deinit();
+            var product_out = try lhs_2d.matmul(rhs_t);
+            defer product_out.deinit();
+            return try product_out.reshape(out_shape);
         }
 
         pub fn outer(self: Self, other: Self) ArrayError!Self {
