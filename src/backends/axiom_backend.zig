@@ -812,7 +812,7 @@ pub fn reductionRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
             .target = target,
             .operation = "reduction",
             .status = .executable,
-            .reason = "Axiom MPS exposes eager f32 2D sum/prod/min/max reductions over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+            .reason = "Axiom MPS exposes eager f32/f16/BFloat16 2D sum/prod/min/max reductions over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
         },
     };
 }
@@ -835,7 +835,7 @@ pub fn broadcastAddRuntimeCapability(target: DialectBackend) RuntimeCapabilityRe
             .target = target,
             .operation = "broadcast_add",
             .status = .executable,
-            .reason = "Axiom MPS exposes eager f32 2D row/column broadcast-add over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+            .reason = "Axiom MPS exposes eager f32/f16/BFloat16 2D row/column broadcast-add over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
         },
     };
 }
@@ -858,7 +858,7 @@ pub fn transposeRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
             .target = target,
             .operation = "transpose2d",
             .status = .executable,
-            .reason = "Axiom MPS exposes eager f32 2D transpose over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+            .reason = "Axiom MPS exposes eager f32/f16/BFloat16 2D transpose over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
         },
     };
 }
@@ -2737,6 +2737,8 @@ fn executeMpsReduction(
         if (try axiom_mps.tryReductionF32(mpsReductionOp(op), @as(array_mod.Array(f32), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
         if (try axiom_mps.tryReductionF16(mpsReductionOp(op), @as(array_mod.Array(f16), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryReductionBF16(mpsReductionOp(op), @as(array_mod.Array(array_mod.BFloat16), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2821,6 +2823,8 @@ fn executeMpsBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arr
         if (try axiom_mps.tryBroadcastAddF32(@as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
         if (try axiom_mps.tryBroadcastAddF16(@as(array_mod.Array(f16), input), @as(array_mod.Array(f16), bias), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryBroadcastAddBF16(@as(array_mod.Array(array_mod.BFloat16), input), @as(array_mod.Array(array_mod.BFloat16), bias), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2890,6 +2894,8 @@ fn executeMpsTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.Ar
         if (try axiom_mps.tryTransposeF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
         if (try axiom_mps.tryTransposeF16(@as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryTransposeBF16(@as(array_mod.Array(array_mod.BFloat16), input))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3812,7 +3818,7 @@ fn supportedReductionExecution(comptime T: type, target: DialectBackend, input: 
     return switch (target) {
         .cpu => supportedReduction2d(T, input),
         .cuda => input.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
-        .mps => input.device.isMps() and (T == f32 or T == f16) and input.device_storage != null,
+        .mps => input.device.isMps() and (T == f32 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
     };
 }
 
@@ -3838,7 +3844,7 @@ fn supportedTransposeExecution(comptime T: type, target: DialectBackend, input: 
     return switch (target) {
         .cpu => supportedUnary2d(T, input),
         .cuda => input.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
-        .mps => input.device.isMps() and (T == f32 or T == f16) and input.device_storage != null,
+        .mps => input.device.isMps() and (T == f32 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
     };
 }
 
@@ -3903,7 +3909,7 @@ fn supportedBroadcastBinaryExecution(comptime T: type, op: ElementwiseOp, target
         switch (target) {
             .cpu => op == .add and supportedBroadcastAdd(T, input, bias, axis),
             .cuda => (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
-            .mps => (T == f32 or T == f16) and input.device.isMps() and supportedBroadcastAddLowering(T, input, bias, axis),
+            .mps => (T == f32 or T == f16 or T == array_mod.BFloat16) and input.device.isMps() and supportedBroadcastAddLowering(T, input, bias, axis),
         };
 }
 

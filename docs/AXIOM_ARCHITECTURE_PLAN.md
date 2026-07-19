@@ -203,8 +203,9 @@ from the relevant subset of:
   transpose, broadcast-add, reductions, softmax, and logSoftmax, plus f16
   same-shape elementwise/scalar/abs/square/sqrt/exp, 2D matmul, transpose,
   broadcast-add, sum/prod/min/max reductions, softmax, and logSoftmax, plus
-  BF16 same-shape elementwise/scalar/abs/square/sqrt/exp and 2D matmul; remaining
-  MPS dtypes/shapes still need parity.
+  BF16 same-shape elementwise/scalar/abs/square/sqrt/exp, 2D matmul, transpose,
+  broadcast-add, and sum/prod/min/max reductions; remaining MPS dtypes/shapes
+  still need parity.
 - NumPy/PyTorch API surface breadth is large; parity must be measured by
   descriptor/lowering coverage, runtime capability, and correctness/performance
   gates rather than by counting isolated method names.
