@@ -21767,8 +21767,13 @@ pub fn Array(comptime T: type) type {
         pub fn bmm(self: Self, other: Self) ArrayError!Self {
             ensureNumeric(T);
             if (self.shape.len != 3 or other.shape.len != 3) return error.NonMatrixArray;
+            if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             const batch = self.shape[0];
             if (other.shape[0] != batch or self.shape[2] != other.shape[1]) return error.ShapeMismatch;
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (try axiom_backend.executeBmmDefault(T, self, other)) |accelerated| return accelerated;
+            }
+            if (!axiom_backend.hostFallbackAllowed(self.device)) return error.TypeUnsupported;
             const m = self.shape[1];
             const k = self.shape[2];
             const n = other.shape[2];

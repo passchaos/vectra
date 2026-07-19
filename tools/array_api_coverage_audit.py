@@ -67,7 +67,7 @@ KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "strided_transposed_device_gemm_lowering",
-        "reason": "Axiom supports contiguous/padded row-major f32/f64/f16/BF16 GEMM and matmul-add memrefs plus f32/f64/f16/BF16 transposed/non-row-major GEMM through copy-pack/GEMM/copy-unpack runtime seeds; fused pack/unpack kernels and native strided-batched GEMM throughput kernels still need lowering; negative-stride GEMM enters the copy-pack/GEMM/copy-unpack runtime route, and rank-3 batched GEMM memrefs have an Axiom loop-over-per-batch runtime seed.",
+        "reason": "Axiom supports contiguous/padded row-major f32/f64/f16/BF16 GEMM and matmul-add memrefs plus f32/f64/f16/BF16 transposed/non-row-major GEMM through copy-pack/GEMM/copy-unpack runtime seeds; fused pack/unpack kernels and native strided-batched GEMM throughput kernels still need lowering; negative-stride GEMM enters the copy-pack/GEMM/copy-unpack runtime route, and Vectra CUDA bmm now calls Axiom's rank-3 batched GEMM memref loop-over-per-batch runtime seed.",
         "target_layer": "axiom",
     },
     {

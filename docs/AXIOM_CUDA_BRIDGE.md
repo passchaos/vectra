@@ -67,8 +67,12 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
   `TensorGemmSpec` from device descriptors before lowering to Axiom's cached
   cuBLAS-backed GEMM runtime for PyTorch-class throughput.  Axiom also accepts
   padded row-major f32/f64/f16/BFloat16 GEMM memrefs via cuBLAS leading
-  dimensions; more general transposed, negative-stride, and batched GEMM layouts
-  still require a legalization/layout-transform pass.
+  dimensions, routes transposed/non-row-major/negative-stride GEMM through its
+  explicit copy-pack/GEMM/copy-unpack seed, and exposes rank-3 batched GEMM
+  descriptors through a loop-over-per-batch runtime seed.  Vectra CUDA
+  `Array(f32/f64/f16/BFloat16).bmm` now calls that Axiom batched GEMM runtime
+  rather than falling back to a host loop; fused pack/unpack kernels and native
+  strided-batched throughput kernels remain future Axiom lowering work.
 - CUDA `vx.matmulAdd(Array(f32/f64/f16/BFloat16), ...)` builds an Axiom
   memref-backed matmul-add spec with separate addend/output descriptors before
   lowering to cached cuBLASLt-backed GEMM epilogues where available.  Padded
@@ -107,6 +111,10 @@ where Vectra still has a non-Axiom generic implementation.
 - `trySaxpyScalarF32(alpha, scalar_x, y)`
 - `tryMatmulF32(lhs, rhs)` / `tryMatmulF16(lhs, rhs)` /
   `tryMatmulBF16(lhs, rhs)`
+- `tryDeviceBmmF32(lhs, rhs)` / `tryDeviceBmmF64(lhs, rhs)` /
+  `tryDeviceBmmF16(lhs, rhs)` / `tryDeviceBmmBF16(lhs, rhs)` plus
+  `lastCudaDeviceBatchedGemmReport()` for Axiom rank-3 batched GEMM runtime
+  fingerprints
 - `vx.axiom_cpu.tryMatvecF32/F64`, `tryVecmatF32/F64`, `tryDotF32/F64`,
   `tryTraceF32/F64`, `tryDetF32/F64`, `tryInverseF32/F64`, and
   `trySolveF32/F64`, `tryCholeskyF32/F64`, `tryQrF32/F64`, `tryLuF32/F64`,

@@ -71,6 +71,44 @@ pub fn lastCudaDeviceGemmReport() CudaDeviceGemmReportSnapshot {
     return last_cuda_device_gemm_report;
 }
 
+pub const CudaDeviceBatchedGemmReportSnapshot = struct {
+    ok: bool = false,
+    backend: []const u8 = "",
+    device_ordinal: usize = 0,
+    batch_count: usize = 0,
+    m: usize = 0,
+    n: usize = 0,
+    k: usize = 0,
+    plan_fingerprint: u64 = 0,
+    first_batch_fingerprint: u64 = 0,
+    last_batch_fingerprint: u64 = 0,
+    combined_batch_fingerprint: u64 = 0,
+    fingerprint: u64 = 0,
+
+    pub fn valid(report: CudaDeviceBatchedGemmReportSnapshot) bool {
+        return report.ok and
+            report.batch_count != 0 and
+            report.m != 0 and
+            report.n != 0 and
+            report.k != 0 and
+            report.plan_fingerprint != 0 and
+            report.first_batch_fingerprint != 0 and
+            report.last_batch_fingerprint != 0 and
+            report.combined_batch_fingerprint != 0 and
+            report.fingerprint != 0;
+    }
+};
+
+threadlocal var last_cuda_device_batched_gemm_report: CudaDeviceBatchedGemmReportSnapshot = .{};
+
+pub fn resetLastCudaDeviceBatchedGemmReport() void {
+    last_cuda_device_batched_gemm_report = .{};
+}
+
+pub fn lastCudaDeviceBatchedGemmReport() CudaDeviceBatchedGemmReportSnapshot {
+    return last_cuda_device_batched_gemm_report;
+}
+
 pub const CudaDeviceMemRefReportSnapshot = struct {
     ok: bool = false,
     operation: []const u8 = "",
@@ -129,6 +167,23 @@ fn recordCudaDeviceGemmReport(report: anytype) void {
         .lt_plan_cache_hit = report.lt_plan_cache_hit,
         .lt_algo_cache_hit = report.lt_algo_cache_hit,
         .memref_spec_fingerprint = cudaDeviceReportMemRefSpecFingerprint(report),
+        .fingerprint = report.fingerprint(),
+    };
+}
+
+fn recordCudaDeviceBatchedGemmReport(report: anytype) void {
+    last_cuda_device_batched_gemm_report = .{
+        .ok = report.ok,
+        .backend = report.backend,
+        .device_ordinal = report.device_ordinal,
+        .batch_count = report.batch_count,
+        .m = report.m,
+        .n = report.n,
+        .k = report.k,
+        .plan_fingerprint = report.plan_fingerprint,
+        .first_batch_fingerprint = report.first_batch_fingerprint,
+        .last_batch_fingerprint = report.last_batch_fingerprint,
+        .combined_batch_fingerprint = report.combined_batch_fingerprint,
         .fingerprint = report.fingerprint(),
     };
 }
@@ -2817,6 +2872,78 @@ pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(
     return null;
 }
 
+pub fn tryDeviceBmmF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceBmm(f32, lhs, rhs, "bmm_lhs_f32", "bmm_rhs_f32", "bmm_out_f32");
+}
+
+pub fn tryDeviceBmmF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceBmm(f64, lhs, rhs, "bmm_lhs_f64", "bmm_rhs_f64", "bmm_out_f64");
+}
+
+pub fn tryDeviceBmmF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceBmm(f16, lhs, rhs, "bmm_lhs_f16", "bmm_rhs_f16", "bmm_out_f16");
+}
+
+pub fn tryDeviceBmmBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceBmm(BFloat16, lhs, rhs, "bmm_lhs_bf16", "bmm_rhs_bf16", "bmm_out_bf16");
+}
+
+fn tryDeviceBmm(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    resetLastCudaDeviceBatchedGemmReport();
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0) return null;
+    if (lhs.shape.len != 3 or rhs.shape.len != 3) return null;
+    if (lhs.shape[0] == 0 or lhs.shape[1] == 0 or lhs.shape[2] == 0 or rhs.shape[2] == 0) return null;
+    if (lhs.shape[0] != rhs.shape[0] or lhs.shape[2] != rhs.shape[1]) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
+
+    const batch = lhs.shape[0];
+    const m = lhs.shape[1];
+    const n = rhs.shape[2];
+    var out = try array_mod.Array(T).emptyOn(lhs.allocator, &.{ batch, m, n }, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    // Preserve bmm as a rank-3 memref contract all the way into Axiom.  Axiom
+    // currently lowers this to a loop over per-batch GEMM descriptors, and can
+    // later swap in a native strided-batched kernel without changing Vectra's
+    // Array API or reintroducing target-specific array code.
+    const lhs_desc = describeDeviceArrayMemRef(T, lhs, lhs_storage, lhs_name) catch {
+        out.deinit();
+        return null;
+    };
+    const rhs_desc = describeDeviceArrayMemRef(T, rhs, rhs_storage, rhs_name) catch {
+        out.deinit();
+        return null;
+    };
+    const out_desc = describeDeviceArrayMemRef(T, out, out_storage, out_name) catch {
+        out.deinit();
+        return null;
+    };
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const report = runtime.runCudaDeviceBatchedGemmMemRefs(lhs.device.index, lhs_desc, rhs_desc, out_desc) catch null;
+    if (report) |value| {
+        recordCudaDeviceBatchedGemmReport(value);
+        if (value.valid()) return out;
+    }
+    out.deinit();
+    return null;
+}
+
 pub fn runPendingMatmulF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
     const spec = try describeDeviceGemmMemRefSpec(f32, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs", "pending_rhs", "pending_out");
@@ -5109,4 +5236,45 @@ test "Axiom CUDA bridge snapshots last GEMM plan-cache evidence" {
 
     resetLastCudaDeviceGemmReport();
     try std.testing.expect(!lastCudaDeviceGemmReport().valid());
+}
+
+test "Axiom CUDA bridge snapshots batched GEMM runtime evidence" {
+    resetLastCudaDeviceBatchedGemmReport();
+    try std.testing.expect(!lastCudaDeviceBatchedGemmReport().valid());
+
+    const StubReport = struct {
+        ok: bool = true,
+        backend: []const u8 = "loop_over_gemm_memrefs",
+        device_ordinal: usize = 2,
+        batch_count: usize = 3,
+        m: usize = 4,
+        n: usize = 5,
+        k: usize = 6,
+        plan_fingerprint: u64 = 0x1001,
+        first_batch_fingerprint: u64 = 0x2002,
+        last_batch_fingerprint: u64 = 0x3003,
+        combined_batch_fingerprint: u64 = 0x4004,
+
+        fn fingerprint(report: @This()) u64 {
+            return report.plan_fingerprint ^ report.combined_batch_fingerprint;
+        }
+    };
+    recordCudaDeviceBatchedGemmReport(StubReport{});
+
+    const snapshot = lastCudaDeviceBatchedGemmReport();
+    try std.testing.expect(snapshot.valid());
+    try std.testing.expectEqualStrings("loop_over_gemm_memrefs", snapshot.backend);
+    try std.testing.expectEqual(@as(usize, 2), snapshot.device_ordinal);
+    try std.testing.expectEqual(@as(usize, 3), snapshot.batch_count);
+    try std.testing.expectEqual(@as(usize, 4), snapshot.m);
+    try std.testing.expectEqual(@as(usize, 5), snapshot.n);
+    try std.testing.expectEqual(@as(usize, 6), snapshot.k);
+    try std.testing.expectEqual(@as(u64, 0x1001), snapshot.plan_fingerprint);
+    try std.testing.expectEqual(@as(u64, 0x2002), snapshot.first_batch_fingerprint);
+    try std.testing.expectEqual(@as(u64, 0x3003), snapshot.last_batch_fingerprint);
+    try std.testing.expectEqual(@as(u64, 0x4004), snapshot.combined_batch_fingerprint);
+    try std.testing.expectEqual(@as(u64, 0x5005), snapshot.fingerprint);
+
+    resetLastCudaDeviceBatchedGemmReport();
+    try std.testing.expect(!lastCudaDeviceBatchedGemmReport().valid());
 }

@@ -31,6 +31,7 @@ pub fn main(init: std.process.Init) !void {
     var direct_log_softmax_ok = !vx.axiom_cuda.enabled();
     var direct_ternary_ok = !vx.axiom_cuda.enabled();
     var direct_matmul_ok = !vx.axiom_cuda.enabled();
+    var direct_bmm_ok = !vx.axiom_cuda.enabled();
     var direct_matmul_add_ok = !vx.axiom_cuda.enabled();
     var scaled_matmul_add_ok = !vx.axiom_cuda.enabled();
     var chained_matmul_add_ok = !vx.axiom_cuda.enabled();
@@ -42,6 +43,7 @@ pub fn main(init: std.process.Init) !void {
     var pending_fusion_status_ok = !vx.axiom_cuda.enabled();
     var bf16_chained_sqrt_ok = !vx.axiom_cuda.enabled();
     var bf16_chained_exp_ok = !vx.axiom_cuda.enabled();
+    var bf16_bmm_ok = !vx.axiom_cuda.enabled();
     var bf16_scalar_mul_ok = !vx.axiom_cuda.enabled();
     var bf16_broadcast_ok = !vx.axiom_cuda.enabled();
     var bf16_reduction_ok = !vx.axiom_cuda.enabled();
@@ -49,12 +51,14 @@ pub fn main(init: std.process.Init) !void {
     var bf16_softmax_ok = !vx.axiom_cuda.enabled();
     var bf16_log_softmax_ok = !vx.axiom_cuda.enabled();
     var f16_activation_ok = !vx.axiom_cuda.enabled();
+    var f16_bmm_ok = !vx.axiom_cuda.enabled();
     var f16_broadcast_ok = !vx.axiom_cuda.enabled();
     var f16_reduction_ok = !vx.axiom_cuda.enabled();
     var f16_transpose_ok = !vx.axiom_cuda.enabled();
     var f16_softmax_ok = !vx.axiom_cuda.enabled();
     var f16_log_softmax_ok = !vx.axiom_cuda.enabled();
     var f64_matmul_ok = !vx.axiom_cuda.enabled();
+    var f64_bmm_ok = !vx.axiom_cuda.enabled();
     var f64_elementwise_ok = !vx.axiom_cuda.enabled();
     var f64_transpose_ok = !vx.axiom_cuda.enabled();
     var f64_broadcast_ok = !vx.axiom_cuda.enabled();
@@ -65,6 +69,7 @@ pub fn main(init: std.process.Init) !void {
     var elementwise_binary_memref_fingerprint: u64 = 0;
     var elementwise_unary_memref_fingerprint: u64 = 0;
     var gemm_memref_fingerprint: u64 = 0;
+    var batched_gemm_fingerprint: u64 = 0;
     var f64_gemm_memref_fingerprint: u64 = 0;
     var matmul_add_memref_fingerprint: u64 = 0;
     var matmul_add_unary_memref_fingerprint: u64 = 0;
@@ -460,6 +465,123 @@ pub fn main(init: std.process.Init) !void {
             gemm_report.valid() and
             gemm_report.memref_spec_fingerprint != 0 and
             equalF32(product_host.data, &.{ 3, 3, 7, 7 });
+
+        var batch_lhs = try vx.Array(f32).fromSliceOn(allocator, &.{
+            1, 2,
+            3, 4,
+
+            5, 6,
+            7, 8,
+        }, &.{ 2, 2, 2 }, vx.cuda(0));
+        defer batch_lhs.deinit();
+        var batch_rhs = try vx.Array(f32).fromSliceOn(allocator, &.{
+            1, 0,
+            0, 1,
+
+            2, 1,
+            1, 2,
+        }, &.{ 2, 2, 2 }, vx.cuda(0));
+        defer batch_rhs.deinit();
+        var batch_product = try batch_lhs.bmm(batch_rhs);
+        defer batch_product.deinit();
+        var batch_product_host = try batch_product.cpu();
+        defer batch_product_host.deinit();
+        const batched_gemm_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        batched_gemm_fingerprint = batched_gemm_report.fingerprint;
+        direct_bmm_ok = batch_product.device.isCuda() and
+            batch_product.device_storage != null and
+            batched_gemm_report.valid() and
+            batched_gemm_report.batch_count == 2 and
+            batched_gemm_report.m == 2 and
+            batched_gemm_report.n == 2 and
+            batched_gemm_report.k == 2 and
+            batched_gemm_report.plan_fingerprint != 0 and
+            batched_gemm_report.combined_batch_fingerprint != 0 and
+            equalF32(batch_product_host.data, &.{ 1, 2, 3, 4, 16, 17, 22, 23 });
+
+        var batch64_lhs = try vx.Array(f64).fromSliceOn(allocator, &.{
+            1, 2,
+            3, 4,
+
+            5, 6,
+            7, 8,
+        }, &.{ 2, 2, 2 }, vx.cuda(0));
+        defer batch64_lhs.deinit();
+        var batch64_rhs = try vx.Array(f64).fromSliceOn(allocator, &.{
+            1, 0,
+            0, 1,
+
+            2, 1,
+            1, 2,
+        }, &.{ 2, 2, 2 }, vx.cuda(0));
+        defer batch64_rhs.deinit();
+        var batch64_product = try batch64_lhs.bmm(batch64_rhs);
+        defer batch64_product.deinit();
+        var batch64_host = try batch64_product.cpu();
+        defer batch64_host.deinit();
+        const batched64_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        f64_bmm_ok = batch64_product.device.isCuda() and
+            batch64_product.device_storage != null and
+            batched64_report.valid() and
+            equalF64(batch64_host.data, &.{ 1, 2, 3, 4, 16, 17, 22, 23 });
+
+        var batch16_lhs = try vx.Array(f16).fromSliceOn(allocator, &.{
+            @as(f16, 1), @as(f16, 2),
+            @as(f16, 3), @as(f16, 4),
+
+            @as(f16, 5), @as(f16, 6),
+            @as(f16, 7), @as(f16, 8),
+        }, &.{ 2, 2, 2 }, vx.cuda(0));
+        defer batch16_lhs.deinit();
+        var batch16_rhs = try vx.Array(f16).fromSliceOn(allocator, &.{
+            @as(f16, 1), @as(f16, 0),
+            @as(f16, 0), @as(f16, 1),
+
+            @as(f16, 2), @as(f16, 1),
+            @as(f16, 1), @as(f16, 2),
+        }, &.{ 2, 2, 2 }, vx.cuda(0));
+        defer batch16_rhs.deinit();
+        var batch16_product = try batch16_lhs.bmm(batch16_rhs);
+        defer batch16_product.deinit();
+        var batch16_host = try batch16_product.cpu();
+        defer batch16_host.deinit();
+        const batched16_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        f16_bmm_ok = batch16_product.device.isCuda() and
+            batch16_product.device_storage != null and
+            batched16_report.valid() and
+            approxF16(batch16_host.data[0], 1, 0.05) and
+            approxF16(batch16_host.data[3], 4, 0.05) and
+            approxF16(batch16_host.data[4], 16, 0.05) and
+            approxF16(batch16_host.data[7], 23, 0.05);
+
+        var batch_bf16_lhs = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{
+            vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(2),
+            vx.BFloat16.fromF32(3), vx.BFloat16.fromF32(4),
+
+            vx.BFloat16.fromF32(5), vx.BFloat16.fromF32(6),
+            vx.BFloat16.fromF32(7), vx.BFloat16.fromF32(8),
+        }, &.{ 2, 2, 2 }, vx.cuda(0));
+        defer batch_bf16_lhs.deinit();
+        var batch_bf16_rhs = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{
+            vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(0),
+            vx.BFloat16.fromF32(0), vx.BFloat16.fromF32(1),
+
+            vx.BFloat16.fromF32(2), vx.BFloat16.fromF32(1),
+            vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(2),
+        }, &.{ 2, 2, 2 }, vx.cuda(0));
+        defer batch_bf16_rhs.deinit();
+        var batch_bf16_product = try batch_bf16_lhs.bmm(batch_bf16_rhs);
+        defer batch_bf16_product.deinit();
+        var batch_bf16_host = try batch_bf16_product.cpu();
+        defer batch_bf16_host.deinit();
+        const batched_bf16_report = vx.axiom_cuda.lastCudaDeviceBatchedGemmReport();
+        bf16_bmm_ok = batch_bf16_product.device.isCuda() and
+            batch_bf16_product.device_storage != null and
+            batched_bf16_report.valid() and
+            approxF32(batch_bf16_host.data[0].toF32(), 1, 0.05) and
+            approxF32(batch_bf16_host.data[3].toF32(), 4, 0.05) and
+            approxF32(batch_bf16_host.data[4].toF32(), 16, 0.05) and
+            approxF32(batch_bf16_host.data[7].toF32(), 23, 0.05);
 
         var chained = try product.add(addend);
         defer chained.deinit();
@@ -1253,6 +1375,7 @@ pub fn main(init: std.process.Init) !void {
         (elementwise_binary_memref_fingerprint != 0 and
             elementwise_unary_memref_fingerprint != 0 and
             gemm_memref_fingerprint != 0 and
+            batched_gemm_fingerprint != 0 and
             f64_gemm_memref_fingerprint != 0 and
             matmul_add_memref_fingerprint != 0 and
             matmul_add_unary_memref_fingerprint != 0 and
@@ -1261,7 +1384,7 @@ pub fn main(init: std.process.Init) !void {
             transpose_memref_fingerprint != 0 and
             softmax_memref_fingerprint != 0 and
             log_softmax_memref_fingerprint != 0);
-    ok = ok and memref_fingerprints_ok and direct_storage_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_reduction_ok and direct_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
+    ok = ok and memref_fingerprints_ok and direct_storage_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_reduction_ok and direct_broadcast_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_bmm_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_bmm_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_bmm_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_bmm_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
@@ -1272,12 +1395,12 @@ pub fn main(init: std.process.Init) !void {
         .{ vx.axiom_cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_add_ok, direct_square_ok, direct_unary_scalar_ok, direct_reduction_ok, direct_broadcast_ok, direct_transpose_ok, direct_softmax_ok, direct_log_softmax_ok, direct_ternary_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, bf16_broadcast_ok, bf16_reduction_ok, bf16_transpose_ok, bf16_softmax_ok },
     );
     try stdout.interface.print(
-        ",\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}",
-        .{ bf16_log_softmax_ok, f16_activation_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
+        ",\"bf16_bmm_ok\":{},\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_bmm_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_bmm_ok\":{},\"direct_bmm_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}",
+        .{ bf16_bmm_ok, bf16_log_softmax_ok, f16_activation_ok, f16_bmm_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_bmm_ok, direct_bmm_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
     );
     try stdout.interface.print(
-        ",\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
-        .{ memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
+        ",\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
+        .{ memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, batched_gemm_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

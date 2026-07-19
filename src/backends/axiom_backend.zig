@@ -905,6 +905,25 @@ pub fn executeMatmulDefault(comptime T: type, lhs: array_mod.Array(T), rhs: arra
     return executeMatmul(T, defaultTargetForDevice(lhs.device), lhs, rhs);
 }
 
+pub fn executeBmm(
+    comptime T: type,
+    target: DialectBackend,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!targetCanAccessDevice(target, lhs.device)) return null;
+    if (!supportedBmmExecution(T, lhs, rhs)) return null;
+    return switch (target) {
+        .cpu => null,
+        .cuda => executeCudaBmm(T, lhs, rhs),
+        .mps => null,
+    };
+}
+
+pub fn executeBmmDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeBmm(T, defaultTargetForDevice(lhs.device), lhs, rhs);
+}
+
 fn bufferView(comptime T: type, input: array_mod.Array(T), name: []const u8) ?axiom.accelerator.TensorBufferView {
     if (input.shape.len != 1 or input.strides.len != 1) return null;
     const stride = std.math.cast(isize, input.strides[0]) orelse return null;
@@ -1101,6 +1120,19 @@ fn executeCudaMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.A
         if (try axiom_cuda.tryMatmulF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
         if (try axiom_cuda.tryMatmulBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeCudaBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceBmmF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceBmmF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_cuda.tryDeviceBmmF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_cuda.tryDeviceBmmBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2858,6 +2890,14 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
             (rhs.shape.len == 1 or rhs.shape.len == 2);
     }
     return lhs.device.isCuda() and lhs.shape.len == 2 and rhs.shape.len == 2 and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16);
+}
+
+fn supportedBmmExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
+    if (!lhs.device.sameDevice(rhs.device) or !lhs.isContiguous() or !rhs.isContiguous()) return false;
+    if (lhs.shape.len != 3 or rhs.shape.len != 3) return false;
+    if (lhs.shape[0] == 0 or lhs.shape[1] == 0 or lhs.shape[2] == 0 or rhs.shape[2] == 0) return false;
+    if (lhs.shape[0] != rhs.shape[0] or lhs.shape[2] != rhs.shape[1]) return false;
+    return lhs.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16);
 }
 
 fn supportedMatmulAddExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) bool {
