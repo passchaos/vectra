@@ -274,6 +274,35 @@ pub fn main(init: std.process.Init) !void {
             closeF16(f16_col_max_back.data, &.{ 4, 5, 6 }, 0.02) and
             closeF16(f16_row_prod_keep_back.data, &.{ 6, 120 }, 0.5);
 
+        var f16_shifted_for_max = try f16_mat_lhs.subScalar(@as(f16, 3.0));
+        defer f16_shifted_for_max.deinit();
+        var f16_scaled_for_max = try f16_mat_lhs.mulScalar(@as(f16, 0.1));
+        defer f16_scaled_for_max.deinit();
+        var f16_maximum = try f16_shifted_for_max.maximum(f16_scaled_for_max);
+        defer f16_maximum.deinit();
+        var f16_maximum_back = try f16_maximum.cpu();
+        defer f16_maximum_back.deinit();
+        var f16_minimum = try f16_shifted_for_max.minimum(f16_scaled_for_max);
+        defer f16_minimum.deinit();
+        var f16_minimum_back = try f16_minimum.cpu();
+        defer f16_minimum_back.deinit();
+        var f16_maximum_scalar = try f16_shifted_for_max.maximumScalar(@as(f16, 0.0));
+        defer f16_maximum_scalar.deinit();
+        var f16_maximum_scalar_back = try f16_maximum_scalar.cpu();
+        defer f16_maximum_scalar_back.deinit();
+        var f16_minimum_scalar = try f16_shifted_for_max.minimumScalar(@as(f16, 0.0));
+        defer f16_minimum_scalar.deinit();
+        var f16_minimum_scalar_back = try f16_minimum_scalar.cpu();
+        defer f16_minimum_scalar_back.deinit();
+        const f16_minmax_ok = f16_maximum.device.isMps() and f16_maximum.device_storage != null and
+            f16_minimum.device.isMps() and f16_minimum.device_storage != null and
+            f16_maximum_scalar.device.isMps() and f16_maximum_scalar.device_storage != null and
+            f16_minimum_scalar.device.isMps() and f16_minimum_scalar.device_storage != null and
+            closeF16(f16_maximum_back.data, &.{ 0.1, 0.2, 0.3, 1.0, 2.0, 3.0 }, 0.01) and
+            closeF16(f16_minimum_back.data, &.{ -2.0, -1.0, 0.0, 0.4, 0.5, 0.6 }, 0.01) and
+            closeF16(f16_maximum_scalar_back.data, &.{ 0, 0, 0, 1, 2, 3 }, 0.01) and
+            closeF16(f16_minimum_scalar_back.data, &.{ -2, -1, 0, 0, 0, 0 }, 0.01);
+
         var f16_softmax_row = try f16_mat_lhs.softmax(1);
         defer f16_softmax_row.deinit();
         var f16_softmax_row_back = try f16_softmax_row.cpu();
@@ -415,6 +444,35 @@ pub fn main(init: std.process.Init) !void {
             closeBF16(bf16_col_min_back.data, &.{ 1, 2, 3 }, 0.125) and
             closeBF16(bf16_row_prod_keep_back.data, &.{ 6, 120 }, 0.5);
 
+        var bf16_shifted_for_max = try bf16_mat_lhs.subScalar(vx.BFloat16.fromF32(3.0));
+        defer bf16_shifted_for_max.deinit();
+        var bf16_scaled_for_max = try bf16_mat_lhs.mulScalar(vx.BFloat16.fromF32(0.1));
+        defer bf16_scaled_for_max.deinit();
+        var bf16_maximum = try bf16_shifted_for_max.maximum(bf16_scaled_for_max);
+        defer bf16_maximum.deinit();
+        var bf16_maximum_back = try bf16_maximum.cpu();
+        defer bf16_maximum_back.deinit();
+        var bf16_minimum = try bf16_shifted_for_max.minimum(bf16_scaled_for_max);
+        defer bf16_minimum.deinit();
+        var bf16_minimum_back = try bf16_minimum.cpu();
+        defer bf16_minimum_back.deinit();
+        var bf16_maximum_scalar = try bf16_shifted_for_max.maximumScalar(vx.BFloat16.fromF32(0.0));
+        defer bf16_maximum_scalar.deinit();
+        var bf16_maximum_scalar_back = try bf16_maximum_scalar.cpu();
+        defer bf16_maximum_scalar_back.deinit();
+        var bf16_minimum_scalar = try bf16_shifted_for_max.minimumScalar(vx.BFloat16.fromF32(0.0));
+        defer bf16_minimum_scalar.deinit();
+        var bf16_minimum_scalar_back = try bf16_minimum_scalar.cpu();
+        defer bf16_minimum_scalar_back.deinit();
+        const bf16_minmax_ok = bf16_maximum.device.isMps() and bf16_maximum.device_storage != null and
+            bf16_minimum.device.isMps() and bf16_minimum.device_storage != null and
+            bf16_maximum_scalar.device.isMps() and bf16_maximum_scalar.device_storage != null and
+            bf16_minimum_scalar.device.isMps() and bf16_minimum_scalar.device_storage != null and
+            closeBF16(bf16_maximum_back.data, &.{ 0.1, 0.2, 0.3, 1.0, 2.0, 3.0 }, 0.125) and
+            closeBF16(bf16_minimum_back.data, &.{ -2.0, -1.0, 0.0, 0.4, 0.5, 0.6 }, 0.125) and
+            closeBF16(bf16_maximum_scalar_back.data, &.{ 0, 0, 0, 1, 2, 3 }, 0.125) and
+            closeBF16(bf16_minimum_scalar_back.data, &.{ -2, -1, 0, 0, 0, 0 }, 0.125);
+
         var bf16_softmax_row = try bf16_mat_lhs.softmax(1);
         defer bf16_softmax_row.deinit();
         var bf16_softmax_row_back = try bf16_softmax_row.cpu();
@@ -534,7 +592,8 @@ pub fn main(init: std.process.Init) !void {
         defer minimum_scalar.deinit();
         var minimum_scalar_back = try minimum_scalar.cpu();
         defer minimum_scalar_back.deinit();
-        minmax_ok = maximum.device.isMps() and maximum.device_storage != null and
+        minmax_ok = f16_minmax_ok and bf16_minmax_ok and
+            maximum.device.isMps() and maximum.device_storage != null and
             minimum.device.isMps() and minimum.device_storage != null and
             maximum_scalar.device.isMps() and maximum_scalar.device_storage != null and
             minimum_scalar.device.isMps() and minimum_scalar.device_storage != null and
@@ -573,7 +632,7 @@ pub fn main(init: std.process.Init) !void {
             closeF32(log_softmax_row_back.data, &.{ -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom, -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom }, 0.03) and
             closeF32(log_softmax_col_back.data, &.{ -3.0 - col_log_denom, -3.0 - col_log_denom, -3.0 - col_log_denom, -col_log_denom, -col_log_denom, -col_log_denom }, 0.03);
 
-        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(log_back.data) ^ hashF32(exp2_back.data) ^ hashF32(expm1_back.data) ^ hashF32(log1p_back.data) ^ hashF32(log2_back.data) ^ hashF32(log10_back.data) ^ hashF32(sin_back.data) ^ hashF32(cos_back.data) ^ hashF32(tan_back.data) ^ hashF16(f16_add_back.data) ^ hashF16(f16_div_back.data) ^ hashF16(f16_scaled_back.data) ^ hashF16(f16_rsub_back.data) ^ hashF16(f16_abs_back.data) ^ hashF16(f16_sqrt_back.data) ^ hashF16(f16_exp_back.data) ^ hashF16(f16_mat_back.data) ^ hashF16(f16_transposed_back.data) ^ hashF16(f16_row_added_back.data) ^ hashF16(f16_col_added_back.data) ^ hashF16(f16_row_sum_back.data) ^ hashF16(f16_col_max_back.data) ^ hashF16(f16_row_prod_keep_back.data) ^ hashF16(f16_softmax_row_back.data) ^ hashF16(f16_softmax_col_back.data) ^ hashF16(f16_log_softmax_row_back.data) ^ hashF16(f16_log_softmax_col_back.data) ^ hashBF16(bf16_add_back.data) ^ hashBF16(bf16_div_back.data) ^ hashBF16(bf16_scaled_back.data) ^ hashBF16(bf16_rsub_back.data) ^ hashBF16(bf16_abs_back.data) ^ hashBF16(bf16_sqrt_back.data) ^ hashBF16(bf16_exp_back.data) ^ hashBF16(bf16_mat_back.data) ^ hashBF16(bf16_transposed_back.data) ^ hashBF16(bf16_row_added_back.data) ^ hashBF16(bf16_col_added_back.data) ^ hashBF16(bf16_row_sum_back.data) ^ hashBF16(bf16_col_max_back.data) ^ hashBF16(bf16_col_min_back.data) ^ hashBF16(bf16_row_prod_keep_back.data) ^ hashBF16(bf16_softmax_row_back.data) ^ hashBF16(bf16_softmax_col_back.data) ^ hashBF16(bf16_log_softmax_row_back.data) ^ hashBF16(bf16_log_softmax_col_back.data) ^ hashF32(mat_back.data) ^ hashF32(mat_add_back.data) ^ hashF32(mat_scaled_add_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(maximum_back.data) ^ hashF32(minimum_back.data) ^ hashF32(maximum_scalar_back.data) ^ hashF32(minimum_scalar_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data);
+        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(log_back.data) ^ hashF32(exp2_back.data) ^ hashF32(expm1_back.data) ^ hashF32(log1p_back.data) ^ hashF32(log2_back.data) ^ hashF32(log10_back.data) ^ hashF32(sin_back.data) ^ hashF32(cos_back.data) ^ hashF32(tan_back.data) ^ hashF16(f16_add_back.data) ^ hashF16(f16_div_back.data) ^ hashF16(f16_scaled_back.data) ^ hashF16(f16_rsub_back.data) ^ hashF16(f16_abs_back.data) ^ hashF16(f16_sqrt_back.data) ^ hashF16(f16_exp_back.data) ^ hashF16(f16_mat_back.data) ^ hashF16(f16_transposed_back.data) ^ hashF16(f16_row_added_back.data) ^ hashF16(f16_col_added_back.data) ^ hashF16(f16_row_sum_back.data) ^ hashF16(f16_col_max_back.data) ^ hashF16(f16_row_prod_keep_back.data) ^ hashF16(f16_maximum_back.data) ^ hashF16(f16_minimum_back.data) ^ hashF16(f16_maximum_scalar_back.data) ^ hashF16(f16_minimum_scalar_back.data) ^ hashF16(f16_softmax_row_back.data) ^ hashF16(f16_softmax_col_back.data) ^ hashF16(f16_log_softmax_row_back.data) ^ hashF16(f16_log_softmax_col_back.data) ^ hashBF16(bf16_add_back.data) ^ hashBF16(bf16_div_back.data) ^ hashBF16(bf16_scaled_back.data) ^ hashBF16(bf16_rsub_back.data) ^ hashBF16(bf16_abs_back.data) ^ hashBF16(bf16_sqrt_back.data) ^ hashBF16(bf16_exp_back.data) ^ hashBF16(bf16_mat_back.data) ^ hashBF16(bf16_transposed_back.data) ^ hashBF16(bf16_row_added_back.data) ^ hashBF16(bf16_col_added_back.data) ^ hashBF16(bf16_row_sum_back.data) ^ hashBF16(bf16_col_max_back.data) ^ hashBF16(bf16_col_min_back.data) ^ hashBF16(bf16_row_prod_keep_back.data) ^ hashBF16(bf16_maximum_back.data) ^ hashBF16(bf16_minimum_back.data) ^ hashBF16(bf16_maximum_scalar_back.data) ^ hashBF16(bf16_minimum_scalar_back.data) ^ hashBF16(bf16_softmax_row_back.data) ^ hashBF16(bf16_softmax_col_back.data) ^ hashBF16(bf16_log_softmax_row_back.data) ^ hashBF16(bf16_log_softmax_col_back.data) ^ hashF32(mat_back.data) ^ hashF32(mat_add_back.data) ^ hashF32(mat_scaled_add_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(maximum_back.data) ^ hashF32(minimum_back.data) ^ hashF32(maximum_scalar_back.data) ^ hashF32(minimum_scalar_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data);
     }
 
     const ok = if (available)
