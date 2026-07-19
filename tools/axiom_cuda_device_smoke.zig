@@ -232,6 +232,14 @@ pub fn main(init: std.process.Init) !void {
         defer scalar_broadcast_div.deinit();
         var scalar_broadcast_div_host = try scalar_broadcast_div.cpu();
         defer scalar_broadcast_div_host.deinit();
+        var scalar_matrix_sub = try device_scalar.sub(lhs);
+        defer scalar_matrix_sub.deinit();
+        var scalar_matrix_sub_host = try scalar_matrix_sub.cpu();
+        defer scalar_matrix_sub_host.deinit();
+        var scalar_matrix_div = try device_scalar.div(lhs);
+        defer scalar_matrix_div.deinit();
+        var scalar_matrix_div_host = try scalar_matrix_div.cpu();
+        defer scalar_matrix_div_host.deinit();
         const scalar_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         var column_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 100, 200 }, &.{ 2, 1 }, vx.cuda(0));
         defer column_bias.deinit();
@@ -259,6 +267,13 @@ pub fn main(init: std.process.Init) !void {
             approxF32(scalar_broadcast_div_host.data[1], 1.0, 0.0001) and
             approxF32(scalar_broadcast_div_host.data[2], 1.5, 0.0001) and
             approxF32(scalar_broadcast_div_host.data[3], 2.0, 0.0001) and
+            scalar_matrix_sub.device.isCuda() and scalar_matrix_sub.device_storage != null and
+            equalF32(scalar_matrix_sub_host.data, &.{ 1, 0, -1, -2 }) and
+            scalar_matrix_div.device.isCuda() and scalar_matrix_div.device_storage != null and
+            approxF32(scalar_matrix_div_host.data[0], 2.0, 0.0001) and
+            approxF32(scalar_matrix_div_host.data[1], 1.0, 0.0001) and
+            approxF32(scalar_matrix_div_host.data[2], 2.0 / 3.0, 0.0001) and
+            approxF32(scalar_matrix_div_host.data[3], 0.5, 0.0001) and
             column_broadcast.device.isCuda() and column_broadcast.device_storage != null and
             equalF32(column_broadcast_host.data, &.{ 101, 102, 203, 204 });
 
