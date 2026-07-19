@@ -5322,7 +5322,16 @@ pub fn ArrayView(comptime T: type) type {
                 if (self.numel() == 0) return error.EmptyArray;
                 break :blk castValue(T, self.numel());
             };
-            const out = try self.sum(axis_opt, keepdims);
+            var out = try self.sum(axis_opt, keepdims);
+            if (out.data.len == 0) {
+                // Device reductions return owning device storage with no host
+                // slice.  Keep `mean(axis)` on the Axiom target path by
+                // applying the divisor through Array scalar elementwise rather
+                // than running a host loop that would silently do nothing.
+                const scaled = try out.divScalar(divisor);
+                out.deinit();
+                return scaled;
+            }
             for (out.data) |*value| value.* /= divisor;
             return out;
         }
@@ -18972,8 +18981,16 @@ pub fn Array(comptime T: type) type {
                 const result = self.sumFlatValue() / castValue(T, self.data.len);
                 return self.scalarReductionResult(result, keepdims);
             }
-            const out = try self.sum(axis_opt, keepdims);
+            var out = try self.sum(axis_opt, keepdims);
             const divisor: T = if (axis_opt) |d| castValue(T, self.shape[try normalizeDim(d, self.shape.len)]) else castValue(T, self.data.len);
+            if (out.data.len == 0) {
+                // CUDA/other device arrays have no host slice; use Axiom's
+                // scalar elementwise route so `mean(axis)` actually divides the
+                // device reduction result instead of returning a raw sum.
+                const scaled = try out.divScalar(divisor);
+                out.deinit();
+                return scaled;
+            }
             for (out.data) |*v| v.* /= divisor;
             return out;
         }

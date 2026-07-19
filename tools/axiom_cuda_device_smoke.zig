@@ -201,6 +201,14 @@ pub fn main(init: std.process.Init) !void {
         var col_max_host = try col_max.cpu();
         defer col_max_host.deinit();
         const reduction_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        var row_mean = try lhs.mean(1, false);
+        defer row_mean.deinit();
+        var row_mean_host = try row_mean.cpu();
+        defer row_mean_host.deinit();
+        var col_mean_keep = try lhs.mean(0, true);
+        defer col_mean_keep.deinit();
+        var col_mean_keep_host = try col_mean_keep.cpu();
+        defer col_mean_keep_host.deinit();
         reduction_memref_fingerprint = reduction_report.memref_spec_fingerprint;
         direct_reduction_ok = row_sum.device.isCuda() and row_sum.device_storage != null and
             reduction_report.valid() and
@@ -214,7 +222,12 @@ pub fn main(init: std.process.Init) !void {
             col_min.device.isCuda() and col_min.device_storage != null and
             equalF32(col_min_host.data, &.{ 1, 2 }) and
             col_max.device.isCuda() and col_max.device_storage != null and
-            equalF32(col_max_host.data, &.{ 3, 4 });
+            equalF32(col_max_host.data, &.{ 3, 4 }) and
+            row_mean.device.isCuda() and row_mean.device_storage != null and
+            equalF32(row_mean_host.data, &.{ 1.5, 3.5 }) and
+            col_mean_keep.device.isCuda() and col_mean_keep.device_storage != null and
+            std.mem.eql(usize, col_mean_keep_host.shape, &.{ 1, 2 }) and
+            equalF32(col_mean_keep_host.data, &.{ 2, 3 });
 
         var row_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 10, 20 }, &.{2}, vx.cuda(0));
         defer row_bias.deinit();
