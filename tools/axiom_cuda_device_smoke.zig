@@ -269,6 +269,12 @@ pub fn main(init: std.process.Init) !void {
         defer rank3_lastdim_rsub.deinit();
         var rank3_lastdim_rsub_host = try rank3_lastdim_rsub.cpu();
         defer rank3_lastdim_rsub_host.deinit();
+        var lastdim_keepdims_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 10, 20 }, &.{ 1, 1, 2 }, vx.cuda(0));
+        defer lastdim_keepdims_bias.deinit();
+        var rank3_lastdim_keepdims_div = try rank3.div(lastdim_keepdims_bias);
+        defer rank3_lastdim_keepdims_div.deinit();
+        var rank3_lastdim_keepdims_div_host = try rank3_lastdim_keepdims_div.cpu();
+        defer rank3_lastdim_keepdims_div_host.deinit();
         const rank3_lastdim_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         direct_rank3_lastdim_broadcast_ok = rank3_lastdim_div.device.isCuda() and
             rank3_lastdim_div.device_storage != null and
@@ -281,7 +287,14 @@ pub fn main(init: std.process.Init) !void {
             approxF32(rank3_lastdim_div_host.data[3], 0.2, 0.0001) and
             rank3_lastdim_rsub.device.isCuda() and
             rank3_lastdim_rsub.device_storage != null and
-            equalF32(rank3_lastdim_rsub_host.data, &.{ 9, 18, 7, 16 });
+            equalF32(rank3_lastdim_rsub_host.data, &.{ 9, 18, 7, 16 }) and
+            rank3_lastdim_keepdims_div.device.isCuda() and
+            rank3_lastdim_keepdims_div.device_storage != null and
+            std.mem.eql(usize, rank3_lastdim_keepdims_div_host.shape, &.{ 1, 2, 2 }) and
+            approxF32(rank3_lastdim_keepdims_div_host.data[0], 0.1, 0.0001) and
+            approxF32(rank3_lastdim_keepdims_div_host.data[1], 0.1, 0.0001) and
+            approxF32(rank3_lastdim_keepdims_div_host.data[2], 0.3, 0.0001) and
+            approxF32(rank3_lastdim_keepdims_div_host.data[3], 0.2, 0.0001);
         var column_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 100, 200 }, &.{ 2, 1 }, vx.cuda(0));
         defer column_bias.deinit();
         var column_broadcast = try lhs.add(column_bias);

@@ -2284,10 +2284,10 @@ fn tryDeviceLastDimBroadcast(comptime T: type, op: BinaryOp, input: array_mod.Ar
     if (!build_options.enable_axiom_cuda) return null;
     if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or !bias.device.isCuda() or !input.device.sameDevice(bias.device)) return null;
-    if (input.shape.len < 2 or bias.shape.len != 1) return null;
+    if (input.shape.len < 2 or bias.shape.len == 0 or bias.shape.len > input.shape.len) return null;
     if (input.data.len != 0 or bias.data.len != 0 or !input.isContiguous() or !bias.isContiguous()) return null;
     const cols = input.shape[input.shape.len - 1];
-    if (cols == 0 or bias.shape[0] != cols) return null;
+    if (cols == 0 or !lastDimBiasMatches(input.shape, bias.shape)) return null;
     const input_storage = input.device_storage orelse return null;
     const bias_storage = bias.device_storage orelse return null;
     if (input_storage.len == 0 or bias_storage.len != cols) return null;
@@ -2300,10 +2300,12 @@ fn tryDeviceLastDimBroadcast(comptime T: type, op: BinaryOp, input: array_mod.Ar
         out.deinit();
         return null;
     };
-    // Contiguous arrays whose bias matches the last dimension map exactly to
-    // Axiom's 2-D row-broadcast ABI after flattening leading dimensions into
-    // rows.  This covers common NumPy/PyTorch cases like `[B,M,N] - [N]`
-    // without losing device residency or adding a Vectra-owned CUDA kernel.
+    // Contiguous arrays whose bias broadcasts across leading dimensions and
+    // matches the last dimension map exactly to Axiom's 2-D row-broadcast ABI
+    // after flattening leading dimensions into rows.  This covers common
+    // NumPy/PyTorch cases like `[B,M,N] - [N]` and keepdims-style
+    // `[B,M,N] - [1,1,N]` without losing device residency or adding a
+    // Vectra-owned CUDA kernel.
     const matrix_shape = [_]usize{ rows, cols };
     const matrix_strides = [_]usize{ cols, 1 };
     const bias_shape = [_]usize{cols};
@@ -2342,6 +2344,17 @@ fn tryDeviceLastDimBroadcast(comptime T: type, op: BinaryOp, input: array_mod.Ar
     }
     recordCudaDeviceMemRefReport(if (op == .add and !bias_left) "broadcast_add2d" else "broadcast_binary2d", report);
     return out;
+}
+
+fn lastDimBiasMatches(input_shape: []const usize, bias_shape: []const usize) bool {
+    if (input_shape.len < 2 or bias_shape.len == 0 or bias_shape.len > input_shape.len) return false;
+    const input_last = input_shape[input_shape.len - 1];
+    if (bias_shape[bias_shape.len - 1] != input_last) return false;
+    var index: usize = 0;
+    while (index + 1 < bias_shape.len) : (index += 1) {
+        if (bias_shape[index] != 1) return false;
+    }
+    return true;
 }
 
 fn tryDeviceBroadcastBinary(comptime T: type, op: BinaryOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
