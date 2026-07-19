@@ -59,7 +59,8 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
   batched device GEMM layout lowering.
 - Complete NumPy/PyTorch dtype promotion matrix: `dtype-promotion-smoke` now
   checks every pair in Vectra's current `DType` set plus representative promoted
-  value operations.  More NumPy/PyTorch scalar edge cases still need expansion.
+  array and scalar value operations.  More NumPy/PyTorch scalar edge cases still
+  need expansion.
 - `einsum`/general contraction syntax: Vectra now has a bounded binary
   explicit-subscript `einsum-smoke` for common contractions, implicit output
   inference, and output reordering, including the common batched matmul forms

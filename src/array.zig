@@ -3450,6 +3450,34 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.minimum(rhs);
         }
 
+        pub fn addScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.addScalar(castValue(P, scalar));
+        }
+
+        pub fn subScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.subScalar(castValue(P, scalar));
+        }
+
+        pub fn mulScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.mulScalar(castValue(P, scalar));
+        }
+
+        pub fn divScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.divScalar(castValue(P, scalar));
+        }
+
         pub fn hypot(self: Self, other: Self) ArrayError!Array(T) {
             ensureFloat(T);
             return self.binaryView(other, opHypot);
@@ -16185,6 +16213,34 @@ pub fn Array(comptime T: type) type {
                     return if (lessValue(P, b, a)) b else a;
                 }
             }.f);
+        }
+
+        pub fn addScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.addScalar(castValue(P, scalar));
+        }
+
+        pub fn subScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.subScalar(castValue(P, scalar));
+        }
+
+        pub fn mulScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.mulScalar(castValue(P, scalar));
+        }
+
+        pub fn divScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.divScalar(castValue(P, scalar));
         }
 
         pub fn addScalar(self: Self, scalar: T) ArrayError!Self {

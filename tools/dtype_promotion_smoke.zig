@@ -42,6 +42,22 @@ pub fn main(init: std.process.Init) !void {
         eql(i32, promoted_sum.data, &.{ 4, 8, 10 }) and
         eql(i32, promoted_sub.data, &.{ -6, -4, -4 }) and
         eql(i32, promoted_min.data, &.{ -1, 2, 3 });
+    var promoted_scalar_sum = try small_signed.addScalarPromote(u16, 5);
+    defer promoted_scalar_sum.deinit();
+    var promoted_scalar_sub = try small_signed.subScalarPromote(u16, 5);
+    defer promoted_scalar_sub.deinit();
+    const int_scalar_promote_ok =
+        @TypeOf(promoted_scalar_sum).dtype == .i32 and
+        eql(i32, promoted_scalar_sum.data, &.{ 4, 7, 8 }) and
+        eql(i32, promoted_scalar_sub.data, &.{ -6, -3, -2 });
+
+    var bool_values = try vx.Array(bool).fromSlice(allocator, &.{ true, false, true }, &.{3});
+    defer bool_values.deinit();
+    var bool_scalar_promote = try bool_values.addScalarPromote(i32, 2);
+    defer bool_scalar_promote.deinit();
+    const bool_scalar_promote_ok =
+        @TypeOf(bool_scalar_promote).dtype == .i32 and
+        eql(i32, bool_scalar_promote.data, &.{ 3, 2, 3 });
 
     var halves = try vx.Array(f16).fromSlice(allocator, &.{ @as(f16, 1.5), @as(f16, 2.0) }, &.{2});
     defer halves.deinit();
@@ -52,6 +68,11 @@ pub fn main(init: std.process.Init) !void {
     const half_promote_ok =
         @TypeOf(promoted_half).dtype == .f32 and
         eql(f32, promoted_half.data, &.{ 2.25, 4.0 });
+    var promoted_half_scalar = try halves.mulScalarPromote(f32, 2.0);
+    defer promoted_half_scalar.deinit();
+    const half_scalar_promote_ok =
+        @TypeOf(promoted_half_scalar).dtype == .f32 and
+        eql(f32, promoted_half_scalar.data, &.{ 3.0, 4.0 });
 
     var bf16_values = try vx.Array(vx.BFloat16).fromSlice(allocator, &.{ vx.BFloat16.fromF32(1.0), vx.BFloat16.fromF32(-2.0) }, &.{2});
     defer bf16_values.deinit();
@@ -79,14 +100,29 @@ pub fn main(init: std.process.Init) !void {
         approx(promoted_complex.data[0].im, 2.0, 1e-6) and
         approx(promoted_complex.data[1].re, 9.0, 1e-6) and
         approx(promoted_complex.data[1].im, -3.0, 1e-6);
+    var promoted_real_scalar = try real_values.addScalarPromote(f64, 0.5);
+    defer promoted_real_scalar.deinit();
+    var promoted_complex_scalar = try real_values.addScalarPromote(vx.Complex64, .{ .re = 1.0, .im = -1.0 });
+    defer promoted_complex_scalar.deinit();
+    const scalar_promote_ok =
+        int_scalar_promote_ok and
+        bool_scalar_promote_ok and
+        half_scalar_promote_ok and
+        @TypeOf(promoted_real_scalar).dtype == .f64 and
+        eql(f64, promoted_real_scalar.data, &.{ 5.5, 10.5 }) and
+        @TypeOf(promoted_complex_scalar).dtype == .c64 and
+        approx(promoted_complex_scalar.data[0].re, 6.0, 1e-6) and
+        approx(promoted_complex_scalar.data[0].im, -1.0, 1e-6) and
+        approx(promoted_complex_scalar.data[1].re, 11.0, 1e-6) and
+        approx(promoted_complex_scalar.data[1].im, -1.0, 1e-6);
 
-    const ok = matrix_ok and metadata_ok and int_promote_ok and half_promote_ok and bf16_promote_ok and complex_promote_ok;
+    const ok = matrix_ok and metadata_ok and int_promote_ok and scalar_promote_ok and half_promote_ok and bf16_promote_ok and complex_promote_ok;
 
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_dtype_promotion_smoke\",\"ok\":{},\"matrix_ok\":{},\"metadata_ok\":{},\"int_promote_ok\":{},\"half_promote_ok\":{},\"bf16_promote_ok\":{},\"complex_promote_ok\":{},\"cases\":{d},\"matrix_cases\":{d}}}\n",
-        .{ ok, matrix_ok, metadata_ok, int_promote_ok, half_promote_ok, bf16_promote_ok, complex_promote_ok, 13, dtype_order.len * dtype_order.len },
+        "{{\"kind\":\"vectra_dtype_promotion_smoke\",\"ok\":{},\"matrix_ok\":{},\"metadata_ok\":{},\"int_promote_ok\":{},\"scalar_promote_ok\":{},\"half_promote_ok\":{},\"bf16_promote_ok\":{},\"complex_promote_ok\":{},\"cases\":{d},\"matrix_cases\":{d}}}\n",
+        .{ ok, matrix_ok, metadata_ok, int_promote_ok, scalar_promote_ok, half_promote_ok, bf16_promote_ok, complex_promote_ok, 19, dtype_order.len * dtype_order.len },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
