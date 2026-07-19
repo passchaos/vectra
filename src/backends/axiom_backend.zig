@@ -853,6 +853,7 @@ pub fn tryBroadcastBinary(
     rhs: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
+    if (try tryCudaLastDimBroadcast(T, op, target, lhs, rhs)) |out| return out;
     if (lhs.shape.len == 2) {
         if (broadcastBiasMatchesArrayAdd(T, lhs, rhs, .row)) return executeBroadcastBinary(T, op, target, lhs, rhs, .row);
         if (broadcastBiasMatchesArrayAdd(T, lhs, rhs, .column)) return executeBroadcastBinary(T, op, target, lhs, rhs, .column);
@@ -873,6 +874,25 @@ pub fn tryBroadcastAddDefault(comptime T: type, lhs: array_mod.Array(T), rhs: ar
 
 pub fn tryBroadcastBinaryDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     return tryBroadcastBinary(T, op, defaultTargetForDevice(lhs.device), lhs, rhs);
+}
+
+fn tryCudaLastDimBroadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .cuda or !lhs.device.sameDevice(rhs.device) or !lhs.device.isCuda()) return null;
+    const cuda_op = cudaBinaryOp(op);
+    if (T == f32) {
+        if (try axiom_cuda.tryDeviceLastDimBroadcastF32(cuda_op, @as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs), false)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceLastDimBroadcastF32(cuda_op, @as(array_mod.Array(f32), rhs), @as(array_mod.Array(f32), lhs), true)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f64) {
+        if (try axiom_cuda.tryDeviceLastDimBroadcastF64(cuda_op, @as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs), false)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceLastDimBroadcastF64(cuda_op, @as(array_mod.Array(f64), rhs), @as(array_mod.Array(f64), lhs), true)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_cuda.tryDeviceLastDimBroadcastF16(cuda_op, @as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs), false)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceLastDimBroadcastF16(cuda_op, @as(array_mod.Array(f16), rhs), @as(array_mod.Array(f16), lhs), true)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_cuda.tryDeviceLastDimBroadcastBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs), false)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceLastDimBroadcastBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), rhs), @as(array_mod.Array(array_mod.BFloat16), lhs), true)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
 }
 
 pub fn lowerUnaryDialect(comptime T: type, input: array_mod.Array(T), op: DialectUnaryOp, backend: DialectBackend) array_mod.ArrayError!DialectUnaryLoweringReport {

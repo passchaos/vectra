@@ -2166,6 +2166,10 @@ pub fn tryDeviceContiguousScalarBroadcastF32(op: BinaryOp, input: array_mod.Arra
     return tryDeviceContiguousScalarBroadcast(f32, op, input, scalar, scalar_left);
 }
 
+pub fn tryDeviceLastDimBroadcastF32(op: BinaryOp, input: array_mod.Array(f32), bias: array_mod.Array(f32), bias_left: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceLastDimBroadcast(f32, op, input, bias, bias_left);
+}
+
 pub fn tryDeviceVectorScalarBroadcastF64(op: BinaryOp, vector: array_mod.Array(f64), scalar: array_mod.Array(f64), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryDeviceContiguousScalarBroadcast(f64, op, vector, scalar, scalar_left);
 }
@@ -2176,6 +2180,10 @@ pub fn tryDeviceMatrixScalarBroadcastF64(op: BinaryOp, matrix: array_mod.Array(f
 
 pub fn tryDeviceContiguousScalarBroadcastF64(op: BinaryOp, input: array_mod.Array(f64), scalar: array_mod.Array(f64), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f64) {
     return tryDeviceContiguousScalarBroadcast(f64, op, input, scalar, scalar_left);
+}
+
+pub fn tryDeviceLastDimBroadcastF64(op: BinaryOp, input: array_mod.Array(f64), bias: array_mod.Array(f64), bias_left: bool) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceLastDimBroadcast(f64, op, input, bias, bias_left);
 }
 
 pub fn tryDeviceVectorScalarBroadcastF16(op: BinaryOp, vector: array_mod.Array(f16), scalar: array_mod.Array(f16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f16) {
@@ -2190,6 +2198,10 @@ pub fn tryDeviceContiguousScalarBroadcastF16(op: BinaryOp, input: array_mod.Arra
     return tryDeviceContiguousScalarBroadcast(f16, op, input, scalar, scalar_left);
 }
 
+pub fn tryDeviceLastDimBroadcastF16(op: BinaryOp, input: array_mod.Array(f16), bias: array_mod.Array(f16), bias_left: bool) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceLastDimBroadcast(f16, op, input, bias, bias_left);
+}
+
 pub fn tryDeviceVectorScalarBroadcastBF16(op: BinaryOp, vector: array_mod.Array(BFloat16), scalar: array_mod.Array(BFloat16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     return tryDeviceContiguousScalarBroadcast(BFloat16, op, vector, scalar, scalar_left);
 }
@@ -2200,6 +2212,10 @@ pub fn tryDeviceMatrixScalarBroadcastBF16(op: BinaryOp, matrix: array_mod.Array(
 
 pub fn tryDeviceContiguousScalarBroadcastBF16(op: BinaryOp, input: array_mod.Array(BFloat16), scalar: array_mod.Array(BFloat16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     return tryDeviceContiguousScalarBroadcast(BFloat16, op, input, scalar, scalar_left);
+}
+
+pub fn tryDeviceLastDimBroadcastBF16(op: BinaryOp, input: array_mod.Array(BFloat16), bias: array_mod.Array(BFloat16), bias_left: bool) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceLastDimBroadcast(BFloat16, op, input, bias, bias_left);
 }
 
 fn tryDeviceContiguousScalarBroadcast(comptime T: type, op: BinaryOp, input: array_mod.Array(T), scalar: array_mod.Array(T), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(T) {
@@ -2261,6 +2277,70 @@ fn tryDeviceContiguousScalarBroadcast(comptime T: type, op: BinaryOp, input: arr
         return null;
     }
     recordCudaDeviceMemRefReport("broadcast_binary2d", report);
+    return out;
+}
+
+fn tryDeviceLastDimBroadcast(comptime T: type, op: BinaryOp, input: array_mod.Array(T), bias: array_mod.Array(T), bias_left: bool) array_mod.ArrayError!?array_mod.Array(T) {
+    if (!build_options.enable_axiom_cuda) return null;
+    if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
+    if (!input.device.isCuda() or !bias.device.isCuda() or !input.device.sameDevice(bias.device)) return null;
+    if (input.shape.len < 2 or bias.shape.len != 1) return null;
+    if (input.data.len != 0 or bias.data.len != 0 or !input.isContiguous() or !bias.isContiguous()) return null;
+    const cols = input.shape[input.shape.len - 1];
+    if (cols == 0 or bias.shape[0] != cols) return null;
+    const input_storage = input.device_storage orelse return null;
+    const bias_storage = bias.device_storage orelse return null;
+    if (input_storage.len == 0 or bias_storage.len != cols) return null;
+    const rows = input_storage.len / cols;
+    if (rows == 0 or rows * cols != input_storage.len) return null;
+
+    var out = try array_mod.Array(T).emptyOn(input.allocator, input.shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+    // Contiguous arrays whose bias matches the last dimension map exactly to
+    // Axiom's 2-D row-broadcast ABI after flattening leading dimensions into
+    // rows.  This covers common NumPy/PyTorch cases like `[B,M,N] - [N]`
+    // without losing device residency or adding a Vectra-owned CUDA kernel.
+    const matrix_shape = [_]usize{ rows, cols };
+    const matrix_strides = [_]usize{ cols, 1 };
+    const bias_shape = [_]usize{cols};
+    const bias_strides = [_]usize{1};
+    const input_descriptor = describeDeviceBufferMemRef(T, input_storage, matrix_shape[0..], matrix_strides[0..], "input") catch {
+        out.deinit();
+        return null;
+    };
+    const bias_descriptor = describeDeviceBufferMemRef(T, bias_storage, bias_shape[0..], bias_strides[0..], "bias") catch {
+        out.deinit();
+        return null;
+    };
+    const out_descriptor = describeDeviceBufferMemRef(T, out_storage, matrix_shape[0..], matrix_strides[0..], "out") catch {
+        out.deinit();
+        return null;
+    };
+    const spec = axiom.accelerator.TensorBroadcastBinary2DSpec.fromMemRefsWithOpOrder(
+        axiomBinaryOp(op),
+        bias_left,
+        .row,
+        input_descriptor,
+        bias_descriptor,
+        out_descriptor,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
+    const report = runtime.runCudaDeviceBroadcastBinaryMemRefs(input.device.index, spec) catch {
+        out.deinit();
+        return null;
+    };
+    if (!report.valid()) {
+        out.deinit();
+        return null;
+    }
+    recordCudaDeviceMemRefReport(if (op == .add and !bias_left) "broadcast_add2d" else "broadcast_binary2d", report);
     return out;
 }
 
