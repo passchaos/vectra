@@ -1552,13 +1552,13 @@ pub fn pendingMatmulSameDeviceSupported(lhs: array_mod.Device, rhs: array_mod.De
     return lhs.sameDevice(rhs) and pendingMatmulDeviceSupported(lhs);
 }
 
-pub fn composableElementwiseDeviceSupported(device: array_mod.Device) bool {
+pub fn composableElementwiseDeviceSupported(comptime T: type, device: array_mod.Device) bool {
     const target = executionTargetForDevice(device);
-    return target == .cuda or target == .mps;
+    return target == .cuda or (target == .mps and (T == f32 or T == f16 or T == array_mod.BFloat16));
 }
 
-pub fn composableElementwiseSameDeviceSupported(lhs: array_mod.Device, rhs: array_mod.Device) bool {
-    return lhs.sameDevice(rhs) and composableElementwiseDeviceSupported(lhs);
+pub fn composableElementwiseSameDeviceSupported(comptime T: type, lhs: array_mod.Device, rhs: array_mod.Device) bool {
+    return lhs.sameDevice(rhs) and composableElementwiseDeviceSupported(T, lhs);
 }
 
 pub fn executePendingMatmul(
