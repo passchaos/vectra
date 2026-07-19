@@ -253,6 +253,14 @@ pub fn main(init: std.process.Init) !void {
         defer all_axes_var.deinit();
         var all_axes_var_host = try all_axes_var.cpu();
         defer all_axes_var_host.deinit();
+        var row_var = try lhs.variance(1, false, 0.0);
+        defer row_var.deinit();
+        var row_var_host = try row_var.cpu();
+        defer row_var_host.deinit();
+        var col_std_keep = try lhs.stddev(0, true, 0.0);
+        defer col_std_keep.deinit();
+        var col_std_keep_host = try col_std_keep.cpu();
+        defer col_std_keep_host.deinit();
         reduction_memref_fingerprint = reduction_report.memref_spec_fingerprint;
         direct_reduction_ok = row_sum.device.isCuda() and row_sum.device_storage != null and
             reduction_report.valid() and
@@ -304,7 +312,15 @@ pub fn main(init: std.process.Init) !void {
             approxF32(flat_std_keep_host.data[0], std.math.sqrt(@as(f32, 1.25)), 0.0001) and
             all_axes_var.device.isCuda() and all_axes_var.device_storage != null and
             std.mem.eql(usize, all_axes_var_host.shape, &.{}) and
-            approxF32(all_axes_var_host.data[0], 1.25, 0.0001);
+            approxF32(all_axes_var_host.data[0], 1.25, 0.0001) and
+            row_var.device.isCuda() and row_var.device_storage != null and
+            std.mem.eql(usize, row_var_host.shape, &.{2}) and
+            approxF32(row_var_host.data[0], 0.25, 0.0001) and
+            approxF32(row_var_host.data[1], 0.25, 0.0001) and
+            col_std_keep.device.isCuda() and col_std_keep.device_storage != null and
+            std.mem.eql(usize, col_std_keep_host.shape, &.{ 1, 2 }) and
+            approxF32(col_std_keep_host.data[0], 1.0, 0.0001) and
+            approxF32(col_std_keep_host.data[1], 1.0, 0.0001);
 
         var row_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 10, 20 }, &.{2}, vx.cuda(0));
         defer row_bias.deinit();

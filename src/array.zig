@@ -19074,6 +19074,18 @@ pub fn Array(comptime T: type) type {
                 if (n == 0) return error.EmptyArray;
                 var mean_t = try self.mean(axis_opt, true);
                 defer mean_t.deinit();
+                if (self.data.len == 0) {
+                    var centered = try self.sub(mean_t);
+                    defer centered.deinit();
+                    var squared = try centered.square();
+                    defer squared.deinit();
+                    var summed = try squared.sum(axis_opt, keepdims);
+                    errdefer summed.deinit();
+                    const denom = castValue(T, n) - correction;
+                    const scaled = try summed.divScalar(denom);
+                    summed.deinit();
+                    return scaled;
+                }
                 var out_shape = try self.allocator.alloc(usize, if (keepdims) self.shape.len else self.shape.len - 1);
                 defer self.allocator.free(out_shape);
                 if (keepdims) {
