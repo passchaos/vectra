@@ -575,8 +575,13 @@ pub fn main(init: std.process.Init) !void {
         defer logsumexp_col_keep.deinit();
         var logsumexp_col_keep_host = try logsumexp_col_keep.cpu();
         defer logsumexp_col_keep_host.deinit();
+        var logsumexp_all = try lhs.logsumexpAxes(&.{ 0, 1 }, false);
+        defer logsumexp_all.deinit();
+        var logsumexp_all_host = try logsumexp_all.cpu();
+        defer logsumexp_all_host.deinit();
         const row_log_denom = std.math.log(f32, std.math.e, row_denom);
         const col_log_denom = std.math.log(f32, std.math.e, col_denom);
+        const all_log_denom = std.math.log(f32, std.math.e, std.math.exp(@as(f32, -3)) + std.math.exp(@as(f32, -2)) + std.math.exp(@as(f32, -1)) + 1.0);
         direct_log_softmax_ok = log_softmax_row.device.isCuda() and log_softmax_row.device_storage != null and
             log_softmax_report.valid() and
             std.mem.eql(u8, log_softmax_report.operation, "log_softmax2d") and
@@ -594,7 +599,10 @@ pub fn main(init: std.process.Init) !void {
             logsumexp_col_keep.device.isCuda() and logsumexp_col_keep.device_storage != null and
             std.mem.eql(usize, logsumexp_col_keep_host.shape, &.{ 1, 2 }) and
             approxF32(logsumexp_col_keep_host.data[0], 3.0 + col_log_denom, 0.03) and
-            approxF32(logsumexp_col_keep_host.data[1], 4.0 + col_log_denom, 0.03);
+            approxF32(logsumexp_col_keep_host.data[1], 4.0 + col_log_denom, 0.03) and
+            logsumexp_all.device.isCuda() and logsumexp_all.device_storage != null and
+            std.mem.eql(usize, logsumexp_all_host.shape, &.{}) and
+            approxF32(logsumexp_all_host.data[0], 4.0 + all_log_denom, 0.03);
 
         var negated = try lhs.neg();
         defer negated.deinit();

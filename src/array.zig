@@ -17416,6 +17416,22 @@ pub fn Array(comptime T: type) type {
         pub fn logsumexpAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (axes.len == 0) return self.clone();
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) {
+                var matrix = try self.reshape(&.{ 1, self.numel() });
+                defer matrix.deinit();
+                var flat = try matrix.logsumexp(1, false);
+                errdefer flat.deinit();
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    const reshaped = try flat.reshape(out_shape);
+                    flat.deinit();
+                    return reshaped;
+                }
+                const reshaped = try flat.reshape(&.{});
+                flat.deinit();
+                return reshaped;
+            }
             const normalized_axes = try normalizeAxesDescending(self.allocator, axes, self.shape.len);
             defer self.allocator.free(normalized_axes);
             var max_values = try self.maxAxes(axes, true);
