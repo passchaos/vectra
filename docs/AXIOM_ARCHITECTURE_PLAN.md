@@ -199,7 +199,7 @@ from the relevant subset of:
   Axiom pass over linalg IR.
 - MPS has real Metal storage on macOS plus f32 2D kernels for same-shape
   elementwise/scalar, unary math
-  (`abs/square/sqrt/exp/log/exp2/expm1/log1p/log2/log10/sin/cos/tan`), matmul,
+  (`abs/square/sqrt/exp/log/exp2/expm1/log1p/log2/log10/sin/cos/tan`), matmul/matmulAdd,
   transpose, broadcast-add, reductions, softmax, and logSoftmax; remaining MPS
   dtypes/shapes still need parity.
 - NumPy/PyTorch API surface breadth is large; parity must be measured by

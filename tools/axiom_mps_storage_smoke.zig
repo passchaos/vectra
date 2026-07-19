@@ -13,6 +13,7 @@ pub fn main(init: std.process.Init) !void {
     var scalar_ok = !available;
     var unary_ok = !available;
     var matmul_ok = !available;
+    var matmul_add_ok = !available;
     var transpose_ok = !available;
     var broadcast_ok = !available;
     var reduction_ok = !available;
@@ -160,6 +161,21 @@ pub fn main(init: std.process.Init) !void {
         matmul_ok = mat_out.device.isMps() and mat_out.device_storage != null and
             equalF32(mat_back.data, &.{ 58, 64, 139, 154 });
 
+        var mat_addend = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, -1, 2, -2 }, &.{ 2, 2 }, vx.mps(0));
+        defer mat_addend.deinit();
+        var mat_add_out = try vx.matmulAdd(mat_lhs, mat_rhs, mat_addend);
+        defer mat_add_out.deinit();
+        var mat_add_back = try mat_add_out.cpu();
+        defer mat_add_back.deinit();
+        var mat_scaled_add_out = (try vx.axiom_backend.executeMatmulAddScaled(f32, .mps, mat_lhs, mat_rhs, mat_addend, 2.0, -1.0)) orelse return error.BackendFailure;
+        defer mat_scaled_add_out.deinit();
+        var mat_scaled_add_back = try mat_scaled_add_out.cpu();
+        defer mat_scaled_add_back.deinit();
+        matmul_add_ok = mat_add_out.device.isMps() and mat_add_out.device_storage != null and
+            mat_scaled_add_out.device.isMps() and mat_scaled_add_out.device_storage != null and
+            equalF32(mat_add_back.data, &.{ 59, 63, 141, 152 }) and
+            equalF32(mat_scaled_add_back.data, &.{ 115, 129, 276, 310 });
+
         var transposed = try mat_lhs.transpose();
         defer transposed.deinit();
         var transposed_back = try transposed.cpu();
@@ -233,19 +249,19 @@ pub fn main(init: std.process.Init) !void {
             closeF32(log_softmax_row_back.data, &.{ -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom, -2.0 - row_log_denom, -1.0 - row_log_denom, -row_log_denom }, 0.03) and
             closeF32(log_softmax_col_back.data, &.{ -3.0 - col_log_denom, -3.0 - col_log_denom, -3.0 - col_log_denom, -col_log_denom, -col_log_denom, -col_log_denom }, 0.03);
 
-        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(log_back.data) ^ hashF32(exp2_back.data) ^ hashF32(expm1_back.data) ^ hashF32(log1p_back.data) ^ hashF32(log2_back.data) ^ hashF32(log10_back.data) ^ hashF32(sin_back.data) ^ hashF32(cos_back.data) ^ hashF32(tan_back.data) ^ hashF32(mat_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data);
+        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(log_back.data) ^ hashF32(exp2_back.data) ^ hashF32(expm1_back.data) ^ hashF32(log1p_back.data) ^ hashF32(log2_back.data) ^ hashF32(log10_back.data) ^ hashF32(sin_back.data) ^ hashF32(cos_back.data) ^ hashF32(tan_back.data) ^ hashF32(mat_back.data) ^ hashF32(mat_add_back.data) ^ hashF32(mat_scaled_add_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data);
     }
 
     const ok = if (available)
-        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and reduction_ok and softmax_ok and log_softmax_ok and bytes != 0
+        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and matmul_add_ok and transpose_ok and broadcast_ok and reduction_ok and softmax_ok and log_softmax_ok and bytes != 0
     else
-        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and reduction_ok and softmax_ok and log_softmax_ok;
+        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and matmul_add_ok and transpose_ok and broadcast_ok and reduction_ok and softmax_ok and log_softmax_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"matmul_ok\":{},\"transpose_ok\":{},\"broadcast_ok\":{},\"reduction_ok\":{},\"softmax_ok\":{},\"log_softmax_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
-        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, matmul_ok, transpose_ok, broadcast_ok, reduction_ok, softmax_ok, log_softmax_ok, bytes, fingerprint },
+        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"matmul_ok\":{},\"matmul_add_ok\":{},\"transpose_ok\":{},\"broadcast_ok\":{},\"reduction_ok\":{},\"softmax_ok\":{},\"log_softmax_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
+        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, matmul_ok, matmul_add_ok, transpose_ok, broadcast_ok, reduction_ok, softmax_ok, log_softmax_ok, bytes, fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

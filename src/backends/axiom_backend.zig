@@ -1475,7 +1475,7 @@ pub fn executeMatmulAdd(
     return switch (target) {
         .cpu => executeCpuMatmulAdd(T, lhs, rhs, addend),
         .cuda => executeCudaMatmulAdd(T, lhs, rhs, addend),
-        .mps => null,
+        .mps => executeMpsMatmulAdd(T, lhs, rhs, addend),
     };
 }
 
@@ -1497,7 +1497,7 @@ pub fn executeMatmulAddScaled(
     return switch (target) {
         .cpu => executeCpuGemmScaledTarget(T, lhs, rhs, addend, alpha, beta),
         .cuda => executeCudaMatmulAddScaled(T, lhs, rhs, addend, alpha, beta),
-        .mps => null,
+        .mps => executeMpsMatmulAddScaled(T, lhs, rhs, addend, alpha, beta),
     };
 }
 
@@ -1695,6 +1695,10 @@ fn executeCudaMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     return null;
 }
 
+fn executeMpsMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return executeMpsMatmulAddScaled(T, lhs, rhs, addend, 1.0, 1.0);
+}
+
 fn executeCudaMatmulAddScaled(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
     const lhs_storage = lhs.device_storage orelse return null;
     const rhs_storage = rhs.device_storage orelse return null;
@@ -1708,6 +1712,13 @@ fn executeCudaMatmulAddScaled(comptime T: type, lhs: array_mod.Array(T), rhs: ar
         .alpha = alpha,
         .beta = beta,
     });
+}
+
+fn executeMpsMatmulAddScaled(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.tryMatmulAddF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs), @as(array_mod.Array(f32), addend), alpha, beta)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
 }
 
 pub fn executeUnary(
@@ -3738,6 +3749,7 @@ fn supportedMatmulAddExecution(comptime T: type, lhs: array_mod.Array(T), rhs: a
     if (lhs.shape[1] != rhs.shape[0] or addend.shape[0] != lhs.shape[0] or addend.shape[1] != rhs.shape[1]) return false;
     if (!lhs.isContiguous() or !rhs.isContiguous() or !addend.isContiguous()) return false;
     if (lhs.device.isCpu()) return T == f32 or T == f64;
+    if (lhs.device.isMps()) return T == f32 and lhs.device_storage != null and rhs.device_storage != null and addend.device_storage != null;
     return lhs.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16);
 }
 
