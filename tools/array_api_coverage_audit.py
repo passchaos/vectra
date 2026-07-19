@@ -62,7 +62,7 @@ CAPABILITIES: tuple[Capability, ...] = (
 KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     {
         "name": "true_mps_runtime_abi",
-        "reason": "MPS is intentionally planned/unavailable until Axiom owns Metal/MPS storage and runtime ABI.",
+        "reason": "MPS lowering is intentionally planned and runtime capabilities remain non-executable until Axiom owns Metal/MPS storage and runtime ABI.",
         "target_layer": "axiom",
     },
     {

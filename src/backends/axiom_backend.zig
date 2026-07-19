@@ -259,6 +259,7 @@ pub const cuda = struct {
 };
 
 pub const RuntimeCapabilityStatus = enum(u8) {
+    planned,
     unavailable,
     lowering_only,
     executable,
@@ -741,12 +742,7 @@ pub fn reductionRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D sum/prod/min/max reduction runtimes; other reduction dtypes remain capability-gated.",
         },
-        .mps => .{
-            .target = target,
-            .operation = "reduction",
-            .status = .unavailable,
-            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
-        },
+        .mps => plannedMpsRuntimeCapability("reduction"),
     };
 }
 
@@ -764,12 +760,7 @@ pub fn broadcastAddRuntimeCapability(target: DialectBackend) RuntimeCapabilityRe
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D row/column broadcast-add runtimes; other broadcast dtypes/shapes remain capability-gated.",
         },
-        .mps => .{
-            .target = target,
-            .operation = "broadcast_add",
-            .status = .unavailable,
-            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
-        },
+        .mps => plannedMpsRuntimeCapability("broadcast_add"),
     };
 }
 
@@ -787,12 +778,7 @@ pub fn transposeRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D transpose runtimes; other transpose dtypes/shapes remain capability-gated.",
         },
-        .mps => .{
-            .target = target,
-            .operation = "transpose2d",
-            .status = .unavailable,
-            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
-        },
+        .mps => plannedMpsRuntimeCapability("transpose2d"),
     };
 }
 
@@ -810,12 +796,7 @@ pub fn logSoftmaxRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepo
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D axis logSoftmax runtimes; other logSoftmax dtypes/shapes remain capability-gated.",
         },
-        .mps => .{
-            .target = target,
-            .operation = "log_softmax2d",
-            .status = .unavailable,
-            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
-        },
+        .mps => plannedMpsRuntimeCapability("log_softmax2d"),
     };
 }
 
@@ -833,12 +814,7 @@ pub fn softmaxRuntimeCapability(target: DialectBackend) RuntimeCapabilityReport 
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D axis softmax runtimes; other softmax dtypes/shapes remain capability-gated.",
         },
-        .mps => .{
-            .target = target,
-            .operation = "softmax2d",
-            .status = .unavailable,
-            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
-        },
+        .mps => plannedMpsRuntimeCapability("softmax2d"),
     };
 }
 
@@ -862,12 +838,16 @@ pub fn unaryRuntimeCapability(target: DialectBackend, op: DialectUnaryOp) Runtim
             else
                 "Axiom CUDA unary dialect lowering exists for this op, but Vectra has no dedicated eager CUDA runtime ABI for it yet.",
         },
-        .mps => .{
-            .target = target,
-            .operation = dialectUnaryRuntimeOperation(op),
-            .status = .unavailable,
-            .reason = "Axiom MPS runtime ABI is planned/unavailable.",
-        },
+        .mps => plannedMpsRuntimeCapability(dialectUnaryRuntimeOperation(op)),
+    };
+}
+
+fn plannedMpsRuntimeCapability(operation: []const u8) RuntimeCapabilityReport {
+    return .{
+        .target = .mps,
+        .operation = operation,
+        .status = .planned,
+        .reason = "Axiom MPS is a planned target; eager execution stays disabled until Axiom owns Metal/MPS storage, command queues, kernels, synchronization, and runtime ABI.",
     };
 }
 
@@ -3681,6 +3661,37 @@ test "Axiom dialect lowering reports transpose generic route" {
     try std.testing.expect(default_mps_report.ok());
     try std.testing.expectEqual(DialectTransposeLoweringStatus.planned_mps, default_mps_report.status);
     resetDefaultDialectBackend();
+}
+
+test "Axiom runtime capability reports keep MPS planned and non-executable" {
+    const mps_reduction = reductionRuntimeCapability(.mps);
+    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_reduction.status);
+    try std.testing.expect(!mps_reduction.executable());
+    try std.testing.expect(mps_reduction.fingerprint() != 0);
+
+    const mps_broadcast = broadcastAddRuntimeCapability(.mps);
+    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_broadcast.status);
+    try std.testing.expect(!mps_broadcast.executable());
+
+    const mps_unary = unaryRuntimeCapability(.mps, .log);
+    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_unary.status);
+    try std.testing.expect(!mps_unary.executable());
+
+    const mps_transpose = transposeRuntimeCapability(.mps);
+    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_transpose.status);
+    try std.testing.expect(!mps_transpose.executable());
+
+    const mps_softmax = softmaxRuntimeCapability(.mps);
+    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_softmax.status);
+    try std.testing.expect(!mps_softmax.executable());
+
+    const mps_log_softmax = logSoftmaxRuntimeCapability(.mps);
+    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_log_softmax.status);
+    try std.testing.expect(!mps_log_softmax.executable());
+
+    const mps_runtime = mpsDeviceReport(0);
+    try std.testing.expectEqual(MpsRuntimeAbiStatus.planned, mps_runtime.status);
+    try std.testing.expect(!mps_runtime.ok());
 }
 
 test "Axiom backend policy reports matmul route" {

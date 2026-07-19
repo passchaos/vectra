@@ -41,7 +41,10 @@ Validation:
 zig build axiom-dialect-lowering-smoke
 ```
 
-MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/MPS runtime ABI.  That keeps dynamic backend policy honest without routing through another facade or pretending CUDA execution occurred.
+MPS lowering is intentionally represented as `planned_mps`, and runtime
+capability reports use `planned` while remaining non-executable until Axiom owns
+a real Metal/MPS runtime ABI.  That keeps dynamic backend policy honest without
+routing through another facade or pretending CUDA/CPU execution occurred.
 
 ## CUDA owning-array behavior
 

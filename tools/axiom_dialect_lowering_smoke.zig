@@ -46,9 +46,15 @@ pub fn main(init: std.process.Init) !void {
     const default_mps_report = try vx.axiom_backend.lowerMatmulDialectDefault(f32, lhs, rhs);
     const elementwise_mps_report = try vx.axiom_backend.lowerElementwiseDialectDefault(f32, .mul, lhs, lhs);
     const reduction_mps_report = try vx.axiom_backend.lowerReductionDialectDefault(f32, lhs, .max, 0);
+    const reduction_mps_runtime = vx.axiom_backend.reductionRuntimeCapability(.mps);
     const broadcast_mps_report = try vx.axiom_backend.lowerBroadcastAddDialectDefault(f32, lhs, col_bias, .column);
+    const broadcast_mps_runtime = vx.axiom_backend.broadcastAddRuntimeCapability(.mps);
     const unary_mps_report = try vx.axiom_backend.lowerUnaryDialectDefault(f32, lhs, .cube);
+    const unary_mps_runtime = vx.axiom_backend.unaryRuntimeCapability(.mps, .cube);
     const transpose_mps_report = try vx.axiom_backend.lowerTransposeDialectDefault(f32, lhs);
+    const transpose_mps_runtime = vx.axiom_backend.transposeRuntimeCapability(.mps);
+    const softmax_mps_runtime = vx.axiom_backend.softmaxRuntimeCapability(.mps);
+    const log_softmax_mps_runtime = vx.axiom_backend.logSoftmaxRuntimeCapability(.mps);
     vx.resetDefaultDialectBackend();
     const ok = cpu_report.ok() and cuda_report.ok() and mps_report.ok() and
         default_cuda_report.ok() and default_mps_report.ok() and
@@ -67,15 +73,18 @@ pub fn main(init: std.process.Init) !void {
         reduction_cuda_report.status == .lowered_cuda and
         reduction_cuda_runtime.status == .executable and
         reduction_mps_report.status == .planned_mps and
+        reduction_mps_runtime.status == .planned and
         broadcast_cuda_report.status == .lowered_cuda and
         broadcast_cuda_runtime.status == .executable and
         broadcast_mps_report.status == .planned_mps and
+        broadcast_mps_runtime.status == .planned and
         unary_cuda_report.status == .lowered_cuda and
         unary_cuda_runtime.status == .executable and
         unary_log_cuda_report.status == .lowered_cuda and
         unary_log_cuda_runtime.status == .executable and
         unary_log_cpu_runtime.status == .executable and
         unary_mps_report.status == .planned_mps and
+        unary_mps_runtime.status == .planned and
         transpose_cuda_report.status == .lowered_cuda and
         transpose_cuda_runtime.status == .executable and
         device_matmul_cuda_report.status == .lowered_cuda and
@@ -85,6 +94,15 @@ pub fn main(init: std.process.Init) !void {
         device_unary_cuda_report.status == .lowered_cuda and
         device_transpose_cuda_report.status == .lowered_cuda and
         transpose_mps_report.status == .planned_mps and
+        transpose_mps_runtime.status == .planned and
+        softmax_mps_runtime.status == .planned and
+        log_softmax_mps_runtime.status == .planned and
+        !reduction_mps_runtime.executable() and
+        !broadcast_mps_runtime.executable() and
+        !unary_mps_runtime.executable() and
+        !transpose_mps_runtime.executable() and
+        !softmax_mps_runtime.executable() and
+        !log_softmax_mps_runtime.executable() and
         std.mem.eql(u8, mps_report.launch_backend, "mps_planned") and
         std.mem.eql(u8, elementwise_mps_report.launch_backend, "mps_planned") and
         std.mem.eql(u8, reduction_mps_report.launch_backend, "mps_planned") and
@@ -97,7 +115,7 @@ pub fn main(init: std.process.Init) !void {
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_cuda_runtime_status\":\"{s}\",\"reduction_cuda_runtime_fingerprint\":{d},\"reduction_mps_status\":\"{s}\",\"mps_launch_backend\":\"{s}\",\"mps_runtime_status\":\"{s}\",\"mps_runtime_fingerprint\":{d},\"broadcast_cuda_status\":\"{s}\",\"broadcast_cuda_runtime_status\":\"{s}\",\"broadcast_cuda_runtime_fingerprint\":{d},\"broadcast_mps_status\":\"{s}\"",
+        "{{\"kind\":\"vectra_axiom_dialect_lowering_smoke\",\"ok\":{},\"cpu_status\":\"{s}\",\"cuda_status\":\"{s}\",\"mps_status\":\"{s}\",\"dialects\":{d},\"ops\":{d},\"memref_ops\":{d},\"linalg_ops\":{d},\"gpu_ops\":{d},\"cuda_tile\":{d},\"default_cuda_status\":\"{s}\",\"default_mps_status\":\"{s}\",\"elementwise_cuda_status\":\"{s}\",\"elementwise_mps_status\":\"{s}\",\"reduction_cuda_status\":\"{s}\",\"reduction_cuda_runtime_status\":\"{s}\",\"reduction_cuda_runtime_fingerprint\":{d},\"reduction_mps_status\":\"{s}\",\"reduction_mps_runtime_status\":\"{s}\",\"reduction_mps_runtime_fingerprint\":{d},\"mps_launch_backend\":\"{s}\",\"mps_runtime_status\":\"{s}\",\"mps_runtime_fingerprint\":{d},\"broadcast_cuda_status\":\"{s}\",\"broadcast_cuda_runtime_status\":\"{s}\",\"broadcast_cuda_runtime_fingerprint\":{d},\"broadcast_mps_status\":\"{s}\",\"broadcast_mps_runtime_status\":\"{s}\",\"broadcast_mps_runtime_fingerprint\":{d}",
         .{
             ok,
             cpu_report.status.label(),
@@ -117,6 +135,8 @@ pub fn main(init: std.process.Init) !void {
             reduction_cuda_runtime.status.label(),
             reduction_cuda_runtime.fingerprint(),
             reduction_mps_report.status.label(),
+            reduction_mps_runtime.status.label(),
+            reduction_mps_runtime.fingerprint(),
             mps_report.launch_backend,
             mps_runtime.status.label(),
             mps_runtime.fingerprint(),
@@ -124,10 +144,12 @@ pub fn main(init: std.process.Init) !void {
             broadcast_cuda_runtime.status.label(),
             broadcast_cuda_runtime.fingerprint(),
             broadcast_mps_report.status.label(),
+            broadcast_mps_runtime.status.label(),
+            broadcast_mps_runtime.fingerprint(),
         },
     );
     try stdout.interface.print(
-        ",\"unary_cuda_status\":\"{s}\",\"unary_cuda_runtime_status\":\"{s}\",\"unary_cuda_runtime_fingerprint\":{d},\"unary_log_cuda_status\":\"{s}\",\"unary_log_cuda_runtime_status\":\"{s}\",\"unary_log_cpu_runtime_status\":\"{s}\",\"unary_mps_status\":\"{s}\",\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"device_matmul_cuda_status\":\"{s}\",\"device_elementwise_cuda_status\":\"{s}\",\"device_reduction_cuda_status\":\"{s}\",\"device_broadcast_cuda_status\":\"{s}\",\"device_unary_cuda_status\":\"{s}\",\"device_transpose_cuda_status\":\"{s}\",\"transpose_mps_status\":\"{s}\",\"fingerprint\":{d}}}\n",
+        ",\"unary_cuda_status\":\"{s}\",\"unary_cuda_runtime_status\":\"{s}\",\"unary_cuda_runtime_fingerprint\":{d},\"unary_log_cuda_status\":\"{s}\",\"unary_log_cuda_runtime_status\":\"{s}\",\"unary_log_cpu_runtime_status\":\"{s}\",\"unary_mps_status\":\"{s}\",\"unary_mps_runtime_status\":\"{s}\",\"unary_mps_runtime_fingerprint\":{d},\"transpose_cuda_status\":\"{s}\",\"transpose_cuda_runtime_status\":\"{s}\",\"transpose_cuda_runtime_fingerprint\":{d},\"device_matmul_cuda_status\":\"{s}\",\"device_elementwise_cuda_status\":\"{s}\",\"device_reduction_cuda_status\":\"{s}\",\"device_broadcast_cuda_status\":\"{s}\",\"device_unary_cuda_status\":\"{s}\",\"device_transpose_cuda_status\":\"{s}\",\"transpose_mps_status\":\"{s}\",\"transpose_mps_runtime_status\":\"{s}\",\"transpose_mps_runtime_fingerprint\":{d},\"softmax_mps_runtime_status\":\"{s}\",\"log_softmax_mps_runtime_status\":\"{s}\",\"fingerprint\":{d}}}\n",
         .{
             unary_cuda_report.status.label(),
             unary_cuda_runtime.status.label(),
@@ -136,6 +158,8 @@ pub fn main(init: std.process.Init) !void {
             unary_log_cuda_runtime.status.label(),
             unary_log_cpu_runtime.status.label(),
             unary_mps_report.status.label(),
+            unary_mps_runtime.status.label(),
+            unary_mps_runtime.fingerprint(),
             transpose_cuda_report.status.label(),
             transpose_cuda_runtime.status.label(),
             transpose_cuda_runtime.fingerprint(),
@@ -146,6 +170,10 @@ pub fn main(init: std.process.Init) !void {
             device_unary_cuda_report.status.label(),
             device_transpose_cuda_report.status.label(),
             transpose_mps_report.status.label(),
+            transpose_mps_runtime.status.label(),
+            transpose_mps_runtime.fingerprint(),
+            softmax_mps_runtime.status.label(),
+            log_softmax_mps_runtime.status.label(),
             cuda_report.fingerprint(),
         },
     );

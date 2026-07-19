@@ -49,8 +49,9 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
 
 ## Known gaps
 
-- True MPS runtime ABI: MPS remains planned/unavailable until Axiom owns real
-  Metal/MPS storage and runtime execution.
+- True MPS runtime ABI: MPS lowering remains planned and runtime capabilities
+  remain non-executable until Axiom owns real Metal/MPS storage and runtime
+  execution.
 - Strided/transposed device GEMM lowering: Axiom now supports contiguous and
   padded row-major f32/f64/f16/BFloat16 GEMM and matmul-add memrefs through
   cuBLAS/cuBLASLt leading dimensions, plus f32/f64/f16/BFloat16
