@@ -67,7 +67,7 @@ KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "strided_transposed_device_gemm_lowering",
-        "reason": "Axiom supports contiguous/padded row-major f32/f64/f16/BF16 GEMM and matmul-add memrefs plus f32/f64/f16/BF16 transposed/non-row-major GEMM through copy-pack/GEMM/copy-unpack runtime seeds; fused pack/unpack kernels still need lowering; negative-stride GEMM enters the copy-pack/GEMM/copy-unpack runtime route, and Vectra CUDA bmm plus N-D matmul with equal or whole-operand-broadcastable leading batch dimensions now call Axiom's rank-3 batched GEMM memref runtime, flattening representable leading batch axes at the backend boundary. The Axiom runtime prefers native cuBLAS strided-batched GEMM for contiguous positive-stride batches and falls back to explicit loop-over-per-batch GEMM where needed; mixed per-axis batch broadcast legalization remains future work.",
+        "reason": "Axiom supports contiguous/padded row-major f32/f64/f16/BF16 GEMM and matmul-add memrefs plus f32/f64/f16/BF16 transposed/non-row-major GEMM through copy-pack/GEMM/copy-unpack runtime seeds; fused pack/unpack kernels still need lowering; negative-stride GEMM enters the copy-pack/GEMM/copy-unpack runtime route, and Vectra CUDA bmm, batched matvec/vecmat, plus N-D matmul with equal or whole-operand-broadcastable leading batch dimensions now call Axiom's rank-3 batched GEMM memref runtime, flattening representable leading batch axes at the backend boundary. The Axiom runtime prefers native cuBLAS strided-batched GEMM for contiguous positive-stride batches and falls back to explicit loop-over-per-batch GEMM where needed; mixed per-axis batch broadcast legalization remains future work.",
         "target_layer": "axiom",
     },
     {

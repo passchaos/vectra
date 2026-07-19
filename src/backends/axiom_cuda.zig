@@ -2872,6 +2872,38 @@ pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(
     return null;
 }
 
+pub fn tryDeviceMatvecF32(matrix: array_mod.Array(f32), vector: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceMatvec(f32, matrix, vector, "matvec_lhs_f32", "matvec_rhs_f32", "matvec_out_f32");
+}
+
+pub fn tryDeviceMatvecF64(matrix: array_mod.Array(f64), vector: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceMatvec(f64, matrix, vector, "matvec_lhs_f64", "matvec_rhs_f64", "matvec_out_f64");
+}
+
+pub fn tryDeviceMatvecF16(matrix: array_mod.Array(f16), vector: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceMatvec(f16, matrix, vector, "matvec_lhs_f16", "matvec_rhs_f16", "matvec_out_f16");
+}
+
+pub fn tryDeviceMatvecBF16(matrix: array_mod.Array(BFloat16), vector: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceMatvec(BFloat16, matrix, vector, "matvec_lhs_bf16", "matvec_rhs_bf16", "matvec_out_bf16");
+}
+
+pub fn tryDeviceVecmatF32(vector: array_mod.Array(f32), matrix: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceVecmat(f32, vector, matrix, "vecmat_lhs_f32", "vecmat_rhs_f32", "vecmat_out_f32");
+}
+
+pub fn tryDeviceVecmatF64(vector: array_mod.Array(f64), matrix: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceVecmat(f64, vector, matrix, "vecmat_lhs_f64", "vecmat_rhs_f64", "vecmat_out_f64");
+}
+
+pub fn tryDeviceVecmatF16(vector: array_mod.Array(f16), matrix: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceVecmat(f16, vector, matrix, "vecmat_lhs_f16", "vecmat_rhs_f16", "vecmat_out_f16");
+}
+
+pub fn tryDeviceVecmatBF16(vector: array_mod.Array(BFloat16), matrix: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceVecmat(BFloat16, vector, matrix, "vecmat_lhs_bf16", "vecmat_rhs_bf16", "vecmat_out_bf16");
+}
+
 pub fn tryDeviceBmmF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryDeviceBmm(f32, lhs, rhs, "bmm_lhs_f32", "bmm_rhs_f32", "bmm_out_f32");
 }
@@ -2886,6 +2918,138 @@ pub fn tryDeviceBmmF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) arr
 
 pub fn tryDeviceBmmBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
     return tryDeviceBmm(BFloat16, lhs, rhs, "bmm_lhs_bf16", "bmm_rhs_bf16", "bmm_out_bf16");
+}
+
+fn tryDeviceMatvec(
+    comptime T: type,
+    matrix: array_mod.Array(T),
+    vector: array_mod.Array(T),
+    matrix_name: []const u8,
+    vector_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    resetLastCudaDeviceBatchedGemmReport();
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!matrix.device.isCuda() or !vector.device.isCuda() or !matrix.device.sameDevice(vector.device)) return null;
+    if (matrix.data.len != 0 or vector.data.len != 0) return null;
+    if (matrix.shape.len < 2 or vector.shape.len != 1) return null;
+    if (!matrix.isContiguous() or !vector.isContiguous()) return null;
+    const batch_shape = matrix.shape[0 .. matrix.shape.len - 2];
+    const batch_count = try array_mod.numelFrom(batch_shape);
+    const m = matrix.shape[matrix.shape.len - 2];
+    const k = matrix.shape[matrix.shape.len - 1];
+    if (batch_count == 0 or m == 0 or k == 0 or vector.shape[0] != k) return null;
+    const matrix_storage = matrix.device_storage orelse return null;
+    const vector_storage = vector.device_storage orelse return null;
+    if (matrix_storage.len == 0 or vector_storage.len == 0) return null;
+
+    const out_rank = batch_shape.len + 1;
+    const out_shape = try matrix.allocator.alloc(usize, out_rank);
+    defer matrix.allocator.free(out_shape);
+    @memcpy(out_shape[0..batch_shape.len], batch_shape);
+    out_shape[out_rank - 1] = m;
+    var out = try array_mod.Array(T).emptyOn(matrix.allocator, out_shape, matrix.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    const matrix_batch_stride = std.math.mul(usize, m, k) catch return error.InvalidShape;
+    const out_batch_stride = m;
+    const matrix_shape: [3]usize = .{ batch_count, m, k };
+    const vector_shape: [3]usize = .{ batch_count, k, 1 };
+    const out_memref_shape: [3]usize = .{ batch_count, m, 1 };
+    const matrix_strides: [3]usize = .{ matrix_batch_stride, k, 1 };
+    const vector_strides: [3]usize = .{ 0, 1, 1 };
+    const out_strides: [3]usize = .{ out_batch_stride, 1, 1 };
+
+    const matrix_desc = describeDeviceBufferMemRef(T, matrix_storage, &matrix_shape, &matrix_strides, matrix_name) catch {
+        out.deinit();
+        return null;
+    };
+    const vector_desc = describeDeviceBufferMemRef(T, vector_storage, &vector_shape, &vector_strides, vector_name) catch {
+        out.deinit();
+        return null;
+    };
+    const out_desc = describeDeviceBufferMemRef(T, out_storage, &out_memref_shape, &out_strides, out_name) catch {
+        out.deinit();
+        return null;
+    };
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(matrix.allocator);
+    const report = runtime.runCudaDeviceBatchedGemmMemRefs(matrix.device.index, matrix_desc, vector_desc, out_desc) catch null;
+    if (report) |value| {
+        recordCudaDeviceBatchedGemmReport(value);
+        if (value.valid()) return out;
+    }
+    out.deinit();
+    return null;
+}
+
+fn tryDeviceVecmat(
+    comptime T: type,
+    vector: array_mod.Array(T),
+    matrix: array_mod.Array(T),
+    vector_name: []const u8,
+    matrix_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    resetLastCudaDeviceBatchedGemmReport();
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!vector.device.isCuda() or !matrix.device.isCuda() or !vector.device.sameDevice(matrix.device)) return null;
+    if (vector.data.len != 0 or matrix.data.len != 0) return null;
+    if (vector.shape.len != 1 or matrix.shape.len < 2) return null;
+    if (!vector.isContiguous() or !matrix.isContiguous()) return null;
+    const batch_shape = matrix.shape[0 .. matrix.shape.len - 2];
+    const batch_count = try array_mod.numelFrom(batch_shape);
+    const k = vector.shape[0];
+    const n = matrix.shape[matrix.shape.len - 1];
+    if (batch_count == 0 or k == 0 or n == 0 or matrix.shape[matrix.shape.len - 2] != k) return null;
+    const vector_storage = vector.device_storage orelse return null;
+    const matrix_storage = matrix.device_storage orelse return null;
+    if (vector_storage.len == 0 or matrix_storage.len == 0) return null;
+
+    const out_rank = batch_shape.len + 1;
+    const out_shape = try vector.allocator.alloc(usize, out_rank);
+    defer vector.allocator.free(out_shape);
+    @memcpy(out_shape[0..batch_shape.len], batch_shape);
+    out_shape[out_rank - 1] = n;
+    var out = try array_mod.Array(T).emptyOn(vector.allocator, out_shape, vector.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    const matrix_batch_stride = std.math.mul(usize, k, n) catch return error.InvalidShape;
+    const out_batch_stride = n;
+    const vector_shape: [3]usize = .{ batch_count, 1, k };
+    const matrix_shape: [3]usize = .{ batch_count, k, n };
+    const out_memref_shape: [3]usize = .{ batch_count, 1, n };
+    const vector_strides: [3]usize = .{ 0, k, 1 };
+    const matrix_strides: [3]usize = .{ matrix_batch_stride, n, 1 };
+    const out_strides: [3]usize = .{ out_batch_stride, n, 1 };
+
+    const vector_desc = describeDeviceBufferMemRef(T, vector_storage, &vector_shape, &vector_strides, vector_name) catch {
+        out.deinit();
+        return null;
+    };
+    const matrix_desc = describeDeviceBufferMemRef(T, matrix_storage, &matrix_shape, &matrix_strides, matrix_name) catch {
+        out.deinit();
+        return null;
+    };
+    const out_desc = describeDeviceBufferMemRef(T, out_storage, &out_memref_shape, &out_strides, out_name) catch {
+        out.deinit();
+        return null;
+    };
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(vector.allocator);
+    const report = runtime.runCudaDeviceBatchedGemmMemRefs(vector.device.index, vector_desc, matrix_desc, out_desc) catch null;
+    if (report) |value| {
+        recordCudaDeviceBatchedGemmReport(value);
+        if (value.valid()) return out;
+    }
+    out.deinit();
+    return null;
 }
 
 pub fn tryDeviceBatchedMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
