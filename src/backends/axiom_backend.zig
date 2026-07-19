@@ -2932,24 +2932,16 @@ fn tryCudaDeviceScalarArrayBroadcast(comptime T: type, op: ElementwiseOp, target
     const scalar_left = lhs_scalar;
     const vector = if (scalar_left) rhs else lhs;
     const scalar = if (scalar_left) lhs else rhs;
-    if (vector.shape.len != 1 and vector.shape.len != 2) return null;
+    if (vector.shape.len == 0) return null;
     const cuda_op = cudaBinaryOp(op);
     if (T == f32) {
-        if (vector.shape.len == 1) {
-            if (try axiom_cuda.tryDeviceVectorScalarBroadcastF32(cuda_op, @as(array_mod.Array(f32), vector), @as(array_mod.Array(f32), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
-        } else if (try axiom_cuda.tryDeviceMatrixScalarBroadcastF32(cuda_op, @as(array_mod.Array(f32), vector), @as(array_mod.Array(f32), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceContiguousScalarBroadcastF32(cuda_op, @as(array_mod.Array(f32), vector), @as(array_mod.Array(f32), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f64) {
-        if (vector.shape.len == 1) {
-            if (try axiom_cuda.tryDeviceVectorScalarBroadcastF64(cuda_op, @as(array_mod.Array(f64), vector), @as(array_mod.Array(f64), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
-        } else if (try axiom_cuda.tryDeviceMatrixScalarBroadcastF64(cuda_op, @as(array_mod.Array(f64), vector), @as(array_mod.Array(f64), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceContiguousScalarBroadcastF64(cuda_op, @as(array_mod.Array(f64), vector), @as(array_mod.Array(f64), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
-        if (vector.shape.len == 1) {
-            if (try axiom_cuda.tryDeviceVectorScalarBroadcastF16(cuda_op, @as(array_mod.Array(f16), vector), @as(array_mod.Array(f16), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
-        } else if (try axiom_cuda.tryDeviceMatrixScalarBroadcastF16(cuda_op, @as(array_mod.Array(f16), vector), @as(array_mod.Array(f16), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceContiguousScalarBroadcastF16(cuda_op, @as(array_mod.Array(f16), vector), @as(array_mod.Array(f16), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
-        if (vector.shape.len == 1) {
-            if (try axiom_cuda.tryDeviceVectorScalarBroadcastBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), vector), @as(array_mod.Array(array_mod.BFloat16), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
-        } else if (try axiom_cuda.tryDeviceMatrixScalarBroadcastBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), vector), @as(array_mod.Array(array_mod.BFloat16), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
+        if (try axiom_cuda.tryDeviceContiguousScalarBroadcastBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), vector), @as(array_mod.Array(array_mod.BFloat16), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }

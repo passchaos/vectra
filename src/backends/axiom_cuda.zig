@@ -2155,59 +2155,80 @@ pub fn tryDeviceBroadcastBinaryBF16(op: BinaryOp, input: array_mod.Array(BFloat1
 }
 
 pub fn tryDeviceVectorScalarBroadcastF32(op: BinaryOp, vector: array_mod.Array(f32), scalar: array_mod.Array(f32), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceVectorScalarBroadcast(f32, op, vector, scalar, scalar_left);
+    return tryDeviceContiguousScalarBroadcast(f32, op, vector, scalar, scalar_left);
 }
 
 pub fn tryDeviceMatrixScalarBroadcastF32(op: BinaryOp, matrix: array_mod.Array(f32), scalar: array_mod.Array(f32), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceMatrixScalarBroadcast(f32, op, matrix, scalar, scalar_left);
+    return tryDeviceContiguousScalarBroadcast(f32, op, matrix, scalar, scalar_left);
+}
+
+pub fn tryDeviceContiguousScalarBroadcastF32(op: BinaryOp, input: array_mod.Array(f32), scalar: array_mod.Array(f32), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceContiguousScalarBroadcast(f32, op, input, scalar, scalar_left);
 }
 
 pub fn tryDeviceVectorScalarBroadcastF64(op: BinaryOp, vector: array_mod.Array(f64), scalar: array_mod.Array(f64), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceVectorScalarBroadcast(f64, op, vector, scalar, scalar_left);
+    return tryDeviceContiguousScalarBroadcast(f64, op, vector, scalar, scalar_left);
 }
 
 pub fn tryDeviceMatrixScalarBroadcastF64(op: BinaryOp, matrix: array_mod.Array(f64), scalar: array_mod.Array(f64), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceMatrixScalarBroadcast(f64, op, matrix, scalar, scalar_left);
+    return tryDeviceContiguousScalarBroadcast(f64, op, matrix, scalar, scalar_left);
+}
+
+pub fn tryDeviceContiguousScalarBroadcastF64(op: BinaryOp, input: array_mod.Array(f64), scalar: array_mod.Array(f64), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceContiguousScalarBroadcast(f64, op, input, scalar, scalar_left);
 }
 
 pub fn tryDeviceVectorScalarBroadcastF16(op: BinaryOp, vector: array_mod.Array(f16), scalar: array_mod.Array(f16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceVectorScalarBroadcast(f16, op, vector, scalar, scalar_left);
+    return tryDeviceContiguousScalarBroadcast(f16, op, vector, scalar, scalar_left);
 }
 
 pub fn tryDeviceMatrixScalarBroadcastF16(op: BinaryOp, matrix: array_mod.Array(f16), scalar: array_mod.Array(f16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceMatrixScalarBroadcast(f16, op, matrix, scalar, scalar_left);
+    return tryDeviceContiguousScalarBroadcast(f16, op, matrix, scalar, scalar_left);
+}
+
+pub fn tryDeviceContiguousScalarBroadcastF16(op: BinaryOp, input: array_mod.Array(f16), scalar: array_mod.Array(f16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceContiguousScalarBroadcast(f16, op, input, scalar, scalar_left);
 }
 
 pub fn tryDeviceVectorScalarBroadcastBF16(op: BinaryOp, vector: array_mod.Array(BFloat16), scalar: array_mod.Array(BFloat16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceVectorScalarBroadcast(BFloat16, op, vector, scalar, scalar_left);
+    return tryDeviceContiguousScalarBroadcast(BFloat16, op, vector, scalar, scalar_left);
 }
 
 pub fn tryDeviceMatrixScalarBroadcastBF16(op: BinaryOp, matrix: array_mod.Array(BFloat16), scalar: array_mod.Array(BFloat16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceMatrixScalarBroadcast(BFloat16, op, matrix, scalar, scalar_left);
+    return tryDeviceContiguousScalarBroadcast(BFloat16, op, matrix, scalar, scalar_left);
 }
 
-fn tryDeviceVectorScalarBroadcast(comptime T: type, op: BinaryOp, vector: array_mod.Array(T), scalar: array_mod.Array(T), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(T) {
+pub fn tryDeviceContiguousScalarBroadcastBF16(op: BinaryOp, input: array_mod.Array(BFloat16), scalar: array_mod.Array(BFloat16), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceContiguousScalarBroadcast(BFloat16, op, input, scalar, scalar_left);
+}
+
+fn tryDeviceContiguousScalarBroadcast(comptime T: type, op: BinaryOp, input: array_mod.Array(T), scalar: array_mod.Array(T), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
     if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
-    if (!vector.device.isCuda() or !scalar.device.isCuda() or !vector.device.sameDevice(scalar.device)) return null;
-    if (vector.shape.len != 1 or scalar.numel() != 1) return null;
-    if (vector.data.len != 0 or scalar.data.len != 0 or !vector.isContiguous() or !scalar.isContiguous()) return null;
-    const vector_storage = vector.device_storage orelse return null;
+    if (!input.device.isCuda() or !scalar.device.isCuda() or !input.device.sameDevice(scalar.device)) return null;
+    if (input.shape.len == 0 or scalar.numel() != 1) return null;
+    if (input.data.len != 0 or scalar.data.len != 0 or !input.isContiguous() or !scalar.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
     const scalar_storage = scalar.device_storage orelse return null;
-    if (vector_storage.len == 0 or scalar_storage.len != 1) return null;
+    if (input_storage.len == 0 or scalar_storage.len != 1) return null;
 
-    var out = try array_mod.Array(T).emptyOn(vector.allocator, vector.shape, vector.device);
+    var out = try array_mod.Array(T).emptyOn(input.allocator, input.shape, input.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
         out.deinit();
         return null;
     };
-    const n = vector.shape[0];
+    // Until Axiom exposes a native N-D broadcast kernel, contiguous owning
+    // arrays can safely lower to the 2-D row-broadcast ABI as a single row.
+    // This preserves the Axiom memref/runtime boundary for common NumPy/PyTorch
+    // scalar-array broadcasts such as `[B,M,N] / [1]` without materializing a
+    // same-shape temporary in Vectra.
+    const n = input_storage.len;
     const matrix_shape = [_]usize{ 1, n };
     const matrix_strides = [_]usize{ n, 1 };
     const bias_shape = [_]usize{n};
     const bias_strides = [_]usize{0};
-    const input_descriptor = describeDeviceBufferMemRef(T, vector_storage, matrix_shape[0..], matrix_strides[0..], "input") catch {
+    const input_descriptor = describeDeviceBufferMemRef(T, input_storage, matrix_shape[0..], matrix_strides[0..], "input") catch {
         out.deinit();
         return null;
     };
@@ -2230,8 +2251,8 @@ fn tryDeviceVectorScalarBroadcast(comptime T: type, op: BinaryOp, vector: array_
         out.deinit();
         return null;
     };
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(vector.allocator);
-    const report = runtime.runCudaDeviceBroadcastBinaryMemRefs(vector.device.index, spec) catch {
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(input.allocator);
+    const report = runtime.runCudaDeviceBroadcastBinaryMemRefs(input.device.index, spec) catch {
         out.deinit();
         return null;
     };
@@ -2241,11 +2262,6 @@ fn tryDeviceVectorScalarBroadcast(comptime T: type, op: BinaryOp, vector: array_
     }
     recordCudaDeviceMemRefReport("broadcast_binary2d", report);
     return out;
-}
-
-fn tryDeviceMatrixScalarBroadcast(comptime T: type, op: BinaryOp, matrix: array_mod.Array(T), scalar: array_mod.Array(T), scalar_left: bool) array_mod.ArrayError!?array_mod.Array(T) {
-    if (matrix.shape.len != 2) return null;
-    return tryDeviceBroadcastBinaryWithOrder(T, op, scalar_left, matrix, scalar, .row);
 }
 
 fn tryDeviceBroadcastBinary(comptime T: type, op: BinaryOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
