@@ -68,6 +68,7 @@ pub const TensorMemRefDescriptor = axiom.accelerator.TensorMemRefDescriptor;
 pub const TensorMemRefAddressSpace = axiom.accelerator.TensorMemRefAddressSpace;
 pub const TensorGemmMemRefLoweringPlan = axiom.accelerator.TensorGemmMemRefLoweringPlan;
 pub const TensorGemmMemRefLoweringStatus = axiom.accelerator.TensorGemmMemRefLoweringStatus;
+pub const TensorGemmMemRefBufferizationReport = axiom.accelerator.TensorGemmMemRefBufferizationReport;
 
 pub fn QrResult(comptime T: type) type {
     return struct {
@@ -412,6 +413,30 @@ pub fn planGemmMemRefLowering(
     const plan = TensorGemmMemRefLoweringPlan.fromMemRefs(lhs_desc, rhs_desc, out_desc);
     if (plan.status == .invalid) return error.InvalidShape;
     return plan;
+}
+
+pub fn computeGemmMemRefBufferizedReference(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    lhs: array_mod.ArrayView(T),
+    rhs: array_mod.ArrayView(T),
+    out: array_mod.ArrayView(T),
+) array_mod.ArrayError!TensorGemmMemRefBufferizationReport {
+    if (T != f32) return error.TypeUnsupported;
+    const lhs_desc = try describeViewMemRef(T, lhs, "lhs");
+    const rhs_desc = try describeViewMemRef(T, rhs, "rhs");
+    const out_desc = try describeViewMemRef(T, out, "out");
+    var spec = axiom.accelerator.TensorGemmSpec.fromMemRefs(lhs_desc, rhs_desc, out_desc) catch return error.InvalidShape;
+    spec.alpha = 1.0;
+    spec.beta = 0.0;
+    return axiom.accelerator.computeGemmMemRefBufferizedCpuReference(
+        allocator,
+        spec,
+        @as([]const f32, lhs.data),
+        @as([]const f32, rhs.data),
+        @as([]const f32, out.data),
+        @as([]f32, out.data),
+    ) catch error.BackendFailure;
 }
 
 fn usizeStridesToIsize(strides: []const usize) array_mod.ArrayError![4]isize {

@@ -58,6 +58,7 @@ pub fn main(init: std.process.Init) !void {
     var out_transposed = try out_transposed_storage.transposeView();
     defer out_transposed.deinit();
     const unpack_c = try vx.axiom_backend.planGemmMemRefLowering(f32, lhs, rhs, out_transposed);
+    const bufferized = try vx.axiom_backend.computeGemmMemRefBufferizedReference(f32, allocator, lhs_transposed, rhs_transposed, out_transposed);
 
     var broadcast_scalar = try vx.Array(f32).fromSlice(allocator, &.{1}, &.{1});
     defer broadcast_scalar.deinit();
@@ -84,18 +85,27 @@ pub fn main(init: std.process.Init) !void {
         unpack_c.needsBufferization() and
         unpack_c.c_requires_unpack and
         unpack_c.status == .needs_unpack_c and
+        bufferized.ok() and
+        bufferized.a_packed and
+        bufferized.b_packed and
+        bufferized.c_unpacked and
+        bufferized.output_fingerprint != 0 and
+        std.mem.eql(f32, out_transposed_storage.data, &.{ 22, 49, 28, 64 }) and
         broadcast_rejected;
 
-    var stdout_buffer: [768]u8 = undefined;
+    var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_gemm_layout_smoke\",\"ok\":{},\"executable_status\":\"{s}\",\"pack_a_status\":\"{s}\",\"pack_b_status\":\"{s}\",\"unpack_c_status\":\"{s}\",\"broadcast_rejected\":{},\"executable_fp\":{d},\"pack_a_fp\":{d},\"pack_b_fp\":{d},\"unpack_c_fp\":{d}}}\n",
+        "{{\"kind\":\"vectra_axiom_gemm_layout_smoke\",\"ok\":{},\"executable_status\":\"{s}\",\"pack_a_status\":\"{s}\",\"pack_b_status\":\"{s}\",\"unpack_c_status\":\"{s}\",\"bufferized_ok\":{},\"bufferized_fp\":{d},\"bufferized_output_fp\":{d},\"broadcast_rejected\":{},\"executable_fp\":{d},\"pack_a_fp\":{d},\"pack_b_fp\":{d},\"unpack_c_fp\":{d}}}\n",
         .{
             ok,
             executable.status.label(),
             pack_a.status.label(),
             pack_b.status.label(),
             unpack_c.status.label(),
+            bufferized.ok(),
+            bufferized.fingerprint(),
+            bufferized.output_fingerprint,
             broadcast_rejected,
             executable.fingerprint(),
             pack_a.fingerprint(),
