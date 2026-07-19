@@ -881,7 +881,7 @@ pub fn logSoftmaxRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepo
             .target = target,
             .operation = "log_softmax2d",
             .status = .executable,
-            .reason = "Axiom MPS exposes eager f32 2D axis logSoftmax over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+            .reason = "Axiom MPS exposes eager f32/f16/BFloat16 2D axis logSoftmax over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
         },
     };
 }
@@ -904,7 +904,7 @@ pub fn softmaxRuntimeCapability(target: DialectBackend) RuntimeCapabilityReport 
             .target = target,
             .operation = "softmax2d",
             .status = .executable,
-            .reason = "Axiom MPS exposes eager f32 2D axis softmax over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+            .reason = "Axiom MPS exposes eager f32/f16/BFloat16 2D axis softmax over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
         },
     };
 }
@@ -2691,6 +2691,8 @@ fn executeMpsLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) a
         if (try axiom_mps.trySoftmaxF32(.log_softmax, @as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
         if (try axiom_mps.trySoftmaxF16(.log_softmax, @as(array_mod.Array(f16), input), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.trySoftmaxBF16(.log_softmax, @as(array_mod.Array(array_mod.BFloat16), input), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -2700,6 +2702,8 @@ fn executeMpsSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) arra
         if (try axiom_mps.trySoftmaxF32(.softmax, @as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
         if (try axiom_mps.trySoftmaxF16(.softmax, @as(array_mod.Array(f16), input), axis)) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.trySoftmaxBF16(.softmax, @as(array_mod.Array(array_mod.BFloat16), input), axis)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3827,7 +3831,7 @@ fn supportedSoftmaxExecution(comptime T: type, target: DialectBackend, input: ar
     return switch (target) {
         .cpu => false,
         .cuda => input.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
-        .mps => input.device.isMps() and (T == f32 or T == f16) and input.device_storage != null,
+        .mps => input.device.isMps() and (T == f32 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
     };
 }
 
