@@ -20968,14 +20968,14 @@ pub fn Array(comptime T: type) type {
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
-            if (p == zero(T)) return error.InvalidShape;
+            if (eqlValue(T, p, zero(T))) return error.InvalidShape;
             var abs_t = try self.abs();
             defer abs_t.deinit();
 
-            if (p == one(T)) {
+            if (eqlValue(T, p, one(T))) {
                 return abs_t.sum(axis_opt, keepdims);
             }
-            if (p == castValue(T, 2)) {
+            if (eqlValue(T, p, castValue(T, 2))) {
                 var squared = try abs_t.mul(abs_t);
                 defer squared.deinit();
                 var summed = try squared.sum(axis_opt, keepdims);
@@ -20987,20 +20987,20 @@ pub fn Array(comptime T: type) type {
             defer powered.deinit();
             var summed = try powered.sum(axis_opt, keepdims);
             defer summed.deinit();
-            return summed.powScalar(one(T) / p);
+            return summed.powScalar(divValue(T, one(T), p));
         }
 
         pub fn normAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
-            if (p == zero(T)) return error.InvalidShape;
+            if (eqlValue(T, p, zero(T))) return error.InvalidShape;
             if (axes.len == 0) return self.abs();
             var abs_t = try self.abs();
             defer abs_t.deinit();
 
-            if (p == one(T)) {
+            if (eqlValue(T, p, one(T))) {
                 return abs_t.sumAxes(axes, keepdims);
             }
-            if (p == castValue(T, 2)) {
+            if (eqlValue(T, p, castValue(T, 2))) {
                 var squared = try abs_t.mul(abs_t);
                 defer squared.deinit();
                 var summed = try squared.sumAxes(axes, keepdims);
@@ -21012,7 +21012,7 @@ pub fn Array(comptime T: type) type {
             defer powered.deinit();
             var summed = try powered.sumAxes(axes, keepdims);
             defer summed.deinit();
-            return summed.powScalar(one(T) / p);
+            return summed.powScalar(divValue(T, one(T), p));
         }
 
         pub fn norm_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
@@ -21038,7 +21038,7 @@ pub fn Array(comptime T: type) type {
         pub fn cosineSimilarity(self: Self, other: Self, axis_index: isize, eps: T, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
-            if (!(eps >= zero(T))) return error.InvalidShape;
+            if (lessValue(T, eps, zero(T))) return error.InvalidShape;
             var product_values = try self.mul(other);
             defer product_values.deinit();
             var dot_values = try product_values.sum(axis_index, keepdims);
@@ -21113,7 +21113,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) ArrayError!Self {
             ensureFloat(T);
-            if (!(eps >= zero(T))) return error.InvalidShape;
+            if (lessValue(T, eps, zero(T))) return error.InvalidShape;
             var denom = try self.norm(p, axis_index, true);
             defer denom.deinit();
             var safe_denom = try denom.maximumScalar(eps);
