@@ -1467,10 +1467,24 @@ pub fn main(init: std.process.Init) !void {
         defer f64_column_broadcast.deinit();
         var f64_column_broadcast_host = try f64_column_broadcast.cpu();
         defer f64_column_broadcast_host.deinit();
+        var f64_middle_lhs = try vx.Array(f64).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 1, 2 }, vx.cuda(0));
+        defer f64_middle_lhs.deinit();
+        var f64_middle_rhs = try vx.Array(f64).fromSliceOn(allocator, &.{ 10, 20, 30, 40 }, &.{ 1, 2, 2 }, vx.cuda(0));
+        defer f64_middle_rhs.deinit();
+        var f64_middle_broadcast = try f64_middle_lhs.add(f64_middle_rhs);
+        defer f64_middle_broadcast.deinit();
+        var f64_middle_broadcast_host = try f64_middle_broadcast.cpu();
+        defer f64_middle_broadcast_host.deinit();
+        const f64_middle_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         f64_broadcast_ok = f64_row_broadcast.device.isCuda() and f64_row_broadcast.device_storage != null and
             equalF64(f64_row_broadcast_host.data, &.{ 11, 22, 13, 24 }) and
             f64_column_broadcast.device.isCuda() and f64_column_broadcast.device_storage != null and
-            equalF64(f64_column_broadcast_host.data, &.{ 101, 102, 203, 204 });
+            equalF64(f64_column_broadcast_host.data, &.{ 101, 102, 203, 204 }) and
+            f64_middle_broadcast.device.isCuda() and f64_middle_broadcast.device_storage != null and
+            f64_middle_broadcast_report.valid() and
+            std.mem.eql(u8, f64_middle_broadcast_report.operation, "broadcast4_f64") and
+            std.mem.eql(usize, f64_middle_broadcast_host.shape, &.{ 2, 2, 2 }) and
+            equalF64(f64_middle_broadcast_host.data, &.{ 11, 22, 31, 42, 13, 24, 33, 44 });
 
         var f64_row_sum = try f64_lhs.sum(1, false);
         defer f64_row_sum.deinit();
