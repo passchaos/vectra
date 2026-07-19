@@ -16945,7 +16945,7 @@ pub fn Array(comptime T: type) type {
         pub fn relu(self: Self) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var abs_values = try self.abs();
                     defer abs_values.deinit();
                     var doubled_positive = try self.add(abs_values);
@@ -16976,15 +16976,15 @@ pub fn Array(comptime T: type) type {
         pub fn threshold(self: Self, threshold_value: T, replacement_value: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
-                    if (threshold_value == zero(T) and replacement_value == zero(T)) return self.relu();
-                    if (replacement_value == threshold_value) return self.maximumScalar(threshold_value);
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
+                    if (eqlValue(T, threshold_value, zero(T)) and eqlValue(T, replacement_value, zero(T))) return self.relu();
+                    if (eqlValue(T, replacement_value, threshold_value)) return self.maximumScalar(threshold_value);
                     return error.BackendFailure;
                 }
             }
             const out = try Self.empty(self.allocator, self.shape);
             for (self.data, out.data) |value, *slot| {
-                slot.* = if (value > threshold_value) value else replacement_value;
+                slot.* = if (lessValue(T, threshold_value, value)) value else replacement_value;
             }
             return out;
         }
@@ -17298,7 +17298,7 @@ pub fn Array(comptime T: type) type {
         pub fn expit(self: Self) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var negated = try self.neg();
                     defer negated.deinit();
                     var exp_negated = try negated.exp();
@@ -17328,7 +17328,7 @@ pub fn Array(comptime T: type) type {
         pub fn softsign(self: Self) ArrayError!Self {
             ensureFloat(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var abs_values = try self.abs();
                     defer abs_values.deinit();
                     var denominator = try abs_values.addScalar(one(T));
@@ -17361,7 +17361,7 @@ pub fn Array(comptime T: type) type {
         pub fn clip(self: Self, min_value: T, max_value: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (axiom_backend.pendingMatmulDeviceSupported(self.device)) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     var lower_bounded = try self.clipMin(min_value);
                     defer lower_bounded.deinit();
                     return lower_bounded.clipMax(max_value);
