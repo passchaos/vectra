@@ -2278,10 +2278,19 @@ fn matrixOrVectorColumnView(comptime T: type, input: array_mod.Array(T), name: [
 }
 
 fn broadcastBiasView(comptime T: type, bias: array_mod.Array(T), axis: DialectBroadcastAxis, name: []const u8) ?axiom.accelerator.TensorBufferView {
-    if (axis == .row or bias.shape.len == 1) return bufferView(T, bias, name);
-    if (bias.shape.len != 2 or bias.shape[1] != 1 or bias.strides.len != 2) return null;
-    const stride = std.math.cast(isize, bias.strides[0]) orelse return null;
-    var view = axiom.accelerator.TensorBufferView.strided(name, @intCast(@intFromPtr(bias.data.ptr)), bias.shape[0], stride);
+    if (bias.shape.len == 1) return bufferView(T, bias, name);
+    if (bias.shape.len != 2 or bias.strides.len != 2) return null;
+    const len, const stride_value = switch (axis) {
+        // NumPy/PyTorch commonly keep reduced dimensions (`keepdims=True`),
+        // producing row bias tensors shaped `[1, N]`.  Axiom's eager
+        // row/column broadcast runtime consumes a vector ABI, so preserve the
+        // source layout by projecting the non-singleton axis into a
+        // TensorBufferView instead of falling back before the Axiom boundary.
+        .row => .{ if (bias.shape[0] == 1) bias.shape[1] else return null, bias.strides[1] },
+        .column => .{ if (bias.shape[1] == 1) bias.shape[0] else return null, bias.strides[0] },
+    };
+    const stride = std.math.cast(isize, stride_value) orelse return null;
+    var view = axiom.accelerator.TensorBufferView.strided(name, @intCast(@intFromPtr(bias.data.ptr)), len, stride);
     view.element_type = if (T == f32) .f32 else if (T == f64) .f64 else return null;
     return view;
 }
@@ -3122,7 +3131,11 @@ fn broadcastBiasMatches(comptime T: type, input: array_mod.Array(T), bias: array
 fn broadcastBiasMatchesArrayAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
     if (broadcastBiasMatches(T, input, bias, axis)) return true;
     return switch (axis) {
-        .row => false,
+        .row => input.device.sameDevice(bias.device) and
+            input.shape.len == 2 and
+            bias.shape.len == 2 and
+            bias.shape[0] == 1 and
+            bias.shape[1] == input.shape[1],
         .column => input.device.sameDevice(bias.device) and
             input.shape.len == 2 and
             bias.shape.len == 2 and
