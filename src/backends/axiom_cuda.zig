@@ -2160,13 +2160,15 @@ fn tryDeviceBroadcastBinary(comptime T: type, op: BinaryOp, input: array_mod.Arr
     if (!input.device.isCuda() or !bias.device.isCuda() or !input.device.sameDevice(bias.device)) return null;
     if (input.data.len != 0 or bias.data.len != 0 or !input.isContiguous() or !bias.isContiguous()) return null;
     if (input.shape.len != 2) return null;
-    const expected_bias_len = switch (axis) {
+    const expected_axis_len = switch (axis) {
         .row => input.shape[1],
         .column => input.shape[0],
     };
     const in_storage = input.device_storage orelse return null;
     const bias_storage = bias.device_storage orelse return null;
-    if (in_storage.len == 0 or bias_storage.len != expected_bias_len) return null;
+    if (in_storage.len == 0) return null;
+    const bias_is_scalar = bias_storage.len == 1 and bias.numel() == 1;
+    if (!bias_is_scalar and bias_storage.len != expected_axis_len) return null;
     var out = try array_mod.Array(T).emptyOn(input.allocator, input.shape, input.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
@@ -2177,8 +2179,15 @@ fn tryDeviceBroadcastBinary(comptime T: type, op: BinaryOp, input: array_mod.Arr
         out.deinit();
         return null;
     };
-    const runtime_bias_shape = [_]usize{expected_bias_len};
-    const bias_descriptor = describeDeviceBufferMemRef(T, bias_storage, runtime_bias_shape[0..], &.{1}, "bias") catch {
+    // Axiom's 2D row/column broadcast ABI consumes a vector-shaped bias.  A
+    // one-element CUDA array is the scalar-broadcast specialization of that
+    // vector: keep the logical vector length expected by the selected axis, but
+    // set stride=0 so every lane reads the single device element.  This keeps
+    // NumPy/PyTorch scalar-array broadcasting on the Axiom memref path without
+    // materializing a same-shape temporary in Vectra.
+    const runtime_bias_shape = [_]usize{expected_axis_len};
+    const runtime_bias_strides = [_]usize{if (bias_is_scalar) 0 else 1};
+    const bias_descriptor = describeDeviceBufferMemRef(T, bias_storage, runtime_bias_shape[0..], runtime_bias_strides[0..], "bias") catch {
         out.deinit();
         return null;
     };

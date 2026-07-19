@@ -191,6 +191,13 @@ pub fn main(init: std.process.Init) !void {
         var row_keepdims_div_host = try row_keepdims_div.cpu();
         defer row_keepdims_div_host.deinit();
         const row_keepdims_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
+        var device_scalar = try vx.Array(f32).fromSliceOn(allocator, &.{2}, &.{1}, vx.cuda(0));
+        defer device_scalar.deinit();
+        var scalar_broadcast_div = try lhs.div(device_scalar);
+        defer scalar_broadcast_div.deinit();
+        var scalar_broadcast_div_host = try scalar_broadcast_div.cpu();
+        defer scalar_broadcast_div_host.deinit();
+        const scalar_broadcast_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         var column_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 100, 200 }, &.{ 2, 1 }, vx.cuda(0));
         defer column_bias.deinit();
         var column_broadcast = try lhs.add(column_bias);
@@ -210,6 +217,13 @@ pub fn main(init: std.process.Init) !void {
             approxF32(row_keepdims_div_host.data[1], 0.1, 0.0001) and
             approxF32(row_keepdims_div_host.data[2], 0.3, 0.0001) and
             approxF32(row_keepdims_div_host.data[3], 0.2, 0.0001) and
+            scalar_broadcast_div.device.isCuda() and scalar_broadcast_div.device_storage != null and
+            scalar_broadcast_report.valid() and
+            std.mem.eql(u8, scalar_broadcast_report.operation, "broadcast_binary2d") and
+            approxF32(scalar_broadcast_div_host.data[0], 0.5, 0.0001) and
+            approxF32(scalar_broadcast_div_host.data[1], 1.0, 0.0001) and
+            approxF32(scalar_broadcast_div_host.data[2], 1.5, 0.0001) and
+            approxF32(scalar_broadcast_div_host.data[3], 2.0, 0.0001) and
             column_broadcast.device.isCuda() and column_broadcast.device_storage != null and
             equalF32(column_broadcast_host.data, &.{ 101, 102, 203, 204 });
 

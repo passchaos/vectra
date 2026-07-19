@@ -3130,6 +3130,7 @@ fn broadcastBiasMatches(comptime T: type, input: array_mod.Array(T), bias: array
 
 fn broadcastBiasMatchesArrayAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
     if (broadcastBiasMatches(T, input, bias, axis)) return true;
+    if (input.device.sameDevice(bias.device) and input.shape.len == 2 and bias.numel() == 1) return true;
     return switch (axis) {
         .row => input.device.sameDevice(bias.device) and
             input.shape.len == 2 and
