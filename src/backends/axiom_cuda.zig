@@ -2888,6 +2888,22 @@ pub fn tryDeviceBmmBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFl
     return tryDeviceBmm(BFloat16, lhs, rhs, "bmm_lhs_bf16", "bmm_rhs_bf16", "bmm_out_bf16");
 }
 
+pub fn tryDeviceBatchedMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceBatchedMatmul(f32, lhs, rhs, "matmul_batch_lhs_f32", "matmul_batch_rhs_f32", "matmul_batch_out_f32");
+}
+
+pub fn tryDeviceBatchedMatmulF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
+    return tryDeviceBatchedMatmul(f64, lhs, rhs, "matmul_batch_lhs_f64", "matmul_batch_rhs_f64", "matmul_batch_out_f64");
+}
+
+pub fn tryDeviceBatchedMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    return tryDeviceBatchedMatmul(f16, lhs, rhs, "matmul_batch_lhs_f16", "matmul_batch_rhs_f16", "matmul_batch_out_f16");
+}
+
+pub fn tryDeviceBatchedMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceBatchedMatmul(BFloat16, lhs, rhs, "matmul_batch_lhs_bf16", "matmul_batch_rhs_bf16", "matmul_batch_out_bf16");
+}
+
 fn tryDeviceBmm(
     comptime T: type,
     lhs: array_mod.Array(T),
@@ -2931,6 +2947,81 @@ fn tryDeviceBmm(
         return null;
     };
     const out_desc = describeDeviceArrayMemRef(T, out, out_storage, out_name) catch {
+        out.deinit();
+        return null;
+    };
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
+    const report = runtime.runCudaDeviceBatchedGemmMemRefs(lhs.device.index, lhs_desc, rhs_desc, out_desc) catch null;
+    if (report) |value| {
+        recordCudaDeviceBatchedGemmReport(value);
+        if (value.valid()) return out;
+    }
+    out.deinit();
+    return null;
+}
+
+fn tryDeviceBatchedMatmul(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    resetLastCudaDeviceBatchedGemmReport();
+    if (!build_options.enable_axiom_cuda) return null;
+    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.data.len != 0 or rhs.data.len != 0) return null;
+    if (lhs.shape.len < 3 or rhs.shape.len < 3) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_batch = lhs.shape[0 .. lhs.shape.len - 2];
+    const rhs_batch = rhs.shape[0 .. rhs.shape.len - 2];
+    if (!std.mem.eql(usize, lhs_batch, rhs_batch)) return null;
+    const batch_count = try array_mod.numelFrom(lhs_batch);
+    const m = lhs.shape[lhs.shape.len - 2];
+    const k = lhs.shape[lhs.shape.len - 1];
+    const n = rhs.shape[rhs.shape.len - 1];
+    if (batch_count == 0 or m == 0 or k == 0 or n == 0 or rhs.shape[rhs.shape.len - 2] != k) return null;
+
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
+    const out_rank = lhs_batch.len + 2;
+    const out_shape = try lhs.allocator.alloc(usize, out_rank);
+    defer lhs.allocator.free(out_shape);
+    @memcpy(out_shape[0..lhs_batch.len], lhs_batch);
+    out_shape[out_rank - 2] = m;
+    out_shape[out_rank - 1] = n;
+    var out = try array_mod.Array(T).emptyOn(lhs.allocator, out_shape, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    const lhs_batch_stride = std.math.mul(usize, m, k) catch return error.InvalidShape;
+    const rhs_batch_stride = std.math.mul(usize, k, n) catch return error.InvalidShape;
+    const out_batch_stride = std.math.mul(usize, m, n) catch return error.InvalidShape;
+    const lhs_shape: [3]usize = .{ batch_count, m, k };
+    const rhs_shape: [3]usize = .{ batch_count, k, n };
+    const out_memref_shape: [3]usize = .{ batch_count, m, n };
+    const lhs_strides: [3]usize = .{ lhs_batch_stride, k, 1 };
+    const rhs_strides: [3]usize = .{ rhs_batch_stride, n, 1 };
+    const out_strides: [3]usize = .{ out_batch_stride, n, 1 };
+
+    // General NumPy/PyTorch-style same-batch matmul with rank > 3 is a view of
+    // the leading batch dimensions as one flat batch.  Keep that flattening as
+    // memref metadata local to the Axiom boundary; the public Array result keeps
+    // its original higher-rank shape.
+    const lhs_desc = describeDeviceBufferMemRef(T, lhs_storage, &lhs_shape, &lhs_strides, lhs_name) catch {
+        out.deinit();
+        return null;
+    };
+    const rhs_desc = describeDeviceBufferMemRef(T, rhs_storage, &rhs_shape, &rhs_strides, rhs_name) catch {
+        out.deinit();
+        return null;
+    };
+    const out_desc = describeDeviceBufferMemRef(T, out_storage, &out_memref_shape, &out_strides, out_name) catch {
         out.deinit();
         return null;
     };

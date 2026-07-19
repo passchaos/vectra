@@ -816,6 +816,12 @@ fn product(dims: []const usize) usize {
     return out;
 }
 
+fn sameBatchShape(lhs_shape: []const usize, rhs_shape: []const usize) bool {
+    return lhs_shape.len >= 3 and
+        rhs_shape.len >= 3 and
+        std.mem.eql(usize, lhs_shape[0 .. lhs_shape.len - 2], rhs_shape[0 .. rhs_shape.len - 2]);
+}
+
 fn normalizeIndex(index: isize, len: usize) ArrayError!usize {
     const signed_len: isize = @intCast(len);
     const normalized = if (index < 0) signed_len + index else index;
@@ -21645,12 +21651,14 @@ pub fn Array(comptime T: type) type {
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (!lhs_vec and !rhs_vec) {
-                    if (self.shape.len == 3 and other.shape.len == 3 and self.shape[0] == other.shape[0]) {
-                        // NumPy/PyTorch `matmul` treats rank-3 x rank-3 with
-                        // matching batch as batched matrix multiplication.
-                        // Route the CUDA-owning case through the same Axiom
-                        // rank-3 memref contract as `bmm` instead of letting
-                        // the generic host loop become an implicit backend.
+                    if (sameBatchShape(self.shape, other.shape)) {
+                        // NumPy/PyTorch `matmul` treats N-D x N-D with matching
+                        // leading batch dimensions as batched matrix
+                        // multiplication.  Route CUDA-owning contiguous batches
+                        // through Axiom's rank-3 memref contract (flattening the
+                        // leading batch axes at the backend boundary) instead
+                        // of letting the generic host loop become an implicit
+                        // backend.
                         if (try axiom_backend.executeBmmDefault(T, self, other)) |batched_out| return batched_out;
                     }
                     if (self.shape.len == 2 and other.shape.len == 2) {
