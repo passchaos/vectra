@@ -18978,6 +18978,27 @@ pub fn Array(comptime T: type) type {
         pub fn mean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (axis_opt == null) {
+                if (self.numel() == 0) return error.EmptyArray;
+                if (self.data.len == 0) {
+                    var matrix = try self.reshape(&.{ 1, self.numel() });
+                    defer matrix.deinit();
+                    var summed = try matrix.sum(1, false);
+                    errdefer summed.deinit();
+                    const divisor = castValue(T, self.numel());
+                    var scaled = try summed.divScalar(divisor);
+                    summed.deinit();
+                    errdefer scaled.deinit();
+                    if (keepdims) {
+                        const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                        defer self.allocator.free(out_shape);
+                        const reshaped = try scaled.reshape(out_shape);
+                        scaled.deinit();
+                        return reshaped;
+                    }
+                    const reshaped = try scaled.reshape(&.{});
+                    scaled.deinit();
+                    return reshaped;
+                }
                 const result = self.sumFlatValue() / castValue(T, self.data.len);
                 return self.scalarReductionResult(result, keepdims);
             }

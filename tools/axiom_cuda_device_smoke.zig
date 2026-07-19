@@ -209,6 +209,14 @@ pub fn main(init: std.process.Init) !void {
         defer col_mean_keep.deinit();
         var col_mean_keep_host = try col_mean_keep.cpu();
         defer col_mean_keep_host.deinit();
+        var flat_mean = try lhs.mean(null, false);
+        defer flat_mean.deinit();
+        var flat_mean_host = try flat_mean.cpu();
+        defer flat_mean_host.deinit();
+        var flat_mean_keep = try lhs.mean(null, true);
+        defer flat_mean_keep.deinit();
+        var flat_mean_keep_host = try flat_mean_keep.cpu();
+        defer flat_mean_keep_host.deinit();
         reduction_memref_fingerprint = reduction_report.memref_spec_fingerprint;
         direct_reduction_ok = row_sum.device.isCuda() and row_sum.device_storage != null and
             reduction_report.valid() and
@@ -227,7 +235,13 @@ pub fn main(init: std.process.Init) !void {
             equalF32(row_mean_host.data, &.{ 1.5, 3.5 }) and
             col_mean_keep.device.isCuda() and col_mean_keep.device_storage != null and
             std.mem.eql(usize, col_mean_keep_host.shape, &.{ 1, 2 }) and
-            equalF32(col_mean_keep_host.data, &.{ 2, 3 });
+            equalF32(col_mean_keep_host.data, &.{ 2, 3 }) and
+            flat_mean.device.isCuda() and flat_mean.device_storage != null and
+            std.mem.eql(usize, flat_mean_host.shape, &.{}) and
+            equalF32(flat_mean_host.data, &.{2.5}) and
+            flat_mean_keep.device.isCuda() and flat_mean_keep.device_storage != null and
+            std.mem.eql(usize, flat_mean_keep_host.shape, &.{ 1, 1 }) and
+            equalF32(flat_mean_keep_host.data, &.{2.5});
 
         var row_bias = try vx.Array(f32).fromSliceOn(allocator, &.{ 10, 20 }, &.{2}, vx.cuda(0));
         defer row_bias.deinit();
