@@ -77,7 +77,7 @@ pub fn main(init: std.process.Init) !void {
         reduction_cuda_report.status == .lowered_cuda and
         reduction_cuda_runtime.status == .executable and
         reduction_mps_report.status == .planned_mps and
-        reduction_mps_runtime.status == .planned and
+        reduction_mps_runtime.status == .executable and
         broadcast_cuda_report.status == .lowered_cuda and
         broadcast_cuda_runtime.status == .executable and
         broadcast_mps_report.status == .planned_mps and
@@ -101,7 +101,7 @@ pub fn main(init: std.process.Init) !void {
         transpose_mps_runtime.status == .executable and
         softmax_mps_runtime.status == .planned and
         log_softmax_mps_runtime.status == .planned and
-        !reduction_mps_runtime.executable() and
+        reduction_mps_runtime.executable() and
         broadcast_mps_runtime.executable() and
         !unary_mps_runtime.executable() and
         transpose_mps_runtime.executable() and

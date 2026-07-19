@@ -15,6 +15,7 @@ pub fn main(init: std.process.Init) !void {
     var matmul_ok = !available;
     var transpose_ok = !available;
     var broadcast_ok = !available;
+    var reduction_ok = !available;
     var bytes: usize = 0;
     var fingerprint = report.fingerprint();
 
@@ -123,19 +124,38 @@ pub fn main(init: std.process.Init) !void {
             equalF32(row_added_back.data, &.{ 11, 22, 33, 14, 25, 36 }) and
             equalF32(col_added_back.data, &.{ 101, 102, 103, 204, 205, 206 });
 
-        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(mat_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data);
+        var row_sum = try mat_lhs.sum(1, false);
+        defer row_sum.deinit();
+        var row_sum_back = try row_sum.cpu();
+        defer row_sum_back.deinit();
+        var col_max = try mat_lhs.max(0, false);
+        defer col_max.deinit();
+        var col_max_back = try col_max.cpu();
+        defer col_max_back.deinit();
+        var row_prod_keep = try mat_lhs.prod(1, true);
+        defer row_prod_keep.deinit();
+        var row_prod_keep_back = try row_prod_keep.cpu();
+        defer row_prod_keep_back.deinit();
+        reduction_ok = row_sum.device.isMps() and row_sum.device_storage != null and
+            col_max.device.isMps() and col_max.device_storage != null and
+            row_prod_keep.device.isMps() and row_prod_keep.device_storage != null and
+            equalF32(row_sum_back.data, &.{ 6, 15 }) and
+            equalF32(col_max_back.data, &.{ 4, 5, 6 }) and
+            equalF32(row_prod_keep_back.data, &.{ 6, 120 });
+
+        fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(mat_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(col_added_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data);
     }
 
     const ok = if (available)
-        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and bytes != 0
+        report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and reduction_ok and bytes != 0
     else
-        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok;
+        !report.ok() and roundtrip_ok and copy_ok and fill_ok and elementwise_ok and scalar_ok and unary_ok and matmul_ok and transpose_ok and broadcast_ok and reduction_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"matmul_ok\":{},\"transpose_ok\":{},\"broadcast_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
-        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, matmul_ok, transpose_ok, broadcast_ok, bytes, fingerprint },
+        "{{\"kind\":\"vectra_axiom_mps_storage_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"roundtrip_ok\":{},\"copy_ok\":{},\"fill_ok\":{},\"elementwise_ok\":{},\"scalar_ok\":{},\"unary_ok\":{},\"matmul_ok\":{},\"transpose_ok\":{},\"broadcast_ok\":{},\"reduction_ok\":{},\"bytes\":{d},\"fingerprint\":{d}}}\n",
+        .{ ok, available, report.status.label(), report.backend_label, roundtrip_ok, copy_ok, fill_ok, elementwise_ok, scalar_ok, unary_ok, matmul_ok, transpose_ok, broadcast_ok, reduction_ok, bytes, fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

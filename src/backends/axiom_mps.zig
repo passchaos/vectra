@@ -267,3 +267,46 @@ pub fn tryBroadcastAddF32(input: array_mod.Array(f32), bias: array_mod.Array(f32
     };
     return out;
 }
+
+pub fn tryReductionF32(op: axiom.accelerator.MpsReductionOp, input: array_mod.Array(f32), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!input.device.isMps() or input.shape.len != 2 or !input.isContiguous()) return null;
+    const input_storage = input.device_storage orelse return null;
+    const rows = input.shape[0];
+    const cols = input.shape[1];
+    var out_shape_storage: [2]usize = undefined;
+    const out_shape = if (keepdims) shape: {
+        out_shape_storage = if (axis == 0)
+            .{ 1, cols }
+        else
+            .{ rows, 1 };
+        break :shape out_shape_storage[0..2];
+    } else shape: {
+        out_shape_storage[0] = if (axis == 0) cols else rows;
+        break :shape out_shape_storage[0..1];
+    };
+
+    var out = try array_mod.Array(f32).emptyOn(input.allocator, out_shape, input.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(input.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runReductionF32(
+        op,
+        .{ .ptr = input_storage.ptr, .bytes = input_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        rows,
+        cols,
+        axis,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}

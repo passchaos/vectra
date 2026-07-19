@@ -808,7 +808,12 @@ pub fn reductionRuntimeCapability(target: DialectBackend) RuntimeCapabilityRepor
             .status = .executable,
             .reason = "Axiom CUDA exposes eager f32/f64/f16/BFloat16 2D sum/prod/min/max reduction runtimes; other reduction dtypes remain capability-gated.",
         },
-        .mps => plannedMpsRuntimeCapability("reduction"),
+        .mps => .{
+            .target = target,
+            .operation = "reduction",
+            .status = .executable,
+            .reason = "Axiom MPS exposes eager f32 2D sum/prod/min/max reductions over Metal shared-buffer storage; other dtypes/shapes remain capability-gated.",
+        },
     };
 }
 
@@ -1767,7 +1772,7 @@ pub fn executeReduction(
     return switch (target) {
         .cpu => executeCpuReduction(T, op, input, axis, keepdims),
         .cuda => executeCudaReduction(T, op, input, axis, keepdims),
-        .mps => null,
+        .mps => executeMpsReduction(T, op, input, axis, keepdims),
     };
 }
 
@@ -2659,6 +2664,19 @@ fn executeCudaReduction(
     return null;
 }
 
+fn executeMpsReduction(
+    comptime T: type,
+    op: DialectReductionOp,
+    input: array_mod.Array(T),
+    axis: u1,
+    keepdims: bool,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.tryReductionF32(mpsReductionOp(op), @as(array_mod.Array(f32), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
 fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     if (T == f32) {
         const input32 = @as(array_mod.Array(f32), input);
@@ -3370,6 +3388,15 @@ fn mpsUnaryOp(op: ExecutionUnaryOp) ?axiom.accelerator.MpsUnaryOp {
     };
 }
 
+fn mpsReductionOp(op: DialectReductionOp) axiom.accelerator.MpsReductionOp {
+    return switch (op) {
+        .sum => .sum,
+        .prod => .prod,
+        .min => .min,
+        .max => .max,
+    };
+}
+
 pub fn selectMatmul(comptime T: type, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) BackendReport {
     const supported = supportedMatmul2d(T, lhs, rhs);
     const selected: BackendRoute = if (!supported)
@@ -3679,7 +3706,7 @@ fn supportedReductionExecution(comptime T: type, target: DialectBackend, input: 
     return switch (target) {
         .cpu => supportedReduction2d(T, input),
         .cuda => input.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device_storage != null,
-        .mps => false,
+        .mps => input.device.isMps() and T == f32 and input.device_storage != null,
     };
 }
 
@@ -4123,8 +4150,8 @@ test "Axiom dialect lowering reports transpose generic route" {
 
 test "Axiom runtime capability reports MPS executable and planned kernel slices" {
     const mps_reduction = reductionRuntimeCapability(.mps);
-    try std.testing.expectEqual(RuntimeCapabilityStatus.planned, mps_reduction.status);
-    try std.testing.expect(!mps_reduction.executable());
+    try std.testing.expectEqual(RuntimeCapabilityStatus.executable, mps_reduction.status);
+    try std.testing.expect(mps_reduction.executable());
     try std.testing.expect(mps_reduction.fingerprint() != 0);
 
     const mps_broadcast = broadcastAddRuntimeCapability(.mps);
