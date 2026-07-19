@@ -816,12 +816,6 @@ fn product(dims: []const usize) usize {
     return out;
 }
 
-fn sameBatchShape(lhs_shape: []const usize, rhs_shape: []const usize) bool {
-    return lhs_shape.len >= 3 and
-        rhs_shape.len >= 3 and
-        std.mem.eql(usize, lhs_shape[0 .. lhs_shape.len - 2], rhs_shape[0 .. rhs_shape.len - 2]);
-}
-
 fn normalizeIndex(index: isize, len: usize) ArrayError!usize {
     const signed_len: isize = @intCast(len);
     const normalized = if (index < 0) signed_len + index else index;
@@ -21651,16 +21645,15 @@ pub fn Array(comptime T: type) type {
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (!lhs_vec and !rhs_vec) {
-                    if (sameBatchShape(self.shape, other.shape)) {
-                        // NumPy/PyTorch `matmul` treats N-D x N-D with matching
-                        // leading batch dimensions as batched matrix
-                        // multiplication.  Route CUDA-owning contiguous batches
-                        // through Axiom's rank-3 memref contract (flattening the
-                        // leading batch axes at the backend boundary) instead
-                        // of letting the generic host loop become an implicit
-                        // backend.
-                        if (try axiom_backend.executeBmmDefault(T, self, other)) |batched_out| return batched_out;
-                    }
+                    // NumPy/PyTorch `matmul` treats N-D x N-D inputs as
+                    // batched matrix multiplication over broadcasted leading
+                    // batch dimensions.  Route CUDA-owning contiguous cases
+                    // through Axiom's rank-3 memref contract (flattening the
+                    // leading batch axes at the backend boundary, with
+                    // zero-stride batch descriptors for whole-matrix
+                    // broadcasts) instead of letting the generic host loop
+                    // become an implicit backend.
+                    if (try axiom_backend.executeBmmDefault(T, self, other)) |batched_out| return batched_out;
                     if (self.shape.len == 2 and other.shape.len == 2) {
                         if (try Self.pendingAxiomMatmul(self, other, &.{ self.shape[0], other.shape[1] })) |pending_out| return pending_out;
                     }

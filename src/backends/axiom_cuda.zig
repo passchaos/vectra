@@ -2976,8 +2976,9 @@ fn tryDeviceBatchedMatmul(
     if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
     const lhs_batch = lhs.shape[0 .. lhs.shape.len - 2];
     const rhs_batch = rhs.shape[0 .. rhs.shape.len - 2];
-    if (!std.mem.eql(usize, lhs_batch, rhs_batch)) return null;
-    const batch_count = try array_mod.numelFrom(lhs_batch);
+    const out_batch = computeBatchBroadcastShape(lhs.allocator, lhs_batch, rhs_batch) catch return null;
+    defer lhs.allocator.free(out_batch);
+    const batch_count = try array_mod.numelFrom(out_batch);
     const m = lhs.shape[lhs.shape.len - 2];
     const k = lhs.shape[lhs.shape.len - 1];
     const n = rhs.shape[rhs.shape.len - 1];
@@ -2986,10 +2987,10 @@ fn tryDeviceBatchedMatmul(
     const lhs_storage = lhs.device_storage orelse return null;
     const rhs_storage = rhs.device_storage orelse return null;
     if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
-    const out_rank = lhs_batch.len + 2;
+    const out_rank = out_batch.len + 2;
     const out_shape = try lhs.allocator.alloc(usize, out_rank);
     defer lhs.allocator.free(out_shape);
-    @memcpy(out_shape[0..lhs_batch.len], lhs_batch);
+    @memcpy(out_shape[0..out_batch.len], out_batch);
     out_shape[out_rank - 2] = m;
     out_shape[out_rank - 1] = n;
     var out = try array_mod.Array(T).emptyOn(lhs.allocator, out_shape, lhs.device);
@@ -3002,17 +3003,21 @@ fn tryDeviceBatchedMatmul(
     const lhs_batch_stride = std.math.mul(usize, m, k) catch return error.InvalidShape;
     const rhs_batch_stride = std.math.mul(usize, k, n) catch return error.InvalidShape;
     const out_batch_stride = std.math.mul(usize, m, n) catch return error.InvalidShape;
+    const lhs_memref_batch_stride = (try flattenedBatchStride(lhs_batch, out_batch, lhs_batch_stride)) orelse return null;
+    const rhs_memref_batch_stride = (try flattenedBatchStride(rhs_batch, out_batch, rhs_batch_stride)) orelse return null;
     const lhs_shape: [3]usize = .{ batch_count, m, k };
     const rhs_shape: [3]usize = .{ batch_count, k, n };
     const out_memref_shape: [3]usize = .{ batch_count, m, n };
-    const lhs_strides: [3]usize = .{ lhs_batch_stride, k, 1 };
-    const rhs_strides: [3]usize = .{ rhs_batch_stride, n, 1 };
+    const lhs_strides: [3]usize = .{ lhs_memref_batch_stride, k, 1 };
+    const rhs_strides: [3]usize = .{ rhs_memref_batch_stride, n, 1 };
     const out_strides: [3]usize = .{ out_batch_stride, n, 1 };
 
-    // General NumPy/PyTorch-style same-batch matmul with rank > 3 is a view of
-    // the leading batch dimensions as one flat batch.  Keep that flattening as
-    // memref metadata local to the Axiom boundary; the public Array result keeps
-    // its original higher-rank shape.
+    // General NumPy/PyTorch-style matmul flattens representable leading batch
+    // dimensions into one Axiom batch.  Whole-operand batch broadcasts become a
+    // zero batch stride, while the public Array result keeps its original
+    // higher-rank broadcasted shape.  Mixed per-axis broadcasts still require a
+    // future gather/pack legalization because they cannot be represented by one
+    // affine batch stride.
     const lhs_desc = describeDeviceBufferMemRef(T, lhs_storage, &lhs_shape, &lhs_strides, lhs_name) catch {
         out.deinit();
         return null;
@@ -3032,6 +3037,28 @@ fn tryDeviceBatchedMatmul(
         if (value.valid()) return out;
     }
     out.deinit();
+    return null;
+}
+
+fn computeBatchBroadcastShape(allocator: std.mem.Allocator, lhs: []const usize, rhs: []const usize) array_mod.ArrayError![]usize {
+    const rank = @max(lhs.len, rhs.len);
+    const out = try allocator.alloc(usize, rank);
+    errdefer allocator.free(out);
+    for (out, 0..) |*slot, index| {
+        const lhs_dim: usize = if (index >= rank - lhs.len) lhs[index - (rank - lhs.len)] else 1;
+        const rhs_dim: usize = if (index >= rank - rhs.len) rhs[index - (rank - rhs.len)] else 1;
+        if (lhs_dim == rhs_dim or lhs_dim == 1 or rhs_dim == 1) {
+            slot.* = @max(lhs_dim, rhs_dim);
+        } else {
+            return error.ShapeMismatch;
+        }
+    }
+    return out;
+}
+
+fn flattenedBatchStride(input_batch: []const usize, out_batch: []const usize, contiguous_matrix_stride: usize) array_mod.ArrayError!?usize {
+    if (std.mem.eql(usize, input_batch, out_batch)) return contiguous_matrix_stride;
+    if ((try array_mod.numelFrom(input_batch)) == 1) return 0;
     return null;
 }
 

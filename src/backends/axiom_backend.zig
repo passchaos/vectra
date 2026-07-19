@@ -2907,10 +2907,21 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
 fn supportedBmmExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) bool {
     if (!lhs.device.sameDevice(rhs.device) or !lhs.isContiguous() or !rhs.isContiguous()) return false;
     if (lhs.shape.len < 3 or rhs.shape.len < 3) return false;
-    if (!std.mem.eql(usize, lhs.shape[0 .. lhs.shape.len - 2], rhs.shape[0 .. rhs.shape.len - 2])) return false;
+    if (!batchShapesBroadcastable(lhs.shape[0 .. lhs.shape.len - 2], rhs.shape[0 .. rhs.shape.len - 2])) return false;
     if (lhs.shape[lhs.shape.len - 2] == 0 or lhs.shape[lhs.shape.len - 1] == 0 or rhs.shape[rhs.shape.len - 1] == 0) return false;
     if (lhs.shape[lhs.shape.len - 1] != rhs.shape[rhs.shape.len - 2]) return false;
     return lhs.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16);
+}
+
+fn batchShapesBroadcastable(lhs: []const usize, rhs: []const usize) bool {
+    const rank = @max(lhs.len, rhs.len);
+    var index: usize = 0;
+    while (index < rank) : (index += 1) {
+        const lhs_dim: usize = if (index >= rank - lhs.len) lhs[index - (rank - lhs.len)] else 1;
+        const rhs_dim: usize = if (index >= rank - rhs.len) rhs[index - (rank - rhs.len)] else 1;
+        if (lhs_dim != rhs_dim and lhs_dim != 1 and rhs_dim != 1) return false;
+    }
+    return true;
 }
 
 fn supportedMatmulAddExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) bool {

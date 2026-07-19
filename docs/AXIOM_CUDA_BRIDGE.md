@@ -72,10 +72,12 @@ MPS is intentionally represented as `planned_mps` until Axiom owns a real Metal/
   descriptors through a native cuBLAS strided-batched runtime for contiguous
   positive-stride batches, with an explicit loop-over-per-batch fallback for
   other legal layouts or older cuBLAS symbols.  Vectra CUDA
-  `Array(f32/f64/f16/BFloat16).bmm` and same-batch N-D `matmul` now call that
-  Axiom batched GEMM runtime, flattening leading batch axes at the memref
-  boundary rather than falling back to a host loop; fused pack/unpack kernels
-  remain future Axiom lowering work.
+  `Array(f32/f64/f16/BFloat16).bmm` and N-D `matmul` cases whose leading batch
+  dimensions are either equal or whole-operand broadcastable now call that Axiom
+  batched GEMM runtime, flattening representable leading batch axes at the
+  memref boundary rather than falling back to a host loop; fused pack/unpack
+  kernels and mixed per-axis batch broadcast legalization remain future Axiom
+  lowering work.
 - CUDA `vx.matmulAdd(Array(f32/f64/f16/BFloat16), ...)` builds an Axiom
   memref-backed matmul-add spec with separate addend/output descriptors before
   lowering to cached cuBLASLt-backed GEMM epilogues where available.  Padded
