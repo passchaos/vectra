@@ -2310,7 +2310,6 @@ fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
 
 fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (op == .square) return executeCudaElementwise(T, .mul, input, input);
-    if (op == .exp2 or op == .expm1 or op == .log1p or op == .log2 or op == .log10) return null;
     const cuda_op: axiom_cuda.UnaryOp = switch (op) {
         .abs => .abs,
         .sqrt => .sqrt,
@@ -2319,11 +2318,16 @@ fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arr
         .sin => .sin,
         .cos => .cos,
         .tan => .tan,
-        .square, .exp2, .expm1, .log1p, .log2, .log10 => unreachable,
+        .exp2 => .exp2,
+        .expm1 => .expm1,
+        .log1p => .log1p,
+        .log2 => .log2,
+        .log10 => .log10,
+        .square => unreachable,
     };
     if (T == f32) {
         if (try axiom_cuda.tryDeviceUnaryF32(cuda_op, @as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
-    } else if (op == .log or op == .sin or op == .cos or op == .tan) {
+    } else if (op == .log or op == .sin or op == .cos or op == .tan or op == .exp2 or op == .expm1 or op == .log1p or op == .log2 or op == .log10) {
         return null;
     } else if (T == f16) {
         if (try axiom_cuda.tryDeviceUnaryF16(cuda_op, @as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);

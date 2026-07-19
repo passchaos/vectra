@@ -40,6 +40,11 @@ pub const UnaryOp = enum {
     sin,
     cos,
     tan,
+    exp2,
+    expm1,
+    log1p,
+    log2,
+    log10,
 };
 
 pub const CudaDeviceGemmReportSnapshot = struct {
@@ -1981,6 +1986,26 @@ pub fn tryCosF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Ar
 
 pub fn tryTanF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryDeviceUnaryF32(.tan, input);
+}
+
+pub fn tryExp2F32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.exp2, input);
+}
+
+pub fn tryExpm1F32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.expm1, input);
+}
+
+pub fn tryLog1pF32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.log1p, input);
+}
+
+pub fn tryLog2F32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.log2, input);
+}
+
+pub fn tryLog10F32(input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    return tryDeviceUnaryF32(.log10, input);
 }
 
 pub fn trySqrtF16(input: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
@@ -4015,7 +4040,7 @@ pub fn runPendingMatmulAddUnaryF32(
         switch (op) {
             .sqrt => axiom.accelerator.TensorUnaryElementwiseOp.sqrt,
             .exp => axiom.accelerator.TensorUnaryElementwiseOp.exp,
-            .abs, .log, .sin, .cos, .tan => return error.TypeUnsupported,
+            .abs, .log, .sin, .cos, .tan, .exp2, .expm1, .log1p, .log2, .log10 => return error.TypeUnsupported,
         },
         spec,
     ) catch return error.BackendFailure;
@@ -5348,6 +5373,11 @@ fn axiomUnaryOp(op: UnaryOp) axiom.accelerator.TensorUnaryElementwiseOp {
         .sin => .sin,
         .cos => .cos,
         .tan => .tan,
+        .exp2 => .exp2,
+        .expm1 => .expm1,
+        .log1p => .log1p,
+        .log2 => .log2,
+        .log10 => .log10,
     };
 }
 

@@ -628,6 +628,26 @@ pub fn main(init: std.process.Init) !void {
         defer tan_values.deinit();
         var tan_values_host = try tan_values.cpu();
         defer tan_values_host.deinit();
+        var exp2_values = try lhs.exp2();
+        defer exp2_values.deinit();
+        var exp2_values_host = try exp2_values.cpu();
+        defer exp2_values_host.deinit();
+        var expm1_values = try lhs.expm1();
+        defer expm1_values.deinit();
+        var expm1_values_host = try expm1_values.cpu();
+        defer expm1_values_host.deinit();
+        var log1p_values = try lhs.log1p();
+        defer log1p_values.deinit();
+        var log1p_values_host = try log1p_values.cpu();
+        defer log1p_values_host.deinit();
+        var log2_values = try lhs.log2();
+        defer log2_values.deinit();
+        var log2_values_host = try log2_values.cpu();
+        defer log2_values_host.deinit();
+        var log10_values = try lhs.log10();
+        defer log10_values.deinit();
+        var log10_values_host = try log10_values.cpu();
+        defer log10_values_host.deinit();
         const elementwise_unary_report = vx.axiom_cuda.lastCudaDeviceMemRefReport();
         elementwise_unary_memref_fingerprint = elementwise_unary_report.memref_spec_fingerprint;
         var reciprocal = try lhs.reciprocal();
@@ -792,6 +812,16 @@ pub fn main(init: std.process.Init) !void {
             approxF32(cos_values_host.data[1], std.math.cos(@as(f32, 2.0)), 0.01) and
             tan_values.device.isCuda() and tan_values.device_storage != null and
             approxF32(tan_values_host.data[2], std.math.tan(@as(f32, 3.0)), 0.01) and
+            exp2_values.device.isCuda() and exp2_values.device_storage != null and
+            approxF32(exp2_values_host.data[2], std.math.exp2(@as(f32, 3.0)), 0.01) and
+            expm1_values.device.isCuda() and expm1_values.device_storage != null and
+            approxF32(expm1_values_host.data[0], std.math.expm1(@as(f32, 1.0)), 0.01) and
+            log1p_values.device.isCuda() and log1p_values.device_storage != null and
+            approxF32(log1p_values_host.data[0], std.math.log1p(@as(f32, 1.0)), 0.01) and
+            log2_values.device.isCuda() and log2_values.device_storage != null and
+            approxF32(log2_values_host.data[3], 2.0, 0.01) and
+            log10_values.device.isCuda() and log10_values.device_storage != null and
+            approxF32(log10_values_host.data[0], 0.0, 0.01) and
             reciprocal.device.isCuda() and reciprocal.device_storage != null and
             approxF32(reciprocal_host.data[0], 1.0, 1e-6) and
             approxF32(reciprocal_host.data[3], 0.25, 1e-6) and
