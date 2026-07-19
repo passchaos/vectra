@@ -56,10 +56,11 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
   cuBLAS/cuBLASLt leading dimensions, plus f32/f64/f16/BFloat16
   transposed/non-row-major GEMM via copy-pack/GEMM/copy-unpack runtime seeds.
   It still needs fused pack/unpack kernels; negative-stride GEMM enters the
-  copy-pack/GEMM/copy-unpack runtime route, and Vectra CUDA `bmm` now calls
-  Axiom's rank-3 batched GEMM memref runtime, which prefers native cuBLAS
-  strided-batched GEMM for contiguous positive-stride batches and falls back to
-  explicit loop-over-per-batch GEMM where needed.
+  copy-pack/GEMM/copy-unpack runtime route, and Vectra CUDA `bmm` plus
+  same-batch rank-3 `matmul` now call Axiom's rank-3 batched GEMM memref
+  runtime, which prefers native cuBLAS strided-batched GEMM for contiguous
+  positive-stride batches and falls back to explicit loop-over-per-batch GEMM
+  where needed.
 - Complete NumPy/PyTorch dtype promotion matrix: `dtype-promotion-smoke` now
   checks every pair in Vectra's current `DType` set plus representative promoted
   array and scalar value operations.  More NumPy/PyTorch scalar edge cases still

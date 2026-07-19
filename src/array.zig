@@ -21645,7 +21645,17 @@ pub fn Array(comptime T: type) type {
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (!lhs_vec and !rhs_vec) {
-                    if (try Self.pendingAxiomMatmul(self, other, &.{ self.shape[0], other.shape[1] })) |pending_out| return pending_out;
+                    if (self.shape.len == 3 and other.shape.len == 3 and self.shape[0] == other.shape[0]) {
+                        // NumPy/PyTorch `matmul` treats rank-3 x rank-3 with
+                        // matching batch as batched matrix multiplication.
+                        // Route the CUDA-owning case through the same Axiom
+                        // rank-3 memref contract as `bmm` instead of letting
+                        // the generic host loop become an implicit backend.
+                        if (try axiom_backend.executeBmmDefault(T, self, other)) |batched_out| return batched_out;
+                    }
+                    if (self.shape.len == 2 and other.shape.len == 2) {
+                        if (try Self.pendingAxiomMatmul(self, other, &.{ self.shape[0], other.shape[1] })) |pending_out| return pending_out;
+                    }
                 }
                 if (try axiom_backend.executeMatmulDefault(T, self, other)) |accelerated_value| {
                     var accelerated = accelerated_value;
