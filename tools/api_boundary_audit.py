@@ -160,6 +160,19 @@ CUDA_ONLY_BUILD_SNIPPETS = (
     "fusion-production-gate",
 )
 
+MPS_ONLY_BUILD_SNIPPETS = (
+    "axiom-mps-storage-smoke",
+    "axiom-mps-gelu-smoke",
+    "axiom-mps-rank3-smoke",
+    "axiom-mps-rank3-broadcast-smoke",
+    "axiom-mps-bmm-smoke",
+    "axiom-mps-batched-vector-matmul-smoke",
+    "axiom-mps-higher-rank-bmm-smoke",
+    "axiom-mps-broadcast-bmm-smoke",
+    "axiom-mps-mixed-bmm-smoke",
+    "axiom-mps-inner-outer-smoke",
+)
+
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -195,39 +208,85 @@ def find_block_end(text: str, open_brace: int) -> int:
     return -1
 
 
-def cuda_build_step_gating_issues(build_text: str) -> list[dict[str, Any]]:
+def gated_build_step_issues(
+    build_text: str,
+    *,
+    gate: str,
+    snippets: tuple[str, ...],
+    missing_gate_kind: str,
+    unterminated_gate_kind: str,
+    missing_step_kind: str,
+    ungated_step_kind: str,
+    reason: str,
+) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
-    gate = "if (!is_macos_target) {"
-    gate_start = build_text.find(gate)
-    if gate_start < 0:
+    gate_ranges: list[tuple[int, int]] = []
+    search_from = 0
+    while True:
+        gate_start = build_text.find(gate, search_from)
+        if gate_start < 0:
+            break
+        gate_open = build_text.find("{", gate_start)
+        gate_end = find_block_end(build_text, gate_open)
+        if gate_end < 0:
+            return [{
+                "kind": unterminated_gate_kind,
+                "path": "build.zig",
+                "snippet": gate,
+            }]
+        gate_ranges.append((gate_start, gate_end))
+        search_from = gate_end + 1
+
+    if not gate_ranges:
         return [{
-            "kind": "missing_cuda_non_macos_build_gate",
+            "kind": missing_gate_kind,
             "path": "build.zig",
             "snippet": gate,
         }]
-    gate_open = build_text.find("{", gate_start)
-    gate_end = find_block_end(build_text, gate_open)
-    if gate_end < 0:
-        return [{
-            "kind": "unterminated_cuda_non_macos_build_gate",
-            "path": "build.zig",
-            "snippet": gate,
-        }]
-    for snippet in CUDA_ONLY_BUILD_SNIPPETS:
-        position = build_text.find(snippet)
-        if position < 0:
-            issues.append({"kind": "missing_cuda_only_build_step", "path": "build.zig", "snippet": snippet})
+
+    for snippet in snippets:
+        positions = [match.start() for match in re.finditer(re.escape(snippet), build_text)]
+        if not positions:
+            issues.append({"kind": missing_step_kind, "path": "build.zig", "snippet": snippet})
             continue
-        if not (gate_start <= position <= gate_end):
+        for position in positions:
+            if any(start <= position <= end for start, end in gate_ranges):
+                continue
             line = build_text.count("\n", 0, position) + 1
             issues.append({
-                "kind": "cuda_only_build_step_not_gated",
+                "kind": ungated_step_kind,
                 "path": "build.zig",
                 "line": line,
                 "snippet": snippet,
-                "reason": "CUDA/NVVM build steps must live inside the non-macOS build graph gate.",
+                "reason": reason,
             })
     return issues
+
+
+def cuda_build_step_gating_issues(build_text: str) -> list[dict[str, Any]]:
+    return gated_build_step_issues(
+        build_text,
+        gate="if (!is_macos_target) {",
+        snippets=CUDA_ONLY_BUILD_SNIPPETS,
+        missing_gate_kind="missing_cuda_non_macos_build_gate",
+        unterminated_gate_kind="unterminated_cuda_non_macos_build_gate",
+        missing_step_kind="missing_cuda_only_build_step",
+        ungated_step_kind="cuda_only_build_step_not_gated",
+        reason="CUDA/NVVM build steps must live inside the non-macOS build graph gate.",
+    )
+
+
+def mps_build_step_gating_issues(build_text: str) -> list[dict[str, Any]]:
+    return gated_build_step_issues(
+        build_text,
+        gate="if (is_macos_target) {",
+        snippets=MPS_ONLY_BUILD_SNIPPETS,
+        missing_gate_kind="missing_mps_macos_build_gate",
+        unterminated_gate_kind="unterminated_mps_macos_build_gate",
+        missing_step_kind="missing_mps_only_build_step",
+        ungated_step_kind="mps_only_build_step_not_gated",
+        reason="MPS/Metal build steps must live inside the macOS build graph gate.",
+    )
 
 
 def main() -> int:
@@ -275,6 +334,7 @@ def main() -> int:
 
     build_text = read(BUILD)
     issues.extend(cuda_build_step_gating_issues(build_text))
+    issues.extend(mps_build_step_gating_issues(build_text))
     for snippet in ('b.dependency("axiom"', 'axiom-dialect-lowering-smoke'):
         if snippet not in build_text:
             issues.append({"kind": "missing_axiom_build_snippet", "path": "build.zig", "snippet": snippet})
