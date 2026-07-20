@@ -12894,6 +12894,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Self {
+            if (try self.maskedSelectSameShapeFast(mask)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -12912,6 +12913,24 @@ pub fn Array(comptime T: type) type {
                 if (mask.data[mi]) {
                     const si = broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
                     out.data[write] = self.data[si];
+                    write += 1;
+                }
+            }
+            return out;
+        }
+
+        fn maskedSelectSameShapeFast(self: Self, mask: Array(bool)) ArrayError!?Self {
+            if (!self.device.isCpu() or !mask.device.isCpu()) return null;
+            if (!std.mem.eql(usize, self.shape, mask.shape)) return null;
+            if (!self.isContiguous() or !mask.isContiguous()) return null;
+
+            const selected = countTrueContiguousMask(mask);
+            var out = try Self.empty(self.allocator, &.{selected});
+            errdefer out.deinit();
+            var write: usize = 0;
+            for (mask.data, self.data) |keep, value| {
+                if (keep) {
+                    out.data[write] = value;
                     write += 1;
                 }
             }
