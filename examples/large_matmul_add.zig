@@ -25,22 +25,26 @@ pub fn main(init: std.process.Init) !void {
     var b = try np.randWith(vx.BFloat16, &.{ production.k, production.n }, .{ .device = device });
     defer b.deinit();
 
-    const begin = std.Io.Timestamp.now(init.io, .real);
-    var c = try a.matmul(b);
-
+    // Build the addend at its final value in CUDA storage.  In-place scalar
+    // assignment currently goes through host ArrayView semantics, so using
+    // `fullOn` avoids accidentally requesting a host view of a CUDA array.
+    var c = try vx.Array(vx.BFloat16).fullOn(init.gpa, &.{ production.m, production.n }, vx.BFloat16.fromF32(10.0), device);
     defer c.deinit();
 
-    var c_done = try c.materializeAndSynchronize();
-    defer c_done.deinit();
+    for (0..200) |_| {
+        const begin = std.Io.Timestamp.now(init.io, .real);
+        var h = try a.matmul(b);
+        defer h.deinit();
 
-    var d = try c_done.add(c_done);
-    defer d.deinit();
+        var i = try h.add(c);
+        defer i.deinit();
 
-    var e = try d.materializeAndSynchronize();
-    defer e.deinit();
+        var j = try i.materializeAndSynchronize();
+        defer j.deinit();
 
-    const cost = std.Io.Timestamp.untilNow(begin, init.io, .real);
+        const cost = std.Io.Timestamp.untilNow(begin, init.io, .real);
 
-    std.debug.print("a first: {f} c: {f}\n", .{ a, c });
-    std.debug.print("device: {} matmul cost: {}\n", .{ device, cost.toMilliseconds() });
+        std.debug.print("a first: {f} h: {f} j: {f}\n", .{ a, h, j });
+        std.debug.print("device: {} matmul cost: {}\n", .{ device, cost.toMicroseconds() });
+    }
 }
