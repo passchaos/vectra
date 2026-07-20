@@ -10117,19 +10117,25 @@ pub fn Array(comptime T: type) type {
             return dest_view.copyFromView(source);
         }
 
+        fn scalarMaskValue(mask: Array(bool), target_shape: []const usize) ArrayError!?bool {
+            if (mask.numel() != 1) return null;
+            if (!broadcastsExactlyTo(mask.shape, target_shape)) return error.ShapeMismatch;
+            if (mask.device.isCpu()) {
+                if (mask.data.len != 1) return error.ShapeMismatch;
+                return mask.data[0];
+            }
+            var mask_host = try mask.cpu();
+            defer mask_host.deinit();
+            if (mask_host.data.len != 1) return error.ShapeMismatch;
+            return mask_host.data[0];
+        }
+
         pub fn maskedFillAssign(self: Self, mask: Array(bool), value: T) ArrayError!void {
-            if (!self.device.isCpu() and mask.numel() == 1) {
-                if (!broadcastsExactlyTo(mask.shape, self.shape)) return error.ShapeMismatch;
-                if (mask.device.isCpu()) {
-                    if (mask.data.len != 1) return error.ShapeMismatch;
-                    if (mask.data[0]) try self.fill(value);
+            if (!self.device.isCpu()) {
+                if (try scalarMaskValue(mask, self.shape)) |mask_value| {
+                    if (mask_value) try self.fill(value);
                     return;
                 }
-                var mask_host = try mask.cpu();
-                defer mask_host.deinit();
-                if (mask_host.data.len != 1) return error.ShapeMismatch;
-                if (mask_host.data[0]) try self.fill(value);
-                return;
             }
             var dest_view = try self.asView();
             defer dest_view.deinit();
@@ -10137,17 +10143,11 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedCopyFrom(self: Self, mask: Array(bool), values: Self) ArrayError!void {
-            if (!self.device.isCpu() and mask.numel() == 1) {
-                if (!broadcastsExactlyTo(mask.shape, self.shape)) return error.ShapeMismatch;
-                var mask_host: ?Array(bool) = null;
-                defer if (mask_host) |*host| host.deinit();
-                const mask_values = if (mask.device.isCpu()) mask else blk: {
-                    mask_host = try mask.cpu();
-                    break :blk mask_host.?;
-                };
-                if (mask_values.data.len != 1) return error.ShapeMismatch;
-                if (mask_values.data[0]) try self.copyFrom(values);
-                return;
+            if (!self.device.isCpu()) {
+                if (try scalarMaskValue(mask, self.shape)) |mask_value| {
+                    if (mask_value) try self.copyFrom(values);
+                    return;
+                }
             }
             var dest_view = try self.asView();
             defer dest_view.deinit();
@@ -10155,17 +10155,11 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedCopyFromView(self: Self, mask: Array(bool), values: ArrayView(T)) ArrayError!void {
-            if (!self.device.isCpu() and mask.numel() == 1) {
-                if (!broadcastsExactlyTo(mask.shape, self.shape)) return error.ShapeMismatch;
-                var mask_host: ?Array(bool) = null;
-                defer if (mask_host) |*host| host.deinit();
-                const mask_values = if (mask.device.isCpu()) mask else blk: {
-                    mask_host = try mask.cpu();
-                    break :blk mask_host.?;
-                };
-                if (mask_values.data.len != 1) return error.ShapeMismatch;
-                if (mask_values.data[0]) try self.copyFromView(values);
-                return;
+            if (!self.device.isCpu()) {
+                if (try scalarMaskValue(mask, self.shape)) |mask_value| {
+                    if (mask_value) try self.copyFromView(values);
+                    return;
+                }
             }
             var dest_view = try self.asView();
             defer dest_view.deinit();
@@ -10173,12 +10167,24 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn copyWhereAssign(self: Self, mask: Array(bool), source: Self) ArrayError!void {
+            if (!self.device.isCpu()) {
+                if (try scalarMaskValue(mask, self.shape)) |mask_value| {
+                    if (mask_value) try self.copyFrom(source);
+                    return;
+                }
+            }
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.copyWhereFromArray(mask, source);
         }
 
         pub fn copyWhereAssignView(self: Self, mask: Array(bool), source: ArrayView(T)) ArrayError!void {
+            if (!self.device.isCpu()) {
+                if (try scalarMaskValue(mask, self.shape)) |mask_value| {
+                    if (mask_value) try self.copyFromView(source);
+                    return;
+                }
+            }
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.copyWhereFromView(mask, source);
@@ -29604,6 +29610,22 @@ test "array dtype metadata and casts cover common numeric types" {
         var cuda_masked_copy_view_host = try cuda_masked_copy.cpu();
         defer cuda_masked_copy_view_host.deinit();
         try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, cuda_masked_copy_view_host.data);
+
+        var cuda_copy_where = try Array(f64).zerosOn(gpa, &.{ 2, 2 }, Device.cuda(0));
+        defer cuda_copy_where.deinit();
+        try cuda_copy_where.copyWhereAssign(scalar_true_mask, cpu_source);
+        var cuda_copy_where_true_host = try cuda_copy_where.cpu();
+        defer cuda_copy_where_true_host.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, cuda_copy_where_true_host.data);
+        try cuda_copy_where.copyWhereAssign(scalar_false_mask, cuda_delta);
+        var cuda_copy_where_false_host = try cuda_copy_where.cpu();
+        defer cuda_copy_where_false_host.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, cuda_copy_where_false_host.data);
+
+        try cuda_copy_where.copyWhereAssignView(scalar_true_mask, cpu_transposed_view);
+        var cuda_copy_where_view_host = try cuda_copy_where.cpu();
+        defer cuda_copy_where_view_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, cuda_copy_where_view_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
