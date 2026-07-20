@@ -3289,6 +3289,8 @@ fn executeCpuElementwiseScalar(
     scalar_side: ScalarSide,
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (target != .cpu or !input.device.isCpu()) return null;
+    if (try executeCpuScalarFastPath(T, op, input, scalar, scalar_side)) |out| return out;
+
     if (T == f32) {
         var out = try array_mod.Array(f32).empty(input.allocator, input.shape);
         errdefer out.deinit();
@@ -3331,6 +3333,24 @@ fn executeCpuElementwiseScalar(
         return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+fn executeCpuScalarFastPath(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), scalar: T, scalar_side: ScalarSide) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!input.device.isCpu() or input.data.len < cpu_elementwise_fast_path_min_elements or !input.isContiguous()) return null;
+
+    // Large scalar elementwise is another production streaming op where Axiom's
+    // diagnostic report would add a full verification/hash pass.  Preserve the
+    // small-array report path for tests while keeping large CPU arrays to one
+    // data pass.
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    for (input.data, out.data) |value, *slot| {
+        const lhs = if (scalar_side == .lhs) scalar else value;
+        const rhs = if (scalar_side == .lhs) value else scalar;
+        slot.* = elementwiseValue(T, op, lhs, rhs);
+    }
+    return out;
 }
 
 pub fn executeElementwise(
