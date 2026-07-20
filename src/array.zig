@@ -7426,6 +7426,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn where(self: Self, mask: Array(bool), other: Self) ArrayError!Array(T) {
+            if (try self.whereSameShapeFast(mask, other)) |out| return out;
             const tmp_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(tmp_shape);
             const out_shape = try computeBroadcastShape(self.allocator, tmp_shape, mask.shape);
@@ -7446,6 +7447,22 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
+        fn whereSameShapeFast(self: Self, mask: Array(bool), other: Self) ArrayError!?Array(T) {
+            if (!self.device.isCpu() or !other.device.isCpu() or !mask.device.isCpu()) return null;
+            if (!std.mem.eql(usize, self.shape, other.shape) or !std.mem.eql(usize, self.shape, mask.shape)) return null;
+            if (!self.isContiguous() or !other.isContiguous() or !mask.isContiguous()) return null;
+            const self_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+            const other_end = std.math.add(usize, other.offset, other.numel()) catch return error.InvalidShape;
+            if (self_end > self.data.len or other_end > other.data.len) return error.IndexOutOfBounds;
+
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (mask.data, self.data[self.offset..self_end], other.data[other.offset..other_end], out.data) |keep, lhs, rhs, *slot| {
+                slot.* = if (keep) lhs else rhs;
+            }
+            return out;
+        }
+
         pub fn whereArray(self: Self, mask: Array(bool), other: Array(T)) ArrayError!Array(T) {
             var other_view = try other.asView();
             defer other_view.deinit();
@@ -7453,6 +7470,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Array(T) {
+            if (try self.whereScalarSameShapeFast(mask, other_value)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try Array(T).empty(self.allocator, out_shape);
@@ -7464,6 +7482,21 @@ pub fn ArrayView(comptime T: type) type {
                 unravelIndexInto(flat, out_shape, out_multi);
                 const mask_index = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
                 slot.* = if (mask.data[mask_index]) self.data[self.broadcastOffsetOf(out_multi, out_shape.len)] else other_value;
+            }
+            return out;
+        }
+
+        fn whereScalarSameShapeFast(self: Self, mask: Array(bool), other_value: T) ArrayError!?Array(T) {
+            if (!self.device.isCpu() or !mask.device.isCpu()) return null;
+            if (!std.mem.eql(usize, self.shape, mask.shape)) return null;
+            if (!self.isContiguous() or !mask.isContiguous()) return null;
+            const self_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+            if (self_end > self.data.len) return error.IndexOutOfBounds;
+
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (mask.data, self.data[self.offset..self_end], out.data) |keep, value, *slot| {
+                slot.* = if (keep) value else other_value;
             }
             return out;
         }
