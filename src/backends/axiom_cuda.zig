@@ -2402,7 +2402,7 @@ pub fn tryAbsF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Ar
 
 fn tryDeviceUnaryMemRefs(comptime T: type, op: UnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
-    if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
+    if (!cudaUnaryElementSupported(T, op)) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
     const in_storage = input.device_storage orelse return null;
     if (in_storage.len == 0) return null;
@@ -2435,6 +2435,17 @@ fn tryDeviceUnaryMemRefs(comptime T: type, op: UnaryOp, input: array_mod.Array(T
     }
     recordCudaDeviceMemRefReport("elementwise_unary", report);
     return out;
+}
+
+fn cudaUnaryElementSupported(comptime T: type, op: UnaryOp) bool {
+    if (T == f32) return true;
+    if (T == f64 or T == f16 or T == BFloat16) {
+        return switch (op) {
+            .sqrt, .exp, .abs => true,
+            .log, .sin, .cos, .tan, .exp2, .expm1, .log1p, .log2, .log10 => false,
+        };
+    }
+    return false;
 }
 
 pub fn tryDeviceUnaryF32(op: UnaryOp, input: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -6520,4 +6531,46 @@ test "Axiom CUDA bridge snapshots batched GEMM runtime evidence" {
 
     resetLastCudaDeviceBatchedGemmReport();
     try std.testing.expect(!lastCudaDeviceBatchedGemmReport().valid());
+}
+
+test "Axiom CUDA bridge rejects unsupported unary dtype op pairs before runtime" {
+    var f64_log = try fakeCudaArrayForUnaryBridgeTest(f64, std.testing.allocator, 4);
+    defer f64_log.deinit();
+    try std.testing.expect((try tryDeviceUnaryF64(.log, f64_log)) == null);
+
+    var f16_sin = try fakeCudaArrayForUnaryBridgeTest(f16, std.testing.allocator, 4);
+    defer f16_sin.deinit();
+    try std.testing.expect((try tryDeviceUnaryF16(.sin, f16_sin)) == null);
+
+    var bf16_log2 = try fakeCudaArrayForUnaryBridgeTest(BFloat16, std.testing.allocator, 4);
+    defer bf16_log2.deinit();
+    try std.testing.expect((try tryDeviceUnaryBF16(.log2, bf16_log2)) == null);
+}
+
+fn fakeCudaArrayForUnaryBridgeTest(comptime T: type, allocator: std.mem.Allocator, len: usize) !array_mod.Array(T) {
+    const shape = try allocator.dupe(usize, &.{len});
+    errdefer allocator.free(shape);
+    const strides = try allocator.dupe(usize, &.{@as(usize, 1)});
+    errdefer allocator.free(strides);
+    const values = try allocator.alloc(T, 0);
+    errdefer allocator.free(values);
+    const bytes = try std.math.mul(usize, len, @sizeOf(T));
+    return .{
+        .allocator = allocator,
+        .data = values,
+        .shape = shape,
+        .strides = strides,
+        .device = array_mod.Device.cuda(0),
+        .device_storage = .{
+            .device = array_mod.Device.cuda(0),
+            // Unsupported dtype/op pairs should be rejected by the bridge's
+            // capability gate before any CUDA context or device pointer is
+            // touched.  A borrowed nonzero pointer satisfies Array invariants
+            // while keeping the test independent of CUDA hardware.
+            .ptr = 1,
+            .len = len,
+            .bytes = bytes,
+            .owns = false,
+        },
+    };
 }
