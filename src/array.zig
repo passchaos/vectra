@@ -8357,6 +8357,18 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
+        fn multiIndexShape(self: Self, indices: []const Array(usize)) ArrayError![]usize {
+            if (indices.len != self.shape.len) return error.ShapeMismatch;
+            var out_shape = try self.allocator.dupe(usize, indices[0].shape);
+            errdefer self.allocator.free(out_shape);
+            for (indices[1..]) |idx_array| {
+                const next_shape = try computeBroadcastShape(self.allocator, out_shape, idx_array.shape);
+                self.allocator.free(out_shape);
+                out_shape = next_shape;
+            }
+            return out_shape;
+        }
+
         pub fn ravelMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
             const out_shape = try self.multiIndexShape(indices);
             defer self.allocator.free(out_shape);
@@ -8380,9 +8392,9 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn takeMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.takeMultiIndex(indices);
+            var flat = try self.ravelMultiIndex(indices);
+            defer flat.deinit();
+            return self.take(flat, null);
         }
 
         pub fn putMultiIndex(self: Self, indices: []const Array(usize), values: Array(T)) ArrayError!Array(T) {
