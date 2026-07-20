@@ -70,6 +70,9 @@ Current registry summary:
   `runTensorElementwiseBinaryBF16Widened`) instead of Vectra-local report
   reconstruction; those reports can include f32 CUDA compute-run fingerprints
   when Axiom delegates the widened compute step to its f32 CUDA runtime.
+- `Array(f32/f64/f16/BFloat16).randOn(..., cuda(i))` and
+  `Context.randWith(..., seededOn(cuda(i), seed))` use CUDA Philox uniform PTX
+  kernels that write the selected dtype directly into CUDA-owned storage.
 - The native typed elementwise seeds are useful for API integration, smoke tests,
   and policy routing, but they are not tensor-core/CUTILE throughput paths.
 - Tensor-core/CUTILE-native dtype lowering should be implemented in Axiom before
