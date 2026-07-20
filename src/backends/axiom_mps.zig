@@ -88,11 +88,59 @@ fn rank4BroadcastShape(lhs: []const usize, rhs: []const usize) ?[4]usize {
     };
 }
 
+const max_ranked_broadcast_rank = 6;
+
+const RankedBroadcastShape = struct {
+    rank: usize = 0,
+    dims: [max_ranked_broadcast_rank]usize = [_]usize{1} ** max_ranked_broadcast_rank,
+};
+
 fn broadcastExtent(lhs: usize, rhs: usize) ?usize {
     if (lhs == rhs) return lhs;
     if (lhs == 1) return rhs;
     if (rhs == 1) return lhs;
     return null;
+}
+
+fn rankedBroadcastShape(lhs: []const usize, rhs: []const usize) ?RankedBroadcastShape {
+    const rank = @max(lhs.len, rhs.len);
+    if (rank == 0 or rank > max_ranked_broadcast_rank) return null;
+    var out: RankedBroadcastShape = .{ .rank = rank };
+    for (0..rank) |i| {
+        const lhs_dim = if (i >= rank - lhs.len) lhs[i - (rank - lhs.len)] else 1;
+        const rhs_dim = if (i >= rank - rhs.len) rhs[i - (rank - rhs.len)] else 1;
+        out.dims[i] = broadcastExtent(lhs_dim, rhs_dim) orelse return null;
+    }
+    return out;
+}
+
+fn rankedBroadcastStrides(input_shape: []const usize, out_shape: RankedBroadcastShape) ?[max_ranked_broadcast_rank]usize {
+    if (input_shape.len == 0 or input_shape.len > out_shape.rank) return null;
+    var dense = [_]usize{0} ** max_ranked_broadcast_rank;
+    var stride: usize = 1;
+    var dim_index = input_shape.len;
+    while (dim_index > 0) {
+        dim_index -= 1;
+        dense[dim_index] = stride;
+        stride = std.math.mul(usize, stride, input_shape[dim_index]) catch return null;
+    }
+    var out = [_]usize{0} ** max_ranked_broadcast_rank;
+    const rank_delta = out_shape.rank - input_shape.len;
+    for (0..out_shape.rank) |out_index| {
+        if (out_index < rank_delta) {
+            out[out_index] = 0;
+            continue;
+        }
+        const in_index = out_index - rank_delta;
+        if (input_shape[in_index] == out_shape.dims[out_index]) {
+            out[out_index] = dense[in_index];
+        } else if (input_shape[in_index] == 1) {
+            out[out_index] = 0;
+        } else {
+            return null;
+        }
+    }
+    return out;
 }
 
 pub fn tryBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -196,6 +244,43 @@ pub fn tryRank4BroadcastBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_
         rhs.shape[1],
         rhs.shape[2],
         rhs.shape[3],
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryRankedBroadcastBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const out_shape = rankedBroadcastShape(lhs.shape, rhs.shape) orelse return null;
+    const lhs_strides = rankedBroadcastStrides(lhs.shape, out_shape) orelse return null;
+    const rhs_strides = rankedBroadcastStrides(rhs.shape, out_shape) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+
+    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, out_shape.dims[0..out_shape.rank], lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRankedBroadcastBinaryF32(
+        op,
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        out_shape.rank,
+        out_shape.dims[0..out_shape.rank],
+        lhs_strides[0..out_shape.rank],
+        rhs_strides[0..out_shape.rank],
     ) catch {
         out.deinit();
         return null;
@@ -369,6 +454,43 @@ pub fn tryRank4BroadcastBinaryF16(op: axiom.accelerator.MpsBinaryOp, lhs: array_
     return out;
 }
 
+pub fn tryRankedBroadcastBinaryF16(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const out_shape = rankedBroadcastShape(lhs.shape, rhs.shape) orelse return null;
+    const lhs_strides = rankedBroadcastStrides(lhs.shape, out_shape) orelse return null;
+    const rhs_strides = rankedBroadcastStrides(rhs.shape, out_shape) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+
+    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, out_shape.dims[0..out_shape.rank], lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRankedBroadcastBinaryF16(
+        op,
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        out_shape.rank,
+        out_shape.dims[0..out_shape.rank],
+        lhs_strides[0..out_shape.rank],
+        rhs_strides[0..out_shape.rank],
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
 pub fn tryScalarF16(op: axiom.accelerator.MpsBinaryOp, input: array_mod.Array(f16), scalar: f16, scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f16) {
     if (!input.device.isMps() or !input.isContiguous()) return null;
     const input_storage = input.device_storage orelse return null;
@@ -528,6 +650,43 @@ pub fn tryRank4BroadcastBinaryBF16(op: axiom.accelerator.MpsBinaryOp, lhs: array
         rhs.shape[1],
         rhs.shape[2],
         rhs.shape[3],
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryRankedBroadcastBinaryBF16(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(array_mod.BFloat16), rhs: array_mod.Array(array_mod.BFloat16)) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const out_shape = rankedBroadcastShape(lhs.shape, rhs.shape) orelse return null;
+    const lhs_strides = rankedBroadcastStrides(lhs.shape, out_shape) orelse return null;
+    const rhs_strides = rankedBroadcastStrides(rhs.shape, out_shape) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+
+    var out = try array_mod.Array(array_mod.BFloat16).emptyOn(lhs.allocator, out_shape.dims[0..out_shape.rank], lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRankedBroadcastBinaryBF16(
+        op,
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        out_shape.rank,
+        out_shape.dims[0..out_shape.rank],
+        lhs_strides[0..out_shape.rank],
+        rhs_strides[0..out_shape.rank],
     ) catch {
         out.deinit();
         return null;

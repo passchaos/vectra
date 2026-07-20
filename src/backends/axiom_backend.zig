@@ -1065,6 +1065,7 @@ pub fn tryBroadcastBinary(
         if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .row)) return executeBroadcastBinary(T, op, target, rhs, lhs, .row);
         if (broadcastBiasMatchesArrayAdd(T, rhs, lhs, .column)) return executeBroadcastBinary(T, op, target, rhs, lhs, .column);
     }
+    if (try tryMpsRankedBroadcast(T, op, target, lhs, rhs)) |out| return out;
     if (try tryCudaGenericBroadcast(T, op, target, lhs, rhs)) |out| return out;
     return null;
 }
@@ -1100,6 +1101,19 @@ fn tryMpsRank4Broadcast(comptime T: type, op: ElementwiseOp, target: DialectBack
         if (try axiom_mps.tryRank4BroadcastBinaryF16(mpsBinaryOp(op), @as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
         if (try axiom_mps.tryRank4BroadcastBinaryBF16(mpsBinaryOp(op), @as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn tryMpsRankedBroadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .mps or !lhs.device.sameDevice(rhs.device) or !lhs.device.isMps()) return null;
+    if (lhs.shape.len <= 4 and rhs.shape.len <= 4) return null;
+    if (T == f32) {
+        if (try axiom_mps.tryRankedBroadcastBinaryF32(mpsBinaryOp(op), @as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryRankedBroadcastBinaryF16(mpsBinaryOp(op), @as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryRankedBroadcastBinaryBF16(mpsBinaryOp(op), @as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
