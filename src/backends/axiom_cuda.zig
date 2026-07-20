@@ -3685,13 +3685,7 @@ fn tryDeviceMatmulAdd(
             out.deinit();
             return null;
         };
-        var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-        const report = runtime.runCudaDeviceMatmulAddMemRefs(lhs.device.index, spec) catch null;
-        if (report) |value| {
-            recordCudaDeviceGemmReport(value);
-            if (value.valid()) return out;
-        }
-        out.deinit();
+        if (try finishDeviceGemmAdd(T, &out, lhs.allocator, lhs.device, spec)) |value| return value;
     }
 
     // cuBLASLt is the preferred fused epilogue, but keeping a GEMM + device
@@ -3734,14 +3728,7 @@ fn tryDeviceMatmul(
         out.deinit();
         return null;
     };
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
-    if (report) |value| {
-        recordCudaDeviceGemmReport(value);
-        if (value.valid()) return out;
-    }
-    out.deinit();
-    return null;
+    return finishDeviceGemm(T, &out, lhs.allocator, lhs.device, spec);
 }
 
 pub fn tryDeviceMatvecF32(matrix: array_mod.Array(f32), vector: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -3833,11 +3820,38 @@ fn tryDeviceDot(
         out.deinit();
         return null;
     };
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
+    return finishDeviceGemm(T, &out, lhs.allocator, lhs.device, spec);
+}
+
+fn finishDeviceGemm(
+    comptime T: type,
+    out: *array_mod.Array(T),
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    spec: axiom.accelerator.TensorGemmSpec,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch null;
     if (report) |value| {
         recordCudaDeviceGemmReport(value);
-        if (value.valid()) return out;
+        if (value.valid()) return out.*;
+    }
+    out.deinit();
+    return null;
+}
+
+fn finishDeviceGemmAdd(
+    comptime T: type,
+    out: *array_mod.Array(T),
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    spec: axiom.accelerator.TensorGemmAddSpec,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const report = runtime.runCudaDeviceMatmulAddMemRefs(device.index, spec) catch null;
+    if (report) |value| {
+        recordCudaDeviceGemmReport(value);
+        if (value.valid()) return out.*;
     }
     out.deinit();
     return null;
