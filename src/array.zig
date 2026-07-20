@@ -4985,6 +4985,7 @@ pub fn ArrayView(comptime T: type) type {
             if (self.isContiguous()) {
                 const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
+                if (iscloseScalarSimd(out.data, self.data[self.offset..end], scalar, rtol, atol, equal_nan)) return out;
                 for (self.data[self.offset..end], out.data) |value, *slot| {
                     slot.* = closeValue(T, value, scalar, rtol, atol, equal_nan);
                 }
@@ -5027,6 +5028,7 @@ pub fn ArrayView(comptime T: type) type {
             if (self.isContiguous()) {
                 const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
+                if (allcloseScalarSimd(self.data[self.offset..end], scalar, rtol, atol, equal_nan)) |ok| return ok;
                 for (self.data[self.offset..end]) |value| {
                     if (!closeValue(T, value, scalar, rtol, atol, equal_nan)) return false;
                 }
@@ -5053,6 +5055,53 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn allCloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             return self.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
+        fn closeScalarMask(comptime lanes: usize, values: @Vector(lanes, T), scalar: @Vector(lanes, T), rtol: T, atol: T, equal_nan: bool) @Vector(lanes, bool) {
+            const tolerance: @Vector(lanes, T) = @splat(atol + rtol * @abs(scalar[0]));
+            const finite_close = (values == scalar) | (@abs(values - scalar) <= tolerance);
+            if (!equal_nan) return finite_close;
+            const scalar_is_nan = scalar[0] != scalar[0];
+            if (!scalar_is_nan) return finite_close;
+            return finite_close | (values != values);
+        }
+
+        fn iscloseScalarSimdLanes(comptime lanes: usize, out: []bool, input: []const T, scalar: T, rtol: T, atol: T, equal_nan: bool) bool {
+            const Vec = @Vector(lanes, T);
+            const scalar_vec: Vec = @splat(scalar);
+            var i: usize = 0;
+            while (i + lanes <= out.len) : (i += lanes) {
+                const values: Vec = input[i..][0..lanes].*;
+                out[i..][0..lanes].* = closeScalarMask(lanes, values, scalar_vec, rtol, atol, equal_nan);
+            }
+            while (i < out.len) : (i += 1) out[i] = closeValue(T, input[i], scalar, rtol, atol, equal_nan);
+            return true;
+        }
+
+        fn iscloseScalarSimd(out: []bool, input: []const T, scalar: T, rtol: T, atol: T, equal_nan: bool) bool {
+            if (comptime T == f64) return iscloseScalarSimdLanes(4, out, input, scalar, rtol, atol, equal_nan);
+            if (comptime T == f32) return iscloseScalarSimdLanes(8, out, input, scalar, rtol, atol, equal_nan);
+            return false;
+        }
+
+        fn allcloseScalarSimdLanes(comptime lanes: usize, input: []const T, scalar: T, rtol: T, atol: T, equal_nan: bool) bool {
+            const Vec = @Vector(lanes, T);
+            const scalar_vec: Vec = @splat(scalar);
+            var i: usize = 0;
+            while (i + lanes <= input.len) : (i += lanes) {
+                const values: Vec = input[i..][0..lanes].*;
+                if (!@reduce(.And, closeScalarMask(lanes, values, scalar_vec, rtol, atol, equal_nan))) return false;
+            }
+            while (i < input.len) : (i += 1) {
+                if (!closeValue(T, input[i], scalar, rtol, atol, equal_nan)) return false;
+            }
+            return true;
+        }
+
+        fn allcloseScalarSimd(input: []const T, scalar: T, rtol: T, atol: T, equal_nan: bool) ?bool {
+            if (comptime T == f64) return allcloseScalarSimdLanes(4, input, scalar, rtol, atol, equal_nan);
+            if (comptime T == f32) return allcloseScalarSimdLanes(8, input, scalar, rtol, atol, equal_nan);
+            return null;
         }
 
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
@@ -26265,6 +26314,12 @@ test "array view object unary predicate wrappers" {
     defer view_close_scalar.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, view_close_scalar.data);
     try std.testing.expect(!try finite_view.allcloseScalar(2, 0, 1));
+    var finite_contiguous_view = try finite_values.asView();
+    defer finite_contiguous_view.deinit();
+    var contiguous_close_scalar = try finite_contiguous_view.iscloseScalar(2, 0, 1);
+    defer contiguous_close_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, contiguous_close_scalar.data);
+    try std.testing.expect(!try finite_contiguous_view.allcloseScalar(2, 0, 1));
     var close_scalar_nan_values = try Array(f64).fromSlice(gpa, &.{ std.math.nan(f64), 9, 2, 8, std.math.nan(f64), 7, 4, 6 }, &.{ 2, 4 });
     defer close_scalar_nan_values.deinit();
     var close_scalar_nan_view = try close_scalar_nan_values.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
