@@ -17810,7 +17810,7 @@ pub fn Array(comptime T: type) type {
             defer diff_values.deinit();
             var abs_values = try diff_values.abs();
             defer abs_values.deinit();
-            if (comptime T == f32 or T == f64 or T == f16) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     if (reduction != .none) return error.BackendFailure;
                     if (eqlValue(T, beta_value, zero(T))) return abs_values.clone();
@@ -17818,7 +17818,7 @@ pub fn Array(comptime T: type) type {
                     defer quadratic_input.deinit();
                     var quadratic = try quadratic_input.square();
                     defer quadratic.deinit();
-                    var scaled_quadratic = try quadratic.divScalar(castValue(T, 2) * beta_value);
+                    var scaled_quadratic = try quadratic.divScalar(mulValue(T, castValue(T, 2), beta_value));
                     defer scaled_quadratic.deinit();
                     var linear_input = try abs_values.subScalar(beta_value);
                     defer linear_input.deinit();
@@ -17829,11 +17829,14 @@ pub fn Array(comptime T: type) type {
             }
             var losses = try Self.empty(self.allocator, abs_values.shape);
             errdefer losses.deinit();
-            if (beta_value == zero(T)) {
+            if (eqlValue(T, beta_value, zero(T))) {
                 @memcpy(losses.data, abs_values.data);
             } else {
                 for (abs_values.data, losses.data) |abs_diff, *slot| {
-                    slot.* = if (abs_diff < beta_value) (abs_diff * abs_diff) / (castValue(T, 2) * beta_value) else abs_diff - castValue(T, 0.5) * beta_value;
+                    slot.* = if (lessValue(T, abs_diff, beta_value))
+                        divValue(T, mulValue(T, abs_diff, abs_diff), mulValue(T, castValue(T, 2), beta_value))
+                    else
+                        subValue(T, abs_diff, mulValue(T, castValue(T, 0.5), beta_value));
                 }
             }
             return self.reducedLoss(losses, reduction);
@@ -17851,7 +17854,7 @@ pub fn Array(comptime T: type) type {
             defer diff_values.deinit();
             var abs_values = try diff_values.abs();
             defer abs_values.deinit();
-            if (comptime T == f32 or T == f64 or T == f16) {
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
                 if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
                     if (reduction != .none) return error.BackendFailure;
                     var quadratic_input = try abs_values.minimumScalar(delta);
@@ -17872,7 +17875,10 @@ pub fn Array(comptime T: type) type {
             var losses = try Self.empty(self.allocator, abs_values.shape);
             errdefer losses.deinit();
             for (abs_values.data, losses.data) |abs_diff, *slot| {
-                slot.* = if (abs_diff <= delta) castValue(T, 0.5) * abs_diff * abs_diff else delta * (abs_diff - castValue(T, 0.5) * delta);
+                slot.* = if (!lessValue(T, delta, abs_diff))
+                    mulValue(T, castValue(T, 0.5), mulValue(T, abs_diff, abs_diff))
+                else
+                    mulValue(T, delta, subValue(T, abs_diff, mulValue(T, castValue(T, 0.5), delta)));
             }
             return self.reducedLoss(losses, reduction);
         }
@@ -19172,7 +19178,7 @@ pub fn Array(comptime T: type) type {
                     scaled.deinit();
                     return reshaped;
                 }
-                const result = self.sumFlatValue() / castValue(T, self.data.len);
+                const result = divValue(T, self.sumFlatValue(), castValue(T, self.data.len));
                 return self.scalarReductionResult(result, keepdims);
             }
             var out = try self.sum(axis_opt, keepdims);
@@ -19185,7 +19191,7 @@ pub fn Array(comptime T: type) type {
                 out.deinit();
                 return scaled;
             }
-            for (out.data) |*v| v.* /= divisor;
+            for (out.data) |*v| v.* = divValue(T, v.*, divisor);
             return out;
         }
 
