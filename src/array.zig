@@ -2807,17 +2807,17 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
-        fn binaryViewOut(self: Self, other: Self, out: Array(T), comptime op: fn (T, T) T) ArrayError!void {
-            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
-            defer self.allocator.free(out_shape);
-            if (!std.mem.eql(usize, out.shape, out_shape)) return error.ShapeMismatch;
-            if (out.data.len == 0) return;
+        fn binarySameShapeFastOut(self: Self, other: Self, out: Array(T), comptime op: fn (T, T) T) ArrayError!bool {
             if (std.mem.eql(usize, self.shape, other.shape)) {
+                if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
+                if (out.data.len == 0) return true;
                 // Equal-shape views are common after slicing paired operands.
                 // They do not need the general broadcast iterator: contiguous
                 // and 1-D strided layouts can stream source offsets directly,
                 // avoiding one heap allocation plus an unravel/ravel per
-                // element in hot ArrayView elementwise paths.
+                // element in hot ArrayView elementwise paths.  Keep this in a
+                // pre-broadcast helper so these layouts also avoid allocating
+                // the broadcast shape itself.
                 if (self.isContiguous() and other.isContiguous()) {
                     const lhs_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                     const rhs_end = std.math.add(usize, other.offset, other.numel()) catch return error.InvalidShape;
@@ -2825,7 +2825,7 @@ pub fn ArrayView(comptime T: type) type {
                     for (self.data[self.offset..lhs_end], other.data[other.offset..rhs_end], out.data) |lhs, rhs, *slot| {
                         slot.* = op(lhs, rhs);
                     }
-                    return;
+                    return true;
                 }
                 if (self.isOneDimensionalStrided() and other.isOneDimensionalStrided()) {
                     const lhs_end = try self.oneDimensionalEndOffset();
@@ -2838,9 +2838,18 @@ pub fn ArrayView(comptime T: type) type {
                         lhs_offset += self.strides[0];
                         rhs_offset += other.strides[0];
                     }
-                    return;
+                    return true;
                 }
             }
+            return false;
+        }
+
+        fn binaryViewOut(self: Self, other: Self, out: Array(T), comptime op: fn (T, T) T) ArrayError!void {
+            if (try self.binarySameShapeFastOut(other, out, op)) return;
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(out_shape);
+            if (!std.mem.eql(usize, out.shape, out_shape)) return error.ShapeMismatch;
+            if (out.data.len == 0) return;
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
             defer self.allocator.free(out_multi);
             for (out.data, 0..) |*slot, flat| {
