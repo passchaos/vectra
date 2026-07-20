@@ -14225,8 +14225,42 @@ pub fn Array(comptime T: type) type {
         fn unaryBool(self: Self, comptime op: fn (T) bool) ArrayError!Array(bool) {
             if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
             const out = try Array(bool).empty(self.allocator, self.shape);
+            if (unaryBoolSimd(out.data, self.data, op)) return out;
             for (self.data, out.data) |v, *slot| slot.* = op(v);
             return out;
+        }
+
+        fn unaryBoolSimdLanes(comptime lanes: usize, out: []bool, input: []const T, comptime op: fn (T) bool) bool {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            if (comptime op == opIsNan) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = value != value;
+                }
+            } else if (comptime op == opIsInf) {
+                const inf_vec: Vec = @splat(std.math.inf(T));
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = @abs(value) == inf_vec;
+                }
+            } else if (comptime op == opIsFinite) {
+                const inf_vec: Vec = @splat(std.math.inf(T));
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = (@abs(value) != inf_vec) & (value == value);
+                }
+            } else {
+                return false;
+            }
+            while (i < out.len) : (i += 1) out[i] = op(input[i]);
+            return true;
+        }
+
+        fn unaryBoolSimd(out: []bool, input: []const T, comptime op: fn (T) bool) bool {
+            if (comptime T == f64) return unaryBoolSimdLanes(4, out, input, op);
+            if (comptime T == f32) return unaryBoolSimdLanes(8, out, input, op);
+            return false;
         }
 
         fn opAdd(a: T, b: T) T {
