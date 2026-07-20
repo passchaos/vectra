@@ -10066,25 +10066,68 @@ pub fn Array(comptime T: type) type {
             return dest_view.copyWhereFromView(mask, source);
         }
 
+        fn tryDeviceBinaryAssign(self: Self, source: Self, op: axiom_backend.ElementwiseOp) ArrayError!bool {
+            if (self.device.isCpu()) return false;
+            if (!self.device.sameDevice(source.device)) return false;
+            if (!std.mem.eql(usize, self.shape, source.shape)) return false;
+            if (self.numel() == 0) return true;
+            if (self.device.isCuda()) {
+                if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return false;
+            } else if (self.device.isMps()) {
+                if (comptime T != f32 and T != f16 and T != BFloat16) return false;
+            } else {
+                return false;
+            }
+            if (!self.isContiguous() or !source.isContiguous()) return false;
+            if (self.pending_matmul != null) return error.InvalidDevice;
+            const dst_storage = self.device_storage orelse return false;
+
+            if (source.pending_matmul != null) {
+                var materialized_source = try source.materializePendingMatmul();
+                defer materialized_source.deinit();
+                return self.tryDeviceBinaryAssign(materialized_source, op);
+            }
+
+            // Match scalar in-place assignment: compute into temporary device
+            // storage and copy back.  This gives CUDA/MPS owning arrays real
+            // device-side in-place semantics today, without relying on unsafe
+            // input/output aliasing inside the backend binary kernels.
+            var out = (try axiom_backend.executeElementwiseDefault(T, op, self, source)) orelse return false;
+            defer out.deinit();
+            if (!out.device.sameDevice(self.device)) return error.InvalidDevice;
+            if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
+            const src_storage = out.device_storage orelse return error.InvalidDevice;
+            try axiom_backend.copyStorage(dst_storage, src_storage);
+            return true;
+        }
+
         pub fn addAssign(self: Self, source: Self) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceBinaryAssign(source, .add)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.addAssignArray(source);
         }
 
         pub fn subAssign(self: Self, source: Self) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceBinaryAssign(source, .sub)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.subAssignArray(source);
         }
 
         pub fn mulAssign(self: Self, source: Self) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceBinaryAssign(source, .mul)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.mulAssignArray(source);
         }
 
         pub fn divAssign(self: Self, source: Self) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceBinaryAssign(source, .div)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.divAssignArray(source);
@@ -29293,6 +29336,20 @@ test "array dtype metadata and casts cover common numeric types" {
         var inplace_host = try cuda_inplace.cpu();
         defer inplace_host.deinit();
         try std.testing.expectEqualSlices(f64, &.{ 0, 1, 2, 3 }, inplace_host.data);
+
+        var cuda_binary = try cpu_source.cuda(0);
+        defer cuda_binary.deinit();
+        var cpu_delta = try Array(f64).fromSlice(gpa, &.{ 1, 1, 1, 1 }, &.{ 2, 2 });
+        defer cpu_delta.deinit();
+        var cuda_delta = try cpu_delta.cuda(0);
+        defer cuda_delta.deinit();
+        try cuda_binary.addAssign(cuda_delta);
+        try cuda_binary.mulAssign(cuda_delta);
+        try cuda_binary.subAssign(cuda_delta);
+        try cuda_binary.divAssign(cuda_delta);
+        var binary_host = try cuda_binary.cpu();
+        defer binary_host.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, binary_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
