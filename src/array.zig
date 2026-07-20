@@ -8329,9 +8329,16 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn putMultiIndex(self: Self, indices: []const Array(usize), values: Array(T)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putMultiIndex(indices, values);
+            var out = try self.toArray();
+            errdefer out.deinit();
+            var flat = try out.ravelMultiIndex(indices);
+            defer flat.deinit();
+            if (values.data.len != 1 and values.data.len != flat.data.len) return error.ShapeMismatch;
+            for (flat.data, 0..) |idx, i| {
+                if (idx >= out.data.len) return error.IndexOutOfBounds;
+                out.data[idx] = values.data[if (values.data.len == 1) 0 else i];
+            }
+            return out;
         }
 
         pub fn putMultiIndexScalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Array(T) {
