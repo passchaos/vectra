@@ -2959,6 +2959,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn compareView(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
+            if (try self.compareSameShapeFast(other, op)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             var out = try Array(bool).empty(self.allocator, out_shape);
@@ -2971,6 +2972,40 @@ pub fn ArrayView(comptime T: type) type {
                 slot.* = op(self.data[self.broadcastOffsetOf(out_multi, out_shape.len)], other.data[other.broadcastOffsetOf(out_multi, out_shape.len)]);
             }
             return out;
+        }
+
+        fn compareSameShapeFast(self: Self, other: Self, comptime op: fn (T, T) bool) ArrayError!?Array(bool) {
+            if (!std.mem.eql(usize, self.shape, other.shape)) return null;
+            const supported_layout = (self.isContiguous() and other.isContiguous()) or
+                (self.isOneDimensionalStrided() and other.isOneDimensionalStrided());
+            if (!supported_layout and self.numel() != 0) return null;
+            var out = try Array(bool).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            if (self.isContiguous() and other.isContiguous()) {
+                const lhs_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                const rhs_end = std.math.add(usize, other.offset, other.numel()) catch return error.InvalidShape;
+                if (lhs_end > self.data.len or rhs_end > other.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..lhs_end], other.data[other.offset..rhs_end], out.data) |lhs, rhs, *slot| {
+                    slot.* = op(lhs, rhs);
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided() and other.isOneDimensionalStrided()) {
+                const lhs_end = try self.oneDimensionalEndOffset();
+                const rhs_end = try other.oneDimensionalEndOffset();
+                if (lhs_end >= self.data.len or rhs_end >= other.data.len) return error.IndexOutOfBounds;
+                var lhs_offset = self.offset;
+                var rhs_offset = other.offset;
+                for (out.data) |*slot| {
+                    slot.* = op(self.data[lhs_offset], other.data[rhs_offset]);
+                    lhs_offset += self.strides[0];
+                    rhs_offset += other.strides[0];
+                }
+                return out;
+            }
+            out.deinit();
+            return null;
         }
 
         fn compareScalar(self: Self, scalar: T, comptime op: fn (T, T) bool) ArrayError!Array(bool) {
@@ -28198,6 +28233,34 @@ test "array view object unary predicate wrappers" {
     var positive = try view.gtScalar(0);
     defer positive.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, false }, positive.data);
+
+    var contiguous_cmp_lhs_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 50, 60 }, &.{ 3, 2 });
+    defer contiguous_cmp_lhs_source.deinit();
+    var contiguous_cmp_rhs_source = try Array(f64).fromSlice(gpa, &.{ 1, 1, 4, 3, 70, 80 }, &.{ 3, 2 });
+    defer contiguous_cmp_rhs_source.deinit();
+    var contiguous_cmp_lhs = try contiguous_cmp_lhs_source.narrowView(0, 0, 2);
+    defer contiguous_cmp_lhs.deinit();
+    var contiguous_cmp_rhs = try contiguous_cmp_rhs_source.narrowView(0, 0, 2);
+    defer contiguous_cmp_rhs.deinit();
+    try std.testing.expect(contiguous_cmp_lhs.isContiguous());
+    try std.testing.expect(contiguous_cmp_rhs.isContiguous());
+    var contiguous_cmp = try contiguous_cmp_lhs.ge(contiguous_cmp_rhs);
+    defer contiguous_cmp.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, contiguous_cmp.data);
+
+    var strided_cmp_lhs_source = try Array(f64).fromSlice(gpa, &.{ 2, 90, 3, 80, 4, 70 }, &.{6});
+    defer strided_cmp_lhs_source.deinit();
+    var strided_cmp_rhs_source = try Array(f64).fromSlice(gpa, &.{ 1, 60, 3, 50, 5, 40 }, &.{6});
+    defer strided_cmp_rhs_source.deinit();
+    var strided_cmp_lhs = try strided_cmp_lhs_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_cmp_lhs.deinit();
+    var strided_cmp_rhs = try strided_cmp_rhs_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_cmp_rhs.deinit();
+    try std.testing.expect(!strided_cmp_lhs.isContiguous());
+    try std.testing.expect(!strided_cmp_rhs.isContiguous());
+    var strided_cmp = try strided_cmp_lhs.lt(strided_cmp_rhs);
+    defer strided_cmp.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, strided_cmp.data);
 
     var square_out = try view.square();
     defer square_out.deinit();
