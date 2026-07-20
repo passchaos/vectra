@@ -566,7 +566,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     const axiom_mps_rank3_broadcast_smoke_cmd = b.addRunArtifact(axiom_mps_rank3_broadcast_smoke_exe);
-    const axiom_mps_rank3_broadcast_smoke_step = b.step("axiom-mps-rank3-broadcast-smoke", "Run focused MPS rank-3 last-dim broadcast smoke");
+    const axiom_mps_rank3_broadcast_smoke_step = b.step("axiom-mps-rank3-broadcast-smoke", "Run focused MPS rank-3/rank-4 broadcast smoke");
     axiom_mps_rank3_broadcast_smoke_step.dependOn(&axiom_mps_rank3_broadcast_smoke_cmd.step);
     axiom_mps_storage_smoke_step.dependOn(&axiom_mps_rank3_broadcast_smoke_cmd.step);
 
