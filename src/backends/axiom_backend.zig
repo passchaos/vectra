@@ -1589,6 +1589,7 @@ fn executeCudaBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Arra
 }
 
 fn executeMpsBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeMpsBroadcastBatchBmm(T, lhs, rhs)) |out| return out;
     if (try executeMpsFlattenedEqualBatchBmm(T, lhs, rhs)) |out| return out;
     if (T == f32) {
         if (try axiom_mps.tryBmmF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
@@ -1596,6 +1597,23 @@ fn executeMpsBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array
         if (try axiom_mps.tryBmmF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
         if (try axiom_mps.tryBmmBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeMpsBroadcastBatchBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f16 and T != array_mod.BFloat16) return null;
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len != 3 or rhs.shape.len != 3 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_broadcast = lhs.shape[0] == 1 and rhs.shape[0] > 1;
+    const rhs_broadcast = rhs.shape[0] == 1 and lhs.shape[0] > 1;
+    if (lhs_broadcast == rhs_broadcast) return null;
+    if (T == f32) {
+        if (try axiom_mps.tryBroadcastBmmF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryBroadcastBmmF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryBroadcastBmmBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3979,7 +3997,6 @@ fn supportedBmmExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_m
     if (lhs.shape[lhs.shape.len - 1] != rhs.shape[rhs.shape.len - 2]) return false;
     if (lhs.device.isMps()) {
         return (T == f32 or T == f16 or T == array_mod.BFloat16) and
-            std.mem.eql(usize, lhs.shape[0 .. lhs.shape.len - 2], rhs.shape[0 .. rhs.shape.len - 2]) and
             lhs.device_storage != null and
             rhs.device_storage != null;
     }
