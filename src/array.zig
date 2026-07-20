@@ -3148,6 +3148,30 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn maskedFill(self: Self, mask: Array(bool), value: T) ArrayError!void {
+            if (mask.numel() == 1) {
+                if (mask.data[0]) try self.fill(value);
+                return;
+            }
+            if (std.mem.eql(usize, self.shape, mask.shape)) {
+                if (self.isContiguous() and mask.isContiguous()) {
+                    const dst_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                    if (dst_end > self.data.len) return error.IndexOutOfBounds;
+                    for (mask.data, self.data[self.offset..dst_end]) |keep, *slot| {
+                        if (keep) slot.* = value;
+                    }
+                    return;
+                }
+                if (self.isOneDimensionalStrided() and mask.shape.len == 1) {
+                    const dst_end = try self.oneDimensionalEndOffset();
+                    if (dst_end >= self.data.len) return error.IndexOutOfBounds;
+                    var dst_offset = self.offset;
+                    for (mask.data) |keep| {
+                        if (keep) self.data[dst_offset] = value;
+                        dst_offset += self.strides[0];
+                    }
+                    return;
+                }
+            }
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
@@ -29422,6 +29446,37 @@ test "array object masked in-place assignment helpers" {
     defer mask.deinit();
     try full.maskedFillAssign(mask, 0);
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 3, 0, 5, 0 }, full.data);
+
+    var scalar_mask_true = try Array(bool).fromSlice(gpa, &.{true}, &.{});
+    defer scalar_mask_true.deinit();
+    var scalar_mask_false = try Array(bool).fromSlice(gpa, &.{false}, &.{});
+    defer scalar_mask_false.deinit();
+    var scalar_mask_target = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer scalar_mask_target.deinit();
+    var scalar_mask_target_view = try scalar_mask_target.asView();
+    defer scalar_mask_target_view.deinit();
+    try scalar_mask_target_view.maskedFill(scalar_mask_false, 9);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, scalar_mask_target.data);
+    try scalar_mask_target_view.maskedFill(scalar_mask_true, 9);
+    try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9, 9 }, scalar_mask_target.data);
+
+    var contiguous_mask_target = try Array(f64).fromSlice(gpa, &.{ 0, 0, 0, 0, 50, 60 }, &.{ 3, 2 });
+    defer contiguous_mask_target.deinit();
+    var contiguous_mask_view = try contiguous_mask_target.narrowView(0, 0, 2);
+    defer contiguous_mask_view.deinit();
+    var contiguous_mask = try Array(bool).fromSlice(gpa, &.{ true, false, false, true }, &.{ 2, 2 });
+    defer contiguous_mask.deinit();
+    try contiguous_mask_view.maskedFill(contiguous_mask, 7);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 0, 0, 7, 50, 60 }, contiguous_mask_target.data);
+
+    var strided_mask_target = try Array(f64).fromSlice(gpa, &.{ 0, 90, 0, 80, 0, 70 }, &.{6});
+    defer strided_mask_target.deinit();
+    var strided_mask_view = try strided_mask_target.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_mask_view.deinit();
+    var strided_mask = try Array(bool).fromSlice(gpa, &.{ true, false, true }, &.{3});
+    defer strided_mask.deinit();
+    try strided_mask_view.maskedFill(strided_mask, 5);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 90, 0, 80, 5, 70 }, strided_mask_target.data);
 
     var masked_values = try Array(f64).fromSlice(gpa, &.{ 7, 8, 9 }, &.{3});
     defer masked_values.deinit();
