@@ -16864,6 +16864,7 @@ pub fn Array(comptime T: type) type {
         pub fn iscloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
             ensureFloat(T);
             const out = try Array(bool).empty(self.allocator, self.shape);
+            if (iscloseScalarSimd(out.data, self.data, scalar, rtol, atol, equal_nan)) return out;
             for (self.data, out.data) |value, *slot| {
                 slot.* = closeValue(T, value, scalar, rtol, atol, equal_nan);
             }
@@ -16884,6 +16885,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn allcloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             ensureFloat(T);
+            if (allcloseScalarSimd(self.data, scalar, rtol, atol, equal_nan)) |out| return out;
             for (self.data) |value| {
                 if (!closeValue(T, value, scalar, rtol, atol, equal_nan)) return false;
             }
@@ -16892,6 +16894,53 @@ pub fn Array(comptime T: type) type {
 
         pub fn allCloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             return self.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
+        fn closeScalarMask(comptime lanes: usize, values: @Vector(lanes, T), scalar: @Vector(lanes, T), rtol: T, atol: T, equal_nan: bool) @Vector(lanes, bool) {
+            const tolerance: @Vector(lanes, T) = @splat(atol + rtol * @abs(scalar[0]));
+            const finite_close = (values == scalar) | (@abs(values - scalar) <= tolerance);
+            if (!equal_nan) return finite_close;
+            const scalar_is_nan = scalar[0] != scalar[0];
+            if (!scalar_is_nan) return finite_close;
+            return finite_close | (values != values);
+        }
+
+        fn iscloseScalarSimdLanes(comptime lanes: usize, out: []bool, input: []const T, scalar: T, rtol: T, atol: T, equal_nan: bool) bool {
+            const Vec = @Vector(lanes, T);
+            const scalar_vec: Vec = @splat(scalar);
+            var i: usize = 0;
+            while (i + lanes <= out.len) : (i += lanes) {
+                const values: Vec = input[i..][0..lanes].*;
+                out[i..][0..lanes].* = closeScalarMask(lanes, values, scalar_vec, rtol, atol, equal_nan);
+            }
+            while (i < out.len) : (i += 1) out[i] = closeValue(T, input[i], scalar, rtol, atol, equal_nan);
+            return true;
+        }
+
+        fn iscloseScalarSimd(out: []bool, input: []const T, scalar: T, rtol: T, atol: T, equal_nan: bool) bool {
+            if (comptime T == f64) return iscloseScalarSimdLanes(4, out, input, scalar, rtol, atol, equal_nan);
+            if (comptime T == f32) return iscloseScalarSimdLanes(8, out, input, scalar, rtol, atol, equal_nan);
+            return false;
+        }
+
+        fn allcloseScalarSimdLanes(comptime lanes: usize, input: []const T, scalar: T, rtol: T, atol: T, equal_nan: bool) bool {
+            const Vec = @Vector(lanes, T);
+            const scalar_vec: Vec = @splat(scalar);
+            var i: usize = 0;
+            while (i + lanes <= input.len) : (i += lanes) {
+                const values: Vec = input[i..][0..lanes].*;
+                if (!@reduce(.And, closeScalarMask(lanes, values, scalar_vec, rtol, atol, equal_nan))) return false;
+            }
+            while (i < input.len) : (i += 1) {
+                if (!closeValue(T, input[i], scalar, rtol, atol, equal_nan)) return false;
+            }
+            return true;
+        }
+
+        fn allcloseScalarSimd(input: []const T, scalar: T, rtol: T, atol: T, equal_nan: bool) ?bool {
+            if (comptime T == f64) return allcloseScalarSimdLanes(4, input, scalar, rtol, atol, equal_nan);
+            if (comptime T == f32) return allcloseScalarSimdLanes(8, input, scalar, rtol, atol, equal_nan);
+            return null;
         }
 
         fn compareOut(self: Self, other: Self, out: Array(bool), comptime op: fn (T, T) bool) ArrayError!void {
