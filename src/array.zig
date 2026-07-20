@@ -3433,9 +3433,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn neg(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewElementwiseScalarDefault(T, .mul, self, negValue(T, one(T)), .rhs)) |out| return out;
-                }
+                if (try axiom_backend.executeViewElementwiseScalarDefault(T, .mul, self, negValue(T, one(T)), .rhs)) |out| return out;
             }
             return self.unary(opNeg);
         }
@@ -22220,6 +22218,10 @@ test "array comparison and logical wrappers" {
     defer large_view_sqrt.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 8, 8 }, large_view_sqrt.shape);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f32, 2)), large_view_sqrt.data[10], 1e-6);
+    var large_view_neg = try large_view.neg();
+    defer large_view_neg.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 8, 8 }, large_view_neg.shape);
+    try std.testing.expectEqual(@as(f32, -2), large_view_neg.data[10]);
     var large_other_source = try Array(f32).ones(gpa, &.{ 8, 8 });
     defer large_other_source.deinit();
     large_other_source.data[10] = 1.5;
