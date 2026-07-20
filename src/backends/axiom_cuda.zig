@@ -3908,19 +3908,19 @@ fn finishDeviceGemmAdd(
 }
 
 pub fn tryDeviceBmmF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceBmm(f32, lhs, rhs, "bmm_lhs_f32", "bmm_rhs_f32", "bmm_out_f32");
+    return tryDeviceBmm(f32, lhs, rhs);
 }
 
 pub fn tryDeviceBmmF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceBmm(f64, lhs, rhs, "bmm_lhs_f64", "bmm_rhs_f64", "bmm_out_f64");
+    return tryDeviceBmm(f64, lhs, rhs);
 }
 
 pub fn tryDeviceBmmF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceBmm(f16, lhs, rhs, "bmm_lhs_f16", "bmm_rhs_f16", "bmm_out_f16");
+    return tryDeviceBmm(f16, lhs, rhs);
 }
 
 pub fn tryDeviceBmmBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceBmm(BFloat16, lhs, rhs, "bmm_lhs_bf16", "bmm_rhs_bf16", "bmm_out_bf16");
+    return tryDeviceBmm(BFloat16, lhs, rhs);
 }
 
 fn tryDeviceMatvec(
@@ -4042,22 +4042,31 @@ fn tryDeviceVecmat(
 }
 
 pub fn tryDeviceBatchedMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceBatchedMatmul(f32, lhs, rhs, "matmul_batch_lhs_f32", "matmul_batch_rhs_f32", "matmul_batch_out_f32");
+    return tryDeviceBatchedMatmul(f32, lhs, rhs);
 }
 
 pub fn tryDeviceBatchedMatmulF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceBatchedMatmul(f64, lhs, rhs, "matmul_batch_lhs_f64", "matmul_batch_rhs_f64", "matmul_batch_out_f64");
+    return tryDeviceBatchedMatmul(f64, lhs, rhs);
 }
 
 pub fn tryDeviceBatchedMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceBatchedMatmul(f16, lhs, rhs, "matmul_batch_lhs_f16", "matmul_batch_rhs_f16", "matmul_batch_out_f16");
+    return tryDeviceBatchedMatmul(f16, lhs, rhs);
 }
 
 pub fn tryDeviceBatchedMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceBatchedMatmul(BFloat16, lhs, rhs, "matmul_batch_lhs_bf16", "matmul_batch_rhs_bf16", "matmul_batch_out_bf16");
+    return tryDeviceBatchedMatmul(BFloat16, lhs, rhs);
 }
 
-fn tryDeviceBmm(
+pub fn tryDeviceBmm(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    const names = batchedGemmNames(T, "bmm");
+    return tryDeviceBmmNamed(T, lhs, rhs, names.lhs, names.rhs, names.out);
+}
+
+fn tryDeviceBmmNamed(
     comptime T: type,
     lhs: array_mod.Array(T),
     rhs: array_mod.Array(T),
@@ -4106,7 +4115,16 @@ fn tryDeviceBmm(
     return finishDeviceBatchedGemm(T, &out, lhs.allocator, lhs.device, lhs_desc, rhs_desc, out_desc);
 }
 
-fn tryDeviceBatchedMatmul(
+pub fn tryDeviceBatchedMatmul(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    const names = batchedGemmNames(T, "matmul_batch");
+    return tryDeviceBatchedMatmulNamed(T, lhs, rhs, names.lhs, names.rhs, names.out);
+}
+
+fn tryDeviceBatchedMatmulNamed(
     comptime T: type,
     lhs: array_mod.Array(T),
     rhs: array_mod.Array(T),
@@ -4210,6 +4228,30 @@ fn finishDeviceBatchedGemm(
     }
     out.deinit();
     return null;
+}
+
+const BatchedGemmNames = struct {
+    lhs: []const u8,
+    rhs: []const u8,
+    out: []const u8,
+};
+
+fn batchedGemmNames(comptime T: type, comptime prefix: []const u8) BatchedGemmNames {
+    const suffix = if (T == f32)
+        "f32"
+    else if (T == f64)
+        "f64"
+    else if (T == f16)
+        "f16"
+    else if (T == BFloat16)
+        "bf16"
+    else
+        @compileError("unsupported CUDA batched GEMM dtype: " ++ @typeName(T));
+    return .{
+        .lhs = prefix ++ "_lhs_" ++ suffix,
+        .rhs = prefix ++ "_rhs_" ++ suffix,
+        .out = prefix ++ "_out_" ++ suffix,
+    };
 }
 
 fn computeBatchBroadcastShape(allocator: std.mem.Allocator, lhs: []const usize, rhs: []const usize) array_mod.ArrayError![]usize {

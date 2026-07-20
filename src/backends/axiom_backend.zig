@@ -1674,28 +1674,9 @@ fn executeMpsBatchedVecmat(comptime T: type, vector: array_mod.Array(T), matrix:
 }
 
 fn executeCudaBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        const lhs32 = @as(array_mod.Array(f32), lhs);
-        const rhs32 = @as(array_mod.Array(f32), rhs);
-        if (try axiom_cuda.tryDeviceBmmF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
-        if (try axiom_cuda.tryDeviceBatchedMatmulF32(lhs32, rhs32)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f64) {
-        const lhs64 = @as(array_mod.Array(f64), lhs);
-        const rhs64 = @as(array_mod.Array(f64), rhs);
-        if (try axiom_cuda.tryDeviceBmmF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
-        if (try axiom_cuda.tryDeviceBatchedMatmulF64(lhs64, rhs64)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        const lhs16 = @as(array_mod.Array(f16), lhs);
-        const rhs16 = @as(array_mod.Array(f16), rhs);
-        if (try axiom_cuda.tryDeviceBmmF16(lhs16, rhs16)) |out| return @as(array_mod.Array(T), out);
-        if (try axiom_cuda.tryDeviceBatchedMatmulF16(lhs16, rhs16)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        const lhs_bf16 = @as(array_mod.Array(array_mod.BFloat16), lhs);
-        const rhs_bf16 = @as(array_mod.Array(array_mod.BFloat16), rhs);
-        if (try axiom_cuda.tryDeviceBmmBF16(lhs_bf16, rhs_bf16)) |out| return @as(array_mod.Array(T), out);
-        if (try axiom_cuda.tryDeviceBatchedMatmulBF16(lhs_bf16, rhs_bf16)) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    if (comptime !supportsAxiomCudaMatmul(T)) return null;
+    if (try axiom_cuda.tryDeviceBmm(T, lhs, rhs)) |out| return out;
+    return try axiom_cuda.tryDeviceBatchedMatmul(T, lhs, rhs);
 }
 
 fn executeMpsBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
