@@ -10,6 +10,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const build_options = @import("vectra_build_options");
 const array_mod = @import("../array.zig");
+const veyra = @import("veyra");
 const axiom = @import("axiom");
 const axiom_cpu = @import("axiom_cpu.zig");
 const axiom_cuda = @import("axiom_cuda.zig");
@@ -1427,6 +1428,8 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     const m = lhs.shape[0];
     const k = lhs.shape[1];
     const n = rhs.shape[1];
+    if (largeCpuGemm(m, n, k)) return executeCpuGemmDirect(T, lhs, rhs, null, 1.0, 0.0);
+
     var c = try array_mod.Array(T).zeros(lhs.allocator, &.{ m, n });
     defer c.deinit();
     var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
@@ -1457,11 +1460,78 @@ fn executeCpuGemmAddTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array
     return executeCpuGemmScaledTarget(T, lhs, rhs, addend, 1.0, 1.0);
 }
 
+const cpu_gemm_direct_min_mul_adds: usize = 4 * 1024 * 1024;
+
+fn largeCpuGemm(m: usize, n: usize, k: usize) bool {
+    const mn = std.math.mul(usize, m, n) catch return true;
+    const work = std.math.mul(usize, mn, k) catch return true;
+    return work >= cpu_gemm_direct_min_mul_adds;
+}
+
+fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: ?array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
+    errdefer out.deinit();
+    if (addend) |c| {
+        if (c.shape.len != 2 or c.shape[0] != m or c.shape[1] != n or !c.isContiguous()) {
+            out.deinit();
+            return null;
+        }
+        if (beta != 0) {
+            @memcpy(out.data, c.data);
+        } else {
+            @memset(out.data, 0);
+        }
+    } else {
+        @memset(out.data, 0);
+    }
+
+    const lhs_view = veyra.MatrixView(T).fromSlice(lhs.data, m, k, .row_major) catch {
+        out.deinit();
+        return null;
+    };
+    const rhs_view = veyra.MatrixView(T).fromSlice(rhs.data, k, n, .row_major) catch {
+        out.deinit();
+        return null;
+    };
+    const out_view = veyra.MatrixMut(T).fromSlice(out.data, m, n, .row_major) catch {
+        out.deinit();
+        return null;
+    };
+    if (T == f32) {
+        var workspace = veyra.GemmF32Workspace.init(std.heap.smp_allocator, 1) catch {
+            out.deinit();
+            return null;
+        };
+        defer workspace.deinit();
+        veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) }, &workspace) catch {
+            out.deinit();
+            return null;
+        };
+    } else {
+        var workspace = veyra.GemmF64Workspace.init(std.heap.smp_allocator, @max(n, 1)) catch {
+            out.deinit();
+            return null;
+        };
+        defer workspace.deinit();
+        veyra.gemmF64WithWorkspace(lhs_view, rhs_view, out_view, .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) }, &workspace) catch {
+            out.deinit();
+            return null;
+        };
+    }
+    return out;
+}
+
 fn executeCpuGemmScaledTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
     if (lhs.shape.len != 2 or rhs.shape.len != 2 or addend.shape.len != 2) return null;
     const m = lhs.shape[0];
     const k = lhs.shape[1];
     const n = rhs.shape[1];
+    if (largeCpuGemm(m, n, k)) return executeCpuGemmDirect(T, lhs, rhs, addend, alpha, beta);
+
     var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
     errdefer out.deinit();
     var spec = axiom.accelerator.TensorGemmSpec.rowMajor(
