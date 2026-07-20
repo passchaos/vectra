@@ -8429,9 +8429,28 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn scatterScalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.scatterScalar(axis_index, indices, value);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
+            for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
+                if (i != axis and index_dim > self_dim) return error.ShapeMismatch;
+            }
+
+            var out = try self.toArray();
+            errdefer out.deinit();
+            if (indices.data.len == 0) return out;
+            const idx_multi = try self.allocator.alloc(usize, indices.shape.len);
+            defer self.allocator.free(idx_multi);
+            var dst_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(dst_multi);
+
+            for (indices.data, 0..) |selected, flat| {
+                if (selected >= self.shape[axis]) return error.IndexOutOfBounds;
+                unravelIndexInto(flat, indices.shape, idx_multi);
+                @memcpy(dst_multi, idx_multi);
+                dst_multi[axis] = selected;
+                out.data[ravelIndex(dst_multi, out.strides)] = value;
+            }
+            return out;
         }
 
         pub fn scatterReduce(self: Self, axis_index: isize, indices: Array(usize), src: Array(T), reduction: ScatterReduce) ArrayError!Array(T) {
