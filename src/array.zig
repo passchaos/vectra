@@ -7525,15 +7525,11 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn takeAlongAxis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.takeAlongAxis(indices, axis_index);
+            return self.gather(axis_index, indices);
         }
 
         pub fn takeAlongAxisSigned(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.takeAlongAxisSigned(indices, axis_index);
+            return self.gatherSigned(axis_index, indices);
         }
 
         pub fn putAlongAxis(self: Self, indices: Array(usize), src: Array(T), axis_index: isize) ArrayError!Array(T) {
