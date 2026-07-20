@@ -7716,6 +7716,7 @@ pub fn ArrayView(comptime T: type) type {
 
         fn flatNonzeroFast(self: Self) ArrayError!?Array(usize) {
             if (!self.device.isCpu()) return null;
+            if (!self.isContiguous() and !self.isOneDimensionalStrided()) return null;
             const count = self.countNonzero();
             var out = try Array(usize).empty(self.allocator, &.{count});
             errdefer out.deinit();
@@ -7743,8 +7744,7 @@ pub fn ArrayView(comptime T: type) type {
                 }
                 return out;
             }
-            out.deinit();
-            return null;
+            unreachable;
         }
 
         pub fn nonzero(self: Self) ArrayError!Array(usize) {
