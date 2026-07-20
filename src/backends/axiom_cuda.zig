@@ -3616,38 +3616,48 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
 }
 
 pub fn tryDeviceMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceMatmul(f32, lhs, rhs, "lhs", "rhs", "out");
+    return tryDeviceMatmul(f32, lhs, rhs);
 }
 
 pub fn tryDeviceMatmulF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceMatmul(f64, lhs, rhs, "lhs64", "rhs64", "out64");
+    return tryDeviceMatmul(f64, lhs, rhs);
 }
 
 pub fn tryDeviceMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceMatmul(f16, lhs, rhs, "lhs16", "rhs16", "out16");
+    return tryDeviceMatmul(f16, lhs, rhs);
 }
 
 pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceMatmul(BFloat16, lhs, rhs, "lhs_bf16", "rhs_bf16", "out_bf16");
+    return tryDeviceMatmul(BFloat16, lhs, rhs);
 }
 
 pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceMatmulAdd(f32, lhs, rhs, addend, "lhs", "rhs", "addend", "out");
+    return tryDeviceMatmulAdd(f32, lhs, rhs, addend);
 }
 
 pub fn tryDeviceMatmulAddF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64), addend: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceMatmulAdd(f64, lhs, rhs, addend, "lhs64", "rhs64", "add64", "out64");
+    return tryDeviceMatmulAdd(f64, lhs, rhs, addend);
 }
 
 pub fn tryDeviceMatmulAddF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16), addend: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceMatmulAdd(f16, lhs, rhs, addend, "lhs16", "rhs16", "add16", "out16");
+    return tryDeviceMatmulAdd(f16, lhs, rhs, addend);
 }
 
 pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16), addend: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceMatmulAdd(BFloat16, lhs, rhs, addend, "lhs_bf16", "rhs_bf16", "add_bf16", "out_bf16");
+    return tryDeviceMatmulAdd(BFloat16, lhs, rhs, addend);
 }
 
-fn tryDeviceMatmulAdd(
+pub fn tryDeviceMatmulAdd(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    addend: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    const names = deviceGemmNames(T);
+    return tryDeviceMatmulAddNamed(T, lhs, rhs, addend, names.lhs, names.rhs, names.add, names.out);
+}
+
+fn tryDeviceMatmulAddNamed(
     comptime T: type,
     lhs: array_mod.Array(T),
     rhs: array_mod.Array(T),
@@ -3691,7 +3701,7 @@ fn tryDeviceMatmulAdd(
     // cuBLASLt is the preferred fused epilogue, but keeping a GEMM + device
     // elementwise fallback preserves device residency if a platform lacks the
     // matching Lt dtype/kernel while still avoiding any host materialization.
-    var product = tryDeviceMatmul(T, lhs, rhs, lhs_name, rhs_name, out_name) catch return null;
+    var product = tryDeviceMatmulNamed(T, lhs, rhs, lhs_name, rhs_name, out_name) catch return null;
     if (product) |*matmul_out| {
         defer matmul_out.deinit();
         return tryDeviceBinaryMemRefs(T, .add, matmul_out.*, addend);
@@ -3699,7 +3709,16 @@ fn tryDeviceMatmulAdd(
     return null;
 }
 
-fn tryDeviceMatmul(
+pub fn tryDeviceMatmul(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    const names = deviceGemmNames(T);
+    return tryDeviceMatmulNamed(T, lhs, rhs, names.lhs, names.rhs, names.out);
+}
+
+fn tryDeviceMatmulNamed(
     comptime T: type,
     lhs: array_mod.Array(T),
     rhs: array_mod.Array(T),
@@ -3729,6 +3748,37 @@ fn tryDeviceMatmul(
         return null;
     };
     return finishDeviceGemm(T, &out, lhs.allocator, lhs.device, spec);
+}
+
+const DeviceGemmNames = struct {
+    lhs: []const u8,
+    rhs: []const u8,
+    add: []const u8,
+    out: []const u8,
+};
+
+fn deviceGemmNames(comptime T: type) DeviceGemmNames {
+    return if (T == f32) .{
+        .lhs = "lhs",
+        .rhs = "rhs",
+        .add = "addend",
+        .out = "out",
+    } else if (T == f64) .{
+        .lhs = "lhs64",
+        .rhs = "rhs64",
+        .add = "add64",
+        .out = "out64",
+    } else if (T == f16) .{
+        .lhs = "lhs16",
+        .rhs = "rhs16",
+        .add = "add16",
+        .out = "out16",
+    } else if (T == BFloat16) .{
+        .lhs = "lhs_bf16",
+        .rhs = "rhs_bf16",
+        .add = "add_bf16",
+        .out = "out_bf16",
+    } else @compileError("unsupported CUDA device GEMM dtype: " ++ @typeName(T));
 }
 
 pub fn tryDeviceMatvecF32(matrix: array_mod.Array(f32), vector: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {

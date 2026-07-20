@@ -2007,16 +2007,8 @@ fn executeCpuMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod
 }
 
 fn executeCudaMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        if (try axiom_cuda.tryDeviceMatmulAddF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs), @as(array_mod.Array(f32), addend))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f64) {
-        if (try axiom_cuda.tryDeviceMatmulAddF64(@as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs), @as(array_mod.Array(f64), addend))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_cuda.tryDeviceMatmulAddF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs), @as(array_mod.Array(f16), addend))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_cuda.tryDeviceMatmulAddBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs), @as(array_mod.Array(array_mod.BFloat16), addend))) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    if (comptime !supportsAxiomCudaMatmul(T)) return null;
+    return try axiom_cuda.tryDeviceMatmulAdd(T, lhs, rhs, addend);
 }
 
 fn executeMpsMatmulAdd(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
