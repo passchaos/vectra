@@ -1530,12 +1530,76 @@ pub fn main(init: std.process.Init) !void {
         defer row_prod_keep.deinit();
         var row_prod_keep_back = try row_prod_keep.cpu();
         defer row_prod_keep_back.deinit();
+        var flat_sum = try mat_lhs.sum(null, false);
+        defer flat_sum.deinit();
+        var flat_sum_back = try flat_sum.cpu();
+        defer flat_sum_back.deinit();
+        var flat_prod_keep = try mat_lhs.prod(null, true);
+        defer flat_prod_keep.deinit();
+        var flat_prod_keep_back = try flat_prod_keep.cpu();
+        defer flat_prod_keep_back.deinit();
+        var flat_min = try mat_lhs.min(null, false);
+        defer flat_min.deinit();
+        var flat_min_back = try flat_min.cpu();
+        defer flat_min_back.deinit();
+        var flat_max_keep = try mat_lhs.max(null, true);
+        defer flat_max_keep.deinit();
+        var flat_max_keep_back = try flat_max_keep.cpu();
+        defer flat_max_keep_back.deinit();
+        var all_axes_sum = try mat_lhs.sumAxes(&.{ 0, 1 }, false);
+        defer all_axes_sum.deinit();
+        var all_axes_sum_back = try all_axes_sum.cpu();
+        defer all_axes_sum_back.deinit();
+        var all_axes_max_keep = try mat_lhs.maxAxes(&.{ 0, 1 }, true);
+        defer all_axes_max_keep.deinit();
+        var all_axes_max_keep_back = try all_axes_max_keep.cpu();
+        defer all_axes_max_keep_back.deinit();
+        var row_ptp = try mat_lhs.ptp(1, false);
+        defer row_ptp.deinit();
+        var row_ptp_back = try row_ptp.cpu();
+        defer row_ptp_back.deinit();
+        var flat_ptp_keep = try mat_lhs.ptp(null, true);
+        defer flat_ptp_keep.deinit();
+        var flat_ptp_keep_back = try flat_ptp_keep.cpu();
+        defer flat_ptp_keep_back.deinit();
+        var all_axes_ptp = try mat_lhs.ptpAxes(&.{ 0, 1 }, false);
+        defer all_axes_ptp.deinit();
+        var all_axes_ptp_back = try all_axes_ptp.cpu();
+        defer all_axes_ptp_back.deinit();
         reduction_ok = row_sum.device.isMps() and row_sum.device_storage != null and
             col_max.device.isMps() and col_max.device_storage != null and
             row_prod_keep.device.isMps() and row_prod_keep.device_storage != null and
+            flat_sum.device.isMps() and flat_sum.device_storage != null and
+            flat_prod_keep.device.isMps() and flat_prod_keep.device_storage != null and
+            flat_min.device.isMps() and flat_min.device_storage != null and
+            flat_max_keep.device.isMps() and flat_max_keep.device_storage != null and
+            all_axes_sum.device.isMps() and all_axes_sum.device_storage != null and
+            all_axes_max_keep.device.isMps() and all_axes_max_keep.device_storage != null and
+            row_ptp.device.isMps() and row_ptp.device_storage != null and
+            flat_ptp_keep.device.isMps() and flat_ptp_keep.device_storage != null and
+            all_axes_ptp.device.isMps() and all_axes_ptp.device_storage != null and
             equalF32(row_sum_back.data, &.{ 6, 15 }) and
             equalF32(col_max_back.data, &.{ 4, 5, 6 }) and
-            equalF32(row_prod_keep_back.data, &.{ 6, 120 });
+            std.mem.eql(usize, row_prod_keep_back.shape, &.{ 2, 1 }) and
+            equalF32(row_prod_keep_back.data, &.{ 6, 120 }) and
+            std.mem.eql(usize, flat_sum_back.shape, &.{}) and
+            equalF32(flat_sum_back.data, &.{21}) and
+            std.mem.eql(usize, flat_prod_keep_back.shape, &.{ 1, 1 }) and
+            equalF32(flat_prod_keep_back.data, &.{720}) and
+            std.mem.eql(usize, flat_min_back.shape, &.{}) and
+            equalF32(flat_min_back.data, &.{1}) and
+            std.mem.eql(usize, flat_max_keep_back.shape, &.{ 1, 1 }) and
+            equalF32(flat_max_keep_back.data, &.{6}) and
+            std.mem.eql(usize, all_axes_sum_back.shape, &.{}) and
+            equalF32(all_axes_sum_back.data, &.{21}) and
+            std.mem.eql(usize, all_axes_max_keep_back.shape, &.{ 1, 1 }) and
+            equalF32(all_axes_max_keep_back.data, &.{6}) and
+            std.mem.eql(usize, row_ptp_back.shape, &.{2}) and
+            equalF32(row_ptp_back.data, &.{ 2, 2 }) and
+            std.mem.eql(usize, flat_ptp_keep_back.shape, &.{ 1, 1 }) and
+            equalF32(flat_ptp_keep_back.data, &.{5}) and
+            std.mem.eql(usize, all_axes_ptp_back.shape, &.{}) and
+            equalF32(all_axes_ptp_back.data, &.{5});
 
         var row_mean = try mat_lhs.mean(1, false);
         defer row_mean.deinit();
@@ -1888,6 +1952,7 @@ pub fn main(init: std.process.Init) !void {
             closeF32(log_softmin_col_back.data, &.{ -softmin_col_log_denom, -softmin_col_log_denom, -softmin_col_log_denom, -3.0 - softmin_col_log_denom, -3.0 - softmin_col_log_denom, -3.0 - softmin_col_log_denom }, 0.001);
 
         fingerprint ^= hashF32(back.data) ^ hashF32(clone_back.data) ^ hashF32(reshaped_back.data) ^ hashF32(reshaped_infer_back.data) ^ hashF32(flattened_back.data) ^ hashF32(filled_back.data) ^ hashF32(add_back.data) ^ hashF32(div_back.data) ^ hashF32(scaled_back.data) ^ hashF32(rsub_back.data) ^ hashF32(square_back.data) ^ hashF32(sqrt_back.data) ^ hashF32(exp_back.data) ^ hashF32(log_back.data) ^ hashF32(exp2_back.data) ^ hashF32(expm1_back.data) ^ hashF32(log1p_back.data) ^ hashF32(log2_back.data) ^ hashF32(log10_back.data) ^ hashF32(sin_back.data) ^ hashF32(cos_back.data) ^ hashF32(tan_back.data) ^ hashF16(f16_add_back.data) ^ hashF16(f16_div_back.data) ^ hashF16(f16_scaled_back.data) ^ hashF16(f16_rsub_back.data) ^ hashF16(f16_abs_back.data) ^ hashF16(f16_sqrt_back.data) ^ hashF16(f16_exp_back.data) ^ hashF16(f16_mat_back.data) ^ hashF16(f16_mat_add_back.data) ^ hashF16(f16_mat_scaled_add_back.data) ^ hashF16(f16_matvec_back.data) ^ hashF16(f16_vecmat_back.data) ^ hashF16(f16_dot_back.data) ^ hashF16(f16_norm_back.data) ^ hashF16(f16_normalized_back.data) ^ hashF16(f16_cosine_back.data) ^ hashF16(f16_distance_back.data) ^ hashF16(f16_transposed_back.data) ^ hashF16(f16_row_added_back.data) ^ hashF16(f16_row_sub_back.data) ^ hashF16(f16_row_mul_back.data) ^ hashF16(f16_row_div_back.data) ^ hashF16(f16_col_added_back.data) ^ hashF16(f16_col_sub_back.data) ^ hashF16(f16_col_mul_back.data) ^ hashF16(f16_col_div_back.data) ^ hashF16(f16_row_sum_back.data) ^ hashF16(f16_col_max_back.data) ^ hashF16(f16_row_prod_keep_back.data) ^ hashF16(f16_maximum_back.data) ^ hashF16(f16_minimum_back.data) ^ hashF16(f16_maximum_scalar_back.data) ^ hashF16(f16_minimum_scalar_back.data) ^ hashF16(f16_relu_back.data) ^ hashF16(f16_threshold_back.data) ^ hashF16(f16_clip_back.data) ^ hashF16(f16_relu6_back.data) ^ hashF16(f16_hardtanh_back.data) ^ hashF16(f16_clip_array_back.data) ^ hashF16(f16_sigmoid_back.data) ^ hashF16(f16_softsign_back.data) ^ hashF16(f16_rsqrt_back.data) ^ hashF16(f16_leaky_back.data) ^ hashF16(f16_silu_back.data) ^ hashF16(f16_hardsigmoid_back.data) ^ hashF16(f16_hardswish_back.data) ^ hashF16(f16_softshrink_back.data) ^ hashF16(f16_elu_back.data) ^ hashF16(f16_celu_back.data) ^ hashF16(f16_pow_zero_back.data) ^ hashF16(f16_pow_one_back.data) ^ hashF16(f16_pow_recip_back.data) ^ hashF16(f16_pow_sqrt_back.data) ^ hashF16(f16_pow_rsqrt_back.data) ^ hashF16(f16_pow_square_back.data) ^ hashF16(f16_pow_cube_back.data) ^ hashF16(f16_addcmul_back.data) ^ hashF16(f16_addcdiv_back.data) ^ hashF16(f16_lerp_scalar_back.data) ^ hashF16(f16_lerp_array_back.data) ^ hashF16(f16_mse_back.data) ^ hashF16(f16_l1_back.data) ^ hashF16(f16_smooth_l1_back.data) ^ hashF16(f16_huber_back.data) ^ hashF16(f16_softmax_row_back.data) ^ hashF16(f16_softmax_col_back.data) ^ hashF16(f16_log_softmax_row_back.data) ^ hashF16(f16_log_softmax_col_back.data) ^ hashF16(f16_softmin_row_back.data) ^ hashF16(f16_softmin_col_back.data) ^ hashF16(f16_log_softmin_row_back.data) ^ hashF16(f16_log_softmin_col_back.data) ^ hashBF16(bf16_add_back.data) ^ hashBF16(bf16_div_back.data) ^ hashBF16(bf16_scaled_back.data) ^ hashBF16(bf16_rsub_back.data) ^ hashBF16(bf16_abs_back.data) ^ hashBF16(bf16_sqrt_back.data) ^ hashBF16(bf16_exp_back.data) ^ hashBF16(bf16_mat_back.data) ^ hashBF16(bf16_mat_add_back.data) ^ hashBF16(bf16_mat_scaled_add_back.data) ^ hashBF16(bf16_matvec_back.data) ^ hashBF16(bf16_vecmat_back.data) ^ hashBF16(bf16_dot_back.data) ^ hashBF16(bf16_norm_back.data) ^ hashBF16(bf16_normalized_back.data) ^ hashBF16(bf16_cosine_back.data) ^ hashBF16(bf16_distance_back.data) ^ hashBF16(bf16_transposed_back.data) ^ hashBF16(bf16_row_added_back.data) ^ hashBF16(bf16_row_sub_back.data) ^ hashBF16(bf16_row_mul_back.data) ^ hashBF16(bf16_row_div_back.data) ^ hashBF16(bf16_col_added_back.data) ^ hashBF16(bf16_col_sub_back.data) ^ hashBF16(bf16_col_mul_back.data) ^ hashBF16(bf16_col_div_back.data) ^ hashBF16(bf16_row_sum_back.data) ^ hashBF16(bf16_col_max_back.data) ^ hashBF16(bf16_col_min_back.data) ^ hashBF16(bf16_row_prod_keep_back.data) ^ hashBF16(bf16_maximum_back.data) ^ hashBF16(bf16_minimum_back.data) ^ hashBF16(bf16_maximum_scalar_back.data) ^ hashBF16(bf16_minimum_scalar_back.data) ^ hashBF16(bf16_relu_back.data) ^ hashBF16(bf16_threshold_back.data) ^ hashBF16(bf16_clip_back.data) ^ hashBF16(bf16_relu6_back.data) ^ hashBF16(bf16_hardtanh_back.data) ^ hashBF16(bf16_clip_array_back.data) ^ hashBF16(bf16_sigmoid_back.data) ^ hashBF16(bf16_softsign_back.data) ^ hashBF16(bf16_rsqrt_back.data) ^ hashBF16(bf16_leaky_back.data) ^ hashBF16(bf16_silu_back.data) ^ hashBF16(bf16_hardsigmoid_back.data) ^ hashBF16(bf16_hardswish_back.data) ^ hashBF16(bf16_softshrink_back.data) ^ hashBF16(bf16_elu_back.data) ^ hashBF16(bf16_celu_back.data) ^ hashBF16(bf16_pow_zero_back.data) ^ hashBF16(bf16_pow_one_back.data) ^ hashBF16(bf16_pow_recip_back.data) ^ hashBF16(bf16_pow_sqrt_back.data) ^ hashBF16(bf16_pow_rsqrt_back.data) ^ hashBF16(bf16_pow_square_back.data) ^ hashBF16(bf16_pow_cube_back.data) ^ hashBF16(bf16_addcmul_back.data) ^ hashBF16(bf16_addcdiv_back.data) ^ hashBF16(bf16_lerp_scalar_back.data) ^ hashBF16(bf16_lerp_array_back.data) ^ hashBF16(bf16_mse_back.data) ^ hashBF16(bf16_l1_back.data) ^ hashBF16(bf16_smooth_l1_back.data) ^ hashBF16(bf16_huber_back.data) ^ hashBF16(bf16_softmax_row_back.data) ^ hashBF16(bf16_softmax_col_back.data) ^ hashBF16(bf16_log_softmax_row_back.data) ^ hashBF16(bf16_log_softmax_col_back.data) ^ hashBF16(bf16_softmin_row_back.data) ^ hashBF16(bf16_softmin_col_back.data) ^ hashBF16(bf16_log_softmin_row_back.data) ^ hashBF16(bf16_log_softmin_col_back.data) ^ hashF32(mat_back.data) ^ hashF32(mat_add_back.data) ^ hashF32(mat_scaled_add_back.data) ^ hashF32(matvec_back.data) ^ hashF32(vecmat_back.data) ^ hashF32(dot_back.data) ^ hashF32(norm_back.data) ^ hashF32(normalized_back.data) ^ hashF32(cosine_back.data) ^ hashF32(distance_back.data) ^ hashF32(transposed_back.data) ^ hashF32(row_added_back.data) ^ hashF32(row_sub_back.data) ^ hashF32(row_mul_back.data) ^ hashF32(row_div_back.data) ^ hashF32(col_added_back.data) ^ hashF32(col_sub_back.data) ^ hashF32(col_mul_back.data) ^ hashF32(col_div_back.data) ^ hashF32(row_sum_back.data) ^ hashF32(col_max_back.data) ^ hashF32(row_prod_keep_back.data) ^ hashF32(maximum_back.data) ^ hashF32(minimum_back.data) ^ hashF32(maximum_scalar_back.data) ^ hashF32(minimum_scalar_back.data) ^ hashF32(relu_back.data) ^ hashF32(threshold_back.data) ^ hashF32(clip_back.data) ^ hashF32(relu6_back.data) ^ hashF32(hardtanh_back.data) ^ hashF32(clip_array_back.data) ^ hashF32(sigmoid_back.data) ^ hashF32(softsign_back.data) ^ hashF32(rsqrt_back.data) ^ hashF32(leaky_back.data) ^ hashF32(silu_back.data) ^ hashF32(hardsigmoid_back.data) ^ hashF32(hardswish_back.data) ^ hashF32(softshrink_back.data) ^ hashF32(elu_back.data) ^ hashF32(celu_back.data) ^ hashF32(pow_zero_back.data) ^ hashF32(pow_one_back.data) ^ hashF32(pow_recip_back.data) ^ hashF32(pow_sqrt_back.data) ^ hashF32(pow_rsqrt_back.data) ^ hashF32(pow_square_back.data) ^ hashF32(pow_cube_back.data) ^ hashF32(addcmul_back.data) ^ hashF32(addcdiv_back.data) ^ hashF32(lerp_scalar_back.data) ^ hashF32(lerp_array_back.data) ^ hashF32(mse_back.data) ^ hashF32(l1_back.data) ^ hashF32(smooth_l1_back.data) ^ hashF32(huber_back.data) ^ hashF32(softmax_row_back.data) ^ hashF32(softmax_col_back.data) ^ hashF32(log_softmax_row_back.data) ^ hashF32(log_softmax_col_back.data) ^ hashF32(softmin_row_back.data) ^ hashF32(softmin_col_back.data) ^ hashF32(log_softmin_row_back.data) ^ hashF32(log_softmin_col_back.data);
+        fingerprint ^= hashF32(flat_sum_back.data) ^ hashF32(flat_prod_keep_back.data) ^ hashF32(flat_min_back.data) ^ hashF32(flat_max_keep_back.data) ^ hashF32(all_axes_sum_back.data) ^ hashF32(all_axes_max_keep_back.data) ^ hashF32(row_ptp_back.data) ^ hashF32(flat_ptp_keep_back.data) ^ hashF32(all_axes_ptp_back.data);
         fingerprint ^= hashF16(f16_row_mean_back.data) ^ hashF16(f16_col_mean_keep_back.data) ^ hashF16(f16_flat_var_back.data) ^ hashF16(f16_row_var_back.data) ^ hashF16(f16_col_std_keep_back.data) ^ hashBF16(bf16_row_mean_back.data) ^ hashBF16(bf16_col_mean_keep_back.data) ^ hashBF16(bf16_flat_var_back.data) ^ hashBF16(bf16_row_var_back.data) ^ hashBF16(bf16_col_std_keep_back.data) ^ hashF32(row_mean_back.data) ^ hashF32(col_mean_keep_back.data) ^ hashF32(flat_var_back.data) ^ hashF32(row_var_back.data) ^ hashF32(col_std_keep_back.data);
         fingerprint ^= hashF16(f16_selu_back.data) ^ hashF16(f16_tanh_back.data) ^ hashF16(f16_tanhshrink_back.data) ^ hashBF16(bf16_selu_back.data) ^ hashBF16(bf16_tanh_back.data) ^ hashBF16(bf16_tanhshrink_back.data) ^ hashF32(selu_back.data) ^ hashF32(tanh_back.data) ^ hashF32(tanhshrink_back.data);
     }
