@@ -2812,6 +2812,35 @@ pub fn ArrayView(comptime T: type) type {
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out.shape, out_shape)) return error.ShapeMismatch;
             if (out.data.len == 0) return;
+            if (std.mem.eql(usize, self.shape, other.shape)) {
+                // Equal-shape views are common after slicing paired operands.
+                // They do not need the general broadcast iterator: contiguous
+                // and 1-D strided layouts can stream source offsets directly,
+                // avoiding one heap allocation plus an unravel/ravel per
+                // element in hot ArrayView elementwise paths.
+                if (self.isContiguous() and other.isContiguous()) {
+                    const lhs_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                    const rhs_end = std.math.add(usize, other.offset, other.numel()) catch return error.InvalidShape;
+                    if (lhs_end > self.data.len or rhs_end > other.data.len) return error.IndexOutOfBounds;
+                    for (self.data[self.offset..lhs_end], other.data[other.offset..rhs_end], out.data) |lhs, rhs, *slot| {
+                        slot.* = op(lhs, rhs);
+                    }
+                    return;
+                }
+                if (self.isOneDimensionalStrided() and other.isOneDimensionalStrided()) {
+                    const lhs_end = try self.oneDimensionalEndOffset();
+                    const rhs_end = try other.oneDimensionalEndOffset();
+                    if (lhs_end >= self.data.len or rhs_end >= other.data.len) return error.IndexOutOfBounds;
+                    var lhs_offset = self.offset;
+                    var rhs_offset = other.offset;
+                    for (out.data) |*slot| {
+                        slot.* = op(self.data[lhs_offset], other.data[rhs_offset]);
+                        lhs_offset += self.strides[0];
+                        rhs_offset += other.strides[0];
+                    }
+                    return;
+                }
+            }
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
             defer self.allocator.free(out_multi);
             for (out.data, 0..) |*slot, flat| {
@@ -27511,6 +27540,34 @@ test "array view scalar elementwise and logical wrappers are view aware" {
 
 test "array view binary and fused elementwise wrappers are view aware" {
     const gpa = std.testing.allocator;
+
+    var contiguous_lhs_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 50, 60 }, &.{ 3, 2 });
+    defer contiguous_lhs_source.deinit();
+    var contiguous_rhs_source = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30, 40, 70, 80 }, &.{ 3, 2 });
+    defer contiguous_rhs_source.deinit();
+    var contiguous_lhs = try contiguous_lhs_source.narrowView(0, 0, 2);
+    defer contiguous_lhs.deinit();
+    var contiguous_rhs = try contiguous_rhs_source.narrowView(0, 0, 2);
+    defer contiguous_rhs.deinit();
+    try std.testing.expect(contiguous_lhs.isContiguous());
+    try std.testing.expect(contiguous_rhs.isContiguous());
+    var contiguous_sum = try contiguous_lhs.add(contiguous_rhs);
+    defer contiguous_sum.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 11, 22, 33, 44 }, contiguous_sum.data);
+
+    var strided_lhs_source = try Array(f64).fromSlice(gpa, &.{ 2, 90, 3, 80, 4, 70 }, &.{6});
+    defer strided_lhs_source.deinit();
+    var strided_rhs_source = try Array(f64).fromSlice(gpa, &.{ 5, 60, 7, 50, 11, 40 }, &.{6});
+    defer strided_rhs_source.deinit();
+    var strided_lhs = try strided_lhs_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_lhs.deinit();
+    var strided_rhs = try strided_rhs_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_rhs.deinit();
+    try std.testing.expect(!strided_lhs.isContiguous());
+    try std.testing.expect(!strided_rhs.isContiguous());
+    var strided_product = try strided_lhs.mul(strided_rhs);
+    defer strided_product.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 21, 44 }, strided_product.data);
 
     var lhs_source = try Array(f64).fromSlice(gpa, &.{
         1.0, 90.0, 2.0, 80.0,
