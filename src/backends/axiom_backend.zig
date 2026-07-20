@@ -3132,26 +3132,36 @@ fn executeCpuReductionFastPath(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
     if (!input.device.isCpu() or input.data.len < cpu_reduction_fast_path_min_elements) return null;
-    if (input.shape.len != 2 or axis != 1 or !input.isContiguous()) return null;
+    if (input.shape.len != 2 or !input.isContiguous()) return null;
     const rows = input.shape[0];
     const cols = input.shape[1];
-    if (cols == 0) return null;
+    if (rows == 0 or cols == 0) return null;
 
     var out_shape_storage: [2]usize = undefined;
     const out_shape = if (keepdims) shape: {
-        out_shape_storage = .{ rows, 1 };
+        out_shape_storage = if (axis == 0)
+            .{ 1, cols }
+        else
+            .{ rows, 1 };
         break :shape out_shape_storage[0..2];
     } else shape: {
-        out_shape_storage[0] = rows;
+        out_shape_storage[0] = if (axis == 0) cols else rows;
         break :shape out_shape_storage[0..1];
     };
     var out = try array_mod.Array(T).empty(input.allocator, out_shape);
     errdefer out.deinit();
 
-    if (T == f32)
-        cpuReductionRows(f32, 8, op, out.data, input.data, rows, cols)
-    else
-        cpuReductionRows(f64, 4, op, out.data, input.data, rows, cols);
+    if (axis == 0) {
+        if (T == f32)
+            cpuReductionColumns(f32, 8, op, out.data, input.data, rows, cols)
+        else
+            cpuReductionColumns(f64, 4, op, out.data, input.data, rows, cols);
+    } else {
+        if (T == f32)
+            cpuReductionRows(f32, 8, op, out.data, input.data, rows, cols)
+        else
+            cpuReductionRows(f64, 4, op, out.data, input.data, rows, cols);
+    }
     return out;
 }
 
@@ -3208,6 +3218,68 @@ fn cpuReductionRowsOp(
             acc = reductionCombine(T, op, acc, row_values[i]);
         }
         out[row] = acc;
+    }
+}
+
+fn cpuReductionColumns(
+    comptime T: type,
+    comptime lanes: usize,
+    op: DialectReductionOp,
+    out: []T,
+    input: []const T,
+    rows: usize,
+    cols: usize,
+) void {
+    switch (op) {
+        .sum => cpuReductionColumnsOp(T, lanes, .sum, out, input, rows, cols),
+        .prod => cpuReductionColumnsOp(T, lanes, .prod, out, input, rows, cols),
+        .min => cpuReductionColumnsOp(T, lanes, .min, out, input, rows, cols),
+        .max => cpuReductionColumnsOp(T, lanes, .max, out, input, rows, cols),
+    }
+}
+
+fn cpuReductionColumnsOp(
+    comptime T: type,
+    comptime lanes: usize,
+    comptime op: DialectReductionOp,
+    out: []T,
+    input: []const T,
+    rows: usize,
+    cols: usize,
+) void {
+    const Vec = @Vector(lanes, T);
+    var col: usize = 0;
+    while (col + lanes * 2 <= cols) : (col += lanes * 2) {
+        var acc0: Vec = @splat(reductionIdentity(T, op));
+        var acc1: Vec = @splat(reductionIdentity(T, op));
+        var row: usize = 0;
+        while (row < rows) : (row += 1) {
+            const row_values = input[row * cols ..][0..cols];
+            const v0: Vec = row_values[col..][0..lanes].*;
+            const v1: Vec = row_values[col + lanes ..][0..lanes].*;
+            acc0 = vectorReductionCombine(T, lanes, op, acc0, v0);
+            acc1 = vectorReductionCombine(T, lanes, op, acc1, v1);
+        }
+        out[col..][0..lanes].* = acc0;
+        out[col + lanes ..][0..lanes].* = acc1;
+    }
+    while (col + lanes <= cols) : (col += lanes) {
+        var acc: Vec = @splat(reductionIdentity(T, op));
+        var row: usize = 0;
+        while (row < rows) : (row += 1) {
+            const row_values = input[row * cols ..][0..cols];
+            const value: Vec = row_values[col..][0..lanes].*;
+            acc = vectorReductionCombine(T, lanes, op, acc, value);
+        }
+        out[col..][0..lanes].* = acc;
+    }
+    while (col < cols) : (col += 1) {
+        var acc = reductionIdentity(T, op);
+        var row: usize = 0;
+        while (row < rows) : (row += 1) {
+            acc = reductionCombine(T, op, acc, input[row * cols + col]);
+        }
+        out[col] = acc;
     }
 }
 
@@ -4909,6 +4981,36 @@ test "CPU row reduction SIMD helper covers reduction ops and tails" {
     try std.testing.expectEqualSlices(f64, &.{ 120, 120 }, &out64);
     cpuReductionRows(f64, 4, .min, &out64, &input64, rows64, cols64);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1 }, &out64);
+}
+
+test "CPU column reduction SIMD helper covers vector blocks and tails" {
+    const rows32: usize = 3;
+    const cols32: usize = 9;
+    const input32 = [_]f32{
+        1, 2, 3, 4, 5, 6, 7, 8, 9,
+        10, 20, 30, 40, 50, 60, 70, 80, 90,
+        100, 200, 300, 400, 500, 600, 700, 800, 900,
+    };
+    var out32: [cols32]f32 = undefined;
+
+    cpuReductionColumns(f32, 8, .sum, &out32, &input32, rows32, cols32);
+    try std.testing.expectEqualSlices(f32, &.{ 111, 222, 333, 444, 555, 666, 777, 888, 999 }, &out32);
+    cpuReductionColumns(f32, 8, .max, &out32, &input32, rows32, cols32);
+    try std.testing.expectEqualSlices(f32, &.{ 100, 200, 300, 400, 500, 600, 700, 800, 900 }, &out32);
+
+    const rows64: usize = 3;
+    const cols64: usize = 5;
+    const input64 = [_]f64{
+        1, 2, 3, 4, 5,
+        2, 3, 4, 5, 6,
+        3, 4, 5, 6, 7,
+    };
+    var out64: [cols64]f64 = undefined;
+
+    cpuReductionColumns(f64, 4, .prod, &out64, &input64, rows64, cols64);
+    try std.testing.expectEqualSlices(f64, &.{ 6, 24, 60, 120, 210 }, &out64);
+    cpuReductionColumns(f64, 4, .min, &out64, &input64, rows64, cols64);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 5 }, &out64);
 }
 
 test "Axiom dialect lowering reports linalg memref gpu route" {
