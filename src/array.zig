@@ -15974,6 +15974,7 @@ pub fn Array(comptime T: type) type {
         fn opLog1p(a: T) T {
             if (comptime isComplex(T)) return std.math.complex.log(a.add(one(T)));
             if (comptime T == BFloat16) return BFloat16.fromF32(std.math.log1p(a.toF32()));
+            if (comptime T == f16) return @floatCast(std.math.log1p(@as(f32, @floatCast(a))));
             return std.math.log1p(a);
         }
         fn opExpm1(a: T) T {
@@ -16782,50 +16783,38 @@ pub fn Array(comptime T: type) type {
 
         pub fn exp2(self: Self) ArrayError!Self {
             ensureFloat(T);
-            if (comptime T == f32 or T == f64) {
-                if (try axiom_backend.executeUnaryDefault(T, .exp2, self)) |out| return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .exp2, self)) |out| return out;
             return self.unary(opExp2);
         }
 
         pub fn expm1(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
-                if (try axiom_backend.executeUnaryDefault(T, .expm1, self)) |out| return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .expm1, self)) |out| return out;
             return self.unary(opExpm1);
         }
 
         pub fn log(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
-                if (try axiom_backend.executeUnaryDefault(T, .log, self)) |out| return out;
-                if (self.device.isCuda()) return error.BackendFailure;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .log, self)) |out| return out;
+            if (self.device.isCuda()) return error.BackendFailure;
             return self.unary(opLog);
         }
 
         pub fn log2(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
-                if (try axiom_backend.executeUnaryDefault(T, .log2, self)) |out| return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .log2, self)) |out| return out;
             return self.unary(opLog2);
         }
 
         pub fn log10(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
-                if (try axiom_backend.executeUnaryDefault(T, .log10, self)) |out| return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .log10, self)) |out| return out;
             return self.unary(opLog10);
         }
 
         pub fn log1p(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
-                if (try axiom_backend.executeUnaryDefault(T, .log1p, self)) |out| return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .log1p, self)) |out| return out;
             return self.unary(opLog1p);
         }
 
@@ -16972,25 +16961,19 @@ pub fn Array(comptime T: type) type {
 
         pub fn sin(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
-                if (try axiom_backend.executeUnaryDefault(T, .sin, self)) |out| return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .sin, self)) |out| return out;
             return self.unary(opSin);
         }
 
         pub fn cos(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
-                if (try axiom_backend.executeUnaryDefault(T, .cos, self)) |out| return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .cos, self)) |out| return out;
             return self.unary(opCos);
         }
 
         pub fn tan(self: Self) ArrayError!Self {
             ensureNumeric(T);
-            if (comptime T == f32 or T == f64) {
-                if (try axiom_backend.executeUnaryDefault(T, .tan, self)) |out| return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .tan, self)) |out| return out;
             return self.unary(opTan);
         }
 

@@ -3832,6 +3832,15 @@ fn mpsUnaryOpF16(op: ExecutionUnaryOp) ?axiom.accelerator.MpsUnaryOp {
         .square => .square,
         .sqrt => .sqrt,
         .exp => .exp,
+        .log => .log,
+        .exp2 => .exp2,
+        .expm1 => .expm1,
+        .log1p => .log1p,
+        .log2 => .log2,
+        .log10 => .log10,
+        .sin => .sin,
+        .cos => .cos,
+        .tan => .tan,
         else => null,
     };
 }
@@ -3842,6 +3851,15 @@ fn mpsUnaryOpBF16(op: ExecutionUnaryOp) ?axiom.accelerator.MpsUnaryOp {
         .square => .square,
         .sqrt => .sqrt,
         .exp => .exp,
+        .log => .log,
+        .exp2 => .exp2,
+        .expm1 => .expm1,
+        .log1p => .log1p,
+        .log2 => .log2,
+        .log10 => .log10,
+        .sin => .sin,
+        .cos => .cos,
+        .tan => .tan,
         else => null,
     };
 }

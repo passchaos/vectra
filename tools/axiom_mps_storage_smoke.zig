@@ -410,12 +410,68 @@ pub fn main(init: std.process.Init) !void {
         defer f16_exp.deinit();
         var f16_exp_back = try f16_exp.cpu();
         defer f16_exp_back.deinit();
+        var f16_log = try f16_lhs.log();
+        defer f16_log.deinit();
+        var f16_log_back = try f16_log.cpu();
+        defer f16_log_back.deinit();
+        var f16_exp2 = try f16_lhs.exp2();
+        defer f16_exp2.deinit();
+        var f16_exp2_back = try f16_exp2.cpu();
+        defer f16_exp2_back.deinit();
+        var f16_expm1 = try f16_lhs.expm1();
+        defer f16_expm1.deinit();
+        var f16_expm1_back = try f16_expm1.cpu();
+        defer f16_expm1_back.deinit();
+        var f16_log1p = try f16_lhs.log1p();
+        defer f16_log1p.deinit();
+        var f16_log1p_back = try f16_log1p.cpu();
+        defer f16_log1p_back.deinit();
+        var f16_log2 = try f16_lhs.log2();
+        defer f16_log2.deinit();
+        var f16_log2_back = try f16_log2.cpu();
+        defer f16_log2_back.deinit();
+        var f16_log10 = try f16_lhs.log10();
+        defer f16_log10.deinit();
+        var f16_log10_back = try f16_log10.cpu();
+        defer f16_log10_back.deinit();
+        var f16_trig = try vx.Array(f16).fromSliceOn(allocator, &.{ @as(f16, 0.0), @as(f16, 0.5), @as(f16, 1.0), @as(f16, -0.5) }, &.{ 2, 2 }, vx.mps(0));
+        defer f16_trig.deinit();
+        var f16_sin = try f16_trig.sin();
+        defer f16_sin.deinit();
+        var f16_sin_back = try f16_sin.cpu();
+        defer f16_sin_back.deinit();
+        var f16_cos = try f16_trig.cos();
+        defer f16_cos.deinit();
+        var f16_cos_back = try f16_cos.cpu();
+        defer f16_cos_back.deinit();
+        var f16_tan = try f16_trig.tan();
+        defer f16_tan.deinit();
+        var f16_tan_back = try f16_tan.cpu();
+        defer f16_tan_back.deinit();
         f16_unary_ok = f16_abs.device.isMps() and f16_abs.device_storage != null and
             f16_sqrt.device.isMps() and f16_sqrt.device_storage != null and
             f16_exp.device.isMps() and f16_exp.device_storage != null and
+            f16_log.device.isMps() and f16_log.device_storage != null and
+            f16_exp2.device.isMps() and f16_exp2.device_storage != null and
+            f16_expm1.device.isMps() and f16_expm1.device_storage != null and
+            f16_log1p.device.isMps() and f16_log1p.device_storage != null and
+            f16_log2.device.isMps() and f16_log2.device_storage != null and
+            f16_log10.device.isMps() and f16_log10.device_storage != null and
+            f16_sin.device.isMps() and f16_sin.device_storage != null and
+            f16_cos.device.isMps() and f16_cos.device_storage != null and
+            f16_tan.device.isMps() and f16_tan.device_storage != null and
             closeF16(f16_abs_back.data, &.{ 1, 2, 3, 4 }, 0.02) and
             closeF16(f16_sqrt_back.data, &.{ 1, std.math.sqrt(@as(f32, 2)), std.math.sqrt(@as(f32, 3)), 2 }, 0.03) and
-            closeF16(f16_exp_back.data, &.{ std.math.exp(@as(f32, 1)), std.math.exp(@as(f32, 2)), std.math.exp(@as(f32, 3)), std.math.exp(@as(f32, 4)) }, 0.5);
+            closeF16(f16_exp_back.data, &.{ std.math.exp(@as(f32, 1)), std.math.exp(@as(f32, 2)), std.math.exp(@as(f32, 3)), std.math.exp(@as(f32, 4)) }, 0.5) and
+            closeF16(f16_log_back.data, &.{ 0.0, std.math.log(f32, std.math.e, 2.0), std.math.log(f32, std.math.e, 3.0), std.math.log(f32, std.math.e, 4.0) }, 0.03) and
+            closeF16(f16_exp2_back.data, &.{ 2.0, 4.0, 8.0, 16.0 }, 0.03) and
+            closeF16(f16_expm1_back.data, &.{ std.math.exp(@as(f32, 1)) - 1.0, std.math.exp(@as(f32, 2)) - 1.0, std.math.exp(@as(f32, 3)) - 1.0, std.math.exp(@as(f32, 4)) - 1.0 }, 0.5) and
+            closeF16(f16_log1p_back.data, &.{ std.math.log(f32, std.math.e, 2.0), std.math.log(f32, std.math.e, 3.0), std.math.log(f32, std.math.e, 4.0), std.math.log(f32, std.math.e, 5.0) }, 0.03) and
+            closeF16(f16_log2_back.data, &.{ 0.0, 1.0, std.math.log2(@as(f32, 3.0)), 2.0 }, 0.03) and
+            closeF16(f16_log10_back.data, &.{ 0.0, std.math.log10(@as(f32, 2.0)), std.math.log10(@as(f32, 3.0)), std.math.log10(@as(f32, 4.0)) }, 0.03) and
+            closeF16(f16_sin_back.data, &.{ std.math.sin(@as(f32, 0.0)), std.math.sin(@as(f32, 0.5)), std.math.sin(@as(f32, 1.0)), std.math.sin(@as(f32, -0.5)) }, 0.03) and
+            closeF16(f16_cos_back.data, &.{ std.math.cos(@as(f32, 0.0)), std.math.cos(@as(f32, 0.5)), std.math.cos(@as(f32, 1.0)), std.math.cos(@as(f32, -0.5)) }, 0.03) and
+            closeF16(f16_tan_back.data, &.{ std.math.tan(@as(f32, 0.0)), std.math.tan(@as(f32, 0.5)), std.math.tan(@as(f32, 1.0)), std.math.tan(@as(f32, -0.5)) }, 0.05);
 
         var f16_mat_lhs = try vx.Array(f16).fromSliceOn(allocator, &.{ @as(f16, 1), @as(f16, 2), @as(f16, 3), @as(f16, 4), @as(f16, 5), @as(f16, 6) }, &.{ 2, 3 }, vx.mps(0));
         defer f16_mat_lhs.deinit();
@@ -981,12 +1037,68 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_exp.deinit();
         var bf16_exp_back = try bf16_exp.cpu();
         defer bf16_exp_back.deinit();
+        var bf16_log = try bf16_lhs.log();
+        defer bf16_log.deinit();
+        var bf16_log_back = try bf16_log.cpu();
+        defer bf16_log_back.deinit();
+        var bf16_exp2 = try bf16_lhs.exp2();
+        defer bf16_exp2.deinit();
+        var bf16_exp2_back = try bf16_exp2.cpu();
+        defer bf16_exp2_back.deinit();
+        var bf16_expm1 = try bf16_lhs.expm1();
+        defer bf16_expm1.deinit();
+        var bf16_expm1_back = try bf16_expm1.cpu();
+        defer bf16_expm1_back.deinit();
+        var bf16_log1p = try bf16_lhs.log1p();
+        defer bf16_log1p.deinit();
+        var bf16_log1p_back = try bf16_log1p.cpu();
+        defer bf16_log1p_back.deinit();
+        var bf16_log2 = try bf16_lhs.log2();
+        defer bf16_log2.deinit();
+        var bf16_log2_back = try bf16_log2.cpu();
+        defer bf16_log2_back.deinit();
+        var bf16_log10 = try bf16_lhs.log10();
+        defer bf16_log10.deinit();
+        var bf16_log10_back = try bf16_log10.cpu();
+        defer bf16_log10_back.deinit();
+        var bf16_trig = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{ vx.BFloat16.fromF32(0.0), vx.BFloat16.fromF32(0.5), vx.BFloat16.fromF32(1.0), vx.BFloat16.fromF32(-0.5) }, &.{ 2, 2 }, vx.mps(0));
+        defer bf16_trig.deinit();
+        var bf16_sin = try bf16_trig.sin();
+        defer bf16_sin.deinit();
+        var bf16_sin_back = try bf16_sin.cpu();
+        defer bf16_sin_back.deinit();
+        var bf16_cos = try bf16_trig.cos();
+        defer bf16_cos.deinit();
+        var bf16_cos_back = try bf16_cos.cpu();
+        defer bf16_cos_back.deinit();
+        var bf16_tan = try bf16_trig.tan();
+        defer bf16_tan.deinit();
+        var bf16_tan_back = try bf16_tan.cpu();
+        defer bf16_tan_back.deinit();
         bf16_unary_ok = bf16_abs.device.isMps() and bf16_abs.device_storage != null and
             bf16_sqrt.device.isMps() and bf16_sqrt.device_storage != null and
             bf16_exp.device.isMps() and bf16_exp.device_storage != null and
+            bf16_log.device.isMps() and bf16_log.device_storage != null and
+            bf16_exp2.device.isMps() and bf16_exp2.device_storage != null and
+            bf16_expm1.device.isMps() and bf16_expm1.device_storage != null and
+            bf16_log1p.device.isMps() and bf16_log1p.device_storage != null and
+            bf16_log2.device.isMps() and bf16_log2.device_storage != null and
+            bf16_log10.device.isMps() and bf16_log10.device_storage != null and
+            bf16_sin.device.isMps() and bf16_sin.device_storage != null and
+            bf16_cos.device.isMps() and bf16_cos.device_storage != null and
+            bf16_tan.device.isMps() and bf16_tan.device_storage != null and
             closeBF16(bf16_abs_back.data, &.{ 1, 2, 3, 4 }, 0.125) and
             closeBF16(bf16_sqrt_back.data, &.{ 1, std.math.sqrt(@as(f32, 2)), std.math.sqrt(@as(f32, 3)), 2 }, 0.125) and
-            closeBF16(bf16_exp_back.data, &.{ std.math.exp(@as(f32, 1)), std.math.exp(@as(f32, 2)), std.math.exp(@as(f32, 3)), std.math.exp(@as(f32, 4)) }, 1.0);
+            closeBF16(bf16_exp_back.data, &.{ std.math.exp(@as(f32, 1)), std.math.exp(@as(f32, 2)), std.math.exp(@as(f32, 3)), std.math.exp(@as(f32, 4)) }, 1.0) and
+            closeBF16(bf16_log_back.data, &.{ 0.0, std.math.log(f32, std.math.e, 2.0), std.math.log(f32, std.math.e, 3.0), std.math.log(f32, std.math.e, 4.0) }, 0.125) and
+            closeBF16(bf16_exp2_back.data, &.{ 2.0, 4.0, 8.0, 16.0 }, 0.25) and
+            closeBF16(bf16_expm1_back.data, &.{ std.math.exp(@as(f32, 1)) - 1.0, std.math.exp(@as(f32, 2)) - 1.0, std.math.exp(@as(f32, 3)) - 1.0, std.math.exp(@as(f32, 4)) - 1.0 }, 1.0) and
+            closeBF16(bf16_log1p_back.data, &.{ std.math.log(f32, std.math.e, 2.0), std.math.log(f32, std.math.e, 3.0), std.math.log(f32, std.math.e, 4.0), std.math.log(f32, std.math.e, 5.0) }, 0.125) and
+            closeBF16(bf16_log2_back.data, &.{ 0.0, 1.0, std.math.log2(@as(f32, 3.0)), 2.0 }, 0.125) and
+            closeBF16(bf16_log10_back.data, &.{ 0.0, std.math.log10(@as(f32, 2.0)), std.math.log10(@as(f32, 3.0)), std.math.log10(@as(f32, 4.0)) }, 0.125) and
+            closeBF16(bf16_sin_back.data, &.{ std.math.sin(@as(f32, 0.0)), std.math.sin(@as(f32, 0.5)), std.math.sin(@as(f32, 1.0)), std.math.sin(@as(f32, -0.5)) }, 0.125) and
+            closeBF16(bf16_cos_back.data, &.{ std.math.cos(@as(f32, 0.0)), std.math.cos(@as(f32, 0.5)), std.math.cos(@as(f32, 1.0)), std.math.cos(@as(f32, -0.5)) }, 0.125) and
+            closeBF16(bf16_tan_back.data, &.{ std.math.tan(@as(f32, 0.0)), std.math.tan(@as(f32, 0.5)), std.math.tan(@as(f32, 1.0)), std.math.tan(@as(f32, -0.5)) }, 0.15);
 
         var bf16_mat_lhs = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{ vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(2), vx.BFloat16.fromF32(3), vx.BFloat16.fromF32(4), vx.BFloat16.fromF32(5), vx.BFloat16.fromF32(6) }, &.{ 2, 3 }, vx.mps(0));
         defer bf16_mat_lhs.deinit();
