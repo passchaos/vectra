@@ -7651,9 +7651,41 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(usize) {
+            if (axes.len == 0) return self.countNonzeroValues();
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.countNonzeroAxes(axes, keepdims);
+        }
+
+        fn countNonzeroValues(self: Self) ArrayError!Array(usize) {
+            var values = try Array(usize).empty(self.allocator, self.shape);
+            errdefer values.deinit();
+            if (values.data.len == 0) return values;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], values.data) |value, *slot| {
+                    slot.* = if (value == zero(T)) 0 else 1;
+                }
+                return values;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (values.data) |*slot| {
+                    slot.* = if (self.data[source_offset] == zero(T)) 0 else 1;
+                    source_offset += self.strides[0];
+                }
+                return values;
+            }
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (values.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                slot.* = if (self.data[self.offset + ravelIndex(multi, self.strides)] == zero(T)) 0 else 1;
+            }
+            return values;
         }
 
         pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
