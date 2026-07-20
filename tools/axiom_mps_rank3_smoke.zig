@@ -9,6 +9,9 @@ pub fn main(init: std.process.Init) !void {
     var f32_ok = !available;
     var f16_ok = !available;
     var bf16_ok = !available;
+    var f32_stats_ok = !available;
+    var f16_stats_ok = !available;
+    var bf16_stats_ok = !available;
     var fingerprint = report.fingerprint();
 
     if (available) {
@@ -44,6 +47,22 @@ pub fn main(init: std.process.Init) !void {
             closeF32(max_last_back.data, &.{ 2, 4 }, 0.001);
         fingerprint ^= hashF32(sum_last_back.data) ^ hashF32(prod_last_back.data) ^ hashF32(min_last_back.data) ^ hashF32(max_last_back.data);
 
+        var var_partial = try input.varianceAxes(&.{ 0, 2 }, false, 0.0);
+        defer var_partial.deinit();
+        var var_partial_back = try var_partial.cpu();
+        defer var_partial_back.deinit();
+        var std_partial_keep = try input.stddevAxes(&.{ 0, 2 }, true, 0.0);
+        defer std_partial_keep.deinit();
+        var std_partial_keep_back = try std_partial_keep.cpu();
+        defer std_partial_keep_back.deinit();
+        f32_stats_ok = var_partial.device.isMps() and var_partial.device_storage != null and
+            std_partial_keep.device.isMps() and std_partial_keep.device_storage != null and
+            std.mem.eql(usize, var_partial_back.shape, &.{2}) and
+            closeF32(var_partial_back.data, &.{ 0.25, 0.25 }, 0.001) and
+            std.mem.eql(usize, std_partial_keep_back.shape, &.{ 1, 2, 1 }) and
+            closeF32(std_partial_keep_back.data, &.{ 0.5, 0.5 }, 0.001);
+        fingerprint ^= hashF32(var_partial_back.data) ^ hashF32(std_partial_keep_back.data);
+
         var f16_input = try vx.Array(f16).fromSliceOn(allocator, &.{ @as(f16, 1), @as(f16, 2), @as(f16, 3), @as(f16, 4) }, &.{ 1, 2, 2 }, vx.mps(0));
         defer f16_input.deinit();
         var f16_sum_last = try f16_input.sum(2, false);
@@ -76,6 +95,22 @@ pub fn main(init: std.process.Init) !void {
             closeF16(f16_max_last_back.data, &.{ 2, 4 }, 0.05);
         fingerprint ^= hashF16(f16_sum_last_back.data) ^ hashF16(f16_prod_last_back.data) ^ hashF16(f16_min_last_back.data) ^ hashF16(f16_max_last_back.data);
 
+        var f16_var_partial = try f16_input.varianceAxes(&.{ 0, 2 }, false, @as(f16, 0.0));
+        defer f16_var_partial.deinit();
+        var f16_var_partial_back = try f16_var_partial.cpu();
+        defer f16_var_partial_back.deinit();
+        var f16_std_partial_keep = try f16_input.stddevAxes(&.{ 0, 2 }, true, @as(f16, 0.0));
+        defer f16_std_partial_keep.deinit();
+        var f16_std_partial_keep_back = try f16_std_partial_keep.cpu();
+        defer f16_std_partial_keep_back.deinit();
+        f16_stats_ok = f16_var_partial.device.isMps() and f16_var_partial.device_storage != null and
+            f16_std_partial_keep.device.isMps() and f16_std_partial_keep.device_storage != null and
+            std.mem.eql(usize, f16_var_partial_back.shape, &.{2}) and
+            closeF16(f16_var_partial_back.data, &.{ 0.25, 0.25 }, 0.05) and
+            std.mem.eql(usize, f16_std_partial_keep_back.shape, &.{ 1, 2, 1 }) and
+            closeF16(f16_std_partial_keep_back.data, &.{ 0.5, 0.5 }, 0.05);
+        fingerprint ^= hashF16(f16_var_partial_back.data) ^ hashF16(f16_std_partial_keep_back.data);
+
         var bf16_input = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{ vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(2), vx.BFloat16.fromF32(3), vx.BFloat16.fromF32(4) }, &.{ 1, 2, 2 }, vx.mps(0));
         defer bf16_input.deinit();
         var bf16_sum_last = try bf16_input.sum(2, false);
@@ -107,18 +142,34 @@ pub fn main(init: std.process.Init) !void {
             std.mem.eql(usize, bf16_max_last_back.shape, &.{ 1, 2, 1 }) and
             closeBF16(bf16_max_last_back.data, &.{ 2, 4 }, 0.125);
         fingerprint ^= hashBF16(bf16_sum_last_back.data) ^ hashBF16(bf16_prod_last_back.data) ^ hashBF16(bf16_min_last_back.data) ^ hashBF16(bf16_max_last_back.data);
+
+        var bf16_var_partial = try bf16_input.varianceAxes(&.{ 0, 2 }, false, vx.BFloat16.fromF32(0.0));
+        defer bf16_var_partial.deinit();
+        var bf16_var_partial_back = try bf16_var_partial.cpu();
+        defer bf16_var_partial_back.deinit();
+        var bf16_std_partial_keep = try bf16_input.stddevAxes(&.{ 0, 2 }, true, vx.BFloat16.fromF32(0.0));
+        defer bf16_std_partial_keep.deinit();
+        var bf16_std_partial_keep_back = try bf16_std_partial_keep.cpu();
+        defer bf16_std_partial_keep_back.deinit();
+        bf16_stats_ok = bf16_var_partial.device.isMps() and bf16_var_partial.device_storage != null and
+            bf16_std_partial_keep.device.isMps() and bf16_std_partial_keep.device_storage != null and
+            std.mem.eql(usize, bf16_var_partial_back.shape, &.{2}) and
+            closeBF16(bf16_var_partial_back.data, &.{ 0.25, 0.25 }, 0.125) and
+            std.mem.eql(usize, bf16_std_partial_keep_back.shape, &.{ 1, 2, 1 }) and
+            closeBF16(bf16_std_partial_keep_back.data, &.{ 0.5, 0.5 }, 0.125);
+        fingerprint ^= hashBF16(bf16_var_partial_back.data) ^ hashBF16(bf16_std_partial_keep_back.data);
     }
 
     const ok = if (available)
-        report.ok() and f32_ok and f16_ok and bf16_ok
+        report.ok() and f32_ok and f16_ok and bf16_ok and f32_stats_ok and f16_stats_ok and bf16_stats_ok
     else
-        !report.ok() and f32_ok and f16_ok and bf16_ok;
+        !report.ok() and f32_ok and f16_ok and bf16_ok and f32_stats_ok and f16_stats_ok and bf16_stats_ok;
 
     var stdout_buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_mps_rank3_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"f32_ok\":{},\"f16_ok\":{},\"bf16_ok\":{},\"fingerprint\":{d}}}\n",
-        .{ ok, available, report.status.label(), report.backend_label, f32_ok, f16_ok, bf16_ok, fingerprint },
+        "{{\"kind\":\"vectra_axiom_mps_rank3_smoke\",\"ok\":{},\"available\":{},\"status\":\"{s}\",\"backend\":\"{s}\",\"f32_ok\":{},\"f16_ok\":{},\"bf16_ok\":{},\"f32_stats_ok\":{},\"f16_stats_ok\":{},\"bf16_stats_ok\":{},\"fingerprint\":{d}}}\n",
+        .{ ok, available, report.status.label(), report.backend_label, f32_ok, f16_ok, bf16_ok, f32_stats_ok, f16_stats_ok, bf16_stats_ok, fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
