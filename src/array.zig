@@ -3258,6 +3258,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn assignView(self: Self, source: Self, comptime op: fn (T, T) T) ArrayError!void {
+            if (try self.assignSameShapeFast(source, op)) return;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, source.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
@@ -3269,6 +3270,34 @@ pub fn ArrayView(comptime T: type) type {
                 const src_offset = source.broadcastOffsetOf(multi, self.shape.len);
                 self.data[dst_offset] = op(self.data[dst_offset], source.data[src_offset]);
             }
+        }
+
+        fn assignSameShapeFast(self: Self, source: Self, comptime op: fn (T, T) T) ArrayError!bool {
+            if (!std.mem.eql(usize, self.shape, source.shape)) return false;
+            if (self.numel() == 0) return true;
+            if (self.isContiguous() and source.isContiguous()) {
+                const dst_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                const src_end = std.math.add(usize, source.offset, source.numel()) catch return error.InvalidShape;
+                if (dst_end > self.data.len or src_end > source.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..dst_end], source.data[source.offset..src_end]) |*dst, src| {
+                    dst.* = op(dst.*, src);
+                }
+                return true;
+            }
+            if (self.isOneDimensionalStrided() and source.isOneDimensionalStrided()) {
+                const dst_end = try self.oneDimensionalEndOffset();
+                const src_end = try source.oneDimensionalEndOffset();
+                if (dst_end >= self.data.len or src_end >= source.data.len) return error.IndexOutOfBounds;
+                var dst_offset = self.offset;
+                var src_offset = source.offset;
+                for (0..self.numel()) |_| {
+                    self.data[dst_offset] = op(self.data[dst_offset], source.data[src_offset]);
+                    dst_offset += self.strides[0];
+                    src_offset += source.strides[0];
+                }
+                return true;
+            }
+            return false;
         }
 
         fn assignArray(self: Self, source: Array(T), comptime op: fn (T, T) T) ArrayError!void {
@@ -29421,17 +29450,35 @@ test "array object in-place assignment helpers" {
     try contiguous_block.addScalarAssign(1);
     try std.testing.expectEqualSlices(f64, &.{ 21, 11, 21, 26, 13, 26 }, base.data);
 
+    var contiguous_delta_source = try Array(f64).fromSlice(gpa, &.{ 1, 1, 1 }, &.{ 1, 3 });
+    defer contiguous_delta_source.deinit();
+    var contiguous_delta = try contiguous_delta_source.asView();
+    defer contiguous_delta.deinit();
+    try contiguous_block.addAssign(contiguous_delta);
+    try std.testing.expectEqualSlices(f64, &.{ 22, 12, 22, 26, 13, 26 }, base.data);
+
+    var strided_assign_target = try Array(f64).fromSlice(gpa, &.{ 1, 90, 2, 80, 3, 70 }, &.{6});
+    defer strided_assign_target.deinit();
+    var strided_assign_view = try strided_assign_target.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_assign_view.deinit();
+    var strided_assign_delta_source = try Array(f64).fromSlice(gpa, &.{ 10, 60, 20, 50, 30, 40 }, &.{6});
+    defer strided_assign_delta_source.deinit();
+    var strided_assign_delta = try strided_assign_delta_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_assign_delta.deinit();
+    try strided_assign_view.addAssign(strided_assign_delta);
+    try std.testing.expectEqualSlices(f64, &.{ 11, 90, 22, 80, 33, 70 }, strided_assign_target.data);
+
     var patch = try Array(f64).fromSlice(gpa, &.{ 5, 6 }, &.{ 1, 2 });
     defer patch.deinit();
     try cols.copyFromArray(patch);
-    try std.testing.expectEqualSlices(f64, &.{ 5, 11, 6, 5, 13, 6 }, base.data);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 12, 6, 5, 13, 6 }, base.data);
 
     var selected = try base.selectView(0, 1);
     defer selected.deinit();
     var selected_delta = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer selected_delta.deinit();
     try selected.addAssignArray(selected_delta);
-    try std.testing.expectEqualSlices(f64, &.{ 5, 11, 6, 6, 15, 9 }, base.data);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 12, 6, 6, 15, 9 }, base.data);
 
     var copied = try Array(f64).zeros(gpa, &.{ 2, 3 });
     defer copied.deinit();
