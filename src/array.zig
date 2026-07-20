@@ -2371,6 +2371,7 @@ pub fn ArrayView(comptime T: type) type {
             if (self.isContiguous()) {
                 const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
+                if (unarySimd(out.data, self.data[self.offset..end], op)) return out;
                 for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value);
                 return out;
             }
@@ -2391,6 +2392,57 @@ pub fn ArrayView(comptime T: type) type {
                 slot.* = op(self.data[self.offset + ravelIndex(multi, self.strides)]);
             }
             return out;
+        }
+
+        fn unarySimdLanes(comptime lanes: usize, out: []T, input: []const T, comptime op: fn (T) T) bool {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            if (comptime op == opIdentity) {
+                while (i + lanes <= out.len) : (i += lanes) out[i..][0..lanes].* = input[i..][0..lanes].*;
+            } else if (comptime op == opNeg) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = -value;
+                }
+            } else if (comptime op == opAbs) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = @abs(value);
+                }
+            } else if (comptime op == opSquare) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = value * value;
+                }
+            } else if (comptime op == opReciprocal) {
+                const one_vec: Vec = @splat(one(T));
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = one_vec / value;
+                }
+            } else if (comptime op == Array(T).opDeg2rad) {
+                const scale: Vec = @splat(castValue(T, std.math.pi / 180.0));
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = value * scale;
+                }
+            } else if (comptime op == Array(T).opRad2deg) {
+                const scale: Vec = @splat(castValue(T, 180.0 / std.math.pi));
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = value * scale;
+                }
+            } else {
+                return false;
+            }
+            while (i < out.len) : (i += 1) out[i] = op(input[i]);
+            return true;
+        }
+
+        fn unarySimd(out: []T, input: []const T, comptime op: fn (T) T) bool {
+            if (comptime T == f64) return unarySimdLanes(4, out, input, op);
+            if (comptime T == f32) return unarySimdLanes(8, out, input, op);
+            return false;
         }
 
         fn unaryBool(self: Self, comptime op: fn (T) bool) ArrayError!Array(bool) {
