@@ -3444,7 +3444,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn positive(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
-            return self.unary(opIdentity);
+            return self.toArray();
         }
 
         pub fn abs(self: Self) ArrayError!Array(T) {
