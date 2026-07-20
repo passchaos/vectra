@@ -705,6 +705,20 @@ test "random creation options keep device explicit" {
         var mps_normal_back = try mps_normal.cpu();
         defer mps_normal_back.deinit();
         try std.testing.expectEqualSlices(f32, &.{ 10, 10, 10, 10 }, mps_normal_back.data);
+        var mps_normal_f16 = try np.normalWith(f16, &.{4}, 10, 0, mps_opts);
+        defer mps_normal_f16.deinit();
+        try std.testing.expect(mps_normal_f16.device.isMps());
+        try std.testing.expect(mps_normal_f16.device_storage != null);
+        var mps_normal_f16_back = try mps_normal_f16.cpu();
+        defer mps_normal_f16_back.deinit();
+        try std.testing.expectEqualSlices(f16, &.{ 10, 10, 10, 10 }, mps_normal_f16_back.data);
+        var mps_normal_bf16 = try np.normalWith(array_mod.BFloat16, &.{4}, array_mod.BFloat16.fromF32(10), array_mod.BFloat16.fromF32(0), mps_opts);
+        defer mps_normal_bf16.deinit();
+        try std.testing.expect(mps_normal_bf16.device.isMps());
+        try std.testing.expect(mps_normal_bf16.device_storage != null);
+        var mps_normal_bf16_back = try mps_normal_bf16.cpu();
+        defer mps_normal_bf16_back.deinit();
+        for (mps_normal_bf16_back.data) |value| try std.testing.expectApproxEqAbs(@as(f32, 10), value.toF32(), 0.125);
     }
     try std.testing.expectError(error.TypeUnsupported, np.randWith(f64, &.{4}, mps_opts));
     try std.testing.expectError(error.TypeUnsupported, np.normalWith(f64, &.{4}, 0, 1, mps_opts));

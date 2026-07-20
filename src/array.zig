@@ -10232,19 +10232,29 @@ pub fn Array(comptime T: type) type {
 
         pub fn normal(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64) ArrayError!Self {
             ensureFloat(T);
-            if (stddev_value < zero(T)) return error.InvalidShape;
+            if (lessValue(T, stddev_value, zero(T))) return error.InvalidShape;
             var engine = alea.ScalarPrng.init(seed);
             const rng = alea.Rng.init(&engine);
             const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.normal(rng, T, mean_value, stddev_value);
+            if (comptime T == f16) {
+                const mean_f32: f32 = @floatCast(mean_value);
+                const stddev_f32: f32 = @floatCast(stddev_value);
+                for (out.data) |*slot| slot.* = @floatCast(alea.distributions.normal(rng, f32, mean_f32, stddev_f32));
+            } else if (comptime T == BFloat16) {
+                const mean_f32 = mean_value.toF32();
+                const stddev_f32 = stddev_value.toF32();
+                for (out.data) |*slot| slot.* = BFloat16.fromF32(alea.distributions.normal(rng, f32, mean_f32, stddev_f32));
+            } else {
+                for (out.data) |*slot| slot.* = alea.distributions.normal(rng, T, mean_value, stddev_value);
+            }
             return out;
         }
 
         pub fn normalOn(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64, device: Device) ArrayError!Self {
             ensureFloat(T);
-            if (stddev_value < zero(T)) return error.InvalidShape;
+            if (lessValue(T, stddev_value, zero(T))) return error.InvalidShape;
             if (device.isCpu()) return Self.normal(allocator, dims, mean_value, stddev_value, seed);
-            if (comptime T != f32) return error.TypeUnsupported;
+            if (comptime T != f32 and T != f16 and T != BFloat16) return error.TypeUnsupported;
             var out = try Self.emptyOn(allocator, dims, device);
             errdefer out.deinit();
             const storage = out.device_storage orelse return error.InvalidDevice;
