@@ -2428,6 +2428,7 @@ pub fn ArrayView(comptime T: type) type {
             if (self.isContiguous()) {
                 const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
+                if (binaryScalarSimd(out.data, self.data[self.offset..end], scalar, op)) return;
                 for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value, scalar);
                 return;
             }
@@ -2477,6 +2478,95 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
+        fn binaryArraySimdLanes(
+            comptime lanes: usize,
+            out: []T,
+            lhs: []const T,
+            rhs: []const T,
+            comptime op: fn (T, T) T,
+        ) bool {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            if (comptime op == opAdd) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const lhs_value: Vec = lhs[i..][0..lanes].*;
+                    const rhs_value: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = lhs_value + rhs_value;
+                }
+            } else if (comptime op == opSub) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const lhs_value: Vec = lhs[i..][0..lanes].*;
+                    const rhs_value: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = lhs_value - rhs_value;
+                }
+            } else if (comptime op == opMul) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const lhs_value: Vec = lhs[i..][0..lanes].*;
+                    const rhs_value: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = lhs_value * rhs_value;
+                }
+            } else if (comptime op == opDiv) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const lhs_value: Vec = lhs[i..][0..lanes].*;
+                    const rhs_value: Vec = rhs[i..][0..lanes].*;
+                    out[i..][0..lanes].* = lhs_value / rhs_value;
+                }
+            } else {
+                return false;
+            }
+            while (i < out.len) : (i += 1) out[i] = op(lhs[i], rhs[i]);
+            return true;
+        }
+
+        fn binaryArraySimd(out: []T, lhs: []const T, rhs: []const T, comptime op: fn (T, T) T) bool {
+            if (comptime T == f64) return binaryArraySimdLanes(4, out, lhs, rhs, op);
+            if (comptime T == f32) return binaryArraySimdLanes(8, out, lhs, rhs, op);
+            return false;
+        }
+
+        fn binaryScalarSimdLanes(
+            comptime lanes: usize,
+            out: []T,
+            input: []const T,
+            scalar: T,
+            comptime op: fn (T, T) T,
+        ) bool {
+            const Vec = @Vector(lanes, T);
+            const scalar_vec: @Vector(lanes, T) = @splat(scalar);
+            var i: usize = 0;
+            if (comptime op == opAdd) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = value + scalar_vec;
+                }
+            } else if (comptime op == opSub) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = value - scalar_vec;
+                }
+            } else if (comptime op == opMul) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = value * scalar_vec;
+                }
+            } else if (comptime op == opDiv) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = value / scalar_vec;
+                }
+            } else {
+                return false;
+            }
+            while (i < out.len) : (i += 1) out[i] = op(input[i], scalar);
+            return true;
+        }
+
+        fn binaryScalarSimd(out: []T, input: []const T, scalar: T, comptime op: fn (T, T) T) bool {
+            if (comptime T == f64) return binaryScalarSimdLanes(4, out, input, scalar, op);
+            if (comptime T == f32) return binaryScalarSimdLanes(8, out, input, scalar, op);
+            return false;
+        }
+
         fn binarySameShapeFastOut(self: Self, other: Self, out: Array(T), comptime op: fn (T, T) T) ArrayError!bool {
             if (std.mem.eql(usize, self.shape, other.shape)) {
                 if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
@@ -2492,6 +2582,7 @@ pub fn ArrayView(comptime T: type) type {
                     const lhs_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                     const rhs_end = std.math.add(usize, other.offset, other.numel()) catch return error.InvalidShape;
                     if (lhs_end > self.data.len or rhs_end > other.data.len) return error.IndexOutOfBounds;
+                    if (binaryArraySimd(out.data, self.data[self.offset..lhs_end], other.data[other.offset..rhs_end], op)) return true;
                     for (self.data[self.offset..lhs_end], other.data[other.offset..rhs_end], out.data) |lhs, rhs, *slot| {
                         slot.* = op(lhs, rhs);
                     }
@@ -21836,6 +21927,14 @@ test "array comparison and logical wrappers" {
     try std.testing.expect(large_view_gt.data[100]);
     try std.testing.expect(large_view_gt.data[200]);
     try std.testing.expect(!large_view_gt.data[300]);
+    var large_view_out = try Array(f32).empty(gpa, &.{ 1024, 1024 });
+    defer large_view_out.deinit();
+    try large_view.addOut(large_other_view, large_view_out);
+    try std.testing.expectEqual(large_view_source.data[100] + large_other_source.data[100], large_view_out.data[100]);
+    try std.testing.expectEqual(large_view_source.data[200] + large_other_source.data[200], large_view_out.data[200]);
+    try large_view.mulScalarOut(3, large_view_out);
+    try std.testing.expectEqual(large_view_source.data[100] * 3, large_view_out.data[100]);
+    try std.testing.expectEqual(large_view_source.data[200] * 3, large_view_out.data[200]);
     var large_view_eq_zero = try large_view.eqScalar(0);
     defer large_view_eq_zero.deinit();
     try std.testing.expect(large_view_eq_zero.data[200]);
