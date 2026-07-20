@@ -7496,9 +7496,55 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Array(T) {
+            if (axis_opt == null) return self.compressFlat(condition);
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.compress(condition, axis_opt);
+        }
+
+        fn compressFlat(self: Self, condition: Array(bool)) ArrayError!Array(T) {
+            if (condition.shape.len != 1) return error.ShapeMismatch;
+            if (condition.data.len != self.numel()) return error.ShapeMismatch;
+            var selected_count: usize = 0;
+            for (condition.data) |keep| selected_count += @intFromBool(keep);
+
+            var out = try Array(T).empty(self.allocator, &.{selected_count});
+            errdefer out.deinit();
+            if (selected_count == 0) return out;
+            var write: usize = 0;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (condition.data, self.data[self.offset..end]) |keep, value| {
+                    if (keep) {
+                        out.data[write] = value;
+                        write += 1;
+                    }
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (condition.data) |keep| {
+                    if (keep) {
+                        out.data[write] = self.data[source_offset];
+                        write += 1;
+                    }
+                    source_offset += self.strides[0];
+                }
+                return out;
+            }
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (condition.data, 0..) |keep, flat| {
+                if (!keep) continue;
+                unravelIndexInto(flat, self.shape, multi);
+                out.data[write] = self.data[self.offset + ravelIndex(multi, self.strides)];
+                write += 1;
+            }
+            return out;
         }
 
         pub fn where(self: Self, mask: Array(bool), other: Self) ArrayError!Array(T) {
