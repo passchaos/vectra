@@ -69,6 +69,22 @@ pub fn fillStorage(comptime T: type, storage: array_mod.DeviceStorage, value: T)
     return uploadStorage(storage, std.mem.sliceAsBytes(tmp));
 }
 
+fn rank3BroadcastShape(lhs: []const usize, rhs: []const usize) ?[3]usize {
+    if (lhs.len != 3 or rhs.len != 3) return null;
+    return .{
+        broadcastExtent(lhs[0], rhs[0]) orelse return null,
+        broadcastExtent(lhs[1], rhs[1]) orelse return null,
+        broadcastExtent(lhs[2], rhs[2]) orelse return null,
+    };
+}
+
+fn broadcastExtent(lhs: usize, rhs: usize) ?usize {
+    if (lhs == rhs) return lhs;
+    if (lhs == 1) return rhs;
+    if (rhs == 1) return lhs;
+    return null;
+}
+
 pub fn tryBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
     if (!std.mem.eql(usize, lhs.shape, rhs.shape) or !lhs.isContiguous() or !rhs.isContiguous()) return null;
@@ -94,6 +110,43 @@ pub fn tryBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f32)
         .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
         .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
         lhs_storage.len,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryRank3BroadcastBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len != 3 or rhs.shape.len != 3 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const out_shape = rank3BroadcastShape(lhs.shape, rhs.shape) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+
+    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, &out_shape, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRank3BroadcastBinaryF32(
+        op,
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        lhs.shape[0],
+        lhs.shape[1],
+        lhs.shape[2],
+        rhs.shape[0],
+        rhs.shape[1],
+        rhs.shape[2],
     ) catch {
         out.deinit();
         return null;
@@ -191,6 +244,43 @@ pub fn tryBinaryF16(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f16)
     return out;
 }
 
+pub fn tryRank3BroadcastBinaryF16(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len != 3 or rhs.shape.len != 3 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const out_shape = rank3BroadcastShape(lhs.shape, rhs.shape) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+
+    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, &out_shape, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRank3BroadcastBinaryF16(
+        op,
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        lhs.shape[0],
+        lhs.shape[1],
+        lhs.shape[2],
+        rhs.shape[0],
+        rhs.shape[1],
+        rhs.shape[2],
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
 pub fn tryScalarF16(op: axiom.accelerator.MpsBinaryOp, input: array_mod.Array(f16), scalar: f16, scalar_left: bool) array_mod.ArrayError!?array_mod.Array(f16) {
     if (!input.device.isMps() or !input.isContiguous()) return null;
     const input_storage = input.device_storage orelse return null;
@@ -274,6 +364,43 @@ pub fn tryBinaryBF16(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(arr
         .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
         .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
         lhs_storage.len,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryRank3BroadcastBinaryBF16(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(array_mod.BFloat16), rhs: array_mod.Array(array_mod.BFloat16)) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len != 3 or rhs.shape.len != 3 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const out_shape = rank3BroadcastShape(lhs.shape, rhs.shape) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+
+    var out = try array_mod.Array(array_mod.BFloat16).emptyOn(lhs.allocator, &out_shape, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRank3BroadcastBinaryBF16(
+        op,
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        lhs.shape[0],
+        lhs.shape[1],
+        lhs.shape[2],
+        rhs.shape[0],
+        rhs.shape[1],
+        rhs.shape[2],
     ) catch {
         out.deinit();
         return null;

@@ -10,12 +10,10 @@ pub fn main(init: std.process.Init) !void {
     var fingerprint = report.fingerprint();
 
     if (available) {
-        var lhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 1, 2 }, vx.mps(0));
-        defer lhs.deinit();
-        var rhs = try vx.Array(f32).fromSliceOn(allocator, &.{ 10, 20, 30, 40 }, &.{ 1, 2, 2 }, vx.mps(0));
-        defer rhs.deinit();
-        no_fallback_error_ok = vx.axiom_backend.deviceHostFallbackEnabled() or std.meta.isError(tryMiddleBroadcast(lhs, rhs));
-        fingerprint ^= lhs.numel() ^ (rhs.numel() << 8);
+        var input = try vx.Array(f32).fromSliceOn(allocator, &.{ 0.25, 0.5, 0.75, 1.0 }, &.{ 2, 2 }, vx.mps(0));
+        defer input.deinit();
+        no_fallback_error_ok = vx.axiom_backend.deviceHostFallbackEnabled() or std.meta.isError(tryUnsupportedUnary(input));
+        fingerprint ^= input.numel();
     }
 
     const ok = if (available)
@@ -33,7 +31,7 @@ pub fn main(init: std.process.Init) !void {
     if (!ok) std.process.exit(1);
 }
 
-fn tryMiddleBroadcast(lhs: vx.Array(f32), rhs: vx.Array(f32)) anyerror!void {
-    var out = try lhs.add(rhs);
+fn tryUnsupportedUnary(input: vx.Array(f32)) anyerror!void {
+    var out = try input.asin();
     defer out.deinit();
 }

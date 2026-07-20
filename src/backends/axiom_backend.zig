@@ -1050,6 +1050,7 @@ pub fn tryBroadcastBinary(
     rhs: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
+    if (try tryMpsRank3Broadcast(T, op, target, lhs, rhs)) |out| return out;
     if (try tryMpsLastDimBroadcast(T, op, target, lhs, rhs)) |out| return out;
     if (try tryCudaLastDimBroadcast(T, op, target, lhs, rhs)) |out| return out;
     if (lhs.shape.len == 2) {
@@ -1086,6 +1087,18 @@ fn tryCudaGenericBroadcast(comptime T: type, op: ElementwiseOp, target: DialectB
         if (try axiom_cuda.tryDeviceBroadcastF16(cudaBinaryOp(op), @as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
         if (try axiom_cuda.tryDeviceBroadcastBF16(cudaBinaryOp(op), @as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn tryMpsRank3Broadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .mps or !lhs.device.sameDevice(rhs.device) or !lhs.device.isMps()) return null;
+    if (T == f32) {
+        if (try axiom_mps.tryRank3BroadcastBinaryF32(mpsBinaryOp(op), @as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryRank3BroadcastBinaryF16(mpsBinaryOp(op), @as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryRank3BroadcastBinaryBF16(mpsBinaryOp(op), @as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
