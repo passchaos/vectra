@@ -149,6 +149,17 @@ FORBIDDEN_DIRECT_ACCELERATOR_SNIPPETS = (
 
 PUBLIC_FN_PATTERN = re.compile(r"(?m)^\s*pub\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 
+CUDA_ONLY_BUILD_SNIPPETS = (
+    "example-axiom-cuda-bridge",
+    "example-large-matmul-add",
+    "bench-matmul-add-compare",
+    "axiom-cuda-smoke",
+    "axiom-cuda-dispatch-smoke",
+    "axiom-cuda-device-smoke",
+    "fusion-smoke",
+    "fusion-production-gate",
+)
+
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -168,6 +179,54 @@ def public_fn_naming_issues(path: Path, text: str) -> list[dict[str, Any]]:
             "match": name,
             "reason": "Public function APIs should use Zig-style camelCase names only; avoid snake_case or trailing-underscore aliases.",
         })
+    return issues
+
+
+def find_block_end(text: str, open_brace: int) -> int:
+    depth = 0
+    for index in range(open_brace, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+    return -1
+
+
+def cuda_build_step_gating_issues(build_text: str) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    gate = "if (!is_macos_target) {"
+    gate_start = build_text.find(gate)
+    if gate_start < 0:
+        return [{
+            "kind": "missing_cuda_non_macos_build_gate",
+            "path": "build.zig",
+            "snippet": gate,
+        }]
+    gate_open = build_text.find("{", gate_start)
+    gate_end = find_block_end(build_text, gate_open)
+    if gate_end < 0:
+        return [{
+            "kind": "unterminated_cuda_non_macos_build_gate",
+            "path": "build.zig",
+            "snippet": gate,
+        }]
+    for snippet in CUDA_ONLY_BUILD_SNIPPETS:
+        position = build_text.find(snippet)
+        if position < 0:
+            issues.append({"kind": "missing_cuda_only_build_step", "path": "build.zig", "snippet": snippet})
+            continue
+        if not (gate_start <= position <= gate_end):
+            line = build_text.count("\n", 0, position) + 1
+            issues.append({
+                "kind": "cuda_only_build_step_not_gated",
+                "path": "build.zig",
+                "line": line,
+                "snippet": snippet,
+                "reason": "CUDA/NVVM build steps must live inside the non-macOS build graph gate.",
+            })
     return issues
 
 
@@ -215,6 +274,7 @@ def main() -> int:
             issues.append({"kind": "missing_boundary_doc_snippet", "path": "docs/API_BOUNDARY.md", "snippet": snippet})
 
     build_text = read(BUILD)
+    issues.extend(cuda_build_step_gating_issues(build_text))
     for snippet in ('b.dependency("axiom"', 'axiom-dialect-lowering-smoke'):
         if snippet not in build_text:
             issues.append({"kind": "missing_axiom_build_snippet", "path": "build.zig", "snippet": snippet})
