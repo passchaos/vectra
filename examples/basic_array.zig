@@ -8,6 +8,7 @@ const vx = @import("vectra");
 
 pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.smp_allocator;
+
     const np = vx.withAllocator(allocator);
 
     var x = try np.array(f32, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });

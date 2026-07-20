@@ -637,6 +637,69 @@ fn one(comptime T: type) T {
     };
 }
 
+const philox_m0: u32 = 0xD2511F53;
+const philox_m1: u32 = 0xCD9E8D57;
+const philox_w0: u32 = 0x9E3779B9;
+const philox_w1: u32 = 0xBB67AE85;
+
+fn philox4x32(counter: [4]u32, key: [2]u32) [4]u32 {
+    var c = counter;
+    var k = key;
+    for (0..10) |_| {
+        const p0 = @as(u64, c[0]) * @as(u64, philox_m0);
+        const p1 = @as(u64, c[2]) * @as(u64, philox_m1);
+        const lo0: u32 = @truncate(p0);
+        const hi0: u32 = @truncate(p0 >> 32);
+        const lo1: u32 = @truncate(p1);
+        const hi1: u32 = @truncate(p1 >> 32);
+        c = .{ hi1 ^ c[1] ^ k[0], lo1, hi0 ^ c[3] ^ k[1], lo0 };
+        k[0] +%= philox_w0;
+        k[1] +%= philox_w1;
+    }
+    return c;
+}
+
+fn philoxUniformWord(seed: u64, index: usize) u32 {
+    const block = index / 4;
+    const lane = index % 4;
+    const words = philox4x32(
+        .{ @truncate(block), @truncate(block >> 32), 0, 0 },
+        .{ @truncate(seed), @truncate(seed >> 32) },
+    );
+    return words[lane];
+}
+
+fn philoxUniform01F32(seed: u64, index: usize) f32 {
+    return @as(f32, @floatFromInt(philoxUniformWord(seed, index) >> 8)) * 0x1.0p-24;
+}
+
+fn philoxUniform01F64(seed: u64, index: usize) f64 {
+    const hi = @as(u64, philoxUniformWord(seed, index * 2) >> 5);
+    const lo = @as(u64, philoxUniformWord(seed, index * 2 + 1) >> 6);
+    return @as(f64, @floatFromInt((hi << 26) | lo)) * 0x1.0p-53;
+}
+
+fn philoxUniformValue(comptime T: type, seed: u64, index: usize, low: T, high: T) T {
+    if (comptime T == BFloat16) {
+        const unit = philoxUniform01F32(seed, index);
+        return BFloat16.fromF32(low.toF32() + (high.toF32() - low.toF32()) * unit);
+    }
+    return switch (@typeInfo(T)) {
+        .float => {
+            const unit = if (comptime T == f64) philoxUniform01F64(seed, index) else philoxUniform01F32(seed, index);
+            return low + (high - low) * @as(T, @floatCast(unit));
+        },
+        .int => {
+            const span = high - low;
+            if (span <= 0) return low;
+            const unsigned_span: u64 = @intCast(span);
+            const value: u64 = philoxUniformWord(seed, index) % unsigned_span;
+            return low + @as(T, @intCast(value));
+        },
+        else => @compileError("Philox uniform requires f32/f64/f16/BFloat16 or integer arrays"),
+    };
+}
+
 fn addValue(comptime T: type, a: T, b: T) T {
     if (comptime T == BFloat16) return a.add(b);
     if (comptime isComplex(T)) return a.add(b);
@@ -9987,6 +10050,20 @@ pub fn Array(comptime T: type) type {
             return Self.uniform(allocator, dims, zero(T), one(T), seed);
         }
 
+        pub fn randOn(allocator: std.mem.Allocator, dims: []const usize, seed: u64, device: Device) ArrayError!Self {
+            if (device.isCpu()) return Self.rand(allocator, dims, seed);
+            if (comptime T != f32) return error.TypeUnsupported;
+            var out = try Self.emptyOn(allocator, dims, device);
+            errdefer out.deinit();
+            const storage = out.device_storage orelse return error.InvalidDevice;
+            try axiom_backend.fillPhiloxUniformF32(storage, seed);
+            return out;
+        }
+
+        pub fn rand_on(allocator: std.mem.Allocator, dims: []const usize, seed: u64, device: Device) ArrayError!Self {
+            return Self.randOn(allocator, dims, seed, device);
+        }
+
         pub fn permutation(allocator: std.mem.Allocator, n: usize, seed: u64) ArrayError!Self {
             if (comptime T != usize) @compileError("permutation requires Array(usize)");
             var out = try Self.empty(allocator, &.{n});
@@ -10140,10 +10217,8 @@ pub fn Array(comptime T: type) type {
         pub fn uniform(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Self {
             if (comptime !isNumeric(T)) @compileError("uniform requires a numeric array type");
             if (low > high) return error.InvalidShape;
-            var engine = alea.ScalarPrng.init(seed);
-            const rng = alea.Rng.init(&engine);
             const out = try Self.empty(allocator, dims);
-            for (out.data) |*slot| slot.* = alea.distributions.uniform(rng, T, low, high);
+            for (out.data, 0..) |*slot, i| slot.* = philoxUniformValue(T, seed, i, low, high);
             return out;
         }
 

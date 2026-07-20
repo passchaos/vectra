@@ -398,6 +398,14 @@ pub fn fillAllocated(comptime T: type, device: array_mod.Device, host_data: []T,
     @memset(host_data, value);
 }
 
+pub fn fillPhiloxUniformF32(storage: array_mod.DeviceStorage, seed: u64) array_mod.ArrayError!void {
+    return switch (executionTargetForDevice(storage.device)) {
+        .cpu => error.InvalidDevice,
+        .cuda => axiom_cuda.fillPhiloxUniformF32(storage, seed),
+        .mps => axiom_mps.fillPhiloxUniformF32(storage, seed),
+    };
+}
+
 pub fn uploadStorage(storage: array_mod.DeviceStorage, bytes: []const u8) array_mod.ArrayError!void {
     return switch (executionTargetForDevice(storage.device)) {
         .cpu => error.InvalidDevice,

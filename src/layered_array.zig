@@ -7,8 +7,8 @@
 //!
 //! `Device` remains runtime metadata in every layer.  When a CUDA device is
 //! available through Axiom, deterministic creation options allocate runtime
-//! `Array` payloads directly in device storage. Random CUDA creation is left
-//! explicit until a device RNG kernel exists.
+//! `Array` payloads directly in device storage. Random device creation uses the
+//! same options shape and stays explicit when a device RNG kernel is unavailable.
 
 const std = @import("std");
 const array_mod = @import("array.zig");
@@ -24,8 +24,8 @@ pub const rng_seed_stride: u64 = 0x9e37_79b9_7f4a_7c15;
 
 /// Runtime creation options for Array creation helpers.
 ///
-/// This mirrors the PyTorch idea that every creation can state `dtype` and
-/// `device`, while preserving Zig's static dtype specialization:
+/// This mirrors the PyTorch idea that every creation can state `dtype`, `device`,
+/// and reproducibility metadata, while preserving Zig's static dtype specialization:
 ///
 /// ```
 /// const opts = vx.options();          // device defaults to CPU
@@ -456,9 +456,8 @@ pub const Context = struct {
     }
 
     pub fn randWith(self: *Context, comptime T: type, dims: []const usize, opts: CreationOptions) ArrayError!Array(T) {
-        if (!opts.device.isCpu()) return error.TypeUnsupported;
-        const out = try Array(T).rand(self.allocator, dims, opts.seed orelse self.nextSeed());
-        return out;
+        const seed = opts.seed orelse self.nextSeed();
+        return Array(T).randOn(self.allocator, dims, seed, opts.device);
     }
 
     pub fn randSeeded(self: Context, comptime T: type, dims: []const usize, seed: u64) ArrayError!Array(T) {
@@ -647,4 +646,32 @@ test "creation options carry dtype and runtime device" {
     } else {
         try std.testing.expectError(error.InvalidDevice, np.zerosWith(f32, &.{ 2, 2 }, onDevice(Device.cuda(0))));
     }
+}
+
+test "random creation options keep device explicit" {
+    const gpa = std.testing.allocator;
+    var np = withAllocator(gpa);
+    const opts = seeded(1234);
+    try std.testing.expect(@TypeOf(opts) == CreationOptions);
+
+    var first = try np.randWith(f32, &.{4}, opts);
+    defer first.deinit();
+    var second = try np.randWith(f32, &.{4}, seeded(1234));
+    defer second.deinit();
+
+    try std.testing.expect(first.device.isCpu());
+    try std.testing.expectEqualSlices(f32, first.data, second.data);
+
+    const device_opts = seededOn(Device.cuda(0), 1234);
+    try std.testing.expect(@TypeOf(device_opts) == CreationOptions);
+    try std.testing.expect(device_opts.device.isCuda());
+    if (!device_opts.device.isAvailable()) try std.testing.expectError(error.InvalidDevice, np.randWith(f32, &.{4}, device_opts));
+    const mps_opts = seededOn(Device.mps(0), 1234);
+    if (mps_opts.device.isAvailable()) {
+        var mps_random = try np.randWith(f32, &.{4}, mps_opts);
+        defer mps_random.deinit();
+        try std.testing.expect(mps_random.device.isMps());
+        try std.testing.expect(mps_random.device_storage != null);
+    }
+    try std.testing.expectError(error.TypeUnsupported, np.randWith(f64, &.{4}, mps_opts));
 }

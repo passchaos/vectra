@@ -974,6 +974,110 @@ pub fn fillStorage(comptime T: type, storage: array_mod.DeviceStorage, value: T)
     return uploadStorage(storage, std.mem.sliceAsBytes(tmp));
 }
 
+const cached_philox_uniform_f32_ptx =
+    \\.version 7.8
+    \\.target sm_70
+    \\.address_size 64
+    \\
+    \\.visible .entry vectra_philox_uniform_f32(
+    \\    .param .u64 out_ptr,
+    \\    .param .u32 n,
+    \\    .param .u32 seed_lo,
+    \\    .param .u32 seed_hi
+    \\) {
+    \\    .reg .pred %p<8>;
+    \\    .reg .b32 %r<80>;
+    \\    .reg .b64 %rd<6>;
+    \\    .reg .f32 %f<3>;
+    \\    ld.param.u64 %rd1, [out_ptr];
+    \\    ld.param.u32 %r1, [n];
+    \\    ld.param.u32 %r2, [seed_lo];
+    \\    ld.param.u32 %r3, [seed_hi];
+    \\    mov.u32 %r4, %ctaid.x;
+    \\    mov.u32 %r5, %ntid.x;
+    \\    mov.u32 %r6, %tid.x;
+    \\    mad.lo.u32 %r7, %r4, %r5, %r6;
+    \\    setp.ge.u32 %p1, %r7, %r1;
+    \\    @%p1 bra DONE;
+    \\    shr.u32 %r8, %r7, 2;
+    \\    and.b32 %r9, %r7, 3;
+    \\    mov.u32 %r10, 0;
+    \\    mov.u32 %r11, 0;
+    \\    mov.u32 %r12, 0;
+    \\    mov.u32 %r13, %r2;
+    \\    mov.u32 %r14, %r3;
+    \\    mov.u32 %r15, 0;
+    \\LOOP:
+    \\    mul.lo.u32 %r16, %r8, 0xD2511F53;
+    \\    mul.hi.u32 %r17, %r8, 0xD2511F53;
+    \\    mul.lo.u32 %r18, %r11, 0xCD9E8D57;
+    \\    mul.hi.u32 %r19, %r11, 0xCD9E8D57;
+    \\    xor.b32 %r20, %r19, %r10;
+    \\    xor.b32 %r20, %r20, %r13;
+    \\    xor.b32 %r21, %r17, %r12;
+    \\    xor.b32 %r21, %r21, %r14;
+    \\    mov.u32 %r8, %r20;
+    \\    mov.u32 %r10, %r18;
+    \\    mov.u32 %r11, %r21;
+    \\    mov.u32 %r12, %r16;
+    \\    add.u32 %r13, %r13, 0x9E3779B9;
+    \\    add.u32 %r14, %r14, 0xBB67AE85;
+    \\    add.u32 %r15, %r15, 1;
+    \\    setp.lt.u32 %p2, %r15, 10;
+    \\    @%p2 bra LOOP;
+    \\    setp.eq.u32 %p3, %r9, 0;
+    \\    @%p3 mov.u32 %r22, %r8;
+    \\    setp.eq.u32 %p4, %r9, 1;
+    \\    @%p4 mov.u32 %r22, %r10;
+    \\    setp.eq.u32 %p5, %r9, 2;
+    \\    @%p5 mov.u32 %r22, %r11;
+    \\    setp.eq.u32 %p6, %r9, 3;
+    \\    @%p6 mov.u32 %r22, %r12;
+    \\    shr.u32 %r23, %r22, 8;
+    \\    cvt.rn.f32.u32 %f1, %r23;
+    \\    mul.rn.f32 %f2, %f1, 0f33800000;
+    \\    mul.wide.u32 %rd2, %r7, 4;
+    \\    add.u64 %rd3, %rd1, %rd2;
+    \\    st.global.f32 [%rd3], %f2;
+    \\DONE:
+    \\    ret;
+    \\}
+;
+
+pub fn fillPhiloxUniformF32(storage: array_mod.DeviceStorage, seed: u64) array_mod.ArrayError!void {
+    if (!build_options.enable_axiom_cuda or !storage.device.isCuda()) return error.InvalidDevice;
+    if (storage.len == 0) return;
+    if (storage.bytes != storage.len * @sizeOf(f32)) return error.ShapeMismatch;
+    if (storage.ptr == 0) return error.InvalidDevice;
+    if (storage.len > std.math.maxInt(u32)) return error.InvalidShape;
+    var session = withCudaContext(storage.device.index) catch return error.InvalidDevice;
+    defer session.driver.close();
+    defer session.context.release(&session.driver);
+    const module = session.driver.moduleLoadData(cached_philox_uniform_f32_ptx) catch return error.BackendFailure;
+    defer session.driver.moduleUnload(module);
+    const function = session.driver.moduleGetFunction(module, "vectra_philox_uniform_f32") catch return error.BackendFailure;
+    const threads: u32 = 256;
+    const grid_x: u32 = @intCast((storage.len + threads - 1) / threads);
+    var out_arg = storage.ptr;
+    var n_arg: u32 = @intCast(storage.len);
+    var seed_lo: u32 = @truncate(seed);
+    var seed_hi: u32 = @truncate(seed >> 32);
+    var args = [_]?*anyopaque{
+        @ptrCast(&out_arg),
+        @ptrCast(&n_arg),
+        @ptrCast(&seed_lo),
+        @ptrCast(&seed_hi),
+    };
+    session.driver.launchKernel(
+        function,
+        .{ .x = grid_x, .y = 1, .z = 1 },
+        .{ .x = threads, .y = 1, .z = 1 },
+        0,
+        &args,
+    ) catch return error.BackendFailure;
+    session.driver.synchronize() catch return error.BackendFailure;
+}
+
 fn ptxFallbackNameForImage(file_name: []const u8, buffer: *[256]u8) ![]const u8 {
     if (std.mem.endsWith(u8, file_name, ".ptx")) return file_name;
     if (!std.mem.endsWith(u8, file_name, ".cubin")) return error.BackendFailure;
