@@ -673,6 +673,16 @@ fn sqrtValue(comptime T: type, value: T) T {
     return std.math.sqrt(value);
 }
 
+fn tanhValue(comptime T: type, value: T) T {
+    if (comptime T == BFloat16) return BFloat16.fromF32(std.math.tanh(value.toF32()));
+    if (comptime isComplex(T)) return std.math.complex.tanh(value);
+    return switch (T) {
+        f16 => @floatCast(std.math.tanh(@as(f32, @floatCast(value)))),
+        f32, f64 => std.math.tanh(value),
+        else => @compileError("tanh requires a floating-point array"),
+    };
+}
+
 fn negValue(comptime T: type, a: T) T {
     if (comptime T == BFloat16) return a.neg();
     if (comptime isComplex(T)) return a.neg();
@@ -4293,8 +4303,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureNumeric(T);
             return self.unary(struct {
                 fn f(a: T) T {
-                    if (comptime isComplex(T)) return std.math.complex.tanh(a);
-                    return std.math.tanh(a);
+                    return tanhValue(T, a);
                 }
             }.f);
         }
@@ -4416,11 +4425,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureFloat(T);
             return self.unary(struct {
                 fn f(a: T) T {
-                    if (comptime T == BFloat16) {
-                        const value = a.toF32();
-                        return BFloat16.fromF32(value - std.math.tanh(value));
-                    }
-                    return a - std.math.tanh(a);
+                    return subValue(T, a, tanhValue(T, a));
                 }
             }.f);
         }
@@ -16922,10 +16927,20 @@ pub fn Array(comptime T: type) type {
 
         pub fn tanh(self: Self) ArrayError!Self {
             ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
+                    var doubled = try self.mulScalar(castValue(T, 2));
+                    defer doubled.deinit();
+                    var gates = try doubled.sigmoid();
+                    defer gates.deinit();
+                    var scaled = try gates.mulScalar(castValue(T, 2));
+                    defer scaled.deinit();
+                    return scaled.subScalar(one(T));
+                }
+            }
             return self.unary(struct {
                 fn f(a: T) T {
-                    if (comptime isComplex(T)) return std.math.complex.tanh(a);
-                    return std.math.tanh(a);
+                    return tanhValue(T, a);
                 }
             }.f);
         }
@@ -17059,13 +17074,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn tanhshrink(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
+                    var tanh_values = try self.tanh();
+                    defer tanh_values.deinit();
+                    return self.sub(tanh_values);
+                }
+            }
             return self.unary(struct {
                 fn f(a: T) T {
-                    if (comptime T == BFloat16) {
-                        const value = a.toF32();
-                        return BFloat16.fromF32(value - std.math.tanh(value));
-                    }
-                    return a - std.math.tanh(a);
+                    return subValue(T, a, tanhValue(T, a));
                 }
             }.f);
         }
