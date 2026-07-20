@@ -2844,6 +2844,17 @@ pub fn ArrayView(comptime T: type) type {
             return false;
         }
 
+        fn binarySameShapeFast(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!?Array(T) {
+            if (!std.mem.eql(usize, self.shape, other.shape)) return null;
+            const supported_layout = (self.isContiguous() and other.isContiguous()) or
+                (self.isOneDimensionalStrided() and other.isOneDimensionalStrided());
+            if (!supported_layout) return null;
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (!try self.binarySameShapeFastOut(other, out, op)) unreachable;
+            return out;
+        }
+
         fn binaryViewOut(self: Self, other: Self, out: Array(T), comptime op: fn (T, T) T) ArrayError!void {
             if (try self.binarySameShapeFastOut(other, out, op)) return;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
@@ -2880,6 +2891,7 @@ pub fn ArrayView(comptime T: type) type {
                     }
                 }
             }
+            if (try self.binarySameShapeFast(other, op)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             var out = try Array(T).empty(self.allocator, out_shape);
