@@ -7387,9 +7387,44 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn takeMode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
+            if (axis_opt == null) return self.takeFlatMode(indices, mode);
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.takeMode(indices, axis_opt, mode);
+        }
+
+        fn takeFlatMode(self: Self, indices: Array(usize), mode: IndexMode) ArrayError!Array(T) {
+            var out = try Array(T).empty(self.allocator, indices.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                const source = self.data[self.offset..end];
+                for (indices.data, out.data) |idx, *slot| {
+                    slot.* = source[try Array(T).applyIndexMode(idx, source.len, mode)];
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                for (indices.data, out.data) |idx, *slot| {
+                    const normalized = try Array(T).applyIndexMode(idx, self.numel(), mode);
+                    const delta = std.math.mul(usize, normalized, self.strides[0]) catch return error.InvalidShape;
+                    const source_offset = std.math.add(usize, self.offset, delta) catch return error.InvalidShape;
+                    slot.* = self.data[source_offset];
+                }
+                return out;
+            }
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (indices.data, out.data) |idx, *slot| {
+                const normalized = try Array(T).applyIndexMode(idx, self.numel(), mode);
+                unravelIndexInto(normalized, self.shape, multi);
+                slot.* = self.data[self.offset + ravelIndex(multi, self.strides)];
+            }
+            return out;
         }
 
         pub fn indexSelect(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
