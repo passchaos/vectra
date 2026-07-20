@@ -2847,7 +2847,6 @@ fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
 
 fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (op == .square) return executeCudaElementwise(T, .mul, input, input);
-    if (!cudaUnaryExecutionSupported(T, op)) return null;
     const cuda_op: axiom_cuda.UnaryOp = switch (op) {
         .abs => .abs,
         .sqrt => .sqrt,
@@ -2863,6 +2862,7 @@ fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arr
         .log10 => .log10,
         .square, .asin, .acos, .atan => return null,
     };
+    if (!axiom_cuda.unaryElementSupported(T, cuda_op)) return null;
     if (T == f32) {
         if (try axiom_cuda.tryDeviceUnaryF32(cuda_op, @as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
@@ -2873,21 +2873,6 @@ fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arr
         if (try axiom_cuda.tryDeviceUnaryBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), input))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
-}
-
-fn cudaUnaryExecutionSupported(comptime T: type, op: ExecutionUnaryOp) bool {
-    if (!(T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16)) return false;
-    // Axiom's current cached CUDA unary kernels expose the extended transcendental
-    // op set only for f32.  Gate this before constructing output storage so
-    // unsupported dtype/op pairs decline cleanly instead of allocating then
-    // failing in the runtime bridge.  Inverse trig is not in Axiom's CUDA
-    // TensorUnaryElementwiseOp yet, so it must also stay a null route rather
-    // than hitting the dispatch switch's unreachable arm.
-    return switch (op) {
-        .sqrt, .exp, .abs => true,
-        .log, .sin, .cos, .tan, .exp2, .expm1, .log1p, .log2, .log10 => T == f32,
-        .square, .asin, .acos, .atan => false,
-    };
 }
 
 fn executeMpsUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {

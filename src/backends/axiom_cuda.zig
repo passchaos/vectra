@@ -2402,7 +2402,7 @@ pub fn tryAbsF64(input: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Ar
 
 fn tryDeviceUnaryMemRefs(comptime T: type, op: UnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
-    if (!cudaUnaryElementSupported(T, op)) return null;
+    if (!unaryElementSupported(T, op)) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
     const in_storage = input.device_storage orelse return null;
     if (in_storage.len == 0) return null;
@@ -2437,8 +2437,12 @@ fn tryDeviceUnaryMemRefs(comptime T: type, op: UnaryOp, input: array_mod.Array(T
     return out;
 }
 
-fn cudaUnaryElementSupported(comptime T: type, op: UnaryOp) bool {
+pub fn unaryElementSupported(comptime T: type, op: UnaryOp) bool {
     if (T == f32) return true;
+    // Axiom's cached CUDA unary kernels currently expose sqrt/exp/abs for every
+    // floating Vectra CUDA dtype.  The extended transcendental set is f32-only;
+    // keep this single bridge-level table as the source of truth so facades can
+    // decline unsupported dtype/op pairs before allocating output storage.
     if (T == f64 or T == f16 or T == BFloat16) {
         return switch (op) {
             .sqrt, .exp, .abs => true,
