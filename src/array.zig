@@ -7414,9 +7414,9 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn copyWhere(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.copyWhere(mask, src);
+            var src_view = try src.asView();
+            defer src_view.deinit();
+            return src_view.where(mask, self);
         }
 
         pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Array(T) {
