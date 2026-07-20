@@ -1,5 +1,41 @@
 const std = @import("std");
 
+const VectraToolStepSpec = struct {
+    exe_name: []const u8,
+    root_source_file: []const u8,
+    step_name: []const u8,
+    description: []const u8,
+};
+
+const VectraToolStep = struct {
+    run: *std.Build.Step.Run,
+    step: *std.Build.Step,
+};
+
+fn addVectraToolStep(
+    b: *std.Build,
+    target: anytype,
+    optimize: anytype,
+    vectra_mod: *std.Build.Module,
+    spec: VectraToolStepSpec,
+) VectraToolStep {
+    const exe = b.addExecutable(.{
+        .name = spec.exe_name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(spec.root_source_file),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = vectra_mod },
+            },
+        }),
+    });
+    const run = b.addRunArtifact(exe);
+    const step = b.step(spec.step_name, spec.description);
+    step.dependOn(&run.step);
+    return .{ .run = run, .step = step };
+}
+
 // Although this function looks imperative, it does not perform the build
 // directly and instead it mutates the build graph (`b`) that will be then
 // executed by an external runner. The functions in `std.Build` implement a DSL
@@ -509,164 +545,76 @@ pub fn build(b: *std.Build) void {
     axiom_cpu_dispatch_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
 
     if (is_macos_target) {
-        const axiom_mps_storage_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-storage-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_storage_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
+        // MPS is intentionally absent from non-macOS build graphs.  Keep the
+        // macOS smoke registration table-driven so adding another focused MPS
+        // smoke only adds one data row instead of another executable boilerplate
+        // block plus aggregate-step wiring.
+        const axiom_mps_storage_smoke = addVectraToolStep(b, target, optimize, mod, .{
+            .exe_name = "vectra-axiom-mps-storage-smoke",
+            .root_source_file = "tools/axiom_mps_storage_smoke.zig",
+            .step_name = "axiom-mps-storage-smoke",
+            .description = "Run MPS device storage creation/copy/download smoke",
         });
-        const axiom_mps_storage_smoke_cmd = b.addRunArtifact(axiom_mps_storage_smoke_exe);
-        const axiom_mps_storage_smoke_step = b.step("axiom-mps-storage-smoke", "Run MPS device storage creation/copy/download smoke");
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_storage_smoke_cmd.step);
-
-        const axiom_mps_gelu_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-gelu-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_gelu_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const axiom_mps_gelu_smoke_cmd = b.addRunArtifact(axiom_mps_gelu_smoke_exe);
-        const axiom_mps_gelu_smoke_step = b.step("axiom-mps-gelu-smoke", "Run focused MPS GELU composition smoke");
-        axiom_mps_gelu_smoke_step.dependOn(&axiom_mps_gelu_smoke_cmd.step);
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_gelu_smoke_cmd.step);
-
-        const axiom_mps_rank3_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-rank3-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_rank3_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const axiom_mps_rank3_smoke_cmd = b.addRunArtifact(axiom_mps_rank3_smoke_exe);
-        const axiom_mps_rank3_smoke_step = b.step("axiom-mps-rank3-smoke", "Run focused MPS rank-3 reduction/stat smoke");
-        axiom_mps_rank3_smoke_step.dependOn(&axiom_mps_rank3_smoke_cmd.step);
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_rank3_smoke_cmd.step);
-
-        const axiom_mps_rank3_broadcast_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-rank3-broadcast-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_rank3_broadcast_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const axiom_mps_rank3_broadcast_smoke_cmd = b.addRunArtifact(axiom_mps_rank3_broadcast_smoke_exe);
-        const axiom_mps_rank3_broadcast_smoke_step = b.step("axiom-mps-rank3-broadcast-smoke", "Run focused MPS rank-3/rank-4/rank-5 broadcast smoke");
-        axiom_mps_rank3_broadcast_smoke_step.dependOn(&axiom_mps_rank3_broadcast_smoke_cmd.step);
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_rank3_broadcast_smoke_cmd.step);
-
-        const axiom_mps_bmm_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-bmm-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_bmm_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const axiom_mps_bmm_smoke_cmd = b.addRunArtifact(axiom_mps_bmm_smoke_exe);
-        const axiom_mps_bmm_smoke_step = b.step("axiom-mps-bmm-smoke", "Run focused MPS rank-3 batched matmul smoke");
-        axiom_mps_bmm_smoke_step.dependOn(&axiom_mps_bmm_smoke_cmd.step);
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_bmm_smoke_cmd.step);
-
-        const axiom_mps_batched_vector_matmul_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-batched-vector-matmul-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_batched_vector_matmul_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const axiom_mps_batched_vector_matmul_smoke_cmd = b.addRunArtifact(axiom_mps_batched_vector_matmul_smoke_exe);
-        const axiom_mps_batched_vector_matmul_smoke_step = b.step("axiom-mps-batched-vector-matmul-smoke", "Run focused MPS rank-3/rank-4 batched matvec/vecmat smoke");
-        axiom_mps_batched_vector_matmul_smoke_step.dependOn(&axiom_mps_batched_vector_matmul_smoke_cmd.step);
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_batched_vector_matmul_smoke_cmd.step);
-
-        const axiom_mps_higher_rank_bmm_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-higher-rank-bmm-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_higher_rank_bmm_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const axiom_mps_higher_rank_bmm_smoke_cmd = b.addRunArtifact(axiom_mps_higher_rank_bmm_smoke_exe);
-        const axiom_mps_higher_rank_bmm_smoke_step = b.step("axiom-mps-higher-rank-bmm-smoke", "Run focused MPS higher-rank equal-batch BMM smoke");
-        axiom_mps_higher_rank_bmm_smoke_step.dependOn(&axiom_mps_higher_rank_bmm_smoke_cmd.step);
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_higher_rank_bmm_smoke_cmd.step);
-
-        const axiom_mps_broadcast_bmm_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-broadcast-bmm-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_broadcast_bmm_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const axiom_mps_broadcast_bmm_smoke_cmd = b.addRunArtifact(axiom_mps_broadcast_bmm_smoke_exe);
-        const axiom_mps_broadcast_bmm_smoke_step = b.step("axiom-mps-broadcast-bmm-smoke", "Run focused MPS whole-batch broadcast BMM smoke");
-        axiom_mps_broadcast_bmm_smoke_step.dependOn(&axiom_mps_broadcast_bmm_smoke_cmd.step);
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_broadcast_bmm_smoke_cmd.step);
-
-        const axiom_mps_mixed_bmm_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-mixed-bmm-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_mixed_bmm_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const axiom_mps_mixed_bmm_smoke_cmd = b.addRunArtifact(axiom_mps_mixed_bmm_smoke_exe);
-        const axiom_mps_mixed_bmm_smoke_step = b.step("axiom-mps-mixed-bmm-smoke", "Run focused MPS rank-4/rank-5/rank-6 mixed-batch BMM smoke");
-        axiom_mps_mixed_bmm_smoke_step.dependOn(&axiom_mps_mixed_bmm_smoke_cmd.step);
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_mixed_bmm_smoke_cmd.step);
-
-        const axiom_mps_inner_outer_smoke_exe = b.addExecutable(.{
-            .name = "vectra-axiom-mps-inner-outer-smoke",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/axiom_mps_inner_outer_smoke.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const axiom_mps_inner_outer_smoke_cmd = b.addRunArtifact(axiom_mps_inner_outer_smoke_exe);
-        const axiom_mps_inner_outer_smoke_step = b.step("axiom-mps-inner-outer-smoke", "Run focused MPS inner/outer smoke");
-        axiom_mps_inner_outer_smoke_step.dependOn(&axiom_mps_inner_outer_smoke_cmd.step);
-        axiom_mps_storage_smoke_step.dependOn(&axiom_mps_inner_outer_smoke_cmd.step);
+        const dependent_mps_smokes = [_]VectraToolStepSpec{
+            .{
+                .exe_name = "vectra-axiom-mps-gelu-smoke",
+                .root_source_file = "tools/axiom_mps_gelu_smoke.zig",
+                .step_name = "axiom-mps-gelu-smoke",
+                .description = "Run focused MPS GELU composition smoke",
+            },
+            .{
+                .exe_name = "vectra-axiom-mps-rank3-smoke",
+                .root_source_file = "tools/axiom_mps_rank3_smoke.zig",
+                .step_name = "axiom-mps-rank3-smoke",
+                .description = "Run focused MPS rank-3 reduction/stat smoke",
+            },
+            .{
+                .exe_name = "vectra-axiom-mps-rank3-broadcast-smoke",
+                .root_source_file = "tools/axiom_mps_rank3_broadcast_smoke.zig",
+                .step_name = "axiom-mps-rank3-broadcast-smoke",
+                .description = "Run focused MPS rank-3/rank-4/rank-5 broadcast smoke",
+            },
+            .{
+                .exe_name = "vectra-axiom-mps-bmm-smoke",
+                .root_source_file = "tools/axiom_mps_bmm_smoke.zig",
+                .step_name = "axiom-mps-bmm-smoke",
+                .description = "Run focused MPS rank-3 batched matmul smoke",
+            },
+            .{
+                .exe_name = "vectra-axiom-mps-batched-vector-matmul-smoke",
+                .root_source_file = "tools/axiom_mps_batched_vector_matmul_smoke.zig",
+                .step_name = "axiom-mps-batched-vector-matmul-smoke",
+                .description = "Run focused MPS rank-3/rank-4 batched matvec/vecmat smoke",
+            },
+            .{
+                .exe_name = "vectra-axiom-mps-higher-rank-bmm-smoke",
+                .root_source_file = "tools/axiom_mps_higher_rank_bmm_smoke.zig",
+                .step_name = "axiom-mps-higher-rank-bmm-smoke",
+                .description = "Run focused MPS higher-rank equal-batch BMM smoke",
+            },
+            .{
+                .exe_name = "vectra-axiom-mps-broadcast-bmm-smoke",
+                .root_source_file = "tools/axiom_mps_broadcast_bmm_smoke.zig",
+                .step_name = "axiom-mps-broadcast-bmm-smoke",
+                .description = "Run focused MPS whole-batch broadcast BMM smoke",
+            },
+            .{
+                .exe_name = "vectra-axiom-mps-mixed-bmm-smoke",
+                .root_source_file = "tools/axiom_mps_mixed_bmm_smoke.zig",
+                .step_name = "axiom-mps-mixed-bmm-smoke",
+                .description = "Run focused MPS rank-4/rank-5/rank-6 mixed-batch BMM smoke",
+            },
+            .{
+                .exe_name = "vectra-axiom-mps-inner-outer-smoke",
+                .root_source_file = "tools/axiom_mps_inner_outer_smoke.zig",
+                .step_name = "axiom-mps-inner-outer-smoke",
+                .description = "Run focused MPS inner/outer smoke",
+            },
+        };
+        for (dependent_mps_smokes) |spec| {
+            const smoke = addVectraToolStep(b, target, optimize, mod, spec);
+            axiom_mps_storage_smoke.step.dependOn(&smoke.run.step);
+        }
     }
 
     const fusion_smoke_step = b.step("fusion-smoke", "Run CPU/CUDA fusion correctness, status, and quick performance smoke gates");
