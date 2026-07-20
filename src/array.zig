@@ -8298,9 +8298,15 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn putCoordsScalar(self: Self, coords: Array(usize), value: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putCoordsScalar(coords, value);
+            var out = try self.toArray();
+            errdefer out.deinit();
+            var flat = try out.ravelCoords(coords);
+            defer flat.deinit();
+            for (flat.data) |idx| {
+                if (idx >= out.data.len) return error.IndexOutOfBounds;
+                out.data[idx] = value;
+            }
+            return out;
         }
 
         pub fn ravelMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
