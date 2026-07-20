@@ -10018,7 +10018,17 @@ pub fn Array(comptime T: type) type {
             return self.device.sameDevice(other.device);
         }
 
-        pub fn fill(self: Self, value: T) void {
+        pub fn fill(self: Self, value: T) ArrayError!void {
+            if (self.pending_matmul != null) return error.InvalidDevice;
+            // Owning accelerator arrays keep their authoritative bytes in
+            // device storage; the host slice is intentionally empty for normal
+            // CUDA/MPS allocations.  Route fills through the backend facade so
+            // callers can use the canonical `fill` API without accidentally
+            // writing only a stale or zero-length host mirror.
+            if (!self.device.isCpu()) {
+                try axiom_backend.fillAllocated(T, self.device, self.data, self.device_storage, value);
+                return;
+            }
             @memset(self.data, value);
         }
 
@@ -26200,9 +26210,9 @@ test "array and view in-place alias helpers" {
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer a.deinit();
 
-    a.fill(1);
+    try a.fill(1);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, a.data);
-    a.fill(0);
+    try a.fill(0);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0 }, a.data);
     var ones = try Array(f64).ones(gpa, &.{ 2, 2 });
     defer ones.deinit();
@@ -26352,7 +26362,7 @@ test "array object in-place assignment helpers" {
     defer copied.deinit();
     try copied.copyFrom(base);
     try std.testing.expectEqualSlices(f64, base.data, copied.data);
-    copied.fill(0);
+    try copied.fill(0);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0, 0, 0 }, copied.data);
 
     var bad_source = try Array(f64).ones(gpa, &.{ 2, 2 });
@@ -29405,6 +29415,10 @@ test "array dtype metadata and casts cover common numeric types" {
         var cuda_scalar_fill_host = try cuda_scalar_fill.cpu();
         defer cuda_scalar_fill_host.deinit();
         try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7 }, cuda_scalar_fill_host.data);
+        try cuda_scalar_fill.fill(3.5);
+        var cuda_direct_fill_host = try cuda_scalar_fill.cpu();
+        defer cuda_direct_fill_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 3.5, 3.5, 3.5, 3.5 }, cuda_direct_fill_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
