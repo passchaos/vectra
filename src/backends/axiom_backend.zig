@@ -1482,12 +1482,12 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
         }
         if (beta != 0) {
             @memcpy(out.data, c.data);
-        } else {
-            @memset(out.data, 0);
         }
-    } else {
-        @memset(out.data, 0);
     }
+    // For beta == 0 the GEMM contract overwrites `out` without reading the
+    // previous destination values.  Avoid a full pre-zero of huge production
+    // outputs; on the large CPU example that would be another multi-GB memory
+    // pass before the actual compute starts.
 
     const lhs_view = veyra.MatrixView(T).fromSlice(lhs.data, m, k, .row_major) catch {
         out.deinit();
@@ -3220,6 +3220,8 @@ fn tensorBinaryOp(op: ElementwiseOp) axiom.accelerator.TensorBinaryElementwiseOp
 }
 
 fn executeCpuElementwiseTarget(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuElementwiseFastPath(T, op, lhs, rhs)) |out| return out;
+
     if (T == f32) {
         var out = try array_mod.Array(f32).empty(lhs.allocator, lhs.shape);
         errdefer out.deinit();
@@ -3246,6 +3248,26 @@ fn executeCpuElementwiseTarget(comptime T: type, op: ElementwiseOp, lhs: array_m
         return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+const cpu_elementwise_fast_path_min_elements: usize = 1 << 20;
+
+fn executeCpuElementwiseFastPath(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!lhs.device.isCpu() or !rhs.device.isCpu()) return null;
+    if (lhs.data.len < cpu_elementwise_fast_path_min_elements) return null;
+    if (!lhs.sameShape(rhs) or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+
+    // Like large unary, same-shape CPU elementwise on production arrays should
+    // not pay Axiom's report hash/verify cost.  Keep small arrays on the
+    // evidence-rich path used by smokes, but let large materialized GEMM results
+    // perform the single expected streaming pass for `add/sub/mul/div`.
+    var out = try array_mod.Array(T).empty(lhs.allocator, lhs.shape);
+    errdefer out.deinit();
+    for (lhs.data, rhs.data, out.data) |lhs_value, rhs_value, *slot| {
+        slot.* = elementwiseValue(T, op, lhs_value, rhs_value);
+    }
+    return out;
 }
 
 fn recordCpuScalarElementwiseReport(report: anytype) void {
