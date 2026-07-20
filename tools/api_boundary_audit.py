@@ -173,6 +173,13 @@ MPS_ONLY_BUILD_SNIPPETS = (
     "axiom-mps-inner-outer-smoke",
 )
 
+REQUIRED_PLATFORM_BUILD_SNIPPETS = (
+    'const enable_axiom_cuda = !is_macos_target;',
+    'const enable_axiom_cuda_dispatch = enable_axiom_cuda;',
+    'b.option(bool, "axiom-cuda", "Compatibility flag: Axiom CUDA wrapping is enabled on non-macOS targets") orelse !is_macos_target',
+    'b.option(bool, "axiom-cuda-dispatch", "Compatibility flag: supported CUDA dispatch uses Axiom on non-macOS targets") orelse !is_macos_target',
+)
+
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -335,6 +342,9 @@ def main() -> int:
     build_text = read(BUILD)
     issues.extend(cuda_build_step_gating_issues(build_text))
     issues.extend(mps_build_step_gating_issues(build_text))
+    for snippet in REQUIRED_PLATFORM_BUILD_SNIPPETS:
+        if snippet not in build_text:
+            issues.append({"kind": "missing_platform_build_gate", "path": "build.zig", "snippet": snippet})
     for snippet in ('b.dependency("axiom"', 'axiom-dialect-lowering-smoke'):
         if snippet not in build_text:
             issues.append({"kind": "missing_axiom_build_snippet", "path": "build.zig", "snippet": snippet})
