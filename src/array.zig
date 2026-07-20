@@ -87,24 +87,12 @@ pub const Device = struct {
         return self.backend == .cpu;
     }
 
-    pub fn is_cpu(self: Device) bool {
-        return self.isCpu();
-    }
-
     pub fn isCuda(self: Device) bool {
         return self.backend == .cuda;
     }
 
-    pub fn is_cuda(self: Device) bool {
-        return self.isCuda();
-    }
-
     pub fn isMps(self: Device) bool {
         return self.backend == .mps;
-    }
-
-    pub fn is_mps(self: Device) bool {
-        return self.isMps();
     }
 
     pub fn backendName(self: Device) []const u8 {
@@ -115,20 +103,12 @@ pub const Device = struct {
         };
     }
 
-    pub fn backend_name(self: Device) []const u8 {
-        return self.backendName();
-    }
-
     pub fn eql(self: Device, other: Device) bool {
         return self.backend == other.backend and self.index == other.index;
     }
 
     pub fn sameDevice(self: Device, other: Device) bool {
         return self.eql(other);
-    }
-
-    pub fn same_device(self: Device, other: Device) bool {
-        return self.sameDevice(other);
     }
 
     pub fn isAvailable(self: Device) bool {
@@ -146,10 +126,6 @@ pub const Device = struct {
             .mps => axiom_backend.mpsDeviceAvailable(self.index),
         };
     }
-
-    pub fn is_available(self: Device) bool {
-        return self.isAvailable();
-    }
 };
 
 pub const DeviceStorage = struct {
@@ -161,10 +137,6 @@ pub const DeviceStorage = struct {
 
     pub fn isAllocated(self: DeviceStorage) bool {
         return self.ptr != 0 and self.bytes != 0;
-    }
-
-    pub fn is_allocated(self: DeviceStorage) bool {
-        return self.isAllocated();
     }
 };
 
@@ -1263,10 +1235,6 @@ pub const StorageRange = struct {
     pub fn isEmpty(self: StorageRange) bool {
         return self.begin == self.end;
     }
-
-    pub fn is_empty(self: StorageRange) bool {
-        return self.isEmpty();
-    }
 };
 
 fn computeStorageRange(offset: usize, dims: []const usize, stride_values: []const usize) ArrayError!StorageRange {
@@ -1310,17 +1278,9 @@ pub fn ArrayView(comptime T: type) type {
             return dtype.name();
         }
 
-        pub fn dtype_name(self: Self) []const u8 {
-            return self.dtypeName();
-        }
-
         pub fn dtypeTag(self: Self) u8 {
             _ = self;
             return dtype.tag();
-        }
-
-        pub fn dtype_tag(self: Self) u8 {
-            return self.dtypeTag();
         }
 
         pub fn dtypeByteSize(self: Self) usize {
@@ -1328,17 +1288,9 @@ pub fn ArrayView(comptime T: type) type {
             return dtype.byteSize();
         }
 
-        pub fn dtype_byte_size(self: Self) usize {
-            return self.dtypeByteSize();
-        }
-
         pub fn dtypeBitSize(self: Self) usize {
             _ = self;
             return dtype.bitSize();
-        }
-
-        pub fn dtype_bit_size(self: Self) usize {
-            return self.dtypeBitSize();
         }
 
         pub fn isFloatDtype(self: Self) bool {
@@ -1346,17 +1298,9 @@ pub fn ArrayView(comptime T: type) type {
             return dtype.isFloat();
         }
 
-        pub fn is_float_dtype(self: Self) bool {
-            return self.isFloatDtype();
-        }
-
         pub fn isIntegerDtype(self: Self) bool {
             _ = self;
             return dtype.isInteger();
-        }
-
-        pub fn is_integer_dtype(self: Self) bool {
-            return self.isIntegerDtype();
         }
 
         pub fn isSignedDtype(self: Self) bool {
@@ -1364,17 +1308,9 @@ pub fn ArrayView(comptime T: type) type {
             return dtype.isSigned();
         }
 
-        pub fn is_signed_dtype(self: Self) bool {
-            return self.isSignedDtype();
-        }
-
         pub fn isUnsignedDtype(self: Self) bool {
             _ = self;
             return dtype.isUnsigned();
-        }
-
-        pub fn is_unsigned_dtype(self: Self) bool {
-            return self.isUnsignedDtype();
         }
 
         pub fn isComplexDtype(self: Self) bool {
@@ -1382,17 +1318,9 @@ pub fn ArrayView(comptime T: type) type {
             return dtype.isComplex();
         }
 
-        pub fn is_complex_dtype(self: Self) bool {
-            return self.isComplexDtype();
-        }
-
         pub fn isBoolDtype(self: Self) bool {
             _ = self;
             return dtype.isBool();
-        }
-
-        pub fn is_bool_dtype(self: Self) bool {
-            return self.isBoolDtype();
         }
 
         pub fn isRealDtype(self: Self) bool {
@@ -1400,26 +1328,14 @@ pub fn ArrayView(comptime T: type) type {
             return dtype.isReal();
         }
 
-        pub fn is_real_dtype(self: Self) bool {
-            return self.isRealDtype();
-        }
-
         pub fn isNumericDtype(self: Self) bool {
             _ = self;
             return dtype.isNumeric();
         }
 
-        pub fn is_numeric_dtype(self: Self) bool {
-            return self.isNumericDtype();
-        }
-
         pub fn canCastToDtype(self: Self, target: DType) bool {
             _ = self;
             return dtype.canCast(target);
-        }
-
-        pub fn can_cast_to_dtype(self: Self, target: DType) bool {
-            return self.canCastToDtype(target);
         }
 
         pub fn fromArray(input: Array(T)) ArrayError!Self {
@@ -1492,10 +1408,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.ndim();
         }
 
-        pub fn num_dims(self: Self) usize {
-            return self.numDims();
-        }
-
         pub fn numel(self: Self) usize {
             return product(self.shape);
         }
@@ -1508,32 +1420,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.numel() == 0;
         }
 
-        pub fn is_empty(self: Self) bool {
-            return self.isEmpty();
-        }
-
         pub fn isMatrix(self: Self) bool {
             return self.shape.len == 2;
-        }
-
-        pub fn is_matrix(self: Self) bool {
-            return self.isMatrix();
         }
 
         pub fn isBatchedMatrix(self: Self) bool {
             return self.shape.len >= 3;
         }
 
-        pub fn is_batched_matrix(self: Self) bool {
-            return self.isBatchedMatrix();
-        }
-
         pub fn isSquare(self: Self) bool {
             return self.shape.len >= 2 and self.shape[self.shape.len - 2] == self.shape[self.shape.len - 1];
-        }
-
-        pub fn is_square(self: Self) bool {
-            return self.isSquare();
         }
 
         pub fn size(self: Self, axis_opt: ?isize) ArrayError!usize {
@@ -1543,10 +1439,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn shapeAt(self: Self, axis_index: isize) ArrayError!usize {
             return self.shape[try normalizeDim(axis_index, self.shape.len)];
-        }
-
-        pub fn shape_at(self: Self, axis_index: isize) ArrayError!usize {
-            return self.shapeAt(axis_index);
         }
 
         pub fn len(self: Self) ArrayError!usize {
@@ -1562,17 +1454,9 @@ pub fn ArrayView(comptime T: type) type {
             return self.stride(axis_index);
         }
 
-        pub fn stride_at(self: Self, axis_index: isize) ArrayError!usize {
-            return self.strideAt(axis_index);
-        }
-
         pub fn elementSize(self: Self) usize {
             _ = self;
             return @sizeOf(T);
-        }
-
-        pub fn element_size(self: Self) usize {
-            return self.elementSize();
         }
 
         pub fn itemsize(self: Self) usize {
@@ -1583,104 +1467,52 @@ pub fn ArrayView(comptime T: type) type {
             return self.numel() * @sizeOf(T);
         }
 
-        pub fn num_bytes(self: Self) usize {
-            return self.nbytes();
-        }
-
         pub fn storageOffset(self: Self) usize {
             return self.offset;
-        }
-
-        pub fn storage_offset(self: Self) usize {
-            return self.storageOffset();
         }
 
         pub fn dataPtr(self: Self) [*]T {
             return self.data.ptr + self.offset;
         }
 
-        pub fn data_ptr(self: Self) [*]T {
-            return self.dataPtr();
-        }
-
         pub fn storageDataPtr(self: Self) [*]T {
             return self.data.ptr;
-        }
-
-        pub fn storage_data_ptr(self: Self) [*]T {
-            return self.storageDataPtr();
         }
 
         pub fn storageSize(self: Self) usize {
             return self.data.len;
         }
 
-        pub fn storage_size(self: Self) usize {
-            return self.storageSize();
-        }
-
         pub fn storageNbytes(self: Self) usize {
             return self.data.len * @sizeOf(T);
-        }
-
-        pub fn storage_nbytes(self: Self) usize {
-            return self.storageNbytes();
         }
 
         pub fn storageSpan(self: Self) ArrayError!usize {
             return computeStorageSpan(self.shape, self.strides);
         }
 
-        pub fn storage_span(self: Self) ArrayError!usize {
-            return self.storageSpan();
-        }
-
         pub fn storageRange(self: Self) ArrayError!StorageRange {
             return computeStorageRange(self.offset, self.shape, self.strides);
-        }
-
-        pub fn storage_range(self: Self) ArrayError!StorageRange {
-            return self.storageRange();
         }
 
         pub fn storageEndOffset(self: Self) ArrayError!usize {
             return (try self.storageRange()).end;
         }
 
-        pub fn storage_end_offset(self: Self) ArrayError!usize {
-            return self.storageEndOffset();
-        }
-
         pub fn sharesStorage(self: Self, other: Self) bool {
             return self.data.ptr == other.data.ptr and self.data.len == other.data.len;
-        }
-
-        pub fn shares_storage(self: Self, other: Self) bool {
-            return self.sharesStorage(other);
         }
 
         pub fn sameStorage(self: Self, other: Self) bool {
             return self.sharesStorage(other);
         }
 
-        pub fn same_storage(self: Self, other: Self) bool {
-            return self.sameStorage(other);
-        }
-
         pub fn sharesStorageArray(self: Self, other: Array(T)) bool {
             return self.data.ptr == other.data.ptr and self.data.len == other.data.len;
         }
 
-        pub fn shares_storage_array(self: Self, other: Array(T)) bool {
-            return self.sharesStorageArray(other);
-        }
-
         pub fn sameStorageArray(self: Self, other: Array(T)) bool {
             return self.sharesStorageArray(other);
-        }
-
-        pub fn same_storage_array(self: Self, other: Array(T)) bool {
-            return self.sameStorageArray(other);
         }
 
         pub fn mayOverlap(self: Self, other: Self) ArrayError!bool {
@@ -1690,58 +1522,30 @@ pub fn ArrayView(comptime T: type) type {
             return rangesOverlap(lhs_range.begin, lhs_range.end, rhs_range.begin, rhs_range.end);
         }
 
-        pub fn may_overlap(self: Self, other: Self) ArrayError!bool {
-            return self.mayOverlap(other);
-        }
-
         pub fn mayOverlapArray(self: Self, other: Array(T)) ArrayError!bool {
             if (!self.sharesStorageArray(other)) return false;
             const lhs_range = try self.storageRange();
             return rangesOverlap(lhs_range.begin, lhs_range.end, 0, other.data.len);
         }
 
-        pub fn may_overlap_array(self: Self, other: Array(T)) ArrayError!bool {
-            return self.mayOverlapArray(other);
-        }
-
         pub fn sameShape(self: Self, other: Self) bool {
             return std.mem.eql(usize, self.shape, other.shape);
-        }
-
-        pub fn same_shape(self: Self, other: Self) bool {
-            return self.sameShape(other);
         }
 
         pub fn shapeEquals(self: Self, dims: []const usize) bool {
             return std.mem.eql(usize, self.shape, dims);
         }
 
-        pub fn shape_equals(self: Self, dims: []const usize) bool {
-            return self.shapeEquals(dims);
-        }
-
         pub fn hasShape(self: Self, dims: []const usize) bool {
             return self.shapeEquals(dims);
-        }
-
-        pub fn has_shape(self: Self, dims: []const usize) bool {
-            return self.hasShape(dims);
         }
 
         pub fn sameShapeArray(self: Self, other: Array(T)) bool {
             return std.mem.eql(usize, self.shape, other.shape);
         }
 
-        pub fn same_shape_array(self: Self, other: Array(T)) bool {
-            return self.sameShapeArray(other);
-        }
-
         pub fn broadcastShape(self: Self, other: Self) ArrayError![]usize {
             return @This().broadcastShapes(self.allocator, self.shape, other.shape);
-        }
-
-        pub fn broadcast_shape(self: Self, other: Self) ArrayError![]usize {
-            return self.broadcastShape(other);
         }
 
         pub fn broadcastShapeArray(self: Self, other: Array(T)) ArrayError![]usize {
@@ -1758,10 +1562,6 @@ pub fn ArrayView(comptime T: type) type {
             return .{ .first = first, .second = second };
         }
 
-        pub fn broadcast_with(self: Self, other: Self) ArrayError!BroadcastPair {
-            return self.broadcastWith(other);
-        }
-
         pub fn broadcastWithArray(self: Self, other: Array(T)) ArrayError!BroadcastPair {
             var other_view = try other.asView();
             defer other_view.deinit();
@@ -1772,48 +1572,24 @@ pub fn ArrayView(comptime T: type) type {
             return computeBroadcastShape(allocator, lhs_shape, rhs_shape);
         }
 
-        pub fn broadcast_shapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) ArrayError![]usize {
-            return @This().broadcastShapes(allocator, lhs_shape, rhs_shape);
-        }
-
         pub fn isScalar(self: Self) bool {
             return self.shape.len == 0 or (self.shape.len == 1 and self.shape[0] == 1);
-        }
-
-        pub fn is_scalar(self: Self) bool {
-            return self.isScalar();
         }
 
         pub fn isVector(self: Self) bool {
             return self.shape.len == 1;
         }
 
-        pub fn is_vector(self: Self) bool {
-            return self.isVector();
-        }
-
         pub fn isRowVector(self: Self) bool {
             return self.shape.len == 2 and self.shape[0] == 1;
-        }
-
-        pub fn is_row_vector(self: Self) bool {
-            return self.isRowVector();
         }
 
         pub fn isColumnVector(self: Self) bool {
             return self.shape.len == 2 and self.shape[1] == 1;
         }
 
-        pub fn is_column_vector(self: Self) bool {
-            return self.isColumnVector();
-        }
-
         pub fn isVectorLike(self: Self) bool {
             return self.isVector() or self.isRowVector() or self.isColumnVector();
-        }
-
-        pub fn is_vector_like(self: Self) bool {
-            return self.isVectorLike();
         }
 
         pub fn isContiguous(self: Self) bool {
@@ -1825,10 +1601,6 @@ pub fn ArrayView(comptime T: type) type {
                 expected *= self.shape[i];
             }
             return true;
-        }
-
-        pub fn is_contiguous(self: Self) bool {
-            return self.isContiguous();
         }
 
         fn isOneDimensionalStrided(self: Self) bool {
@@ -1869,20 +1641,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.data[try self.offsetOfSigned(indices)];
         }
 
-        pub fn get_signed(self: Self, indices: []const isize) ArrayError!T {
-            return self.getSigned(indices);
-        }
-
         pub fn at(self: Self, indices: []const usize) ArrayError!T {
             return self.get(indices);
         }
 
         pub fn atSigned(self: Self, indices: []const isize) ArrayError!T {
             return self.getSigned(indices);
-        }
-
-        pub fn at_signed(self: Self, indices: []const isize) ArrayError!T {
-            return self.atSigned(indices);
         }
 
         pub fn set(self: Self, indices: []const usize, value: T) ArrayError!void {
@@ -1893,20 +1657,12 @@ pub fn ArrayView(comptime T: type) type {
             self.data[try self.offsetOfSigned(indices)] = value;
         }
 
-        pub fn set_signed(self: Self, indices: []const isize, value: T) ArrayError!void {
-            return self.setSigned(indices, value);
-        }
-
         pub fn put(self: Self, indices: []const usize, value: T) ArrayError!void {
             return self.set(indices, value);
         }
 
         pub fn putSigned(self: Self, indices: []const isize, value: T) ArrayError!void {
             return self.setSigned(indices, value);
-        }
-
-        pub fn put_signed(self: Self, indices: []const isize, value: T) ArrayError!void {
-            return self.putSigned(indices, value);
         }
 
         pub fn item(self: Self) ArrayError!T {
@@ -1919,16 +1675,8 @@ pub fn ArrayView(comptime T: type) type {
             return self.item();
         }
 
-        pub fn item_value(self: Self) ArrayError!T {
-            return self.itemValue();
-        }
-
         pub fn scalarValue(self: Self) ArrayError!T {
             return self.item();
-        }
-
-        pub fn scalar_value(self: Self) ArrayError!T {
-            return self.scalarValue();
         }
 
         pub fn asSlice(self: Self) ArrayError![]T {
@@ -1938,16 +1686,8 @@ pub fn ArrayView(comptime T: type) type {
             return self.data[self.offset..end];
         }
 
-        pub fn as_slice(self: Self) ArrayError![]T {
-            return self.asSlice();
-        }
-
         pub fn asConstSlice(self: Self) ArrayError![]const T {
             return self.asSlice();
-        }
-
-        pub fn as_const_slice(self: Self) ArrayError![]const T {
-            return self.asConstSlice();
         }
 
         pub fn copyToSlice(self: Self, out: []T) ArrayError!void {
@@ -1977,19 +1717,11 @@ pub fn ArrayView(comptime T: type) type {
             }
         }
 
-        pub fn copy_to_slice(self: Self, out: []T) ArrayError!void {
-            return self.copyToSlice(out);
-        }
-
         pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) ArrayError![]T {
             const out = try allocator.alloc(T, self.numel());
             errdefer allocator.free(out);
             try self.copyToSlice(out);
             return out;
-        }
-
-        pub fn to_owned_slice(self: Self, allocator: std.mem.Allocator) ArrayError![]T {
-            return self.toOwnedSlice(allocator);
         }
 
         pub fn toArray(self: Self) ArrayError!Array(T) {
@@ -2029,64 +1761,32 @@ pub fn ArrayView(comptime T: type) type {
             return Array(T).empty(self.allocator, self.shape);
         }
 
-        pub fn empty_like(self: Self) ArrayError!Array(T) {
-            return self.emptyLike();
-        }
-
         pub fn zerosLike(self: Self) ArrayError!Array(T) {
             return Array(T).zeros(self.allocator, self.shape);
-        }
-
-        pub fn zeros_like(self: Self) ArrayError!Array(T) {
-            return self.zerosLike();
         }
 
         pub fn onesLike(self: Self) ArrayError!Array(T) {
             return Array(T).ones(self.allocator, self.shape);
         }
 
-        pub fn ones_like(self: Self) ArrayError!Array(T) {
-            return self.onesLike();
-        }
-
         pub fn fullLike(self: Self, value: T) ArrayError!Array(T) {
             return Array(T).full(self.allocator, self.shape, value);
-        }
-
-        pub fn full_like(self: Self, value: T) ArrayError!Array(T) {
-            return self.fullLike(value);
         }
 
         pub fn newEmpty(self: Self, dims: []const usize) ArrayError!Array(T) {
             return Array(T).empty(self.allocator, dims);
         }
 
-        pub fn new_empty(self: Self, dims: []const usize) ArrayError!Array(T) {
-            return self.newEmpty(dims);
-        }
-
         pub fn newZeros(self: Self, dims: []const usize) ArrayError!Array(T) {
             return Array(T).zeros(self.allocator, dims);
-        }
-
-        pub fn new_zeros(self: Self, dims: []const usize) ArrayError!Array(T) {
-            return self.newZeros(dims);
         }
 
         pub fn newOnes(self: Self, dims: []const usize) ArrayError!Array(T) {
             return Array(T).ones(self.allocator, dims);
         }
 
-        pub fn new_ones(self: Self, dims: []const usize) ArrayError!Array(T) {
-            return self.newOnes(dims);
-        }
-
         pub fn newFull(self: Self, dims: []const usize, value: T) ArrayError!Array(T) {
             return Array(T).full(self.allocator, dims, value);
-        }
-
-        pub fn new_full(self: Self, dims: []const usize, value: T) ArrayError!Array(T) {
-            return self.newFull(dims, value);
         }
 
         pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
@@ -2164,10 +1864,6 @@ pub fn ArrayView(comptime T: type) type {
             return lhs_owned.solveTriangular(rhs, triangle, diagonal_kind);
         }
 
-        pub fn solve_triangular(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Array(T) {
-            return self.solveTriangular(rhs, triangle, diagonal_kind);
-        }
-
         pub fn svd(self: Self, tolerance: T) ArrayError!SvdResult(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -2180,18 +1876,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.singularValues(tolerance);
         }
 
-        pub fn singular_values(self: Self, tolerance: T) ArrayError!Array(T) {
-            return self.singularValues(tolerance);
-        }
-
         pub fn matrixRank(self: Self, tolerance: T) ArrayError!usize {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.matrixRank(tolerance);
-        }
-
-        pub fn matrix_rank(self: Self, tolerance: T) ArrayError!usize {
-            return self.matrixRank(tolerance);
         }
 
         pub fn cond(self: Self, tolerance: T) ArrayError!T {
@@ -2210,10 +1898,6 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.matrixNorm(order, tolerance);
-        }
-
-        pub fn matrix_norm(self: Self, order: MatrixNormOrder, tolerance: T) ArrayError!T {
-            return self.matrixNorm(order, tolerance);
         }
 
         pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) ArrayError!EighResult(T) {
@@ -2266,72 +1950,36 @@ pub fn ArrayView(comptime T: type) type {
             return self.device.backend;
         }
 
-        pub fn device_backend(self: Self) Backend {
-            return self.deviceBackend();
-        }
-
         pub fn deviceIndex(self: Self) usize {
             return self.device.index;
-        }
-
-        pub fn device_index(self: Self) usize {
-            return self.deviceIndex();
         }
 
         pub fn deviceBackendName(self: Self) []const u8 {
             return self.device.backendName();
         }
 
-        pub fn device_backend_name(self: Self) []const u8 {
-            return self.deviceBackendName();
-        }
-
         pub fn isCpu(self: Self) bool {
             return self.device.isCpu();
-        }
-
-        pub fn is_cpu(self: Self) bool {
-            return self.isCpu();
         }
 
         pub fn isCuda(self: Self) bool {
             return self.device.isCuda();
         }
 
-        pub fn is_cuda(self: Self) bool {
-            return self.isCuda();
-        }
-
         pub fn isMps(self: Self) bool {
             return self.device.isMps();
-        }
-
-        pub fn is_mps(self: Self) bool {
-            return self.isMps();
         }
 
         pub fn isDeviceAvailable(self: Self) bool {
             return self.device.isAvailable();
         }
 
-        pub fn is_device_available(self: Self) bool {
-            return self.isDeviceAvailable();
-        }
-
         pub fn sameDevice(self: Self, other: Self) bool {
             return self.device.sameDevice(other.device);
         }
 
-        pub fn same_device(self: Self, other: Self) bool {
-            return self.sameDevice(other);
-        }
-
         pub fn sameDeviceArray(self: Self, other: Array(T)) bool {
             return self.device.sameDevice(other.device);
-        }
-
-        pub fn same_device_array(self: Self, other: Array(T)) bool {
-            return self.sameDeviceArray(other);
         }
 
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) ArrayError!Self {
@@ -2356,10 +2004,6 @@ pub fn ArrayView(comptime T: type) type {
             } else 0;
             const count = @min(rows - start_row, cols - start_col);
             return self.asStrided(&.{count}, &.{self.strides[0] + self.strides[1]}, start_row * self.strides[0] + start_col * self.strides[1]);
-        }
-
-        pub fn diagonal_view(self: Self, offset: isize) ArrayError!Self {
-            return self.diagonalView(offset);
         }
 
         pub fn diagonalAxesView(self: Self, offset: isize, axis1_index: isize, axis2_index: isize) ArrayError!Self {
@@ -2400,18 +2044,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.asStrided(out_shape, out_strides, start_axis1 * self.strides[axis1] + start_axis2 * self.strides[axis2]);
         }
 
-        pub fn diagonal_axes_view(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
-            return self.diagonalAxesView(offset, axis1, axis2);
-        }
-
         pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) ArrayError!void {
             var diag_view = try self.diagonalAxesView(offset, axis1, axis2);
             defer diag_view.deinit();
             return diag_view.fill(value);
-        }
-
-        pub fn fill_diagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) ArrayError!void {
-            return self.fillDiagonal(value, offset, axis1, axis2);
         }
 
         pub fn diagonalScatter(self: Self, values: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
@@ -2421,10 +2057,6 @@ pub fn ArrayView(comptime T: type) type {
             defer target.deinit();
             try target.copyFromView(values);
             return out;
-        }
-
-        pub fn diagonal_scatter(self: Self, values: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
-            return self.diagonalScatter(values, offset, axis1, axis2);
         }
 
         pub fn diagonalScatterArray(self: Self, values: Array(T), offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
@@ -3444,164 +3076,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.assignScalar(scalar, opDiv);
         }
 
-        pub fn fill_(self: Self, value: T) ArrayError!void {
-            return self.fill(value);
-        }
-
-        pub fn zero_(self: Self) ArrayError!void {
-            return self.fill(zero(T));
-        }
-
-        pub fn copy_(self: Self, source: Self) ArrayError!void {
-            return self.copyFromView(source);
-        }
-
-        pub fn copy_from(self: Self, source: Self) ArrayError!void {
-            return self.copyFrom(source);
-        }
-
-        pub fn copy_from_view(self: Self, source: Self) ArrayError!void {
-            return self.copyFromView(source);
-        }
-
         pub fn copyFromArrayAssign(self: Self, source: Array(T)) ArrayError!void {
             return self.copyFromArray(source);
-        }
-
-        pub fn copy_from_array(self: Self, source: Array(T)) ArrayError!void {
-            return self.copyFromArray(source);
-        }
-
-        pub fn maskedFillAssign_(self: Self, mask: Array(bool), value: T) ArrayError!void {
-            return self.maskedFill(mask, value);
-        }
-
-        pub fn masked_fill_(self: Self, mask: Array(bool), value: T) ArrayError!void {
-            return self.maskedFill(mask, value);
         }
 
         pub fn maskedCopyFromAssign(self: Self, mask: Array(bool), values: Self) ArrayError!void {
             return self.maskedCopyFromView(mask, values);
         }
 
-        pub fn masked_copy_from(self: Self, mask: Array(bool), values: Self) ArrayError!void {
-            return self.maskedCopyFrom(mask, values);
-        }
-
         pub fn maskedCopyFromArrayAssign(self: Self, mask: Array(bool), values: Array(T)) ArrayError!void {
             return self.maskedCopyFromArray(mask, values);
-        }
-
-        pub fn masked_copy_from_array(self: Self, mask: Array(bool), values: Array(T)) ArrayError!void {
-            return self.maskedCopyFromArray(mask, values);
-        }
-
-        pub fn copyWhereAssign_(self: Self, mask: Array(bool), source: Self) ArrayError!void {
-            return self.copyWhereFromView(mask, source);
-        }
-
-        pub fn copy_where_(self: Self, mask: Array(bool), source: Self) ArrayError!void {
-            return self.copyWhereFromView(mask, source);
-        }
-
-        pub fn copy_where_from_array(self: Self, mask: Array(bool), source: Array(T)) ArrayError!void {
-            return self.copyWhereFromArray(mask, source);
-        }
-
-        pub fn add_(self: Self, source: Self) ArrayError!void {
-            return self.addAssign(source);
-        }
-
-        pub fn add_assign(self: Self, source: Self) ArrayError!void {
-            return self.addAssign(source);
-        }
-
-        pub fn sub_(self: Self, source: Self) ArrayError!void {
-            return self.subAssign(source);
-        }
-
-        pub fn sub_assign(self: Self, source: Self) ArrayError!void {
-            return self.subAssign(source);
-        }
-
-        pub fn mul_(self: Self, source: Self) ArrayError!void {
-            return self.mulAssign(source);
-        }
-
-        pub fn mul_assign(self: Self, source: Self) ArrayError!void {
-            return self.mulAssign(source);
-        }
-
-        pub fn div_(self: Self, source: Self) ArrayError!void {
-            return self.divAssign(source);
-        }
-
-        pub fn div_assign(self: Self, source: Self) ArrayError!void {
-            return self.divAssign(source);
-        }
-
-        pub fn addArray_(self: Self, source: Array(T)) ArrayError!void {
-            return self.addAssignArray(source);
-        }
-
-        pub fn add_array_(self: Self, source: Array(T)) ArrayError!void {
-            return self.addArray_(source);
-        }
-
-        pub fn subArray_(self: Self, source: Array(T)) ArrayError!void {
-            return self.subAssignArray(source);
-        }
-
-        pub fn sub_array_(self: Self, source: Array(T)) ArrayError!void {
-            return self.subArray_(source);
-        }
-
-        pub fn mulArray_(self: Self, source: Array(T)) ArrayError!void {
-            return self.mulAssignArray(source);
-        }
-
-        pub fn mul_array_(self: Self, source: Array(T)) ArrayError!void {
-            return self.mulArray_(source);
-        }
-
-        pub fn divArray_(self: Self, source: Array(T)) ArrayError!void {
-            return self.divAssignArray(source);
-        }
-
-        pub fn div_array_(self: Self, source: Array(T)) ArrayError!void {
-            return self.divArray_(source);
-        }
-
-        pub fn addScalar_(self: Self, value: T) ArrayError!void {
-            return self.addScalarAssign(value);
-        }
-
-        pub fn add_scalar_(self: Self, value: T) ArrayError!void {
-            return self.addScalar_(value);
-        }
-
-        pub fn subScalar_(self: Self, value: T) ArrayError!void {
-            return self.subScalarAssign(value);
-        }
-
-        pub fn sub_scalar_(self: Self, value: T) ArrayError!void {
-            return self.subScalar_(value);
-        }
-
-        pub fn mulScalar_(self: Self, value: T) ArrayError!void {
-            return self.mulScalarAssign(value);
-        }
-
-        pub fn mul_scalar_(self: Self, value: T) ArrayError!void {
-            return self.mulScalar_(value);
-        }
-
-        pub fn divScalar_(self: Self, value: T) ArrayError!void {
-            return self.divScalarAssign(value);
-        }
-
-        pub fn div_scalar_(self: Self, value: T) ArrayError!void {
-            return self.divScalar_(value);
         }
 
         pub fn neg(self: Self) ArrayError!Array(T) {
@@ -4022,17 +3506,9 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryViewOut(other, out, opAdd);
         }
 
-        pub fn add_out(self: Self, other: Self, out: Array(T)) ArrayError!void {
-            return self.addOut(other, out);
-        }
-
         pub fn subOut(self: Self, other: Self, out: Array(T)) ArrayError!void {
             ensureNumeric(T);
             return self.binaryViewOut(other, out, opSub);
-        }
-
-        pub fn sub_out(self: Self, other: Self, out: Array(T)) ArrayError!void {
-            return self.subOut(other, out);
         }
 
         pub fn mulOut(self: Self, other: Self, out: Array(T)) ArrayError!void {
@@ -4040,17 +3516,9 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryViewOut(other, out, opMul);
         }
 
-        pub fn mul_out(self: Self, other: Self, out: Array(T)) ArrayError!void {
-            return self.mulOut(other, out);
-        }
-
         pub fn divOut(self: Self, other: Self, out: Array(T)) ArrayError!void {
             ensureNumeric(T);
             return self.binaryViewOut(other, out, opDiv);
-        }
-
-        pub fn div_out(self: Self, other: Self, out: Array(T)) ArrayError!void {
-            return self.divOut(other, out);
         }
 
         pub fn addScalarOut(self: Self, scalar: T, out: Array(T)) ArrayError!void {
@@ -4058,17 +3526,9 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryScalarOut(scalar, out, opAdd);
         }
 
-        pub fn add_scalar_out(self: Self, scalar: T, out: Array(T)) ArrayError!void {
-            return self.addScalarOut(scalar, out);
-        }
-
         pub fn subScalarOut(self: Self, scalar: T, out: Array(T)) ArrayError!void {
             ensureNumeric(T);
             return self.binaryScalarOut(scalar, out, opSub);
-        }
-
-        pub fn sub_scalar_out(self: Self, scalar: T, out: Array(T)) ArrayError!void {
-            return self.subScalarOut(scalar, out);
         }
 
         pub fn mulScalarOut(self: Self, scalar: T, out: Array(T)) ArrayError!void {
@@ -4076,17 +3536,9 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryScalarOut(scalar, out, opMul);
         }
 
-        pub fn mul_scalar_out(self: Self, scalar: T, out: Array(T)) ArrayError!void {
-            return self.mulScalarOut(scalar, out);
-        }
-
         pub fn divScalarOut(self: Self, scalar: T, out: Array(T)) ArrayError!void {
             ensureNumeric(T);
             return self.binaryScalarOut(scalar, out, opDiv);
-        }
-
-        pub fn div_scalar_out(self: Self, scalar: T, out: Array(T)) ArrayError!void {
-            return self.divScalarOut(scalar, out);
         }
 
         pub fn powScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -4117,10 +3569,6 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
-        pub fn maximum_scalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.maximumScalar(scalar);
-        }
-
         pub fn minimumScalar(self: Self, scalar: T) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.binaryScalar(scalar, struct {
@@ -4130,40 +3578,20 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
-        pub fn minimum_scalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.minimumScalar(scalar);
-        }
-
         pub fn clipMin(self: Self, min_value: T) ArrayError!Array(T) {
             return self.maximumScalar(min_value);
-        }
-
-        pub fn clip_min(self: Self, min_value: T) ArrayError!Array(T) {
-            return self.clipMin(min_value);
         }
 
         pub fn clampMin(self: Self, min_value: T) ArrayError!Array(T) {
             return self.clipMin(min_value);
         }
 
-        pub fn clamp_min(self: Self, min_value: T) ArrayError!Array(T) {
-            return self.clampMin(min_value);
-        }
-
         pub fn clipMax(self: Self, max_value: T) ArrayError!Array(T) {
             return self.minimumScalar(max_value);
         }
 
-        pub fn clip_max(self: Self, max_value: T) ArrayError!Array(T) {
-            return self.clipMax(max_value);
-        }
-
         pub fn clampMax(self: Self, max_value: T) ArrayError!Array(T) {
             return self.clipMax(max_value);
-        }
-
-        pub fn clamp_max(self: Self, max_value: T) ArrayError!Array(T) {
-            return self.clampMax(max_value);
         }
 
         pub fn fmaxScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -4171,17 +3599,9 @@ pub fn ArrayView(comptime T: type) type {
             return self.binaryScalar(scalar, Array(T).opFmax);
         }
 
-        pub fn fmax_scalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.fmaxScalar(scalar);
-        }
-
         pub fn fminScalar(self: Self, scalar: T) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.binaryScalar(scalar, Array(T).opFmin);
-        }
-
-        pub fn fmin_scalar(self: Self, scalar: T) ArrayError!Array(T) {
-            return self.fminScalar(scalar);
         }
 
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Array(T) {
@@ -4798,10 +4218,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.glu(dim_index);
         }
 
-        pub fn glu_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.gluDim(dim_index);
-        }
-
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Array(T) {
             ensureNumeric(T);
             var out = try Array(T).empty(self.allocator, self.shape);
@@ -4905,10 +4321,6 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logSigmoid(self: Self) ArrayError!Array(T) {
-            return self.logsigmoid();
-        }
-
-        pub fn log_sigmoid(self: Self) ArrayError!Array(T) {
             return self.logsigmoid();
         }
 
@@ -5200,10 +4612,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.iscloseEqualNan(other, rtol, atol, equal_nan);
         }
 
-        pub fn isclose_equal_nan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
-            return self.iscloseEqualNan(other, rtol, atol, equal_nan);
-        }
-
         pub fn allclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!bool {
             return self.allcloseEqualNan(other, rtol, atol, false);
         }
@@ -5228,10 +4636,6 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn allCloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
-            return self.allcloseEqualNan(other, rtol, atol, equal_nan);
-        }
-
-        pub fn allclose_equal_nan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             return self.allcloseEqualNan(other, rtol, atol, equal_nan);
         }
 
@@ -5279,10 +4683,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
-        pub fn isclose_scalar_equal_nan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
-            return self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
-        }
-
         pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!bool {
             return self.allcloseScalarEqualNan(scalar, rtol, atol, false);
         }
@@ -5322,10 +4722,6 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn allCloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
-            return self.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
-        }
-
-        pub fn allclose_scalar_equal_nan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             return self.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
@@ -5519,34 +4915,18 @@ pub fn ArrayView(comptime T: type) type {
             return self.reduceAxesViewAware(axes, keepdims, Self.sum, Array(T).sum);
         }
 
-        pub fn sum_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.sumAxes(axes, keepdims);
-        }
-
         pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.sum(dim_opt, keepdim);
-        }
-
-        pub fn sum_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.sumDim(dim_opt, keepdim);
         }
 
         pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.sumAxes(dims, keepdim);
         }
 
-        pub fn sum_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.sumDims(dims, keepdim);
-        }
-
         pub fn sumToSize(self: Self, dims: []const usize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.sumToSize(dims);
-        }
-
-        pub fn sum_to_size(self: Self, dims: []const usize) ArrayError!Array(T) {
-            return self.sumToSize(dims);
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -5558,24 +4938,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.reduceAxesViewAware(axes, keepdims, Self.prod, Array(T).prod);
         }
 
-        pub fn prod_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.prodAxes(axes, keepdims);
-        }
-
         pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.prod(dim_opt, keepdim);
         }
 
-        pub fn prod_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.prodDim(dim_opt, keepdim);
-        }
-
         pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.prodAxes(dims, keepdim);
-        }
-
-        pub fn prod_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.prodDims(dims, keepdim);
         }
 
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -5595,15 +4963,7 @@ pub fn ArrayView(comptime T: type) type {
             return self.reduceAxesViewAware(axes, keepdims, Self.min, Array(T).min);
         }
 
-        pub fn min_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.minAxes(axes, keepdims);
-        }
-
         pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.minAxes(axes, keepdims);
-        }
-
-        pub fn amin_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.minAxes(axes, keepdims);
         }
 
@@ -5611,32 +4971,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.min(dim_opt, keepdim);
         }
 
-        pub fn min_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.minDim(dim_opt, keepdim);
-        }
-
         pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.amin(dim_opt, keepdim);
-        }
-
-        pub fn amin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.aminDim(dim_opt, keepdim);
         }
 
         pub fn minDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.minAxes(dims, keepdim);
         }
 
-        pub fn min_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.minDims(dims, keepdim);
-        }
-
         pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.aminAxes(dims, keepdim);
-        }
-
-        pub fn amin_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.aminDims(dims, keepdim);
         }
 
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -5656,15 +5000,7 @@ pub fn ArrayView(comptime T: type) type {
             return self.reduceAxesViewAware(axes, keepdims, Self.max, Array(T).max);
         }
 
-        pub fn max_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.maxAxes(axes, keepdims);
-        }
-
         pub fn amaxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.maxAxes(axes, keepdims);
-        }
-
-        pub fn amax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             return self.maxAxes(axes, keepdims);
         }
 
@@ -5672,32 +5008,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.max(dim_opt, keepdim);
         }
 
-        pub fn max_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.maxDim(dim_opt, keepdim);
-        }
-
         pub fn amaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.amax(dim_opt, keepdim);
-        }
-
-        pub fn amax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.amaxDim(dim_opt, keepdim);
         }
 
         pub fn maxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.maxAxes(dims, keepdim);
         }
 
-        pub fn max_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.maxDims(dims, keepdim);
-        }
-
         pub fn amaxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.amaxAxes(dims, keepdim);
-        }
-
-        pub fn amax_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.amaxDims(dims, keepdim);
         }
 
         pub fn ptp(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -5716,24 +5036,12 @@ pub fn ArrayView(comptime T: type) type {
             return max_values.sub(min_values);
         }
 
-        pub fn ptp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.ptpAxes(axes, keepdims);
-        }
-
         pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.ptp(dim_opt, keepdim);
         }
 
-        pub fn ptp_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.ptpDim(dim_opt, keepdim);
-        }
-
         pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.ptpAxes(dims, keepdim);
-        }
-
-        pub fn ptp_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.ptpDims(dims, keepdim);
         }
 
         pub fn mean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -5765,24 +5073,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.reduceAxesViewAware(axes, keepdims, Self.mean, Array(T).mean);
         }
 
-        pub fn mean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.meanAxes(axes, keepdims);
-        }
-
         pub fn meanDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.mean(dim_opt, keepdim);
         }
 
-        pub fn mean_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.meanDim(dim_opt, keepdim);
-        }
-
         pub fn meanDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.meanAxes(dims, keepdim);
-        }
-
-        pub fn mean_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.meanDims(dims, keepdim);
         }
 
         pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -5851,10 +5147,6 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
-        pub fn var_(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            return self.variance(axis_opt, keepdims, correction);
-        }
-
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             if (axes.len == 0) return self.toArray();
             if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.variance(null, keepdims, correction);
@@ -5870,15 +5162,7 @@ pub fn ArrayView(comptime T: type) type {
             return current;
         }
 
-        pub fn variance_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            return self.varianceAxes(axes, keepdims, correction);
-        }
-
         pub fn varAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            return self.varianceAxes(axes, keepdims, correction);
-        }
-
-        pub fn var_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             return self.varianceAxes(axes, keepdims, correction);
         }
 
@@ -5886,32 +5170,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.variance(dim_opt, keepdim, correction);
         }
 
-        pub fn variance_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.varianceDim(dim_opt, keepdim, correction);
-        }
-
         pub fn varDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.var_(dim_opt, keepdim, correction);
-        }
-
-        pub fn var_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.varDim(dim_opt, keepdim, correction);
+            return self.variance(dim_opt, keepdim, correction);
         }
 
         pub fn varianceDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
             return self.varianceAxes(dims, keepdim, correction);
         }
 
-        pub fn variance_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.varianceDims(dims, keepdim, correction);
-        }
-
         pub fn varDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
             return self.varAxes(dims, keepdim, correction);
-        }
-
-        pub fn var_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.varDims(dims, keepdim, correction);
         }
 
         pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -5926,15 +5194,7 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
-        pub fn stddev_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            return self.stddevAxes(axes, keepdims, correction);
-        }
-
         pub fn stdAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            return self.stddevAxes(axes, keepdims, correction);
-        }
-
-        pub fn std_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             return self.stddevAxes(axes, keepdims, correction);
         }
 
@@ -5942,32 +5202,16 @@ pub fn ArrayView(comptime T: type) type {
             return self.stddev(dim_opt, keepdim, correction);
         }
 
-        pub fn stddev_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.stddevDim(dim_opt, keepdim, correction);
-        }
-
         pub fn stdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
             return self.stddev(dim_opt, keepdim, correction);
-        }
-
-        pub fn std_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.stdDim(dim_opt, keepdim, correction);
         }
 
         pub fn stddevDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
             return self.stddevAxes(dims, keepdim, correction);
         }
 
-        pub fn stddev_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.stddevDims(dims, keepdim, correction);
-        }
-
         pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
             return self.stdAxes(dims, keepdim, correction);
-        }
-
-        pub fn std_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.stdDims(dims, keepdim, correction);
         }
 
         pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -5978,24 +5222,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.quantileAxes(castValue(T, 0.5), axes, keepdims);
         }
 
-        pub fn median_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.medianAxes(axes, keepdims);
-        }
-
         pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.median(dim_opt, keepdim);
         }
 
-        pub fn median_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.medianDim(dim_opt, keepdim);
-        }
-
         pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.medianAxes(dims, keepdim);
-        }
-
-        pub fn median_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.medianDims(dims, keepdim);
         }
 
         pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -6129,24 +5361,12 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
-        pub fn quantile_axes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.quantileAxes(q, axes, keepdims);
-        }
-
         pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.quantile(q, dim_opt, keepdim);
         }
 
-        pub fn quantile_dim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.quantileDim(q, dim_opt, keepdim);
-        }
-
         pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.quantileAxes(q, dims, keepdim);
-        }
-
-        pub fn quantile_dims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.quantileDims(q, dims, keepdim);
         }
 
         pub fn percentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -6157,24 +5377,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.quantileAxes(p / castValue(T, 100), axes, keepdims);
         }
 
-        pub fn percentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.percentileAxes(p, axes, keepdims);
-        }
-
         pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.percentile(percentile_value, dim_opt, keepdim);
         }
 
-        pub fn percentile_dim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.percentileDim(percentile_value, dim_opt, keepdim);
-        }
-
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
-        }
-
-        pub fn percentile_dims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.percentileDims(percentile_value, dims, keepdim);
         }
 
         pub fn average(self: Self, weights: ?Array(T), axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -6365,24 +5573,12 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
-        pub fn nansum_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.nansumAxes(axes, keepdims);
-        }
-
         pub fn nansumDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.nansum(dim_opt, keepdim);
         }
 
-        pub fn nansum_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nansumDim(dim_opt, keepdim);
-        }
-
         pub fn nansumDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.nansumAxes(dims, keepdim);
-        }
-
-        pub fn nansum_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nansumDims(dims, keepdim);
         }
 
         pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -6499,24 +5695,12 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
-        pub fn nanmean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.nanmeanAxes(axes, keepdims);
-        }
-
         pub fn nanmeanDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanmean(dim_opt, keepdim);
         }
 
-        pub fn nanmean_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanmeanDim(dim_opt, keepdim);
-        }
-
         pub fn nanmeanDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanmeanAxes(dims, keepdim);
-        }
-
-        pub fn nanmean_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanmeanDims(dims, keepdim);
         }
 
         pub fn nanvar(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -6531,24 +5715,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.nanvarAxes(axes, keepdims, correction);
         }
 
-        pub fn nanvar_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            return self.nanvarAxes(axes, keepdims, correction);
-        }
-
         pub fn nanvarDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
             return self.nanvar(dim_opt, keepdim, correction);
         }
 
-        pub fn nanvar_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.nanvarDim(dim_opt, keepdim, correction);
-        }
-
         pub fn nanvarDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
             return self.nanvarAxes(dims, keepdim, correction);
-        }
-
-        pub fn nanvar_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.nanvarDims(dims, keepdim, correction);
         }
 
         pub fn nanstd(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
@@ -6563,24 +5735,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.nanstdAxes(axes, keepdims, correction);
         }
 
-        pub fn nanstd_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
-            return self.nanstdAxes(axes, keepdims, correction);
-        }
-
         pub fn nanstdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
             return self.nanstd(dim_opt, keepdim, correction);
         }
 
-        pub fn nanstd_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.nanstdDim(dim_opt, keepdim, correction);
-        }
-
         pub fn nanstdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
             return self.nanstdAxes(dims, keepdim, correction);
-        }
-
-        pub fn nanstd_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Array(T) {
-            return self.nanstdDims(dims, keepdim, correction);
         }
 
         fn nanExtreme(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) ArrayError!Array(T) {
@@ -6732,24 +5892,12 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
-        pub fn nanmin_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.nanminAxes(axes, keepdims);
-        }
-
         pub fn nanminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanmin(dim_opt, keepdim);
         }
 
-        pub fn nanmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanminDim(dim_opt, keepdim);
-        }
-
         pub fn nanminDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanminAxes(dims, keepdim);
-        }
-
-        pub fn nanmin_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanminDims(dims, keepdim);
         }
 
         pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -6768,24 +5916,12 @@ pub fn ArrayView(comptime T: type) type {
             }.f);
         }
 
-        pub fn nanmax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.nanmaxAxes(axes, keepdims);
-        }
-
         pub fn nanmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanmax(dim_opt, keepdim);
         }
 
-        pub fn nanmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanmaxDim(dim_opt, keepdim);
-        }
-
         pub fn nanmaxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanmaxAxes(dims, keepdim);
-        }
-
-        pub fn nanmax_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanmaxDims(dims, keepdim);
         }
 
         pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -6796,24 +5932,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.nanquantileAxes(castValue(T, 0.5), axes, keepdims);
         }
 
-        pub fn nanmedian_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.nanmedianAxes(axes, keepdims);
-        }
-
         pub fn nanmedianDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanmedian(dim_opt, keepdim);
         }
 
-        pub fn nanmedian_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanmedianDim(dim_opt, keepdim);
-        }
-
         pub fn nanmedianDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanmedianAxes(dims, keepdim);
-        }
-
-        pub fn nanmedian_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanmedianDims(dims, keepdim);
         }
 
         pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -6959,24 +6083,12 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
-        pub fn nanquantile_axes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.nanquantileAxes(q, axes, keepdims);
-        }
-
         pub fn nanquantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanquantile(q, dim_opt, keepdim);
         }
 
-        pub fn nanquantile_dim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanquantileDim(q, dim_opt, keepdim);
-        }
-
         pub fn nanquantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanquantileAxes(q, dims, keepdim);
-        }
-
-        pub fn nanquantile_dims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanquantileDims(q, dims, keepdim);
         }
 
         pub fn nanpercentile(self: Self, p: T, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -6987,24 +6099,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.nanquantileAxes(p / castValue(T, 100), axes, keepdims);
         }
 
-        pub fn nanpercentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.nanpercentileAxes(p, axes, keepdims);
-        }
-
         pub fn nanpercentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanpercentile(percentile_value, dim_opt, keepdim);
         }
 
-        pub fn nanpercentile_dim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanpercentileDim(percentile_value, dim_opt, keepdim);
-        }
-
         pub fn nanpercentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.nanpercentileAxes(percentile_value, dims, keepdim);
-        }
-
-        pub fn nanpercentile_dims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.nanpercentileDims(percentile_value, dims, keepdim);
         }
 
         pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
@@ -7029,17 +6129,9 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
-        pub fn nan_to_num(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Array(T) {
-            return self.nanToNum(nan_value, posinf_value, neginf_value);
-        }
-
         pub fn nanToNumDefault(self: Self) ArrayError!Array(T) {
             const max_value = maxFiniteValue();
             return self.nanToNum(zero(T), max_value, negValue(T, max_value));
-        }
-
-        pub fn nan_to_num_default(self: Self) ArrayError!Array(T) {
-            return self.nanToNumDefault();
         }
 
         pub fn cumsum(self: Self) ArrayError!Array(T) {
@@ -7076,10 +6168,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.cumsumAxis(dim_index);
         }
 
-        pub fn cumsum_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.cumsumDim(dim_index);
-        }
-
         pub fn cumprodAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -7088,10 +6176,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn cumprodDim(self: Self, dim_index: isize) ArrayError!Array(T) {
             return self.cumprodAxis(dim_index);
-        }
-
-        pub fn cumprod_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.cumprodDim(dim_index);
         }
 
         pub fn cummaxAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
@@ -7104,10 +6188,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.cummaxAxis(dim_index);
         }
 
-        pub fn cummax_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.cummaxDim(dim_index);
-        }
-
         pub fn cumminAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -7116,10 +6196,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn cumminDim(self: Self, dim_index: isize) ArrayError!Array(T) {
             return self.cumminAxis(dim_index);
-        }
-
-        pub fn cummin_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.cumminDim(dim_index);
         }
 
         pub fn logcumsumexp(self: Self) ArrayError!Array(T) {
@@ -7138,10 +6214,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.logcumsumexpAxis(dim_index);
         }
 
-        pub fn logcumsumexp_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.logcumsumexpDim(dim_index);
-        }
-
         pub fn diff(self: Self, axis_index: isize, n: usize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -7152,10 +6224,6 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.diffWith(axis_index, n, prepend, append);
-        }
-
-        pub fn diff_with(self: Self, axis_index: isize, n: usize, prepend: ?Array(T), append: ?Array(T)) ArrayError!Array(T) {
-            return self.diffWith(axis_index, n, prepend, append);
         }
 
         pub fn ediff1d(self: Self, prepend: ?Array(T), append: ?Array(T)) ArrayError!Array(T) {
@@ -7170,26 +6238,14 @@ pub fn ArrayView(comptime T: type) type {
             return owned.trapezoid(x_values, dx, axis_index);
         }
 
-        pub fn trapezoid_with(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
-            return self.trapezoid(x_values, dx, axis_index);
-        }
-
         pub fn trapz(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
             return self.trapezoid(x_values, dx, axis_index);
-        }
-
-        pub fn trapz_with(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
-            return self.trapz(x_values, dx, axis_index);
         }
 
         pub fn gradient(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.gradient(x_values, dx, axis_index);
-        }
-
-        pub fn gradient_with(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
-            return self.gradient(x_values, dx, axis_index);
         }
 
         pub fn argmax(self: Self) ArrayError!usize {
@@ -7214,10 +6270,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.argmaxAxis(dim_opt, keepdim);
         }
 
-        pub fn argmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.argmaxDim(dim_opt, keepdim);
-        }
-
         pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -7226,10 +6278,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
             return self.argminAxis(dim_opt, keepdim);
-        }
-
-        pub fn argmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.argminDim(dim_opt, keepdim);
         }
 
         pub fn nanargmax(self: Self) ArrayError!usize {
@@ -7254,10 +6302,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.nanargmaxAxis(dim_opt, keepdim);
         }
 
-        pub fn nanargmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.nanargmaxDim(dim_opt, keepdim);
-        }
-
         pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -7266,10 +6310,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
             return self.nanargminAxis(dim_opt, keepdim);
-        }
-
-        pub fn nanargmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.nanargminDim(dim_opt, keepdim);
         }
 
         pub fn materializedApply(self: Self, comptime U: type, comptime method: fn (Array(T)) ArrayError!Array(U)) ArrayError!Array(U) {
@@ -7288,10 +6328,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.softmax(dim_index);
         }
 
-        pub fn softmax_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.softmaxDim(dim_index);
-        }
-
         pub fn softmin(self: Self, axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -7300,10 +6336,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn softminDim(self: Self, dim_index: isize) ArrayError!Array(T) {
             return self.softmin(dim_index);
-        }
-
-        pub fn softmin_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.softminDim(dim_index);
         }
 
         pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Array(T) {
@@ -7324,24 +6356,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.normAxes(p, axes, keepdims);
         }
 
-        pub fn norm_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.normAxes(p, axes, keepdims);
-        }
-
         pub fn normDim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.norm(p, dim_opt, keepdim);
         }
 
-        pub fn norm_dim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.normDim(p, dim_opt, keepdim);
-        }
-
         pub fn normDims(self: Self, p: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.normAxes(p, dims, keepdim);
-        }
-
-        pub fn norm_dims(self: Self, p: T, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.normDims(p, dims, keepdim);
         }
 
         pub fn cosineSimilarity(self: Self, other: Array(T), axis_index: isize, eps: T, keepdims: bool) ArrayError!Array(T) {
@@ -7350,16 +6370,8 @@ pub fn ArrayView(comptime T: type) type {
             return owned.cosineSimilarity(other, axis_index, eps, keepdims);
         }
 
-        pub fn cosine_similarity(self: Self, other: Array(T), axis_index: isize, eps: T, keepdims: bool) ArrayError!Array(T) {
-            return self.cosineSimilarity(other, axis_index, eps, keepdims);
-        }
-
         pub fn cosineSimilarityDim(self: Self, other: Array(T), dim_index: isize, eps: T, keepdim: bool) ArrayError!Array(T) {
             return self.cosineSimilarity(other, dim_index, eps, keepdim);
-        }
-
-        pub fn cosine_similarity_dim(self: Self, other: Array(T), dim_index: isize, eps: T, keepdim: bool) ArrayError!Array(T) {
-            return self.cosineSimilarityDim(other, dim_index, eps, keepdim);
         }
 
         pub fn cosineEmbeddingLoss(self: Self, other: Array(T), targets: Array(T), axis_index: isize, margin: T, eps: T, reduction: LossReduction) ArrayError!Array(T) {
@@ -7368,36 +6380,20 @@ pub fn ArrayView(comptime T: type) type {
             return owned.cosineEmbeddingLoss(other, targets, axis_index, margin, eps, reduction);
         }
 
-        pub fn cosine_embedding_loss(self: Self, other: Array(T), targets: Array(T), axis_index: isize, margin: T, eps: T, reduction: LossReduction) ArrayError!Array(T) {
-            return self.cosineEmbeddingLoss(other, targets, axis_index, margin, eps, reduction);
-        }
-
         pub fn pairwiseDistance(self: Self, other: Array(T), p: T, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.pairwiseDistance(other, p, axis_index, keepdims);
         }
 
-        pub fn pairwise_distance(self: Self, other: Array(T), p: T, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
-            return self.pairwiseDistance(other, p, axis_index, keepdims);
-        }
-
         pub fn pairwiseDistanceDim(self: Self, other: Array(T), p: T, dim_index: isize, keepdim: bool) ArrayError!Array(T) {
             return self.pairwiseDistance(other, p, dim_index, keepdim);
-        }
-
-        pub fn pairwise_distance_dim(self: Self, other: Array(T), p: T, dim_index: isize, keepdim: bool) ArrayError!Array(T) {
-            return self.pairwiseDistanceDim(other, p, dim_index, keepdim);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.normalize(p, axis_index, eps);
-        }
-
-        pub fn normalize_dim(self: Self, p: T, dim_index: isize, eps: T) ArrayError!Array(T) {
-            return self.normalize(p, dim_index, eps);
         }
 
         pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) ArrayError!Array(T) {
@@ -7412,36 +6408,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.logsumexpAxes(axes, keepdims);
         }
 
-        pub fn logsumexp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.logsumexpAxes(axes, keepdims);
-        }
-
         pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) ArrayError!Array(T) {
             return self.logsumexp(dim_index, keepdim);
-        }
-
-        pub fn logsumexp_dim(self: Self, dim_index: isize, keepdim: bool) ArrayError!Array(T) {
-            return self.logsumexpDim(dim_index, keepdim);
         }
 
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.logsumexpAxes(dims, keepdim);
         }
 
-        pub fn logsumexp_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.logsumexpDims(dims, keepdim);
-        }
-
-        pub fn log_softmax(self: Self, axis_index: isize) ArrayError!Array(T) {
-            return self.logSoftmax(axis_index);
-        }
-
         pub fn logSoftmaxDim(self: Self, dim_index: isize) ArrayError!Array(T) {
             return self.logSoftmax(dim_index);
-        }
-
-        pub fn log_softmax_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.logSoftmaxDim(dim_index);
         }
 
         pub fn logSoftmin(self: Self, axis_index: isize) ArrayError!Array(T) {
@@ -7450,16 +6426,8 @@ pub fn ArrayView(comptime T: type) type {
             return owned.logSoftmin(axis_index);
         }
 
-        pub fn log_softmin(self: Self, axis_index: isize) ArrayError!Array(T) {
-            return self.logSoftmin(axis_index);
-        }
-
         pub fn logSoftminDim(self: Self, dim_index: isize) ArrayError!Array(T) {
             return self.logSoftmin(dim_index);
-        }
-
-        pub fn log_softmin_dim(self: Self, dim_index: isize) ArrayError!Array(T) {
-            return self.logSoftminDim(dim_index);
         }
 
         pub fn nllLoss(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
@@ -7468,16 +6436,8 @@ pub fn ArrayView(comptime T: type) type {
             return owned.nllLoss(targets, axis_index, reduction);
         }
 
-        pub fn nll_loss(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
-            return self.nllLoss(targets, axis_index, reduction);
-        }
-
         pub fn nllLossDim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Array(T) {
             return self.nllLoss(targets, dim_index, reduction);
-        }
-
-        pub fn nll_loss_dim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Array(T) {
-            return self.nllLossDim(targets, dim_index, reduction);
         }
 
         pub fn crossEntropy(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
@@ -7486,16 +6446,8 @@ pub fn ArrayView(comptime T: type) type {
             return owned.crossEntropy(targets, axis_index, reduction);
         }
 
-        pub fn cross_entropy(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
-            return self.crossEntropy(targets, axis_index, reduction);
-        }
-
         pub fn crossEntropyDim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Array(T) {
             return self.crossEntropy(targets, dim_index, reduction);
-        }
-
-        pub fn cross_entropy_dim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Array(T) {
-            return self.crossEntropyDim(targets, dim_index, reduction);
         }
 
         pub fn binaryCrossEntropy(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
@@ -7504,18 +6456,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.binaryCrossEntropy(targets, reduction);
         }
 
-        pub fn binary_cross_entropy(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
-            return self.binaryCrossEntropy(targets, reduction);
-        }
-
         pub fn binaryCrossEntropyWithLogits(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.binaryCrossEntropyWithLogits(targets, reduction);
-        }
-
-        pub fn binary_cross_entropy_with_logits(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
-            return self.binaryCrossEntropyWithLogits(targets, reduction);
         }
 
         pub fn mseLoss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
@@ -7524,18 +6468,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.mseLoss(targets, reduction);
         }
 
-        pub fn mse_loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
-            return self.mseLoss(targets, reduction);
-        }
-
         pub fn l1Loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.l1Loss(targets, reduction);
-        }
-
-        pub fn l1_loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
-            return self.l1Loss(targets, reduction);
         }
 
         pub fn smoothL1Loss(self: Self, targets: Array(T), beta_value: T, reduction: LossReduction) ArrayError!Array(T) {
@@ -7544,18 +6480,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.smoothL1Loss(targets, beta_value, reduction);
         }
 
-        pub fn smooth_l1_loss(self: Self, targets: Array(T), beta_value: T, reduction: LossReduction) ArrayError!Array(T) {
-            return self.smoothL1Loss(targets, beta_value, reduction);
-        }
-
         pub fn huberLoss(self: Self, targets: Array(T), delta: T, reduction: LossReduction) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.huberLoss(targets, delta, reduction);
-        }
-
-        pub fn huber_loss(self: Self, targets: Array(T), delta: T, reduction: LossReduction) ArrayError!Array(T) {
-            return self.huberLoss(targets, delta, reduction);
         }
 
         pub fn klDiv(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
@@ -7564,18 +6492,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.klDiv(targets, reduction);
         }
 
-        pub fn kl_div(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
-            return self.klDiv(targets, reduction);
-        }
-
         pub fn marginRankingLoss(self: Self, other: Array(T), targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.marginRankingLoss(other, targets, margin, reduction);
-        }
-
-        pub fn margin_ranking_loss(self: Self, other: Array(T), targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
-            return self.marginRankingLoss(other, targets, margin, reduction);
         }
 
         pub fn softMarginLoss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
@@ -7584,18 +6504,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.softMarginLoss(targets, reduction);
         }
 
-        pub fn soft_margin_loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
-            return self.softMarginLoss(targets, reduction);
-        }
-
         pub fn hingeLoss(self: Self, targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.hingeLoss(targets, margin, reduction);
-        }
-
-        pub fn hinge_loss(self: Self, targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
-            return self.hingeLoss(targets, margin, reduction);
         }
 
         pub fn hingeEmbeddingLoss(self: Self, targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
@@ -7604,18 +6516,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.hingeEmbeddingLoss(targets, margin, reduction);
         }
 
-        pub fn hinge_embedding_loss(self: Self, targets: Array(T), margin: T, reduction: LossReduction) ArrayError!Array(T) {
-            return self.hingeEmbeddingLoss(targets, margin, reduction);
-        }
-
         pub fn multiMarginLoss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.multiMarginLoss(targets, margin, p, reduction);
-        }
-
-        pub fn multi_margin_loss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Array(T) {
-            return self.multiMarginLoss(targets, margin, p, reduction);
         }
 
         pub fn tripletMarginLoss(self: Self, positive_values: Array(T), negative_values: Array(T), margin: T, p: T, axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
@@ -7624,28 +6528,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.tripletMarginLoss(positive_values, negative_values, margin, p, axis_index, reduction);
         }
 
-        pub fn triplet_margin_loss(self: Self, positive_values: Array(T), negative_values: Array(T), margin: T, p: T, axis_index: isize, reduction: LossReduction) ArrayError!Array(T) {
-            return self.tripletMarginLoss(positive_values, negative_values, margin, p, axis_index, reduction);
-        }
-
         pub fn multiLabelSoftMarginLoss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.multiLabelSoftMarginLoss(targets, reduction);
         }
 
-        pub fn multi_label_soft_margin_loss(self: Self, targets: Array(T), reduction: LossReduction) ArrayError!Array(T) {
-            return self.multiLabelSoftMarginLoss(targets, reduction);
-        }
-
         pub fn poissonNllLoss(self: Self, targets: Array(T), log_input: bool, full_loss: bool, eps: T, reduction: LossReduction) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.poissonNllLoss(targets, log_input, full_loss, eps, reduction);
-        }
-
-        pub fn poisson_nll_loss(self: Self, targets: Array(T), log_input: bool, full_loss: bool, eps: T, reduction: LossReduction) ArrayError!Array(T) {
-            return self.poissonNllLoss(targets, log_input, full_loss, eps, reduction);
         }
 
         pub fn cov(self: Self, rowvar: bool, correction: T) ArrayError!Array(T) {
@@ -7704,16 +6596,8 @@ pub fn ArrayView(comptime T: type) type {
             return self.sort(dim_opt);
         }
 
-        pub fn sort_dim(self: Self, dim_opt: ?isize) ArrayError!Array(T) {
-            return self.sortDim(dim_opt);
-        }
-
         pub fn sortByDim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(T) {
             return self.sortBy(dim_opt, descending);
-        }
-
-        pub fn sort_by_dim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(T) {
-            return self.sortByDim(dim_opt, descending);
         }
 
         pub fn argsort(self: Self) ArrayError!Array(usize) {
@@ -7730,10 +6614,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn argsortDim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             return self.argsortAxis(dim_opt, descending);
-        }
-
-        pub fn argsort_dim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
-            return self.argsortDim(dim_opt, descending);
         }
 
         pub fn argsortDescending(self: Self) ArrayError!Array(usize) {
@@ -7758,10 +6638,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.partition(kth, dim_opt, descending);
         }
 
-        pub fn partition_dim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(T) {
-            return self.partitionDim(kth, dim_opt, descending);
-        }
-
         pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -7770,10 +6646,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             return self.argpartition(kth, dim_opt, descending);
-        }
-
-        pub fn argpartition_dim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
-            return self.argpartitionDim(kth, dim_opt, descending);
         }
 
         pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) ArrayError!Array(T).TopK {
@@ -7786,26 +6658,14 @@ pub fn ArrayView(comptime T: type) type {
             return self.topk(k, dim_opt, largest, sorted);
         }
 
-        pub fn topk_dim(self: Self, k: usize, dim_opt: ?isize, largest: bool, sorted: bool) ArrayError!Array(T).TopK {
-            return self.topkDim(k, dim_opt, largest, sorted);
-        }
-
         pub fn kthValue(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T).KthValue {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.kthValue(k, axis_opt, keepdims);
         }
 
-        pub fn kth_value(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T).KthValue {
-            return self.kthValue(k, axis_opt, keepdims);
-        }
-
         pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T).KthValue {
             return self.kthValue(k, dim_opt, keepdim);
-        }
-
-        pub fn kth_value_dim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T).KthValue {
-            return self.kthValueDim(k, dim_opt, keepdim);
         }
 
         pub fn take(self: Self, indices: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
@@ -7820,18 +6680,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeSigned(indices, axis_opt);
         }
 
-        pub fn take_signed(self: Self, indices: Array(isize), axis_opt: ?isize) ArrayError!Array(T) {
-            return self.takeSigned(indices, axis_opt);
-        }
-
         pub fn takeSignedMode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.takeSignedMode(indices, axis_opt, mode);
-        }
-
-        pub fn take_signed_mode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
-            return self.takeSignedMode(indices, axis_opt, mode);
         }
 
         pub fn takeMode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
@@ -7840,24 +6692,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeMode(indices, axis_opt, mode);
         }
 
-        pub fn take_mode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
-            return self.takeMode(indices, axis_opt, mode);
-        }
-
         pub fn indexSelect(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
             return self.take(indices, axis_index);
         }
 
-        pub fn index_select(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
-            return self.indexSelect(axis_index, indices);
-        }
-
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Array(T) {
             return self.takeSigned(indices, axis_index);
-        }
-
-        pub fn index_select_signed(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Array(T) {
-            return self.indexSelectSigned(axis_index, indices);
         }
 
         pub fn gather(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
@@ -7872,18 +6712,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.gatherSigned(axis_index, indices);
         }
 
-        pub fn gather_signed(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Array(T) {
-            return self.gatherSigned(axis_index, indices);
-        }
-
         pub fn takeAlongAxis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.takeAlongAxis(indices, axis_index);
-        }
-
-        pub fn take_along_axis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Array(T) {
-            return self.takeAlongAxis(indices, axis_index);
         }
 
         pub fn takeAlongAxisSigned(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Array(T) {
@@ -7892,18 +6724,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeAlongAxisSigned(indices, axis_index);
         }
 
-        pub fn take_along_axis_signed(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Array(T) {
-            return self.takeAlongAxisSigned(indices, axis_index);
-        }
-
         pub fn putAlongAxis(self: Self, indices: Array(usize), src: Array(T), axis_index: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putAlongAxis(indices, src, axis_index);
-        }
-
-        pub fn put_along_axis(self: Self, indices: Array(usize), src: Array(T), axis_index: isize) ArrayError!Array(T) {
-            return self.putAlongAxis(indices, src, axis_index);
         }
 
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Array(T) {
@@ -7912,18 +6736,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.maskedSelect(mask);
         }
 
-        pub fn masked_select(self: Self, mask: Array(bool)) ArrayError!Array(T) {
-            return self.maskedSelect(mask);
-        }
-
         pub fn maskedScatter(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.maskedScatter(mask, src);
-        }
-
-        pub fn masked_scatter(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
-            return self.maskedScatter(mask, src);
         }
 
         pub fn maskedPut(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
@@ -7932,16 +6748,8 @@ pub fn ArrayView(comptime T: type) type {
             return owned.maskedPut(mask, values);
         }
 
-        pub fn masked_put(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
-            return self.maskedPut(mask, values);
-        }
-
         pub fn putMask(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
             return self.maskedPut(mask, values);
-        }
-
-        pub fn put_mask(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
-            return self.putMask(mask, values);
         }
 
         pub fn maskedPutScalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
@@ -7950,26 +6758,14 @@ pub fn ArrayView(comptime T: type) type {
             return owned.maskedPutScalar(mask, value);
         }
 
-        pub fn masked_put_scalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
-            return self.maskedPutScalar(mask, value);
-        }
-
         pub fn putMaskScalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
             return self.maskedPutScalar(mask, value);
-        }
-
-        pub fn put_mask_scalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
-            return self.putMaskScalar(mask, value);
         }
 
         pub fn copyWhere(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.copyWhere(mask, src);
-        }
-
-        pub fn copy_where(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
-            return self.copyWhere(mask, src);
         }
 
         pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Array(T) {
@@ -7992,18 +6788,10 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.where(mask, other);
         }
 
-        pub fn where_array(self: Self, mask: Array(bool), other: Array(T)) ArrayError!Array(T) {
-            return self.whereArray(mask, other);
-        }
-
         pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Array(T) {
             var lhs = try self.toArray();
             defer lhs.deinit();
             return lhs.whereScalar(mask, other_value);
-        }
-
-        pub fn where_scalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Array(T) {
-            return self.whereScalar(mask, other_value);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) ArrayError!Array(T) {
@@ -8018,18 +6806,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.repeatInterleave(repeats, axis_opt);
         }
 
-        pub fn repeat_interleave(self: Self, repeats: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
-            return self.repeatInterleave(repeats, axis_opt);
-        }
-
         pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.repeatInterleaveScalar(repeat_count, axis_opt);
-        }
-
-        pub fn repeat_interleave_scalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Array(T) {
-            return self.repeatInterleaveScalar(repeat_count, axis_opt);
         }
 
         pub fn tile(self: Self, repeats: []const usize) ArrayError!Array(T) {
@@ -8072,10 +6852,6 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.rollFlat(shift);
-        }
-
-        pub fn roll_flat(self: Self, shift: isize) ArrayError!Array(T) {
-            return self.rollFlat(shift);
         }
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) ArrayError!Array(T) {
@@ -8138,18 +6914,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.splitWithSizes(sizes, axis_index);
         }
 
-        pub fn split_with_sizes(self: Self, sizes: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
-            return self.splitWithSizes(sizes, axis_index);
-        }
-
         pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.splitAtIndices(indices, axis_index);
-        }
-
-        pub fn split_at_indices(self: Self, indices: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
-            return self.splitAtIndices(indices, axis_index);
         }
 
         pub fn chunk(self: Self, chunks: usize, axis_index: isize) ArrayError!Array(T).SplitResult {
@@ -8175,10 +6943,6 @@ pub fn ArrayView(comptime T: type) type {
             return count;
         }
 
-        pub fn count_nonzero(self: Self) usize {
-            return self.countNonzero();
-        }
-
         pub fn countNonzeroAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
@@ -8191,24 +6955,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.countNonzeroAxes(axes, keepdims);
         }
 
-        pub fn count_nonzero_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(usize) {
-            return self.countNonzeroAxes(axes, keepdims);
-        }
-
         pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
             return self.countNonzeroAxis(dim_opt, keepdim);
         }
 
-        pub fn count_nonzero_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.countNonzeroDim(dim_opt, keepdim);
-        }
-
         pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(usize) {
             return self.countNonzeroAxes(dims, keepdim);
-        }
-
-        pub fn count_nonzero_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.countNonzeroDims(dims, keepdim);
         }
 
         pub fn all(self: Self) bool {
@@ -8235,24 +6987,12 @@ pub fn ArrayView(comptime T: type) type {
             return owned.allAxes(axes, keepdims);
         }
 
-        pub fn all_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.allAxes(axes, keepdims);
-        }
-
         pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.allAxis(dim_opt, keepdim);
         }
 
-        pub fn all_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.allDim(dim_opt, keepdim);
-        }
-
         pub fn allDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.allAxes(dims, keepdim);
-        }
-
-        pub fn all_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.allDims(dims, keepdim);
         }
 
         pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
@@ -8267,34 +7007,18 @@ pub fn ArrayView(comptime T: type) type {
             return owned.anyAxes(axes, keepdims);
         }
 
-        pub fn any_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
-            return self.anyAxes(axes, keepdims);
-        }
-
         pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
             return self.anyAxis(dim_opt, keepdim);
-        }
-
-        pub fn any_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
-            return self.anyDim(dim_opt, keepdim);
         }
 
         pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
             return self.anyAxes(dims, keepdim);
         }
 
-        pub fn any_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(T) {
-            return self.anyDims(dims, keepdim);
-        }
-
         pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.flatNonzero();
-        }
-
-        pub fn flat_nonzero(self: Self) ArrayError!Array(usize) {
-            return self.flatNonzero();
         }
 
         pub fn nonzero(self: Self) ArrayError!Array(usize) {
@@ -8311,18 +7035,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.nonzero();
         }
 
-        pub fn where_indices(self: Self) ArrayError!Array(usize) {
-            return self.whereIndices();
-        }
-
         pub fn putFlat(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putFlat(indices, values);
-        }
-
-        pub fn put_flat(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
-            return self.putFlat(indices, values);
         }
 
         pub fn putFlatMode(self: Self, indices: Array(usize), values: Array(T), mode: IndexMode) ArrayError!Array(T) {
@@ -8335,10 +7051,6 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putFlatScalar(indices, value);
-        }
-
-        pub fn put_flat_scalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
-            return self.putFlatScalar(indices, value);
         }
 
         pub fn putFlatScalarMode(self: Self, indices: Array(usize), value: T, mode: IndexMode) ArrayError!Array(T) {
@@ -8363,16 +7075,8 @@ pub fn ArrayView(comptime T: type) type {
             return self.putFlat(indices, values);
         }
 
-        pub fn index_put(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
-            return self.indexPut(indices, values);
-        }
-
         pub fn indexPutScalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
             return self.putFlatScalar(indices, value);
-        }
-
-        pub fn index_put_scalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
-            return self.indexPutScalar(indices, value);
         }
 
         pub fn ravelCoords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
@@ -8381,18 +7085,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.ravelCoords(coords);
         }
 
-        pub fn ravel_coords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
-            return self.ravelCoords(coords);
-        }
-
         pub fn unravelFlat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.unravelFlat(indices);
-        }
-
-        pub fn unravel_flat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
-            return self.unravelFlat(indices);
         }
 
         pub fn takeCoords(self: Self, coords: Array(usize)) ArrayError!Array(T) {
@@ -8401,18 +7097,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeCoords(coords);
         }
 
-        pub fn take_coords(self: Self, coords: Array(usize)) ArrayError!Array(T) {
-            return self.takeCoords(coords);
-        }
-
         pub fn putCoords(self: Self, coords: Array(usize), values: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putCoords(coords, values);
-        }
-
-        pub fn put_coords(self: Self, coords: Array(usize), values: Array(T)) ArrayError!Array(T) {
-            return self.putCoords(coords, values);
         }
 
         pub fn putCoordsScalar(self: Self, coords: Array(usize), value: T) ArrayError!Array(T) {
@@ -8421,18 +7109,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.putCoordsScalar(coords, value);
         }
 
-        pub fn put_coords_scalar(self: Self, coords: Array(usize), value: T) ArrayError!Array(T) {
-            return self.putCoordsScalar(coords, value);
-        }
-
         pub fn ravelMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.ravelMultiIndex(indices);
-        }
-
-        pub fn ravel_multi_index(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
-            return self.ravelMultiIndex(indices);
         }
 
         pub fn takeMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(T) {
@@ -8441,28 +7121,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.takeMultiIndex(indices);
         }
 
-        pub fn take_multi_index(self: Self, indices: []const Array(usize)) ArrayError!Array(T) {
-            return self.takeMultiIndex(indices);
-        }
-
         pub fn putMultiIndex(self: Self, indices: []const Array(usize), values: Array(T)) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putMultiIndex(indices, values);
         }
 
-        pub fn put_multi_index(self: Self, indices: []const Array(usize), values: Array(T)) ArrayError!Array(T) {
-            return self.putMultiIndex(indices, values);
-        }
-
         pub fn putMultiIndexScalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.putMultiIndexScalar(indices, value);
-        }
-
-        pub fn put_multi_index_scalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Array(T) {
-            return self.putMultiIndexScalar(indices, value);
         }
 
         pub fn scatter(self: Self, axis_index: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
@@ -8477,26 +7145,14 @@ pub fn ArrayView(comptime T: type) type {
             return owned.scatterScalar(axis_index, indices, value);
         }
 
-        pub fn scatter_scalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
-            return self.scatterScalar(axis_index, indices, value);
-        }
-
         pub fn scatterReduce(self: Self, axis_index: isize, indices: Array(usize), src: Array(T), reduction: ScatterReduce) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.scatterReduce(axis_index, indices, src, reduction);
         }
 
-        pub fn scatter_reduce(self: Self, axis_index: isize, indices: Array(usize), src: Array(T), reduction: ScatterReduce) ArrayError!Array(T) {
-            return self.scatterReduce(axis_index, indices, src, reduction);
-        }
-
         pub fn scatterAdd(self: Self, axis_index: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
             return self.scatterReduce(axis_index, indices, src, .sum);
-        }
-
-        pub fn scatter_add(self: Self, axis_index: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
-            return self.scatterAdd(axis_index, indices, src);
         }
 
         pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: Array(usize), value: T, reduction: ScatterReduce) ArrayError!Array(T) {
@@ -8505,16 +7161,8 @@ pub fn ArrayView(comptime T: type) type {
             return owned.scatterReduceScalar(axis_index, indices, value, reduction);
         }
 
-        pub fn scatter_reduce_scalar(self: Self, axis_index: isize, indices: Array(usize), value: T, reduction: ScatterReduce) ArrayError!Array(T) {
-            return self.scatterReduceScalar(axis_index, indices, value, reduction);
-        }
-
         pub fn scatterAddScalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
             return self.scatterReduceScalar(axis_index, indices, value, .sum);
-        }
-
-        pub fn scatter_add_scalar(self: Self, axis_index: isize, indices: Array(usize), value: T) ArrayError!Array(T) {
-            return self.scatterAddScalar(axis_index, indices, value);
         }
 
         pub fn unique(self: Self) ArrayError!Array(T) {
@@ -8645,10 +7293,6 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.matmulAdd(rhs, addend_array);
         }
 
-        pub fn matmul_add(self: Self, other: Self, addend: Self) ArrayError!Array(T) {
-            return self.matmulAdd(other, addend);
-        }
-
         pub fn matmulArray(self: Self, other: Array(T)) ArrayError!Array(T) {
             var lhs = try self.toArray();
             defer lhs.deinit();
@@ -8659,10 +7303,6 @@ pub fn ArrayView(comptime T: type) type {
             var lhs = try self.toArray();
             defer lhs.deinit();
             return lhs.matmulAdd(other, addend);
-        }
-
-        pub fn matmul_add_array(self: Self, other: Array(T), addend: Array(T)) ArrayError!Array(T) {
-            return self.matmulAddArray(other, addend);
         }
 
         pub fn mm(self: Self, other: Self) ArrayError!Array(T) {
@@ -8801,16 +7441,8 @@ pub fn ArrayView(comptime T: type) type {
             return owned.traceAxes(offset, axis1, axis2);
         }
 
-        pub fn trace_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
-            return self.traceAxes(offset, axis1, axis2);
-        }
-
         pub fn traceOffsetAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
             return self.traceAxes(offset, axis1, axis2);
-        }
-
-        pub fn trace_offset_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
-            return self.traceOffsetAxes(offset, axis1, axis2);
         }
 
         pub fn diagonal(self: Self, offset: isize) ArrayError!Array(T) {
@@ -8823,10 +7455,6 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.diagonalAxes(offset, axis1, axis2);
-        }
-
-        pub fn diagonal_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
-            return self.diagonalAxes(offset, axis1, axis2);
         }
 
         pub fn diag(self: Self, offset: isize) ArrayError!Array(T) {
@@ -8845,10 +7473,6 @@ pub fn ArrayView(comptime T: type) type {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.diagEmbed(offset);
-        }
-
-        pub fn diag_embed(self: Self, offset: isize) ArrayError!Array(T) {
-            return self.diagEmbed(offset);
         }
 
         pub fn triu(self: Self, diagonal_offset: isize) ArrayError!Array(T) {
@@ -9056,24 +7680,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.reshape(other.shape);
         }
 
-        pub fn reshape_as(self: Self, other: Self) ArrayError!Self {
-            return self.reshapeAs(other);
-        }
-
         pub fn reshapeView(self: Self, dims: []const usize) ArrayError!Self {
             return self.reshape(dims);
         }
 
-        pub fn reshape_view(self: Self, dims: []const usize) ArrayError!Self {
-            return self.reshapeView(dims);
-        }
-
         pub fn reshapeInferView(self: Self, dims: []const isize) ArrayError!Self {
             return self.reshapeInfer(dims);
-        }
-
-        pub fn reshape_infer_view(self: Self, dims: []const isize) ArrayError!Self {
-            return self.reshapeInferView(dims);
         }
 
         pub fn view(self: Self, dims: []const usize) ArrayError!Self {
@@ -9092,20 +7704,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.view(other.shape);
         }
 
-        pub fn view_as(self: Self, other: Self) ArrayError!Self {
-            return self.viewAs(other);
-        }
-
         pub fn flatten(self: Self) ArrayError!Self {
             return self.reshape(&.{self.numel()});
         }
 
         pub fn flattenView(self: Self) ArrayError!Self {
             return self.flatten();
-        }
-
-        pub fn flatten_view(self: Self) ArrayError!Self {
-            return self.flattenView();
         }
 
         pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
@@ -9118,15 +7722,7 @@ pub fn ArrayView(comptime T: type) type {
             return self.flattenAxes(start_axis, end_axis);
         }
 
-        pub fn flatten_axes_view(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
-            return self.flattenAxesView(start_axis, end_axis);
-        }
-
         pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
-            return self.flattenAxes(start_axis, end_axis);
-        }
-
-        pub fn flatten_range(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
             return self.flattenAxes(start_axis, end_axis);
         }
 
@@ -9134,24 +7730,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.flattenRange(start_axis, end_axis);
         }
 
-        pub fn flatten_range_view(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
-            return self.flattenRangeView(start_axis, end_axis);
-        }
-
         pub fn flattenFrom(self: Self, start_axis: isize) ArrayError!Self {
             return self.flattenAxes(start_axis, -1);
         }
 
-        pub fn flatten_from(self: Self, start_axis: isize) ArrayError!Self {
-            return self.flattenFrom(start_axis);
-        }
-
         pub fn flattenFromView(self: Self, start_axis: isize) ArrayError!Self {
             return self.flattenFrom(start_axis);
-        }
-
-        pub fn flatten_from_view(self: Self, start_axis: isize) ArrayError!Self {
-            return self.flattenFromView(start_axis);
         }
 
         pub fn ravel(self: Self) ArrayError!Self {
@@ -9160,10 +7744,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn ravelView(self: Self) ArrayError!Self {
             return self.ravel();
-        }
-
-        pub fn ravel_view(self: Self) ArrayError!Self {
-            return self.ravelView();
         }
 
         pub fn atLeast1d(self: Self) ArrayError!Self {
@@ -9206,24 +7786,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.atLeast1d();
         }
 
-        pub fn at_least_1d_view(self: Self) ArrayError!Self {
-            return self.atLeast1dView();
-        }
-
         pub fn atLeast2dView(self: Self) ArrayError!Self {
             return self.atLeast2d();
         }
 
-        pub fn at_least_2d_view(self: Self) ArrayError!Self {
-            return self.atLeast2dView();
-        }
-
         pub fn atLeast3dView(self: Self) ArrayError!Self {
             return self.atLeast3d();
-        }
-
-        pub fn at_least_3d_view(self: Self) ArrayError!Self {
-            return self.atLeast3dView();
         }
 
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
@@ -9234,10 +7802,6 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn unflattenView(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
             return self.unflatten(axis_index, dims);
-        }
-
-        pub fn unflatten_view(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
-            return self.unflattenView(axis_index, dims);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) ArrayError!Self {
@@ -9283,10 +7847,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.narrow(axis_index, normalized_start, length);
         }
 
-        pub fn narrow_signed(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!Self {
-            return self.narrowSigned(axis_index, start, length);
-        }
-
         pub fn select(self: Self, axis_index: isize, index: usize) ArrayError!Self {
             if (self.shape.len == 0) return error.InvalidAxis;
             const axis = try normalizeDim(axis_index, self.shape.len);
@@ -9311,10 +7871,6 @@ pub fn ArrayView(comptime T: type) type {
         pub fn selectSigned(self: Self, axis_index: isize, index: isize) ArrayError!Self {
             const axis = try normalizeDim(axis_index, self.shape.len);
             return self.select(axis_index, try normalizeIndex(index, self.shape[axis]));
-        }
-
-        pub fn select_signed(self: Self, axis_index: isize, index: isize) ArrayError!Self {
-            return self.selectSigned(axis_index, index);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) ArrayError!Self {
@@ -9343,24 +7899,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.squeeze(axis_index);
         }
 
-        pub fn squeeze_dim(self: Self, axis_index: isize) ArrayError!Self {
-            return self.squeezeDim(axis_index);
-        }
-
         pub fn squeezeView(self: Self, axis_opt: ?isize) ArrayError!Self {
             return self.squeeze(axis_opt);
         }
 
-        pub fn squeeze_view(self: Self, axis_opt: ?isize) ArrayError!Self {
-            return self.squeezeView(axis_opt);
-        }
-
         pub fn squeezeDimView(self: Self, axis_index: isize) ArrayError!Self {
             return self.squeezeDim(axis_index);
-        }
-
-        pub fn squeeze_dim_view(self: Self, axis_index: isize) ArrayError!Self {
-            return self.squeezeDimView(axis_index);
         }
 
         pub fn squeezeAxes(self: Self, axes: []const isize) ArrayError!Self {
@@ -9386,16 +7930,8 @@ pub fn ArrayView(comptime T: type) type {
             return Self.init(self.allocator, self.data, shape_list.items, stride_list.items, self.offset, self.device);
         }
 
-        pub fn squeeze_axes(self: Self, axes: []const isize) ArrayError!Self {
-            return self.squeezeAxes(axes);
-        }
-
         pub fn squeezeAxesView(self: Self, axes: []const isize) ArrayError!Self {
             return self.squeezeAxes(axes);
-        }
-
-        pub fn squeeze_axes_view(self: Self, axes: []const isize) ArrayError!Self {
-            return self.squeezeAxesView(axes);
         }
 
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
@@ -9429,24 +7965,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.unsqueeze(axis_index);
         }
 
-        pub fn unsqueeze_dim(self: Self, axis_index: isize) ArrayError!Self {
-            return self.unsqueezeDim(axis_index);
-        }
-
         pub fn unsqueezeView(self: Self, axis_index: isize) ArrayError!Self {
             return self.unsqueeze(axis_index);
         }
 
-        pub fn unsqueeze_view(self: Self, axis_index: isize) ArrayError!Self {
-            return self.unsqueezeView(axis_index);
-        }
-
         pub fn unsqueezeDimView(self: Self, axis_index: isize) ArrayError!Self {
             return self.unsqueezeDim(axis_index);
-        }
-
-        pub fn unsqueeze_dim_view(self: Self, axis_index: isize) ArrayError!Self {
-            return self.unsqueezeDimView(axis_index);
         }
 
         pub fn unsqueezeAxes(self: Self, axes: []const isize) ArrayError!Self {
@@ -9481,32 +8005,16 @@ pub fn ArrayView(comptime T: type) type {
             };
         }
 
-        pub fn unsqueeze_axes(self: Self, axes: []const isize) ArrayError!Self {
-            return self.unsqueezeAxes(axes);
-        }
-
         pub fn unsqueezeAxesView(self: Self, axes: []const isize) ArrayError!Self {
             return self.unsqueezeAxes(axes);
-        }
-
-        pub fn unsqueeze_axes_view(self: Self, axes: []const isize) ArrayError!Self {
-            return self.unsqueezeAxesView(axes);
         }
 
         pub fn expandDims(self: Self, axes: []const isize) ArrayError!Self {
             return self.unsqueezeAxes(axes);
         }
 
-        pub fn expand_dims(self: Self, axes: []const isize) ArrayError!Self {
-            return self.expandDims(axes);
-        }
-
         pub fn expandDimsView(self: Self, axes: []const isize) ArrayError!Self {
             return self.expandDims(axes);
-        }
-
-        pub fn expand_dims_view(self: Self, axes: []const isize) ArrayError!Self {
-            return self.expandDimsView(axes);
         }
 
         pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
@@ -9533,16 +8041,8 @@ pub fn ArrayView(comptime T: type) type {
             };
         }
 
-        pub fn broadcast_to(self: Self, dims: []const usize) ArrayError!Self {
-            return self.broadcastTo(dims);
-        }
-
         pub fn broadcastToView(self: Self, dims: []const usize) ArrayError!Self {
             return self.broadcastTo(dims);
-        }
-
-        pub fn broadcast_to_view(self: Self, dims: []const usize) ArrayError!Self {
-            return self.broadcastToView(dims);
         }
 
         pub fn expand(self: Self, dims: []const usize) ArrayError!Self {
@@ -9553,10 +8053,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.expand(dims);
         }
 
-        pub fn expand_to_view(self: Self, dims: []const usize) ArrayError!Self {
-            return self.expandToView(dims);
-        }
-
         pub fn expandAs(self: Self, other: Self) ArrayError!Self {
             return self.expand(other.shape);
         }
@@ -9565,44 +8061,20 @@ pub fn ArrayView(comptime T: type) type {
             return self.expand(other.shape);
         }
 
-        pub fn expand_as_array(self: Self, other: Array(T)) ArrayError!Self {
-            return self.expandAsArray(other);
-        }
-
         pub fn expandAsView(self: Self, other: Self) ArrayError!Self {
             return self.expand(other.shape);
-        }
-
-        pub fn expand_as_view(self: Self, other: Self) ArrayError!Self {
-            return self.expandAsView(other);
         }
 
         pub fn broadcastAs(self: Self, other: Self) ArrayError!Self {
             return self.expandAs(other);
         }
 
-        pub fn broadcast_as(self: Self, other: Self) ArrayError!Self {
-            return self.broadcastAs(other);
-        }
-
         pub fn broadcastAsArray(self: Self, other: Array(T)) ArrayError!Self {
             return self.expandAsArray(other);
         }
 
-        pub fn broadcast_as_array(self: Self, other: Array(T)) ArrayError!Self {
-            return self.broadcastAsArray(other);
-        }
-
         pub fn broadcastAsView(self: Self, other: Self) ArrayError!Self {
             return self.expandAsView(other);
-        }
-
-        pub fn broadcast_as_view(self: Self, other: Self) ArrayError!Self {
-            return self.broadcastAsView(other);
-        }
-
-        pub fn expand_as(self: Self, other: Self) ArrayError!Self {
-            return self.expandAs(other);
         }
 
         pub fn permute(self: Self, axes: []const usize) ArrayError!Self {
@@ -9634,10 +8106,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.permute(axes);
         }
 
-        pub fn permute_view(self: Self, axes: []const usize) ArrayError!Self {
-            return self.permuteView(axes);
-        }
-
         pub fn swapaxes(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
             const a0 = try normalizeDim(dim0, self.shape.len);
             const a1 = try normalizeDim(dim1, self.shape.len);
@@ -9652,24 +8120,12 @@ pub fn ArrayView(comptime T: type) type {
             return self.swapaxes(dim0, dim1);
         }
 
-        pub fn swapaxes_view(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
-            return self.swapaxesView(dim0, dim1);
-        }
-
         pub fn swapDims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
             return self.swapaxes(dim0, dim1);
         }
 
-        pub fn swap_dims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
-            return self.swapDims(dim0, dim1);
-        }
-
         pub fn swapDimsView(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
             return self.swapDims(dim0, dim1);
-        }
-
-        pub fn swap_dims_view(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
-            return self.swapDimsView(dim0, dim1);
         }
 
         pub fn movedim(self: Self, source: isize, destination: isize) ArrayError!Self {
@@ -9701,10 +8157,6 @@ pub fn ArrayView(comptime T: type) type {
             return self.movedim(source, destination);
         }
 
-        pub fn movedim_view(self: Self, source: isize, destination: isize) ArrayError!Self {
-            return self.movedimView(source, destination);
-        }
-
         pub fn moveaxis(self: Self, source: isize, destination: isize) ArrayError!Self {
             return self.movedim(source, destination);
         }
@@ -9713,30 +8165,14 @@ pub fn ArrayView(comptime T: type) type {
             return self.moveaxis(source, destination);
         }
 
-        pub fn moveaxis_view(self: Self, source: isize, destination: isize) ArrayError!Self {
-            return self.moveaxisView(source, destination);
-        }
-
         pub fn moveaxes(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
             const axes = try movedimManyAxes(self.allocator, self.shape.len, sources, destinations);
             defer self.allocator.free(axes);
             return self.permute(axes);
         }
 
-        pub fn move_axes(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
-            return self.moveaxes(sources, destinations);
-        }
-
         pub fn moveaxesView(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
             return self.moveaxes(sources, destinations);
-        }
-
-        pub fn moveaxes_view(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
-            return self.moveaxesView(sources, destinations);
-        }
-
-        pub fn move_axes_view(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
-            return self.moveaxesView(sources, destinations);
         }
 
         pub fn transpose(self: Self) ArrayError!Self {
@@ -9744,33 +8180,17 @@ pub fn ArrayView(comptime T: type) type {
             return self.swapaxes(0, 1);
         }
 
-        pub fn T_(self: Self) ArrayError!Self {
-            return self.transpose();
-        }
-
         pub fn transposeView(self: Self) ArrayError!Self {
             return self.transpose();
-        }
-
-        pub fn transpose_view(self: Self) ArrayError!Self {
-            return self.transposeView();
         }
 
         pub fn TView(self: Self) ArrayError!Self {
             return self.transposeView();
         }
 
-        pub fn T_view(self: Self) ArrayError!Self {
-            return self.TView();
-        }
-
         pub fn matrixTranspose(self: Self) ArrayError!Self {
             if (self.shape.len < 2) return error.NonMatrixArray;
             return self.swapaxes(@as(isize, @intCast(self.shape.len - 2)), @as(isize, @intCast(self.shape.len - 1)));
-        }
-
-        pub fn matrix_transpose(self: Self) ArrayError!Self {
-            return self.matrixTranspose();
         }
 
         pub fn mT(self: Self) ArrayError!Self {
@@ -9781,16 +8201,8 @@ pub fn ArrayView(comptime T: type) type {
             return self.matrixTranspose();
         }
 
-        pub fn matrix_transpose_view(self: Self) ArrayError!Self {
-            return self.matrixTransposeView();
-        }
-
         pub fn mTView(self: Self) ArrayError!Self {
             return self.matrixTransposeView();
-        }
-
-        pub fn mT_view(self: Self) ArrayError!Self {
-            return self.mTView();
         }
 
         pub fn adjoint(self: Self) ArrayError!Array(T) {
@@ -9804,18 +8216,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.adjoint();
         }
 
-        pub fn H_(self: Self) ArrayError!Array(T) {
-            return self.adjoint();
-        }
-
         pub fn matrixPower(self: Self, exponent: isize) ArrayError!Array(T) {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.matrixPower(exponent);
-        }
-
-        pub fn matrix_power(self: Self, exponent: isize) ArrayError!Array(T) {
-            return self.matrixPower(exponent);
         }
 
         pub fn isDiagonalMatrix(self: Self) ArrayError!bool {
@@ -9824,18 +8228,10 @@ pub fn ArrayView(comptime T: type) type {
             return owned.isDiagonalMatrix();
         }
 
-        pub fn is_diagonal_matrix(self: Self) ArrayError!bool {
-            return self.isDiagonalMatrix();
-        }
-
         pub fn isUpperTriangular(self: Self) ArrayError!bool {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.isUpperTriangular();
-        }
-
-        pub fn is_upper_triangular(self: Self) ArrayError!bool {
-            return self.isUpperTriangular();
         }
 
         pub fn isLowerTriangular(self: Self) ArrayError!bool {
@@ -9844,28 +8240,16 @@ pub fn ArrayView(comptime T: type) type {
             return owned.isLowerTriangular();
         }
 
-        pub fn is_lower_triangular(self: Self) ArrayError!bool {
-            return self.isLowerTriangular();
-        }
-
         pub fn isSymmetric(self: Self, rtol: T, atol: T) ArrayError!bool {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.isSymmetric(rtol, atol);
         }
 
-        pub fn is_symmetric(self: Self, rtol: T, atol: T) ArrayError!bool {
-            return self.isSymmetric(rtol, atol);
-        }
-
         pub fn isHermitian(self: Self, rtol: T, atol: T) ArrayError!bool {
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.isHermitian(rtol, atol);
-        }
-
-        pub fn is_hermitian(self: Self, rtol: T, atol: T) ArrayError!bool {
-            return self.isHermitian(rtol, atol);
         }
     };
 }
@@ -9972,21 +8356,9 @@ pub fn Array(comptime T: type) type {
             return .none;
         }
 
-        pub fn fusion_status(self: Self) FusionKind {
-            return self.fusionStatus();
-        }
-
-        pub fn dtype_name(self: Self) []const u8 {
-            return self.dtypeName();
-        }
-
         pub fn dtypeTag(self: Self) u8 {
             _ = self;
             return dtype.tag();
-        }
-
-        pub fn dtype_tag(self: Self) u8 {
-            return self.dtypeTag();
         }
 
         pub fn dtypeByteSize(self: Self) usize {
@@ -9994,17 +8366,9 @@ pub fn Array(comptime T: type) type {
             return dtype.byteSize();
         }
 
-        pub fn dtype_byte_size(self: Self) usize {
-            return self.dtypeByteSize();
-        }
-
         pub fn dtypeBitSize(self: Self) usize {
             _ = self;
             return dtype.bitSize();
-        }
-
-        pub fn dtype_bit_size(self: Self) usize {
-            return self.dtypeBitSize();
         }
 
         pub fn isFloatDtype(self: Self) bool {
@@ -10012,17 +8376,9 @@ pub fn Array(comptime T: type) type {
             return dtype.isFloat();
         }
 
-        pub fn is_float_dtype(self: Self) bool {
-            return self.isFloatDtype();
-        }
-
         pub fn isIntegerDtype(self: Self) bool {
             _ = self;
             return dtype.isInteger();
-        }
-
-        pub fn is_integer_dtype(self: Self) bool {
-            return self.isIntegerDtype();
         }
 
         pub fn isSignedDtype(self: Self) bool {
@@ -10030,17 +8386,9 @@ pub fn Array(comptime T: type) type {
             return dtype.isSigned();
         }
 
-        pub fn is_signed_dtype(self: Self) bool {
-            return self.isSignedDtype();
-        }
-
         pub fn isUnsignedDtype(self: Self) bool {
             _ = self;
             return dtype.isUnsigned();
-        }
-
-        pub fn is_unsigned_dtype(self: Self) bool {
-            return self.isUnsignedDtype();
         }
 
         pub fn isComplexDtype(self: Self) bool {
@@ -10048,17 +8396,9 @@ pub fn Array(comptime T: type) type {
             return dtype.isComplex();
         }
 
-        pub fn is_complex_dtype(self: Self) bool {
-            return self.isComplexDtype();
-        }
-
         pub fn isBoolDtype(self: Self) bool {
             _ = self;
             return dtype.isBool();
-        }
-
-        pub fn is_bool_dtype(self: Self) bool {
-            return self.isBoolDtype();
         }
 
         pub fn isRealDtype(self: Self) bool {
@@ -10066,26 +8406,14 @@ pub fn Array(comptime T: type) type {
             return dtype.isReal();
         }
 
-        pub fn is_real_dtype(self: Self) bool {
-            return self.isRealDtype();
-        }
-
         pub fn isNumericDtype(self: Self) bool {
             _ = self;
             return dtype.isNumeric();
         }
 
-        pub fn is_numeric_dtype(self: Self) bool {
-            return self.isNumericDtype();
-        }
-
         pub fn canCastToDtype(self: Self, target: DType) bool {
             _ = self;
             return dtype.canCast(target);
-        }
-
-        pub fn can_cast_to_dtype(self: Self, target: DType) bool {
-            return self.canCastToDtype(target);
         }
 
         pub fn init(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
@@ -10094,10 +8422,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn initOn(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
             return Self.zerosOn(allocator, dims, device);
-        }
-
-        pub fn init_on(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
-            return Self.initOn(allocator, dims, device);
         }
 
         pub fn emptyOn(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
@@ -10114,10 +8438,6 @@ pub fn Array(comptime T: type) type {
             return .{ .allocator = allocator, .data = values, .shape = shape, .strides = strides, .device = device, .device_storage = storage };
         }
 
-        pub fn empty_on(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
-            return Self.emptyOn(allocator, dims, device);
-        }
-
         pub fn full(allocator: std.mem.Allocator, dims: []const usize, value: T) ArrayError!Self {
             return Self.fullOn(allocator, dims, value, .cpu);
         }
@@ -10132,10 +8452,6 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn full_on(allocator: std.mem.Allocator, dims: []const usize, value: T, device: Device) ArrayError!Self {
-            return Self.fullOn(allocator, dims, value, device);
-        }
-
         pub fn zeros(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             return Self.full(allocator, dims, zero(T));
         }
@@ -10144,20 +8460,12 @@ pub fn Array(comptime T: type) type {
             return Self.fullOn(allocator, dims, zero(T), device);
         }
 
-        pub fn zeros_on(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
-            return Self.zerosOn(allocator, dims, device);
-        }
-
         pub fn ones(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
             return Self.full(allocator, dims, one(T));
         }
 
         pub fn onesOn(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
             return Self.fullOn(allocator, dims, one(T), device);
-        }
-
-        pub fn ones_on(allocator: std.mem.Allocator, dims: []const usize, device: Device) ArrayError!Self {
-            return Self.onesOn(allocator, dims, device);
         }
 
         pub fn empty(allocator: std.mem.Allocator, dims: []const usize) ArrayError!Self {
@@ -10172,64 +8480,32 @@ pub fn Array(comptime T: type) type {
             return Self.emptyOn(self.allocator, self.shape, self.device);
         }
 
-        pub fn empty_like(self: Self) ArrayError!Self {
-            return self.emptyLike();
-        }
-
         pub fn zerosLike(self: Self) ArrayError!Self {
             return Self.zerosOn(self.allocator, self.shape, self.device);
-        }
-
-        pub fn zeros_like(self: Self) ArrayError!Self {
-            return self.zerosLike();
         }
 
         pub fn onesLike(self: Self) ArrayError!Self {
             return Self.onesOn(self.allocator, self.shape, self.device);
         }
 
-        pub fn ones_like(self: Self) ArrayError!Self {
-            return self.onesLike();
-        }
-
         pub fn fullLike(self: Self, value: T) ArrayError!Self {
             return Self.fullOn(self.allocator, self.shape, value, self.device);
-        }
-
-        pub fn full_like(self: Self, value: T) ArrayError!Self {
-            return self.fullLike(value);
         }
 
         pub fn newEmpty(self: Self, dims: []const usize) ArrayError!Self {
             return Self.emptyOn(self.allocator, dims, self.device);
         }
 
-        pub fn new_empty(self: Self, dims: []const usize) ArrayError!Self {
-            return self.newEmpty(dims);
-        }
-
         pub fn newZeros(self: Self, dims: []const usize) ArrayError!Self {
             return Self.zerosOn(self.allocator, dims, self.device);
-        }
-
-        pub fn new_zeros(self: Self, dims: []const usize) ArrayError!Self {
-            return self.newZeros(dims);
         }
 
         pub fn newOnes(self: Self, dims: []const usize) ArrayError!Self {
             return Self.onesOn(self.allocator, dims, self.device);
         }
 
-        pub fn new_ones(self: Self, dims: []const usize) ArrayError!Self {
-            return self.newOnes(dims);
-        }
-
         pub fn newFull(self: Self, dims: []const usize, value: T) ArrayError!Self {
             return Self.fullOn(self.allocator, dims, value, self.device);
-        }
-
-        pub fn new_full(self: Self, dims: []const usize, value: T) ArrayError!Self {
-            return self.newFull(dims, value);
         }
 
         pub fn arange(allocator: std.mem.Allocator, start: T, stop: T, step: T) ArrayError!Self {
@@ -10347,10 +8623,6 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn rand_on(allocator: std.mem.Allocator, dims: []const usize, seed: u64, device: Device) ArrayError!Self {
-            return Self.randOn(allocator, dims, seed, device);
-        }
-
         pub fn permutation(allocator: std.mem.Allocator, n: usize, seed: u64) ArrayError!Self {
             if (comptime T != usize) @compileError("permutation requires Array(usize)");
             var out = try Self.empty(allocator, &.{n});
@@ -10383,10 +8655,6 @@ pub fn Array(comptime T: type) type {
                 .{ .device = .cpu, .host_bytes = std.mem.sliceAsBytes(values) },
             );
             return .{ .allocator = allocator, .data = data, .shape = shape, .strides = strides, .device = device, .device_storage = storage };
-        }
-
-        pub fn from_slice_on(allocator: std.mem.Allocator, values: []const T, dims: []const usize, device: Device) ArrayError!Self {
-            return Self.fromSliceOn(allocator, values, dims, device);
         }
 
         pub fn fromNested2D(allocator: std.mem.Allocator, comptime rows: usize, comptime cols: usize, values: [rows][cols]T) ArrayError!Self {
@@ -10423,10 +8691,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn randnOn(allocator: std.mem.Allocator, dims: []const usize, seed: u64, device: Device) ArrayError!Self {
             return Self.normalOn(allocator, dims, zero(T), one(T), seed, device);
-        }
-
-        pub fn randn_on(allocator: std.mem.Allocator, dims: []const usize, seed: u64, device: Device) ArrayError!Self {
-            return Self.randnOn(allocator, dims, seed, device);
         }
 
         pub fn shuffle(self: Self, seed: u64) ArrayError!Self {
@@ -10547,10 +8811,6 @@ pub fn Array(comptime T: type) type {
             const storage = out.device_storage orelse return error.InvalidDevice;
             try axiom_backend.fillPhiloxNormal(T, storage, seed, mean_value, stddev_value);
             return out;
-        }
-
-        pub fn normal_on(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64, device: Device) ArrayError!Self {
-            return Self.normalOn(allocator, dims, mean_value, stddev_value, seed, device);
         }
 
         pub fn randint(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Self {
@@ -11110,10 +9370,6 @@ pub fn Array(comptime T: type) type {
             return self.solveTriangularReference(rhs, triangle, diagonal_kind);
         }
 
-        pub fn solve_triangular(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Self {
-            return self.solveTriangular(rhs, triangle, diagonal_kind);
-        }
-
         fn solveTriangularReference(self: Self, rhs: Self, triangle: Triangle, diagonal_kind: Diagonal) ArrayError!Self {
             if (rhs.shape.len == 1) {
                 var out = try Self.zeros(self.allocator, &.{self.shape[0]});
@@ -11195,10 +9451,6 @@ pub fn Array(comptime T: type) type {
             return factors.s.clone();
         }
 
-        pub fn singular_values(self: Self, tolerance: T) ArrayError!Self {
-            return self.singularValues(tolerance);
-        }
-
         pub fn matrixRank(self: Self, tolerance: T) ArrayError!usize {
             if (comptime @typeInfo(T) != .float) @compileError("matrixRank requires floating-point arrays");
             if (self.shape.len != 2) return error.NonMatrixArray;
@@ -11208,10 +9460,6 @@ pub fn Array(comptime T: type) type {
             } else {
                 return error.BackendFailure;
             }
-        }
-
-        pub fn matrix_rank(self: Self, tolerance: T) ArrayError!usize {
-            return self.matrixRank(tolerance);
         }
 
         pub fn cond(self: Self, tolerance: T) ArrayError!T {
@@ -11282,10 +9530,6 @@ pub fn Array(comptime T: type) type {
                     break :blk total;
                 },
             };
-        }
-
-        pub fn matrix_norm(self: Self, order: MatrixNormOrder, tolerance: T) ArrayError!T {
-            return self.matrixNorm(order, tolerance);
         }
 
         pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) ArrayError!EighResult(T) {
@@ -11742,72 +9986,36 @@ pub fn Array(comptime T: type) type {
             return self.device.backend;
         }
 
-        pub fn device_backend(self: Self) Backend {
-            return self.deviceBackend();
-        }
-
         pub fn deviceIndex(self: Self) usize {
             return self.device.index;
-        }
-
-        pub fn device_index(self: Self) usize {
-            return self.deviceIndex();
         }
 
         pub fn deviceBackendName(self: Self) []const u8 {
             return self.device.backendName();
         }
 
-        pub fn device_backend_name(self: Self) []const u8 {
-            return self.deviceBackendName();
-        }
-
         pub fn isCpu(self: Self) bool {
             return self.device.isCpu();
-        }
-
-        pub fn is_cpu(self: Self) bool {
-            return self.isCpu();
         }
 
         pub fn isCuda(self: Self) bool {
             return self.device.isCuda();
         }
 
-        pub fn is_cuda(self: Self) bool {
-            return self.isCuda();
-        }
-
         pub fn isMps(self: Self) bool {
             return self.device.isMps();
-        }
-
-        pub fn is_mps(self: Self) bool {
-            return self.isMps();
         }
 
         pub fn isDeviceAvailable(self: Self) bool {
             return self.device.isAvailable();
         }
 
-        pub fn is_device_available(self: Self) bool {
-            return self.isDeviceAvailable();
-        }
-
         pub fn sameDevice(self: Self, other: Self) bool {
             return self.device.sameDevice(other.device);
         }
 
-        pub fn same_device(self: Self, other: Self) bool {
-            return self.sameDevice(other);
-        }
-
         pub fn sameDeviceView(self: Self, other: ArrayView(T)) bool {
             return self.device.sameDevice(other.device);
-        }
-
-        pub fn same_device_view(self: Self, other: ArrayView(T)) bool {
-            return self.sameDeviceView(other);
         }
 
         pub fn fill(self: Self, value: T) void {
@@ -11930,152 +10138,8 @@ pub fn Array(comptime T: type) type {
             return dest_view.divScalarAssign(scalar);
         }
 
-        pub fn fill_(self: Self, value: T) void {
-            return self.fill(value);
-        }
-
-        pub fn zero_(self: Self) void {
-            return self.fill(zero(T));
-        }
-
-        pub fn copy_(self: Self, source: Self) ArrayError!void {
-            return self.copyFrom(source);
-        }
-
-        pub fn copy_from(self: Self, source: Self) ArrayError!void {
-            return self.copyFrom(source);
-        }
-
-        pub fn copy_from_view(self: Self, source: ArrayView(T)) ArrayError!void {
-            return self.copyFromView(source);
-        }
-
         pub fn copyFromArrayAssign(self: Self, source: Self) ArrayError!void {
             return self.copyFrom(source);
-        }
-
-        pub fn copy_from_array(self: Self, source: Self) ArrayError!void {
-            return self.copyFromArrayAssign(source);
-        }
-
-        pub fn maskedFillAssign_(self: Self, mask: Array(bool), value: T) ArrayError!void {
-            return self.maskedFillAssign(mask, value);
-        }
-
-        pub fn masked_fill_(self: Self, mask: Array(bool), value: T) ArrayError!void {
-            return self.maskedFillAssign(mask, value);
-        }
-
-        pub fn masked_copy_from(self: Self, mask: Array(bool), values: Self) ArrayError!void {
-            return self.maskedCopyFrom(mask, values);
-        }
-
-        pub fn masked_copy_from_view(self: Self, mask: Array(bool), values: ArrayView(T)) ArrayError!void {
-            return self.maskedCopyFromView(mask, values);
-        }
-
-        pub fn copy_where_(self: Self, mask: Array(bool), source: Self) ArrayError!void {
-            return self.copyWhereAssign(mask, source);
-        }
-
-        pub fn copy_where_view_(self: Self, mask: Array(bool), source: ArrayView(T)) ArrayError!void {
-            return self.copyWhereAssignView(mask, source);
-        }
-
-        pub fn add_(self: Self, source: Self) ArrayError!void {
-            return self.addAssign(source);
-        }
-
-        pub fn add_assign(self: Self, source: Self) ArrayError!void {
-            return self.addAssign(source);
-        }
-
-        pub fn sub_(self: Self, source: Self) ArrayError!void {
-            return self.subAssign(source);
-        }
-
-        pub fn sub_assign(self: Self, source: Self) ArrayError!void {
-            return self.subAssign(source);
-        }
-
-        pub fn mul_(self: Self, source: Self) ArrayError!void {
-            return self.mulAssign(source);
-        }
-
-        pub fn mul_assign(self: Self, source: Self) ArrayError!void {
-            return self.mulAssign(source);
-        }
-
-        pub fn div_(self: Self, source: Self) ArrayError!void {
-            return self.divAssign(source);
-        }
-
-        pub fn div_assign(self: Self, source: Self) ArrayError!void {
-            return self.divAssign(source);
-        }
-
-        pub fn addView_(self: Self, source: ArrayView(T)) ArrayError!void {
-            return self.addAssignView(source);
-        }
-
-        pub fn add_view_(self: Self, source: ArrayView(T)) ArrayError!void {
-            return self.addView_(source);
-        }
-
-        pub fn subView_(self: Self, source: ArrayView(T)) ArrayError!void {
-            return self.subAssignView(source);
-        }
-
-        pub fn sub_view_(self: Self, source: ArrayView(T)) ArrayError!void {
-            return self.subView_(source);
-        }
-
-        pub fn mulView_(self: Self, source: ArrayView(T)) ArrayError!void {
-            return self.mulAssignView(source);
-        }
-
-        pub fn mul_view_(self: Self, source: ArrayView(T)) ArrayError!void {
-            return self.mulView_(source);
-        }
-
-        pub fn divView_(self: Self, source: ArrayView(T)) ArrayError!void {
-            return self.divAssignView(source);
-        }
-
-        pub fn div_view_(self: Self, source: ArrayView(T)) ArrayError!void {
-            return self.divView_(source);
-        }
-
-        pub fn addScalar_(self: Self, value: T) ArrayError!void {
-            return self.addScalarAssign(value);
-        }
-
-        pub fn add_scalar_(self: Self, value: T) ArrayError!void {
-            return self.addScalar_(value);
-        }
-
-        pub fn subScalar_(self: Self, value: T) ArrayError!void {
-            return self.subScalarAssign(value);
-        }
-
-        pub fn sub_scalar_(self: Self, value: T) ArrayError!void {
-            return self.subScalar_(value);
-        }
-
-        pub fn mulScalar_(self: Self, value: T) ArrayError!void {
-            return self.mulScalarAssign(value);
-        }
-
-        pub fn mul_scalar_(self: Self, value: T) ArrayError!void {
-            return self.mulScalar_(value);
-        }
-
-        pub fn divScalar_(self: Self, value: T) ArrayError!void {
-            return self.divScalarAssign(value);
-        }
-
-        pub fn div_scalar_(self: Self, value: T) ArrayError!void {
-            return self.divScalar_(value);
         }
 
         pub fn numel(self: Self) usize {
@@ -12098,10 +10162,6 @@ pub fn Array(comptime T: type) type {
             return self.ndim();
         }
 
-        pub fn num_dims(self: Self) usize {
-            return self.numDims();
-        }
-
         pub fn size(self: Self, axis_opt: ?isize) ArrayError!usize {
             if (axis_opt) |d| return self.shape[try normalizeDim(d, self.shape.len)];
             return self.numel();
@@ -12115,40 +10175,20 @@ pub fn Array(comptime T: type) type {
             return self.numel() == 0;
         }
 
-        pub fn is_empty(self: Self) bool {
-            return self.isEmpty();
-        }
-
         pub fn isMatrix(self: Self) bool {
             return self.shape.len == 2;
-        }
-
-        pub fn is_matrix(self: Self) bool {
-            return self.isMatrix();
         }
 
         pub fn isBatchedMatrix(self: Self) bool {
             return self.shape.len >= 3;
         }
 
-        pub fn is_batched_matrix(self: Self) bool {
-            return self.isBatchedMatrix();
-        }
-
         pub fn isSquare(self: Self) bool {
             return self.shape.len >= 2 and self.shape[self.shape.len - 2] == self.shape[self.shape.len - 1];
         }
 
-        pub fn is_square(self: Self) bool {
-            return self.isSquare();
-        }
-
         pub fn shapeAt(self: Self, axis_index: isize) ArrayError!usize {
             return self.shape[try normalizeDim(axis_index, self.shape.len)];
-        }
-
-        pub fn shape_at(self: Self, axis_index: isize) ArrayError!usize {
-            return self.shapeAt(axis_index);
         }
 
         pub fn len(self: Self) ArrayError!usize {
@@ -12164,17 +10204,9 @@ pub fn Array(comptime T: type) type {
             return self.stride(axis_index);
         }
 
-        pub fn stride_at(self: Self, axis_index: isize) ArrayError!usize {
-            return self.strideAt(axis_index);
-        }
-
         pub fn elementSize(self: Self) usize {
             _ = self;
             return @sizeOf(T);
-        }
-
-        pub fn element_size(self: Self) usize {
-            return self.elementSize();
         }
 
         pub fn itemsize(self: Self) usize {
@@ -12185,17 +10217,9 @@ pub fn Array(comptime T: type) type {
             return self.numel() * @sizeOf(T);
         }
 
-        pub fn num_bytes(self: Self) usize {
-            return self.nbytes();
-        }
-
         pub fn storageOffset(self: Self) usize {
             _ = self;
             return 0;
-        }
-
-        pub fn storage_offset(self: Self) usize {
-            return self.storageOffset();
         }
 
         pub fn dataPtr(self: Self) [*]T {
@@ -12203,17 +10227,9 @@ pub fn Array(comptime T: type) type {
             return self.data.ptr;
         }
 
-        pub fn data_ptr(self: Self) [*]T {
-            return self.dataPtr();
-        }
-
         pub fn storageDataPtr(self: Self) [*]T {
             if (self.device_storage) |storage| return @ptrFromInt(storage.ptr);
             return self.data.ptr;
-        }
-
-        pub fn storage_data_ptr(self: Self) [*]T {
-            return self.storageDataPtr();
         }
 
         pub fn storageSize(self: Self) usize {
@@ -12221,73 +10237,37 @@ pub fn Array(comptime T: type) type {
             return self.data.len;
         }
 
-        pub fn storage_size(self: Self) usize {
-            return self.storageSize();
-        }
-
         pub fn storageNbytes(self: Self) usize {
             if (self.device_storage) |storage| return storage.bytes;
             return self.data.len * @sizeOf(T);
-        }
-
-        pub fn storage_nbytes(self: Self) usize {
-            return self.storageNbytes();
         }
 
         pub fn storageSpan(self: Self) ArrayError!usize {
             return computeStorageSpan(self.shape, self.strides);
         }
 
-        pub fn storage_span(self: Self) ArrayError!usize {
-            return self.storageSpan();
-        }
-
         pub fn storageRange(self: Self) ArrayError!StorageRange {
             return computeStorageRange(0, self.shape, self.strides);
-        }
-
-        pub fn storage_range(self: Self) ArrayError!StorageRange {
-            return self.storageRange();
         }
 
         pub fn storageEndOffset(self: Self) ArrayError!usize {
             return (try self.storageRange()).end;
         }
 
-        pub fn storage_end_offset(self: Self) ArrayError!usize {
-            return self.storageEndOffset();
-        }
-
         pub fn sharesStorage(self: Self, other: Self) bool {
             return self.data.ptr == other.data.ptr and self.data.len == other.data.len;
-        }
-
-        pub fn shares_storage(self: Self, other: Self) bool {
-            return self.sharesStorage(other);
         }
 
         pub fn sameStorage(self: Self, other: Self) bool {
             return self.sharesStorage(other);
         }
 
-        pub fn same_storage(self: Self, other: Self) bool {
-            return self.sameStorage(other);
-        }
-
         pub fn sharesStorageView(self: Self, other: ArrayView(T)) bool {
             return other.sharesStorageArray(self);
         }
 
-        pub fn shares_storage_view(self: Self, other: ArrayView(T)) bool {
-            return self.sharesStorageView(other);
-        }
-
         pub fn sameStorageView(self: Self, other: ArrayView(T)) bool {
             return self.sharesStorageView(other);
-        }
-
-        pub fn same_storage_view(self: Self, other: ArrayView(T)) bool {
-            return self.sameStorageView(other);
         }
 
         pub fn mayOverlap(self: Self, other: Self) ArrayError!bool {
@@ -12297,56 +10277,28 @@ pub fn Array(comptime T: type) type {
             return rangesOverlap(lhs_range.begin, lhs_range.end, rhs_range.begin, rhs_range.end);
         }
 
-        pub fn may_overlap(self: Self, other: Self) ArrayError!bool {
-            return self.mayOverlap(other);
-        }
-
         pub fn mayOverlapView(self: Self, other: ArrayView(T)) ArrayError!bool {
             return other.mayOverlapArray(self);
-        }
-
-        pub fn may_overlap_view(self: Self, other: ArrayView(T)) ArrayError!bool {
-            return self.mayOverlapView(other);
         }
 
         pub fn sameShape(self: Self, other: Self) bool {
             return std.mem.eql(usize, self.shape, other.shape);
         }
 
-        pub fn same_shape(self: Self, other: Self) bool {
-            return self.sameShape(other);
-        }
-
         pub fn shapeEquals(self: Self, dims: []const usize) bool {
             return std.mem.eql(usize, self.shape, dims);
-        }
-
-        pub fn shape_equals(self: Self, dims: []const usize) bool {
-            return self.shapeEquals(dims);
         }
 
         pub fn hasShape(self: Self, dims: []const usize) bool {
             return self.shapeEquals(dims);
         }
 
-        pub fn has_shape(self: Self, dims: []const usize) bool {
-            return self.hasShape(dims);
-        }
-
         pub fn sameShapeView(self: Self, other: ArrayView(T)) bool {
             return std.mem.eql(usize, self.shape, other.shape);
         }
 
-        pub fn same_shape_view(self: Self, other: ArrayView(T)) bool {
-            return self.sameShapeView(other);
-        }
-
         pub fn broadcastShape(self: Self, other: Self) ArrayError![]usize {
             return Self.broadcastShapes(self.allocator, self.shape, other.shape);
-        }
-
-        pub fn broadcast_shape(self: Self, other: Self) ArrayError![]usize {
-            return self.broadcastShape(other);
         }
 
         pub fn broadcastShapeView(self: Self, other: ArrayView(T)) ArrayError![]usize {
@@ -12361,10 +10313,6 @@ pub fn Array(comptime T: type) type {
             return self_view.broadcastWith(other_view);
         }
 
-        pub fn broadcast_with(self: Self, other: Self) ArrayError!BroadcastPair {
-            return self.broadcastWith(other);
-        }
-
         pub fn broadcastWithView(self: Self, other: ArrayView(T)) ArrayError!BroadcastPair {
             var self_view = try self.asView();
             defer self_view.deinit();
@@ -12373,10 +10321,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn broadcastShapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) ArrayError![]usize {
             return computeBroadcastShape(allocator, lhs_shape, rhs_shape);
-        }
-
-        pub fn broadcast_shapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) ArrayError![]usize {
-            return Self.broadcastShapes(allocator, lhs_shape, rhs_shape);
         }
 
         pub fn isContiguous(self: Self) bool {
@@ -12388,10 +10332,6 @@ pub fn Array(comptime T: type) type {
                 expected *= self.shape[i];
             }
             return true;
-        }
-
-        pub fn is_contiguous(self: Self) bool {
-            return self.isContiguous();
         }
 
         pub fn contiguous(self: Self) ArrayError!Self {
@@ -12415,28 +10355,16 @@ pub fn Array(comptime T: type) type {
             return base.diagonalView(offset);
         }
 
-        pub fn diagonal_view(self: Self, offset: isize) ArrayError!ArrayView(T) {
-            return self.diagonalView(offset);
-        }
-
         pub fn diagonalAxesView(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.diagonalAxesView(offset, axis1, axis2);
         }
 
-        pub fn diagonal_axes_view(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!ArrayView(T) {
-            return self.diagonalAxesView(offset, axis1, axis2);
-        }
-
         pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) ArrayError!void {
             var diag_view = try self.diagonalAxesView(offset, axis1, axis2);
             defer diag_view.deinit();
             return diag_view.fill(value);
-        }
-
-        pub fn fill_diagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) ArrayError!void {
-            return self.fillDiagonal(value, offset, axis1, axis2);
         }
 
         pub fn diagonalScatter(self: Self, values: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
@@ -12448,10 +10376,6 @@ pub fn Array(comptime T: type) type {
             defer values_view.deinit();
             try target.copyFromView(values_view);
             return out;
-        }
-
-        pub fn diagonal_scatter(self: Self, values: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
-            return self.diagonalScatter(values, offset, axis1, axis2);
         }
 
         pub fn diagonalScatterView(self: Self, values: ArrayView(T), offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
@@ -12473,18 +10397,10 @@ pub fn Array(comptime T: type) type {
             return self.unfold(axis_index, window_size, step);
         }
 
-        pub fn unfold_view(self: Self, axis_index: isize, window_size: usize, step: usize) ArrayError!ArrayView(T) {
-            return self.unfoldView(axis_index, window_size, step);
-        }
-
         pub fn sliceAxisView(self: Self, axis_index: isize, slice_value: Slice) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.sliceAxis(axis_index, slice_value);
-        }
-
-        pub fn slice_axis_view(self: Self, axis_index: isize, slice_value: Slice) ArrayError!ArrayView(T) {
-            return self.sliceAxisView(axis_index, slice_value);
         }
 
         pub fn sliceView(self: Self, slices: []const Slice) ArrayError!ArrayView(T) {
@@ -12493,18 +10409,10 @@ pub fn Array(comptime T: type) type {
             return base.slice(slices);
         }
 
-        pub fn slice_view(self: Self, slices: []const Slice) ArrayError!ArrayView(T) {
-            return self.sliceView(slices);
-        }
-
         pub fn selectView(self: Self, axis_index: isize, index: usize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.select(axis_index, index);
-        }
-
-        pub fn select_view(self: Self, axis_index: isize, index: usize) ArrayError!ArrayView(T) {
-            return self.selectView(axis_index, index);
         }
 
         pub fn selectSignedView(self: Self, axis_index: isize, index: isize) ArrayError!ArrayView(T) {
@@ -12513,18 +10421,10 @@ pub fn Array(comptime T: type) type {
             return base.selectSigned(axis_index, index);
         }
 
-        pub fn select_signed_view(self: Self, axis_index: isize, index: isize) ArrayError!ArrayView(T) {
-            return self.selectSignedView(axis_index, index);
-        }
-
         pub fn narrowView(self: Self, axis_index: isize, start: usize, length: usize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.narrow(axis_index, start, length);
-        }
-
-        pub fn narrow_view(self: Self, axis_index: isize, start: usize, length: usize) ArrayError!ArrayView(T) {
-            return self.narrowView(axis_index, start, length);
         }
 
         pub fn narrowSignedView(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!ArrayView(T) {
@@ -12533,18 +10433,10 @@ pub fn Array(comptime T: type) type {
             return base.narrowSigned(axis_index, start, length);
         }
 
-        pub fn narrow_signed_view(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!ArrayView(T) {
-            return self.narrowSignedView(axis_index, start, length);
-        }
-
         pub fn permuteView(self: Self, axes: []const usize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.permute(axes);
-        }
-
-        pub fn permute_view(self: Self, axes: []const usize) ArrayError!ArrayView(T) {
-            return self.permuteView(axes);
         }
 
         pub fn swapaxesView(self: Self, dim0: isize, dim1: isize) ArrayError!ArrayView(T) {
@@ -12553,16 +10445,8 @@ pub fn Array(comptime T: type) type {
             return base.swapaxes(dim0, dim1);
         }
 
-        pub fn swapaxes_view(self: Self, dim0: isize, dim1: isize) ArrayError!ArrayView(T) {
-            return self.swapaxesView(dim0, dim1);
-        }
-
         pub fn swapDimsView(self: Self, dim0: isize, dim1: isize) ArrayError!ArrayView(T) {
             return self.swapaxesView(dim0, dim1);
-        }
-
-        pub fn swap_dims_view(self: Self, dim0: isize, dim1: isize) ArrayError!ArrayView(T) {
-            return self.swapDimsView(dim0, dim1);
         }
 
         pub fn movedimView(self: Self, source: isize, destination: isize) ArrayError!ArrayView(T) {
@@ -12571,16 +10455,8 @@ pub fn Array(comptime T: type) type {
             return base.movedim(source, destination);
         }
 
-        pub fn movedim_view(self: Self, source: isize, destination: isize) ArrayError!ArrayView(T) {
-            return self.movedimView(source, destination);
-        }
-
         pub fn moveaxisView(self: Self, source: isize, destination: isize) ArrayError!ArrayView(T) {
             return self.movedimView(source, destination);
-        }
-
-        pub fn moveaxis_view(self: Self, source: isize, destination: isize) ArrayError!ArrayView(T) {
-            return self.moveaxisView(source, destination);
         }
 
         pub fn moveaxesView(self: Self, sources: []const isize, destinations: []const isize) ArrayError!ArrayView(T) {
@@ -12589,30 +10465,14 @@ pub fn Array(comptime T: type) type {
             return base.moveaxes(sources, destinations);
         }
 
-        pub fn moveaxes_view(self: Self, sources: []const isize, destinations: []const isize) ArrayError!ArrayView(T) {
-            return self.moveaxesView(sources, destinations);
-        }
-
-        pub fn move_axes_view(self: Self, sources: []const isize, destinations: []const isize) ArrayError!ArrayView(T) {
-            return self.moveaxesView(sources, destinations);
-        }
-
         pub fn transposeView(self: Self) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.transpose();
         }
 
-        pub fn transpose_view(self: Self) ArrayError!ArrayView(T) {
-            return self.transposeView();
-        }
-
         pub fn TView(self: Self) ArrayError!ArrayView(T) {
             return self.transposeView();
-        }
-
-        pub fn T_view(self: Self) ArrayError!ArrayView(T) {
-            return self.TView();
         }
 
         pub fn matrixTransposeView(self: Self) ArrayError!ArrayView(T) {
@@ -12621,16 +10481,8 @@ pub fn Array(comptime T: type) type {
             return base.matrixTranspose();
         }
 
-        pub fn matrix_transpose_view(self: Self) ArrayError!ArrayView(T) {
-            return self.matrixTransposeView();
-        }
-
         pub fn mTView(self: Self) ArrayError!ArrayView(T) {
             return self.matrixTransposeView();
-        }
-
-        pub fn mT_view(self: Self) ArrayError!ArrayView(T) {
-            return self.mTView();
         }
 
         pub fn broadcastView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
@@ -12639,16 +10491,8 @@ pub fn Array(comptime T: type) type {
             return base.broadcastTo(dims);
         }
 
-        pub fn broadcast_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
-            return self.broadcastView(dims);
-        }
-
         pub fn broadcastToView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
             return self.broadcastView(dims);
-        }
-
-        pub fn broadcast_to_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
-            return self.broadcastToView(dims);
         }
 
         pub fn expand(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
@@ -12659,16 +10503,8 @@ pub fn Array(comptime T: type) type {
             return self.broadcastView(dims);
         }
 
-        pub fn expand_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
-            return self.expandView(dims);
-        }
-
         pub fn expandToView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
             return self.expandView(dims);
-        }
-
-        pub fn expand_to_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
-            return self.expandToView(dims);
         }
 
         pub fn expandAs(self: Self, other: Self) ArrayError!ArrayView(T) {
@@ -12679,43 +10515,19 @@ pub fn Array(comptime T: type) type {
             return self.expandView(other.shape);
         }
 
-        pub fn expand_as_view(self: Self, other: ArrayView(T)) ArrayError!ArrayView(T) {
-            return self.expandAsView(other);
-        }
-
         pub fn expandAsArray(self: Self, other: Self) ArrayError!ArrayView(T) {
             return self.expandAs(other);
-        }
-
-        pub fn expand_as_array(self: Self, other: Self) ArrayError!ArrayView(T) {
-            return self.expandAsArray(other);
         }
 
         pub fn broadcastAs(self: Self, other: Self) ArrayError!ArrayView(T) {
             return self.expandAs(other);
         }
 
-        pub fn broadcast_as(self: Self, other: Self) ArrayError!ArrayView(T) {
-            return self.broadcastAs(other);
-        }
-
         pub fn broadcastAsView(self: Self, other: ArrayView(T)) ArrayError!ArrayView(T) {
             return self.expandAsView(other);
         }
 
-        pub fn broadcast_as_view(self: Self, other: ArrayView(T)) ArrayError!ArrayView(T) {
-            return self.broadcastAsView(other);
-        }
-
         pub fn broadcastAsArray(self: Self, other: Self) ArrayError!ArrayView(T) {
-            return self.expandAs(other);
-        }
-
-        pub fn broadcast_as_array(self: Self, other: Self) ArrayError!ArrayView(T) {
-            return self.broadcastAsArray(other);
-        }
-
-        pub fn expand_as(self: Self, other: Self) ArrayError!ArrayView(T) {
             return self.expandAs(other);
         }
 
@@ -12723,40 +10535,20 @@ pub fn Array(comptime T: type) type {
             return self.shape.len == 0 or (self.shape.len == 1 and self.shape[0] == 1);
         }
 
-        pub fn is_scalar(self: Self) bool {
-            return self.isScalar();
-        }
-
         pub fn isVector(self: Self) bool {
             return self.shape.len == 1;
-        }
-
-        pub fn is_vector(self: Self) bool {
-            return self.isVector();
         }
 
         pub fn isRowVector(self: Self) bool {
             return self.shape.len == 2 and self.shape[0] == 1;
         }
 
-        pub fn is_row_vector(self: Self) bool {
-            return self.isRowVector();
-        }
-
         pub fn isColumnVector(self: Self) bool {
             return self.shape.len == 2 and self.shape[1] == 1;
         }
 
-        pub fn is_column_vector(self: Self) bool {
-            return self.isColumnVector();
-        }
-
         pub fn isVectorLike(self: Self) bool {
             return self.isVector() or self.isRowVector() or self.isColumnVector();
-        }
-
-        pub fn is_vector_like(self: Self) bool {
-            return self.isVectorLike();
         }
 
         fn offsetOf(self: Self, indices: []const usize) ArrayError!usize {
@@ -12786,20 +10578,12 @@ pub fn Array(comptime T: type) type {
             return self.data[try self.offsetOfSigned(indices)];
         }
 
-        pub fn get_signed(self: Self, indices: []const isize) ArrayError!T {
-            return self.getSigned(indices);
-        }
-
         pub fn set(self: *Self, indices: []const usize, value: T) ArrayError!void {
             self.data[try self.offsetOf(indices)] = value;
         }
 
         pub fn setSigned(self: *Self, indices: []const isize, value: T) ArrayError!void {
             self.data[try self.offsetOfSigned(indices)] = value;
-        }
-
-        pub fn set_signed(self: *Self, indices: []const isize, value: T) ArrayError!void {
-            return self.setSigned(indices, value);
         }
 
         pub fn at(self: Self, indices: []const usize) ArrayError!T {
@@ -12810,20 +10594,12 @@ pub fn Array(comptime T: type) type {
             return self.getSigned(indices);
         }
 
-        pub fn at_signed(self: Self, indices: []const isize) ArrayError!T {
-            return self.atSigned(indices);
-        }
-
         pub fn put(self: *Self, indices: []const usize, value: T) ArrayError!void {
             return self.set(indices, value);
         }
 
         pub fn putSigned(self: *Self, indices: []const isize, value: T) ArrayError!void {
             return self.setSigned(indices, value);
-        }
-
-        pub fn put_signed(self: *Self, indices: []const isize, value: T) ArrayError!void {
-            return self.putSigned(indices, value);
         }
 
         pub fn item(self: Self) ArrayError!T {
@@ -12836,16 +10612,8 @@ pub fn Array(comptime T: type) type {
             return self.item();
         }
 
-        pub fn item_value(self: Self) ArrayError!T {
-            return self.itemValue();
-        }
-
         pub fn scalarValue(self: Self) ArrayError!T {
             return self.item();
-        }
-
-        pub fn scalar_value(self: Self) ArrayError!T {
-            return self.scalarValue();
         }
 
         pub fn asSlice(self: Self) ArrayError![]T {
@@ -12854,16 +10622,8 @@ pub fn Array(comptime T: type) type {
             return self.data;
         }
 
-        pub fn as_slice(self: Self) ArrayError![]T {
-            return self.asSlice();
-        }
-
         pub fn asConstSlice(self: Self) ArrayError![]const T {
             return self.asSlice();
-        }
-
-        pub fn as_const_slice(self: Self) ArrayError![]const T {
-            return self.asConstSlice();
         }
 
         pub fn copyToSlice(self: Self, out: []T) ArrayError!void {
@@ -12879,19 +10639,11 @@ pub fn Array(comptime T: type) type {
             );
         }
 
-        pub fn copy_to_slice(self: Self, out: []T) ArrayError!void {
-            return self.copyToSlice(out);
-        }
-
         pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) ArrayError![]T {
             const out = try allocator.alloc(T, self.numel());
             errdefer allocator.free(out);
             try self.copyToSlice(out);
             return out;
-        }
-
-        pub fn to_owned_slice(self: Self, allocator: std.mem.Allocator) ArrayError![]T {
-            return self.toOwnedSlice(allocator);
         }
 
         pub fn reshape(self: Self, dims: []const usize) ArrayError!Self {
@@ -12919,18 +10671,10 @@ pub fn Array(comptime T: type) type {
             return self.reshape(other.shape);
         }
 
-        pub fn reshape_as(self: Self, other: Self) ArrayError!Self {
-            return self.reshapeAs(other);
-        }
-
         pub fn reshapeView(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.reshape(dims);
-        }
-
-        pub fn reshape_view(self: Self, dims: []const usize) ArrayError!ArrayView(T) {
-            return self.reshapeView(dims);
         }
 
         pub fn reshapeInferView(self: Self, dims: []const isize) ArrayError!ArrayView(T) {
@@ -12939,20 +10683,12 @@ pub fn Array(comptime T: type) type {
             return base.reshapeInfer(dims);
         }
 
-        pub fn reshape_infer_view(self: Self, dims: []const isize) ArrayError!ArrayView(T) {
-            return self.reshapeInferView(dims);
-        }
-
         pub fn flatten(self: Self) ArrayError!Self {
             return self.reshape(&.{self.numel()});
         }
 
         pub fn flattenView(self: Self) ArrayError!ArrayView(T) {
             return self.reshapeView(&.{self.numel()});
-        }
-
-        pub fn flatten_view(self: Self) ArrayError!ArrayView(T) {
-            return self.flattenView();
         }
 
         pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
@@ -12967,15 +10703,7 @@ pub fn Array(comptime T: type) type {
             return self.reshapeView(dims);
         }
 
-        pub fn flatten_axes_view(self: Self, start_axis: isize, end_axis: isize) ArrayError!ArrayView(T) {
-            return self.flattenAxesView(start_axis, end_axis);
-        }
-
         pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
-            return self.flattenAxes(start_axis, end_axis);
-        }
-
-        pub fn flatten_range(self: Self, start_axis: isize, end_axis: isize) ArrayError!Self {
             return self.flattenAxes(start_axis, end_axis);
         }
 
@@ -12983,24 +10711,12 @@ pub fn Array(comptime T: type) type {
             return self.flattenAxesView(start_axis, end_axis);
         }
 
-        pub fn flatten_range_view(self: Self, start_axis: isize, end_axis: isize) ArrayError!ArrayView(T) {
-            return self.flattenRangeView(start_axis, end_axis);
-        }
-
         pub fn flattenFrom(self: Self, start_axis: isize) ArrayError!Self {
             return self.flattenAxes(start_axis, -1);
         }
 
-        pub fn flatten_from(self: Self, start_axis: isize) ArrayError!Self {
-            return self.flattenFrom(start_axis);
-        }
-
         pub fn flattenFromView(self: Self, start_axis: isize) ArrayError!ArrayView(T) {
             return self.flattenAxesView(start_axis, -1);
-        }
-
-        pub fn flatten_from_view(self: Self, start_axis: isize) ArrayError!ArrayView(T) {
-            return self.flattenFromView(start_axis);
         }
 
         pub fn ravel(self: Self) ArrayError!Self {
@@ -13009,10 +10725,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn ravelView(self: Self) ArrayError!ArrayView(T) {
             return self.flattenView();
-        }
-
-        pub fn ravel_view(self: Self) ArrayError!ArrayView(T) {
-            return self.ravelView();
         }
 
         pub fn atLeast1d(self: Self) ArrayError!Self {
@@ -13043,28 +10755,16 @@ pub fn Array(comptime T: type) type {
             return base.atLeast1d();
         }
 
-        pub fn at_least_1d_view(self: Self) ArrayError!ArrayView(T) {
-            return self.atLeast1dView();
-        }
-
         pub fn atLeast2dView(self: Self) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.atLeast2d();
         }
 
-        pub fn at_least_2d_view(self: Self) ArrayError!ArrayView(T) {
-            return self.atLeast2dView();
-        }
-
         pub fn atLeast3dView(self: Self) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.atLeast3d();
-        }
-
-        pub fn at_least_3d_view(self: Self) ArrayError!ArrayView(T) {
-            return self.atLeast3dView();
         }
 
         pub fn view(self: Self, dims: []const usize) ArrayError!Self {
@@ -13083,10 +10783,6 @@ pub fn Array(comptime T: type) type {
             return self.view(other.shape);
         }
 
-        pub fn view_as(self: Self, other: Self) ArrayError!Self {
-            return self.viewAs(other);
-        }
-
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) ArrayError!Self {
             const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
             defer self.allocator.free(out_shape);
@@ -13097,10 +10793,6 @@ pub fn Array(comptime T: type) type {
             const out_shape = try unflattenShape(self.allocator, self.shape, axis_index, dims);
             defer self.allocator.free(out_shape);
             return self.reshapeView(out_shape);
-        }
-
-        pub fn unflatten_view(self: Self, axis_index: isize, dims: []const usize) ArrayError!ArrayView(T) {
-            return self.unflattenView(axis_index, dims);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) ArrayError!Self {
@@ -13127,26 +10819,14 @@ pub fn Array(comptime T: type) type {
             return self.squeeze(axis_index);
         }
 
-        pub fn squeeze_dim(self: Self, axis_index: isize) ArrayError!Self {
-            return self.squeezeDim(axis_index);
-        }
-
         pub fn squeezeView(self: Self, axis_opt: ?isize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.squeeze(axis_opt);
         }
 
-        pub fn squeeze_view(self: Self, axis_opt: ?isize) ArrayError!ArrayView(T) {
-            return self.squeezeView(axis_opt);
-        }
-
         pub fn squeezeDimView(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
             return self.squeezeView(axis_index);
-        }
-
-        pub fn squeeze_dim_view(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
-            return self.squeezeDimView(axis_index);
         }
 
         pub fn squeezeAxes(self: Self, axes: []const isize) ArrayError!Self {
@@ -13169,18 +10849,10 @@ pub fn Array(comptime T: type) type {
             return self.reshape(dims_list.items);
         }
 
-        pub fn squeeze_axes(self: Self, axes: []const isize) ArrayError!Self {
-            return self.squeezeAxes(axes);
-        }
-
         pub fn squeezeAxesView(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.squeezeAxes(axes);
-        }
-
-        pub fn squeeze_axes_view(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
-            return self.squeezeAxesView(axes);
         }
 
         pub fn unsqueeze(self: Self, axis_index: isize) ArrayError!Self {
@@ -13203,26 +10875,14 @@ pub fn Array(comptime T: type) type {
             return self.unsqueeze(axis_index);
         }
 
-        pub fn unsqueeze_dim(self: Self, axis_index: isize) ArrayError!Self {
-            return self.unsqueezeDim(axis_index);
-        }
-
         pub fn unsqueezeView(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.unsqueeze(axis_index);
         }
 
-        pub fn unsqueeze_view(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
-            return self.unsqueezeView(axis_index);
-        }
-
         pub fn unsqueezeDimView(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
             return self.unsqueezeView(axis_index);
-        }
-
-        pub fn unsqueeze_dim_view(self: Self, axis_index: isize) ArrayError!ArrayView(T) {
-            return self.unsqueezeDimView(axis_index);
         }
 
         pub fn unsqueezeAxes(self: Self, axes: []const isize) ArrayError!Self {
@@ -13246,34 +10906,18 @@ pub fn Array(comptime T: type) type {
             return self.reshape(dims);
         }
 
-        pub fn unsqueeze_axes(self: Self, axes: []const isize) ArrayError!Self {
-            return self.unsqueezeAxes(axes);
-        }
-
         pub fn unsqueezeAxesView(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
             var base = try self.asView();
             defer base.deinit();
             return base.unsqueezeAxes(axes);
         }
 
-        pub fn unsqueeze_axes_view(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
-            return self.unsqueezeAxesView(axes);
-        }
-
         pub fn expandDims(self: Self, axes: []const isize) ArrayError!Self {
             return self.unsqueezeAxes(axes);
         }
 
-        pub fn expand_dims(self: Self, axes: []const isize) ArrayError!Self {
-            return self.expandDims(axes);
-        }
-
         pub fn expandDimsView(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
             return self.unsqueezeAxesView(axes);
-        }
-
-        pub fn expand_dims_view(self: Self, axes: []const isize) ArrayError!ArrayView(T) {
-            return self.expandDimsView(axes);
         }
 
         pub fn broadcastTo(self: Self, dims: []const usize) ArrayError!Self {
@@ -13288,10 +10932,6 @@ pub fn Array(comptime T: type) type {
                 slot.* = self.data[broadcastOffset(out_multi, dims.len, self.shape, self.strides)];
             }
             return out;
-        }
-
-        pub fn broadcast_to(self: Self, dims: []const usize) ArrayError!Self {
-            return self.broadcastTo(dims);
         }
 
         fn repeatInterleaveTotal(source_len: usize, repeats: Array(usize)) ArrayError!usize {
@@ -13396,18 +11036,10 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn repeat_interleave(self: Self, repeats: Array(usize), axis_opt: ?isize) ArrayError!Self {
-            return self.repeatInterleave(repeats, axis_opt);
-        }
-
         pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Self {
             var repeats = try Array(usize).fromScalar(self.allocator, repeat_count);
             defer repeats.deinit();
             return self.repeatInterleave(repeats, axis_opt);
-        }
-
-        pub fn repeat_interleave_scalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Self {
-            return self.repeatInterleaveScalar(repeat_count, axis_opt);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: Slice) ArrayError!Self {
@@ -13535,10 +11167,6 @@ pub fn Array(comptime T: type) type {
                 slot.* = self.data[in_index];
             }
             return out;
-        }
-
-        pub fn roll_flat(self: Self, shift: isize) ArrayError!Self {
-            return self.rollFlat(shift);
         }
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) ArrayError!Self {
@@ -13814,17 +11442,9 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn T_(self: Self) ArrayError!Self {
-            return self.transpose();
-        }
-
         pub fn matrixTranspose(self: Self) ArrayError!Self {
             if (self.shape.len < 2) return error.NonMatrixArray;
             return self.swapaxes(@as(isize, @intCast(self.shape.len - 2)), @as(isize, @intCast(self.shape.len - 1)));
-        }
-
-        pub fn matrix_transpose(self: Self) ArrayError!Self {
-            return self.matrixTranspose();
         }
 
         pub fn mT(self: Self) ArrayError!Self {
@@ -13841,10 +11461,6 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn mH(self: Self) ArrayError!Self {
-            return self.adjoint();
-        }
-
-        pub fn H_(self: Self) ArrayError!Self {
             return self.adjoint();
         }
 
@@ -13886,10 +11502,6 @@ pub fn Array(comptime T: type) type {
             return result;
         }
 
-        pub fn matrix_power(self: Self, exponent: isize) ArrayError!Self {
-            return self.matrixPower(exponent);
-        }
-
         pub fn isDiagonalMatrix(self: Self) ArrayError!bool {
             if (!self.isSquare()) return error.NonMatrixArray;
             const n = self.shape[self.shape.len - 1];
@@ -13914,10 +11526,6 @@ pub fn Array(comptime T: type) type {
                 }
             }
             return true;
-        }
-
-        pub fn is_diagonal_matrix(self: Self) ArrayError!bool {
-            return self.isDiagonalMatrix();
         }
 
         pub fn isUpperTriangular(self: Self) ArrayError!bool {
@@ -13945,10 +11553,6 @@ pub fn Array(comptime T: type) type {
             return true;
         }
 
-        pub fn is_upper_triangular(self: Self) ArrayError!bool {
-            return self.isUpperTriangular();
-        }
-
         pub fn isLowerTriangular(self: Self) ArrayError!bool {
             if (!self.isSquare()) return error.NonMatrixArray;
             const n = self.shape[self.shape.len - 1];
@@ -13974,20 +11578,12 @@ pub fn Array(comptime T: type) type {
             return true;
         }
 
-        pub fn is_lower_triangular(self: Self) ArrayError!bool {
-            return self.isLowerTriangular();
-        }
-
         pub fn isSymmetric(self: Self, rtol: T, atol: T) ArrayError!bool {
             if (!self.isSquare()) return error.NonMatrixArray;
             if (comptime @typeInfo(T) != .float) @compileError("isSymmetric requires floating-point arrays");
             var transposed = try self.matrixTranspose();
             defer transposed.deinit();
             return self.allclose(transposed, rtol, atol);
-        }
-
-        pub fn is_symmetric(self: Self, rtol: T, atol: T) ArrayError!bool {
-            return self.isSymmetric(rtol, atol);
         }
 
         pub fn isHermitian(self: Self, rtol: T, atol: T) ArrayError!bool {
@@ -14001,10 +11597,6 @@ pub fn Array(comptime T: type) type {
                 if (!closeValue(complexRealType(T), lhs.im, rhs.im, rtol.re, atol.re, false)) return false;
             }
             return true;
-        }
-
-        pub fn is_hermitian(self: Self, rtol: T, atol: T) ArrayError!bool {
-            return self.isHermitian(rtol, atol);
         }
 
         fn matrixPowerIdentity(self: Self) ArrayError!Self {
@@ -14043,10 +11635,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn swapDims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
             return self.swapaxes(dim0, dim1);
-        }
-
-        pub fn swap_dims(self: Self, dim0: isize, dim1: isize) ArrayError!Self {
-            return self.swapDims(dim0, dim1);
         }
 
         pub fn permute(self: Self, axes: []const usize) ArrayError!Self {
@@ -14108,10 +11696,6 @@ pub fn Array(comptime T: type) type {
             const axes = try movedimManyAxes(self.allocator, self.shape.len, sources, destinations);
             defer self.allocator.free(axes);
             return self.permute(axes);
-        }
-
-        pub fn move_axes(self: Self, sources: []const isize, destinations: []const isize) ArrayError!Self {
-            return self.moveaxes(sources, destinations);
         }
 
         pub fn slice1d(self: Self, slice_value: Slice) ArrayError!Self {
@@ -14185,10 +11769,6 @@ pub fn Array(comptime T: type) type {
             return self.narrow(axis_index, normalized_start, length);
         }
 
-        pub fn narrow_signed(self: Self, axis_index: isize, start: isize, length: usize) ArrayError!Self {
-            return self.narrowSigned(axis_index, start, length);
-        }
-
         pub const SplitResult = struct {
             allocator: std.mem.Allocator,
             items: []Self,
@@ -14244,10 +11824,6 @@ pub fn Array(comptime T: type) type {
             return .{ .allocator = self.allocator, .items = items };
         }
 
-        pub fn split_with_sizes(self: Self, sizes: []const usize, axis_index: isize) ArrayError!SplitResult {
-            return self.splitWithSizes(sizes, axis_index);
-        }
-
         pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) ArrayError!SplitResult {
             const axis = try normalizeDim(axis_index, self.shape.len);
             const axis_len = self.shape[axis];
@@ -14266,10 +11842,6 @@ pub fn Array(comptime T: type) type {
             }
             items[indices.len] = try self.narrow(axis_index, start, axis_len - start);
             return .{ .allocator = self.allocator, .items = items };
-        }
-
-        pub fn split_at_indices(self: Self, indices: []const usize, axis_index: isize) ArrayError!SplitResult {
-            return self.splitAtIndices(indices, axis_index);
         }
 
         pub fn chunk(self: Self, chunks: usize, axis_index: isize) ArrayError!SplitResult {
@@ -14358,10 +11930,6 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn take_signed(self: Self, indices: Array(isize), axis_opt: ?isize) ArrayError!Self {
-            return self.takeSigned(indices, axis_opt);
-        }
-
         fn applyIndexMode(idx: usize, extent: usize, mode: IndexMode) ArrayError!usize {
             if (extent == 0) return error.IndexOutOfBounds;
             return switch (mode) {
@@ -14408,10 +11976,6 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn take_mode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Self {
-            return self.takeMode(indices, axis_opt, mode);
-        }
-
         pub fn takeSignedMode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Self {
             if (axis_opt == null) {
                 const out = try Self.empty(self.allocator, indices.shape);
@@ -14439,52 +12003,24 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn take_signed_mode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Self {
-            return self.takeSignedMode(indices, axis_opt, mode);
-        }
-
         pub fn indexSelect(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Self {
             return self.take(indices, axis_index);
-        }
-
-        pub fn index_select(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Self {
-            return self.indexSelect(axis_index, indices);
         }
 
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Self {
             return self.takeSigned(indices, axis_index);
         }
 
-        pub fn index_select_signed(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Self {
-            return self.indexSelectSigned(axis_index, indices);
-        }
-
         pub fn takeAlongAxis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Self {
             return self.gather(axis_index, indices);
-        }
-
-        pub fn take_along_axis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Self {
-            return self.takeAlongAxis(indices, axis_index);
         }
 
         pub fn takeAlongAxisSigned(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Self {
             return self.gatherSigned(axis_index, indices);
         }
 
-        pub fn take_along_axis_signed(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Self {
-            return self.takeAlongAxisSigned(indices, axis_index);
-        }
-
         pub fn putAlongAxis(self: Self, indices: Array(usize), src: Self, axis_index: isize) ArrayError!Self {
             return self.scatter(axis_index, indices, src);
-        }
-
-        pub fn put_along_axis(self: Self, indices: Array(usize), src: Self, axis_index: isize) ArrayError!Self {
-            return self.putAlongAxis(indices, src, axis_index);
-        }
-
-        pub fn masked_select(self: Self, mask: Array(bool)) ArrayError!Self {
-            return self.maskedSelect(mask);
         }
 
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Self {
@@ -14527,10 +12063,6 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn masked_fill(self: Self, mask: Array(bool), value: T) ArrayError!Self {
-            return self.maskedFill(mask, value);
-        }
-
         pub fn maskedScatter(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
@@ -14550,10 +12082,6 @@ pub fn Array(comptime T: type) type {
             }
             if (write != src.data.len) return error.ShapeMismatch;
             return out;
-        }
-
-        pub fn masked_scatter(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
-            return self.maskedScatter(mask, src);
         }
 
         pub fn maskedPut(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
@@ -14582,40 +12110,20 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn masked_put(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
-            return self.maskedPut(mask, values);
-        }
-
         pub fn putMask(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
             return self.maskedPut(mask, values);
-        }
-
-        pub fn put_mask(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
-            return self.putMask(mask, values);
         }
 
         pub fn maskedPutScalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
             return self.maskedFill(mask, value);
         }
 
-        pub fn masked_put_scalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
-            return self.maskedPutScalar(mask, value);
-        }
-
         pub fn putMaskScalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
             return self.maskedPutScalar(mask, value);
         }
 
-        pub fn put_mask_scalar(self: Self, mask: Array(bool), value: T) ArrayError!Self {
-            return self.putMaskScalar(mask, value);
-        }
-
         pub fn copyWhere(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
             return src.where(mask, self);
-        }
-
-        pub fn copy_where(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
-            return self.copyWhere(mask, src);
         }
 
         pub fn where(self: Self, mask: Array(bool), other: Self) ArrayError!Self {
@@ -14624,10 +12132,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn whereArray(self: Self, mask: Array(bool), other: Self) ArrayError!Self {
             return self.where(mask, other);
-        }
-
-        pub fn where_array(self: Self, mask: Array(bool), other: Self) ArrayError!Self {
-            return self.whereArray(mask, other);
         }
 
         pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Self {
@@ -14645,14 +12149,6 @@ pub fn Array(comptime T: type) type {
                 slot.* = if (mask.data[mi]) self.data[si] else other_value;
             }
             return out;
-        }
-
-        pub fn where_scalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Self {
-            return self.whereScalar(mask, other_value);
-        }
-
-        pub fn put_flat(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
-            return self.putFlat(indices, values);
         }
 
         pub fn putFlat(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
@@ -14684,10 +12180,6 @@ pub fn Array(comptime T: type) type {
                 out.data[try applyIndexMode(idx, out.data.len, mode)] = values.data[if (values.data.len == 1) 0 else i];
             }
             return out;
-        }
-
-        pub fn put_flat_scalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
-            return self.putFlatScalar(indices, value);
         }
 
         pub fn putFlatScalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
@@ -14722,16 +12214,8 @@ pub fn Array(comptime T: type) type {
             return self.putFlat(indices, values);
         }
 
-        pub fn index_put(self: Self, indices: Array(usize), values: Self) ArrayError!Self {
-            return self.indexPut(indices, values);
-        }
-
         pub fn indexPutScalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
             return self.putFlatScalar(indices, value);
-        }
-
-        pub fn index_put_scalar(self: Self, indices: Array(usize), value: T) ArrayError!Self {
-            return self.indexPutScalar(indices, value);
         }
 
         pub fn countNonzero(self: Self) usize {
@@ -14740,10 +12224,6 @@ pub fn Array(comptime T: type) type {
                 if (v != zero(T)) count += 1;
             }
             return count;
-        }
-
-        pub fn count_nonzero(self: Self) usize {
-            return self.countNonzero();
         }
 
         pub fn countNonzeroAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
@@ -14802,24 +12282,12 @@ pub fn Array(comptime T: type) type {
             return current;
         }
 
-        pub fn count_nonzero_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(usize) {
-            return self.countNonzeroAxes(axes, keepdims);
-        }
-
         pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
             return self.countNonzeroAxis(dim_opt, keepdim);
         }
 
-        pub fn count_nonzero_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.countNonzeroDim(dim_opt, keepdim);
-        }
-
         pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(usize) {
             return self.countNonzeroAxes(dims, keepdim);
-        }
-
-        pub fn count_nonzero_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.countNonzeroDims(dims, keepdim);
         }
 
         pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
@@ -14832,10 +12300,6 @@ pub fn Array(comptime T: type) type {
                 write += 1;
             }
             return out;
-        }
-
-        pub fn flat_nonzero(self: Self) ArrayError!Array(usize) {
-            return self.flatNonzero();
         }
 
         pub fn nonzero(self: Self) ArrayError!Array(usize) {
@@ -14863,10 +12327,6 @@ pub fn Array(comptime T: type) type {
             return self.nonzero();
         }
 
-        pub fn where_indices(self: Self) ArrayError!Array(usize) {
-            return self.whereIndices();
-        }
-
         pub fn ravelCoords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
             if (coords.shape.len == 0 or coords.shape[coords.shape.len - 1] != self.shape.len) return error.ShapeMismatch;
             const out_shape = coords.shape[0 .. coords.shape.len - 1];
@@ -14882,10 +12342,6 @@ pub fn Array(comptime T: type) type {
                 slot.* = offset;
             }
             return out;
-        }
-
-        pub fn ravel_coords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
-            return self.ravelCoords(coords);
         }
 
         pub fn unravelFlat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
@@ -14911,28 +12367,16 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn unravel_flat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
-            return self.unravelFlat(indices);
-        }
-
         pub fn takeCoords(self: Self, coords: Array(usize)) ArrayError!Self {
             var flat = try self.ravelCoords(coords);
             defer flat.deinit();
             return self.take(flat, null);
         }
 
-        pub fn take_coords(self: Self, coords: Array(usize)) ArrayError!Self {
-            return self.takeCoords(coords);
-        }
-
         pub fn putCoords(self: Self, coords: Array(usize), values: Self) ArrayError!Self {
             var flat = try self.ravelCoords(coords);
             defer flat.deinit();
             return self.putFlat(flat, values);
-        }
-
-        pub fn put_coords(self: Self, coords: Array(usize), values: Self) ArrayError!Self {
-            return self.putCoords(coords, values);
         }
 
         pub fn putCoordsScalar(self: Self, coords: Array(usize), value: T) ArrayError!Self {
@@ -14951,10 +12395,6 @@ pub fn Array(comptime T: type) type {
                 out_shape = next_shape;
             }
             return out_shape;
-        }
-
-        pub fn put_coords_scalar(self: Self, coords: Array(usize), value: T) ArrayError!Self {
-            return self.putCoordsScalar(coords, value);
         }
 
         pub fn ravelMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
@@ -14978,18 +12418,10 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn ravel_multi_index(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
-            return self.ravelMultiIndex(indices);
-        }
-
         pub fn takeMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Self {
             var flat = try self.ravelMultiIndex(indices);
             defer flat.deinit();
             return self.take(flat, null);
-        }
-
-        pub fn take_multi_index(self: Self, indices: []const Array(usize)) ArrayError!Self {
-            return self.takeMultiIndex(indices);
         }
 
         pub fn putMultiIndex(self: Self, indices: []const Array(usize), values: Self) ArrayError!Self {
@@ -14998,18 +12430,10 @@ pub fn Array(comptime T: type) type {
             return self.putFlat(flat, values);
         }
 
-        pub fn put_multi_index(self: Self, indices: []const Array(usize), values: Self) ArrayError!Self {
-            return self.putMultiIndex(indices, values);
-        }
-
         pub fn putMultiIndexScalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Self {
             var flat = try self.ravelMultiIndex(indices);
             defer flat.deinit();
             return self.putFlatScalar(flat, value);
-        }
-
-        pub fn put_multi_index_scalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Self {
-            return self.putMultiIndexScalar(indices, value);
         }
 
         pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Self {
@@ -15101,10 +12525,6 @@ pub fn Array(comptime T: type) type {
                 slot.* = self.data[ravelIndex(in_multi, self.strides)];
             }
             return out;
-        }
-
-        pub fn gather_signed(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Self {
-            return self.gatherSigned(axis_index, indices);
         }
 
         pub fn scatter(self: Self, axis_index: isize, indices: Array(usize), src: Self) ArrayError!Self {
@@ -16447,17 +13867,9 @@ pub fn Array(comptime T: type) type {
             return self.binaryArrayOut(other, out, opAdd);
         }
 
-        pub fn add_out(self: Self, other: Self, out: Self) ArrayError!void {
-            return self.addOut(other, out);
-        }
-
         pub fn subOut(self: Self, other: Self, out: Self) ArrayError!void {
             ensureNumeric(T);
             return self.binaryArrayOut(other, out, opSub);
-        }
-
-        pub fn sub_out(self: Self, other: Self, out: Self) ArrayError!void {
-            return self.subOut(other, out);
         }
 
         pub fn mulOut(self: Self, other: Self, out: Self) ArrayError!void {
@@ -16465,17 +13877,9 @@ pub fn Array(comptime T: type) type {
             return self.binaryArrayOut(other, out, opMul);
         }
 
-        pub fn mul_out(self: Self, other: Self, out: Self) ArrayError!void {
-            return self.mulOut(other, out);
-        }
-
         pub fn divOut(self: Self, other: Self, out: Self) ArrayError!void {
             ensureNumeric(T);
             return self.binaryArrayOut(other, out, opDiv);
-        }
-
-        pub fn div_out(self: Self, other: Self, out: Self) ArrayError!void {
-            return self.divOut(other, out);
         }
 
         pub fn pow(self: Self, other: Self) ArrayError!Self {
@@ -16774,17 +14178,9 @@ pub fn Array(comptime T: type) type {
             return self.binaryScalarOut(scalar, out, opAdd);
         }
 
-        pub fn add_scalar_out(self: Self, scalar: T, out: Self) ArrayError!void {
-            return self.addScalarOut(scalar, out);
-        }
-
         pub fn subScalarOut(self: Self, scalar: T, out: Self) ArrayError!void {
             ensureNumeric(T);
             return self.binaryScalarOut(scalar, out, opSub);
-        }
-
-        pub fn sub_scalar_out(self: Self, scalar: T, out: Self) ArrayError!void {
-            return self.subScalarOut(scalar, out);
         }
 
         pub fn mulScalarOut(self: Self, scalar: T, out: Self) ArrayError!void {
@@ -16792,17 +14188,9 @@ pub fn Array(comptime T: type) type {
             return self.binaryScalarOut(scalar, out, opMul);
         }
 
-        pub fn mul_scalar_out(self: Self, scalar: T, out: Self) ArrayError!void {
-            return self.mulScalarOut(scalar, out);
-        }
-
         pub fn divScalarOut(self: Self, scalar: T, out: Self) ArrayError!void {
             ensureNumeric(T);
             return self.binaryScalarOut(scalar, out, opDiv);
-        }
-
-        pub fn div_scalar_out(self: Self, scalar: T, out: Self) ArrayError!void {
-            return self.divScalarOut(scalar, out);
         }
 
         pub fn powScalar(self: Self, scalar: T) ArrayError!Self {
@@ -16870,10 +14258,6 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
-        pub fn maximum_scalar(self: Self, scalar: T) ArrayError!Self {
-            return self.maximumScalar(scalar);
-        }
-
         pub fn minimumScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
@@ -16896,40 +14280,20 @@ pub fn Array(comptime T: type) type {
             }.f);
         }
 
-        pub fn minimum_scalar(self: Self, scalar: T) ArrayError!Self {
-            return self.minimumScalar(scalar);
-        }
-
         pub fn clipMin(self: Self, min_value: T) ArrayError!Self {
             return self.maximumScalar(min_value);
-        }
-
-        pub fn clip_min(self: Self, min_value: T) ArrayError!Self {
-            return self.clipMin(min_value);
         }
 
         pub fn clampMin(self: Self, min_value: T) ArrayError!Self {
             return self.clipMin(min_value);
         }
 
-        pub fn clamp_min(self: Self, min_value: T) ArrayError!Self {
-            return self.clampMin(min_value);
-        }
-
         pub fn clipMax(self: Self, max_value: T) ArrayError!Self {
             return self.minimumScalar(max_value);
         }
 
-        pub fn clip_max(self: Self, max_value: T) ArrayError!Self {
-            return self.clipMax(max_value);
-        }
-
         pub fn clampMax(self: Self, max_value: T) ArrayError!Self {
             return self.clipMax(max_value);
-        }
-
-        pub fn clamp_max(self: Self, max_value: T) ArrayError!Self {
-            return self.clampMax(max_value);
         }
 
         pub fn fmaxScalar(self: Self, scalar: T) ArrayError!Self {
@@ -16937,17 +14301,9 @@ pub fn Array(comptime T: type) type {
             return self.binaryScalar(scalar, opFmax);
         }
 
-        pub fn fmax_scalar(self: Self, scalar: T) ArrayError!Self {
-            return self.fmaxScalar(scalar);
-        }
-
         pub fn fminScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opFmin);
-        }
-
-        pub fn fmin_scalar(self: Self, scalar: T) ArrayError!Self {
-            return self.fminScalar(scalar);
         }
 
         pub fn hypotScalar(self: Self, scalar: T) ArrayError!Self {
@@ -17506,10 +14862,6 @@ pub fn Array(comptime T: type) type {
             return self.glu(dim_index);
         }
 
-        pub fn glu_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.gluDim(dim_index);
-        }
-
         pub fn leakyRelu(self: Self, negative_slope: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
@@ -17637,10 +14989,6 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn logSigmoid(self: Self) ArrayError!Self {
-            return self.logsigmoid();
-        }
-
-        pub fn log_sigmoid(self: Self) ArrayError!Self {
             return self.logsigmoid();
         }
 
@@ -17995,24 +15343,12 @@ pub fn Array(comptime T: type) type {
             return current;
         }
 
-        pub fn logsumexp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.logsumexpAxes(axes, keepdims);
-        }
-
         pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) ArrayError!Self {
             return self.logsumexp(dim_index, keepdim);
         }
 
-        pub fn logsumexp_dim(self: Self, dim_index: isize, keepdim: bool) ArrayError!Self {
-            return self.logsumexpDim(dim_index, keepdim);
-        }
-
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.logsumexpAxes(dims, keepdim);
-        }
-
-        pub fn logsumexp_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.logsumexpDims(dims, keepdim);
         }
 
         pub fn logSoftmax(self: Self, axis_index: isize) ArrayError!Self {
@@ -18028,16 +15364,8 @@ pub fn Array(comptime T: type) type {
             return self.sub(lse);
         }
 
-        pub fn log_softmax(self: Self, axis_index: isize) ArrayError!Self {
-            return self.logSoftmax(axis_index);
-        }
-
         pub fn logSoftmaxDim(self: Self, dim_index: isize) ArrayError!Self {
             return self.logSoftmax(dim_index);
-        }
-
-        pub fn log_softmax_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.logSoftmaxDim(dim_index);
         }
 
         pub fn logSoftmin(self: Self, axis_index: isize) ArrayError!Self {
@@ -18047,16 +15375,8 @@ pub fn Array(comptime T: type) type {
             return negated.logSoftmax(axis_index);
         }
 
-        pub fn log_softmin(self: Self, axis_index: isize) ArrayError!Self {
-            return self.logSoftmin(axis_index);
-        }
-
         pub fn logSoftminDim(self: Self, dim_index: isize) ArrayError!Self {
             return self.logSoftmin(dim_index);
-        }
-
-        pub fn log_softmin_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.logSoftminDim(dim_index);
         }
 
         fn nllLossValue(self: Self, targets: Array(usize), axis: usize, flat_index: usize, target_multi: []usize, input_multi: []usize) ArrayError!T {
@@ -18116,16 +15436,8 @@ pub fn Array(comptime T: type) type {
             }
         }
 
-        pub fn nll_loss(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Self {
-            return self.nllLoss(targets, axis_index, reduction);
-        }
-
         pub fn nllLossDim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Self {
             return self.nllLoss(targets, dim_index, reduction);
-        }
-
-        pub fn nll_loss_dim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Self {
-            return self.nllLossDim(targets, dim_index, reduction);
         }
 
         pub fn crossEntropy(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Self {
@@ -18135,16 +15447,8 @@ pub fn Array(comptime T: type) type {
             return log_probs.nllLoss(targets, axis_index, reduction);
         }
 
-        pub fn cross_entropy(self: Self, targets: Array(usize), axis_index: isize, reduction: LossReduction) ArrayError!Self {
-            return self.crossEntropy(targets, axis_index, reduction);
-        }
-
         pub fn crossEntropyDim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Self {
             return self.crossEntropy(targets, dim_index, reduction);
-        }
-
-        pub fn cross_entropy_dim(self: Self, targets: Array(usize), dim_index: isize, reduction: LossReduction) ArrayError!Self {
-            return self.crossEntropyDim(targets, dim_index, reduction);
         }
 
         fn reducedLoss(self: Self, losses: Self, reduction: LossReduction) ArrayError!Self {
@@ -18192,10 +15496,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(losses, reduction);
         }
 
-        pub fn binary_cross_entropy(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
-            return self.binaryCrossEntropy(targets, reduction);
-        }
-
         pub fn binaryCrossEntropyWithLogits(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
@@ -18219,10 +15519,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(losses, reduction);
         }
 
-        pub fn binary_cross_entropy_with_logits(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
-            return self.binaryCrossEntropyWithLogits(targets, reduction);
-        }
-
         pub fn mseLoss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
@@ -18233,10 +15529,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(losses, reduction);
         }
 
-        pub fn mse_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
-            return self.mseLoss(targets, reduction);
-        }
-
         pub fn l1Loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
@@ -18245,10 +15537,6 @@ pub fn Array(comptime T: type) type {
             var losses = try diff_values.abs();
             errdefer losses.deinit();
             return self.reducedLoss(losses, reduction);
-        }
-
-        pub fn l1_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
-            return self.l1Loss(targets, reduction);
         }
 
         pub fn smoothL1Loss(self: Self, targets: Self, beta_value: T, reduction: LossReduction) ArrayError!Self {
@@ -18291,10 +15579,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(losses, reduction);
         }
 
-        pub fn smooth_l1_loss(self: Self, targets: Self, beta_value: T, reduction: LossReduction) ArrayError!Self {
-            return self.smoothL1Loss(targets, beta_value, reduction);
-        }
-
         pub fn huberLoss(self: Self, targets: Self, delta: T, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
             if (!lessValue(T, zero(T), delta)) return error.InvalidShape;
@@ -18332,10 +15616,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(losses, reduction);
         }
 
-        pub fn huber_loss(self: Self, targets: Self, delta: T, reduction: LossReduction) ArrayError!Self {
-            return self.huberLoss(targets, delta, reduction);
-        }
-
         pub fn klDiv(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
@@ -18346,10 +15626,6 @@ pub fn Array(comptime T: type) type {
             var losses = try target_log_target.sub(target_log_input);
             errdefer losses.deinit();
             return self.reducedLoss(losses, reduction);
-        }
-
-        pub fn kl_div(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
-            return self.klDiv(targets, reduction);
         }
 
         pub fn marginRankingLoss(self: Self, other: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
@@ -18368,10 +15644,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(clamped, reduction);
         }
 
-        pub fn margin_ranking_loss(self: Self, other: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
-            return self.marginRankingLoss(other, targets, margin, reduction);
-        }
-
         pub fn softMarginLoss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
@@ -18385,10 +15657,6 @@ pub fn Array(comptime T: type) type {
             var losses = try exp_values.log();
             errdefer losses.deinit();
             return self.reducedLoss(losses, reduction);
-        }
-
-        pub fn soft_margin_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
-            return self.softMarginLoss(targets, reduction);
         }
 
         pub fn hingeLoss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
@@ -18405,10 +15673,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(clamped, reduction);
         }
 
-        pub fn hinge_loss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
-            return self.hingeLoss(targets, margin, reduction);
-        }
-
         pub fn hingeEmbeddingLoss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
@@ -18422,10 +15686,6 @@ pub fn Array(comptime T: type) type {
             var losses = try self.where(positive_targets, negative_clamped);
             errdefer losses.deinit();
             return self.reducedLoss(losses, reduction);
-        }
-
-        pub fn hinge_embedding_loss(self: Self, targets: Self, margin: T, reduction: LossReduction) ArrayError!Self {
-            return self.hingeEmbeddingLoss(targets, margin, reduction);
         }
 
         pub fn multiMarginLoss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Self {
@@ -18455,10 +15715,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(losses, reduction);
         }
 
-        pub fn multi_margin_loss(self: Self, targets: Array(usize), margin: T, p: usize, reduction: LossReduction) ArrayError!Self {
-            return self.multiMarginLoss(targets, margin, p, reduction);
-        }
-
         pub fn tripletMarginLoss(self: Self, positive_values: Self, negative_values: Self, margin: T, p: T, axis_index: isize, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(positive_values.device) or !self.device.sameDevice(negative_values.device)) return error.InvalidDevice;
@@ -18475,10 +15731,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(clamped, reduction);
         }
 
-        pub fn triplet_margin_loss(self: Self, positive_values: Self, negative_values: Self, margin: T, p: T, axis_index: isize, reduction: LossReduction) ArrayError!Self {
-            return self.tripletMarginLoss(positive_values, negative_values, margin, p, axis_index, reduction);
-        }
-
         pub fn multiLabelSoftMarginLoss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(targets.device)) return error.InvalidDevice;
@@ -18488,10 +15740,6 @@ pub fn Array(comptime T: type) type {
             var per_sample = try element_losses.mean(1, false);
             errdefer per_sample.deinit();
             return self.reducedLoss(per_sample, reduction);
-        }
-
-        pub fn multi_label_soft_margin_loss(self: Self, targets: Self, reduction: LossReduction) ArrayError!Self {
-            return self.multiLabelSoftMarginLoss(targets, reduction);
         }
 
         pub fn poissonNllLoss(self: Self, targets: Self, log_input: bool, full_loss: bool, eps: T, reduction: LossReduction) ArrayError!Self {
@@ -18532,10 +15780,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(losses, reduction);
         }
 
-        pub fn poisson_nll_loss(self: Self, targets: Self, log_input: bool, full_loss: bool, eps: T, reduction: LossReduction) ArrayError!Self {
-            return self.poissonNllLoss(targets, log_input, full_loss, eps, reduction);
-        }
-
         pub fn eq(self: Self, other: Self) ArrayError!Array(bool) {
             return self.compare(other, opEqCompare);
         }
@@ -18544,16 +15788,8 @@ pub fn Array(comptime T: type) type {
             return self.compareOut(other, out, opEqCompare);
         }
 
-        pub fn eq_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.eqOut(other, out);
-        }
-
         pub fn equalOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
             return self.eqOut(other, out);
-        }
-
-        pub fn equal_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.equalOut(other, out);
         }
 
         pub fn equal(self: Self, other: Self) ArrayError!Array(bool) {
@@ -18570,16 +15806,8 @@ pub fn Array(comptime T: type) type {
             return self.compareOut(other, out, opGtCompare);
         }
 
-        pub fn gt_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.gtOut(other, out);
-        }
-
         pub fn greaterOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
             return self.gtOut(other, out);
-        }
-
-        pub fn greater_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.greaterOut(other, out);
         }
 
         pub fn greater(self: Self, other: Self) ArrayError!Array(bool) {
@@ -18596,16 +15824,8 @@ pub fn Array(comptime T: type) type {
             return self.compareOut(other, out, opLtCompare);
         }
 
-        pub fn lt_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.ltOut(other, out);
-        }
-
         pub fn lessOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
             return self.ltOut(other, out);
-        }
-
-        pub fn less_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.lessOut(other, out);
         }
 
         pub fn less(self: Self, other: Self) ArrayError!Array(bool) {
@@ -18620,16 +15840,8 @@ pub fn Array(comptime T: type) type {
             return self.compareOut(other, out, opNeCompare);
         }
 
-        pub fn ne_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.neOut(other, out);
-        }
-
         pub fn notEqualOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
             return self.neOut(other, out);
-        }
-
-        pub fn not_equal_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.notEqualOut(other, out);
         }
 
         pub fn notEqual(self: Self, other: Self) ArrayError!Array(bool) {
@@ -18646,16 +15858,8 @@ pub fn Array(comptime T: type) type {
             return self.compareOut(other, out, opGeCompare);
         }
 
-        pub fn ge_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.geOut(other, out);
-        }
-
         pub fn greaterEqualOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
             return self.geOut(other, out);
-        }
-
-        pub fn greater_equal_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.greaterEqualOut(other, out);
         }
 
         pub fn greaterEqual(self: Self, other: Self) ArrayError!Array(bool) {
@@ -18672,16 +15876,8 @@ pub fn Array(comptime T: type) type {
             return self.compareOut(other, out, opLeCompare);
         }
 
-        pub fn le_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.leOut(other, out);
-        }
-
         pub fn lessEqualOut(self: Self, other: Self, out: Array(bool)) ArrayError!void {
             return self.leOut(other, out);
-        }
-
-        pub fn less_equal_out(self: Self, other: Self, out: Array(bool)) ArrayError!void {
-            return self.lessEqualOut(other, out);
         }
 
         pub fn lessEqual(self: Self, other: Self) ArrayError!Array(bool) {
@@ -18696,10 +15892,6 @@ pub fn Array(comptime T: type) type {
             return self.compareScalarOut(scalar, out, opEqCompare);
         }
 
-        pub fn eq_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
-            return self.eqScalarOut(scalar, out);
-        }
-
         pub fn equalScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.eqScalar(scalar);
         }
@@ -18710,10 +15902,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn neScalarOut(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
             return self.compareScalarOut(scalar, out, opNeCompare);
-        }
-
-        pub fn ne_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
-            return self.neScalarOut(scalar, out);
         }
 
         pub fn notEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -18730,10 +15918,6 @@ pub fn Array(comptime T: type) type {
             return self.compareScalarOut(scalar, out, opGtCompare);
         }
 
-        pub fn gt_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
-            return self.gtScalarOut(scalar, out);
-        }
-
         pub fn greaterScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.gtScalar(scalar);
         }
@@ -18746,10 +15930,6 @@ pub fn Array(comptime T: type) type {
         pub fn geScalarOut(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
             ensureNumeric(T);
             return self.compareScalarOut(scalar, out, opGeCompare);
-        }
-
-        pub fn ge_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
-            return self.geScalarOut(scalar, out);
         }
 
         pub fn greaterEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -18766,10 +15946,6 @@ pub fn Array(comptime T: type) type {
             return self.compareScalarOut(scalar, out, opLtCompare);
         }
 
-        pub fn lt_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
-            return self.ltScalarOut(scalar, out);
-        }
-
         pub fn lessScalar(self: Self, scalar: T) ArrayError!Array(bool) {
             return self.ltScalar(scalar);
         }
@@ -18782,10 +15958,6 @@ pub fn Array(comptime T: type) type {
         pub fn leScalarOut(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
             ensureNumeric(T);
             return self.compareScalarOut(scalar, out, opLeCompare);
-        }
-
-        pub fn le_scalar_out(self: Self, scalar: T, out: Array(bool)) ArrayError!void {
-            return self.leScalarOut(scalar, out);
         }
 
         pub fn lessEqualScalar(self: Self, scalar: T) ArrayError!Array(bool) {
@@ -18821,10 +15993,6 @@ pub fn Array(comptime T: type) type {
             return self.allcloseEqualNan(other, rtol, atol, equal_nan);
         }
 
-        pub fn allclose_equal_nan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
-            return self.allcloseEqualNan(other, rtol, atol, equal_nan);
-        }
-
         pub fn isclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
             return self.iscloseEqualNan(other, rtol, atol, false);
         }
@@ -18855,10 +16023,6 @@ pub fn Array(comptime T: type) type {
             return self.iscloseEqualNan(other, rtol, atol, equal_nan);
         }
 
-        pub fn isclose_equal_nan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
-            return self.iscloseEqualNan(other, rtol, atol, equal_nan);
-        }
-
         pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
             return self.iscloseScalarEqualNan(scalar, rtol, atol, false);
         }
@@ -18880,10 +16044,6 @@ pub fn Array(comptime T: type) type {
             return self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
-        pub fn isclose_scalar_equal_nan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
-            return self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
-        }
-
         pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!bool {
             return self.allcloseScalarEqualNan(scalar, rtol, atol, false);
         }
@@ -18901,10 +16061,6 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn allCloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
-            return self.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
-        }
-
-        pub fn allclose_scalar_equal_nan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             return self.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
@@ -19009,24 +16165,12 @@ pub fn Array(comptime T: type) type {
             return self.reduceAxes(axes, keepdims, Self.allAxis);
         }
 
-        pub fn all_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.allAxes(axes, keepdims);
-        }
-
         pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.allAxis(dim_opt, keepdim);
         }
 
-        pub fn all_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.allDim(dim_opt, keepdim);
-        }
-
         pub fn allDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.allAxes(dims, keepdim);
-        }
-
-        pub fn all_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.allDims(dims, keepdim);
         }
 
         pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
@@ -19034,24 +16178,12 @@ pub fn Array(comptime T: type) type {
             return self.reduceAxes(axes, keepdims, Self.anyAxis);
         }
 
-        pub fn any_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.anyAxes(axes, keepdims);
-        }
-
         pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.anyAxis(dim_opt, keepdim);
         }
 
-        pub fn any_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.anyDim(dim_opt, keepdim);
-        }
-
         pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.anyAxes(dims, keepdim);
-        }
-
-        pub fn any_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.anyDims(dims, keepdim);
         }
 
         fn boolReduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: bool, comptime op: fn (bool, bool) bool) ArrayError!Self {
@@ -19279,24 +16411,12 @@ pub fn Array(comptime T: type) type {
             return self.reduceAxes(axes, keepdims, Self.sum);
         }
 
-        pub fn sum_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.sumAxes(axes, keepdims);
-        }
-
         pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.sum(dim_opt, keepdim);
         }
 
-        pub fn sum_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.sumDim(dim_opt, keepdim);
-        }
-
         pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.sumAxes(dims, keepdim);
-        }
-
-        pub fn sum_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.sumDims(dims, keepdim);
         }
 
         pub fn sumToSize(self: Self, dims: []const usize) ArrayError!Self {
@@ -19332,34 +16452,18 @@ pub fn Array(comptime T: type) type {
             return current;
         }
 
-        pub fn sum_to_size(self: Self, dims: []const usize) ArrayError!Self {
-            return self.sumToSize(dims);
-        }
-
         pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             ensureNumeric(T);
             if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.prod(null, keepdims);
             return self.reduceAxes(axes, keepdims, Self.prod);
         }
 
-        pub fn prod_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.prodAxes(axes, keepdims);
-        }
-
         pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.prod(dim_opt, keepdim);
         }
 
-        pub fn prod_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.prodDim(dim_opt, keepdim);
-        }
-
         pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.prodAxes(dims, keepdim);
-        }
-
-        pub fn prod_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.prodDims(dims, keepdim);
         }
 
         pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
@@ -19368,15 +16472,7 @@ pub fn Array(comptime T: type) type {
             return self.reduceAxes(axes, keepdims, Self.min);
         }
 
-        pub fn min_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.minAxes(axes, keepdims);
-        }
-
         pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.minAxes(axes, keepdims);
-        }
-
-        pub fn amin_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.minAxes(axes, keepdims);
         }
 
@@ -19384,32 +16480,16 @@ pub fn Array(comptime T: type) type {
             return self.min(dim_opt, keepdim);
         }
 
-        pub fn min_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.minDim(dim_opt, keepdim);
-        }
-
         pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.amin(dim_opt, keepdim);
-        }
-
-        pub fn amin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.aminDim(dim_opt, keepdim);
         }
 
         pub fn minDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.minAxes(dims, keepdim);
         }
 
-        pub fn min_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.minDims(dims, keepdim);
-        }
-
         pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.aminAxes(dims, keepdim);
-        }
-
-        pub fn amin_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.aminDims(dims, keepdim);
         }
 
         pub fn maxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
@@ -19418,15 +16498,7 @@ pub fn Array(comptime T: type) type {
             return self.reduceAxes(axes, keepdims, Self.max);
         }
 
-        pub fn max_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.maxAxes(axes, keepdims);
-        }
-
         pub fn amaxAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.maxAxes(axes, keepdims);
-        }
-
-        pub fn amax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.maxAxes(axes, keepdims);
         }
 
@@ -19434,32 +16506,16 @@ pub fn Array(comptime T: type) type {
             return self.max(dim_opt, keepdim);
         }
 
-        pub fn max_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.maxDim(dim_opt, keepdim);
-        }
-
         pub fn amaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.amax(dim_opt, keepdim);
-        }
-
-        pub fn amax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.amaxDim(dim_opt, keepdim);
         }
 
         pub fn maxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.maxAxes(dims, keepdim);
         }
 
-        pub fn max_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.maxDims(dims, keepdim);
-        }
-
         pub fn amaxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.amaxAxes(dims, keepdim);
-        }
-
-        pub fn amax_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.amaxDims(dims, keepdim);
         }
 
         pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
@@ -19470,24 +16526,12 @@ pub fn Array(comptime T: type) type {
             return max_values.sub(min_values);
         }
 
-        pub fn ptp_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.ptpAxes(axes, keepdims);
-        }
-
         pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.ptp(dim_opt, keepdim);
         }
 
-        pub fn ptp_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.ptpDim(dim_opt, keepdim);
-        }
-
         pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.ptpAxes(dims, keepdim);
-        }
-
-        pub fn ptp_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.ptpDims(dims, keepdim);
         }
 
         fn reducedShape(self: Self, axis: usize, keepdims: bool) ArrayError![]usize {
@@ -19650,24 +16694,12 @@ pub fn Array(comptime T: type) type {
             return self.reduceAxes(axes, keepdims, Self.mean);
         }
 
-        pub fn mean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.meanAxes(axes, keepdims);
-        }
-
         pub fn meanDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.mean(dim_opt, keepdim);
         }
 
-        pub fn mean_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.meanDim(dim_opt, keepdim);
-        }
-
         pub fn meanDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.meanAxes(dims, keepdim);
-        }
-
-        pub fn mean_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.meanDims(dims, keepdim);
         }
 
         pub fn variance(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
@@ -19767,10 +16799,6 @@ pub fn Array(comptime T: type) type {
             return Self.fromSlice(self.allocator, &.{result}, &.{});
         }
 
-        pub fn var_(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
-            return self.variance(axis_opt, keepdims, correction);
-        }
-
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
             ensureFloat(T);
             if (axes.len == 0) return self.clone();
@@ -19851,15 +16879,7 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn variance_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
-            return self.varianceAxes(axes, keepdims, correction);
-        }
-
         pub fn varAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
-            return self.varianceAxes(axes, keepdims, correction);
-        }
-
-        pub fn var_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
             return self.varianceAxes(axes, keepdims, correction);
         }
 
@@ -19867,32 +16887,16 @@ pub fn Array(comptime T: type) type {
             return self.variance(dim_opt, keepdim, correction);
         }
 
-        pub fn variance_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.varianceDim(dim_opt, keepdim, correction);
-        }
-
         pub fn varDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.var_(dim_opt, keepdim, correction);
-        }
-
-        pub fn var_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.varDim(dim_opt, keepdim, correction);
+            return self.variance(dim_opt, keepdim, correction);
         }
 
         pub fn varianceDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
             return self.varianceAxes(dims, keepdim, correction);
         }
 
-        pub fn variance_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.varianceDims(dims, keepdim, correction);
-        }
-
         pub fn varDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
             return self.varAxes(dims, keepdim, correction);
-        }
-
-        pub fn var_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.varDims(dims, keepdim, correction);
         }
 
         pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
@@ -19918,15 +16922,7 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn stddev_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
-            return self.stddevAxes(axes, keepdims, correction);
-        }
-
         pub fn stdAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
-            return self.stddevAxes(axes, keepdims, correction);
-        }
-
-        pub fn std_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
             return self.stddevAxes(axes, keepdims, correction);
         }
 
@@ -19934,32 +16930,16 @@ pub fn Array(comptime T: type) type {
             return self.stddev(dim_opt, keepdim, correction);
         }
 
-        pub fn stddev_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.stddevDim(dim_opt, keepdim, correction);
-        }
-
         pub fn stdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
             return self.stddev(dim_opt, keepdim, correction);
-        }
-
-        pub fn std_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.stdDim(dim_opt, keepdim, correction);
         }
 
         pub fn stddevDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
             return self.stddevAxes(dims, keepdim, correction);
         }
 
-        pub fn stddev_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.stddevDims(dims, keepdim, correction);
-        }
-
         pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
             return self.stdAxes(dims, keepdim, correction);
-        }
-
-        pub fn std_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.stdDims(dims, keepdim, correction);
         }
 
         fn maxFiniteValue() T {
@@ -19986,17 +16966,9 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn nan_to_num(self: Self, nan_value: T, posinf_value: T, neginf_value: T) ArrayError!Self {
-            return self.nanToNum(nan_value, posinf_value, neginf_value);
-        }
-
         pub fn nanToNumDefault(self: Self) ArrayError!Self {
             const max_value = maxFiniteValue();
             return self.nanToNum(zero(T), max_value, negValue(T, max_value));
-        }
-
-        pub fn nan_to_num_default(self: Self) ArrayError!Self {
-            return self.nanToNumDefault();
         }
 
         pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
@@ -20046,24 +17018,12 @@ pub fn Array(comptime T: type) type {
             return self.reduceAxes(axes, keepdims, Self.nansum);
         }
 
-        pub fn nansum_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.nansumAxes(axes, keepdims);
-        }
-
         pub fn nansumDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.nansum(dim_opt, keepdim);
         }
 
-        pub fn nansum_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.nansumDim(dim_opt, keepdim);
-        }
-
         pub fn nansumDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.nansumAxes(dims, keepdim);
-        }
-
-        pub fn nansum_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.nansumDims(dims, keepdim);
         }
 
         fn nanmeanWithCounts(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!struct { values: Self, counts: Array(usize) } {
@@ -20192,24 +17152,12 @@ pub fn Array(comptime T: type) type {
             return result.values;
         }
 
-        pub fn nanmean_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.nanmeanAxes(axes, keepdims);
-        }
-
         pub fn nanmeanDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.nanmean(dim_opt, keepdim);
         }
 
-        pub fn nanmean_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.nanmeanDim(dim_opt, keepdim);
-        }
-
         pub fn nanmeanDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.nanmeanAxes(dims, keepdim);
-        }
-
-        pub fn nanmean_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.nanmeanDims(dims, keepdim);
         }
 
         pub fn nanvar(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
@@ -20345,24 +17293,12 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn nanvar_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
-            return self.nanvarAxes(axes, keepdims, correction);
-        }
-
         pub fn nanvarDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
             return self.nanvar(dim_opt, keepdim, correction);
         }
 
-        pub fn nanvar_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.nanvarDim(dim_opt, keepdim, correction);
-        }
-
         pub fn nanvarDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
             return self.nanvarAxes(dims, keepdim, correction);
-        }
-
-        pub fn nanvar_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.nanvarDims(dims, keepdim, correction);
         }
 
         pub fn nanstd(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Self {
@@ -20377,24 +17313,12 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn nanstd_axes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Self {
-            return self.nanstdAxes(axes, keepdims, correction);
-        }
-
         pub fn nanstdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
             return self.nanstd(dim_opt, keepdim, correction);
         }
 
-        pub fn nanstd_dim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.nanstdDim(dim_opt, keepdim, correction);
-        }
-
         pub fn nanstdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
             return self.nanstdAxes(dims, keepdim, correction);
-        }
-
-        pub fn nanstd_dims(self: Self, dims: []const isize, keepdim: bool, correction: T) ArrayError!Self {
-            return self.nanstdDims(dims, keepdim, correction);
         }
 
         fn nanExtreme(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) ArrayError!Self {
@@ -20467,24 +17391,12 @@ pub fn Array(comptime T: type) type {
             return self.reduceAxes(axes, keepdims, Self.nanmin);
         }
 
-        pub fn nanmin_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.nanminAxes(axes, keepdims);
-        }
-
         pub fn nanminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.nanmin(dim_opt, keepdim);
         }
 
-        pub fn nanmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.nanminDim(dim_opt, keepdim);
-        }
-
         pub fn nanminDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.nanminAxes(dims, keepdim);
-        }
-
-        pub fn nanmin_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.nanminDims(dims, keepdim);
         }
 
         pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Self {
@@ -20501,24 +17413,12 @@ pub fn Array(comptime T: type) type {
             return self.reduceAxes(axes, keepdims, Self.nanmax);
         }
 
-        pub fn nanmax_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.nanmaxAxes(axes, keepdims);
-        }
-
         pub fn nanmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.nanmax(dim_opt, keepdim);
         }
 
-        pub fn nanmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.nanmaxDim(dim_opt, keepdim);
-        }
-
         pub fn nanmaxDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.nanmaxAxes(dims, keepdim);
-        }
-
-        pub fn nanmax_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.nanmaxDims(dims, keepdim);
         }
 
         fn quantileFromSorted(sorted_values: []const T, q: T) T {
@@ -20662,72 +17562,36 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn quantile_axes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.quantileAxes(q, axes, keepdims);
-        }
-
         pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.quantile(q, dim_opt, keepdim);
-        }
-
-        pub fn quantile_dim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.quantileDim(q, dim_opt, keepdim);
         }
 
         pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.quantileAxes(q, dims, keepdim);
         }
 
-        pub fn quantile_dims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.quantileDims(q, dims, keepdim);
-        }
-
         pub fn percentileAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.quantileAxes(p / castValue(T, 100), axes, keepdims);
-        }
-
-        pub fn percentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.percentileAxes(p, axes, keepdims);
         }
 
         pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.percentile(percentile_value, dim_opt, keepdim);
         }
 
-        pub fn percentile_dim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.percentileDim(percentile_value, dim_opt, keepdim);
-        }
-
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.percentileAxes(percentile_value, dims, keepdim);
-        }
-
-        pub fn percentile_dims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.percentileDims(percentile_value, dims, keepdim);
         }
 
         pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.quantileAxes(castValue(T, 0.5), axes, keepdims);
         }
 
-        pub fn median_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.medianAxes(axes, keepdims);
-        }
-
         pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.median(dim_opt, keepdim);
         }
 
-        pub fn median_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.medianDim(dim_opt, keepdim);
-        }
-
         pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.medianAxes(dims, keepdim);
-        }
-
-        pub fn median_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.medianDims(dims, keepdim);
         }
 
         fn checkedBroadcastWeights(self: Self, weights: Self) ArrayError!Self {
@@ -21124,72 +17988,36 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn nanquantile_axes(self: Self, q: T, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.nanquantileAxes(q, axes, keepdims);
-        }
-
         pub fn nanquantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.nanquantile(q, dim_opt, keepdim);
-        }
-
-        pub fn nanquantile_dim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.nanquantileDim(q, dim_opt, keepdim);
         }
 
         pub fn nanquantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.nanquantileAxes(q, dims, keepdim);
         }
 
-        pub fn nanquantile_dims(self: Self, q: T, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.nanquantileDims(q, dims, keepdim);
-        }
-
         pub fn nanpercentileAxes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.nanquantileAxes(p / castValue(T, 100), axes, keepdims);
-        }
-
-        pub fn nanpercentile_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.nanpercentileAxes(p, axes, keepdims);
         }
 
         pub fn nanpercentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.nanpercentile(percentile_value, dim_opt, keepdim);
         }
 
-        pub fn nanpercentile_dim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.nanpercentileDim(percentile_value, dim_opt, keepdim);
-        }
-
         pub fn nanpercentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.nanpercentileAxes(percentile_value, dims, keepdim);
-        }
-
-        pub fn nanpercentile_dims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.nanpercentileDims(percentile_value, dims, keepdim);
         }
 
         pub fn nanmedianAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
             return self.nanquantileAxes(castValue(T, 0.5), axes, keepdims);
         }
 
-        pub fn nanmedian_axes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.nanmedianAxes(axes, keepdims);
-        }
-
         pub fn nanmedianDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.nanmedian(dim_opt, keepdim);
         }
 
-        pub fn nanmedian_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.nanmedianDim(dim_opt, keepdim);
-        }
-
         pub fn nanmedianDims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.nanmedianAxes(dims, keepdim);
-        }
-
-        pub fn nanmedian_dims(self: Self, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.nanmedianDims(dims, keepdim);
         }
 
         fn observationValue(self: Self, variable: usize, observation: usize, rowvar: bool) T {
@@ -21470,24 +18298,12 @@ pub fn Array(comptime T: type) type {
             return summed.powScalar(divValue(T, one(T), p));
         }
 
-        pub fn norm_axes(self: Self, p: T, axes: []const isize, keepdims: bool) ArrayError!Self {
-            return self.normAxes(p, axes, keepdims);
-        }
-
         pub fn normDim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
             return self.norm(p, dim_opt, keepdim);
         }
 
-        pub fn norm_dim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) ArrayError!Self {
-            return self.normDim(p, dim_opt, keepdim);
-        }
-
         pub fn normDims(self: Self, p: T, dims: []const isize, keepdim: bool) ArrayError!Self {
             return self.normAxes(p, dims, keepdim);
-        }
-
-        pub fn norm_dims(self: Self, p: T, dims: []const isize, keepdim: bool) ArrayError!Self {
-            return self.normDims(p, dims, keepdim);
         }
 
         pub fn cosineSimilarity(self: Self, other: Self, axis_index: isize, eps: T, keepdims: bool) ArrayError!Self {
@@ -21511,16 +18327,8 @@ pub fn Array(comptime T: type) type {
             return result;
         }
 
-        pub fn cosine_similarity(self: Self, other: Self, axis_index: isize, eps: T, keepdims: bool) ArrayError!Self {
-            return self.cosineSimilarity(other, axis_index, eps, keepdims);
-        }
-
         pub fn cosineSimilarityDim(self: Self, other: Self, dim_index: isize, eps: T, keepdim: bool) ArrayError!Self {
             return self.cosineSimilarity(other, dim_index, eps, keepdim);
-        }
-
-        pub fn cosine_similarity_dim(self: Self, other: Self, dim_index: isize, eps: T, keepdim: bool) ArrayError!Self {
-            return self.cosineSimilarityDim(other, dim_index, eps, keepdim);
         }
 
         pub fn cosineEmbeddingLoss(self: Self, other: Self, targets: Self, axis_index: isize, margin: T, eps: T, reduction: LossReduction) ArrayError!Self {
@@ -21542,10 +18350,6 @@ pub fn Array(comptime T: type) type {
             return self.reducedLoss(losses, reduction);
         }
 
-        pub fn cosine_embedding_loss(self: Self, other: Self, targets: Self, axis_index: isize, margin: T, eps: T, reduction: LossReduction) ArrayError!Self {
-            return self.cosineEmbeddingLoss(other, targets, axis_index, margin, eps, reduction);
-        }
-
         pub fn pairwiseDistance(self: Self, other: Self, p: T, axis_index: isize, keepdims: bool) ArrayError!Self {
             ensureFloat(T);
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
@@ -21554,16 +18358,8 @@ pub fn Array(comptime T: type) type {
             return diff_values.norm(p, axis_index, keepdims);
         }
 
-        pub fn pairwise_distance(self: Self, other: Self, p: T, axis_index: isize, keepdims: bool) ArrayError!Self {
-            return self.pairwiseDistance(other, p, axis_index, keepdims);
-        }
-
         pub fn pairwiseDistanceDim(self: Self, other: Self, p: T, dim_index: isize, keepdim: bool) ArrayError!Self {
             return self.pairwiseDistance(other, p, dim_index, keepdim);
-        }
-
-        pub fn pairwise_distance_dim(self: Self, other: Self, p: T, dim_index: isize, keepdim: bool) ArrayError!Self {
-            return self.pairwiseDistanceDim(other, p, dim_index, keepdim);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) ArrayError!Self {
@@ -21574,10 +18370,6 @@ pub fn Array(comptime T: type) type {
             var safe_denom = try denom.maximumScalar(eps);
             defer safe_denom.deinit();
             return self.div(safe_denom);
-        }
-
-        pub fn normalize_dim(self: Self, p: T, dim_index: isize, eps: T) ArrayError!Self {
-            return self.normalize(p, dim_index, eps);
         }
 
         pub fn cumsum(self: Self) ArrayError!Self {
@@ -21634,10 +18426,6 @@ pub fn Array(comptime T: type) type {
             return self.cumsumAxis(dim_index);
         }
 
-        pub fn cumsum_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.cumsumDim(dim_index);
-        }
-
         pub fn cumprodAxis(self: Self, axis_index: isize) ArrayError!Self {
             ensureNumeric(T);
             return self.cumulativeAxis(axis_index, one(T), opMul);
@@ -21645,10 +18433,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn cumprodDim(self: Self, dim_index: isize) ArrayError!Self {
             return self.cumprodAxis(dim_index);
-        }
-
-        pub fn cumprod_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.cumprodDim(dim_index);
         }
 
         pub fn cummaxAxis(self: Self, axis_index: isize) ArrayError!Self {
@@ -21660,10 +18444,6 @@ pub fn Array(comptime T: type) type {
             return self.cummaxAxis(dim_index);
         }
 
-        pub fn cummax_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.cummaxDim(dim_index);
-        }
-
         pub fn cumminAxis(self: Self, axis_index: isize) ArrayError!Self {
             ensureNumeric(T);
             return self.cumulativeAxisFromFirst(axis_index, opCummin);
@@ -21671,10 +18451,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn cumminDim(self: Self, dim_index: isize) ArrayError!Self {
             return self.cumminAxis(dim_index);
-        }
-
-        pub fn cummin_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.cumminDim(dim_index);
         }
 
         pub fn logcumsumexp(self: Self) ArrayError!Self {
@@ -21689,10 +18465,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn logcumsumexpDim(self: Self, dim_index: isize) ArrayError!Self {
             return self.logcumsumexpAxis(dim_index);
-        }
-
-        pub fn logcumsumexp_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.logcumsumexpDim(dim_index);
         }
 
         fn cumulativeAxis(self: Self, axis_index: isize, init_value: T, comptime op: fn (T, T) T) ArrayError!Self {
@@ -21793,10 +18565,6 @@ pub fn Array(comptime T: type) type {
             return joined.diff(axis_index, n);
         }
 
-        pub fn diff_with(self: Self, axis_index: isize, n: usize, prepend: ?Self, append: ?Self) ArrayError!Self {
-            return self.diffWith(axis_index, n, prepend, append);
-        }
-
         pub fn ediff1d(self: Self, prepend: ?Self, append: ?Self) ArrayError!Self {
             ensureNumeric(T);
             const diff_len = if (self.data.len == 0) 0 else self.data.len - 1;
@@ -21889,16 +18657,8 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn trapezoid_with(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
-            return self.trapezoid(x_values, dx, axis_index);
-        }
-
         pub fn trapz(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
             return self.trapezoid(x_values, dx, axis_index);
-        }
-
-        pub fn trapz_with(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
-            return self.trapz(x_values, dx, axis_index);
         }
 
         pub fn gradient(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
@@ -21945,10 +18705,6 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn gradient_with(self: Self, x_values: ?Self, dx: T, axis_index: isize) ArrayError!Self {
-            return self.gradient(x_values, dx, axis_index);
-        }
-
         pub fn argmax(self: Self) ArrayError!usize {
             ensureNumeric(T);
             if (self.data.len == 0) return error.EmptyArray;
@@ -21982,10 +18738,6 @@ pub fn Array(comptime T: type) type {
             return self.argmaxAxis(dim_opt, keepdim);
         }
 
-        pub fn argmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.argmaxDim(dim_opt, keepdim);
-        }
-
         pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             ensureNumeric(T);
             return self.argReduce(axis_opt, keepdims, struct {
@@ -21997,10 +18749,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
             return self.argminAxis(dim_opt, keepdim);
-        }
-
-        pub fn argmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.argminDim(dim_opt, keepdim);
         }
 
         pub fn nanargmax(self: Self) ArrayError!usize {
@@ -22046,10 +18794,6 @@ pub fn Array(comptime T: type) type {
             return self.nanargmaxAxis(dim_opt, keepdim);
         }
 
-        pub fn nanargmax_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.nanargmaxDim(dim_opt, keepdim);
-        }
-
         pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
             ensureFloat(T);
             return self.nanArgReduce(axis_opt, keepdims, struct {
@@ -22061,10 +18805,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
             return self.nanargminAxis(dim_opt, keepdim);
-        }
-
-        pub fn nanargmin_dim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
-            return self.nanargminDim(dim_opt, keepdim);
         }
 
         fn argReduce(self: Self, axis_opt: ?isize, keepdims: bool, comptime better: fn (T, T) bool) ArrayError!Array(usize) {
@@ -22203,10 +18943,6 @@ pub fn Array(comptime T: type) type {
             return self.topk(k, dim_opt, largest, sorted);
         }
 
-        pub fn topk_dim(self: Self, k: usize, dim_opt: ?isize, largest: bool, sorted: bool) ArrayError!TopK {
-            return self.topkDim(k, dim_opt, largest, sorted);
-        }
-
         pub fn kthValue(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!KthValue {
             ensureNumeric(T);
             if (k == 0) return error.InvalidShape;
@@ -22245,16 +18981,8 @@ pub fn Array(comptime T: type) type {
             return .{ .values = values, .indices = indices };
         }
 
-        pub fn kth_value(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) ArrayError!KthValue {
-            return self.kthValue(k, axis_opt, keepdims);
-        }
-
         pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) ArrayError!KthValue {
             return self.kthValue(k, dim_opt, keepdim);
-        }
-
-        pub fn kth_value_dim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) ArrayError!KthValue {
-            return self.kthValueDim(k, dim_opt, keepdim);
         }
 
         fn topkFlat(self: Self, k: usize, largest: bool, sorted: bool) ArrayError!TopK {
@@ -22490,10 +19218,6 @@ pub fn Array(comptime T: type) type {
             var product_value = try self.matmul(other);
             defer product_value.deinit();
             return product_value.add(addend);
-        }
-
-        pub fn matmul_add(self: Self, other: Self, addend: Self) ArrayError!Self {
-            return self.matmulAdd(other, addend);
         }
 
         pub fn mm(self: Self, other: Self) ArrayError!Self {
@@ -22922,10 +19646,6 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn diagonal_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
-            return self.diagonalAxes(offset, axis1, axis2);
-        }
-
         pub fn diag(self: Self, offset: isize) ArrayError!Self {
             if (self.shape.len == 1) return self.diagflat(offset);
             if (self.shape.len == 2) return self.diagonal(offset);
@@ -22986,10 +19706,6 @@ pub fn Array(comptime T: type) type {
                 }
             }
             return out;
-        }
-
-        pub fn diag_embed(self: Self, offset: isize) ArrayError!Self {
-            return self.diagEmbed(offset);
         }
 
         pub fn trace(self: Self) ArrayError!T {
@@ -23076,16 +19792,8 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
-        pub fn trace_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
-            return self.traceAxes(offset, axis1, axis2);
-        }
-
         pub fn traceOffsetAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
             return self.traceAxes(offset, axis1, axis2);
-        }
-
-        pub fn trace_offset_axes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Self {
-            return self.traceOffsetAxes(offset, axis1, axis2);
         }
 
         pub fn triu(self: Self, diagonal_offset: isize) ArrayError!Self {
@@ -23140,10 +19848,6 @@ pub fn Array(comptime T: type) type {
             return self.softmax(dim_index);
         }
 
-        pub fn softmax_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.softmaxDim(dim_index);
-        }
-
         pub fn softmin(self: Self, axis_index: isize) ArrayError!Self {
             ensureFloat(T);
             var negated = try self.neg();
@@ -23153,10 +19857,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn softminDim(self: Self, dim_index: isize) ArrayError!Self {
             return self.softmin(dim_index);
-        }
-
-        pub fn softmin_dim(self: Self, dim_index: isize) ArrayError!Self {
-            return self.softminDim(dim_index);
         }
 
         pub const SortResult = struct {
@@ -23186,16 +19886,8 @@ pub fn Array(comptime T: type) type {
             return self.sort(dim_opt);
         }
 
-        pub fn sort_dim(self: Self, dim_opt: ?isize) ArrayError!Self {
-            return self.sortDim(dim_opt);
-        }
-
         pub fn sortByDim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Self {
             return self.sortBy(dim_opt, descending);
-        }
-
-        pub fn sort_by_dim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Self {
-            return self.sortByDim(dim_opt, descending);
         }
 
         pub fn sortBy(self: Self, axis_opt: ?isize, descending: bool) ArrayError!Self {
@@ -23220,10 +19912,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn argsortDim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             return self.argsortAxis(dim_opt, descending);
-        }
-
-        pub fn argsort_dim(self: Self, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
-            return self.argsortDim(dim_opt, descending);
         }
 
         pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) ArrayError!SortResult {
@@ -23327,10 +20015,6 @@ pub fn Array(comptime T: type) type {
             return self.partition(kth, dim_opt, descending);
         }
 
-        pub fn partition_dim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Self {
-            return self.partitionDim(kth, dim_opt, descending);
-        }
-
         pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             ensureOrderable(T);
             const len_axis = try self.partitionLen(axis_opt);
@@ -23340,10 +20024,6 @@ pub fn Array(comptime T: type) type {
 
         pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
             return self.argpartition(kth, dim_opt, descending);
-        }
-
-        pub fn argpartition_dim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) ArrayError!Array(usize) {
-            return self.argpartitionDim(kth, dim_opt, descending);
         }
 
         pub const UniqueCounts = struct {
@@ -23877,19 +20557,11 @@ pub fn Array(comptime T: type) type {
             try self.formatTensorHost(writer);
         }
 
-        pub fn format_tensor(self: Self, writer: *std.Io.Writer) ArrayError!void {
-            return self.formatTensor(writer);
-        }
-
         pub fn toOwnedTensorString(self: Self, allocator: std.mem.Allocator) ArrayError![]u8 {
             var aw: std.Io.Writer.Allocating = .init(allocator);
             errdefer aw.deinit();
             try self.formatTensor(&aw.writer);
             return aw.toOwnedSlice();
-        }
-
-        pub fn to_owned_tensor_string(self: Self, allocator: std.mem.Allocator) ArrayError![]u8 {
-            return self.toOwnedTensorString(allocator);
         }
 
         fn formatTensorHost(self: Self, writer: *std.Io.Writer) ArrayError!void {
@@ -24162,7 +20834,7 @@ test "array creation, reshape and broadcasting" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, sized_parts.items[1].shape);
     try std.testing.expectEqualSlices(f64, &.{ 22, 33, 25, 36 }, sized_parts.items[1].data);
 
-    var indexed_parts = try c.split_at_indices(&.{ 1, 2 }, 1);
+    var indexed_parts = try c.splitAtIndices(&.{ 1, 2 }, 1);
     defer indexed_parts.deinit();
     try std.testing.expectEqual(@as(usize, 3), indexed_parts.items.len);
     try std.testing.expectEqualSlices(f64, &.{ 11, 14 }, indexed_parts.items[0].data);
@@ -24264,11 +20936,11 @@ test "array binary math wrappers and clamp aliases" {
     defer out_reuse.deinit();
     try a.addOut(same_shape_rhs, out_reuse);
     try std.testing.expectEqualSlices(f64, same_shape_added.data, out_reuse.data);
-    try a.mul_out(same_shape_rhs, out_reuse);
+    try a.mulOut(same_shape_rhs, out_reuse);
     try std.testing.expectEqualSlices(f64, same_shape_multiplied.data, out_reuse.data);
     try a.addScalarOut(0.5, out_reuse);
     try std.testing.expectEqualSlices(f64, scalar_added.data, out_reuse.data);
-    try a.div_scalar_out(2, out_reuse);
+    try a.divScalarOut(2, out_reuse);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 1, 1.5, 2 }, out_reuse.data);
     var bad_out = try Array(f64).empty(gpa, &.{4});
     defer bad_out.deinit();
@@ -24704,7 +21376,7 @@ test "array reductions and matmul" {
     defer s1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, s1.shape);
     try std.testing.expectEqualSlices(f64, &.{ 6, 15 }, s1.data);
-    var sum_dim_alias = try a.sum_dim(1, true);
+    var sum_dim_alias = try a.sumDim(1, true);
     defer sum_dim_alias.deinit();
     try std.testing.expectEqualSlices(f64, s1.data, sum_dim_alias.data);
     var p0 = try a.prod(0, false);
@@ -24716,7 +21388,7 @@ test "array reductions and matmul" {
     var mn = try a.min(null, false);
     defer mn.deinit();
     try std.testing.expectEqualSlices(f64, &.{1}, mn.data);
-    var min_dim_flat = try a.min_dim(null, false);
+    var min_dim_flat = try a.minDim(null, false);
     defer min_dim_flat.deinit();
     try std.testing.expectEqualSlices(f64, mn.data, min_dim_flat.data);
     var amin_keep = try a.amin(null, true);
@@ -24735,7 +21407,7 @@ test "array reductions and matmul" {
     var amax_cols = try a.amax(0, false);
     defer amax_cols.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, amax_cols.data);
-    var amax_dim_cols = try a.amax_dim(0, false);
+    var amax_dim_cols = try a.amaxDim(0, false);
     defer amax_dim_cols.deinit();
     try std.testing.expectEqualSlices(f64, amax_cols.data, amax_dim_cols.data);
     var ptp_cols = try a.ptp(0, false);
@@ -24756,7 +21428,7 @@ test "array reductions and matmul" {
     var cp = try a.cumprod();
     defer cp.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 24, 120, 720 }, cp.data);
-    var cp_dim = try a.cumprod_dim(1);
+    var cp_dim = try a.cumprodDim(1);
     defer cp_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 4, 20, 120 }, cp_dim.data);
     var cmax = try a.cummax();
@@ -24768,7 +21440,7 @@ test "array reductions and matmul" {
     var cmin = try a.cummin();
     defer cmin.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, cmin.data);
-    var cmin_dim = try a.cummin_dim(1);
+    var cmin_dim = try a.cumminDim(1);
     defer cmin_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 4, 4, 4 }, cmin_dim.data);
     var log_cumsum_exp_dim = try a.logcumsumexpDim(1);
@@ -24791,7 +21463,7 @@ test "array reductions and matmul" {
     var arg1_dim = try a.argmaxDim(1, false);
     defer arg1_dim.deinit();
     try std.testing.expectEqualSlices(usize, arg1.data, arg1_dim.data);
-    var argmin_dim_keep = try a.argmin_dim(1, true);
+    var argmin_dim_keep = try a.argminDim(1, true);
     defer argmin_dim_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, argmin_dim_keep.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0 }, argmin_dim_keep.data);
@@ -24819,14 +21491,14 @@ test "array and view dim aliases mirror axis APIs" {
     defer sum_dim.deinit();
     try std.testing.expectEqualSlices(usize, sum_axis.shape, sum_dim.shape);
     try std.testing.expectEqualSlices(f64, sum_axis.data, sum_dim.data);
-    var sum_dim_snake = try a.sum_dim(0, false);
+    var sum_dim_snake = try a.sumDim(0, false);
     defer sum_dim_snake.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, sum_dim_snake.data);
     var sum_dims = try a.sumDims(&.{ 0, 1 }, false);
     defer sum_dims.deinit();
     try std.testing.expectEqual(@as(usize, 0), sum_dims.shape.len);
     try std.testing.expectEqualSlices(f64, &.{21}, sum_dims.data);
-    var sum_dims_snake = try a.sum_dims(&.{ 0, 1 }, true);
+    var sum_dims_snake = try a.sumDims(&.{ 0, 1 }, true);
     defer sum_dims_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, sum_dims_snake.shape);
     try std.testing.expectEqualSlices(f64, &.{21}, sum_dims_snake.data);
@@ -24834,13 +21506,13 @@ test "array and view dim aliases mirror axis APIs" {
     var prod_dim = try a.prodDim(0, false);
     defer prod_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 10, 18 }, prod_dim.data);
-    var prod_dims = try a.prod_dims(&.{ 0, 1 }, false);
+    var prod_dims = try a.prodDims(&.{ 0, 1 }, false);
     defer prod_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{720}, prod_dims.data);
     var min_dim = try a.minDim(null, false);
     defer min_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{1}, min_dim.data);
-    var amin_dim = try a.amin_dim(null, true);
+    var amin_dim = try a.aminDim(null, true);
     defer amin_dim.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, amin_dim.shape);
     try std.testing.expectEqualSlices(f64, &.{1}, amin_dim.data);
@@ -24850,48 +21522,48 @@ test "array and view dim aliases mirror axis APIs" {
     var max_dim = try a.maxDim(1, false);
     defer max_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 6 }, max_dim.data);
-    var amax_dim = try a.amax_dim(0, false);
+    var amax_dim = try a.amaxDim(0, false);
     defer amax_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, amax_dim.data);
-    var max_dims = try a.max_dims(&.{ 0, 1 }, false);
+    var max_dims = try a.maxDims(&.{ 0, 1 }, false);
     defer max_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{6}, max_dims.data);
     var ptp_dim = try a.ptpDim(0, false);
     defer ptp_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3 }, ptp_dim.data);
-    var ptp_dims = try a.ptp_dims(&.{ 0, 1 }, false);
+    var ptp_dims = try a.ptpDims(&.{ 0, 1 }, false);
     defer ptp_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{5}, ptp_dims.data);
 
     var mean_dim = try a.meanDim(1, false);
     defer mean_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 5 }, mean_dim.data);
-    var mean_dims = try a.mean_dims(&.{ 0, 1 }, false);
+    var mean_dims = try a.meanDims(&.{ 0, 1 }, false);
     defer mean_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{3.5}, mean_dims.data);
     var var_dim = try a.varDim(1, false, 0);
     defer var_dim.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), var_dim.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), var_dim.data[1], 1e-12);
-    var variance_dims = try a.variance_dims(&.{ 0, 1 }, false, 0);
+    var variance_dims = try a.varianceDims(&.{ 0, 1 }, false, 0);
     defer variance_dims.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 35.0 / 12.0), variance_dims.data[0], 1e-12);
     var std_dim = try a.stdDim(1, false, 0);
     defer std_dim.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0 / 3.0)), std_dim.data[0], 1e-12);
-    var std_dims = try a.std_dims(&.{ 0, 1 }, false, 0);
+    var std_dims = try a.stdDims(&.{ 0, 1 }, false, 0);
     defer std_dims.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 35.0 / 12.0)), std_dims.data[0], 1e-12);
     var median_dim = try a.medianDim(1, false);
     defer median_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 5 }, median_dim.data);
-    var median_dims = try a.median_dims(&.{ 0, 1 }, false);
+    var median_dims = try a.medianDims(&.{ 0, 1 }, false);
     defer median_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{3.5}, median_dims.data);
     var quantile_dim = try a.quantileDim(0.5, 1, false);
     defer quantile_dim.deinit();
     try std.testing.expectEqualSlices(f64, median_dim.data, quantile_dim.data);
-    var percentile_dim = try a.percentile_dim(50, 1, false);
+    var percentile_dim = try a.percentileDim(50, 1, false);
     defer percentile_dim.deinit();
     try std.testing.expectEqualSlices(f64, median_dim.data, percentile_dim.data);
     var percentile_dims = try a.percentileDims(50, &.{ 0, 1 }, true);
@@ -24903,7 +21575,7 @@ test "array and view dim aliases mirror axis APIs" {
     defer norm_dim.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 14)), norm_dim.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 77)), norm_dim.data[1], 1e-12);
-    var norm_dims = try a.norm_dims(1, &.{ 0, 1 }, false);
+    var norm_dims = try a.normDims(1, &.{ 0, 1 }, false);
     defer norm_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{21}, norm_dims.data);
     var logsumexp_dim = try a.logsumexpDim(1, false);
@@ -24911,23 +21583,23 @@ test "array and view dim aliases mirror axis APIs" {
     var logsumexp_axis = try a.logsumexp(1, false);
     defer logsumexp_axis.deinit();
     try std.testing.expectEqualSlices(f64, logsumexp_axis.data, logsumexp_dim.data);
-    var logsumexp_dims = try a.logsumexp_dims(&.{ 0, 1 }, false);
+    var logsumexp_dims = try a.logsumexpDims(&.{ 0, 1 }, false);
     defer logsumexp_dims.deinit();
     try std.testing.expectEqual(@as(usize, 0), logsumexp_dims.shape.len);
 
     var cumsum_dim = try a.cumsumDim(1);
     defer cumsum_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 4, 9, 15 }, cumsum_dim.data);
-    var cumprod_dim = try a.cumprod_dim(1);
+    var cumprod_dim = try a.cumprodDim(1);
     defer cumprod_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 6, 4, 20, 120 }, cumprod_dim.data);
     var cummax_dim = try a.cummaxDim(1);
     defer cummax_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 5, 6 }, cummax_dim.data);
-    var cummin_dim = try a.cummin_dim(1);
+    var cummin_dim = try a.cumminDim(1);
     defer cummin_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 4, 4, 4 }, cummin_dim.data);
-    var logcumsumexp_dim = try a.logcumsumexp_dim(1);
+    var logcumsumexp_dim = try a.logcumsumexpDim(1);
     defer logcumsumexp_dim.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), logcumsumexp_dim.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4), logcumsumexp_dim.data[3], 1e-12);
@@ -24935,7 +21607,7 @@ test "array and view dim aliases mirror axis APIs" {
     var argmax_dim = try a.argmaxDim(1, false);
     defer argmax_dim.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, argmax_dim.data);
-    var argmin_dim = try a.argmin_dim(1, true);
+    var argmin_dim = try a.argminDim(1, true);
     defer argmin_dim.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, argmin_dim.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0 }, argmin_dim.data);
@@ -24947,7 +21619,7 @@ test "array and view dim aliases mirror axis APIs" {
     var softmax_axis = try logits.softmax(1);
     defer softmax_axis.deinit();
     try std.testing.expectEqualSlices(f64, softmax_axis.data, softmax_dim.data);
-    var log_softmax_dim = try logits.log_softmax_dim(1);
+    var log_softmax_dim = try logits.logSoftmaxDim(1);
     defer log_softmax_dim.deinit();
     var log_softmax_axis = try logits.logSoftmax(1);
     defer log_softmax_axis.deinit();
@@ -24958,7 +21630,7 @@ test "array and view dim aliases mirror axis APIs" {
     var sorted_rows = try unsorted.sortDim(1);
     defer sorted_rows.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 8, 2, 3, 7 }, sorted_rows.data);
-    var sorted_cols_desc = try unsorted.sort_by_dim(0, true);
+    var sorted_cols_desc = try unsorted.sortByDim(0, true);
     defer sorted_cols_desc.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 8, 7, 5, 3, 1, 2 }, sorted_cols_desc.data);
     var argsort_rows = try unsorted.argsortDim(1, false);
@@ -24967,14 +21639,14 @@ test "array and view dim aliases mirror axis APIs" {
     var partition_rows = try unsorted.partitionDim(1, 1, false);
     defer partition_rows.deinit();
     try std.testing.expectEqualSlices(f64, sorted_rows.data, partition_rows.data);
-    var argpartition_rows = try unsorted.argpartition_dim(1, 1, false);
+    var argpartition_rows = try unsorted.argpartitionDim(1, 1, false);
     defer argpartition_rows.deinit();
     try std.testing.expectEqualSlices(usize, argsort_rows.data, argpartition_rows.data);
     var top_rows = try unsorted.topkDim(2, 1, true, true);
     defer top_rows.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 8, 5, 7, 3 }, top_rows.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0 }, top_rows.indices.data);
-    var kth_rows = try unsorted.kth_value_dim(2, 1, true);
+    var kth_rows = try unsorted.kthValueDim(2, 1, true);
     defer kth_rows.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, kth_rows.values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 5, 3 }, kth_rows.values.data);
@@ -24984,7 +21656,7 @@ test "array and view dim aliases mirror axis APIs" {
     var count_dim = try sparse.countNonzeroDim(1, false);
     defer count_dim.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, count_dim.data);
-    var count_dims = try sparse.count_nonzero_dims(&.{ 0, 1 }, true);
+    var count_dims = try sparse.countNonzeroDims(&.{ 0, 1 }, true);
     defer count_dims.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, count_dims.shape);
     try std.testing.expectEqualSlices(usize, &.{4}, count_dims.data);
@@ -24994,11 +21666,11 @@ test "array and view dim aliases mirror axis APIs" {
     var all_dim = try flags.allDim(1, false);
     defer all_dim.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false }, all_dim.data);
-    var all_dims = try flags.all_dims(&.{ 0, 1 }, true);
+    var all_dims = try flags.allDims(&.{ 0, 1 }, true);
     defer all_dims.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, all_dims.shape);
     try std.testing.expectEqualSlices(bool, &.{false}, all_dims.data);
-    var any_dim = try flags.any_dim(0, false);
+    var any_dim = try flags.anyDim(0, false);
     defer any_dim.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true }, any_dim.data);
     var any_dims = try flags.anyDims(&.{ 0, 1 }, false);
@@ -25015,10 +21687,10 @@ test "array and view dim aliases mirror axis APIs" {
     var nansum_dim = try nan_values.nansumDim(0, false);
     defer nansum_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6, 8, 18 }, nansum_dim.data);
-    var nansum_dims = try nan_values.nansum_dims(&.{ 0, 1 }, false);
+    var nansum_dims = try nan_values.nansumDims(&.{ 0, 1 }, false);
     defer nansum_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{32}, nansum_dims.data);
-    var nanmean_dim = try nan_values.nanmean_dim(1, false);
+    var nanmean_dim = try nan_values.nanmeanDim(1, false);
     defer nanmean_dim.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2), nanmean_dim.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4), nanmean_dim.data[1], 1e-12);
@@ -25028,13 +21700,13 @@ test "array and view dim aliases mirror axis APIs" {
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), nanvar_dim.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0), nanvar_dim.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 6), nanvar_dim.data[2], 1e-12);
-    var nanstd_dim = try nan_values.nanstd_dim(0, false, 0);
+    var nanstd_dim = try nan_values.nanstdDim(0, false, 0);
     defer nanstd_dim.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0 / 3.0)), nanstd_dim.data[0], 1e-12);
     var nanmin_dim = try nan_values.nanminDim(0, false);
     defer nanmin_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 8, 3 }, nanmin_dim.data);
-    var nanmax_dim = try nan_values.nanmax_dim(1, false);
+    var nanmax_dim = try nan_values.nanmaxDim(1, false);
     defer nanmax_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 6, 9 }, nanmax_dim.data);
     var nanmedian_dim = try nan_values.nanmedianDim(0, false);
@@ -25043,10 +21715,10 @@ test "array and view dim aliases mirror axis APIs" {
     var nanquantile_dim = try nan_values.nanquantileDim(0.25, 0, false);
     defer nanquantile_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 8, 4.5 }, nanquantile_dim.data);
-    var nanpercentile_dim = try nan_values.nanpercentile_dim(75, 1, false);
+    var nanpercentile_dim = try nan_values.nanpercentileDim(75, 1, false);
     defer nanpercentile_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2.5, 5, 8.5 }, nanpercentile_dim.data);
-    var nanmedian_dims = try nan_values.nanmedian_dims(&.{ 0, 1 }, false);
+    var nanmedian_dims = try nan_values.nanmedianDims(&.{ 0, 1 }, false);
     defer nanmedian_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{3}, nanmedian_dims.data);
 
@@ -25055,24 +21727,24 @@ test "array and view dim aliases mirror axis APIs" {
     var view_sum_dim = try view.sumDim(1, false);
     defer view_sum_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, view_sum_dim.data);
-    var view_sum_dims = try view.sum_dims(&.{ 0, 1 }, false);
+    var view_sum_dims = try view.sumDims(&.{ 0, 1 }, false);
     defer view_sum_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{21}, view_sum_dims.data);
-    var view_mean_dim = try view.mean_dim(1, false);
+    var view_mean_dim = try view.meanDim(1, false);
     defer view_mean_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2.5, 3.5, 4.5 }, view_mean_dim.data);
     var view_cumsum_dim = try view.cumsumDim(1);
     defer view_cumsum_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 2, 7, 3, 9 }, view_cumsum_dim.data);
-    var view_argmax_dim = try view.argmax_dim(1, false);
+    var view_argmax_dim = try view.argmaxDim(1, false);
     defer view_argmax_dim.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, view_argmax_dim.data);
-    var view_softmax_dim = try view.softmax_dim(1);
+    var view_softmax_dim = try view.softmaxDim(1);
     defer view_softmax_dim.deinit();
     var view_softmax_axis = try view.softmax(1);
     defer view_softmax_axis.deinit();
     try std.testing.expectEqualSlices(f64, view_softmax_axis.data, view_softmax_dim.data);
-    var view_log_softmax_dim = try view.log_softmax_dim(1);
+    var view_log_softmax_dim = try view.logSoftmaxDim(1);
     defer view_log_softmax_dim.deinit();
     var view_log_softmax_axis = try view.logSoftmax(1);
     defer view_log_softmax_axis.deinit();
@@ -25088,10 +21760,10 @@ test "array and view dim aliases mirror axis APIs" {
     var view_sort_dim = try view.sortDim(1);
     defer view_sort_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, view_sort_dim.data);
-    var view_top_dim = try view.topk_dim(1, 1, true, true);
+    var view_top_dim = try view.topkDim(1, 1, true, true);
     defer view_top_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, view_top_dim.values.data);
-    var view_kth_dim = try view.kth_value_dim(1, 1, false);
+    var view_kth_dim = try view.kthValueDim(1, 1, false);
     defer view_kth_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3 }, view_kth_dim.values.data);
     var view_count_dim = try view.countNonzeroDim(1, false);
@@ -25103,10 +21775,10 @@ test "array and view dim aliases mirror axis APIs" {
     var view_nansum_dim = try nan_view.nansumDim(1, false);
     defer view_nansum_dim.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6, 8, 18 }, view_nansum_dim.data);
-    var view_nanmean_dim = try nan_view.nanmean_dim(1, false);
+    var view_nanmean_dim = try nan_view.nanmeanDim(1, false);
     defer view_nanmean_dim.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2), view_nanmean_dim.data[0], 1e-12);
-    var view_nanmedian_dims = try nan_view.nanmedian_dims(&.{ 0, 1 }, false);
+    var view_nanmedian_dims = try nan_view.nanmedianDims(&.{ 0, 1 }, false);
     defer view_nanmedian_dims.deinit();
     try std.testing.expectEqualSlices(f64, &.{3}, view_nanmedian_dims.data);
 
@@ -25115,7 +21787,7 @@ test "array and view dim aliases mirror axis APIs" {
     var view_all_dim = try flag_view.allDim(1, false);
     defer view_all_dim.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true }, view_all_dim.data);
-    var view_any_dim = try flag_view.any_dim(0, false);
+    var view_any_dim = try flag_view.anyDim(0, false);
     defer view_any_dim.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true }, view_any_dim.data);
 }
@@ -25160,7 +21832,7 @@ test "array object generalized matmul semantics" {
     try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, empty_vm.data);
     var vm_rhs_view = try vm_rhs.asView();
     defer vm_rhs_view.deinit();
-    var vm_alias = try vm_rhs_view.T_();
+    var vm_alias = try vm_rhs_view.transpose();
     defer vm_alias.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, vm_alias.shape);
 
@@ -25178,7 +21850,7 @@ test "array object generalized matmul semantics" {
     defer mm_add.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, mm_add.shape);
     try std.testing.expectEqualSlices(f64, &.{ 59, 74, 239, 1154 }, mm_add.data);
-    var mm_add_snake = try lhs2.matmul_add(rhs2, addend2);
+    var mm_add_snake = try lhs2.matmulAdd(rhs2, addend2);
     defer mm_add_snake.deinit();
     try std.testing.expectEqualSlices(f64, mm_add.data, mm_add_snake.data);
 
@@ -25261,7 +21933,7 @@ test "array contraction and vector algebra helpers" {
     try std.testing.expectEqualSlices(f64, y.data, y_top.data);
     var a_view = try a.asView();
     defer a_view.deinit();
-    var a_t_view = try a_view.T_();
+    var a_t_view = try a_view.transpose();
     defer a_t_view.deinit();
     var mm_alias = try a_view.mm(a_t_view);
     defer mm_alias.deinit();
@@ -25401,7 +22073,7 @@ test "array scipy-like statistics and softmax" {
     var var_top = try a.variance(null, false, 0);
     defer var_top.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.25), var_top.data[0], 1e-12);
-    var var_alias = try a.var_(null, false, 0);
+    var var_alias = try a.variance(null, false, 0);
     defer var_alias.deinit();
     try std.testing.expectApproxEqAbs(var_top.data[0], var_alias.data[0], 1e-12);
     var std_top = try a.stddev(null, false, 0);
@@ -25418,12 +22090,12 @@ test "array scipy-like statistics and softmax" {
     defer sum_to_size.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, sum_to_size.shape);
     try std.testing.expectEqualSlices(f64, &.{ 16, 20 }, sum_to_size.data);
-    var sum_to_scalar = try cube.sum_to_size(&.{});
+    var sum_to_scalar = try cube.sumToSize(&.{});
     defer sum_to_scalar.deinit();
     try std.testing.expectEqual(@as(usize, 0), sum_to_scalar.shape.len);
     try std.testing.expectEqualSlices(f64, &.{36}, sum_to_scalar.data);
     try std.testing.expectError(error.ShapeMismatch, cube.sumToSize(&.{ 3, 2 }));
-    var sum_axes_keep = try cube.sum_axes(&.{ 0, 2 }, true);
+    var sum_axes_keep = try cube.sumAxes(&.{ 0, 2 }, true);
     defer sum_axes_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, sum_axes_keep.shape);
     try std.testing.expectEqualSlices(f64, &.{ 14, 22 }, sum_axes_keep.data);
@@ -25433,10 +22105,10 @@ test "array scipy-like statistics and softmax" {
     var min_axes = try cube.minAxes(&.{ 0, 2 }, false);
     defer min_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3 }, min_axes.data);
-    var amin_axes = try cube.amin_axes(&.{ 0, 2 }, false);
+    var amin_axes = try cube.aminAxes(&.{ 0, 2 }, false);
     defer amin_axes.deinit();
     try std.testing.expectEqualSlices(f64, min_axes.data, amin_axes.data);
-    var max_axes = try cube.max_axes(&.{ 0, 2 }, false);
+    var max_axes = try cube.maxAxes(&.{ 0, 2 }, false);
     defer max_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6, 8 }, max_axes.data);
     var amax_axes = try cube.amaxAxes(&.{ 0, 2 }, false);
@@ -25445,7 +22117,7 @@ test "array scipy-like statistics and softmax" {
     var range_axes = try cube.ptpAxes(&.{ 0, 2 }, false);
     defer range_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 5 }, range_axes.data);
-    var range_axes_keep = try cube.ptp_axes(&.{ 0, 2 }, true);
+    var range_axes_keep = try cube.ptpAxes(&.{ 0, 2 }, true);
     defer range_axes_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, range_axes_keep.shape);
     try std.testing.expectEqualSlices(f64, &.{ 5, 5 }, range_axes_keep.data);
@@ -25455,7 +22127,7 @@ test "array scipy-like statistics and softmax" {
     var median_axes = try cube.medianAxes(&.{ 0, 2 }, false);
     defer median_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3.5, 5.5 }, median_axes.data);
-    var quantile_axes = try cube.quantile_axes(0.25, &.{ 0, 2 }, false);
+    var quantile_axes = try cube.quantileAxes(0.25, &.{ 0, 2 }, false);
     defer quantile_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1.75, 3.75 }, quantile_axes.data);
     var percentile_axes = try cube.percentileAxes(75, &.{ 0, 2 }, true);
@@ -25467,7 +22139,7 @@ test "array scipy-like statistics and softmax" {
     var var_axes = try cube.varianceAxes(&.{ 0, 2 }, false, 0);
     defer var_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4.25, 4.25 }, var_axes.data);
-    var var_axes_keep = try cube.var_axes(&.{ 0, 2 }, true, 0);
+    var var_axes_keep = try cube.varAxes(&.{ 0, 2 }, true, 0);
     defer var_axes_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, var_axes_keep.shape);
     try std.testing.expectEqualSlices(f64, &.{ 4.25, 4.25 }, var_axes_keep.data);
@@ -25483,7 +22155,7 @@ test "array scipy-like statistics and softmax" {
     var all_axes = try bool_cube.allAxes(&.{ 0, 2 }, false);
     defer all_axes.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false }, all_axes.data);
-    var any_axes = try bool_cube.any_axes(&.{ 0, 2 }, true);
+    var any_axes = try bool_cube.anyAxes(&.{ 0, 2 }, true);
     defer any_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, any_axes.shape);
     try std.testing.expectEqualSlices(bool, &.{ true, true }, any_axes.data);
@@ -25495,7 +22167,7 @@ test "array scipy-like statistics and softmax" {
     const expected_lse1 = @max(@max(@as(f64, 3), @as(f64, 4)), @max(@as(f64, 7), @as(f64, 8))) + std.math.log(f64, std.math.e, std.math.exp(@as(f64, 3) - @as(f64, 8)) + std.math.exp(@as(f64, 4) - @as(f64, 8)) + std.math.exp(@as(f64, 7) - @as(f64, 8)) + std.math.exp(@as(f64, 8) - @as(f64, 8)));
     try std.testing.expectApproxEqAbs(expected_lse0, logsumexp_axes.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(expected_lse1, logsumexp_axes.data[1], 1e-12);
-    var logsumexp_axes_keep = try cube.logsumexp_axes(&.{ 0, 2 }, true);
+    var logsumexp_axes_keep = try cube.logsumexpAxes(&.{ 0, 2 }, true);
     defer logsumexp_axes_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, logsumexp_axes_keep.shape);
 
@@ -25507,7 +22179,7 @@ test "array scipy-like statistics and softmax" {
     try std.testing.expectEqualSlices(usize, &.{2}, norm_axes.shape);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 66)), norm_axes.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 138)), norm_axes.data[1], 1e-12);
-    var norm_axes_keep = try cube.norm_axes(1, &.{ 0, 2 }, true);
+    var norm_axes_keep = try cube.normAxes(1, &.{ 0, 2 }, true);
     defer norm_axes_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 1 }, norm_axes_keep.shape);
     try std.testing.expectEqualSlices(f64, &.{ 14, 22 }, norm_axes_keep.data);
@@ -25538,9 +22210,9 @@ test "array and view scalar and flat export helpers" {
     defer scalar_array.deinit();
     try std.testing.expectEqual(@as(f64, 42), try scalar_array.item());
     try std.testing.expectEqual(@as(f64, 42), try scalar_array.itemValue());
-    try std.testing.expectEqual(@as(f64, 42), try scalar_array.item_value());
+    try std.testing.expectEqual(@as(f64, 42), try scalar_array.itemValue());
     try std.testing.expectEqual(@as(f64, 42), try scalar_array.scalarValue());
-    try std.testing.expectEqual(@as(f64, 42), try scalar_array.scalar_value());
+    try std.testing.expectEqual(@as(f64, 42), try scalar_array.scalarValue());
 
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
     defer a.deinit();
@@ -25550,18 +22222,18 @@ test "array and view scalar and flat export helpers" {
     direct[0] = 10;
     try std.testing.expectEqual(@as(f64, 10), a.data[0]);
     direct[0] = 1;
-    const direct_snake = try a.as_slice();
+    const direct_snake = try a.asSlice();
     try std.testing.expectEqualSlices(f64, a.data, direct_snake);
     const direct_const = try a.asConstSlice();
     try std.testing.expectEqualSlices(f64, a.data, direct_const);
-    const direct_const_snake = try a.as_const_slice();
+    const direct_const_snake = try a.asConstSlice();
     try std.testing.expectEqualSlices(f64, a.data, direct_const_snake);
 
     var stack_buf: [6]f64 = undefined;
     try a.copyToSlice(stack_buf[0..]);
     try std.testing.expectEqualSlices(f64, a.data, stack_buf[0..]);
     var stack_buf_snake: [6]f64 = undefined;
-    try a.copy_to_slice(stack_buf_snake[0..]);
+    try a.copyToSlice(stack_buf_snake[0..]);
     try std.testing.expectEqualSlices(f64, a.data, stack_buf_snake[0..]);
     var too_small: [5]f64 = undefined;
     try std.testing.expectError(error.ShapeMismatch, a.copyToSlice(too_small[0..]));
@@ -25569,7 +22241,7 @@ test "array and view scalar and flat export helpers" {
     const owned = try a.toOwnedSlice(gpa);
     defer gpa.free(owned);
     try std.testing.expectEqualSlices(f64, a.data, owned);
-    const owned_snake = try a.to_owned_slice(gpa);
+    const owned_snake = try a.toOwnedSlice(gpa);
     defer gpa.free(owned_snake);
     try std.testing.expectEqualSlices(f64, a.data, owned_snake);
 
@@ -25588,11 +22260,11 @@ test "array and view scalar and flat export helpers" {
     view_direct[1] = 20;
     try std.testing.expectEqual(@as(f64, 20), a.data[1]);
     view_direct[1] = 2;
-    const view_direct_snake = try base_view.as_slice();
+    const view_direct_snake = try base_view.asSlice();
     try std.testing.expectEqualSlices(f64, a.data, view_direct_snake);
     const view_const = try base_view.asConstSlice();
     try std.testing.expectEqualSlices(f64, a.data, view_const);
-    const view_const_snake = try base_view.as_const_slice();
+    const view_const_snake = try base_view.asConstSlice();
     try std.testing.expectEqualSlices(f64, a.data, view_const_snake);
 
     var row_view = try a.selectView(0, 1);
@@ -25602,7 +22274,7 @@ test "array and view scalar and flat export helpers" {
     var row_buf: [3]f64 = undefined;
     try row_view.copyToSlice(row_buf[0..]);
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, row_buf[0..]);
-    const row_owned = try row_view.to_owned_slice(gpa);
+    const row_owned = try row_view.toOwnedSlice(gpa);
     defer gpa.free(row_owned);
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, row_owned);
 
@@ -25610,7 +22282,7 @@ test "array and view scalar and flat export helpers" {
     defer transposed.deinit();
     try std.testing.expectError(error.InvalidShape, transposed.asSlice());
     var transposed_buf: [6]f64 = undefined;
-    try transposed.copy_to_slice(transposed_buf[0..]);
+    try transposed.copyToSlice(transposed_buf[0..]);
     try std.testing.expectEqualSlices(f64, &.{ 1, 4, 2, 5, 3, 6 }, transposed_buf[0..]);
     const transposed_owned = try transposed.toOwnedSlice(gpa);
     defer gpa.free(transposed_owned);
@@ -25619,7 +22291,7 @@ test "array and view scalar and flat export helpers" {
 
     var stepped = try a.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
     defer stepped.deinit();
-    try std.testing.expectError(error.InvalidShape, stepped.as_slice());
+    try std.testing.expectError(error.InvalidShape, stepped.asSlice());
     var stepped_buf: [4]f64 = undefined;
     try stepped.copyToSlice(stepped_buf[0..]);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4, 6 }, stepped_buf[0..]);
@@ -25632,9 +22304,9 @@ test "array and view scalar and flat export helpers" {
     var scalar_view = try scalar_view_source.asView();
     defer scalar_view.deinit();
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.item());
-    try std.testing.expectEqual(@as(f64, 7), try scalar_view.item_value());
+    try std.testing.expectEqual(@as(f64, 7), try scalar_view.itemValue());
     try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalarValue());
-    try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalar_value());
+    try std.testing.expectEqual(@as(f64, 7), try scalar_view.scalarValue());
 }
 
 test "array and view zero-copy permutation aliases" {
@@ -25650,68 +22322,68 @@ test "array and view zero-copy permutation aliases" {
     try p.set(&.{ 1, 0 }, 20);
     try std.testing.expectEqual(@as(f64, 20), a.data[1]);
     try p.set(&.{ 1, 0 }, 2);
-    var p_snake = try a.permute_view(&.{ 1, 0 });
+    var p_snake = try a.permuteView(&.{ 1, 0 });
     defer p_snake.deinit();
     try std.testing.expectEqualSlices(usize, p.shape, p_snake.shape);
 
     var swapped = try a.swapaxesView(0, 1);
     defer swapped.deinit();
     try std.testing.expectEqualSlices(usize, p.shape, swapped.shape);
-    var swapped_snake = try a.swapaxes_view(0, 1);
+    var swapped_snake = try a.swapaxesView(0, 1);
     defer swapped_snake.deinit();
     try std.testing.expectEqualSlices(usize, swapped.shape, swapped_snake.shape);
     var swap_dims = try a.swapDimsView(0, 1);
     defer swap_dims.deinit();
     try std.testing.expectEqualSlices(usize, swapped.shape, swap_dims.shape);
-    var swap_dims_snake = try a.swap_dims_view(0, 1);
+    var swap_dims_snake = try a.swapDimsView(0, 1);
     defer swap_dims_snake.deinit();
     try std.testing.expectEqualSlices(usize, swapped.shape, swap_dims_snake.shape);
 
     var moved = try a.movedimView(0, 1);
     defer moved.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, moved.shape);
-    var moved_snake = try a.movedim_view(0, 1);
+    var moved_snake = try a.movedimView(0, 1);
     defer moved_snake.deinit();
     try std.testing.expectEqualSlices(usize, moved.shape, moved_snake.shape);
     var moveaxis = try a.moveaxisView(0, 1);
     defer moveaxis.deinit();
     try std.testing.expectEqualSlices(usize, moved.shape, moveaxis.shape);
-    var moveaxis_snake = try a.moveaxis_view(0, 1);
+    var moveaxis_snake = try a.moveaxisView(0, 1);
     defer moveaxis_snake.deinit();
     try std.testing.expectEqualSlices(usize, moved.shape, moveaxis_snake.shape);
     var moveaxes = try a.moveaxesView(&.{ 0, 1 }, &.{ 1, 0 });
     defer moveaxes.deinit();
     try std.testing.expectEqualSlices(usize, p.shape, moveaxes.shape);
-    var moveaxes_snake = try a.moveaxes_view(&.{ 0, 1 }, &.{ 1, 0 });
+    var moveaxes_snake = try a.moveaxesView(&.{ 0, 1 }, &.{ 1, 0 });
     defer moveaxes_snake.deinit();
     try std.testing.expectEqualSlices(usize, moveaxes.shape, moveaxes_snake.shape);
-    var move_axes_snake = try a.move_axes_view(&.{ 0, 1 }, &.{ 1, 0 });
+    var move_axes_snake = try a.moveaxesView(&.{ 0, 1 }, &.{ 1, 0 });
     defer move_axes_snake.deinit();
     try std.testing.expectEqualSlices(usize, moveaxes.shape, move_axes_snake.shape);
 
     var t = try a.transposeView();
     defer t.deinit();
     try std.testing.expectEqualSlices(usize, p.shape, t.shape);
-    var t_snake = try a.transpose_view();
+    var t_snake = try a.transposeView();
     defer t_snake.deinit();
     try std.testing.expectEqualSlices(usize, t.shape, t_snake.shape);
     var t_alias = try a.TView();
     defer t_alias.deinit();
     try std.testing.expectEqualSlices(usize, t.shape, t_alias.shape);
-    var t_alias_snake = try a.T_view();
+    var t_alias_snake = try a.TView();
     defer t_alias_snake.deinit();
     try std.testing.expectEqualSlices(usize, t.shape, t_alias_snake.shape);
 
     var mt = try a.matrixTransposeView();
     defer mt.deinit();
     try std.testing.expectEqualSlices(usize, t.shape, mt.shape);
-    var mt_snake = try a.matrix_transpose_view();
+    var mt_snake = try a.matrixTransposeView();
     defer mt_snake.deinit();
     try std.testing.expectEqualSlices(usize, mt.shape, mt_snake.shape);
     var mt_alias = try a.mTView();
     defer mt_alias.deinit();
     try std.testing.expectEqualSlices(usize, mt.shape, mt_alias.shape);
-    var mt_alias_snake = try a.mT_view();
+    var mt_alias_snake = try a.mTView();
     defer mt_alias_snake.deinit();
     try std.testing.expectEqualSlices(usize, mt.shape, mt_alias_snake.shape);
     var cube = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 2, 2 });
@@ -25726,25 +22398,25 @@ test "array and view zero-copy permutation aliases" {
     var vp = try view.permuteView(&.{ 1, 0 });
     defer vp.deinit();
     try std.testing.expectEqualSlices(usize, p.shape, vp.shape);
-    var vp_snake = try view.permute_view(&.{ 1, 0 });
+    var vp_snake = try view.permuteView(&.{ 1, 0 });
     defer vp_snake.deinit();
     try std.testing.expectEqualSlices(usize, vp.shape, vp_snake.shape);
     var vswap = try view.swapaxesView(0, 1);
     defer vswap.deinit();
     try std.testing.expectEqualSlices(usize, p.shape, vswap.shape);
-    var vswap_snake = try view.swapaxes_view(0, 1);
+    var vswap_snake = try view.swapaxesView(0, 1);
     defer vswap_snake.deinit();
     try std.testing.expectEqualSlices(usize, vswap.shape, vswap_snake.shape);
     var vswap_dim = try view.swapDimsView(0, 1);
     defer vswap_dim.deinit();
     try std.testing.expectEqualSlices(usize, vswap.shape, vswap_dim.shape);
-    var vswap_dim_snake = try view.swap_dims_view(0, 1);
+    var vswap_dim_snake = try view.swapDimsView(0, 1);
     defer vswap_dim_snake.deinit();
     try std.testing.expectEqualSlices(usize, vswap.shape, vswap_dim_snake.shape);
     var vmoved = try view.movedimView(0, 1);
     defer vmoved.deinit();
     try std.testing.expectEqualSlices(usize, p.shape, vmoved.shape);
-    var vmoved_snake = try view.movedim_view(0, 1);
+    var vmoved_snake = try view.movedimView(0, 1);
     defer vmoved_snake.deinit();
     try std.testing.expectEqualSlices(usize, vmoved.shape, vmoved_snake.shape);
     var vmoveaxis = try view.moveaxisView(0, 1);
@@ -25753,25 +22425,25 @@ test "array and view zero-copy permutation aliases" {
     var vmoveaxes = try view.moveaxesView(&.{ 0, 1 }, &.{ 1, 0 });
     defer vmoveaxes.deinit();
     try std.testing.expectEqualSlices(usize, p.shape, vmoveaxes.shape);
-    var vmove_axes_snake = try view.move_axes_view(&.{ 0, 1 }, &.{ 1, 0 });
+    var vmove_axes_snake = try view.moveaxesView(&.{ 0, 1 }, &.{ 1, 0 });
     defer vmove_axes_snake.deinit();
     try std.testing.expectEqualSlices(usize, vmoveaxes.shape, vmove_axes_snake.shape);
     var vt = try view.transposeView();
     defer vt.deinit();
     try std.testing.expectEqualSlices(usize, p.shape, vt.shape);
-    var vt_snake = try view.transpose_view();
+    var vt_snake = try view.transposeView();
     defer vt_snake.deinit();
     try std.testing.expectEqualSlices(usize, vt.shape, vt_snake.shape);
     var vt_alias = try view.TView();
     defer vt_alias.deinit();
     try std.testing.expectEqualSlices(usize, vt.shape, vt_alias.shape);
-    var vt_alias_snake = try view.T_view();
+    var vt_alias_snake = try view.TView();
     defer vt_alias_snake.deinit();
     try std.testing.expectEqualSlices(usize, vt.shape, vt_alias_snake.shape);
     var vmt = try view.matrixTransposeView();
     defer vmt.deinit();
     try std.testing.expectEqualSlices(usize, vt.shape, vmt.shape);
-    var vmt_snake = try view.matrix_transpose_view();
+    var vmt_snake = try view.matrixTransposeView();
     defer vmt_snake.deinit();
     try std.testing.expectEqualSlices(usize, vmt.shape, vmt_snake.shape);
     try std.testing.expectError(error.InvalidPermutation, a.permuteView(&.{0}));
@@ -25789,7 +22461,7 @@ test "array zero-copy indexing view aliases" {
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 4 });
     defer a.deinit();
 
-    var sliced_axis = try a.slice_axis_view(1, .{ .start = 0, .stop = 4, .step = 2 });
+    var sliced_axis = try a.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
     defer sliced_axis.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, sliced_axis.shape);
     try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, sliced_axis.strides);
@@ -25798,7 +22470,7 @@ test "array zero-copy indexing view aliases" {
     try std.testing.expectEqual(@as(f64, 30), a.data[2]);
     try sliced_axis.set(&.{ 0, 1 }, 3);
 
-    var sliced_full = try a.slice_view(&.{
+    var sliced_full = try a.sliceView(&.{
         .{ .start = 0, .stop = 2, .step = 1 },
         .{ .start = 1, .stop = 4, .step = 2 },
     });
@@ -25808,7 +22480,7 @@ test "array zero-copy indexing view aliases" {
     defer sliced_full_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 4, 6, 8 }, sliced_full_owned.data);
 
-    var selected = try a.select_view(0, 1);
+    var selected = try a.selectView(0, 1);
     defer selected.deinit();
     try std.testing.expectEqualSlices(usize, &.{4}, selected.shape);
     try std.testing.expectEqualSlices(usize, &.{1}, selected.strides);
@@ -25819,11 +22491,11 @@ test "array zero-copy indexing view aliases" {
     var selected_signed = try a.selectSignedView(0, -1);
     defer selected_signed.deinit();
     try std.testing.expectEqualSlices(usize, selected.shape, selected_signed.shape);
-    var selected_signed_snake = try a.select_signed_view(0, -1);
+    var selected_signed_snake = try a.selectSignedView(0, -1);
     defer selected_signed_snake.deinit();
     try std.testing.expectEqualSlices(usize, selected.shape, selected_signed_snake.shape);
 
-    var narrowed = try a.narrow_view(1, 1, 2);
+    var narrowed = try a.narrowView(1, 1, 2);
     defer narrowed.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, narrowed.shape);
     var narrowed_owned = try narrowed.toArray();
@@ -25834,7 +22506,7 @@ test "array zero-copy indexing view aliases" {
     var narrowed_signed_owned = try narrowed_signed.toArray();
     defer narrowed_signed_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 4, 7, 8 }, narrowed_signed_owned.data);
-    var narrowed_signed_snake = try a.narrow_signed_view(1, -2, 2);
+    var narrowed_signed_snake = try a.narrowSignedView(1, -2, 2);
     defer narrowed_signed_snake.deinit();
     var narrowed_signed_snake_owned = try narrowed_signed_snake.toArray();
     defer narrowed_signed_snake_owned.deinit();
@@ -25843,7 +22515,7 @@ test "array zero-copy indexing view aliases" {
     var unfolded = try a.unfoldView(1, 2, 1);
     defer unfolded.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3, 2 }, unfolded.shape);
-    var unfolded_snake = try a.unfold_view(1, 2, 1);
+    var unfolded_snake = try a.unfoldView(1, 2, 1);
     defer unfolded_snake.deinit();
     try std.testing.expectEqualSlices(usize, unfolded.shape, unfolded_snake.shape);
 
@@ -25864,19 +22536,19 @@ test "array and view zero-copy squeeze unsqueeze aliases" {
     try squeezed.set(&.{ 1, 2 }, 60);
     try std.testing.expectEqual(@as(f64, 60), a.data[5]);
     try squeezed.set(&.{ 1, 2 }, 6);
-    var squeezed_snake = try a.squeeze_view(null);
+    var squeezed_snake = try a.squeezeView(null);
     defer squeezed_snake.deinit();
     try std.testing.expectEqualSlices(usize, squeezed.shape, squeezed_snake.shape);
     var squeeze_dim = try a.squeezeDimView(2);
     defer squeeze_dim.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, squeeze_dim.shape);
-    var squeeze_dim_snake = try a.squeeze_dim_view(0);
+    var squeeze_dim_snake = try a.squeezeDimView(0);
     defer squeeze_dim_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, squeeze_dim_snake.shape);
     var squeeze_axes = try a.squeezeAxesView(&.{ 0, 2 });
     defer squeeze_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, squeeze_axes.shape);
-    var squeeze_axes_snake = try a.squeeze_axes_view(&.{ 0, 2 });
+    var squeeze_axes_snake = try a.squeezeAxesView(&.{ 0, 2 });
     defer squeeze_axes_snake.deinit();
     try std.testing.expectEqualSlices(usize, squeeze_axes.shape, squeeze_axes_snake.shape);
     try std.testing.expectError(error.ShapeMismatch, a.squeezeAxesView(&.{1}));
@@ -25884,25 +22556,25 @@ test "array and view zero-copy squeeze unsqueeze aliases" {
     var unsqueezed = try squeezed.unsqueezeView(0);
     defer unsqueezed.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, unsqueezed.shape);
-    var unsqueezed_snake = try squeezed.unsqueeze_view(-1);
+    var unsqueezed_snake = try squeezed.unsqueezeView(-1);
     defer unsqueezed_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, unsqueezed_snake.shape);
     var unsqueeze_dim = try squeezed.unsqueezeDimView(1);
     defer unsqueeze_dim.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, unsqueeze_dim.shape);
-    var unsqueeze_dim_snake = try squeezed.unsqueeze_dim_view(1);
+    var unsqueeze_dim_snake = try squeezed.unsqueezeDimView(1);
     defer unsqueeze_dim_snake.deinit();
     try std.testing.expectEqualSlices(usize, unsqueeze_dim.shape, unsqueeze_dim_snake.shape);
     var unsqueeze_axes = try squeezed.unsqueezeAxesView(&.{ 0, -1 });
     defer unsqueeze_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3, 1 }, unsqueeze_axes.shape);
-    var unsqueeze_axes_snake = try squeezed.unsqueeze_axes_view(&.{ 0, -1 });
+    var unsqueeze_axes_snake = try squeezed.unsqueezeAxesView(&.{ 0, -1 });
     defer unsqueeze_axes_snake.deinit();
     try std.testing.expectEqualSlices(usize, unsqueeze_axes.shape, unsqueeze_axes_snake.shape);
     var expand_dims_view = try squeezed.expandDimsView(&.{1});
     defer expand_dims_view.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, expand_dims_view.shape);
-    var expand_dims_view_snake = try squeezed.expand_dims_view(&.{1});
+    var expand_dims_view_snake = try squeezed.expandDimsView(&.{1});
     defer expand_dims_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, expand_dims_view.shape, expand_dims_view_snake.shape);
     try std.testing.expectError(error.InvalidAxis, squeezed.unsqueezeView(4));
@@ -25912,7 +22584,7 @@ test "array and view zero-copy squeeze unsqueeze aliases" {
     var scalar_1d = try scalar.atLeast1dView();
     defer scalar_1d.deinit();
     try std.testing.expectEqualSlices(usize, &.{1}, scalar_1d.shape);
-    var scalar_2d = try scalar.at_least_2d_view();
+    var scalar_2d = try scalar.atLeast2dView();
     defer scalar_2d.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, scalar_2d.shape);
     var scalar_3d = try scalar.atLeast3dView();
@@ -25930,49 +22602,49 @@ test "array and view zero-copy squeeze unsqueeze aliases" {
     try view_squeezed.set(&.{ 1, 1 }, 50);
     try std.testing.expectEqual(@as(f64, 50), view_source.data[4]);
     try view_squeezed.set(&.{ 1, 1 }, 5);
-    var view_squeezed_snake = try base_view.squeeze_view(null);
+    var view_squeezed_snake = try base_view.squeezeView(null);
     defer view_squeezed_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_squeezed.shape, view_squeezed_snake.shape);
     var view_squeeze_dim = try base_view.squeezeDimView(2);
     defer view_squeeze_dim.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, view_squeeze_dim.shape);
-    var view_squeeze_dim_snake = try base_view.squeeze_dim_view(0);
+    var view_squeeze_dim_snake = try base_view.squeezeDimView(0);
     defer view_squeeze_dim_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, view_squeeze_dim_snake.shape);
     var view_squeeze_axes = try base_view.squeezeAxesView(&.{ 0, 2 });
     defer view_squeeze_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_squeeze_axes.shape);
-    var view_squeeze_axes_snake = try base_view.squeeze_axes_view(&.{ 0, 2 });
+    var view_squeeze_axes_snake = try base_view.squeezeAxesView(&.{ 0, 2 });
     defer view_squeeze_axes_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_squeeze_axes.shape, view_squeeze_axes_snake.shape);
     var view_unsqueeze = try view_squeezed.unsqueezeView(1);
     defer view_unsqueeze.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, view_unsqueeze.shape);
-    var view_unsqueeze_snake = try view_squeezed.unsqueeze_view(-1);
+    var view_unsqueeze_snake = try view_squeezed.unsqueezeView(-1);
     defer view_unsqueeze_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, view_unsqueeze_snake.shape);
     var view_unsqueeze_dim = try view_squeezed.unsqueezeDimView(0);
     defer view_unsqueeze_dim.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, view_unsqueeze_dim.shape);
-    var view_unsqueeze_dim_snake = try view_squeezed.unsqueeze_dim_view(0);
+    var view_unsqueeze_dim_snake = try view_squeezed.unsqueezeDimView(0);
     defer view_unsqueeze_dim_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_unsqueeze_dim.shape, view_unsqueeze_dim_snake.shape);
     var view_unsqueeze_axes = try view_squeezed.unsqueezeAxesView(&.{ 0, -1 });
     defer view_unsqueeze_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3, 1 }, view_unsqueeze_axes.shape);
-    var view_unsqueeze_axes_snake = try view_squeezed.unsqueeze_axes_view(&.{ 0, -1 });
+    var view_unsqueeze_axes_snake = try view_squeezed.unsqueezeAxesView(&.{ 0, -1 });
     defer view_unsqueeze_axes_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_unsqueeze_axes.shape, view_unsqueeze_axes_snake.shape);
     var view_expand_dims = try view_squeezed.expandDimsView(&.{1});
     defer view_expand_dims.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 3 }, view_expand_dims.shape);
-    var view_expand_dims_snake = try view_squeezed.expand_dims_view(&.{1});
+    var view_expand_dims_snake = try view_squeezed.expandDimsView(&.{1});
     defer view_expand_dims_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_expand_dims.shape, view_expand_dims_snake.shape);
     var view_atleast1 = try view_squeezed.atLeast1dView();
     defer view_atleast1.deinit();
     try std.testing.expectEqualSlices(usize, view_squeezed.shape, view_atleast1.shape);
-    var view_atleast2 = try view_squeezed.at_least_2d_view();
+    var view_atleast2 = try view_squeezed.atLeast2dView();
     defer view_atleast2.deinit();
     try std.testing.expectEqualSlices(usize, view_squeezed.shape, view_atleast2.shape);
     var view_atleast3 = try view_squeezed.atLeast3dView();
@@ -25997,26 +22669,26 @@ test "array and view zero-copy broadcast aliases" {
     try std.testing.expectEqual(@as(f64, 30), row.data[2]);
     try broadcast_view.set(&.{ 0, 2 }, 3);
 
-    var broadcast_view_snake = try row.broadcast_view(&.{ 2, 3 });
+    var broadcast_view_snake = try row.broadcastView(&.{ 2, 3 });
     defer broadcast_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, broadcast_view.shape, broadcast_view_snake.shape);
     var broadcast_to_view = try row.broadcastToView(&.{ 2, 3 });
     defer broadcast_to_view.deinit();
     try std.testing.expectEqualSlices(usize, broadcast_view.strides, broadcast_to_view.strides);
-    var broadcast_to_view_snake = try row.broadcast_to_view(&.{ 2, 3 });
+    var broadcast_to_view_snake = try row.broadcastToView(&.{ 2, 3 });
     defer broadcast_to_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, broadcast_view.strides, broadcast_to_view_snake.strides);
 
     var expanded_view = try row.expandView(&.{ 2, 3 });
     defer expanded_view.deinit();
     try std.testing.expectEqualSlices(usize, broadcast_view.strides, expanded_view.strides);
-    var expanded_view_snake = try row.expand_view(&.{ 2, 3 });
+    var expanded_view_snake = try row.expandView(&.{ 2, 3 });
     defer expanded_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, expanded_view.strides, expanded_view_snake.strides);
     var expand_to_view = try row.expandToView(&.{ 2, 3 });
     defer expand_to_view.deinit();
     try std.testing.expectEqualSlices(usize, expanded_view.strides, expand_to_view.strides);
-    var expand_to_view_snake = try row.expand_to_view(&.{ 2, 3 });
+    var expand_to_view_snake = try row.expandToView(&.{ 2, 3 });
     defer expand_to_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, expanded_view.strides, expand_to_view_snake.strides);
 
@@ -26025,13 +22697,13 @@ test "array and view zero-copy broadcast aliases" {
     var expand_as_array = try row.expandAsArray(target_array);
     defer expand_as_array.deinit();
     try std.testing.expectEqualSlices(usize, target_array.shape, expand_as_array.shape);
-    var expand_as_array_snake = try row.expand_as_array(target_array);
+    var expand_as_array_snake = try row.expandAsArray(target_array);
     defer expand_as_array_snake.deinit();
     try std.testing.expectEqualSlices(usize, target_array.shape, expand_as_array_snake.shape);
     var broadcast_as_array = try row.broadcastAsArray(target_array);
     defer broadcast_as_array.deinit();
     try std.testing.expectEqualSlices(usize, target_array.shape, broadcast_as_array.shape);
-    var broadcast_as_array_snake = try row.broadcast_as_array(target_array);
+    var broadcast_as_array_snake = try row.broadcastAsArray(target_array);
     defer broadcast_as_array_snake.deinit();
     try std.testing.expectEqualSlices(usize, target_array.shape, broadcast_as_array_snake.shape);
 
@@ -26040,13 +22712,13 @@ test "array and view zero-copy broadcast aliases" {
     var expand_as_view = try row.expandAsView(target_view);
     defer expand_as_view.deinit();
     try std.testing.expectEqualSlices(usize, target_view.shape, expand_as_view.shape);
-    var expand_as_view_snake = try row.expand_as_view(target_view);
+    var expand_as_view_snake = try row.expandAsView(target_view);
     defer expand_as_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, target_view.shape, expand_as_view_snake.shape);
     var broadcast_as_view = try row.broadcastAsView(target_view);
     defer broadcast_as_view.deinit();
     try std.testing.expectEqualSlices(usize, target_view.shape, broadcast_as_view.shape);
-    var broadcast_as_view_snake = try row.broadcast_as_view(target_view);
+    var broadcast_as_view_snake = try row.broadcastAsView(target_view);
     defer broadcast_as_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, target_view.shape, broadcast_as_view_snake.shape);
 
@@ -26058,37 +22730,37 @@ test "array and view zero-copy broadcast aliases" {
     defer view_broadcast.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_broadcast.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, view_broadcast.strides);
-    var view_broadcast_snake = try row_view.broadcast_to_view(&.{ 2, 3 });
+    var view_broadcast_snake = try row_view.broadcastToView(&.{ 2, 3 });
     defer view_broadcast_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_broadcast.strides, view_broadcast_snake.strides);
     var view_expand_to = try row_view.expandToView(&.{ 2, 3 });
     defer view_expand_to.deinit();
     try std.testing.expectEqualSlices(usize, view_broadcast.strides, view_expand_to.strides);
-    var view_expand_to_snake = try row_view.expand_to_view(&.{ 2, 3 });
+    var view_expand_to_snake = try row_view.expandToView(&.{ 2, 3 });
     defer view_expand_to_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_broadcast.strides, view_expand_to_snake.strides);
     var view_expand_as_array = try row_view.expandAsArray(target_array);
     defer view_expand_as_array.deinit();
     try std.testing.expectEqualSlices(usize, target_array.shape, view_expand_as_array.shape);
-    var view_expand_as_array_snake = try row_view.expand_as_array(target_array);
+    var view_expand_as_array_snake = try row_view.expandAsArray(target_array);
     defer view_expand_as_array_snake.deinit();
     try std.testing.expectEqualSlices(usize, target_array.shape, view_expand_as_array_snake.shape);
     var view_expand_as_view = try row_view.expandAsView(target_view);
     defer view_expand_as_view.deinit();
     try std.testing.expectEqualSlices(usize, target_view.shape, view_expand_as_view.shape);
-    var view_expand_as_view_snake = try row_view.expand_as_view(target_view);
+    var view_expand_as_view_snake = try row_view.expandAsView(target_view);
     defer view_expand_as_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, target_view.shape, view_expand_as_view_snake.shape);
     var view_broadcast_as = try row_view.broadcastAs(target_view);
     defer view_broadcast_as.deinit();
     try std.testing.expectEqualSlices(usize, target_view.shape, view_broadcast_as.shape);
-    var view_broadcast_as_snake = try row_view.broadcast_as(target_view);
+    var view_broadcast_as_snake = try row_view.broadcastAs(target_view);
     defer view_broadcast_as_snake.deinit();
     try std.testing.expectEqualSlices(usize, target_view.shape, view_broadcast_as_snake.shape);
     var view_broadcast_as_array = try row_view.broadcastAsArray(target_array);
     defer view_broadcast_as_array.deinit();
     try std.testing.expectEqualSlices(usize, target_array.shape, view_broadcast_as_array.shape);
-    var view_broadcast_as_array_snake = try row_view.broadcast_as_array(target_array);
+    var view_broadcast_as_array_snake = try row_view.broadcastAsArray(target_array);
     defer view_broadcast_as_array_snake.deinit();
     try std.testing.expectEqualSlices(usize, target_array.shape, view_broadcast_as_array_snake.shape);
     try std.testing.expectError(error.ShapeMismatch, row_view.broadcastToView(&.{ 2, 2 }));
@@ -26109,7 +22781,7 @@ test "array and view non-copying reshape flatten aliases" {
     try std.testing.expectEqual(@as(f64, 20), a.data[1]);
     try reshaped_view.set(&.{ 0, 1 }, 2);
 
-    var reshaped_view_snake = try a.reshape_view(&.{ 1, 6 });
+    var reshaped_view_snake = try a.reshapeView(&.{ 1, 6 });
     defer reshaped_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 6 }, reshaped_view_snake.shape);
     try std.testing.expect(try reshaped_view_snake.mayOverlapArray(a));
@@ -26117,7 +22789,7 @@ test "array and view non-copying reshape flatten aliases" {
     var inferred_view = try a.reshapeInferView(&.{ -1, 3 });
     defer inferred_view.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, inferred_view.shape);
-    var inferred_view_snake = try a.reshape_infer_view(&.{ 3, -1 });
+    var inferred_view_snake = try a.reshapeInferView(&.{ 3, -1 });
     defer inferred_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, inferred_view_snake.shape);
 
@@ -26127,33 +22799,33 @@ test "array and view non-copying reshape flatten aliases" {
     try flattened_view.set(&.{4}, 50);
     try std.testing.expectEqual(@as(f64, 50), a.data[4]);
     try flattened_view.set(&.{4}, 5);
-    var flattened_view_snake = try a.flatten_view();
+    var flattened_view_snake = try a.flattenView();
     defer flattened_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, flattened_view.shape, flattened_view_snake.shape);
 
     var flat_axes_view = try a.flattenAxesView(0, 1);
     defer flat_axes_view.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, flat_axes_view.shape);
-    var flat_axes_view_snake = try a.flatten_axes_view(0, 1);
+    var flat_axes_view_snake = try a.flattenAxesView(0, 1);
     defer flat_axes_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, flat_axes_view.shape, flat_axes_view_snake.shape);
     var flat_range_view = try a.flattenRangeView(0, 1);
     defer flat_range_view.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, flat_range_view.shape);
-    var flat_range_view_snake = try a.flatten_range_view(0, 1);
+    var flat_range_view_snake = try a.flattenRangeView(0, 1);
     defer flat_range_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, flat_range_view.shape, flat_range_view_snake.shape);
     var flat_from_view = try a.flattenFromView(1);
     defer flat_from_view.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, flat_from_view.shape);
-    var flat_from_view_snake = try a.flatten_from_view(1);
+    var flat_from_view_snake = try a.flattenFromView(1);
     defer flat_from_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, flat_from_view.shape, flat_from_view_snake.shape);
 
     var ravel_view = try a.ravelView();
     defer ravel_view.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, ravel_view.shape);
-    var ravel_view_snake = try a.ravel_view();
+    var ravel_view_snake = try a.ravelView();
     defer ravel_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, ravel_view.shape, ravel_view_snake.shape);
 
@@ -26161,7 +22833,7 @@ test "array and view non-copying reshape flatten aliases" {
     defer unflattened_view.deinit();
     try std.testing.expectEqualSlices(usize, a.shape, unflattened_view.shape);
     try std.testing.expect(unflattened_view.sharesStorage(ravel_view));
-    var unflattened_view_snake = try ravel_view.unflatten_view(0, &.{ 3, 2 });
+    var unflattened_view_snake = try ravel_view.unflattenView(0, &.{ 3, 2 });
     defer unflattened_view_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, unflattened_view_snake.shape);
 
@@ -26175,38 +22847,38 @@ test "array and view non-copying reshape flatten aliases" {
     try std.testing.expectEqual(@as(f64, 20), a.data[1]);
     try view_reshaped.set(&.{ 1, 0 }, 2);
 
-    var view_reshaped_snake = try base_view.reshape_view(&.{ 1, 6 });
+    var view_reshaped_snake = try base_view.reshapeView(&.{ 1, 6 });
     defer view_reshaped_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 6 }, view_reshaped_snake.shape);
     var view_inferred = try base_view.reshapeInferView(&.{-1});
     defer view_inferred.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, view_inferred.shape);
-    var view_inferred_snake = try base_view.reshape_infer_view(&.{ 3, -1 });
+    var view_inferred_snake = try base_view.reshapeInferView(&.{ 3, -1 });
     defer view_inferred_snake.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, view_inferred_snake.shape);
 
     var view_flat = try base_view.flattenView();
     defer view_flat.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, view_flat.shape);
-    var view_flat_snake = try base_view.flatten_view();
+    var view_flat_snake = try base_view.flattenView();
     defer view_flat_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_flat.shape, view_flat_snake.shape);
     var view_flat_axes = try base_view.flattenAxesView(0, 1);
     defer view_flat_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, view_flat_axes.shape);
-    var view_flat_range = try base_view.flatten_range_view(0, 1);
+    var view_flat_range = try base_view.flattenRangeView(0, 1);
     defer view_flat_range.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, view_flat_range.shape);
     var view_flat_from = try base_view.flattenFromView(1);
     defer view_flat_from.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_flat_from.shape);
-    var view_flat_from_snake = try base_view.flatten_from_view(1);
+    var view_flat_from_snake = try base_view.flattenFromView(1);
     defer view_flat_from_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_flat_from.shape, view_flat_from_snake.shape);
     var view_ravel = try base_view.ravelView();
     defer view_ravel.deinit();
     try std.testing.expectEqualSlices(usize, &.{6}, view_ravel.shape);
-    var view_ravel_snake = try base_view.ravel_view();
+    var view_ravel_snake = try base_view.ravelView();
     defer view_ravel_snake.deinit();
     try std.testing.expectEqualSlices(usize, view_ravel.shape, view_ravel_snake.shape);
     var view_unflattened = try view_ravel.unflattenView(0, &.{ 2, 3 });
@@ -26233,39 +22905,39 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqual(@as(usize, 2), a.dim());
     try std.testing.expectEqual(@as(usize, 2), a.rank());
     try std.testing.expectEqual(@as(usize, 2), a.numDims());
-    try std.testing.expectEqual(@as(usize, 2), a.num_dims());
+    try std.testing.expectEqual(@as(usize, 2), a.numDims());
     try std.testing.expectEqual(@as(usize, 6), a.numel());
     try std.testing.expectEqual(@as(usize, 6), a.nelement());
     try std.testing.expect(!a.isEmpty());
-    try std.testing.expect(!a.is_empty());
+    try std.testing.expect(!a.isEmpty());
     try std.testing.expect(a.isMatrix());
-    try std.testing.expect(a.is_matrix());
+    try std.testing.expect(a.isMatrix());
     try std.testing.expect(!a.isBatchedMatrix());
     try std.testing.expect(!a.isSquare());
     try std.testing.expect(!a.isScalar());
-    try std.testing.expect(!a.is_scalar());
+    try std.testing.expect(!a.isScalar());
     try std.testing.expect(!a.isVector());
-    try std.testing.expect(!a.is_vector());
+    try std.testing.expect(!a.isVector());
     try std.testing.expect(!a.isRowVector());
-    try std.testing.expect(!a.is_row_vector());
+    try std.testing.expect(!a.isRowVector());
     try std.testing.expect(!a.isColumnVector());
-    try std.testing.expect(!a.is_column_vector());
+    try std.testing.expect(!a.isColumnVector());
     try std.testing.expect(!a.isVectorLike());
-    try std.testing.expect(!a.is_vector_like());
+    try std.testing.expect(!a.isVectorLike());
     try std.testing.expect(a.shapeEquals(&.{ 2, 3 }));
-    try std.testing.expect(a.shape_equals(&.{ 2, 3 }));
+    try std.testing.expect(a.shapeEquals(&.{ 2, 3 }));
     try std.testing.expect(a.hasShape(&.{ 2, 3 }));
-    try std.testing.expect(a.has_shape(&.{ 2, 3 }));
+    try std.testing.expect(a.hasShape(&.{ 2, 3 }));
     try std.testing.expect(!a.hasShape(&.{ 3, 2 }));
     try std.testing.expect(a.sameShape(a));
-    try std.testing.expect(a.same_shape(a));
+    try std.testing.expect(a.sameShape(a));
     try std.testing.expectEqual(@as(usize, 3), try a.size(1));
     var broadcast_rhs = try Array(f64).full(gpa, &.{ 1, 3 }, 7);
     defer broadcast_rhs.deinit();
     const broadcast_shape_top = try a.broadcastShape(broadcast_rhs);
     defer gpa.free(broadcast_shape_top);
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_shape_top);
-    const broadcast_shape_snake = try a.broadcast_shape(broadcast_rhs);
+    const broadcast_shape_snake = try a.broadcastShape(broadcast_rhs);
     defer gpa.free(broadcast_shape_snake);
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_shape_snake);
     var broadcast_pair = try a.broadcastWith(broadcast_rhs);
@@ -26273,45 +22945,45 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_pair.first.shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_pair.second.shape);
     try std.testing.expectEqual(@as(f64, 7), try broadcast_pair.second.get(&.{ 1, 2 }));
-    var broadcast_pair_snake = try a.broadcast_with(broadcast_rhs);
+    var broadcast_pair_snake = try a.broadcastWith(broadcast_rhs);
     defer broadcast_pair_snake.deinit();
     try std.testing.expectEqualSlices(usize, broadcast_pair.first.shape, broadcast_pair_snake.first.shape);
     const broadcast_shape_static = try Array(f64).broadcastShapes(gpa, &.{ 2, 1, 3 }, &.{ 1, 4, 3 });
     defer gpa.free(broadcast_shape_static);
     try std.testing.expectEqualSlices(usize, &.{ 2, 4, 3 }, broadcast_shape_static);
-    const broadcast_shape_static_snake = try Array(f64).broadcast_shapes(gpa, &.{3}, &.{ 2, 3 });
+    const broadcast_shape_static_snake = try Array(f64).broadcastShapes(gpa, &.{3}, &.{ 2, 3 });
     defer gpa.free(broadcast_shape_static_snake);
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, broadcast_shape_static_snake);
     try std.testing.expectError(error.ShapeMismatch, Array(f64).broadcastShapes(gpa, &.{2}, &.{3}));
     try std.testing.expectEqual(@as(usize, 3), try a.shapeAt(-1));
-    try std.testing.expectEqual(@as(usize, 3), try a.shape_at(-1));
+    try std.testing.expectEqual(@as(usize, 3), try a.shapeAt(-1));
     try std.testing.expectEqual(@as(usize, 3), try a.strideAt(0));
-    try std.testing.expectEqual(@as(usize, 3), try a.stride_at(0));
+    try std.testing.expectEqual(@as(usize, 3), try a.strideAt(0));
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.elementSize());
-    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.element_size());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.elementSize());
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), a.itemsize());
     try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), a.nbytes());
-    try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), a.num_bytes());
+    try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), a.nbytes());
     try std.testing.expectEqual(@as(usize, 0), a.storageOffset());
-    try std.testing.expectEqual(@as(usize, 0), a.storage_offset());
+    try std.testing.expectEqual(@as(usize, 0), a.storageOffset());
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.dataPtr()));
-    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.data_ptr()));
+    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.dataPtr()));
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storageDataPtr()));
-    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storage_data_ptr()));
-    try std.testing.expect(a.is_contiguous());
+    try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storageDataPtr()));
+    try std.testing.expect(a.isContiguous());
     try std.testing.expect(Device.cpu.isCpu());
-    try std.testing.expect(Device.cpu.is_cpu());
+    try std.testing.expect(Device.cpu.isCpu());
     try std.testing.expect(!Device.cpu.isCuda());
-    try std.testing.expect(!Device.cpu.is_cuda());
+    try std.testing.expect(!Device.cpu.isCuda());
     try std.testing.expectEqualStrings("cpu", Device.cpu.backendName());
-    try std.testing.expectEqualStrings("cpu", Device.cpu.backend_name());
+    try std.testing.expectEqualStrings("cpu", Device.cpu.backendName());
     try std.testing.expect(Device.cpu.sameDevice(.cpu));
-    try std.testing.expect(Device.cpu.same_device(.cpu));
+    try std.testing.expect(Device.cpu.sameDevice(.cpu));
     try std.testing.expect(Device.cpu.eql(.cpu));
-    try std.testing.expect(Device.cpu.is_available());
+    try std.testing.expect(Device.cpu.isAvailable());
     const cuda_device = Device.cuda(1);
     try std.testing.expect(cuda_device.isCuda());
-    try std.testing.expect(cuda_device.is_cuda());
+    try std.testing.expect(cuda_device.isCuda());
     try std.testing.expect(!cuda_device.isCpu());
     try std.testing.expectEqualStrings("cuda", cuda_device.backendName());
     try std.testing.expectEqual(@as(usize, 1), cuda_device.index);
@@ -26319,7 +22991,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expect(!Device.cpu.sameDevice(cuda_device));
     const mps_device = Device.mps(0);
     try std.testing.expect(mps_device.isMps());
-    try std.testing.expect(mps_device.is_mps());
+    try std.testing.expect(mps_device.isMps());
     try std.testing.expect(!mps_device.isCpu());
     try std.testing.expect(!mps_device.isCuda());
     try std.testing.expectEqualStrings("mps", mps_device.backendName());
@@ -26329,23 +23001,23 @@ test "array pytorch numpy shape indexing and layout helpers" {
         try std.testing.expect(!mps_device.isAvailable());
     }
     try std.testing.expectEqual(Backend.cpu, a.deviceBackend());
-    try std.testing.expectEqual(Backend.cpu, a.device_backend());
+    try std.testing.expectEqual(Backend.cpu, a.deviceBackend());
     try std.testing.expectEqual(@as(usize, 0), a.deviceIndex());
-    try std.testing.expectEqual(@as(usize, 0), a.device_index());
+    try std.testing.expectEqual(@as(usize, 0), a.deviceIndex());
     try std.testing.expectEqualStrings("cpu", a.deviceBackendName());
-    try std.testing.expectEqualStrings("cpu", a.device_backend_name());
+    try std.testing.expectEqualStrings("cpu", a.deviceBackendName());
     try std.testing.expect(a.isCpu());
-    try std.testing.expect(a.is_cpu());
+    try std.testing.expect(a.isCpu());
     try std.testing.expect(!a.isCuda());
-    try std.testing.expect(!a.is_cuda());
+    try std.testing.expect(!a.isCuda());
     try std.testing.expect(!a.isMps());
-    try std.testing.expect(!a.is_mps());
+    try std.testing.expect(!a.isMps());
     try std.testing.expect(a.isDeviceAvailable());
-    try std.testing.expect(a.is_device_available());
+    try std.testing.expect(a.isDeviceAvailable());
     var cpu_clone = try a.cpu();
     defer cpu_clone.deinit();
     try std.testing.expect(a.sameDevice(cpu_clone));
-    try std.testing.expect(a.same_device(cpu_clone));
+    try std.testing.expect(a.sameDevice(cpu_clone));
     if (Device.cuda(0).isAvailable()) {
         var cuda_clone = try a.cuda(0);
         defer cuda_clone.deinit();
@@ -26372,25 +23044,25 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var empty_meta = try Array(f64).zeros(gpa, &.{ 0, 3 });
     defer empty_meta.deinit();
     try std.testing.expect(empty_meta.isEmpty());
-    try std.testing.expect(empty_meta.is_empty());
+    try std.testing.expect(empty_meta.isEmpty());
     try std.testing.expectEqual(@as(usize, 0), empty_meta.nbytes());
     var new_zeros = try a.newZeros(&.{2});
     defer new_zeros.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, new_zeros.data);
-    var new_full = try a.new_full(&.{ 1, 2 }, 7);
+    var new_full = try a.newFull(&.{ 1, 2 }, 7);
     defer new_full.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, new_full.shape);
     try std.testing.expectEqualSlices(f64, &.{ 7, 7 }, new_full.data);
-    var empty_alias = try a.empty_like();
+    var empty_alias = try a.emptyLike();
     defer empty_alias.deinit();
     try std.testing.expectEqualSlices(usize, a.shape, empty_alias.shape);
-    var zeros_alias = try a.zeros_like();
+    var zeros_alias = try a.zerosLike();
     defer zeros_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0, 0, 0 }, zeros_alias.data);
-    var ones_alias = try a.ones_like();
+    var ones_alias = try a.onesLike();
     defer ones_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1, 1, 1 }, ones_alias.data);
-    var full_alias = try a.full_like(8);
+    var full_alias = try a.fullLike(8);
     defer full_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 8, 8, 8, 8, 8, 8 }, full_alias.data);
     var copied = try a.copy();
@@ -26405,7 +23077,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var u = try a.unsqueeze(0);
     defer u.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3 }, u.shape);
-    var u_alias = try a.unsqueeze_dim(-1);
+    var u_alias = try a.unsqueezeDim(-1);
     defer u_alias.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3, 1 }, u_alias.shape);
     var s2 = try u.squeeze(null);
@@ -26414,7 +23086,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var squeezed_alias = try u_alias.squeezeDim(-1);
     defer squeezed_alias.deinit();
     try std.testing.expectEqualSlices(usize, a.shape, squeezed_alias.shape);
-    var multi_unsqueezed = try a.unsqueeze_axes(&.{ 0, -1 });
+    var multi_unsqueezed = try a.unsqueezeAxes(&.{ 0, -1 });
     defer multi_unsqueezed.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3, 1 }, multi_unsqueezed.shape);
     var expanded_dims = try a.expandDims(&.{ 0, 2 });
@@ -26423,7 +23095,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectError(error.InvalidAxis, a.unsqueezeAxes(&.{ 0, 0 }));
     var multi_singletons = try a.reshape(&.{ 1, 2, 1, 3 });
     defer multi_singletons.deinit();
-    var squeezed_axes = try multi_singletons.squeeze_axes(&.{ 0, 2 });
+    var squeezed_axes = try multi_singletons.squeezeAxes(&.{ 0, 2 });
     defer squeezed_axes.deinit();
     try std.testing.expectEqualSlices(usize, a.shape, squeezed_axes.shape);
     try std.testing.expectError(error.ShapeMismatch, multi_singletons.squeezeAxes(&.{1}));
@@ -26438,7 +23110,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     defer n.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, n.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5, 6 }, n.data);
-    var n_signed = try a.narrow_signed(1, -2, 2);
+    var n_signed = try a.narrowSigned(1, -2, 2);
     defer n_signed.deinit();
     try std.testing.expectEqualSlices(f64, n.data, n_signed.data);
     try std.testing.expectError(error.IndexOutOfBounds, a.narrowSigned(1, -1, 2));
@@ -26459,7 +23131,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, reshaped.shape);
     var reshape_template = try Array(f64).empty(gpa, &.{ 1, 6 });
     defer reshape_template.deinit();
-    var reshaped_as = try a.reshape_as(reshape_template);
+    var reshaped_as = try a.reshapeAs(reshape_template);
     defer reshaped_as.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 6 }, reshaped_as.shape);
     var viewed = try reshaped.view(&.{ 2, 3 });
@@ -26476,7 +23148,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var flat_from = try cube.flattenFrom(1);
     defer flat_from.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, flat_from.shape);
-    var flat_range = try cube.flatten_range(0, 1);
+    var flat_range = try cube.flattenRange(0, 1);
     defer flat_range.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, flat_range.shape);
     var ravel_top = try a.ravel();
@@ -26485,7 +23157,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var scalar = try Array(f64).fromScalar(gpa, 9);
     defer scalar.deinit();
     try std.testing.expect(scalar.isScalar());
-    try std.testing.expect(scalar.is_scalar());
+    try std.testing.expect(scalar.isScalar());
     try std.testing.expect(!scalar.isVector());
     try std.testing.expect(!scalar.isVectorLike());
     var scalar_1d = try scalar.atLeast1d();
@@ -26494,7 +23166,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqualSlices(f64, &.{9}, scalar_1d.data);
     try std.testing.expect(scalar_1d.isScalar());
     try std.testing.expect(scalar_1d.isVector());
-    try std.testing.expect(scalar_1d.is_vector());
+    try std.testing.expect(scalar_1d.isVector());
     try std.testing.expect(scalar_1d.isVectorLike());
     var scalar_2d = try scalar.atLeast2d();
     defer scalar_2d.deinit();
@@ -26516,7 +23188,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var matrix_transposed = try a.matrixTranspose();
     defer matrix_transposed.deinit();
     try std.testing.expectEqualSlices(f64, transposed_top.data, matrix_transposed.data);
-    var matrix_transposed_alias = try a.matrix_transpose();
+    var matrix_transposed_alias = try a.matrixTranspose();
     defer matrix_transposed_alias.deinit();
     try std.testing.expectEqualSlices(f64, transposed_top.data, matrix_transposed_alias.data);
     var matrix_t = try a.mT();
@@ -26528,13 +23200,13 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var real_mh = try a.mH();
     defer real_mh.deinit();
     try std.testing.expectEqualSlices(f64, transposed_top.data, real_mh.data);
-    var real_h = try a.H_();
+    var real_h = try a.adjoint();
     defer real_h.deinit();
     try std.testing.expectEqualSlices(f64, transposed_top.data, real_h.data);
     var swapped_top = try a.swapaxes(0, 1);
     defer swapped_top.deinit();
     try std.testing.expectEqualSlices(f64, transposed_top.data, swapped_top.data);
-    var swapped_dims_top = try a.swap_dims(0, 1);
+    var swapped_dims_top = try a.swapDims(0, 1);
     defer swapped_dims_top.deinit();
     try std.testing.expectEqualSlices(f64, transposed_top.data, swapped_dims_top.data);
     var moved_top = try u.movedim(0, 2);
@@ -26543,13 +23215,13 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var moveaxis_top = try u.moveaxis(0, -1);
     defer moveaxis_top.deinit();
     try std.testing.expectEqualSlices(usize, moved_top.shape, moveaxis_top.shape);
-    var moved_many = try cube.move_axes(&.{ 0, 2 }, &.{ 2, 0 });
+    var moved_many = try cube.moveaxes(&.{ 0, 2 }, &.{ 2, 0 });
     defer moved_many.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, moved_many.shape);
     var batch_matrix = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }, &.{ 2, 2, 3 });
     defer batch_matrix.deinit();
     try std.testing.expect(batch_matrix.isBatchedMatrix());
-    try std.testing.expect(batch_matrix.is_batched_matrix());
+    try std.testing.expect(batch_matrix.isBatchedMatrix());
     try std.testing.expect(!batch_matrix.isSquare());
     var batch_mt = try batch_matrix.mT();
     defer batch_mt.deinit();
@@ -26563,7 +23235,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var batch_power0 = try batch_square.matrixPower(0);
     defer batch_power0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 1, 1, 0, 0, 1 }, batch_power0.data);
-    var batch_power2 = try batch_square.matrix_power(2);
+    var batch_power2 = try batch_square.matrixPower(2);
     defer batch_power2.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 7, 10, 15, 22, 4, 0, 4, 4 }, batch_power2.data);
     try std.testing.expectError(error.InvalidShape, batch_square.matrixPower(-1));
@@ -26574,21 +23246,21 @@ test "array pytorch numpy shape indexing and layout helpers" {
     defer selected_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, selected_top.data);
     try std.testing.expect(selected_top.isVector());
-    try std.testing.expect(selected_top.is_vector());
+    try std.testing.expect(selected_top.isVector());
     try std.testing.expect(selected_top.isVectorLike());
-    try std.testing.expect(selected_top.is_vector_like());
+    try std.testing.expect(selected_top.isVectorLike());
     try std.testing.expect(!selected_top.isRowVector());
     try std.testing.expect(!selected_top.isColumnVector());
     var vector_2d = try selected_top.atLeast2d();
     defer vector_2d.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, vector_2d.shape);
     try std.testing.expect(vector_2d.isRowVector());
-    try std.testing.expect(vector_2d.is_row_vector());
+    try std.testing.expect(vector_2d.isRowVector());
     try std.testing.expect(vector_2d.isVectorLike());
     var column_vector = try selected_top.reshape(&.{ 3, 1 });
     defer column_vector.deinit();
     try std.testing.expect(column_vector.isColumnVector());
-    try std.testing.expect(column_vector.is_column_vector());
+    try std.testing.expect(column_vector.isColumnVector());
     try std.testing.expect(column_vector.isVectorLike());
     var vector_3d = try selected_top.atLeast3d();
     defer vector_3d.deinit();
@@ -26596,7 +23268,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var broadcast_top = try selected_top.broadcastTo(&.{ 2, 3 });
     defer broadcast_top.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6, 4, 5, 6 }, broadcast_top.data);
-    var broadcast_top_alias = try selected_top.broadcast_to(&.{ 2, 3 });
+    var broadcast_top_alias = try selected_top.broadcastTo(&.{ 2, 3 });
     defer broadcast_top_alias.deinit();
     try std.testing.expectEqualSlices(f64, broadcast_top.data, broadcast_top_alias.data);
     var expanded_top = try selected_top.expand(&.{ 2, 3 });
@@ -26620,7 +23292,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     var expanded_as_top = try selected_top.expandAs(broadcast_top);
     defer expanded_as_top.deinit();
     try std.testing.expectEqualSlices(usize, broadcast_top.shape, expanded_as_top.shape);
-    var expanded_as_alias = try selected_top.expand_as(broadcast_top);
+    var expanded_as_alias = try selected_top.expandAs(broadcast_top);
     defer expanded_as_alias.deinit();
     try std.testing.expectEqualSlices(usize, broadcast_top.shape, expanded_as_alias.shape);
     try std.testing.expectError(error.ShapeMismatch, selected_top.expand(&.{ 2, 2 }));
@@ -26651,7 +23323,7 @@ test "array object style repeat interleave" {
     defer flat.deinit();
     try std.testing.expectEqualSlices(usize, &.{7}, flat.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 2, 3, 4, 4, 4, 6 }, flat.data);
-    var flat_alias = try a.repeat_interleave(flat_repeats, null);
+    var flat_alias = try a.repeatInterleave(flat_repeats, null);
     defer flat_alias.deinit();
     try std.testing.expectEqualSlices(f64, flat.data, flat_alias.data);
 
@@ -26678,7 +23350,7 @@ test "array object style repeat interleave" {
     defer scalar_axis.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 6 }, scalar_axis.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6 }, scalar_axis.data);
-    var scalar_axis_alias = try a.repeat_interleave_scalar(2, -1);
+    var scalar_axis_alias = try a.repeatInterleaveScalar(2, -1);
     defer scalar_axis_alias.deinit();
     try std.testing.expectEqualSlices(f64, scalar_axis.data, scalar_axis_alias.data);
 
@@ -26699,10 +23371,10 @@ test "array object style repeat interleave" {
     defer view_repeated.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, view_repeated.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 3, 4, 4, 6 }, view_repeated.data);
-    var view_repeated_alias = try view.repeat_interleave(view_repeats, 1);
+    var view_repeated_alias = try view.repeatInterleave(view_repeats, 1);
     defer view_repeated_alias.deinit();
     try std.testing.expectEqualSlices(f64, view_repeated.data, view_repeated_alias.data);
-    var view_repeated_scalar_alias = try view.repeat_interleave_scalar(2, 1);
+    var view_repeated_scalar_alias = try view.repeatInterleaveScalar(2, 1);
     defer view_repeated_scalar_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 3, 3, 4, 4, 6, 6 }, view_repeated_scalar_alias.data);
 
@@ -26728,83 +23400,83 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqual(@as(usize, 2), view.dim());
     try std.testing.expectEqual(@as(usize, 2), view.rank());
     try std.testing.expectEqual(@as(usize, 2), view.numDims());
-    try std.testing.expectEqual(@as(usize, 2), view.num_dims());
+    try std.testing.expectEqual(@as(usize, 2), view.numDims());
     try std.testing.expectEqual(@as(usize, 4), view.numel());
     try std.testing.expectEqual(@as(usize, 4), view.nelement());
     try std.testing.expect(!view.isEmpty());
-    try std.testing.expect(!view.is_empty());
+    try std.testing.expect(!view.isEmpty());
     try std.testing.expect(view.isMatrix());
-    try std.testing.expect(view.is_matrix());
+    try std.testing.expect(view.isMatrix());
     try std.testing.expect(view.isSquare());
-    try std.testing.expect(view.is_square());
+    try std.testing.expect(view.isSquare());
     try std.testing.expect(!view.isVector());
-    try std.testing.expect(!view.is_vector());
+    try std.testing.expect(!view.isVector());
     try std.testing.expect(!view.isVectorLike());
     try std.testing.expect(view.shapeEquals(&.{ 2, 2 }));
-    try std.testing.expect(view.shape_equals(&.{ 2, 2 }));
+    try std.testing.expect(view.shapeEquals(&.{ 2, 2 }));
     try std.testing.expect(view.hasShape(&.{ 2, 2 }));
-    try std.testing.expect(view.has_shape(&.{ 2, 2 }));
+    try std.testing.expect(view.hasShape(&.{ 2, 2 }));
     try std.testing.expectEqual(@as(usize, 2), try view.shapeAt(-1));
-    try std.testing.expectEqual(@as(usize, 2), try view.shape_at(-1));
+    try std.testing.expectEqual(@as(usize, 2), try view.shapeAt(-1));
     try std.testing.expectEqual(@as(usize, 2), try view.strideAt(1));
-    try std.testing.expectEqual(@as(usize, 2), try view.stride_at(1));
+    try std.testing.expectEqual(@as(usize, 2), try view.strideAt(1));
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), view.elementSize());
-    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), view.element_size());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), view.elementSize());
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), view.itemsize());
     try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), view.nbytes());
-    try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), view.num_bytes());
+    try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), view.nbytes());
     try std.testing.expectEqual(@as(usize, 0), view.storageOffset());
-    try std.testing.expectEqual(@as(usize, 0), view.storage_offset());
+    try std.testing.expectEqual(@as(usize, 0), view.storageOffset());
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(view.dataPtr()));
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(view.storageDataPtr()));
-    try std.testing.expect(!view.is_contiguous());
+    try std.testing.expect(!view.isContiguous());
     try std.testing.expectEqual(Backend.cpu, view.deviceBackend());
-    try std.testing.expectEqual(Backend.cpu, view.device_backend());
+    try std.testing.expectEqual(Backend.cpu, view.deviceBackend());
     try std.testing.expectEqual(@as(usize, 0), view.deviceIndex());
-    try std.testing.expectEqual(@as(usize, 0), view.device_index());
+    try std.testing.expectEqual(@as(usize, 0), view.deviceIndex());
     try std.testing.expectEqualStrings("cpu", view.deviceBackendName());
-    try std.testing.expectEqualStrings("cpu", view.device_backend_name());
+    try std.testing.expectEqualStrings("cpu", view.deviceBackendName());
     try std.testing.expect(view.isCpu());
-    try std.testing.expect(view.is_cpu());
+    try std.testing.expect(view.isCpu());
     try std.testing.expect(!view.isCuda());
-    try std.testing.expect(!view.is_cuda());
+    try std.testing.expect(!view.isCuda());
     try std.testing.expect(!view.isMps());
-    try std.testing.expect(!view.is_mps());
+    try std.testing.expect(!view.isMps());
     try std.testing.expect(view.isDeviceAvailable());
-    try std.testing.expect(view.is_device_available());
+    try std.testing.expect(view.isDeviceAvailable());
     var view_cpu_clone = try view.cpu();
     defer view_cpu_clone.deinit();
     try std.testing.expect(view.sameDevice(view_cpu_clone));
-    try std.testing.expect(view.same_device(view_cpu_clone));
+    try std.testing.expect(view.sameDevice(view_cpu_clone));
     try std.testing.expect(view.sameDeviceArray(a));
-    try std.testing.expect(view.same_device_array(a));
+    try std.testing.expect(view.sameDeviceArray(a));
     try std.testing.expect(a.sameDeviceView(view));
-    try std.testing.expect(a.same_device_view(view));
+    try std.testing.expect(a.sameDeviceView(view));
     try std.testing.expectError(error.InvalidDevice, view.cuda(0));
     var view_zeros = try view.zerosLike();
     defer view_zeros.deinit();
     try std.testing.expectEqualSlices(usize, view.shape, view_zeros.shape);
     try std.testing.expect(view.sameShape(view));
-    try std.testing.expect(view.same_shape(view));
+    try std.testing.expect(view.sameShape(view));
     try std.testing.expect(view.sameShapeArray(view_zeros));
-    try std.testing.expect(view.same_shape_array(view_zeros));
-    var view_empty_alias = try view.empty_like();
+    try std.testing.expect(view.sameShapeArray(view_zeros));
+    var view_empty_alias = try view.emptyLike();
     defer view_empty_alias.deinit();
     try std.testing.expectEqualSlices(usize, view.shape, view_empty_alias.shape);
-    var view_zeros_alias = try view.zeros_like();
+    var view_zeros_alias = try view.zerosLike();
     defer view_zeros_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0 }, view_zeros_alias.data);
-    var view_ones_alias = try view.ones_like();
+    var view_ones_alias = try view.onesLike();
     defer view_ones_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, view_ones_alias.data);
-    var view_full_alias = try view.full_like(9);
+    var view_full_alias = try view.fullLike(9);
     defer view_full_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9, 9 }, view_full_alias.data);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0 }, view_zeros.data);
     var view_full = try view.fullLike(7);
     defer view_full.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7 }, view_full.data);
-    var view_new_ones = try view.new_ones(&.{3});
+    var view_new_ones = try view.newOnes(&.{3});
     defer view_new_ones.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1 }, view_new_ones.data);
     var view_copy = try view.copy();
@@ -26821,27 +23493,27 @@ test "array view materializing shape wrappers" {
     var view_reshaped = try contiguous_view.reshapeAsArray(view_shape_template);
     defer view_reshaped.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 2 }, view_reshaped.shape);
-    var view_back = try view_reshaped.view_as(contiguous_view);
+    var view_back = try view_reshaped.viewAs(contiguous_view);
     defer view_back.deinit();
     try std.testing.expectEqualSlices(usize, contiguous_view.shape, view_back.shape);
     try std.testing.expect(a.sameShapeView(contiguous_view));
-    try std.testing.expect(a.same_shape_view(contiguous_view));
+    try std.testing.expect(a.sameShapeView(contiguous_view));
     var view_flat_from = try contiguous_view.flattenFrom(1);
     defer view_flat_from.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, view_flat_from.shape);
-    var view_flat_range = try contiguous_view.flatten_range(0, 1);
+    var view_flat_range = try contiguous_view.flattenRange(0, 1);
     defer view_flat_range.deinit();
     try std.testing.expectEqualSlices(usize, &.{8}, view_flat_range.shape);
     var view_unsqueezed = try view.unsqueezeDim(0);
     defer view_unsqueezed.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2 }, view_unsqueezed.shape);
-    var view_squeezed = try view_unsqueezed.squeeze_dim(0);
+    var view_squeezed = try view_unsqueezed.squeezeDim(0);
     defer view_squeezed.deinit();
     try std.testing.expectEqualSlices(usize, view.shape, view_squeezed.shape);
     var view_unsqueezed_many = try view.unsqueezeAxes(&.{ 0, -1 });
     defer view_unsqueezed_many.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2, 1 }, view_unsqueezed_many.shape);
-    var view_expand_dims = try view.expand_dims(&.{1});
+    var view_expand_dims = try view.expandDims(&.{1});
     defer view_expand_dims.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, view_expand_dims.shape);
     var view_squeezed_axes = try view_unsqueezed.squeezeAxes(&.{0});
@@ -26857,7 +23529,7 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, unbound_view.items[0].data);
     try std.testing.expectEqualSlices(f64, &.{ 3, 7 }, unbound_view.items[1].data);
 
-    var view_narrow_signed = try view.narrow_signed(1, -1, 1);
+    var view_narrow_signed = try view.narrowSigned(1, -1, 1);
     defer view_narrow_signed.deinit();
     var view_narrow_signed_owned = try view_narrow_signed.toArray();
     defer view_narrow_signed_owned.deinit();
@@ -26901,7 +23573,7 @@ test "array view materializing shape wrappers" {
     var rolled_flat = try view.rollFlat(1);
     defer rolled_flat.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 7, 1, 3, 5 }, rolled_flat.data);
-    var rolled_flat_neg = try view.roll_flat(-1);
+    var rolled_flat_neg = try view.rollFlat(-1);
     defer rolled_flat_neg.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 5, 7, 1 }, rolled_flat_neg.data);
 
@@ -26967,18 +23639,18 @@ test "array view materializing shape wrappers" {
     var vector = try a.selectView(0, 1);
     defer vector.deinit();
     try std.testing.expect(vector.isVector());
-    try std.testing.expect(vector.is_vector());
+    try std.testing.expect(vector.isVector());
     try std.testing.expect(vector.isVectorLike());
     try std.testing.expect(!vector.isRowVector());
     try std.testing.expect(!vector.isColumnVector());
     var vector_row = try vector.unsqueezeDim(0);
     defer vector_row.deinit();
     try std.testing.expect(vector_row.isRowVector());
-    try std.testing.expect(vector_row.is_row_vector());
+    try std.testing.expect(vector_row.isRowVector());
     var vector_col = try vector.unsqueezeDim(1);
     defer vector_col.deinit();
     try std.testing.expect(vector_col.isColumnVector());
-    try std.testing.expect(vector_col.is_column_vector());
+    try std.testing.expect(vector_col.isColumnVector());
     var sliced = try vector.slice1d(.{ .start = 1, .stop = 4, .step = 2 });
     defer sliced.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6, 8 }, sliced.data);
@@ -26989,7 +23661,7 @@ test "array view materializing shape wrappers" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, parts.items[0].data);
     try std.testing.expectEqualSlices(f64, &.{ 3, 7 }, parts.items[1].data);
 
-    var sized_parts = try view.split_with_sizes(&.{ 1, 1 }, 1);
+    var sized_parts = try view.splitWithSizes(&.{ 1, 1 }, 1);
     defer sized_parts.deinit();
     try std.testing.expectEqual(@as(usize, 2), sized_parts.items.len);
     try std.testing.expectEqualSlices(f64, &.{ 1, 5 }, sized_parts.items[0].data);
@@ -27056,7 +23728,7 @@ test "array non contiguous view helpers" {
     var base_view_infer = try base_view.viewInfer(&.{-1});
     defer base_view_infer.deinit();
     try std.testing.expectEqualSlices(usize, &.{8}, base_view_infer.shape);
-    var stepped_t_alias = try stepped.T_();
+    var stepped_t_alias = try stepped.transpose();
     defer stepped_t_alias.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stepped_t_alias.shape);
     var stepped_clamped = try stepped.clamp(2, 50);
@@ -27083,7 +23755,7 @@ test "array non contiguous view helpers" {
     defer stepped_not_equal_scalar.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, stepped_not_equal_scalar.data);
     try std.testing.expectEqual(@as(usize, 4), stepped.countNonzero());
-    try std.testing.expectEqual(@as(usize, 4), stepped.count_nonzero());
+    try std.testing.expectEqual(@as(usize, 4), stepped.countNonzero());
     var stepped_count0 = try stepped.countNonzeroAxis(0, false);
     defer stepped_count0.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, stepped_count0.data);
@@ -27110,7 +23782,7 @@ test "array non contiguous view helpers" {
     var selected_broadcast = try selected.broadcastTo(&.{ 2, 4 });
     defer selected_broadcast.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, selected_broadcast.shape);
-    var selected_broadcast_alias = try selected.broadcast_to(&.{ 2, 4 });
+    var selected_broadcast_alias = try selected.broadcastTo(&.{ 2, 4 });
     defer selected_broadcast_alias.deinit();
     try std.testing.expectEqualSlices(usize, selected_broadcast.shape, selected_broadcast_alias.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, selected_broadcast.strides);
@@ -27729,7 +24401,7 @@ test "array view transcendental unary math is view aware" {
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).hardSwish, Array(f64).hardSwish, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).logsigmoid, Array(f64).logsigmoid, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).logSigmoid, Array(f64).logSigmoid, 1e-12);
-    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).log_sigmoid, Array(f64).log_sigmoid, 1e-12);
+    try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).logSigmoid, Array(f64).logSigmoid, 1e-12);
     try expectF64ViewUnaryMatchesArray(activation, ArrayView(f64).relu6, Array(f64).relu6, 1e-12);
 
     var activation_owned = try activation.toArray();
@@ -27787,7 +24459,7 @@ test "array view transcendental unary math is view aware" {
     defer glu_view_owned.deinit();
     var expected_glu_view = try glu_view_owned.glu(1);
     defer expected_glu_view.deinit();
-    var actual_glu_view = try glu_view.glu_dim(1);
+    var actual_glu_view = try glu_view.gluDim(1);
     defer actual_glu_view.deinit();
     try expectApproxEqualSlices(f64, expected_glu_view.data, actual_glu_view.data, 1e-12);
 
@@ -28123,7 +24795,7 @@ test "array view object statistics wrappers" {
     var var_flat = try view.variance(null, false, 0);
     defer var_flat.deinit();
     try std.testing.expect(std.math.isNan(var_flat.data[0]));
-    var var1_keep = try view.var_dim(1, true, 0);
+    var var1_keep = try view.varDim(1, true, 0);
     defer var1_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 1 }, var1_keep.shape);
     try std.testing.expectApproxEqAbs(@as(f64, 2.25), var1_keep.data[0], 1e-12);
@@ -28149,7 +24821,7 @@ test "array view object statistics wrappers" {
     var noncontig_var_flat = try noncontig.variance(null, false, 0);
     defer noncontig_var_flat.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.25), noncontig_var_flat.data[0], 1e-12);
-    var noncontig_std_keep = try noncontig.std_dim(1, true, 0);
+    var noncontig_std_keep = try noncontig.stdDim(1, true, 0);
     defer noncontig_std_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, noncontig_std_keep.shape);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.5 }, noncontig_std_keep.data);
@@ -28225,7 +24897,7 @@ test "array view object statistics wrappers" {
     defer view_sum_to_size.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, view_sum_to_size.shape);
     try std.testing.expect(std.math.isNan(view_sum_to_size.data[0]));
-    var view_mean_axes = try view.mean_axes(&.{ 0, 1 }, true);
+    var view_mean_axes = try view.meanAxes(&.{ 0, 1 }, true);
     defer view_mean_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, view_mean_axes.shape);
     try std.testing.expect(std.math.isNan(view_mean_axes.data[0]));
@@ -28239,14 +24911,14 @@ test "array view object statistics wrappers" {
     var noncontig_sum_axes = try noncontig_axes.sumAxes(&.{ 0, 1 }, false);
     defer noncontig_sum_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{10}, noncontig_sum_axes.data);
-    var noncontig_prod_axes = try noncontig_axes.prod_axes(&.{ 0, 1 }, false);
+    var noncontig_prod_axes = try noncontig_axes.prodAxes(&.{ 0, 1 }, false);
     defer noncontig_prod_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{24}, noncontig_prod_axes.data);
     var noncontig_min_axes = try noncontig_axes.minAxes(&.{ 0, 1 }, true);
     defer noncontig_min_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, noncontig_min_axes.shape);
     try std.testing.expectEqualSlices(f64, &.{1}, noncontig_min_axes.data);
-    var noncontig_max_axes = try noncontig_axes.max_axes(&.{ 0, 1 }, false);
+    var noncontig_max_axes = try noncontig_axes.maxAxes(&.{ 0, 1 }, false);
     defer noncontig_max_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{4}, noncontig_max_axes.data);
     var noncontig_mean_axes = try noncontig_axes.meanAxes(&.{ 0, 1 }, false);
@@ -28255,7 +24927,7 @@ test "array view object statistics wrappers" {
     var noncontig_ptp_axes = try noncontig_axes.ptpAxes(&.{ 0, 1 }, false);
     defer noncontig_ptp_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{3}, noncontig_ptp_axes.data);
-    var noncontig_ptp_keep = try noncontig_axes.ptp_dims(&.{ 0, 1 }, true);
+    var noncontig_ptp_keep = try noncontig_axes.ptpDims(&.{ 0, 1 }, true);
     defer noncontig_ptp_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, noncontig_ptp_keep.shape);
     try std.testing.expectEqualSlices(f64, &.{3}, noncontig_ptp_keep.data);
@@ -28266,7 +24938,7 @@ test "array view object statistics wrappers" {
     defer noncontig_quantile_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, noncontig_quantile_axes.shape);
     try std.testing.expectEqualSlices(f64, &.{1.75}, noncontig_quantile_axes.data);
-    var noncontig_percentile_axes = try noncontig_axes.percentile_axes(75, &.{ 0, 1 }, false);
+    var noncontig_percentile_axes = try noncontig_axes.percentileAxes(75, &.{ 0, 1 }, false);
     defer noncontig_percentile_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{3.25}, noncontig_percentile_axes.data);
     var noncontig_quantile_no_axes = try noncontig_axes.quantileAxes(0.5, &.{}, false);
@@ -28279,7 +24951,7 @@ test "array view object statistics wrappers" {
     var noncontig_std_axes = try noncontig_axes.stddevAxes(&.{ 0, 1 }, false, 0);
     defer noncontig_std_axes.deinit();
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1.25)), noncontig_std_axes.data[0], 1e-12);
-    var noncontig_std_axes_keep = try noncontig_axes.std_dims(&.{ 0, 1 }, true, 0);
+    var noncontig_std_axes_keep = try noncontig_axes.stdDims(&.{ 0, 1 }, true, 0);
     defer noncontig_std_axes_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, noncontig_std_axes_keep.shape);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1.25)), noncontig_std_axes_keep.data[0], 1e-12);
@@ -28289,7 +24961,7 @@ test "array view object statistics wrappers" {
     var view_std_axes = try view.stddevAxes(&.{ 0, 1 }, false, 0);
     defer view_std_axes.deinit();
     try std.testing.expect(std.math.isNan(view_std_axes.data[0]));
-    var view_var_alias = try view.var_(null, false, 0);
+    var view_var_alias = try view.variance(null, false, 0);
     defer view_var_alias.deinit();
     try std.testing.expect(std.math.isNan(view_var_alias.data[0]));
     var noncontig_nan_source = try Array(f64).fromSlice(gpa, &.{
@@ -28341,7 +25013,7 @@ test "array view object statistics wrappers" {
     defer noncontig_nanquantile_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, noncontig_nanquantile_axes.shape);
     try std.testing.expectEqualSlices(f64, &.{1.5}, noncontig_nanquantile_axes.data);
-    var noncontig_nanpercentile_axes = try noncontig_nan.nanpercentile_axes(75, &.{ 0, 1 }, false);
+    var noncontig_nanpercentile_axes = try noncontig_nan.nanpercentileAxes(75, &.{ 0, 1 }, false);
     defer noncontig_nanpercentile_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{3}, noncontig_nanpercentile_axes.data);
     var noncontig_nan_no_axes = try noncontig_nan.nanquantileAxes(0.5, &.{}, false);
@@ -28382,7 +25054,7 @@ test "array view object statistics wrappers" {
     var view_nansum_axes = try view.nansumAxes(&.{ 0, 1 }, false);
     defer view_nansum_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{18}, view_nansum_axes.data);
-    var view_nanmax_axes = try view.nanmax_axes(&.{ 0, 1 }, false);
+    var view_nanmax_axes = try view.nanmaxAxes(&.{ 0, 1 }, false);
     defer view_nanmax_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{6}, view_nanmax_axes.data);
     var view_nanmean_axes = try view.nanmeanAxes(&.{ 0, 1 }, false);
@@ -28428,7 +25100,7 @@ test "array view object statistics wrappers" {
     var close_nan_mask = try close_nan_view.iscloseEqualNan(close_nan_view, 0.0, 0.0, true);
     defer close_nan_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, close_nan_mask.data);
-    try std.testing.expect(try close_nan_view.allclose_equal_nan(close_nan_view, 0.0, 0.0, true));
+    try std.testing.expect(try close_nan_view.allcloseEqualNan(close_nan_view, 0.0, 0.0, true));
     var view_nanmedian_axes = try view.nanmedianAxes(&.{ 0, 1 }, false);
     defer view_nanmedian_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{4}, view_nanmedian_axes.data);
@@ -28787,14 +25459,14 @@ test "array view object math sort and linalg wrappers" {
     defer view_diag_axes.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, view_diag_axes.shape);
     try std.testing.expectEqualSlices(f64, &.{ 3, 4 }, view_diag_axes.data);
-    var view_diag_axes_alias = try view.diagonal_axes(1, 0, 1);
+    var view_diag_axes_alias = try view.diagonalAxes(1, 0, 1);
     defer view_diag_axes_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{6}, view_diag_axes_alias.data);
     var view_trace_axes = try view.traceAxes(0, 0, 1);
     defer view_trace_axes.deinit();
     try std.testing.expectEqual(@as(usize, 0), view_trace_axes.shape.len);
     try std.testing.expectEqualSlices(f64, &.{7}, view_trace_axes.data);
-    var view_trace_axes_alias = try view.trace_offset_axes(1, 0, 1);
+    var view_trace_axes_alias = try view.traceOffsetAxes(1, 0, 1);
     defer view_trace_axes_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{6}, view_trace_axes_alias.data);
 
@@ -28870,14 +25542,14 @@ test "array view object math sort and linalg wrappers" {
     try std.testing.expectApproxEqAbs(@as(f32, -1), complex_adjoint.data[1].im, 1e-6);
     try std.testing.expectApproxEqAbs(@as(f32, 4), complex_adjoint.data[2].im, 1e-6);
     try std.testing.expectApproxEqAbs(@as(f32, 0), complex_adjoint.data[3].im, 1e-6);
-    var complex_h = try complex_values.H_();
+    var complex_h = try complex_values.adjoint();
     defer complex_h.deinit();
     try std.testing.expectEqualSlices(C, complex_adjoint.data, complex_h.data);
     const complex_tol = C.init(1e-6, 0);
     var hermitian = try Array(C).fromSlice(gpa, &.{ C.init(2, 0), C.init(1, 2), C.init(1, -2), C.init(3, 0) }, &.{ 2, 2 });
     defer hermitian.deinit();
     try std.testing.expect(try hermitian.isHermitian(complex_tol, complex_tol));
-    try std.testing.expect(try hermitian.is_hermitian(complex_tol, complex_tol));
+    try std.testing.expect(try hermitian.isHermitian(complex_tol, complex_tol));
     try std.testing.expect(!try complex_values.isHermitian(complex_tol, complex_tol));
     var complex_view_mt = try complex_view.mT();
     defer complex_view_mt.deinit();
@@ -28915,7 +25587,7 @@ test "array object linalg methods use Axiom-backed and fallback paths" {
     var matrix_pow1 = try a.matrixPower(1);
     defer matrix_pow1.deinit();
     try std.testing.expectEqualSlices(f64, a.data, matrix_pow1.data);
-    var matrix_pow2 = try a.matrix_power(2);
+    var matrix_pow2 = try a.matrixPower(2);
     defer matrix_pow2.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 30, 70, 20, 50 }, matrix_pow2.data);
     var matrix_pow3 = try a.matrixPower(3);
@@ -28972,9 +25644,9 @@ test "array object linalg methods use Axiom-backed and fallback paths" {
     var f32_spd = try Array(f32).fromSlice(gpa, &.{ 4, 2, 2, 3 }, &.{ 2, 2 });
     defer f32_spd.deinit();
     try std.testing.expect(f32_spd.isSquare());
-    try std.testing.expect(f32_spd.is_square());
+    try std.testing.expect(f32_spd.isSquare());
     try std.testing.expect(try f32_spd.isSymmetric(1e-5, 1e-5));
-    try std.testing.expect(try f32_spd.is_symmetric(1e-5, 1e-5));
+    try std.testing.expect(try f32_spd.isSymmetric(1e-5, 1e-5));
     var f32_chol = try f32_spd.cholesky();
     defer f32_chol.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, 2), f32_chol.data[0], 1e-5);
@@ -29045,11 +25717,11 @@ test "array object advanced linalg methods" {
     try std.testing.expectEqualSlices(usize, &.{2}, singular_values.shape);
     try std.testing.expectApproxEqAbs(@as(f64, 3), singular_values.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2), singular_values.data[1], 1e-12);
-    var singular_values_alias = try diag_values.singular_values(1e-12);
+    var singular_values_alias = try diag_values.singularValues(1e-12);
     defer singular_values_alias.deinit();
     try std.testing.expectEqualSlices(f64, singular_values.data, singular_values_alias.data);
     try std.testing.expectEqual(@as(usize, 2), try diag_values.matrixRank(1e-12));
-    try std.testing.expectEqual(@as(usize, 2), try diag_values.matrix_rank(1e-12));
+    try std.testing.expectEqual(@as(usize, 2), try diag_values.matrixRank(1e-12));
     try std.testing.expectApproxEqAbs(@as(f64, 1.5), try diag_values.cond(1e-12), 1e-12);
 
     var pseudo_inverse = try diag_values.pinv(1e-12);
@@ -29069,13 +25741,13 @@ test "array object advanced linalg methods" {
     var norm_source = try Array(f64).fromSlice(gpa, &.{ 1, -2, 3, -4, 5, -6 }, &.{ 2, 3 });
     defer norm_source.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(91.0)), try norm_source.matrixNorm(.fro, 1e-12), 1e-12);
-    try std.testing.expectApproxEqAbs(@as(f64, 9), try norm_source.matrix_norm(.one, 1e-12), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9), try norm_source.matrixNorm(.one, 1e-12), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 15), try norm_source.matrixNorm(.inf, 1e-12), 1e-12);
 
     var symmetric = try Array(f64).fromSlice(gpa, &.{ 2, 1, 1, 2 }, &.{ 2, 2 });
     defer symmetric.deinit();
     try std.testing.expect(try symmetric.isSymmetric(1e-12, 1e-12));
-    try std.testing.expect(try symmetric.is_symmetric(1e-12, 1e-12));
+    try std.testing.expect(try symmetric.isSymmetric(1e-12, 1e-12));
     var eigen = try symmetric.eigh(64, 1e-12);
     defer eigen.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), eigen.values.data[0], 1e-10);
@@ -29097,7 +25769,7 @@ test "array object advanced linalg methods" {
     var diagonal_values = try Array(f64).fromSlice(gpa, &.{ 2, 0, 0, 0, 3, 0, 0, 0, 5 }, &.{ 3, 3 });
     defer diagonal_values.deinit();
     try std.testing.expect(try diagonal_values.isDiagonalMatrix());
-    try std.testing.expect(try diagonal_values.is_diagonal_matrix());
+    try std.testing.expect(try diagonal_values.isDiagonalMatrix());
     try std.testing.expect(try diagonal_values.isUpperTriangular());
     try std.testing.expect(try diagonal_values.isLowerTriangular());
     try std.testing.expect(!try lu_source.isDiagonalMatrix());
@@ -29106,8 +25778,8 @@ test "array object advanced linalg methods" {
 
     var upper_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 0, 4, 5, 0, 0, 6 }, &.{ 3, 3 });
     defer upper_values.deinit();
-    try std.testing.expect(try upper_values.is_upper_triangular());
-    try std.testing.expect(!try upper_values.is_lower_triangular());
+    try std.testing.expect(try upper_values.isUpperTriangular());
+    try std.testing.expect(!try upper_values.isLowerTriangular());
 
     var lower = try Array(f64).fromSlice(gpa, &.{ 2, 0, 0, -1, 3, 0, 4, 2, 5 }, &.{ 3, 3 });
     defer lower.deinit();
@@ -29264,21 +25936,21 @@ test "array object asStrided view helpers" {
     try std.testing.expectEqualSlices(usize, &.{ 4, 3 }, windows.shape);
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, windows.strides);
     try std.testing.expectEqual(@as(usize, 6), windows.storageSpan());
-    try std.testing.expectEqual(@as(usize, 6), windows.storage_span());
+    try std.testing.expectEqual(@as(usize, 6), windows.storageSpan());
     const windows_range = try windows.storageRange();
     try std.testing.expectEqual(@as(usize, 0), windows_range.begin);
     try std.testing.expectEqual(@as(usize, 6), windows_range.end);
     try std.testing.expectEqual(@as(usize, 6), windows_range.len());
     try std.testing.expect(!windows_range.isEmpty());
-    try std.testing.expect(!windows_range.is_empty());
-    const windows_range_alias = try windows.storage_range();
+    try std.testing.expect(!windows_range.isEmpty());
+    const windows_range_alias = try windows.storageRange();
     try std.testing.expectEqual(windows_range.end, windows_range_alias.end);
     try std.testing.expectEqual(@as(usize, 6), try windows.storageEndOffset());
-    try std.testing.expectEqual(@as(usize, 6), try windows.storage_end_offset());
+    try std.testing.expectEqual(@as(usize, 6), try windows.storageEndOffset());
     try std.testing.expectEqual(@as(usize, 6), windows.storageSize());
-    try std.testing.expectEqual(@as(usize, 6), windows.storage_size());
+    try std.testing.expectEqual(@as(usize, 6), windows.storageSize());
     try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), windows.storageNbytes());
-    try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), windows.storage_nbytes());
+    try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), windows.storageNbytes());
     var owned = try windows.toArray();
     defer owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{
@@ -29295,32 +25967,32 @@ test "array object asStrided view helpers" {
     var shifted = try base.asStrided(&.{ 2, 2 }, &.{ 2, 1 }, 1);
     defer shifted.deinit();
     try std.testing.expectEqual(@as(usize, 1), shifted.storageOffset());
-    try std.testing.expectEqual(@as(usize, 1), shifted.storage_offset());
+    try std.testing.expectEqual(@as(usize, 1), shifted.storageOffset());
     try std.testing.expectEqual(@intFromPtr(base.data.ptr) + @sizeOf(f64), @intFromPtr(shifted.dataPtr()));
     try std.testing.expectEqual(@intFromPtr(base.data.ptr), @intFromPtr(shifted.storageDataPtr()));
-    try std.testing.expectEqual(@intFromPtr(shifted.dataPtr()), @intFromPtr(shifted.data_ptr()));
+    try std.testing.expectEqual(@intFromPtr(shifted.dataPtr()), @intFromPtr(shifted.dataPtr()));
     try std.testing.expectEqual(@as(usize, 4), try shifted.storageSpan());
     const shifted_range = try shifted.storageRange();
     try std.testing.expectEqual(@as(usize, 1), shifted_range.begin);
     try std.testing.expectEqual(@as(usize, 5), shifted_range.end);
     try std.testing.expect(shifted.sharesStorage(windows));
-    try std.testing.expect(shifted.shares_storage(windows));
+    try std.testing.expect(shifted.sharesStorage(windows));
     try std.testing.expect(shifted.sameStorage(windows));
-    try std.testing.expect(shifted.same_storage(windows));
+    try std.testing.expect(shifted.sameStorage(windows));
     try std.testing.expect(shifted.sharesStorageArray(base));
-    try std.testing.expect(shifted.shares_storage_array(base));
+    try std.testing.expect(shifted.sharesStorageArray(base));
     try std.testing.expect(shifted.sameStorageArray(base));
-    try std.testing.expect(shifted.same_storage_array(base));
+    try std.testing.expect(shifted.sameStorageArray(base));
     try std.testing.expect(base.sharesStorageView(shifted));
-    try std.testing.expect(base.shares_storage_view(shifted));
+    try std.testing.expect(base.sharesStorageView(shifted));
     try std.testing.expect(base.sameStorageView(shifted));
-    try std.testing.expect(base.same_storage_view(shifted));
+    try std.testing.expect(base.sameStorageView(shifted));
     try std.testing.expect(try shifted.mayOverlap(windows));
-    try std.testing.expect(try shifted.may_overlap(windows));
+    try std.testing.expect(try shifted.mayOverlap(windows));
     try std.testing.expect(try shifted.mayOverlapArray(base));
-    try std.testing.expect(try shifted.may_overlap_array(base));
+    try std.testing.expect(try shifted.mayOverlapArray(base));
     try std.testing.expect(try base.mayOverlapView(shifted));
-    try std.testing.expect(try base.may_overlap_view(shifted));
+    try std.testing.expect(try base.mayOverlapView(shifted));
     var shifted_owned = try shifted.toArray();
     defer shifted_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 20, 3, 4, 5 }, shifted_owned.data);
@@ -29335,12 +26007,12 @@ test "array object asStrided view helpers" {
     defer tail.deinit();
     try std.testing.expect(every_other.sharesStorage(tail));
     try std.testing.expect(!try every_other.mayOverlap(tail));
-    try std.testing.expect(!try tail.may_overlap(every_other));
+    try std.testing.expect(!try tail.mayOverlap(every_other));
     var empty_view = try base_view.asStrided(&.{0}, &.{1}, 6);
     defer empty_view.deinit();
     const empty_range = try empty_view.storageRange();
     try std.testing.expect(empty_range.isEmpty());
-    try std.testing.expect(empty_range.is_empty());
+    try std.testing.expect(empty_range.isEmpty());
     try std.testing.expectEqual(@as(usize, 6), empty_range.begin);
     try std.testing.expectEqual(@as(usize, 6), empty_range.end);
     try std.testing.expectEqual(@as(usize, 0), try empty_view.storageSpan());
@@ -29348,7 +26020,7 @@ test "array object asStrided view helpers" {
     var clone = try base.clone();
     defer clone.deinit();
     try std.testing.expect(!base.sharesStorage(clone));
-    try std.testing.expect(!base.shares_storage(clone));
+    try std.testing.expect(!base.sharesStorage(clone));
     try std.testing.expect(!try base.mayOverlap(clone));
     var every_other_owned = try every_other.toArray();
     defer every_other_owned.deinit();
@@ -29406,85 +26078,85 @@ test "array and view in-place alias helpers" {
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer a.deinit();
 
-    a.fill_(1);
+    a.fill(1);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, a.data);
-    a.zero_();
+    a.fill(0);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 0, 0 }, a.data);
     var ones = try Array(f64).ones(gpa, &.{ 2, 2 });
     defer ones.deinit();
-    try a.copy_(ones);
+    try a.copyFrom(ones);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 1, 1 }, a.data);
     var twos = try Array(f64).full(gpa, &.{ 1, 2 }, 2);
     defer twos.deinit();
-    try a.copy_from(twos);
+    try a.copyFrom(twos);
     try std.testing.expectEqualSlices(f64, &.{ 2, 2, 2, 2 }, a.data);
-    try a.addScalar_(1);
+    try a.addScalarAssign(1);
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
-    try a.sub_scalar_(1);
+    try a.subScalarAssign(1);
     try std.testing.expectEqualSlices(f64, &.{ 2, 2, 2, 2 }, a.data);
-    try a.mulScalar_(3);
+    try a.mulScalarAssign(3);
     try std.testing.expectEqualSlices(f64, &.{ 6, 6, 6, 6 }, a.data);
-    try a.div_scalar_(2);
+    try a.divScalarAssign(2);
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
-    try a.add_(ones);
+    try a.addAssign(ones);
     try std.testing.expectEqualSlices(f64, &.{ 4, 4, 4, 4 }, a.data);
-    try a.sub_assign(ones);
+    try a.subAssign(ones);
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
-    try a.mul_(ones);
+    try a.mulAssign(ones);
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
-    try a.div_assign(ones);
+    try a.divAssign(ones);
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3, 3 }, a.data);
 
     var row = try a.selectView(0, 0);
     defer row.deinit();
-    try row.fill_(5);
+    try row.fill(5);
     try std.testing.expectEqualSlices(f64, &.{ 5, 5, 3, 3 }, a.data);
-    try row.zero_();
+    try row.fill(0);
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 3, 3 }, a.data);
     var row_values = try Array(f64).fromSlice(gpa, &.{ 7, 8 }, &.{2});
     defer row_values.deinit();
-    try row.copy_from_array(row_values);
+    try row.copyFromArray(row_values);
     try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
     var row_delta = try Array(f64).fromSlice(gpa, &.{ 1, 2 }, &.{2});
     defer row_delta.deinit();
-    try row.add_array_(row_delta);
+    try row.addAssignArray(row_delta);
     try std.testing.expectEqualSlices(f64, &.{ 8, 10, 3, 3 }, a.data);
-    try row.sub_array_(row_delta);
+    try row.subAssignArray(row_delta);
     try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
-    try row.mul_scalar_(2);
+    try row.mulScalarAssign(2);
     try std.testing.expectEqualSlices(f64, &.{ 14, 16, 3, 3 }, a.data);
-    try row.divScalar_(2);
+    try row.divScalarAssign(2);
     try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
 
     var row_view_values = try row_values.asView();
     defer row_view_values.deinit();
-    try row.copy_(row_view_values);
+    try row.copyFrom(row_view_values);
     try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
-    try row.add_(row_view_values);
+    try row.addAssign(row_view_values);
     try std.testing.expectEqualSlices(f64, &.{ 14, 16, 3, 3 }, a.data);
-    try row.sub_(row_view_values);
+    try row.subAssign(row_view_values);
     try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
-    try row.mul_(row_view_values);
+    try row.mulAssign(row_view_values);
     try std.testing.expectEqualSlices(f64, &.{ 49, 64, 3, 3 }, a.data);
-    try row.div_(row_view_values);
+    try row.divAssign(row_view_values);
     try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 3 }, a.data);
 
     var mask = try Array(bool).fromSlice(gpa, &.{ true, false, false, true }, &.{ 2, 2 });
     defer mask.deinit();
-    try a.masked_fill_(mask, -1);
+    try a.maskedFillAssign(mask, -1);
     try std.testing.expectEqualSlices(f64, &.{ -1, 8, 3, -1 }, a.data);
     var mask_values = try Array(f64).fromSlice(gpa, &.{ 10, 20 }, &.{2});
     defer mask_values.deinit();
-    try a.masked_copy_from(mask, mask_values);
+    try a.maskedCopyFrom(mask, mask_values);
     try std.testing.expectEqualSlices(f64, &.{ 10, 8, 3, 20 }, a.data);
     var copy_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer copy_source.deinit();
-    try a.copy_where_(mask, copy_source);
+    try a.copyWhereAssign(mask, copy_source);
     try std.testing.expectEqualSlices(f64, &.{ 1, 8, 3, 4 }, a.data);
 
     var bad = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer bad.deinit();
-    try std.testing.expectError(error.ShapeMismatch, a.copy_(bad));
+    try std.testing.expectError(error.ShapeMismatch, a.copyFrom(bad));
 }
 
 test "array object in-place assignment helpers" {
@@ -29711,17 +26383,17 @@ test "array scalar signed indexing helpers" {
 
     var view = try a.transposeView();
     defer view.deinit();
-    try std.testing.expectEqual(@as(f64, 6), try a.get_signed(&.{ -1, -1 }));
-    try std.testing.expectEqual(@as(f64, 6), try a.at_signed(&.{ -1, -1 }));
-    try a.set_signed(&.{ -1, -1 }, 66);
+    try std.testing.expectEqual(@as(f64, 6), try a.getSigned(&.{ -1, -1 }));
+    try std.testing.expectEqual(@as(f64, 6), try a.atSigned(&.{ -1, -1 }));
+    try a.setSigned(&.{ -1, -1 }, 66);
     try std.testing.expectEqual(@as(f64, 66), a.data[5]);
-    try a.put_signed(&.{ -1, -1 }, 6);
+    try a.putSigned(&.{ -1, -1 }, 6);
     try std.testing.expectEqual(@as(f64, 6), a.data[5]);
     try std.testing.expectEqual(@as(f64, 6), try view.getSigned(&.{ -1, -1 }));
-    try view.set_signed(&.{ -1, 0 }, 60);
+    try view.setSigned(&.{ -1, 0 }, 60);
     try std.testing.expectEqual(@as(f64, 60), a.data[2]);
-    try std.testing.expectEqual(@as(f64, 60), try view.get_signed(&.{ -1, 0 }));
-    var selected = try view.select_signed(0, -1);
+    try std.testing.expectEqual(@as(f64, 60), try view.getSigned(&.{ -1, 0 }));
+    var selected = try view.selectSigned(0, -1);
     defer selected.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, selected.shape);
     var selected_owned = try selected.toArray();
@@ -29741,7 +26413,7 @@ test "array signed negative indexing helpers" {
     var flat_taken = try a.takeSigned(flat_idx, null);
     defer flat_taken.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 22, 10, 20 }, flat_taken.data);
-    var flat_taken_alias = try a.take_signed(flat_idx, null);
+    var flat_taken_alias = try a.takeSigned(flat_idx, null);
     defer flat_taken_alias.deinit();
     try std.testing.expectEqualSlices(f64, flat_taken.data, flat_taken_alias.data);
 
@@ -29751,17 +26423,17 @@ test "array signed negative indexing helpers" {
     defer selected.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, selected.shape);
     try std.testing.expectEqualSlices(f64, &.{ 12, 10, 22, 20 }, selected.data);
-    var selected_alias = try a.index_select_signed(1, col_idx);
+    var selected_alias = try a.indexSelectSigned(1, col_idx);
     defer selected_alias.deinit();
     try std.testing.expectEqualSlices(f64, selected.data, selected_alias.data);
     var values = try Array(f64).fromSlice(gpa, &.{ 100, 200 }, &.{2});
     defer values.deinit();
     var edge_indices = try Array(usize).fromSlice(gpa, &.{ 0, 5 }, &.{2});
     defer edge_indices.deinit();
-    var index_put_alias = try a.index_put(edge_indices, values);
+    var index_put_alias = try a.indexPut(edge_indices, values);
     defer index_put_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 100, 11, 12, 20, 21, 200 }, index_put_alias.data);
-    var index_put_scalar_alias = try a.index_put_scalar(edge_indices, -7);
+    var index_put_scalar_alias = try a.indexPutScalar(edge_indices, -7);
     defer index_put_scalar_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -7, 11, 12, 20, 21, -7 }, index_put_scalar_alias.data);
 
@@ -29770,13 +26442,13 @@ test "array signed negative indexing helpers" {
     var gathered = try a.gatherSigned(1, gather_idx);
     defer gathered.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 12, 10, 11, 20, 22, 21 }, gathered.data);
-    var gathered_snake = try a.gather_signed(1, gather_idx);
+    var gathered_snake = try a.gatherSigned(1, gather_idx);
     defer gathered_snake.deinit();
     try std.testing.expectEqualSlices(f64, gathered.data, gathered_snake.data);
     var gathered_alias = try a.takeAlongAxisSigned(gather_idx, 1);
     defer gathered_alias.deinit();
     try std.testing.expectEqualSlices(f64, gathered.data, gathered_alias.data);
-    var gathered_alias_snake = try a.take_along_axis_signed(gather_idx, 1);
+    var gathered_alias_snake = try a.takeAlongAxisSigned(gather_idx, 1);
     defer gathered_alias_snake.deinit();
     try std.testing.expectEqualSlices(f64, gathered.data, gathered_alias_snake.data);
 
@@ -29787,13 +26459,13 @@ test "array signed negative indexing helpers" {
     try std.testing.expectEqualSlices(f64, &.{ 200, 11, 12, 20, 21, 100 }, put.data);
     var reverse_edge_indices = try Array(usize).fromSlice(gpa, &.{ 5, 0 }, &.{2});
     defer reverse_edge_indices.deinit();
-    var put_alias = try a.put_flat(reverse_edge_indices, values);
+    var put_alias = try a.putFlat(reverse_edge_indices, values);
     defer put_alias.deinit();
     try std.testing.expectEqualSlices(f64, put.data, put_alias.data);
     var scalar_put = try a.putFlatScalarSigned(put_idx, -5);
     defer scalar_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -5, 11, 12, 20, 21, -5 }, scalar_put.data);
-    var scalar_put_alias = try a.put_flat_scalar(reverse_edge_indices, -5);
+    var scalar_put_alias = try a.putFlatScalar(reverse_edge_indices, -5);
     defer scalar_put_alias.deinit();
     try std.testing.expectEqualSlices(f64, scalar_put.data, scalar_put_alias.data);
 
@@ -29802,7 +26474,7 @@ test "array signed negative indexing helpers" {
     var signed_wrapped = try a.takeSignedMode(signed_mode, null, .wrap);
     defer signed_wrapped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 22, 22, 11 }, signed_wrapped.data);
-    var signed_clipped = try a.take_signed_mode(signed_mode, null, .clip);
+    var signed_clipped = try a.takeSignedMode(signed_mode, null, .clip);
     defer signed_clipped.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 10, 22 }, signed_clipped.data);
     var signed_axis_mode = try a.takeSignedMode(signed_mode, 1, .clip);
@@ -29825,7 +26497,7 @@ test "array take mask stack cat and neural helpers" {
     defer picked.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, picked.shape);
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 6, 4 }, picked.data);
-    var picked_alias = try a.index_select(1, idx);
+    var picked_alias = try a.indexSelect(1, idx);
     defer picked_alias.deinit();
     try std.testing.expectEqualSlices(f64, picked.data, picked_alias.data);
     var picked_top = try a.indexSelect(1, idx);
@@ -29982,7 +26654,7 @@ test "array take mask stack cat and neural helpers" {
     try expectApproxEqualSlices(f64, hardswish_out.data, hard_swish_alias.data, 1e-12);
     var logsigmoid_out = try shifted.logsigmoid();
     defer logsigmoid_out.deinit();
-    var log_sigmoid_alias = try shifted.log_sigmoid();
+    var log_sigmoid_alias = try shifted.logSigmoid();
     defer log_sigmoid_alias.deinit();
     var log_sigmoid_camel = try shifted.logSigmoid();
     defer log_sigmoid_camel.deinit();
@@ -30031,10 +26703,10 @@ test "array advanced indexing mutation helpers" {
     var flat_idx = try a.flatNonzero();
     defer flat_idx.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 5 }, flat_idx.data);
-    var flat_idx_alias = try a.flat_nonzero();
+    var flat_idx_alias = try a.flatNonzero();
     defer flat_idx_alias.deinit();
     try std.testing.expectEqualSlices(usize, flat_idx.data, flat_idx_alias.data);
-    try std.testing.expectEqual(@as(usize, 4), a.count_nonzero());
+    try std.testing.expectEqual(@as(usize, 4), a.countNonzero());
     var count_flat = try a.countNonzeroAxis(null, false);
     defer count_flat.deinit();
     try std.testing.expectEqual(@as(usize, 0), count_flat.shape.len);
@@ -30050,7 +26722,7 @@ test "array advanced indexing mutation helpers" {
     defer count_axes.deinit();
     try std.testing.expectEqual(@as(usize, 0), count_axes.shape.len);
     try std.testing.expectEqualSlices(usize, &.{4}, count_axes.data);
-    var count_axes_keep = try a.count_nonzero_axes(&.{ 0, 1 }, true);
+    var count_axes_keep = try a.countNonzeroAxes(&.{ 0, 1 }, true);
     defer count_axes_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, count_axes_keep.shape);
     try std.testing.expectEqualSlices(usize, &.{4}, count_axes_keep.data);
@@ -30063,19 +26735,19 @@ test "array advanced indexing mutation helpers" {
     var flat_from_coords = try a.ravelCoords(coords);
     defer flat_from_coords.deinit();
     try std.testing.expectEqualSlices(usize, flat_idx.data, flat_from_coords.data);
-    var flat_from_coords_alias = try a.ravel_coords(coords);
+    var flat_from_coords_alias = try a.ravelCoords(coords);
     defer flat_from_coords_alias.deinit();
     try std.testing.expectEqualSlices(usize, flat_from_coords.data, flat_from_coords_alias.data);
     var coords_roundtrip = try a.unravelFlat(flat_from_coords);
     defer coords_roundtrip.deinit();
     try std.testing.expectEqualSlices(usize, coords.data, coords_roundtrip.data);
-    var coords_roundtrip_alias = try a.unravel_flat(flat_from_coords);
+    var coords_roundtrip_alias = try a.unravelFlat(flat_from_coords);
     defer coords_roundtrip_alias.deinit();
     try std.testing.expectEqualSlices(usize, coords_roundtrip.data, coords_roundtrip_alias.data);
     var coord_values = try a.takeCoords(coords);
     defer coord_values.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5, 6 }, coord_values.data);
-    var coord_values_alias = try a.take_coords(coords);
+    var coord_values_alias = try a.takeCoords(coords);
     defer coord_values_alias.deinit();
     try std.testing.expectEqualSlices(f64, coord_values.data, coord_values_alias.data);
     var coord_replacements = try Array(f64).fromSlice(gpa, &.{ 10, 30, 50, 60 }, &.{4});
@@ -30083,13 +26755,13 @@ test "array advanced indexing mutation helpers" {
     var coord_put = try a.putCoords(coords, coord_replacements);
     defer coord_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 0, 50, 60 }, coord_put.data);
-    var coord_put_alias = try a.put_coords(coords, coord_replacements);
+    var coord_put_alias = try a.putCoords(coords, coord_replacements);
     defer coord_put_alias.deinit();
     try std.testing.expectEqualSlices(f64, coord_put.data, coord_put_alias.data);
     var coord_scalar_put = try a.putCoordsScalar(coords, -5);
     defer coord_scalar_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -5, 0, -5, 0, -5, -5 }, coord_scalar_put.data);
-    var coord_scalar_put_alias = try a.put_coords_scalar(coords, -5);
+    var coord_scalar_put_alias = try a.putCoordsScalar(coords, -5);
     defer coord_scalar_put_alias.deinit();
     try std.testing.expectEqualSlices(f64, coord_scalar_put.data, coord_scalar_put_alias.data);
     var grid_coords = try Array(usize).fromSlice(gpa, &.{
@@ -30123,14 +26795,14 @@ test "array advanced indexing mutation helpers" {
     defer flat_multi.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, flat_multi.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 5 }, flat_multi.data);
-    var flat_multi_alias = try a.ravel_multi_index(multi_indices[0..]);
+    var flat_multi_alias = try a.ravelMultiIndex(multi_indices[0..]);
     defer flat_multi_alias.deinit();
     try std.testing.expectEqualSlices(usize, flat_multi.data, flat_multi_alias.data);
     var multi_values = try a.takeMultiIndex(multi_indices[0..]);
     defer multi_values.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, multi_values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 0, 6 }, multi_values.data);
-    var multi_values_alias = try a.take_multi_index(multi_indices[0..]);
+    var multi_values_alias = try a.takeMultiIndex(multi_indices[0..]);
     defer multi_values_alias.deinit();
     try std.testing.expectEqualSlices(f64, multi_values.data, multi_values_alias.data);
     var multi_replacements = try Array(f64).fromSlice(gpa, &.{ 10, 30, 40, 60 }, &.{ 2, 2 });
@@ -30138,13 +26810,13 @@ test "array advanced indexing mutation helpers" {
     var multi_put = try a.putMultiIndex(multi_indices[0..], multi_replacements);
     defer multi_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 30, 40, 5, 60 }, multi_put.data);
-    var multi_put_alias = try a.put_multi_index(multi_indices[0..], multi_replacements);
+    var multi_put_alias = try a.putMultiIndex(multi_indices[0..], multi_replacements);
     defer multi_put_alias.deinit();
     try std.testing.expectEqualSlices(f64, multi_put.data, multi_put_alias.data);
     var multi_scalar_put = try a.putMultiIndexScalar(multi_indices[0..], -9);
     defer multi_scalar_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -9, 0, -9, -9, 5, -9 }, multi_scalar_put.data);
-    var multi_scalar_put_alias = try a.put_multi_index_scalar(multi_indices[0..], -9);
+    var multi_scalar_put_alias = try a.putMultiIndexScalar(multi_indices[0..], -9);
     defer multi_scalar_put_alias.deinit();
     try std.testing.expectEqualSlices(f64, multi_scalar_put.data, multi_scalar_put_alias.data);
     var bad_coords = try Array(usize).fromSlice(gpa, &.{ 2, 0 }, &.{ 1, 2 });
@@ -30172,33 +26844,33 @@ test "array advanced indexing mutation helpers" {
     var mask_put = try a.maskedPut(mask, mask_values);
     defer mask_put.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 0, 20, 0, 30, 6 }, mask_put.data);
-    var mask_put_snake = try a.masked_put(mask, mask_values);
+    var mask_put_snake = try a.maskedPut(mask, mask_values);
     defer mask_put_snake.deinit();
     try std.testing.expectEqualSlices(f64, mask_put.data, mask_put_snake.data);
     var mask_alias = try a.putMask(mask, mask_values);
     defer mask_alias.deinit();
     try std.testing.expectEqualSlices(f64, mask_put.data, mask_alias.data);
-    var mask_alias_snake = try a.put_mask(mask, mask_values);
+    var mask_alias_snake = try a.putMask(mask, mask_values);
     defer mask_alias_snake.deinit();
     try std.testing.expectEqualSlices(f64, mask_put.data, mask_alias_snake.data);
 
     var mask_scalar = try a.maskedPutScalar(mask, -1);
     defer mask_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 0, -1, 0, -1, 6 }, mask_scalar.data);
-    var mask_scalar_snake = try a.masked_put_scalar(mask, -1);
+    var mask_scalar_snake = try a.maskedPutScalar(mask, -1);
     defer mask_scalar_snake.deinit();
     try std.testing.expectEqualSlices(f64, mask_scalar.data, mask_scalar_snake.data);
     var mask_scalar_alias = try a.putMaskScalar(mask, -2);
     defer mask_scalar_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -2, 0, -2, 0, -2, 6 }, mask_scalar_alias.data);
-    var mask_scalar_alias_snake = try a.put_mask_scalar(mask, -2);
+    var mask_scalar_alias_snake = try a.putMaskScalar(mask, -2);
     defer mask_scalar_alias_snake.deinit();
     try std.testing.expectEqualSlices(f64, mask_scalar_alias.data, mask_scalar_alias_snake.data);
     var mask_coords = try mask.whereIndices();
     defer mask_coords.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, mask_coords.shape);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 2, 1, 1 }, mask_coords.data);
-    var mask_coords_alias = try mask.where_indices();
+    var mask_coords_alias = try mask.whereIndices();
     defer mask_coords_alias.deinit();
     try std.testing.expectEqualSlices(usize, mask_coords.data, mask_coords_alias.data);
     var copy_src = try Array(f64).full(gpa, &.{ 2, 3 }, 42);
@@ -30206,7 +26878,7 @@ test "array advanced indexing mutation helpers" {
     var copied_where = try a.copyWhere(mask, copy_src);
     defer copied_where.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 42, 0, 42, 0, 42, 6 }, copied_where.data);
-    var copied_where_snake = try a.copy_where(mask, copy_src);
+    var copied_where_snake = try a.copyWhere(mask, copy_src);
     defer copied_where_snake.deinit();
     try std.testing.expectEqualSlices(f64, copied_where.data, copied_where_snake.data);
     var where_other = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30 }, &.{ 1, 3 });
@@ -30215,13 +26887,13 @@ test "array advanced indexing mutation helpers" {
     defer where_out.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, where_out.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 20, 3, 10, 5, 30 }, where_out.data);
-    var where_out_snake = try a.where_array(mask, where_other);
+    var where_out_snake = try a.whereArray(mask, where_other);
     defer where_out_snake.deinit();
     try std.testing.expectEqualSlices(f64, where_out.data, where_out_snake.data);
     var where_scalar = try a.whereScalar(mask, -1);
     defer where_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, -1, 3, -1, 5, -1 }, where_scalar.data);
-    var where_scalar_snake = try a.where_scalar(mask, -1);
+    var where_scalar_snake = try a.whereScalar(mask, -1);
     defer where_scalar_snake.deinit();
     try std.testing.expectEqualSlices(f64, where_scalar.data, where_scalar_snake.data);
     var row_view = try a.selectView(0, 0);
@@ -30233,7 +26905,7 @@ test "array advanced indexing mutation helpers" {
     var view_where_scalar = try row_view.whereScalar(mask, -2);
     defer view_where_scalar.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, -2, 3, -2, 0, -2 }, view_where_scalar.data);
-    var view_where_scalar_snake = try row_view.where_scalar(mask, -2);
+    var view_where_scalar_snake = try row_view.whereScalar(mask, -2);
     defer view_where_scalar_snake.deinit();
     try std.testing.expectEqualSlices(f64, view_where_scalar.data, view_where_scalar_snake.data);
     var other_view = try where_other.broadcastView(&.{ 2, 3 });
@@ -30252,7 +26924,7 @@ test "array advanced indexing mutation helpers" {
     var view_taken = try view.takeAlongAxis(view_indices, 1);
     defer view_taken.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 0, 6 }, view_taken.data);
-    var view_taken_alias = try view.take_along_axis(view_indices, 1);
+    var view_taken_alias = try view.takeAlongAxis(view_indices, 1);
     defer view_taken_alias.deinit();
     try std.testing.expectEqualSlices(f64, view_taken.data, view_taken_alias.data);
     var signed_view_indices = try Array(isize).fromSlice(gpa, &.{ -1, 0, 0, -1 }, &.{ 2, 2 });
@@ -30260,7 +26932,7 @@ test "array advanced indexing mutation helpers" {
     var signed_view_taken = try view.takeAlongAxisSigned(signed_view_indices, 1);
     defer signed_view_taken.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 1, 0, 6 }, signed_view_taken.data);
-    var signed_view_taken_alias = try view.take_along_axis_signed(signed_view_indices, 1);
+    var signed_view_taken_alias = try view.takeAlongAxisSigned(signed_view_indices, 1);
     defer signed_view_taken_alias.deinit();
     try std.testing.expectEqualSlices(f64, signed_view_taken.data, signed_view_taken_alias.data);
     var signed_view_mode_indices = try Array(isize).fromSlice(gpa, &.{ -1, 0, 0, 3 }, &.{ 2, 2 });
@@ -30275,15 +26947,15 @@ test "array advanced indexing mutation helpers" {
     var flat_put_view = try view.putFlat(flat_put_indices, put_values_view);
     defer flat_put_view.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 7, 8, 6 }, flat_put_view.data);
-    var flat_put_view_alias = try view.put_flat(flat_put_indices, put_values_view);
+    var flat_put_view_alias = try view.putFlat(flat_put_indices, put_values_view);
     defer flat_put_view_alias.deinit();
     try std.testing.expectEqualSlices(f64, flat_put_view.data, flat_put_view_alias.data);
-    var index_put_view_alias = try view.index_put(flat_put_indices, put_values_view);
+    var index_put_view_alias = try view.indexPut(flat_put_indices, put_values_view);
     defer index_put_view_alias.deinit();
     try std.testing.expectEqualSlices(f64, flat_put_view.data, index_put_view_alias.data);
     var flat_put_scalar_view = try view.putFlatScalar(flat_put_indices, -3);
     defer flat_put_scalar_view.deinit();
-    var flat_put_scalar_view_alias = try view.put_flat_scalar(flat_put_indices, -3);
+    var flat_put_scalar_view_alias = try view.putFlatScalar(flat_put_indices, -3);
     defer flat_put_scalar_view_alias.deinit();
     try std.testing.expectEqualSlices(f64, flat_put_scalar_view.data, flat_put_scalar_view_alias.data);
     try std.testing.expectEqualSlices(f64, &.{ 1, -3, -3, 6 }, flat_put_scalar_view.data);
@@ -30673,7 +27345,7 @@ test "array logsoftmax norm and matrix helpers" {
     var expected_log_softmin = try neg_logits.logSoftmax(1);
     defer expected_log_softmin.deinit();
     try expectApproxEqualSlices(f64, expected_log_softmin.data, log_softmin.data, 1e-12);
-    var log_softmin_alias = try logits.log_softmin_dim(-1);
+    var log_softmin_alias = try logits.logSoftminDim(-1);
     defer log_softmin_alias.deinit();
     try expectApproxEqualSlices(f64, log_softmin.data, log_softmin_alias.data, 1e-12);
 
@@ -30689,7 +27361,7 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectEqualSlices(usize, nll_none.shape, ce_none.shape);
     try std.testing.expectApproxEqAbs(nll_none.data[0], ce_none.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(nll_none.data[1], ce_none.data[1], 1e-12);
-    var ce_mean = try logits.cross_entropy_dim(class_targets, -1, .mean);
+    var ce_mean = try logits.crossEntropyDim(class_targets, -1, .mean);
     defer ce_mean.deinit();
     try std.testing.expectEqual(@as(usize, 0), ce_mean.shape.len);
     try std.testing.expectApproxEqAbs(@as(f64, 1.4076059644443806), ce_mean.data[0], 1e-12);
@@ -30705,7 +27377,7 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectApproxEqAbs(nll_none.data[1], ce_axis0.data[1], 1e-12);
     var logits_view = try logits.transposeView();
     defer logits_view.deinit();
-    var view_ce = try logits_view.cross_entropy(class_targets, 0, .mean);
+    var view_ce = try logits_view.crossEntropy(class_targets, 0, .mean);
     defer view_ce.deinit();
     try std.testing.expectApproxEqAbs(ce_mean.data[0], view_ce.data[0], 1e-12);
     var view_softmin = try logits_view.softminDim(0);
@@ -30715,7 +27387,7 @@ test "array logsoftmax norm and matrix helpers" {
     var expected_view_softmin = try logits_view_owned.softmin(0);
     defer expected_view_softmin.deinit();
     try expectApproxEqualSlices(f64, expected_view_softmin.data, view_softmin.data, 1e-12);
-    var view_log_softmin = try logits_view.log_softmin(0);
+    var view_log_softmin = try logits_view.logSoftmin(0);
     defer view_log_softmin.deinit();
     var expected_view_log_softmin = try logits_view_owned.logSoftmin(0);
     defer expected_view_log_softmin.deinit();
@@ -30744,7 +27416,7 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 0.8)), bce_none.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 0.7)), bce_none.data[2], 1e-12);
     try std.testing.expectApproxEqAbs(-std.math.log(f64, std.math.e, @as(f64, 0.6)), bce_none.data[3], 1e-12);
-    var bce_mean = try probabilities.binary_cross_entropy(binary_targets, .mean);
+    var bce_mean = try probabilities.binaryCrossEntropy(binary_targets, .mean);
     defer bce_mean.deinit();
     try std.testing.expectEqual(@as(usize, 0), bce_mean.shape.len);
     const expected_bce_mean = (-std.math.log(f64, std.math.e, @as(f64, 0.9)) - std.math.log(f64, std.math.e, @as(f64, 0.8)) - std.math.log(f64, std.math.e, @as(f64, 0.7)) - std.math.log(f64, std.math.e, @as(f64, 0.6))) / 4.0;
@@ -30758,7 +27430,7 @@ test "array logsoftmax norm and matrix helpers" {
         const expected = @max(logit, @as(f64, 0)) - logit * target + std.math.log1p(std.math.exp(-@abs(logit)));
         try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
     }
-    var bce_logits_sum = try binary_logits.binary_cross_entropy_with_logits(binary_targets, .sum);
+    var bce_logits_sum = try binary_logits.binaryCrossEntropyWithLogits(binary_targets, .sum);
     defer bce_logits_sum.deinit();
     var expected_logits_sum: f64 = 0;
     for (bce_logits.data) |value| expected_logits_sum += value;
@@ -30786,7 +27458,7 @@ test "array logsoftmax norm and matrix helpers" {
     defer mse_none.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, mse_none.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 9, 1 }, mse_none.data);
-    var mse_mean = try predictions.mse_loss(regression_targets, .mean);
+    var mse_mean = try predictions.mseLoss(regression_targets, .mean);
     defer mse_mean.deinit();
     try std.testing.expectEqual(@as(usize, 0), mse_mean.shape.len);
     try std.testing.expectApproxEqAbs(@as(f64, 3), mse_mean.data[0], 1e-12);
@@ -30797,7 +27469,7 @@ test "array logsoftmax norm and matrix helpers" {
     defer regression_view_source.deinit();
     var regression_view = try regression_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
     defer regression_view.deinit();
-    var view_l1 = try regression_view.l1_loss(regression_targets, .none);
+    var view_l1 = try regression_view.l1Loss(regression_targets, .none);
     defer view_l1.deinit();
     var expected_view_l1 = try predictions.l1Loss(regression_targets, .none);
     defer expected_view_l1.deinit();
@@ -30812,10 +27484,10 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, kl_none.shape);
     try std.testing.expectApproxEqAbs(nll_none.data[0], kl_none.data[0] + kl_none.data[1] + kl_none.data[2], 1e-12);
     try std.testing.expectApproxEqAbs(nll_none.data[1], kl_none.data[3] + kl_none.data[4] + kl_none.data[5], 1e-12);
-    var kl_mean = try log_probs.kl_div(target_probs, .mean);
+    var kl_mean = try log_probs.klDiv(target_probs, .mean);
     defer kl_mean.deinit();
     try std.testing.expectApproxEqAbs((nll_none.data[0] + nll_none.data[1]) / 6.0, kl_mean.data[0], 1e-12);
-    var view_kl = try logits_view.log_softmax(0);
+    var view_kl = try logits_view.logSoftmax(0);
     defer view_kl.deinit();
     var view_target_probs = try target_probs.transpose();
     defer view_target_probs.deinit();
@@ -30831,7 +27503,7 @@ test "array logsoftmax norm and matrix helpers" {
     defer log_probs_view_source.deinit();
     var log_probs_view = try log_probs_view_source.sliceAxisView(1, .{ .start = 0, .stop = 6, .step = 2 });
     defer log_probs_view.deinit();
-    var view_kl_none = try log_probs_view.kl_div(target_probs, .none);
+    var view_kl_none = try log_probs_view.klDiv(target_probs, .none);
     defer view_kl_none.deinit();
     try expectApproxEqualSlices(f64, kl_none.data, view_kl_none.data, 1e-12);
     var rank_a = try Array(f64).fromSlice(gpa, &.{ 2, 1, 0, 4 }, &.{ 2, 2 });
@@ -30844,14 +27516,14 @@ test "array logsoftmax norm and matrix helpers" {
     defer rank_loss.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, rank_loss.shape);
     try std.testing.expectEqualSlices(f64, &.{ 0, 1.5, 0, 3.5 }, rank_loss.data);
-    var rank_loss_mean = try rank_a.margin_ranking_loss(rank_b, rank_targets, 0.5, .mean);
+    var rank_loss_mean = try rank_a.marginRankingLoss(rank_b, rank_targets, 0.5, .mean);
     defer rank_loss_mean.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.25), rank_loss_mean.data[0], 1e-12);
     var rank_view_source = try Array(f64).fromSlice(gpa, &.{ 2, 99, 1, 88, 0, 77, 4, 66 }, &.{ 2, 4 });
     defer rank_view_source.deinit();
     var rank_view = try rank_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
     defer rank_view.deinit();
-    var rank_view_loss = try rank_view.margin_ranking_loss(rank_b, rank_targets, 0.5, .none);
+    var rank_view_loss = try rank_view.marginRankingLoss(rank_b, rank_targets, 0.5, .none);
     defer rank_view_loss.deinit();
     try expectApproxEqualSlices(f64, rank_loss.data, rank_view_loss.data, 1e-12);
     var margin_inputs = try Array(f64).fromSlice(gpa, &.{ 1, -2, 0.5, -0.25 }, &.{ 2, 2 });
@@ -30865,7 +27537,7 @@ test "array logsoftmax norm and matrix helpers" {
         const expected = std.math.log1p(std.math.exp(-target * input));
         try std.testing.expectApproxEqAbs(expected, soft_margin_none.data[i], 1e-12);
     }
-    var soft_margin_mean = try margin_inputs.soft_margin_loss(margin_targets, .mean);
+    var soft_margin_mean = try margin_inputs.softMarginLoss(margin_targets, .mean);
     defer soft_margin_mean.deinit();
     var expected_soft_margin_mean: f64 = 0;
     for (soft_margin_none.data) |value| expected_soft_margin_mean += value;
@@ -30875,16 +27547,16 @@ test "array logsoftmax norm and matrix helpers" {
     defer soft_margin_view_source.deinit();
     var soft_margin_view = try soft_margin_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
     defer soft_margin_view.deinit();
-    var soft_margin_view_loss = try soft_margin_view.soft_margin_loss(margin_targets, .none);
+    var soft_margin_view_loss = try soft_margin_view.softMarginLoss(margin_targets, .none);
     defer soft_margin_view_loss.deinit();
     try expectApproxEqualSlices(f64, soft_margin_none.data, soft_margin_view_loss.data, 1e-12);
     var hinge_binary = try margin_inputs.hingeLoss(margin_targets, 1.0, .none);
     defer hinge_binary.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 3, 1.5, 0.75 }, hinge_binary.data);
-    var hinge_binary_mean = try margin_inputs.hinge_loss(margin_targets, 1.0, .mean);
+    var hinge_binary_mean = try margin_inputs.hingeLoss(margin_targets, 1.0, .mean);
     defer hinge_binary_mean.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.3125), hinge_binary_mean.data[0], 1e-12);
-    var hinge_binary_view = try soft_margin_view.hinge_loss(margin_targets, 1.0, .none);
+    var hinge_binary_view = try soft_margin_view.hingeLoss(margin_targets, 1.0, .none);
     defer hinge_binary_view.deinit();
     try expectApproxEqualSlices(f64, hinge_binary.data, hinge_binary_view.data, 1e-12);
     var hinge_inputs = try Array(f64).fromSlice(gpa, &.{ 0.25, 2.0, 1.25, 0.5 }, &.{ 2, 2 });
@@ -30894,14 +27566,14 @@ test "array logsoftmax norm and matrix helpers" {
     var hinge_none = try hinge_inputs.hingeEmbeddingLoss(hinge_targets, 1.0, .none);
     defer hinge_none.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0.25, 2.0, 0.0, 0.5 }, hinge_none.data);
-    var hinge_sum = try hinge_inputs.hinge_embedding_loss(hinge_targets, 1.0, .sum);
+    var hinge_sum = try hinge_inputs.hingeEmbeddingLoss(hinge_targets, 1.0, .sum);
     defer hinge_sum.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 2.75), hinge_sum.data[0], 1e-12);
     var hinge_view_source = try Array(f64).fromSlice(gpa, &.{ 0.25, 90, 2.0, 80, 1.25, 70, 0.5, 60 }, &.{ 2, 4 });
     defer hinge_view_source.deinit();
     var hinge_view = try hinge_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
     defer hinge_view.deinit();
-    var hinge_view_loss = try hinge_view.hinge_embedding_loss(hinge_targets, 1.0, .none);
+    var hinge_view_loss = try hinge_view.hingeEmbeddingLoss(hinge_targets, 1.0, .none);
     defer hinge_view_loss.deinit();
     try expectApproxEqualSlices(f64, hinge_none.data, hinge_view_loss.data, 1e-12);
     var multi_margin_logits = try Array(f64).fromSlice(gpa, &.{
@@ -30916,7 +27588,7 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectEqualSlices(usize, &.{2}, multi_margin_none.shape);
     try std.testing.expectApproxEqAbs(@as(f64, 0), multi_margin_none.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.5) / 3.0, multi_margin_none.data[1], 1e-12);
-    var multi_margin_square = try multi_margin_logits.multi_margin_loss(multi_margin_targets, 1.0, 2, .sum);
+    var multi_margin_square = try multi_margin_logits.multiMarginLoss(multi_margin_targets, 1.0, 2, .sum);
     defer multi_margin_square.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 4.25) / 3.0, multi_margin_square.data[0], 1e-12);
     var multi_margin_view_source = try Array(f64).fromSlice(gpa, &.{
@@ -30944,14 +27616,14 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectEqualSlices(usize, &.{2}, triplet_none.shape);
     try std.testing.expectApproxEqAbs(@as(f64, 0), triplet_none.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), triplet_none.data[1], 1e-12);
-    var triplet_mean = try triplet_anchor.triplet_margin_loss(triplet_positive, triplet_negative, 1.0, 2.0, 1, .mean);
+    var triplet_mean = try triplet_anchor.tripletMarginLoss(triplet_positive, triplet_negative, 1.0, 2.0, 1, .mean);
     defer triplet_mean.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), triplet_mean.data[0], 1e-12);
     var triplet_view_source = try Array(f64).fromSlice(gpa, &.{ 0, 90, 0, 80, 2, 70, 0, 60 }, &.{ 2, 4 });
     defer triplet_view_source.deinit();
     var triplet_view = try triplet_view_source.sliceAxisView(1, .{ .start = 0, .stop = 4, .step = 2 });
     defer triplet_view.deinit();
-    var triplet_view_loss = try triplet_view.triplet_margin_loss(triplet_positive, triplet_negative, 1.0, 2.0, 1, .none);
+    var triplet_view_loss = try triplet_view.tripletMarginLoss(triplet_positive, triplet_negative, 1.0, 2.0, 1, .none);
     defer triplet_view_loss.deinit();
     try expectApproxEqualSlices(f64, triplet_none.data, triplet_view_loss.data, 1e-12);
     var multilabel_logits = try Array(f64).fromSlice(gpa, &.{
@@ -30971,7 +27643,7 @@ test "array logsoftmax norm and matrix helpers" {
     var expected_multilabel = try multilabel_element.mean(1, false);
     defer expected_multilabel.deinit();
     try expectApproxEqualSlices(f64, expected_multilabel.data, multilabel_none.data, 1e-12);
-    var multilabel_mean = try multilabel_logits.multi_label_soft_margin_loss(multilabel_targets, .mean);
+    var multilabel_mean = try multilabel_logits.multiLabelSoftMarginLoss(multilabel_targets, .mean);
     defer multilabel_mean.deinit();
     try std.testing.expectApproxEqAbs((multilabel_none.data[0] + multilabel_none.data[1]) / 2.0, multilabel_mean.data[0], 1e-12);
     var multilabel_view_source = try Array(f64).fromSlice(gpa, &.{
@@ -30981,7 +27653,7 @@ test "array logsoftmax norm and matrix helpers" {
     defer multilabel_view_source.deinit();
     var multilabel_view = try multilabel_view_source.sliceAxisView(1, .{ .start = 0, .stop = 6, .step = 2 });
     defer multilabel_view.deinit();
-    var multilabel_view_loss = try multilabel_view.multi_label_soft_margin_loss(multilabel_targets, .none);
+    var multilabel_view_loss = try multilabel_view.multiLabelSoftMarginLoss(multilabel_targets, .none);
     defer multilabel_view_loss.deinit();
     try expectApproxEqualSlices(f64, multilabel_none.data, multilabel_view_loss.data, 1e-12);
     var bad_multilabel_targets = try Array(f64).zeros(gpa, &.{ 2, 2 });
@@ -30997,7 +27669,7 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectApproxEqAbs(@as(f64, 4) - @as(f64, 3) * std.math.log(f64, std.math.e, @as(f64, 4)), poisson_log_loss.data[1], 1e-12);
     var poisson_rate = try Array(f64).fromSlice(gpa, &.{ 2, 4 }, &.{2});
     defer poisson_rate.deinit();
-    var poisson_rate_loss = try poisson_rate.poisson_nll_loss(poisson_targets, false, false, 1e-8, .none);
+    var poisson_rate_loss = try poisson_rate.poissonNllLoss(poisson_targets, false, false, 1e-8, .none);
     defer poisson_rate_loss.deinit();
     try expectApproxEqualSlices(f64, poisson_log_loss.data, poisson_rate_loss.data, 1e-7);
     var poisson_full = try poisson_rate.poissonNllLoss(poisson_targets, false, true, 1e-8, .sum);
@@ -31010,7 +27682,7 @@ test "array logsoftmax norm and matrix helpers" {
     defer poisson_view.deinit();
     var poisson_view_targets = try Array(f64).fromSlice(gpa, &.{ 1, 3 }, &.{ 1, 2 });
     defer poisson_view_targets.deinit();
-    var poisson_view_loss = try poisson_view.poisson_nll_loss(poisson_view_targets, false, false, 1e-8, .none);
+    var poisson_view_loss = try poisson_view.poissonNllLoss(poisson_view_targets, false, false, 1e-8, .none);
     defer poisson_view_loss.deinit();
     var poisson_view_owned = try poisson_view.toArray();
     defer poisson_view_owned.deinit();
@@ -31025,7 +27697,7 @@ test "array logsoftmax norm and matrix helpers" {
     var smooth_none = try robust_predictions.smoothL1Loss(robust_targets, 1.0, .none);
     defer smooth_none.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 0.125, 0.125, 2.5 }, smooth_none.data);
-    var smooth_mean = try robust_predictions.smooth_l1_loss(robust_targets, 1.0, .mean);
+    var smooth_mean = try robust_predictions.smoothL1Loss(robust_targets, 1.0, .mean);
     defer smooth_mean.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1.0625), smooth_mean.data[0], 1e-12);
     var smooth_l1_l1 = try robust_predictions.smoothL1Loss(robust_targets, 0.0, .none);
@@ -31036,7 +27708,7 @@ test "array logsoftmax norm and matrix helpers" {
     var huber_none = try robust_predictions.huberLoss(robust_targets, 1.0, .none);
     defer huber_none.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 0.125, 0.125, 2.5 }, huber_none.data);
-    var huber_sum = try robust_predictions.huber_loss(robust_targets, 2.0, .sum);
+    var huber_sum = try robust_predictions.huberLoss(robust_targets, 2.0, .sum);
     defer huber_sum.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 0.5 * 4 + 0.5 * 0.25 + 0.5 * 0.25 + 2.0 * (3.0 - 1.0)), huber_sum.data[0], 1e-12);
     var robust_view_source = try Array(f64).fromSlice(gpa, &.{ -2, 90, -0.5, 80, 0.5, 70, 3, 60 }, &.{ 2, 4 });
@@ -31045,7 +27717,7 @@ test "array logsoftmax norm and matrix helpers" {
     defer robust_view.deinit();
     var robust_view_targets = try Array(f64).zeros(gpa, &.{ 2, 2 });
     defer robust_view_targets.deinit();
-    var view_smooth = try robust_view.smooth_l1_loss(robust_view_targets, 1.0, .none);
+    var view_smooth = try robust_view.smoothL1Loss(robust_view_targets, 1.0, .none);
     defer view_smooth.deinit();
     var robust_view_owned = try robust_view.toArray();
     defer robust_view_owned.deinit();
@@ -31070,7 +27742,7 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectEqualSlices(usize, &.{2}, cosine_rows.shape);
     try std.testing.expectApproxEqAbs(@as(f64, 1) / std.math.sqrt(@as(f64, 2)), cosine_rows.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5) / (std.math.sqrt(@as(f64, 5)) * std.math.sqrt(@as(f64, 6))), cosine_rows.data[1], 1e-12);
-    var cosine_keep = try cos_a.cosine_similarity_dim(cos_b, -1, 1e-12, true);
+    var cosine_keep = try cos_a.cosineSimilarityDim(cos_b, -1, 1e-12, true);
     defer cosine_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, cosine_keep.shape);
     try std.testing.expectApproxEqAbs(cosine_rows.data[0], cosine_keep.data[0], 1e-12);
@@ -31082,7 +27754,7 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectEqualSlices(usize, &.{2}, embedding_loss.shape);
     try std.testing.expectApproxEqAbs(@as(f64, 1) - cosine_rows.data[0], embedding_loss.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@max(@as(f64, 0), cosine_rows.data[1] - 0.5), embedding_loss.data[1], 1e-12);
-    var embedding_mean = try cos_a.cosine_embedding_loss(cos_b, embedding_targets, 1, 0.5, 1e-12, .mean);
+    var embedding_mean = try cos_a.cosineEmbeddingLoss(cos_b, embedding_targets, 1, 0.5, 1e-12, .mean);
     defer embedding_mean.deinit();
     try std.testing.expectApproxEqAbs((embedding_loss.data[0] + embedding_loss.data[1]) / 2.0, embedding_mean.data[0], 1e-12);
     var distance_rows = try cos_a.pairwiseDistance(cos_b, 2, 1, false);
@@ -31090,7 +27762,7 @@ test "array logsoftmax norm and matrix helpers" {
     try std.testing.expectEqualSlices(usize, &.{2}, distance_rows.shape);
     try std.testing.expectApproxEqAbs(@as(f64, 1), distance_rows.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1)), distance_rows.data[1], 1e-12);
-    var distance_l1 = try cos_a.pairwise_distance_dim(cos_b, 1, 1, true);
+    var distance_l1 = try cos_a.pairwiseDistanceDim(cos_b, 1, 1, true);
     defer distance_l1.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, distance_l1.shape);
     try std.testing.expectApproxEqAbs(@as(f64, 1), distance_l1.data[0], 1e-12);
@@ -31101,14 +27773,14 @@ test "array logsoftmax norm and matrix helpers" {
     defer metric_view.deinit();
     var metric_target = try Array(f64).fromSlice(gpa, &.{ 1, 0, 0, 1 }, &.{ 2, 2 });
     defer metric_target.deinit();
-    var view_cosine = try metric_view.cosine_similarity(metric_target, 1, 1e-12, false);
+    var view_cosine = try metric_view.cosineSimilarity(metric_target, 1, 1e-12, false);
     defer view_cosine.deinit();
     var metric_view_owned = try metric_view.toArray();
     defer metric_view_owned.deinit();
     var expected_view_cosine = try metric_view_owned.cosineSimilarity(metric_target, 1, 1e-12, false);
     defer expected_view_cosine.deinit();
     try expectApproxEqualSlices(f64, expected_view_cosine.data, view_cosine.data, 1e-12);
-    var view_embedding_loss = try metric_view.cosine_embedding_loss(metric_target, embedding_targets, 1, 0.25, 1e-12, .none);
+    var view_embedding_loss = try metric_view.cosineEmbeddingLoss(metric_target, embedding_targets, 1, 0.25, 1e-12, .none);
     defer view_embedding_loss.deinit();
     var expected_view_embedding_loss = try metric_view_owned.cosineEmbeddingLoss(metric_target, embedding_targets, 1, 0.25, 1e-12, .none);
     defer expected_view_embedding_loss.deinit();
@@ -31123,7 +27795,7 @@ test "array logsoftmax norm and matrix helpers" {
     defer normalized_norms.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 1), normalized_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), normalized_norms.data[1], 1e-12);
-    var normalized_alias = try cos_a.normalize_dim(2, -1, 1e-12);
+    var normalized_alias = try cos_a.normalize(2, -1, 1e-12);
     defer normalized_alias.deinit();
     try expectApproxEqualSlices(f64, normalized_rows.data, normalized_alias.data, 1e-12);
     var zeros_for_normalize = try Array(f64).zeros(gpa, &.{ 1, 3 });
@@ -31196,7 +27868,7 @@ test "array logsoftmax norm and matrix helpers" {
     defer batch_diag.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, batch_diag.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 9, 10, 14, 18 }, batch_diag.data);
-    var batch_diag_alias = try cube.diagonal_axes(1, -2, -1);
+    var batch_diag_alias = try cube.diagonalAxes(1, -2, -1);
     defer batch_diag_alias.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, batch_diag_alias.shape);
     try std.testing.expectEqualSlices(f64, &.{ 2, 6, 11, 15 }, batch_diag_alias.data);
@@ -31204,14 +27876,14 @@ test "array logsoftmax norm and matrix helpers" {
     defer batch_trace.deinit();
     try std.testing.expectEqualSlices(usize, &.{2}, batch_trace.shape);
     try std.testing.expectEqualSlices(f64, &.{ 15, 42 }, batch_trace.data);
-    var batch_trace_alias = try cube.trace_offset_axes(-1, 1, 2);
+    var batch_trace_alias = try cube.traceOffsetAxes(-1, 1, 2);
     defer batch_trace_alias.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 12, 30 }, batch_trace_alias.data);
     var cross_axis_diag = try cube.diagonalAxes(0, 0, 2);
     defer cross_axis_diag.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, cross_axis_diag.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 11, 4, 14, 7, 17 }, cross_axis_diag.data);
-    var cross_axis_trace = try cube.trace_axes(0, 0, 2);
+    var cross_axis_trace = try cube.traceAxes(0, 0, 2);
     defer cross_axis_trace.deinit();
     try std.testing.expectEqualSlices(usize, &.{3}, cross_axis_trace.shape);
     try std.testing.expectEqualSlices(f64, &.{ 12, 18, 24 }, cross_axis_trace.data);
@@ -31281,7 +27953,7 @@ test "array min max arg reductions and topk" {
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, row_top.values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 2, 4 }, row_top.values.data);
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2, 0 }, row_top.indices.data);
-    var row_kth = try a.kth_value(2, 1, true);
+    var row_kth = try a.kthValue(2, 1, true);
     defer row_kth.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, row_kth.values.shape);
     try std.testing.expectEqualSlices(f64, &.{ 5, 4 }, row_kth.values.data);
@@ -32019,7 +28691,7 @@ test "array creation like scalar diag and diagflat" {
     defer embedded.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 3 }, embedded.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 2, 0, 0, 0, 3 }, embedded.data);
-    var embedded_upper = try v.diag_embed(1);
+    var embedded_upper = try v.diagEmbed(1);
     defer embedded_upper.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 4, 4 }, embedded_upper.shape);
     try std.testing.expectEqualSlices(f64, d1.data, embedded_upper.data);
@@ -32034,7 +28706,7 @@ test "array creation like scalar diag and diagflat" {
     defer batched_embed.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2, 2 }, batched_embed.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 2, 3, 0, 0, 4 }, batched_embed.data);
-    var batched_embed_upper = try batched.diag_embed(1);
+    var batched_embed_upper = try batched.diagEmbed(1);
     defer batched_embed_upper.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 3, 3 }, batched_embed_upper.shape);
     try std.testing.expectEqualSlices(f64, &.{ 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0 }, batched_embed_upper.data);
@@ -32063,7 +28735,7 @@ test "array creation like scalar diag and diagflat" {
     defer diag_view_owned.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 50 }, diag_view_owned.data);
 
-    var upper_diag_view = try a.diagonal_view(1);
+    var upper_diag_view = try a.diagonalView(1);
     defer upper_diag_view.deinit();
     var upper_diag_owned = try upper_diag_view.toArray();
     defer upper_diag_owned.deinit();
@@ -32098,7 +28770,7 @@ test "array creation like scalar diag and diagflat" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 5, 9, 10, 14, 18 }, batch_diag_owned.data);
     try batch_diag_view.set(&.{ 1, 1 }, 140);
     try std.testing.expectEqual(@as(f64, 140), cube.data[13]);
-    var cross_diag_view = try cube.diagonal_axes_view(0, 0, 2);
+    var cross_diag_view = try cube.diagonalAxesView(0, 0, 2);
     defer cross_diag_view.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, cross_diag_view.shape);
     var cross_diag_owned = try cross_diag_view.toArray();
@@ -32113,7 +28785,7 @@ test "array creation like scalar diag and diagflat" {
     try std.testing.expectEqualSlices(f64, &.{ 2, 6, 11, 15 }, view_diag_owned.data);
     try a.fillDiagonal(7, 0, 0, 1);
     try std.testing.expectEqualSlices(f64, &.{ 7, 20, 3, 4, 7, 6 }, a.data);
-    try a.fill_diagonal(8, 1, 0, 1);
+    try a.fillDiagonal(8, 1, 0, 1);
     try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 4, 7, 8 }, a.data);
     try cube.fillDiagonal(-1, 0, 1, 2);
     try std.testing.expectEqualSlices(f64, &.{
@@ -32124,7 +28796,7 @@ test "array creation like scalar diag and diagflat" {
         13, -1, 15,
         16, 17, -1,
     }, cube.data);
-    try cube_view.fill_diagonal(99, 1, -2, -1);
+    try cube_view.fillDiagonal(99, 1, -2, -1);
     try std.testing.expectEqual(@as(f64, 99), cube.data[1]);
     try std.testing.expectEqual(@as(f64, 99), cube.data[5]);
     try std.testing.expectEqual(@as(f64, 99), cube.data[10]);
@@ -32138,7 +28810,7 @@ test "array creation like scalar diag and diagflat" {
     try std.testing.expectEqualSlices(f64, &.{ 7, 8, 3, 4, 7, 8 }, a.data);
     var scalar_scatter_value = try Array(f64).fromScalar(gpa, -5);
     defer scalar_scatter_value.deinit();
-    var scalar_scattered = try a.diagonal_scatter(scalar_scatter_value, 1, 0, 1);
+    var scalar_scattered = try a.diagonalScatter(scalar_scatter_value, 1, 0, 1);
     defer scalar_scattered.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 7, -5, 3, 4, 7, -5 }, scalar_scattered.data);
     var batch_scatter_values = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
@@ -32414,9 +29086,9 @@ test "array dtype metadata and casts cover common numeric types" {
     var ints = try Array(i16).fromSlice(gpa, &.{ -1, 0, 2 }, &.{3});
     defer ints.deinit();
     try std.testing.expectEqualStrings("i16", ints.dtypeName());
-    try std.testing.expectEqualStrings("i16", ints.dtype_name());
+    try std.testing.expectEqualStrings("i16", ints.dtypeName());
     try std.testing.expectEqual(DType.i16.tag(), ints.dtypeTag());
-    try std.testing.expectEqual(DType.i16.tag(), ints.dtype_tag());
+    try std.testing.expectEqual(DType.i16.tag(), ints.dtypeTag());
     try std.testing.expectEqual(@as(usize, @sizeOf(i16)), ints.dtypeByteSize());
     try std.testing.expectEqual(@as(usize, @bitSizeOf(i16)), ints.dtypeBitSize());
     try std.testing.expect(!ints.isFloatDtype());
@@ -32428,17 +29100,17 @@ test "array dtype metadata and casts cover common numeric types" {
     try std.testing.expect(ints.isRealDtype());
     try std.testing.expect(ints.isNumericDtype());
     try std.testing.expect(ints.canCastToDtype(.f64));
-    try std.testing.expect(ints.can_cast_to_dtype(.c64));
+    try std.testing.expect(ints.canCastToDtype(.c64));
     var floats = try ints.astype(f32);
     defer floats.deinit();
     try std.testing.expectEqualStrings("f32", floats.dtypeName());
-    try std.testing.expect(floats.is_float_dtype());
-    try std.testing.expect(floats.is_real_dtype());
+    try std.testing.expect(floats.isFloatDtype());
+    try std.testing.expect(floats.isRealDtype());
     try std.testing.expectEqualSlices(f32, &.{ -1, 0, 2 }, floats.data);
     var unsigned = try Array(u32).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer unsigned.deinit();
     try std.testing.expect(unsigned.isUnsignedDtype());
-    try std.testing.expect(unsigned.is_unsigned_dtype());
+    try std.testing.expect(unsigned.isUnsignedDtype());
     var widened = try unsigned.astype(u64);
     defer widened.deinit();
     try std.testing.expectEqualSlices(u64, &.{ 1, 2, 3 }, widened.data);
@@ -32489,12 +29161,12 @@ test "array dtype metadata and casts cover common numeric types" {
     defer complex_meta.deinit();
     try std.testing.expectEqualStrings("complex64", complex_meta.dtypeName());
     try std.testing.expect(complex_meta.isComplexDtype());
-    try std.testing.expect(complex_meta.is_numeric_dtype());
-    try std.testing.expect(!complex_meta.is_real_dtype());
+    try std.testing.expect(complex_meta.isNumericDtype());
+    try std.testing.expect(!complex_meta.isRealDtype());
     try std.testing.expect(!complex_meta.canCastToDtype(.f32));
     var bool_meta = try Array(bool).fromSlice(gpa, &.{ true, false }, &.{2});
     defer bool_meta.deinit();
-    try std.testing.expectEqualStrings("bool", bool_meta.dtype_name());
+    try std.testing.expectEqualStrings("bool", bool_meta.dtypeName());
     try std.testing.expect(bool_meta.isBoolDtype());
     try std.testing.expect(!bool_meta.isNumericDtype());
     try std.testing.expect(bool_meta.canCastToDtype(.i32));
@@ -32504,21 +29176,21 @@ test "array dtype metadata and casts cover common numeric types" {
     var stepped_view = try view_source.sliceAxisView(1, .{ .start = 0, .stop = 3, .step = 2 });
     defer stepped_view.deinit();
     try std.testing.expectEqualStrings("i16", stepped_view.dtypeName());
-    try std.testing.expectEqualStrings("i16", stepped_view.dtype_name());
+    try std.testing.expectEqualStrings("i16", stepped_view.dtypeName());
     try std.testing.expectEqual(DType.i16.tag(), stepped_view.dtypeTag());
-    try std.testing.expectEqual(DType.i16.tag(), stepped_view.dtype_tag());
+    try std.testing.expectEqual(DType.i16.tag(), stepped_view.dtypeTag());
     try std.testing.expectEqual(@as(usize, @sizeOf(i16)), stepped_view.dtypeByteSize());
-    try std.testing.expectEqual(@as(usize, @bitSizeOf(i16)), stepped_view.dtype_bit_size());
+    try std.testing.expectEqual(@as(usize, @bitSizeOf(i16)), stepped_view.dtypeBitSize());
     try std.testing.expect(!stepped_view.isFloatDtype());
     try std.testing.expect(stepped_view.isIntegerDtype());
-    try std.testing.expect(stepped_view.is_signed_dtype());
-    try std.testing.expect(!stepped_view.is_unsigned_dtype());
-    try std.testing.expect(!stepped_view.is_complex_dtype());
-    try std.testing.expect(!stepped_view.is_bool_dtype());
-    try std.testing.expect(stepped_view.is_real_dtype());
-    try std.testing.expect(stepped_view.is_numeric_dtype());
+    try std.testing.expect(stepped_view.isSignedDtype());
+    try std.testing.expect(!stepped_view.isUnsignedDtype());
+    try std.testing.expect(!stepped_view.isComplexDtype());
+    try std.testing.expect(!stepped_view.isBoolDtype());
+    try std.testing.expect(stepped_view.isRealDtype());
+    try std.testing.expect(stepped_view.isNumericDtype());
     try std.testing.expect(stepped_view.canCastToDtype(.f32));
-    try std.testing.expect(stepped_view.can_cast_to_dtype(.c128));
+    try std.testing.expect(stepped_view.canCastToDtype(.c128));
     var view_as_f32 = try stepped_view.astype(f32);
     defer view_as_f32.deinit();
     try std.testing.expectEqual(DType.f32, @TypeOf(view_as_f32).dtype);
@@ -33060,7 +29732,7 @@ test "array bfloat16 arithmetic and reductions" {
     var nan_mask = try special.isNan();
     defer nan_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, true }, nan_mask.data);
-    var cleaned_default = try special.nan_to_num_default();
+    var cleaned_default = try special.nanToNumDefault();
     defer cleaned_default.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, 1), cleaned_default.data[0].toF32(), 1e-2);
     try std.testing.expect(cleaned_default.data[1].toF32() > 3e38);
@@ -33210,14 +29882,14 @@ test "array axis cumulative operations and diff" {
     var trap_rows_x = try a.trapezoid(x_values, 1, 1);
     defer trap_rows_x.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6.5, 15.5 }, trap_rows_x.data);
-    var trap_rows_x_alias = try a.trapezoid_with(x_values, 1, 1);
+    var trap_rows_x_alias = try a.trapezoid(x_values, 1, 1);
     defer trap_rows_x_alias.deinit();
     try std.testing.expectEqualSlices(f64, trap_rows_x.data, trap_rows_x_alias.data);
     var trap_cols = try a.trapz(null, 2, 0);
     defer trap_cols.deinit();
     try std.testing.expectEqualSlices(usize, &.{3}, trap_cols.shape);
     try std.testing.expectEqualSlices(f64, &.{ 5, 7, 9 }, trap_cols.data);
-    var trap_cols_alias = try a.trapz_with(null, 2, 0);
+    var trap_cols_alias = try a.trapz(null, 2, 0);
     defer trap_cols_alias.deinit();
     try std.testing.expectEqualSlices(f64, trap_cols.data, trap_cols_alias.data);
     var short = try Array(f64).fromSlice(gpa, &.{5}, &.{1});
@@ -33236,7 +29908,7 @@ test "array axis cumulative operations and diff" {
     var view_trap_x = try view.trapz(x_values, 1, 0);
     defer view_trap_x.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6.5, 15.5 }, view_trap_x.data);
-    var view_trap_x_alias = try view.trapz_with(x_values, 1, 0);
+    var view_trap_x_alias = try view.trapz(x_values, 1, 0);
     defer view_trap_x_alias.deinit();
     try std.testing.expectEqualSlices(f64, view_trap_x.data, view_trap_x_alias.data);
     try std.testing.expectError(error.ShapeMismatch, a.trapezoid(short, 1, 1));
@@ -33255,7 +29927,7 @@ test "array axis cumulative operations and diff" {
     var grad_quad = try y_quad.gradient(x_quad, 1, 0);
     defer grad_quad.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4 }, grad_quad.data);
-    var grad_quad_alias = try y_quad.gradient_with(x_quad, 1, 0);
+    var grad_quad_alias = try y_quad.gradient(x_quad, 1, 0);
     defer grad_quad_alias.deinit();
     try std.testing.expectEqualSlices(f64, grad_quad.data, grad_quad_alias.data);
     var view_grad = try view.gradient(null, 1, 0);
@@ -33265,7 +29937,7 @@ test "array axis cumulative operations and diff" {
     var view_grad_x = try view.gradient(x_values, 1, 0);
     defer view_grad_x.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 1, 2.0 / 3.0, 2.0 / 3.0, 0.5, 0.5 }, view_grad_x.data);
-    var view_grad_x_alias = try view.gradient_with(x_values, 1, 0);
+    var view_grad_x_alias = try view.gradient(x_values, 1, 0);
     defer view_grad_x_alias.deinit();
     try std.testing.expectEqualSlices(f64, view_grad_x.data, view_grad_x_alias.data);
     try std.testing.expectError(error.ShapeMismatch, a.gradient(short, 1, 1));
