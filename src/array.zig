@@ -3418,13 +3418,11 @@ pub fn ArrayView(comptime T: type) type {
         pub fn abs(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (self.shape.len == 1) {
-                    // Keep accelerated view unary execution behind the Axiom
-                    // facade: ArrayView selects no CUDA path itself, it only
-                    // asks the target-oriented backend to run if that target
-                    // owns a compatible ABI.
-                    if (try axiom_backend.executeViewUnaryDefault(T, .abs, self)) |out| return out;
-                }
+                // Keep accelerated view unary execution behind the Axiom
+                // facade: ArrayView selects no CUDA path itself, it only asks
+                // the target-oriented backend to run if that target owns a
+                // compatible ABI.
+                if (try axiom_backend.executeViewUnaryDefault(T, .abs, self)) |out| return out;
             }
             return self.unary(opAbs);
         }
@@ -4119,9 +4117,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn exp(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .exp, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .exp, self)) |out| return out;
             }
             return self.unary(Array(T).opExp);
         }
@@ -4129,9 +4125,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn exp2(self: Self) ArrayError!Array(T) {
             ensureFloat(T);
             if (comptime T == f32) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .exp2, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .exp2, self)) |out| return out;
             }
             return self.unary(Array(T).opExp2);
         }
@@ -4139,9 +4133,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn expm1(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .expm1, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .expm1, self)) |out| return out;
             }
             return self.unary(Array(T).opExpm1);
         }
@@ -4149,9 +4141,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn log(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .log, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .log, self)) |out| return out;
             }
             return self.unary(Array(T).opLog);
         }
@@ -4159,9 +4149,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn log2(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .log2, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .log2, self)) |out| return out;
             }
             return self.unary(Array(T).opLog2);
         }
@@ -4169,9 +4157,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn log10(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .log10, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .log10, self)) |out| return out;
             }
             return self.unary(Array(T).opLog10);
         }
@@ -4179,9 +4165,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn log1p(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .log1p, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .log1p, self)) |out| return out;
             }
             return self.unary(Array(T).opLog1p);
         }
@@ -4206,9 +4190,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn sqrt(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .sqrt, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .sqrt, self)) |out| return out;
             }
             return self.unary(Array(T).opSqrt);
         }
@@ -4269,9 +4251,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn sin(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .sin, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .sin, self)) |out| return out;
             }
             return self.unary(Array(T).opSin);
         }
@@ -4279,9 +4259,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn cos(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .cos, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .cos, self)) |out| return out;
             }
             return self.unary(Array(T).opCos);
         }
@@ -4289,9 +4267,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn tan(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewUnaryDefault(T, .tan, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewUnaryDefault(T, .tan, self)) |out| return out;
             }
             return self.unary(Array(T).opTan);
         }
@@ -21994,6 +21970,10 @@ test "array comparison and logical wrappers" {
     defer large_view_max_keep.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, large_view_max_keep.shape);
     try std.testing.expectEqualSlices(f32, &.{2}, large_view_max_keep.data);
+    var large_view_sqrt = try large_view.sqrt();
+    defer large_view_sqrt.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 8, 8 }, large_view_sqrt.shape);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f32, 2)), large_view_sqrt.data[10], 1e-6);
     var large_other_source = try Array(f32).ones(gpa, &.{ 8, 8 });
     defer large_other_source.deinit();
     large_other_source.data[10] = 1.5;
