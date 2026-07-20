@@ -9129,6 +9129,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
+            if (comptime U == T) return self.clone();
             if (!axiom_backend.hostFallbackAllowed(self.device)) {
                 var host = try self.to(.cpu);
                 defer host.deinit();
@@ -29475,6 +29476,14 @@ test "array dtype metadata and casts cover common numeric types" {
         var cuda_view_scalar_fill_host = try cuda_strided_view_dest.cpu();
         defer cuda_view_scalar_fill_host.deinit();
         try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7 }, cuda_view_scalar_fill_host.data);
+
+        var cuda_same_type = try cuda_copy.astype(f64);
+        defer cuda_same_type.deinit();
+        try std.testing.expectEqual(Backend.cuda, cuda_same_type.device.backend);
+        try std.testing.expect(cuda_same_type.device_storage != null);
+        var cuda_same_type_host = try cuda_same_type.cpu();
+        defer cuda_same_type_host.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, cuda_same_type_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
