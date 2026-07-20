@@ -4829,6 +4829,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn iscloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
             ensureFloat(T);
+            if (try self.iscloseSameShapeFast(other, rtol, atol, equal_nan)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             var out = try Array(bool).empty(self.allocator, out_shape);
@@ -4858,6 +4859,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn allcloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             ensureFloat(T);
+            if (try self.allcloseSameShapeFast(other, rtol, atol, equal_nan)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -4873,6 +4875,64 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn allCloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             return self.allcloseEqualNan(other, rtol, atol, equal_nan);
+        }
+
+        fn iscloseSameShapeFast(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!?Array(bool) {
+            if (!std.mem.eql(usize, self.shape, other.shape)) return null;
+            var out = try Array(bool).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            if (self.isContiguous() and other.isContiguous()) {
+                const lhs_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                const rhs_end = std.math.add(usize, other.offset, other.numel()) catch return error.InvalidShape;
+                if (lhs_end > self.data.len or rhs_end > other.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..lhs_end], other.data[other.offset..rhs_end], out.data) |lhs, rhs, *slot| {
+                    slot.* = closeValue(T, lhs, rhs, rtol, atol, equal_nan);
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided() and other.isOneDimensionalStrided()) {
+                const lhs_end = try self.oneDimensionalEndOffset();
+                const rhs_end = try other.oneDimensionalEndOffset();
+                if (lhs_end >= self.data.len or rhs_end >= other.data.len) return error.IndexOutOfBounds;
+                var lhs_offset = self.offset;
+                var rhs_offset = other.offset;
+                for (out.data) |*slot| {
+                    slot.* = closeValue(T, self.data[lhs_offset], other.data[rhs_offset], rtol, atol, equal_nan);
+                    lhs_offset += self.strides[0];
+                    rhs_offset += other.strides[0];
+                }
+                return out;
+            }
+            out.deinit();
+            return null;
+        }
+
+        fn allcloseSameShapeFast(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!?bool {
+            if (!std.mem.eql(usize, self.shape, other.shape)) return null;
+            if (self.isContiguous() and other.isContiguous()) {
+                const lhs_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                const rhs_end = std.math.add(usize, other.offset, other.numel()) catch return error.InvalidShape;
+                if (lhs_end > self.data.len or rhs_end > other.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..lhs_end], other.data[other.offset..rhs_end]) |lhs, rhs| {
+                    if (!closeValue(T, lhs, rhs, rtol, atol, equal_nan)) return false;
+                }
+                return true;
+            }
+            if (self.isOneDimensionalStrided() and other.isOneDimensionalStrided()) {
+                const lhs_end = try self.oneDimensionalEndOffset();
+                const rhs_end = try other.oneDimensionalEndOffset();
+                if (lhs_end >= self.data.len or rhs_end >= other.data.len) return error.IndexOutOfBounds;
+                var lhs_offset = self.offset;
+                var rhs_offset = other.offset;
+                for (0..self.numel()) |_| {
+                    if (!closeValue(T, self.data[lhs_offset], other.data[rhs_offset], rtol, atol, equal_nan)) return false;
+                    lhs_offset += self.strides[0];
+                    rhs_offset += other.strides[0];
+                }
+                return true;
+            }
+            return null;
         }
 
         pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
@@ -25846,6 +25906,26 @@ test "array view object statistics wrappers" {
     defer close_nan_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, close_nan_mask.data);
     try std.testing.expect(try close_nan_view.allcloseEqualNan(close_nan_view, 0.0, 0.0, true));
+    var close_contig_rhs_source = try Array(f64).fromSlice(gpa, &.{ nan, 1.0, nan, 1.001 }, &.{ 2, 2 });
+    defer close_contig_rhs_source.deinit();
+    var close_contig_rhs = try close_contig_rhs_source.asView();
+    defer close_contig_rhs.deinit();
+    var close_contig_mask = try close_nan_view.iscloseEqualNan(close_contig_rhs, 0.0, 0.01, true);
+    defer close_contig_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, close_contig_mask.data);
+    try std.testing.expect(try close_nan_view.allcloseEqualNan(close_contig_rhs, 0.0, 0.01, true));
+    var strided_close_lhs_source = try Array(f64).fromSlice(gpa, &.{ 1, 99, 2, 88, 3, 77 }, &.{6});
+    defer strided_close_lhs_source.deinit();
+    var strided_close_rhs_source = try Array(f64).fromSlice(gpa, &.{ 1.01, 66, 2.02, 55, 3.5, 44 }, &.{6});
+    defer strided_close_rhs_source.deinit();
+    var strided_close_lhs = try strided_close_lhs_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_close_lhs.deinit();
+    var strided_close_rhs = try strided_close_rhs_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_close_rhs.deinit();
+    var strided_close_mask = try strided_close_lhs.isclose(strided_close_rhs, 0.0, 0.05);
+    defer strided_close_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, strided_close_mask.data);
+    try std.testing.expect(!try strided_close_lhs.allclose(strided_close_rhs, 0.0, 0.05));
     var view_nanmedian_axes = try view.nanmedianAxes(&.{ 0, 1 }, false);
     defer view_nanmedian_axes.deinit();
     try std.testing.expectEqualSlices(f64, &.{4}, view_nanmedian_axes.data);
