@@ -8207,15 +8207,24 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn putFlat(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putFlat(indices, values);
+            if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
+            var out = try self.toArray();
+            errdefer out.deinit();
+            for (indices.data, 0..) |idx, i| {
+                if (idx >= out.data.len) return error.IndexOutOfBounds;
+                out.data[idx] = values.data[if (values.data.len == 1) 0 else i];
+            }
+            return out;
         }
 
         pub fn putFlatMode(self: Self, indices: Array(usize), values: Array(T), mode: IndexMode) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putFlatMode(indices, values, mode);
+            if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
+            var out = try self.toArray();
+            errdefer out.deinit();
+            for (indices.data, 0..) |idx, i| {
+                out.data[try Array(T).applyIndexMode(idx, out.data.len, mode)] = values.data[if (values.data.len == 1) 0 else i];
+            }
+            return out;
         }
 
         pub fn putFlatScalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
@@ -8238,9 +8247,13 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn putFlatSigned(self: Self, indices: Array(isize), values: Array(T)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putFlatSigned(indices, values);
+            if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
+            var out = try self.toArray();
+            errdefer out.deinit();
+            for (indices.data, 0..) |idx, i| {
+                out.data[try normalizeIndex(idx, out.data.len)] = values.data[if (values.data.len == 1) 0 else i];
+            }
+            return out;
         }
 
         pub fn putFlatScalarSigned(self: Self, indices: Array(isize), value: T) ArrayError!Array(T) {
