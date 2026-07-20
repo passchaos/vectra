@@ -3243,6 +3243,21 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn copyWhereFromView(self: Self, mask: Array(bool), source: Self) ArrayError!void {
+            if (mask.numel() == 1) {
+                if (!broadcastsExactlyTo(mask.shape, self.shape)) return error.ShapeMismatch;
+                if (mask.data[0]) {
+                    try self.copyFromView(source);
+                } else if (!broadcastsExactlyTo(source.shape, self.shape)) {
+                    // Preserve the original two-input broadcast validation even
+                    // when the mask selects no elements.
+                    return error.ShapeMismatch;
+                }
+                return;
+            }
+            if (source.numel() == 1) {
+                try self.maskedFill(mask, source.data[source.offset]);
+                return;
+            }
             const tmp_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(tmp_shape);
             const out_shape = try computeBroadcastShape(self.allocator, tmp_shape, source.shape);
@@ -29609,6 +29624,31 @@ test "array object masked in-place assignment helpers" {
     defer where_src.deinit();
     try full.copyWhereAssign(mask, where_src);
     try std.testing.expectEqualSlices(f64, &.{ 1, 10, 3, 20, 5, 20 }, full.data);
+
+    var copy_where_scalar_true_target = try Array(f64).fromSlice(gpa, &.{ 0, 0, 0, 0 }, &.{ 2, 2 });
+    defer copy_where_scalar_true_target.deinit();
+    var copy_where_scalar_true_view = try copy_where_scalar_true_target.asView();
+    defer copy_where_scalar_true_view.deinit();
+    var copy_where_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer copy_where_source.deinit();
+    var copy_where_source_view = try copy_where_source.asView();
+    defer copy_where_source_view.deinit();
+    try copy_where_scalar_true_view.copyWhereFromView(scalar_mask_true, copy_where_source_view);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, copy_where_scalar_true_target.data);
+
+    var copy_where_scalar_false_target = try Array(f64).fromSlice(gpa, &.{ 5, 6, 7, 8 }, &.{ 2, 2 });
+    defer copy_where_scalar_false_target.deinit();
+    var copy_where_scalar_false_view = try copy_where_scalar_false_target.asView();
+    defer copy_where_scalar_false_view.deinit();
+    try copy_where_scalar_false_view.copyWhereFromView(scalar_mask_false, copy_where_source_view);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 6, 7, 8 }, copy_where_scalar_false_target.data);
+
+    var copy_where_singleton_target = try Array(f64).fromSlice(gpa, &.{ 0, 0, 0, 0, 50, 60 }, &.{ 3, 2 });
+    defer copy_where_singleton_target.deinit();
+    var copy_where_singleton_view = try copy_where_singleton_target.narrowView(0, 0, 2);
+    defer copy_where_singleton_view.deinit();
+    try copy_where_singleton_view.copyWhereFromView(contiguous_mask, scalar_masked_copy_value_view);
+    try std.testing.expectEqualSlices(f64, &.{ 33, 0, 0, 33, 50, 60 }, copy_where_singleton_target.data);
 
     var bad_values = try Array(f64).ones(gpa, &.{2});
     defer bad_values.deinit();
