@@ -80,10 +80,15 @@ still available when you need fine-grained control; the `vx.withAllocator(...)`
 context and top-level `vx.add/vx.matmul/vx.sum/...` helpers are the intended
 short-form front door for examples and application code. Ordinary array creation
 and random creation do not require a seed: `try np.rand(f32, &.{ m, k })` uses the
-context RNG stream. Creation options keep `dtype` as a Zig type parameter and
-`device` as runtime metadata, e.g. `try np.zerosWith(vx.onDevice(f64, vx.cuda(0)), &.{ rows, cols })` or `try vx.Array(f32).fromSliceOn(allocator, values, dims, vx.cuda(0))`. Random CUDA creation is not exposed until a device RNG kernel exists; use CPU `rand` or explicit seeded CPU creation when reproducible host data is needed.
+context RNG stream. Creation helpers keep `dtype` as the explicit Zig type
+parameter and use a fixed `CreationOptions` value in the final argument for
+runtime device/seed metadata, e.g. `try np.zerosWith(f32, &.{ rows, cols }, vx.onDevice(vx.cuda(0)))`
+or `try vx.Array(f32).fromSliceOn(allocator, values, dims, vx.cuda(0))`. Random CUDA creation is not exposed until a device RNG kernel exists; use CPU `rand` or explicit seeded CPU creation when reproducible host data is needed.
 Use `vx.withSeed(...)` or `vx.seeded(...)` only when reproducible random values
-are required; device is optional and defaults to `vx.cpu`.
+are required; device is optional and defaults to `vx.cpu`. Arrays implement Zig's
+standard `{f}` formatter with a PyTorch-like `tensor(...)` representation, e.g.
+`try writer.print("{f}", .{array})`; `toOwnedTensorString` returns the same
+format as an owned string.
 
 Vectra also exposes layered Array abstractions for code that needs more or less
 static information:

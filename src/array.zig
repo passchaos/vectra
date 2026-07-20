@@ -23464,6 +23464,78 @@ pub fn Array(comptime T: type) type {
             self.print(&aw.writer) catch return error.OutOfMemory;
             return aw.toOwnedSlice();
         }
+
+        pub fn format(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+            if (self.device_storage != null or self.pending_matmul != null) {
+                var host = self.cpu() catch |err| {
+                    return self.formatTensorError(writer, err);
+                };
+                defer host.deinit();
+                try host.formatTensorHostWriter(writer);
+                return;
+            }
+            try self.formatTensorHostWriter(writer);
+        }
+
+        pub fn formatTensor(self: Self, writer: *std.Io.Writer) ArrayError!void {
+            if (self.device_storage != null or self.pending_matmul != null) {
+                var host = try self.cpu();
+                defer host.deinit();
+                try host.formatTensorHost(writer);
+                return;
+            }
+            try self.formatTensorHost(writer);
+        }
+
+        pub fn format_tensor(self: Self, writer: *std.Io.Writer) ArrayError!void {
+            return self.formatTensor(writer);
+        }
+
+        pub fn toOwnedTensorString(self: Self, allocator: std.mem.Allocator) ArrayError![]u8 {
+            var aw: std.Io.Writer.Allocating = .init(allocator);
+            errdefer aw.deinit();
+            try self.formatTensor(&aw.writer);
+            return aw.toOwnedSlice();
+        }
+
+        pub fn to_owned_tensor_string(self: Self, allocator: std.mem.Allocator) ArrayError![]u8 {
+            return self.toOwnedTensorString(allocator);
+        }
+
+        fn formatTensorHost(self: Self, writer: *std.Io.Writer) ArrayError!void {
+            writer.print("tensor(", .{}) catch return error.OutOfMemory;
+            if (self.shape.len == 0) {
+                if (self.data.len != 1) return error.InvalidShape;
+                printTensorValue(T, writer, self.data[0]) catch return error.OutOfMemory;
+            } else {
+                try printTensorNested(T, writer, self.data, self.shape, self.strides, 0, 0);
+            }
+            writer.print(", dtype={s}", .{self.dtypeName()}) catch return error.OutOfMemory;
+            if (!self.device.isCpu()) writer.print(", device='{s}:{d}'", .{ self.deviceBackendName(), self.device.index }) catch return error.OutOfMemory;
+            writer.print(")", .{}) catch return error.OutOfMemory;
+        }
+
+        fn formatTensorHostWriter(self: Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+            try writer.print("tensor(", .{});
+            if (self.shape.len == 0) {
+                if (self.data.len != 1) {
+                    try writer.print("<invalid shape>", .{});
+                } else {
+                    try printTensorValue(T, writer, self.data[0]);
+                }
+            } else {
+                try printTensorNestedWriter(T, writer, self.data, self.shape, self.strides, 0, 0);
+            }
+            try writer.print(", dtype={s}", .{self.dtypeName()});
+            if (!self.device.isCpu()) try writer.print(", device='{s}:{d}'", .{ self.deviceBackendName(), self.device.index });
+            try writer.print(")", .{});
+        }
+
+        fn formatTensorError(self: Self, writer: *std.Io.Writer, err: ArrayError) std.Io.Writer.Error!void {
+            try writer.print("tensor(<format error: {s}>, dtype={s}", .{ @errorName(err), self.dtypeName() });
+            if (!self.device.isCpu()) try writer.print(", device='{s}:{d}'", .{ self.deviceBackendName(), self.device.index });
+            try writer.print(")", .{});
+        }
     };
 }
 
@@ -23489,6 +23561,81 @@ fn printFlatData(comptime T: type, writer: *std.Io.Writer, data: []const T) std.
     }
     if (data.len > limit) try writer.print(", ...", .{});
     try writer.print("]", .{});
+}
+
+fn printTensorNested(comptime T: type, writer: *std.Io.Writer, data: []const T, shape: []const usize, strides: []const usize, axis: usize, offset: usize) ArrayError!void {
+    writer.print("[", .{}) catch return error.OutOfMemory;
+    const extent = shape[axis];
+    const limit = @min(extent, 6);
+    for (0..limit) |i| {
+        if (i != 0) {
+            if (axis + 1 < shape.len) {
+                writer.print(",", .{}) catch return error.OutOfMemory;
+                writer.print("\n", .{}) catch return error.OutOfMemory;
+                for (0..axis + 1) |_| writer.print(" ", .{}) catch return error.OutOfMemory;
+            } else {
+                writer.print(", ", .{}) catch return error.OutOfMemory;
+            }
+        }
+        const child_offset = offset + i * strides[axis];
+        if (axis + 1 == shape.len) {
+            if (child_offset >= data.len) return error.InvalidShape;
+            printTensorValue(T, writer, data[child_offset]) catch return error.OutOfMemory;
+        } else {
+            try printTensorNested(T, writer, data, shape, strides, axis + 1, child_offset);
+        }
+    }
+    if (extent > limit) {
+        if (limit != 0) writer.print(", ", .{}) catch return error.OutOfMemory;
+        writer.print("...", .{}) catch return error.OutOfMemory;
+    }
+    writer.print("]", .{}) catch return error.OutOfMemory;
+}
+
+fn printTensorNestedWriter(comptime T: type, writer: *std.Io.Writer, data: []const T, shape: []const usize, strides: []const usize, axis: usize, offset: usize) std.Io.Writer.Error!void {
+    try writer.print("[", .{});
+    const extent = shape[axis];
+    const limit = @min(extent, 6);
+    for (0..limit) |i| {
+        if (i != 0) {
+            if (axis + 1 < shape.len) {
+                try writer.print(",", .{});
+                try writer.print("\n", .{});
+                for (0..axis + 1) |_| try writer.print(" ", .{});
+            } else {
+                try writer.print(", ", .{});
+            }
+        }
+        const child_offset = offset + i * strides[axis];
+        if (axis + 1 == shape.len) {
+            if (child_offset >= data.len) {
+                try writer.print("<invalid>", .{});
+            } else {
+                try printTensorValue(T, writer, data[child_offset]);
+            }
+        } else {
+            try printTensorNestedWriter(T, writer, data, shape, strides, axis + 1, child_offset);
+        }
+    }
+    if (extent > limit) {
+        if (limit != 0) try writer.print(", ", .{});
+        try writer.print("...", .{});
+    }
+    try writer.print("]", .{});
+}
+
+fn printTensorValue(comptime T: type, writer: *std.Io.Writer, value: T) std.Io.Writer.Error!void {
+    if (comptime T == BFloat16) {
+        try writer.print("{d}", .{value.toF32()});
+    } else if (comptime T == f16) {
+        try writer.print("{d}", .{@as(f32, value)});
+    } else if (comptime isComplex(T)) {
+        try writer.print("{d}+{d}j", .{ value.re, value.im });
+    } else if (comptime T == bool) {
+        try writer.print("{}", .{value});
+    } else {
+        try writer.print("{d}", .{value});
+    }
 }
 
 fn expectApproxEqualSlices(comptime T: type, expected: []const T, actual: []const T, tolerance: T) !void {
@@ -23662,6 +23809,29 @@ test "array creation, reshape and broadcasting" {
     defer d.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 2, 2 }, d.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, d.data);
+}
+
+test "array implements standard tensor formatter" {
+    const gpa = std.testing.allocator;
+    var matrix = try Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer matrix.deinit();
+    try std.testing.expectFmt(
+        "tensor([[1, 2],\n [3, 4]], dtype=f32)",
+        "{f}",
+        .{matrix},
+    );
+
+    const owned = try matrix.toOwnedTensorString(gpa);
+    defer gpa.free(owned);
+    try std.testing.expectEqualStrings("tensor([[1, 2],\n [3, 4]], dtype=f32)", owned);
+
+    var scalar = try Array(i32).fromScalar(gpa, 7);
+    defer scalar.deinit();
+    try std.testing.expectFmt("tensor(7, dtype=i32)", "{f}", .{scalar});
+
+    var long = try Array(i32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{8});
+    defer long.deinit();
+    try std.testing.expectFmt("tensor([1, 2, 3, 4, 5, 6, ...], dtype=i32)", "{f}", .{long});
 }
 
 test "array binary math wrappers and clamp aliases" {

@@ -226,11 +226,11 @@ fn runCudaF32(
     retain_outputs: bool,
 ) !void {
     var np = vx.withAllocator(allocator);
-    var a = try np.onesWith(vx.onDevice(f32, gpu), &.{ shape.m, shape.k });
+    var a = try np.onesWith(f32, &.{ shape.m, shape.k }, vx.onDevice(gpu));
     defer a.deinit();
-    var b = try np.onesWith(vx.onDevice(f32, gpu), &.{ shape.k, shape.n });
+    var b = try np.onesWith(f32, &.{ shape.k, shape.n }, vx.onDevice(gpu));
     defer b.deinit();
-    var c = try np.onesWith(vx.onDevice(f32, gpu), &.{ shape.m, shape.n });
+    var c = try np.onesWith(f32, &.{ shape.m, shape.n }, vx.onDevice(gpu));
     defer c.deinit();
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device", "f32", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f32, init, writer, allocator, "cuda", "axiom_cuda_device_auto_fused_direct", "f32", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
@@ -252,11 +252,11 @@ fn runCudaF64(
     retain_outputs: bool,
 ) !void {
     var np = vx.withAllocator(allocator);
-    var a = try np.onesWith(vx.onDevice(f64, gpu), &.{ shape.m, shape.k });
+    var a = try np.onesWith(f64, &.{ shape.m, shape.k }, vx.onDevice(gpu));
     defer a.deinit();
-    var b = try np.onesWith(vx.onDevice(f64, gpu), &.{ shape.k, shape.n });
+    var b = try np.onesWith(f64, &.{ shape.k, shape.n }, vx.onDevice(gpu));
     defer b.deinit();
-    var c = try np.onesWith(vx.onDevice(f64, gpu), &.{ shape.m, shape.n });
+    var c = try np.onesWith(f64, &.{ shape.m, shape.n }, vx.onDevice(gpu));
     defer c.deinit();
     try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_cublas", "f64", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f64, init, writer, allocator, "cuda", "axiom_cuda_device_f64_auto_fused_direct", "f64", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);
@@ -278,11 +278,11 @@ fn runCudaF16(
     retain_outputs: bool,
 ) !void {
     var np = vx.withAllocator(allocator);
-    var a = try np.onesWith(vx.onDevice(f16, gpu), &.{ shape.m, shape.k });
+    var a = try np.onesWith(f16, &.{ shape.m, shape.k }, vx.onDevice(gpu));
     defer a.deinit();
-    var b = try np.onesWith(vx.onDevice(f16, gpu), &.{ shape.k, shape.n });
+    var b = try np.onesWith(f16, &.{ shape.k, shape.n }, vx.onDevice(gpu));
     defer b.deinit();
-    var c = try np.onesWith(vx.onDevice(f16, gpu), &.{ shape.m, shape.n });
+    var c = try np.onesWith(f16, &.{ shape.m, shape.n }, vx.onDevice(gpu));
     defer c.deinit();
     try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_cublas", "f16", .matmul, a, b, null, warmup, iters, op_filter, retain_outputs);
     try runBenchmark(f16, init, writer, allocator, "cuda", "axiom_cuda_device_f16_auto_fused_direct", "f16", .matmul_add, a, b, c, warmup, iters, op_filter, retain_outputs);

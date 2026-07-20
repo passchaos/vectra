@@ -22,38 +22,35 @@ pub const default_dtype = f32;
 pub const default_rng_seed: u64 = 0x0abc_7aaa_51eed001;
 pub const rng_seed_stride: u64 = 0x9e37_79b9_7f4a_7c15;
 
-/// Runtime creation options whose type carries the dtype.
+/// Runtime creation options for Array creation helpers.
 ///
 /// This mirrors the PyTorch idea that every creation can state `dtype` and
 /// `device`, while preserving Zig's static dtype specialization:
 ///
 /// ```
-/// const opts = vx.options(f32);              // type is CreationOptions(f32), device defaults to CPU
-/// const gpu = vx.onDevice(f32, vx.cuda(0));  // dtype in type, device in value
-/// const seeded = vx.seeded(f32, 42);         // optional per-call reproducibility
+/// const opts = vx.options();          // device defaults to CPU
+/// const gpu = vx.onDevice(vx.cuda(0));
+/// const seeded = vx.seeded(42);       // optional per-call reproducibility
+/// var x = try np.zerosWith(f32, &.{2, 3}, gpu);
 /// ```
-pub fn CreationOptions(comptime T: type) type {
-    return struct {
-        pub const dtype = T;
+pub const CreationOptions = struct {
+    device: Device = .cpu,
+    seed: ?u64 = null,
+};
 
-        device: Device = .cpu,
-        seed: ?u64 = null,
-    };
-}
-
-pub fn options(comptime T: type) CreationOptions(T) {
+pub fn options() CreationOptions {
     return .{};
 }
 
-pub fn onDevice(comptime T: type, device: Device) CreationOptions(T) {
+pub fn onDevice(device: Device) CreationOptions {
     return .{ .device = device };
 }
 
-pub fn seeded(comptime T: type, seed: u64) CreationOptions(T) {
+pub fn seeded(seed: u64) CreationOptions {
     return .{ .seed = seed };
 }
 
-pub fn seededOn(comptime T: type, device: Device, seed: u64) CreationOptions(T) {
+pub fn seededOn(device: Device, seed: u64) CreationOptions {
     return .{ .device = device, .seed = seed };
 }
 
@@ -430,11 +427,11 @@ pub const Context = struct {
 
     pub fn arrayWith(
         self: Context,
-        opts: anytype,
-        values: []const optionDType(@TypeOf(opts)),
+        comptime T: type,
+        values: []const T,
         dims: []const usize,
-    ) ArrayError!Array(optionDType(@TypeOf(opts))) {
-        const T = optionDType(@TypeOf(opts));
+        opts: CreationOptions,
+    ) ArrayError!Array(T) {
         return Array(T).fromSliceOn(self.allocator, values, dims, opts.device);
     }
 
@@ -442,8 +439,7 @@ pub const Context = struct {
         return Array(T).zeros(self.allocator, dims);
     }
 
-    pub fn zerosWith(self: Context, opts: anytype, dims: []const usize) ArrayError!Array(optionDType(@TypeOf(opts))) {
-        const T = optionDType(@TypeOf(opts));
+    pub fn zerosWith(self: Context, comptime T: type, dims: []const usize, opts: CreationOptions) ArrayError!Array(T) {
         return Array(T).zerosOn(self.allocator, dims, opts.device);
     }
 
@@ -451,8 +447,7 @@ pub const Context = struct {
         return Array(T).ones(self.allocator, dims);
     }
 
-    pub fn onesWith(self: Context, opts: anytype, dims: []const usize) ArrayError!Array(optionDType(@TypeOf(opts))) {
-        const T = optionDType(@TypeOf(opts));
+    pub fn onesWith(self: Context, comptime T: type, dims: []const usize, opts: CreationOptions) ArrayError!Array(T) {
         return Array(T).onesOn(self.allocator, dims, opts.device);
     }
 
@@ -460,8 +455,7 @@ pub const Context = struct {
         return Array(T).rand(self.allocator, dims, self.nextSeed());
     }
 
-    pub fn randWith(self: *Context, opts: anytype, dims: []const usize) ArrayError!Array(optionDType(@TypeOf(opts))) {
-        const T = optionDType(@TypeOf(opts));
+    pub fn randWith(self: *Context, comptime T: type, dims: []const usize, opts: CreationOptions) ArrayError!Array(T) {
         if (!opts.device.isCpu()) return error.TypeUnsupported;
         const out = try Array(T).rand(self.allocator, dims, opts.seed orelse self.nextSeed());
         return out;
@@ -488,11 +482,6 @@ pub fn withAllocator(allocator: std.mem.Allocator) Context {
 
 pub fn withSeed(allocator: std.mem.Allocator, seed: u64) Context {
     return .{ .allocator = allocator, .next_seed = seed };
-}
-
-fn optionDType(comptime Options: type) type {
-    if (!@hasDecl(Options, "dtype")) @compileError("array creation options must come from vx.options(T), vx.onDevice(T, device), vx.seeded(T, seed), or vx.seededOn(T, device, seed)");
-    return Options.dtype;
 }
 
 fn lookupSymbol(name: []const u8, bindings: []const DimBinding) ArrayError!usize {
@@ -646,16 +635,16 @@ test "symbolic layout evaluates dimension arithmetic and array metadata" {
 test "creation options carry dtype and runtime device" {
     const gpa = std.testing.allocator;
     const np = withAllocator(gpa);
-    var x = try np.onesWith(options(f64), &.{ 2, 2 });
+    var x = try np.onesWith(f64, &.{ 2, 2 }, options());
     defer x.deinit();
     try std.testing.expect(@TypeOf(x) == Array(f64));
     try std.testing.expectEqual(DType.f64, DType.of(@TypeOf(x).Scalar));
     try std.testing.expect(x.device.isCpu());
     if (Device.cuda(0).isAvailable()) {
-        var gpu = try np.zerosWith(onDevice(f32, Device.cuda(0)), &.{ 2, 2 });
+        var gpu = try np.zerosWith(f32, &.{ 2, 2 }, onDevice(Device.cuda(0)));
         defer gpu.deinit();
         try std.testing.expect(gpu.device.isCuda());
     } else {
-        try std.testing.expectError(error.InvalidDevice, np.zerosWith(onDevice(f32, Device.cuda(0)), &.{ 2, 2 }));
+        try std.testing.expectError(error.InvalidDevice, np.zerosWith(f32, &.{ 2, 2 }, onDevice(Device.cuda(0))));
     }
 }

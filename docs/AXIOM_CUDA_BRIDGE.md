@@ -59,7 +59,7 @@ coverage stays capability-gated.
   and retain that device's primary context. `Device.mps(index)` is part of the
   public backend selector surface and can be available on macOS through Axiom's
   Metal shared-buffer storage ABI and current f32 Metal kernel slice.
-- `Array.*On(..., vx.cuda(i))`, deterministic `Context.*With(vx.onDevice(...))`
+- `Array.*On(..., vx.cuda(i))`, deterministic `Context.*With(T, ..., vx.onDevice(device))`
   creation helpers, and `.cuda(i)` allocate/copy real device storage.
 - `.cpu()` explicitly downloads CUDA storage.
 - `ArrayView.cuda()` remains unsupported until view/device storage semantics are

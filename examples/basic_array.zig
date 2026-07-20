@@ -62,6 +62,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "fused_logits": [{d:.1},{d:.1},{d:.1},{d:.1}],
         \\  "row_sums": [{d:.1},{d:.1}],
         \\  "scaled_first": {d:.1},
+        \\  "tensor": "{f}",
         \\  "ok": true
         \\}}
         \\
@@ -91,6 +92,7 @@ pub fn main(init: std.process.Init) !void {
         row_sums.data[0],
         row_sums.data[1],
         scaled.data[0],
+        row_sums,
     });
     try stdout.interface.flush();
 }
