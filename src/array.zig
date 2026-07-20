@@ -683,6 +683,14 @@ fn tanhValue(comptime T: type, value: T) T {
     };
 }
 
+fn geluValue(comptime T: type, value: T) T {
+    const cubic = mulValue(T, mulValue(T, value, value), value);
+    const inner = addValue(T, value, mulValue(T, castValue(T, 0.044715), cubic));
+    const gelu_arg = mulValue(T, castValue(T, @sqrt(2.0 / std.math.pi)), inner);
+    const gate = addValue(T, one(T), tanhValue(T, gelu_arg));
+    return mulValue(T, mulValue(T, castValue(T, 0.5), value), gate);
+}
+
 fn negValue(comptime T: type, a: T) T {
     if (comptime T == BFloat16) return a.neg();
     if (comptime isComplex(T)) return a.neg();
@@ -4650,9 +4658,7 @@ pub fn ArrayView(comptime T: type) type {
             ensureFloat(T);
             return self.unary(struct {
                 fn f(a: T) T {
-                    const cubic = a * a * a;
-                    const gelu_arg = castValue(T, @sqrt(2.0 / std.math.pi)) * (a + castValue(T, 0.044715) * cubic);
-                    return castValue(T, 0.5) * a * (one(T) + std.math.tanh(gelu_arg));
+                    return geluValue(T, a);
                 }
             }.f);
         }
@@ -17391,11 +17397,30 @@ pub fn Array(comptime T: type) type {
 
         pub fn gelu(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
+                    var squared = try self.square();
+                    defer squared.deinit();
+                    var cubic = try squared.mul(self);
+                    defer cubic.deinit();
+                    var scaled_cubic = try cubic.mulScalar(castValue(T, 0.044715));
+                    defer scaled_cubic.deinit();
+                    var gelu_inner = try self.add(scaled_cubic);
+                    defer gelu_inner.deinit();
+                    var gelu_arg = try gelu_inner.mulScalar(castValue(T, @sqrt(2.0 / std.math.pi)));
+                    defer gelu_arg.deinit();
+                    var tanh_arg = try gelu_arg.tanh();
+                    defer tanh_arg.deinit();
+                    var gate = try tanh_arg.addScalar(one(T));
+                    defer gate.deinit();
+                    var scaled_input = try self.mulScalar(castValue(T, 0.5));
+                    defer scaled_input.deinit();
+                    return scaled_input.mul(gate);
+                }
+            }
             return self.unary(struct {
                 fn f(a: T) T {
-                    const cubic = a * a * a;
-                    const gelu_arg = castValue(T, @sqrt(2.0 / std.math.pi)) * (a + castValue(T, 0.044715) * cubic);
-                    return castValue(T, 0.5) * a * (one(T) + std.math.tanh(gelu_arg));
+                    return geluValue(T, a);
                 }
             }.f);
         }
