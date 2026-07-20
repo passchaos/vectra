@@ -25,7 +25,7 @@ BOUNDARY_DOC = REPO / "docs" / "API_BOUNDARY.md"
 BUILD = REPO / "build.zig"
 ZON = REPO / "build.zig.zon"
 
-PUBLIC_SOURCE_FILES = (ROOT, ARRAY)
+PUBLIC_SOURCE_FILES = tuple(sorted((REPO / "src").rglob("*.zig")))
 AXIAL_GUARD_FILES = (BUILD, ZON, ROOT, ARRAY, AXIOM_BACKEND)
 # Array implementation code must not bypass the Axiom target facade.  The root
 # module should likewise expose backend diagnostics through axiom_backend rather
