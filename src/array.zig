@@ -13056,6 +13056,128 @@ pub fn Array(comptime T: type) type {
             return total;
         }
 
+        fn prodFlatValue(self: Self) T {
+            if (comptime T == f64) return prodFlatSimdLanes(4, self.data);
+            if (comptime T == f32) return prodFlatSimdLanes(8, self.data);
+            var total = one(T);
+            for (self.data) |value| total = mulValue(T, total, value);
+            return total;
+        }
+
+        fn minFlatValue(self: Self) T {
+            if (self.data.len == 0) unreachable;
+            if (comptime T == f64) return minFlatSimdLanes(4, self.data);
+            if (comptime T == f32) return minFlatSimdLanes(8, self.data);
+            var total = self.data[0];
+            for (self.data[1..]) |value| {
+                total = if (lessValue(T, value, total)) value else total;
+            }
+            return total;
+        }
+
+        fn maxFlatValue(self: Self) T {
+            if (self.data.len == 0) unreachable;
+            if (comptime T == f64) return maxFlatSimdLanes(4, self.data);
+            if (comptime T == f32) return maxFlatSimdLanes(8, self.data);
+            var total = self.data[0];
+            for (self.data[1..]) |value| {
+                total = if (lessValue(T, total, value)) value else total;
+            }
+            return total;
+        }
+
+        fn prodFlatSimdLanes(comptime lanes: usize, values: []const T) T {
+            const Vec = @Vector(lanes, T);
+            var acc0: Vec = @splat(one(T));
+            var acc1: Vec = @splat(one(T));
+            var acc2: Vec = @splat(one(T));
+            var acc3: Vec = @splat(one(T));
+            var i: usize = 0;
+            while (i + lanes * 4 <= values.len) : (i += lanes * 4) {
+                acc0 *= values[i..][0..lanes].*;
+                acc1 *= values[i + lanes ..][0..lanes].*;
+                acc2 *= values[i + lanes * 2 ..][0..lanes].*;
+                acc3 *= values[i + lanes * 3 ..][0..lanes].*;
+            }
+            while (i + lanes <= values.len) : (i += lanes) {
+                acc0 *= values[i..][0..lanes].*;
+            }
+
+            var total = one(T);
+            inline for (0..lanes) |lane| {
+                total *= acc0[lane];
+                total *= acc1[lane];
+                total *= acc2[lane];
+                total *= acc3[lane];
+            }
+            while (i < values.len) : (i += 1) total *= values[i];
+            return total;
+        }
+
+        fn minFlatSimdLanes(comptime lanes: usize, values: []const T) T {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            var acc0: Vec = @splat(values[0]);
+            var acc1: Vec = @splat(values[0]);
+            var acc2: Vec = @splat(values[0]);
+            var acc3: Vec = @splat(values[0]);
+            while (i + lanes * 4 <= values.len) : (i += lanes * 4) {
+                acc0 = vectorMinValue(lanes, acc0, values[i..][0..lanes].*);
+                acc1 = vectorMinValue(lanes, acc1, values[i + lanes ..][0..lanes].*);
+                acc2 = vectorMinValue(lanes, acc2, values[i + lanes * 2 ..][0..lanes].*);
+                acc3 = vectorMinValue(lanes, acc3, values[i + lanes * 3 ..][0..lanes].*);
+            }
+            while (i + lanes <= values.len) : (i += lanes) {
+                acc0 = vectorMinValue(lanes, acc0, values[i..][0..lanes].*);
+            }
+
+            var total = values[0];
+            inline for (0..lanes) |lane| {
+                total = if (lessValue(T, acc0[lane], total)) acc0[lane] else total;
+                total = if (lessValue(T, acc1[lane], total)) acc1[lane] else total;
+                total = if (lessValue(T, acc2[lane], total)) acc2[lane] else total;
+                total = if (lessValue(T, acc3[lane], total)) acc3[lane] else total;
+            }
+            while (i < values.len) : (i += 1) total = if (lessValue(T, values[i], total)) values[i] else total;
+            return total;
+        }
+
+        fn maxFlatSimdLanes(comptime lanes: usize, values: []const T) T {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            var acc0: Vec = @splat(values[0]);
+            var acc1: Vec = @splat(values[0]);
+            var acc2: Vec = @splat(values[0]);
+            var acc3: Vec = @splat(values[0]);
+            while (i + lanes * 4 <= values.len) : (i += lanes * 4) {
+                acc0 = vectorMaxValue(lanes, acc0, values[i..][0..lanes].*);
+                acc1 = vectorMaxValue(lanes, acc1, values[i + lanes ..][0..lanes].*);
+                acc2 = vectorMaxValue(lanes, acc2, values[i + lanes * 2 ..][0..lanes].*);
+                acc3 = vectorMaxValue(lanes, acc3, values[i + lanes * 3 ..][0..lanes].*);
+            }
+            while (i + lanes <= values.len) : (i += lanes) {
+                acc0 = vectorMaxValue(lanes, acc0, values[i..][0..lanes].*);
+            }
+
+            var total = values[0];
+            inline for (0..lanes) |lane| {
+                total = if (lessValue(T, total, acc0[lane])) acc0[lane] else total;
+                total = if (lessValue(T, total, acc1[lane])) acc1[lane] else total;
+                total = if (lessValue(T, total, acc2[lane])) acc2[lane] else total;
+                total = if (lessValue(T, total, acc3[lane])) acc3[lane] else total;
+            }
+            while (i < values.len) : (i += 1) total = if (lessValue(T, total, values[i])) values[i] else total;
+            return total;
+        }
+
+        fn vectorMinValue(comptime lanes: usize, lhs: @Vector(lanes, T), rhs: @Vector(lanes, T)) @Vector(lanes, T) {
+            return @select(T, rhs < lhs, rhs, lhs);
+        }
+
+        fn vectorMaxValue(comptime lanes: usize, lhs: @Vector(lanes, T), rhs: @Vector(lanes, T)) @Vector(lanes, T) {
+            return @select(T, lhs < rhs, rhs, lhs);
+        }
+
         fn scalarReductionResult(self: Self, value: T, keepdims: bool) ArrayError!Self {
             if (keepdims) {
                 const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
@@ -16413,6 +16535,7 @@ pub fn Array(comptime T: type) type {
             if (self.isEmpty()) return error.EmptyArray;
             if (try self.tryAxiomReduction(axis_opt, keepdims, .min)) |out| return out;
             if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
+            if (axis_opt == null) return self.scalarReductionResult(self.minFlatValue(), keepdims);
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, b, a)) b else a;
@@ -16429,6 +16552,7 @@ pub fn Array(comptime T: type) type {
             if (self.isEmpty()) return error.EmptyArray;
             if (try self.tryAxiomReduction(axis_opt, keepdims, .max)) |out| return out;
             if (!axiom_backend.hostFallbackAllowed(self.device)) return error.BackendFailure;
+            if (axis_opt == null) return self.scalarReductionResult(self.maxFlatValue(), keepdims);
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, a, b)) b else a;
@@ -16707,6 +16831,7 @@ pub fn Array(comptime T: type) type {
         fn reduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: T, comptime op: fn (T, T) T) ArrayError!Self {
             if (axis_opt == null) {
                 if (comptime op == opAdd) return self.scalarReductionResult(self.sumFlatValue(), keepdims);
+                if (comptime op == opMul) return self.scalarReductionResult(self.prodFlatValue(), keepdims);
                 var total = init_value;
                 for (self.data) |v| total = op(total, v);
                 if (keepdims) {
@@ -21474,6 +21599,16 @@ test "array reductions and matmul" {
     var f32_sum = try f32_reduce.sum(null, false);
     defer f32_sum.deinit();
     try std.testing.expectEqualSlices(f32, &.{36}, f32_sum.data);
+    var f32_prod = try f32_reduce.prod(null, false);
+    defer f32_prod.deinit();
+    try std.testing.expectEqualSlices(f32, &.{40320}, f32_prod.data);
+    var f32_min = try f32_reduce.min(null, false);
+    defer f32_min.deinit();
+    try std.testing.expectEqualSlices(f32, &.{1}, f32_min.data);
+    var f32_max_keep = try f32_reduce.max(null, true);
+    defer f32_max_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, f32_max_keep.shape);
+    try std.testing.expectEqualSlices(f32, &.{8}, f32_max_keep.data);
     var f32_mean = try f32_reduce.mean(null, true);
     defer f32_mean.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, f32_mean.shape);
@@ -21494,6 +21629,9 @@ test "array reductions and matmul" {
     var p0 = try a.prod(0, false);
     defer p0.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 10, 18 }, p0.data);
+    var p_flat = try a.prod(null, false);
+    defer p_flat.deinit();
+    try std.testing.expectEqualSlices(f64, &.{720}, p_flat.data);
     var prod_dim0 = try a.prodDim(0, false);
     defer prod_dim0.deinit();
     try std.testing.expectEqualSlices(f64, p0.data, prod_dim0.data);
@@ -21516,6 +21654,9 @@ test "array reductions and matmul" {
     var max_dim_rows = try a.maxDim(1, false);
     defer max_dim_rows.deinit();
     try std.testing.expectEqualSlices(f64, mx.data, max_dim_rows.data);
+    var max_flat = try a.max(null, false);
+    defer max_flat.deinit();
+    try std.testing.expectEqualSlices(f64, &.{6}, max_flat.data);
     var amax_cols = try a.amax(0, false);
     defer amax_cols.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, amax_cols.data);
