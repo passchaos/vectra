@@ -3027,7 +3027,7 @@ pub fn tryDeviceLogSoftmaxBF16(input: array_mod.Array(BFloat16), axis: u1) array
     return tryDeviceLogSoftmax(BFloat16, input, axis);
 }
 
-fn tryDeviceLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
+pub fn tryDeviceLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
     if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
@@ -3081,7 +3081,7 @@ pub fn tryDeviceSoftmaxBF16(input: array_mod.Array(BFloat16), axis: u1) array_mo
     return tryDeviceSoftmax(BFloat16, input, axis);
 }
 
-fn tryDeviceSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
+pub fn tryDeviceSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
     if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;
@@ -3135,7 +3135,7 @@ pub fn tryDeviceTransposeBF16(input: array_mod.Array(BFloat16)) array_mod.ArrayE
     return tryDeviceTranspose(BFloat16, input);
 }
 
-fn tryDeviceTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+pub fn tryDeviceTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
     if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;

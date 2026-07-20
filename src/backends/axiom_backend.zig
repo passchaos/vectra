@@ -2920,29 +2920,13 @@ fn executeCpuReduction(
 }
 
 fn executeCudaLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        if (try axiom_cuda.tryDeviceLogSoftmaxF32(@as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f64) {
-        if (try axiom_cuda.tryDeviceLogSoftmaxF64(@as(array_mod.Array(f64), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_cuda.tryDeviceLogSoftmaxF16(@as(array_mod.Array(f16), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_cuda.tryDeviceLogSoftmaxBF16(@as(array_mod.Array(array_mod.BFloat16), input), axis)) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    if (comptime !supportsAxiomCudaElementwise(T)) return null;
+    return try axiom_cuda.tryDeviceLogSoftmax(T, input, axis);
 }
 
 fn executeCudaSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        if (try axiom_cuda.tryDeviceSoftmaxF32(@as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f64) {
-        if (try axiom_cuda.tryDeviceSoftmaxF64(@as(array_mod.Array(f64), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_cuda.tryDeviceSoftmaxF16(@as(array_mod.Array(f16), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_cuda.tryDeviceSoftmaxBF16(@as(array_mod.Array(array_mod.BFloat16), input), axis)) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    if (comptime !supportsAxiomCudaElementwise(T)) return null;
+    return try axiom_cuda.tryDeviceSoftmax(T, input, axis);
 }
 
 fn executeMpsLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
@@ -3125,16 +3109,8 @@ fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.Ar
 }
 
 fn executeCudaTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        if (try axiom_cuda.tryDeviceTransposeF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f64) {
-        if (try axiom_cuda.tryDeviceTransposeF64(@as(array_mod.Array(f64), input))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_cuda.tryDeviceTransposeF16(@as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_cuda.tryDeviceTransposeBF16(@as(array_mod.Array(array_mod.BFloat16), input))) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    if (comptime !supportsAxiomCudaElementwise(T)) return null;
+    return try axiom_cuda.tryDeviceTranspose(T, input);
 }
 
 fn executeMpsTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
