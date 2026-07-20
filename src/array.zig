@@ -10114,25 +10114,65 @@ pub fn Array(comptime T: type) type {
             return dest_view.divAssign(source);
         }
 
+        fn tryDeviceScalarAssign(self: Self, op: axiom_backend.ElementwiseOp, scalar: T) ArrayError!bool {
+            if (self.device.isCpu()) return false;
+            if (self.numel() == 0) return true;
+            if (self.device.isCuda()) {
+                if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return false;
+            } else if (self.device.isMps()) {
+                if (comptime T != f32 and T != f16 and T != BFloat16) return false;
+            } else {
+                return false;
+            }
+            if (!self.isContiguous()) return false;
+            // A lazy CUDA matmul value has no writable destination storage yet.
+            // Materializing it would create a new Array handle, which an
+            // in-place method cannot swap back into the caller.  Keep that case
+            // explicit instead of silently mutating a temporary result.
+            if (self.pending_matmul != null) return error.InvalidDevice;
+            const dst_storage = self.device_storage orelse return false;
+
+            // Use the backend scalar kernel to compute into temporary device
+            // storage, then copy device-to-device into the caller's storage.
+            // This preserves in-place API semantics without first downloading to
+            // host memory, while avoiding unsafe input/output aliasing until the
+            // Axiom runtime exposes explicit alias-checked in-place kernels.
+            var out = (try axiom_backend.executeElementwiseScalarDefault(T, op, self, scalar, .rhs)) orelse return false;
+            defer out.deinit();
+            if (!out.device.sameDevice(self.device)) return error.InvalidDevice;
+            if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
+            const src_storage = out.device_storage orelse return error.InvalidDevice;
+            try axiom_backend.copyStorage(dst_storage, src_storage);
+            return true;
+        }
+
         pub fn addScalarAssign(self: Self, scalar: T) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceScalarAssign(.add, scalar)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.addScalarAssign(scalar);
         }
 
         pub fn subScalarAssign(self: Self, scalar: T) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceScalarAssign(.sub, scalar)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.subScalarAssign(scalar);
         }
 
         pub fn mulScalarAssign(self: Self, scalar: T) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceScalarAssign(.mul, scalar)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.mulScalarAssign(scalar);
         }
 
         pub fn divScalarAssign(self: Self, scalar: T) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceScalarAssign(.div, scalar)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.divScalarAssign(scalar);
@@ -29243,6 +29283,16 @@ test "array dtype metadata and casts cover common numeric types" {
         var scaled_host = try cuda_scaled.cpu();
         defer scaled_host.deinit();
         try std.testing.expectEqualSlices(f64, &.{ 2, 4, 6, 8 }, scaled_host.data);
+
+        var cuda_inplace = try cpu_source.cuda(0);
+        defer cuda_inplace.deinit();
+        try cuda_inplace.addScalarAssign(1.0);
+        try cuda_inplace.mulScalarAssign(2.0);
+        try cuda_inplace.subScalarAssign(4.0);
+        try cuda_inplace.divScalarAssign(2.0);
+        var inplace_host = try cuda_inplace.cpu();
+        defer inplace_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 0, 1, 2, 3 }, inplace_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
