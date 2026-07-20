@@ -3264,6 +3264,50 @@ fn executeCpuElementwiseTarget(comptime T: type, op: ElementwiseOp, lhs: array_m
 
 const cpu_elementwise_fast_path_min_elements: usize = 1 << 20;
 
+fn cpuElementwiseSimd(
+    comptime T: type,
+    comptime lanes: usize,
+    op: ElementwiseOp,
+    out: []T,
+    lhs: []const T,
+    rhs: []const T,
+) void {
+    switch (op) {
+        .add => cpuElementwiseSimdOp(T, lanes, .add, out, lhs, rhs),
+        .sub => cpuElementwiseSimdOp(T, lanes, .sub, out, lhs, rhs),
+        .mul => cpuElementwiseSimdOp(T, lanes, .mul, out, lhs, rhs),
+        .div => cpuElementwiseSimdOp(T, lanes, .div, out, lhs, rhs),
+    }
+}
+
+fn cpuElementwiseSimdOp(
+    comptime T: type,
+    comptime lanes: usize,
+    comptime op: ElementwiseOp,
+    out: []T,
+    lhs: []const T,
+    rhs: []const T,
+) void {
+    const Vec = @Vector(lanes, T);
+    var i: usize = 0;
+    while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+        const lhs0: Vec = lhs[i..][0..lanes].*;
+        const rhs0: Vec = rhs[i..][0..lanes].*;
+        const lhs1: Vec = lhs[i + lanes ..][0..lanes].*;
+        const rhs1: Vec = rhs[i + lanes ..][0..lanes].*;
+        out[i..][0..lanes].* = vectorElementwiseValue(T, lanes, op, lhs0, rhs0);
+        out[i + lanes ..][0..lanes].* = vectorElementwiseValue(T, lanes, op, lhs1, rhs1);
+    }
+    while (i + lanes <= out.len) : (i += lanes) {
+        const lhs_value: Vec = lhs[i..][0..lanes].*;
+        const rhs_value: Vec = rhs[i..][0..lanes].*;
+        out[i..][0..lanes].* = vectorElementwiseValue(T, lanes, op, lhs_value, rhs_value);
+    }
+    while (i < out.len) : (i += 1) {
+        out[i] = elementwiseValue(T, op, lhs[i], rhs[i]);
+    }
+}
+
 fn executeCpuElementwiseFastPath(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
     if (!lhs.device.isCpu() or !rhs.device.isCpu()) return null;
@@ -3276,9 +3320,10 @@ fn executeCpuElementwiseFastPath(comptime T: type, op: ElementwiseOp, lhs: array
     // perform the single expected streaming pass for `add/sub/mul/div`.
     var out = try array_mod.Array(T).empty(lhs.allocator, lhs.shape);
     errdefer out.deinit();
-    for (lhs.data, rhs.data, out.data) |lhs_value, rhs_value, *slot| {
-        slot.* = elementwiseValue(T, op, lhs_value, rhs_value);
-    }
+    if (T == f32)
+        cpuElementwiseSimd(f32, 8, op, out.data, lhs.data, rhs.data)
+    else
+        cpuElementwiseSimd(f64, 4, op, out.data, lhs.data, rhs.data);
     return out;
 }
 
@@ -3357,12 +3402,71 @@ fn executeCpuScalarFastPath(comptime T: type, op: ElementwiseOp, input: array_mo
     // data pass.
     var out = try array_mod.Array(T).empty(input.allocator, input.shape);
     errdefer out.deinit();
-    for (input.data, out.data) |value, *slot| {
-        const lhs = if (scalar_side == .lhs) scalar else value;
-        const rhs = if (scalar_side == .lhs) value else scalar;
-        slot.* = elementwiseValue(T, op, lhs, rhs);
-    }
+    if (T == f32)
+        cpuScalarElementwiseSimd(f32, 8, op, out.data, input.data, scalar, scalar_side)
+    else
+        cpuScalarElementwiseSimd(f64, 4, op, out.data, input.data, scalar, scalar_side);
     return out;
+}
+
+fn cpuScalarElementwiseSimd(
+    comptime T: type,
+    comptime lanes: usize,
+    op: ElementwiseOp,
+    out: []T,
+    input: []const T,
+    scalar: T,
+    scalar_side: ScalarSide,
+) void {
+    switch (scalar_side) {
+        .lhs => switch (op) {
+            .add => cpuScalarElementwiseSimdOp(T, lanes, .add, .lhs, out, input, scalar),
+            .sub => cpuScalarElementwiseSimdOp(T, lanes, .sub, .lhs, out, input, scalar),
+            .mul => cpuScalarElementwiseSimdOp(T, lanes, .mul, .lhs, out, input, scalar),
+            .div => cpuScalarElementwiseSimdOp(T, lanes, .div, .lhs, out, input, scalar),
+        },
+        .rhs => switch (op) {
+            .add => cpuScalarElementwiseSimdOp(T, lanes, .add, .rhs, out, input, scalar),
+            .sub => cpuScalarElementwiseSimdOp(T, lanes, .sub, .rhs, out, input, scalar),
+            .mul => cpuScalarElementwiseSimdOp(T, lanes, .mul, .rhs, out, input, scalar),
+            .div => cpuScalarElementwiseSimdOp(T, lanes, .div, .rhs, out, input, scalar),
+        },
+    }
+}
+
+fn cpuScalarElementwiseSimdOp(
+    comptime T: type,
+    comptime lanes: usize,
+    comptime op: ElementwiseOp,
+    comptime scalar_side: ScalarSide,
+    out: []T,
+    input: []const T,
+    scalar: T,
+) void {
+    const Vec = @Vector(lanes, T);
+    const scalar_vec: Vec = @splat(scalar);
+    var i: usize = 0;
+    while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+        const value0: Vec = input[i..][0..lanes].*;
+        const value1: Vec = input[i + lanes ..][0..lanes].*;
+        const lhs0 = if (comptime scalar_side == .lhs) scalar_vec else value0;
+        const rhs0 = if (comptime scalar_side == .lhs) value0 else scalar_vec;
+        const lhs1 = if (comptime scalar_side == .lhs) scalar_vec else value1;
+        const rhs1 = if (comptime scalar_side == .lhs) value1 else scalar_vec;
+        out[i..][0..lanes].* = vectorElementwiseValue(T, lanes, op, lhs0, rhs0);
+        out[i + lanes ..][0..lanes].* = vectorElementwiseValue(T, lanes, op, lhs1, rhs1);
+    }
+    while (i + lanes <= out.len) : (i += lanes) {
+        const value: Vec = input[i..][0..lanes].*;
+        const lhs = if (comptime scalar_side == .lhs) scalar_vec else value;
+        const rhs = if (comptime scalar_side == .lhs) value else scalar_vec;
+        out[i..][0..lanes].* = vectorElementwiseValue(T, lanes, op, lhs, rhs);
+    }
+    while (i < out.len) : (i += 1) {
+        const lhs = if (comptime scalar_side == .lhs) scalar else input[i];
+        const rhs = if (comptime scalar_side == .lhs) input[i] else scalar;
+        out[i] = elementwiseValue(T, op, lhs, rhs);
+    }
 }
 
 pub fn executeElementwise(
@@ -4520,6 +4624,43 @@ fn elementwiseValue(comptime T: type, op: ElementwiseOp, lhs: T, rhs: T) T {
         .mul => lhs * rhs,
         .div => lhs / rhs,
     };
+}
+
+fn vectorElementwiseValue(
+    comptime T: type,
+    comptime lanes: usize,
+    comptime op: ElementwiseOp,
+    lhs: @Vector(lanes, T),
+    rhs: @Vector(lanes, T),
+) @Vector(lanes, T) {
+    return switch (op) {
+        .add => lhs + rhs,
+        .sub => lhs - rhs,
+        .mul => lhs * rhs,
+        .div => lhs / rhs,
+    };
+}
+
+test "CPU elementwise SIMD helpers cover vector blocks and tails" {
+    const lhs32 = [_]f32{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 };
+    const rhs32 = [_]f32{ 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+    var out32: [lhs32.len]f32 = undefined;
+
+    cpuElementwiseSimd(f32, 8, .sub, &out32, &lhs32, &rhs32);
+    try std.testing.expectEqualSlices(f32, &.{ -16, -14, -12, -10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10, 12, 14, 16 }, &out32);
+
+    cpuScalarElementwiseSimd(f32, 8, .div, &out32, &lhs32, 2.0, .rhs);
+    try std.testing.expectEqualSlices(f32, &.{ 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5 }, &out32);
+
+    const lhs64 = [_]f64{ 2, 4, 6, 8, 10, 12, 14, 16, 18 };
+    const rhs64 = [_]f64{ 1, 3, 5, 7, 9, 11, 13, 15, 17 };
+    var out64: [lhs64.len]f64 = undefined;
+
+    cpuElementwiseSimd(f64, 4, .add, &out64, &lhs64, &rhs64);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 7, 11, 15, 19, 23, 27, 31, 35 }, &out64);
+
+    cpuScalarElementwiseSimd(f64, 4, .sub, &out64, &rhs64, 20.0, .lhs);
+    try std.testing.expectEqualSlices(f64, &.{ 19, 17, 15, 13, 11, 9, 7, 5, 3 }, &out64);
 }
 
 test "Axiom dialect lowering reports linalg memref gpu route" {
