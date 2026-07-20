@@ -3601,96 +3601,15 @@ pub fn tryMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_
 }
 
 pub fn tryDeviceMatmulF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    resetLastCudaDeviceGemmReport();
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
-    if (lhs.data.len != 0 or rhs.data.len != 0 or lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0] or !lhs.isContiguous() or !rhs.isContiguous()) return null;
-    const lhs_storage = lhs.device_storage orelse return null;
-    const rhs_storage = rhs.device_storage orelse return null;
-    if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
-    const m = lhs.shape[0];
-    const k = lhs.shape[1];
-    const n = rhs.shape[1];
-    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    const spec = describeDeviceGemmMemRefSpec(f32, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs", "rhs", "out") catch {
-        out.deinit();
-        return null;
-    };
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const cublas_report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
-    if (cublas_report) |report| {
-        recordCudaDeviceGemmReport(report);
-        if (report.valid()) return out;
-    }
-    out.deinit();
-    return null;
+    return tryDeviceMatmul(f32, lhs, rhs, "lhs", "rhs", "out");
 }
 
 pub fn tryDeviceMatmulF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    resetLastCudaDeviceGemmReport();
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
-    if (lhs.data.len != 0 or rhs.data.len != 0 or lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0] or !lhs.isContiguous() or !rhs.isContiguous()) return null;
-    const lhs_storage = lhs.device_storage orelse return null;
-    const rhs_storage = rhs.device_storage orelse return null;
-    if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
-    const m = lhs.shape[0];
-    const k = lhs.shape[1];
-    const n = rhs.shape[1];
-    var out = try array_mod.Array(f64).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-
-    const spec = describeDeviceGemmMemRefSpec(f64, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs64", "rhs64", "out64") catch {
-        out.deinit();
-        return null;
-    };
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
-    if (report) |value| {
-        recordCudaDeviceGemmReport(value);
-        if (value.valid()) return out;
-    }
-    return null;
+    return tryDeviceMatmul(f64, lhs, rhs, "lhs64", "rhs64", "out64");
 }
 
 pub fn tryDeviceMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    resetLastCudaDeviceGemmReport();
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
-    if (lhs.data.len != 0 or rhs.data.len != 0 or lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0] or !lhs.isContiguous() or !rhs.isContiguous()) return null;
-    const lhs_storage = lhs.device_storage orelse return null;
-    const rhs_storage = rhs.device_storage orelse return null;
-    if (lhs_storage.len == 0 or rhs_storage.len == 0) return null;
-    const m = lhs.shape[0];
-    const k = lhs.shape[1];
-    const n = rhs.shape[1];
-    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
-    errdefer out.deinit();
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-
-    const spec = describeDeviceGemmMemRefSpec(f16, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs16", "rhs16", "out16") catch {
-        out.deinit();
-        return null;
-    };
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceGemmMemRefs(lhs.device.index, spec) catch null;
-    if (report) |value| {
-        recordCudaDeviceGemmReport(value);
-        if (value.valid()) return out;
-    }
-    return null;
+    return tryDeviceMatmul(f16, lhs, rhs, "lhs16", "rhs16", "out16");
 }
 
 pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
@@ -3816,6 +3735,17 @@ pub fn tryDeviceMatmulAddF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16
 }
 
 pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceMatmul(BFloat16, lhs, rhs, "lhs_bf16", "rhs_bf16", "out_bf16");
+}
+
+fn tryDeviceMatmul(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!?array_mod.Array(T) {
     resetLastCudaDeviceGemmReport();
     if (!build_options.enable_axiom_cuda) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
@@ -3826,14 +3756,14 @@ pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(
     const m = lhs.shape[0];
     const k = lhs.shape[1];
     const n = rhs.shape[1];
-    var out = try array_mod.Array(BFloat16).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
+    var out = try array_mod.Array(T).emptyOn(lhs.allocator, &.{ m, n }, lhs.device);
     errdefer out.deinit();
     const out_storage = out.device_storage orelse {
         out.deinit();
         return null;
     };
 
-    const spec = describeDeviceGemmMemRefSpec(BFloat16, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, "lhs_bf16", "rhs_bf16", "out_bf16") catch {
+    const spec = describeDeviceGemmMemRefSpec(T, m, n, k, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr, lhs_name, rhs_name, out_name) catch {
         out.deinit();
         return null;
     };
@@ -3843,6 +3773,7 @@ pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(
         recordCudaDeviceGemmReport(value);
         if (value.valid()) return out;
     }
+    out.deinit();
     return null;
 }
 
