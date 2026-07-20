@@ -3012,6 +3012,22 @@ pub fn ArrayView(comptime T: type) type {
             var out = try Array(bool).empty(self.allocator, self.shape);
             errdefer out.deinit();
             if (out.data.len == 0) return out;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value, scalar);
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (out.data) |*slot| {
+                    slot.* = op(self.data[source_offset], scalar);
+                    source_offset += self.strides[0];
+                }
+                return out;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out.data, 0..) |*slot, flat| {
@@ -28233,6 +28249,24 @@ test "array view object unary predicate wrappers" {
     var positive = try view.gtScalar(0);
     defer positive.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, false }, positive.data);
+
+    var contiguous_scalar_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 50, 60 }, &.{ 3, 2 });
+    defer contiguous_scalar_source.deinit();
+    var contiguous_scalar_view = try contiguous_scalar_source.narrowView(0, 0, 2);
+    defer contiguous_scalar_view.deinit();
+    try std.testing.expect(contiguous_scalar_view.isContiguous());
+    var contiguous_scalar_mask = try contiguous_scalar_view.gtScalar(2.5);
+    defer contiguous_scalar_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, contiguous_scalar_mask.data);
+
+    var strided_scalar_source = try Array(f64).fromSlice(gpa, &.{ 2, 90, 3, 80, 4, 70 }, &.{6});
+    defer strided_scalar_source.deinit();
+    var strided_scalar_view = try strided_scalar_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_scalar_view.deinit();
+    try std.testing.expect(!strided_scalar_view.isContiguous());
+    var strided_scalar_mask = try strided_scalar_view.leScalar(3);
+    defer strided_scalar_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, strided_scalar_mask.data);
 
     var contiguous_cmp_lhs_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 50, 60 }, &.{ 3, 2 });
     defer contiguous_cmp_lhs_source.deinit();
