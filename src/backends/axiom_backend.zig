@@ -1730,7 +1730,14 @@ pub fn planPendingMatmulDefault(comptime T: type, lhs: array_mod.Array(T), rhs: 
 }
 
 pub fn hostFallbackAllowed(device: array_mod.Device) bool {
-    return executionTargetForDevice(device) == .cpu;
+    return switch (executionTargetForDevice(device)) {
+        .cpu => true,
+        .cuda, .mps => build_options.enable_device_host_fallback,
+    };
+}
+
+pub fn deviceHostFallbackEnabled() bool {
+    return build_options.enable_device_host_fallback;
 }
 
 pub fn shouldRestoreDeviceAfterHostCast(device: array_mod.Device) bool {

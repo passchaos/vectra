@@ -22,6 +22,7 @@ pub fn build(b: *std.Build) void {
     const enable_axiom_cuda = true;
     const enable_axiom_cuda_dispatch = true;
     const enable_axiom_cpu_dispatch = true;
+    const enable_device_host_fallback = b.option(bool, "device-host-fallback", "Allow CUDA/MPS owning arrays to fall back to host generic kernels when no device runtime covers an operation") orelse false;
     const axiom_cuda_expect = b.option([]const u8, "axiom-cuda-expect", "Optional Axiom CUDA smoke status expectation: disabled, skipped, ran, or failed");
     // It's also possible to define more custom flags to toggle optional features
     // of this build script using `b.option()`. All defined flags (including
@@ -53,6 +54,7 @@ pub fn build(b: *std.Build) void {
     build_options.addOption(bool, "enable_axiom_cuda", enable_axiom_cuda);
     build_options.addOption(bool, "enable_axiom_cuda_dispatch", enable_axiom_cuda_dispatch);
     build_options.addOption(bool, "enable_axiom_cpu_dispatch", enable_axiom_cpu_dispatch);
+    build_options.addOption(bool, "enable_device_host_fallback", enable_device_host_fallback);
 
     const mod = b.addModule("vectra", .{
         // The root source file is the "entry point" of this module. Users of
@@ -689,6 +691,22 @@ pub fn build(b: *std.Build) void {
     const axiom_backend_policy_smoke_cmd = b.addRunArtifact(axiom_backend_policy_smoke_exe);
     const axiom_backend_policy_smoke_step = b.step("axiom-backend-policy-smoke", "Run unified Axiom CPU/CUDA backend policy smoke");
     axiom_backend_policy_smoke_step.dependOn(&axiom_backend_policy_smoke_cmd.step);
+
+    const axiom_device_fallback_policy_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-device-fallback-policy-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/axiom_device_fallback_policy_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_device_fallback_policy_smoke_cmd = b.addRunArtifact(axiom_device_fallback_policy_smoke_exe);
+    const axiom_device_fallback_policy_smoke_step = b.step("axiom-device-fallback-policy-smoke", "Run explicit CUDA/MPS host-fallback policy smoke");
+    axiom_device_fallback_policy_smoke_step.dependOn(&axiom_device_fallback_policy_smoke_cmd.step);
+    axiom_backend_policy_smoke_step.dependOn(&axiom_device_fallback_policy_smoke_cmd.step);
 
     const axiom_dialect_lowering_smoke_exe = b.addExecutable(.{
         .name = "vectra-axiom-dialect-lowering-smoke",

@@ -108,7 +108,9 @@ runtime ABI, and mixed-device operations fail with `InvalidDevice`.
 CUDA-resident and MPS-resident owning `Array` storage are real device allocations
 for supported backends; supported kernels consume those device pointers directly,
 while unsupported operations return explicit errors or require an explicit
-`.cpu()` transfer. Public backend capability reports and smoke/provenance
+`.cpu()` transfer. `-Ddevice-host-fallback=true` explicitly opts CUDA/MPS
+owning arrays into host generic fallback for diagnostics; the default is off.
+Public backend capability reports and smoke/provenance
 diagnostics are exposed through `vx.axiom_backend`; target-specific bridge
 modules remain an internal implementation detail behind that facade.
 
