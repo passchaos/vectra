@@ -7656,15 +7656,57 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn all(self: Self) bool {
-            var owned = self.toArray() catch return false;
-            defer owned.deinit();
-            return owned.all();
+            if (comptime T != bool) @compileError("all requires Array(bool)");
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return false;
+                if (end > self.data.len) return false;
+                for (self.data[self.offset..end]) |v| if (!v) return false;
+                return true;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = self.oneDimensionalEndOffset() catch return false;
+                if (end_offset >= self.data.len) return false;
+                var source_offset = self.offset;
+                for (0..self.numel()) |_| {
+                    if (!self.data[source_offset]) return false;
+                    source_offset += self.strides[0];
+                }
+                return true;
+            }
+            const multi = self.allocator.alloc(usize, self.shape.len) catch return false;
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                if (!self.data[self.offset + ravelIndex(multi, self.strides)]) return false;
+            }
+            return true;
         }
 
         pub fn any(self: Self) bool {
-            var owned = self.toArray() catch return false;
-            defer owned.deinit();
-            return owned.any();
+            if (comptime T != bool) @compileError("any requires Array(bool)");
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return false;
+                if (end > self.data.len) return false;
+                for (self.data[self.offset..end]) |v| if (v) return true;
+                return false;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = self.oneDimensionalEndOffset() catch return false;
+                if (end_offset >= self.data.len) return false;
+                var source_offset = self.offset;
+                for (0..self.numel()) |_| {
+                    if (self.data[source_offset]) return true;
+                    source_offset += self.strides[0];
+                }
+                return false;
+            }
+            const multi = self.allocator.alloc(usize, self.shape.len) catch return false;
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                if (self.data[self.offset + ravelIndex(multi, self.strides)]) return true;
+            }
+            return false;
         }
 
         pub fn allAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
