@@ -4817,4 +4817,47 @@ test "Axiom backend policy reports elementwise route" {
     defer bf16_matmul.deinit();
     try std.testing.expectApproxEqAbs(@as(f32, 70), bf16_matmul.data[0].toF32(), 0.5);
     try std.testing.expectApproxEqAbs(@as(f32, 220), bf16_matmul.data[3].toF32(), 0.5);
+
+    var cuda_like = try fakeCudaArrayForUnaryTest(f32, gpa, 4);
+    defer cuda_like.deinit();
+    // Inverse trig is intentionally not a CUDA unary runtime op today.  The
+    // dispatcher must decline it cleanly even for CUDA-resident arrays; this
+    // catches accidental `unreachable` paths without requiring CUDA hardware.
+    const unsupported_cuda_unary = try executeUnary(f32, .asin, .cuda, cuda_like);
+    try std.testing.expect(unsupported_cuda_unary == null);
+
+    var cuda_like64 = try fakeCudaArrayForUnaryTest(f64, gpa, 4);
+    defer cuda_like64.deinit();
+    // Axiom's cached CUDA unary kernels only expose extended transcendental ops
+    // for f32.  f64/f16/bf16 should be rejected before output storage/runtime
+    // work is attempted.
+    const unsupported_f64_log = try executeUnary(f64, .log, .cuda, cuda_like64);
+    try std.testing.expect(unsupported_f64_log == null);
+}
+
+fn fakeCudaArrayForUnaryTest(comptime T: type, allocator: std.mem.Allocator, len: usize) !array_mod.Array(T) {
+    const shape = try allocator.dupe(usize, &.{len});
+    errdefer allocator.free(shape);
+    const strides = try allocator.dupe(usize, &.{@as(usize, 1)});
+    errdefer allocator.free(strides);
+    const values = try allocator.alloc(T, 0);
+    errdefer allocator.free(values);
+    const bytes = try std.math.mul(usize, len, @sizeOf(T));
+    return .{
+        .allocator = allocator,
+        .data = values,
+        .shape = shape,
+        .strides = strides,
+        .device = array_mod.Device.cuda(0),
+        .device_storage = .{
+            .device = array_mod.Device.cuda(0),
+            // Unsupported-op tests must not require CUDA hardware.  A nonzero
+            // borrowed pointer is enough to satisfy the Array/device shape
+            // preconditions while remaining safe to deinit because `owns=false`.
+            .ptr = 1,
+            .len = len,
+            .bytes = bytes,
+            .owns = false,
+        },
+    };
 }
