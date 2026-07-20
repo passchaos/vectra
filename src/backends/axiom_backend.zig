@@ -23,6 +23,10 @@ const axiom_mps = @import("axiom_mps.zig");
 const cpu_streaming_fast_path_min_elements: usize = 1 << 20;
 const cpu_matmul_like_fast_path_min_ops: usize = 4 * 1024 * 1024;
 
+pub fn cpuStreamingFastPathMinElements() usize {
+    return cpu_streaming_fast_path_min_elements;
+}
+
 pub const BackendRoute = enum(u8) {
     direct_cpu,
     axiom_cpu_veyra,

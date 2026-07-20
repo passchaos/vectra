@@ -4753,8 +4753,167 @@ pub fn ArrayView(comptime T: type) type {
             return dims;
         }
 
+        fn scalarReductionResult(self: Self, value: T, keepdims: bool) ArrayError!Array(T) {
+            if (keepdims) {
+                const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                defer self.allocator.free(out_shape);
+                return Array(T).fromSlice(self.allocator, &.{value}, out_shape);
+            }
+            return Array(T).fromSlice(self.allocator, &.{value}, &.{});
+        }
+
+        fn contiguousFlatFastSlice(self: Self) ?[]const T {
+            if (comptime T != f32 and T != f64) return null;
+            if (!self.isContiguous() or self.numel() < axiom_backend.cpuStreamingFastPathMinElements()) return null;
+            const end = std.math.add(usize, self.offset, self.numel()) catch return null;
+            if (end > self.data.len) return null;
+            return self.data[self.offset..end];
+        }
+
+        fn sumFlatSimdLanes(comptime lanes: usize, values: []const T) T {
+            const Vec = @Vector(lanes, T);
+            var acc0: Vec = @splat(zero(T));
+            var acc1: Vec = @splat(zero(T));
+            var acc2: Vec = @splat(zero(T));
+            var acc3: Vec = @splat(zero(T));
+            var i: usize = 0;
+            while (i + lanes * 4 <= values.len) : (i += lanes * 4) {
+                acc0 += values[i..][0..lanes].*;
+                acc1 += values[i + lanes ..][0..lanes].*;
+                acc2 += values[i + lanes * 2 ..][0..lanes].*;
+                acc3 += values[i + lanes * 3 ..][0..lanes].*;
+            }
+            while (i + lanes <= values.len) : (i += lanes) {
+                acc0 += values[i..][0..lanes].*;
+            }
+            var total = zero(T);
+            inline for (0..lanes) |lane| {
+                total += acc0[lane] + acc1[lane] + acc2[lane] + acc3[lane];
+            }
+            while (i < values.len) : (i += 1) total += values[i];
+            return total;
+        }
+
+        fn prodFlatSimdLanes(comptime lanes: usize, values: []const T) T {
+            const Vec = @Vector(lanes, T);
+            var acc0: Vec = @splat(one(T));
+            var acc1: Vec = @splat(one(T));
+            var acc2: Vec = @splat(one(T));
+            var acc3: Vec = @splat(one(T));
+            var i: usize = 0;
+            while (i + lanes * 4 <= values.len) : (i += lanes * 4) {
+                acc0 *= values[i..][0..lanes].*;
+                acc1 *= values[i + lanes ..][0..lanes].*;
+                acc2 *= values[i + lanes * 2 ..][0..lanes].*;
+                acc3 *= values[i + lanes * 3 ..][0..lanes].*;
+            }
+            while (i + lanes <= values.len) : (i += lanes) {
+                acc0 *= values[i..][0..lanes].*;
+            }
+            var total = one(T);
+            inline for (0..lanes) |lane| {
+                total *= acc0[lane] * acc1[lane] * acc2[lane] * acc3[lane];
+            }
+            while (i < values.len) : (i += 1) total *= values[i];
+            return total;
+        }
+
+        fn minFlatSimdLanes(comptime lanes: usize, values: []const T) T {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            var acc0: Vec = @splat(values[0]);
+            var acc1: Vec = @splat(values[0]);
+            var acc2: Vec = @splat(values[0]);
+            var acc3: Vec = @splat(values[0]);
+            while (i + lanes * 4 <= values.len) : (i += lanes * 4) {
+                acc0 = @select(T, values[i..][0..lanes].* < acc0, values[i..][0..lanes].*, acc0);
+                acc1 = @select(T, values[i + lanes ..][0..lanes].* < acc1, values[i + lanes ..][0..lanes].*, acc1);
+                acc2 = @select(T, values[i + lanes * 2 ..][0..lanes].* < acc2, values[i + lanes * 2 ..][0..lanes].*, acc2);
+                acc3 = @select(T, values[i + lanes * 3 ..][0..lanes].* < acc3, values[i + lanes * 3 ..][0..lanes].*, acc3);
+            }
+            while (i + lanes <= values.len) : (i += lanes) {
+                acc0 = @select(T, values[i..][0..lanes].* < acc0, values[i..][0..lanes].*, acc0);
+            }
+            var total = values[0];
+            inline for (0..lanes) |lane| {
+                total = if (lessValue(T, acc0[lane], total)) acc0[lane] else total;
+                total = if (lessValue(T, acc1[lane], total)) acc1[lane] else total;
+                total = if (lessValue(T, acc2[lane], total)) acc2[lane] else total;
+                total = if (lessValue(T, acc3[lane], total)) acc3[lane] else total;
+            }
+            while (i < values.len) : (i += 1) total = if (lessValue(T, values[i], total)) values[i] else total;
+            return total;
+        }
+
+        fn maxFlatSimdLanes(comptime lanes: usize, values: []const T) T {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            var acc0: Vec = @splat(values[0]);
+            var acc1: Vec = @splat(values[0]);
+            var acc2: Vec = @splat(values[0]);
+            var acc3: Vec = @splat(values[0]);
+            while (i + lanes * 4 <= values.len) : (i += lanes * 4) {
+                acc0 = @select(T, acc0 < values[i..][0..lanes].*, values[i..][0..lanes].*, acc0);
+                acc1 = @select(T, acc1 < values[i + lanes ..][0..lanes].*, values[i + lanes ..][0..lanes].*, acc1);
+                acc2 = @select(T, acc2 < values[i + lanes * 2 ..][0..lanes].*, values[i + lanes * 2 ..][0..lanes].*, acc2);
+                acc3 = @select(T, acc3 < values[i + lanes * 3 ..][0..lanes].*, values[i + lanes * 3 ..][0..lanes].*, acc3);
+            }
+            while (i + lanes <= values.len) : (i += lanes) {
+                acc0 = @select(T, acc0 < values[i..][0..lanes].*, values[i..][0..lanes].*, acc0);
+            }
+            var total = values[0];
+            inline for (0..lanes) |lane| {
+                total = if (lessValue(T, total, acc0[lane])) acc0[lane] else total;
+                total = if (lessValue(T, total, acc1[lane])) acc1[lane] else total;
+                total = if (lessValue(T, total, acc2[lane])) acc2[lane] else total;
+                total = if (lessValue(T, total, acc3[lane])) acc3[lane] else total;
+            }
+            while (i < values.len) : (i += 1) total = if (lessValue(T, total, values[i])) values[i] else total;
+            return total;
+        }
+
+        fn sumFlatFastValue(self: Self, values: []const T) T {
+            _ = self;
+            if (comptime T == f64) return sumFlatSimdLanes(4, values);
+            if (comptime T == f32) return sumFlatSimdLanes(8, values);
+            var total = zero(T);
+            for (values) |value| total = addValue(T, total, value);
+            return total;
+        }
+
+        fn prodFlatFastValue(self: Self, values: []const T) T {
+            _ = self;
+            if (comptime T == f64) return prodFlatSimdLanes(4, values);
+            if (comptime T == f32) return prodFlatSimdLanes(8, values);
+            var total = one(T);
+            for (values) |value| total = mulValue(T, total, value);
+            return total;
+        }
+
+        fn minFlatFastValue(self: Self, values: []const T) T {
+            _ = self;
+            if (comptime T == f64) return minFlatSimdLanes(4, values);
+            if (comptime T == f32) return minFlatSimdLanes(8, values);
+            var total = values[0];
+            for (values[1..]) |value| total = if (lessValue(T, value, total)) value else total;
+            return total;
+        }
+
+        fn maxFlatFastValue(self: Self, values: []const T) T {
+            _ = self;
+            if (comptime T == f64) return maxFlatSimdLanes(4, values);
+            if (comptime T == f32) return maxFlatSimdLanes(8, values);
+            var total = values[0];
+            for (values[1..]) |value| total = if (lessValue(T, total, value)) value else total;
+            return total;
+        }
+
         fn reduce(self: Self, axis_opt: ?isize, keepdims: bool, init_value: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
             if (axis_opt == null) {
+                if (self.contiguousFlatFastSlice()) |values| {
+                    if (comptime op == opAdd) return self.scalarReductionResult(self.sumFlatFastValue(values), keepdims);
+                    if (comptime op == opMul) return self.scalarReductionResult(self.prodFlatFastValue(values), keepdims);
+                }
                 var total = init_value;
                 if (self.isContiguous()) {
                     const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
@@ -4949,6 +5108,10 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             ensureNumeric(T);
+            if (axis_opt == null) {
+                if (self.numel() == 0) return error.EmptyArray;
+                if (self.contiguousFlatFastSlice()) |values| return self.scalarReductionResult(self.minFlatFastValue(values), keepdims);
+            }
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, b, a)) b else a;
@@ -4986,6 +5149,10 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             ensureNumeric(T);
+            if (axis_opt == null) {
+                if (self.numel() == 0) return error.EmptyArray;
+                if (self.contiguousFlatFastSlice()) |values| return self.scalarReductionResult(self.maxFlatFastValue(values), keepdims);
+            }
             return self.reduceFirst(axis_opt, keepdims, struct {
                 fn f(a: T, b: T) T {
                     return if (lessValue(T, a, b)) b else a;
@@ -21548,6 +21715,26 @@ test "array comparison and logical wrappers" {
     defer view_min_fast.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, view_min_fast.shape);
     try std.testing.expectEqualSlices(f64, &.{1}, view_min_fast.data);
+
+    var large_view_source = try Array(f32).ones(gpa, &.{ 1024, 1024 });
+    defer large_view_source.deinit();
+    large_view_source.data[100] = 2;
+    large_view_source.data[200] = 0;
+    var large_view = try large_view_source.asView();
+    defer large_view.deinit();
+    var large_view_sum = try large_view.sum(null, false);
+    defer large_view_sum.deinit();
+    try std.testing.expectEqualSlices(f32, &.{1024 * 1024}, large_view_sum.data);
+    var large_view_prod = try large_view.prod(null, false);
+    defer large_view_prod.deinit();
+    try std.testing.expectEqualSlices(f32, &.{0}, large_view_prod.data);
+    var large_view_min = try large_view.min(null, false);
+    defer large_view_min.deinit();
+    try std.testing.expectEqualSlices(f32, &.{0}, large_view_min.data);
+    var large_view_max_keep = try large_view.max(null, true);
+    defer large_view_max_keep.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1 }, large_view_max_keep.shape);
+    try std.testing.expectEqualSlices(f32, &.{2}, large_view_max_keep.data);
 
     var strided_source = try Array(f64).fromSlice(gpa, &.{ 1, 9, 2, 8, 3, 7, 4, 6 }, &.{8});
     defer strided_source.deinit();
