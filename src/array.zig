@@ -10118,6 +10118,19 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedFillAssign(self: Self, mask: Array(bool), value: T) ArrayError!void {
+            if (!self.device.isCpu() and mask.numel() == 1) {
+                if (!broadcastsExactlyTo(mask.shape, self.shape)) return error.ShapeMismatch;
+                if (mask.device.isCpu()) {
+                    if (mask.data.len != 1) return error.ShapeMismatch;
+                    if (mask.data[0]) try self.fill(value);
+                    return;
+                }
+                var mask_host = try mask.cpu();
+                defer mask_host.deinit();
+                if (mask_host.data.len != 1) return error.ShapeMismatch;
+                if (mask_host.data[0]) try self.fill(value);
+                return;
+            }
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.maskedFill(mask, value);
@@ -29535,6 +29548,22 @@ test "array dtype metadata and casts cover common numeric types" {
         var cuda_assign_strided_host = try cuda_assign_strided_view.cpu();
         defer cuda_assign_strided_host.deinit();
         try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, cuda_assign_strided_host.data);
+
+        var cuda_masked_fill = try Array(f64).zerosOn(gpa, &.{ 2, 2 }, Device.cuda(0));
+        defer cuda_masked_fill.deinit();
+        var scalar_true_mask = try Array(bool).fromSlice(gpa, &.{true}, &.{1});
+        defer scalar_true_mask.deinit();
+        try cuda_masked_fill.maskedFillAssign(scalar_true_mask, 9);
+        var cuda_masked_fill_true_host = try cuda_masked_fill.cpu();
+        defer cuda_masked_fill_true_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9, 9 }, cuda_masked_fill_true_host.data);
+
+        var scalar_false_mask = try Array(bool).fromSlice(gpa, &.{false}, &.{1});
+        defer scalar_false_mask.deinit();
+        try cuda_masked_fill.maskedFillAssign(scalar_false_mask, 3);
+        var cuda_masked_fill_false_host = try cuda_masked_fill.cpu();
+        defer cuda_masked_fill_false_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9, 9 }, cuda_masked_fill_false_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
