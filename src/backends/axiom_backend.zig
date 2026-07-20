@@ -1246,7 +1246,7 @@ pub fn executeBmm(
     return switch (target) {
         .cpu => null,
         .cuda => executeCudaBmm(T, lhs, rhs),
-        .mps => null,
+        .mps => executeMpsBmm(T, lhs, rhs),
     };
 }
 
@@ -1556,6 +1556,17 @@ fn executeCudaBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Arra
         const rhs_bf16 = @as(array_mod.Array(array_mod.BFloat16), rhs);
         if (try axiom_cuda.tryDeviceBmmBF16(lhs_bf16, rhs_bf16)) |out| return @as(array_mod.Array(T), out);
         if (try axiom_cuda.tryDeviceBatchedMatmulBF16(lhs_bf16, rhs_bf16)) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeMpsBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.tryBmmF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryBmmF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryBmmBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3904,6 +3915,14 @@ fn supportedBmmExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_m
     if (!batchShapesBroadcastable(lhs.shape[0 .. lhs.shape.len - 2], rhs.shape[0 .. rhs.shape.len - 2])) return false;
     if (lhs.shape[lhs.shape.len - 2] == 0 or lhs.shape[lhs.shape.len - 1] == 0 or rhs.shape[rhs.shape.len - 1] == 0) return false;
     if (lhs.shape[lhs.shape.len - 1] != rhs.shape[rhs.shape.len - 2]) return false;
+    if (lhs.device.isMps()) {
+        return (T == f32 or T == f16 or T == array_mod.BFloat16) and
+            lhs.shape.len == 3 and
+            rhs.shape.len == 3 and
+            lhs.shape[0] == rhs.shape[0] and
+            lhs.device_storage != null and
+            rhs.device_storage != null;
+    }
     return lhs.device.isCuda() and (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16);
 }
 

@@ -568,6 +568,22 @@ pub fn build(b: *std.Build) void {
     axiom_mps_rank3_broadcast_smoke_step.dependOn(&axiom_mps_rank3_broadcast_smoke_cmd.step);
     axiom_mps_storage_smoke_step.dependOn(&axiom_mps_rank3_broadcast_smoke_cmd.step);
 
+    const axiom_mps_bmm_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-mps-bmm-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/axiom_mps_bmm_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_mps_bmm_smoke_cmd = b.addRunArtifact(axiom_mps_bmm_smoke_exe);
+    const axiom_mps_bmm_smoke_step = b.step("axiom-mps-bmm-smoke", "Run focused MPS rank-3 batched matmul smoke");
+    axiom_mps_bmm_smoke_step.dependOn(&axiom_mps_bmm_smoke_cmd.step);
+    axiom_mps_storage_smoke_step.dependOn(&axiom_mps_bmm_smoke_cmd.step);
+
     const fusion_smoke_step = b.step("fusion-smoke", "Run CPU/CUDA fusion correctness, status, and quick performance smoke gates");
     fusion_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
     fusion_smoke_step.dependOn(&axiom_cuda_dispatch_smoke_cmd.step);
