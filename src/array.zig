@@ -12919,6 +12919,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedFill(self: Self, mask: Array(bool), value: T) ArrayError!Self {
+            if (try self.maskedFillSameShapeFast(mask, value)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try self.broadcastTo(out_shape);
@@ -12929,6 +12930,18 @@ pub fn Array(comptime T: type) type {
                 unravelIndexInto(i, out_shape, out_multi);
                 const mi = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
                 if (mask.data[mi]) slot.* = value;
+            }
+            return out;
+        }
+
+        fn maskedFillSameShapeFast(self: Self, mask: Array(bool), value: T) ArrayError!?Self {
+            if (!self.device.isCpu() or !mask.device.isCpu()) return null;
+            if (!std.mem.eql(usize, self.shape, mask.shape)) return null;
+            if (!self.isContiguous() or !mask.isContiguous()) return null;
+            var out = try self.clone();
+            errdefer out.deinit();
+            for (mask.data, out.data) |keep, *slot| {
+                if (keep) slot.* = value;
             }
             return out;
         }
