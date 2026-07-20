@@ -7608,6 +7608,24 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn countNonzero(self: Self) usize {
             var count: usize = 0;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return 0;
+                if (end > self.data.len) return 0;
+                for (self.data[self.offset..end]) |v| {
+                    if (v != zero(T)) count += 1;
+                }
+                return count;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = self.oneDimensionalEndOffset() catch return 0;
+                if (end_offset >= self.data.len) return 0;
+                var source_offset = self.offset;
+                for (0..self.numel()) |_| {
+                    if (self.data[source_offset] != zero(T)) count += 1;
+                    source_offset += self.strides[0];
+                }
+                return count;
+            }
             const multi = self.allocator.alloc(usize, self.shape.len) catch return 0;
             defer self.allocator.free(multi);
             for (0..self.numel()) |flat| {
