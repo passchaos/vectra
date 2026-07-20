@@ -3356,6 +3356,8 @@ fn executeMpsReduction(
 }
 
 fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuBroadcastAddFastPath(T, input, bias, axis)) |out| return out;
+
     if (T == f32) {
         const input32 = @as(array_mod.Array(f32), input);
         const bias32 = @as(array_mod.Array(f32), bias);
@@ -3410,6 +3412,79 @@ fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arr
         return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+const cpu_broadcast_fast_path_min_elements: usize = 1 << 20;
+
+fn executeCpuBroadcastAddFastPath(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!input.device.isCpu() or !bias.device.isCpu()) return null;
+    if (input.data.len < cpu_broadcast_fast_path_min_elements) return null;
+    if (input.shape.len != 2 or !input.isContiguous() or !bias.isContiguous()) return null;
+    if (!broadcastBiasMatchesArrayAdd(T, input, bias, axis)) return null;
+
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    if (bias.numel() == 1) {
+        const scalar = bias.data[0];
+        if (T == f32)
+            cpuScalarElementwiseSimd(f32, 8, .add, out.data, input.data, scalar, .rhs)
+        else
+            cpuScalarElementwiseSimd(f64, 4, .add, out.data, input.data, scalar, .rhs);
+        return out;
+    }
+
+    const rows = input.shape[0];
+    const cols = input.shape[1];
+    switch (axis) {
+        .row => {
+            const row_bias = if (bias.shape.len == 1) bias.data else bias.data[0..cols];
+            if (T == f32)
+                cpuBroadcastRowAdd(f32, 8, out.data, input.data, row_bias, rows, cols)
+            else
+                cpuBroadcastRowAdd(f64, 4, out.data, input.data, row_bias, rows, cols);
+        },
+        .column => {
+            const col_bias = if (bias.shape.len == 1) bias.data else bias.data[0..rows];
+            if (T == f32)
+                cpuBroadcastColumnAdd(f32, 8, out.data, input.data, col_bias, rows, cols)
+            else
+                cpuBroadcastColumnAdd(f64, 4, out.data, input.data, col_bias, rows, cols);
+        },
+    }
+    return out;
+}
+
+fn cpuBroadcastRowAdd(
+    comptime T: type,
+    comptime lanes: usize,
+    out: []T,
+    input: []const T,
+    bias: []const T,
+    rows: usize,
+    cols: usize,
+) void {
+    var row: usize = 0;
+    while (row < rows) : (row += 1) {
+        const start = row * cols;
+        cpuElementwiseSimd(T, lanes, .add, out[start..][0..cols], input[start..][0..cols], bias[0..cols]);
+    }
+}
+
+fn cpuBroadcastColumnAdd(
+    comptime T: type,
+    comptime lanes: usize,
+    out: []T,
+    input: []const T,
+    bias: []const T,
+    rows: usize,
+    cols: usize,
+) void {
+    var row: usize = 0;
+    while (row < rows) : (row += 1) {
+        const start = row * cols;
+        cpuScalarElementwiseSimd(T, lanes, .add, out[start..][0..cols], input[start..][0..cols], bias[row], .rhs);
+    }
 }
 
 fn executeCudaBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
@@ -5011,6 +5086,38 @@ test "CPU column reduction SIMD helper covers vector blocks and tails" {
     try std.testing.expectEqualSlices(f64, &.{ 6, 24, 60, 120, 210 }, &out64);
     cpuReductionColumns(f64, 4, .min, &out64, &input64, rows64, cols64);
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4, 5 }, &out64);
+}
+
+test "CPU broadcast add SIMD helpers cover row column and scalar bias" {
+    const rows32: usize = 2;
+    const cols32: usize = 9;
+    const input32 = [_]f32{
+        1, 2, 3, 4, 5, 6, 7, 8, 9,
+        10, 20, 30, 40, 50, 60, 70, 80, 90,
+    };
+    const row_bias32 = [_]f32{ 100, 200, 300, 400, 500, 600, 700, 800, 900 };
+    const col_bias32 = [_]f32{ 1000, 2000 };
+    var out32: [input32.len]f32 = undefined;
+
+    cpuBroadcastRowAdd(f32, 8, &out32, &input32, &row_bias32, rows32, cols32);
+    try std.testing.expectEqualSlices(f32, &.{
+        101, 202, 303, 404, 505, 606, 707, 808, 909,
+        110, 220, 330, 440, 550, 660, 770, 880, 990,
+    }, &out32);
+
+    cpuBroadcastColumnAdd(f32, 8, &out32, &input32, &col_bias32, rows32, cols32);
+    try std.testing.expectEqualSlices(f32, &.{
+        1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009,
+        2010, 2020, 2030, 2040, 2050, 2060, 2070, 2080, 2090,
+    }, &out32);
+
+    const input64 = [_]f64{
+        1, 2, 3, 4, 5,
+        6, 7, 8, 9, 10,
+    };
+    var out64: [input64.len]f64 = undefined;
+    cpuScalarElementwiseSimd(f64, 4, .add, &out64, &input64, 0.5, .rhs);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5 }, &out64);
 }
 
 test "Axiom dialect lowering reports linalg memref gpu route" {
