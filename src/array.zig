@@ -7360,9 +7360,31 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Array(T) {
+            if (try self.maskedSelectSameShapeFast(mask)) |out| return out;
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.maskedSelect(mask);
+        }
+
+        fn maskedSelectSameShapeFast(self: Self, mask: Array(bool)) ArrayError!?Array(T) {
+            if (!self.device.isCpu() or !mask.device.isCpu()) return null;
+            if (!std.mem.eql(usize, self.shape, mask.shape)) return null;
+            if (!self.isContiguous() or !mask.isContiguous()) return null;
+            const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+            if (end > self.data.len) return error.IndexOutOfBounds;
+
+            var selected: usize = 0;
+            for (mask.data) |keep| selected += @intFromBool(keep);
+            var out = try Array(T).empty(self.allocator, &.{selected});
+            errdefer out.deinit();
+            var write: usize = 0;
+            for (mask.data, self.data[self.offset..end]) |keep, value| {
+                if (keep) {
+                    out.data[write] = value;
+                    write += 1;
+                }
+            }
+            return out;
         }
 
         pub fn maskedScatter(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
