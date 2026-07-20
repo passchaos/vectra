@@ -8292,9 +8292,26 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn unravelFlat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.unravelFlat(indices);
+            var out_shape = try self.allocator.alloc(usize, indices.shape.len + 1);
+            defer self.allocator.free(out_shape);
+            @memcpy(out_shape[0..indices.shape.len], indices.shape);
+            out_shape[indices.shape.len] = self.shape.len;
+            var out = try Array(usize).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (self.shape.len == 0) {
+                for (indices.data) |idx| {
+                    if (idx != 0) return error.IndexOutOfBounds;
+                }
+                return out;
+            }
+            const coords = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(coords);
+            for (indices.data, 0..) |idx, row| {
+                if (idx >= self.numel()) return error.IndexOutOfBounds;
+                unravelIndexInto(idx, self.shape, coords);
+                @memcpy(out.data[row * self.shape.len ..][0..self.shape.len], coords);
+            }
+            return out;
         }
 
         pub fn takeCoords(self: Self, coords: Array(usize)) ArrayError!Array(T) {
