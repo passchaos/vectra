@@ -1589,6 +1589,7 @@ fn executeCudaBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Arra
 }
 
 fn executeMpsBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeMpsFlattenedEqualBatchBmm(T, lhs, rhs)) |out| return out;
     if (T == f32) {
         if (try axiom_mps.tryBmmF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
@@ -1597,6 +1598,37 @@ fn executeMpsBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array
         if (try axiom_mps.tryBmmBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+fn executeMpsFlattenedEqualBatchBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f16 and T != array_mod.BFloat16) return null;
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len <= 3 or rhs.shape.len <= 3 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_batch = lhs.shape[0 .. lhs.shape.len - 2];
+    const rhs_batch = rhs.shape[0 .. rhs.shape.len - 2];
+    if (!std.mem.eql(usize, lhs_batch, rhs_batch)) return null;
+
+    const m = lhs.shape[lhs.shape.len - 2];
+    const k = lhs.shape[lhs.shape.len - 1];
+    const n = rhs.shape[rhs.shape.len - 1];
+    var batch_count: usize = 1;
+    for (lhs_batch) |extent| batch_count = std.math.mul(usize, batch_count, extent) catch return error.InvalidShape;
+
+    const lhs_3d_shape = [_]usize{ batch_count, m, k };
+    const rhs_3d_shape = [_]usize{ batch_count, k, n };
+    var lhs_3d = try lhs.reshape(&lhs_3d_shape);
+    defer lhs_3d.deinit();
+    var rhs_3d = try rhs.reshape(&rhs_3d_shape);
+    defer rhs_3d.deinit();
+    var out_3d = (try executeMpsBmm(T, lhs_3d, rhs_3d)) orelse return null;
+    defer out_3d.deinit();
+
+    var out_shape = try lhs.allocator.alloc(usize, lhs_batch.len + 2);
+    defer lhs.allocator.free(out_shape);
+    @memcpy(out_shape[0..lhs_batch.len], lhs_batch);
+    out_shape[lhs_batch.len] = m;
+    out_shape[lhs_batch.len + 1] = n;
+    return try out_3d.reshape(out_shape);
 }
 
 pub fn executeMatmulAdd(
@@ -3947,9 +3979,7 @@ fn supportedBmmExecution(comptime T: type, lhs: array_mod.Array(T), rhs: array_m
     if (lhs.shape[lhs.shape.len - 1] != rhs.shape[rhs.shape.len - 2]) return false;
     if (lhs.device.isMps()) {
         return (T == f32 or T == f16 or T == array_mod.BFloat16) and
-            lhs.shape.len == 3 and
-            rhs.shape.len == 3 and
-            lhs.shape[0] == rhs.shape[0] and
+            std.mem.eql(usize, lhs.shape[0 .. lhs.shape.len - 2], rhs.shape[0 .. rhs.shape.len - 2]) and
             lhs.device_storage != null and
             rhs.device_storage != null;
     }
