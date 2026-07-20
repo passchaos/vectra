@@ -30,7 +30,10 @@ pub fn main(init: std.process.Init) !void {
 
     defer c.deinit();
 
-    var d = try c.add(c);
+    var c_done = try c.materializeAndSynchronize();
+    defer c_done.deinit();
+
+    var d = try c_done.add(c_done);
     defer d.deinit();
 
     var e = try d.materializeAndSynchronize();
