@@ -12982,6 +12982,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Self {
+            if (try self.whereScalarSameShapeFast(mask, other_value)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try Self.empty(self.allocator, out_shape);
@@ -12994,6 +12995,18 @@ pub fn Array(comptime T: type) type {
                 const mi = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
                 const si = broadcastOffset(out_multi, out_shape.len, self.shape, self.strides);
                 slot.* = if (mask.data[mi]) self.data[si] else other_value;
+            }
+            return out;
+        }
+
+        fn whereScalarSameShapeFast(self: Self, mask: Array(bool), other_value: T) ArrayError!?Self {
+            if (!std.mem.eql(usize, self.shape, mask.shape)) return null;
+            if (!self.device.isCpu() or !mask.device.isCpu()) return null;
+            if (!self.isContiguous() or !mask.isContiguous()) return null;
+            var out = try Self.empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (mask.data, self.data, out.data) |keep, value, *slot| {
+                slot.* = if (keep) value else other_value;
             }
             return out;
         }
@@ -17123,6 +17136,7 @@ pub fn Array(comptime T: type) type {
         }
 
         fn whereMask(mask: Array(bool), a: Self, b: Self) ArrayError!Self {
+            if (try whereSameShapeFast(mask, a, b)) |out| return out;
             const tmp_shape = try computeBroadcastShape(a.allocator, a.shape, b.shape);
             defer a.allocator.free(tmp_shape);
             const out_shape = try computeBroadcastShape(a.allocator, tmp_shape, mask.shape);
@@ -17138,6 +17152,18 @@ pub fn Array(comptime T: type) type {
                 const ai = broadcastOffset(out_multi, out_shape.len, a.shape, a.strides);
                 const bi = broadcastOffset(out_multi, out_shape.len, b.shape, b.strides);
                 slot.* = if (mask.data[mi]) a.data[ai] else b.data[bi];
+            }
+            return out;
+        }
+
+        fn whereSameShapeFast(mask: Array(bool), a: Self, b: Self) ArrayError!?Self {
+            if (!std.mem.eql(usize, a.shape, b.shape) or !std.mem.eql(usize, a.shape, mask.shape)) return null;
+            if (!a.device.isCpu() or !b.device.isCpu() or !mask.device.isCpu()) return null;
+            if (!a.isContiguous() or !b.isContiguous() or !mask.isContiguous()) return null;
+            var out = try Self.empty(a.allocator, a.shape);
+            errdefer out.deinit();
+            for (mask.data, a.data, b.data, out.data) |keep, lhs, rhs, *slot| {
+                slot.* = if (keep) lhs else rhs;
             }
             return out;
         }
