@@ -8292,9 +8292,16 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn putCoords(self: Self, coords: Array(usize), values: Array(T)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putCoords(coords, values);
+            var out = try self.toArray();
+            errdefer out.deinit();
+            var flat = try out.ravelCoords(coords);
+            defer flat.deinit();
+            if (values.data.len != 1 and values.data.len != flat.data.len) return error.ShapeMismatch;
+            for (flat.data, 0..) |idx, i| {
+                if (idx >= out.data.len) return error.IndexOutOfBounds;
+                out.data[idx] = values.data[if (values.data.len == 1) 0 else i];
+            }
+            return out;
         }
 
         pub fn putCoordsScalar(self: Self, coords: Array(usize), value: T) ArrayError!Array(T) {
