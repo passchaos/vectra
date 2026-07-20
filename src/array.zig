@@ -7636,6 +7636,15 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn countNonzeroAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
+            if (axis_opt == null) {
+                const count = self.countNonzero();
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Array(usize).fromSlice(self.allocator, &.{count}, out_shape);
+                }
+                return Array(usize).fromSlice(self.allocator, &.{count}, &.{});
+            }
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.countNonzeroAxis(axis_opt, keepdims);
