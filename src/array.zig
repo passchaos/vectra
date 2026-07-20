@@ -8358,9 +8358,25 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn ravelMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(usize) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.ravelMultiIndex(indices);
+            const out_shape = try self.multiIndexShape(indices);
+            defer self.allocator.free(out_shape);
+            var out = try Array(usize).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                var flat_index: usize = 0;
+                for (indices, self.shape) |idx_array, extent| {
+                    const coord = idx_array.data[broadcastOffset(out_multi, out_shape.len, idx_array.shape, idx_array.strides)];
+                    if (coord >= extent) return error.IndexOutOfBounds;
+                    flat_index = std.math.mul(usize, flat_index, extent) catch return error.InvalidShape;
+                    flat_index = std.math.add(usize, flat_index, coord) catch return error.InvalidShape;
+                }
+                slot.* = flat_index;
+            }
+            return out;
         }
 
         pub fn takeMultiIndex(self: Self, indices: []const Array(usize)) ArrayError!Array(T) {
