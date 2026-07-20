@@ -966,6 +966,19 @@ fn computeBroadcastShape(allocator: std.mem.Allocator, a: []const usize, b: []co
     return out;
 }
 
+fn broadcastsExactlyTo(input_shape: []const usize, target_shape: []const usize) bool {
+    if (input_shape.len > target_shape.len) return false;
+    const rank = @max(input_shape.len, target_shape.len);
+    if (rank != target_shape.len) return false;
+    var i: usize = 0;
+    while (i < rank) : (i += 1) {
+        const input_dim: usize = if (i >= rank - input_shape.len) input_shape[i - (rank - input_shape.len)] else 1;
+        const target_dim: usize = target_shape[i];
+        if (!(input_dim == target_dim or input_dim == 1)) return false;
+    }
+    return true;
+}
+
 fn broadcastOffset(out_multi: []const usize, out_rank: usize, in_shape: []const usize, in_strides: []const usize) usize {
     if (in_shape.len == 0) return 0;
     const offset_rank = out_rank - in_shape.len;
@@ -3066,6 +3079,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn copyFromView(self: Self, source: Self) ArrayError!void {
             if (try self.copySameShapeFast(source)) return;
             if (source.numel() == 1) {
+                if (!broadcastsExactlyTo(source.shape, self.shape)) return error.ShapeMismatch;
                 // A single source element broadcasts to every destination
                 // element.  Delegate to fill so contiguous and 1-D strided
                 // destinations reuse the specialized fill loops instead of the
@@ -3149,6 +3163,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn maskedFill(self: Self, mask: Array(bool), value: T) ArrayError!void {
             if (mask.numel() == 1) {
+                if (!broadcastsExactlyTo(mask.shape, self.shape)) return error.ShapeMismatch;
                 if (mask.data[0]) try self.fill(value);
                 return;
             }
@@ -27563,6 +27578,12 @@ test "array non contiguous view helpers" {
     try scalar_broadcast_strided.copyFromView(scalar_copy_view);
     try std.testing.expectEqualSlices(f64, &.{ 42, 90, 42, 80, 42, 70 }, scalar_broadcast_strided_source.data);
 
+    var higher_rank_singleton_copy = try Array(f64).fromSlice(gpa, &.{7}, &.{ 1, 1, 1 });
+    defer higher_rank_singleton_copy.deinit();
+    var higher_rank_singleton_copy_view = try higher_rank_singleton_copy.asView();
+    defer higher_rank_singleton_copy_view.deinit();
+    try std.testing.expectError(error.ShapeMismatch, scalar_broadcast_contiguous.copyFromView(higher_rank_singleton_copy_view));
+
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
 
@@ -29533,6 +29554,9 @@ test "array object masked in-place assignment helpers" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3, 4 }, scalar_mask_target.data);
     try scalar_mask_target_view.maskedFill(scalar_mask_true, 9);
     try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9, 9 }, scalar_mask_target.data);
+    var higher_rank_singleton_mask = try Array(bool).fromSlice(gpa, &.{true}, &.{ 1, 1, 1 });
+    defer higher_rank_singleton_mask.deinit();
+    try std.testing.expectError(error.ShapeMismatch, scalar_mask_target_view.maskedFill(higher_rank_singleton_mask, 3));
 
     var contiguous_mask_target = try Array(f64).fromSlice(gpa, &.{ 0, 0, 0, 0, 50, 60 }, &.{ 3, 2 });
     defer contiguous_mask_target.deinit();
@@ -29556,12 +29580,18 @@ test "array object masked in-place assignment helpers" {
     defer scalar_masked_copy_value.deinit();
     var scalar_masked_copy_value_view = try scalar_masked_copy_value.asView();
     defer scalar_masked_copy_value_view.deinit();
+    var vector_len_one_masked_copy_value = try Array(f64).fromSlice(gpa, &.{44}, &.{1});
+    defer vector_len_one_masked_copy_value.deinit();
+    var vector_len_one_masked_copy_value_view = try vector_len_one_masked_copy_value.asView();
+    defer vector_len_one_masked_copy_value_view.deinit();
     var scalar_masked_copy_contiguous_target = try Array(f64).fromSlice(gpa, &.{ 0, 0, 0, 0, 50, 60 }, &.{ 3, 2 });
     defer scalar_masked_copy_contiguous_target.deinit();
     var scalar_masked_copy_contiguous = try scalar_masked_copy_contiguous_target.narrowView(0, 0, 2);
     defer scalar_masked_copy_contiguous.deinit();
     try scalar_masked_copy_contiguous.maskedCopyFromView(contiguous_mask, scalar_masked_copy_value_view);
     try std.testing.expectEqualSlices(f64, &.{ 33, 0, 0, 33, 50, 60 }, scalar_masked_copy_contiguous_target.data);
+    try scalar_masked_copy_contiguous.maskedCopyFromView(contiguous_mask, vector_len_one_masked_copy_value_view);
+    try std.testing.expectEqualSlices(f64, &.{ 44, 0, 0, 44, 50, 60 }, scalar_masked_copy_contiguous_target.data);
 
     var scalar_masked_copy_strided_target = try Array(f64).fromSlice(gpa, &.{ 0, 90, 0, 80, 0, 70 }, &.{6});
     defer scalar_masked_copy_strided_target.deinit();
