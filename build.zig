@@ -740,6 +740,8 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&indexing_smoke_cmd.step);
     test_step.dependOn(&shape_view_smoke_cmd.step);
     test_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
+    test_step.dependOn(&axiom_backend_policy_smoke_cmd.step);
+    test_step.dependOn(&axiom_device_fallback_policy_smoke_cmd.step);
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //
