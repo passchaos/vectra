@@ -422,6 +422,7 @@ pub const ArrayError = error{
     TypeUnsupported,
     SingularMatrix,
     NotPositiveDefinite,
+    PendingWork,
     BackendFailure,
 } || std.mem.Allocator.Error;
 
@@ -9121,11 +9122,25 @@ pub fn Array(comptime T: type) type {
             return self.pending_matmul != null;
         }
 
+        /// Materialize any lazy backend work and then wait for the selected
+        /// device to finish.  CUDA matmul is intentionally allowed to stay
+        /// lazy until materialization so timing code can choose this API when
+        /// it needs the result and completion boundary in one step.
         pub fn materializeAndSynchronize(self: Self) ArrayError!Self {
             var out = try self.materialize();
             errdefer out.deinit();
-            if (out.device.isCuda()) try axiom_backend.cuda.synchronizeDevice(out.allocator, out.device);
+            try out.synchronize();
             return out;
+        }
+
+        /// Wait for already-materialized work submitted to this array's
+        /// device without cloning or transferring data.  A pending matmul does
+        /// not yet own output storage to wait on, so callers must materialize
+        /// it first, or use `materializeAndSynchronize()` when they want both
+        /// allocation and a completion boundary.
+        pub fn synchronize(self: Self) ArrayError!void {
+            if (self.pending_matmul != null) return error.PendingWork;
+            try axiom_backend.synchronizeDevice(self.allocator, self.device);
         }
 
         pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
@@ -22159,6 +22174,34 @@ test "array object generalized matmul semantics" {
     try std.testing.expectError(error.ShapeMismatch, v.matmul(bad_vec));
 }
 
+test "array synchronize waits without cloning materialized arrays" {
+    const gpa = std.testing.allocator;
+    var cpu = try Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer cpu.deinit();
+
+    try cpu.synchronize();
+    var done = try cpu.materializeAndSynchronize();
+    defer done.deinit();
+    try std.testing.expect(!done.hasPendingWork());
+    try std.testing.expectEqualSlices(f32, cpu.data, done.data);
+
+    // A lazy CUDA matmul placeholder has no output storage to synchronize yet;
+    // callers that need a completion boundary must materialize it first.  This
+    // synthetic pending value keeps the invariant covered even on machines
+    // without a CUDA device.
+    var pending = try Array(f32).empty(gpa, &.{ 2, 2 });
+    defer pending.deinit();
+    const fake_storage = DeviceStorage{ .device = Device.cuda(0), .ptr = 1, .len = 1, .bytes = @sizeOf(f32), .owns = false };
+    pending.pending_matmul = .{
+        .lhs_storage = fake_storage,
+        .rhs_storage = fake_storage,
+        .lhs_shape = .{ 2, 2 },
+        .rhs_shape = .{ 2, 2 },
+    };
+    try std.testing.expect(pending.hasPendingWork());
+    try std.testing.expectError(error.PendingWork, pending.synchronize());
+}
+
 test "array contraction and vector algebra helpers" {
     const gpa = std.testing.allocator;
     var a = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
@@ -23213,6 +23256,10 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storageDataPtr()));
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storageDataPtr()));
     try std.testing.expect(a.isContiguous());
+    try a.synchronize();
+    var sync_materialized = try a.materializeAndSynchronize();
+    defer sync_materialized.deinit();
+    try std.testing.expectEqualSlices(f64, a.data, sync_materialized.data);
     try std.testing.expect(Device.cpu.isCpu());
     try std.testing.expect(Device.cpu.isCpu());
     try std.testing.expect(!Device.cpu.isCuda());

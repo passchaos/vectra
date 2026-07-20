@@ -355,6 +355,18 @@ pub fn deviceAvailable(device: array_mod.Device) bool {
     };
 }
 
+pub fn synchronizeDevice(allocator: std.mem.Allocator, device: array_mod.Device) array_mod.ArrayError!void {
+    return switch (device.backend) {
+        .cpu => {},
+        .cuda => axiom_cuda.synchronizeDevice(allocator, device),
+        // Current Axiom MPS commands commit and wait before returning from each
+        // operation.  Keep the target-level completion API explicit so Array
+        // callers have one synchronization boundary independent of backend,
+        // while still rejecting fabricated unavailable MPS devices.
+        .mps => if (axiom_mps.deviceAvailable(device.index)) {} else error.InvalidDevice,
+    };
+}
+
 pub fn allocateStorage(device: array_mod.Device, len: usize, element_size: usize) array_mod.ArrayError!?array_mod.DeviceStorage {
     return switch (executionTargetForDevice(device)) {
         .cpu => null,
