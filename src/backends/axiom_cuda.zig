@@ -3612,6 +3612,10 @@ pub fn tryDeviceMatmulF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) 
     return tryDeviceMatmul(f16, lhs, rhs, "lhs16", "rhs16", "out16");
 }
 
+pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceMatmul(BFloat16, lhs, rhs, "lhs_bf16", "rhs_bf16", "out_bf16");
+}
+
 pub fn tryDeviceMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     return tryDeviceMatmulAdd(f32, lhs, rhs, addend, "lhs", "rhs", "addend", "out");
 }
@@ -3622,6 +3626,10 @@ pub fn tryDeviceMatmulAddF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64
 
 pub fn tryDeviceMatmulAddF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16), addend: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
     return tryDeviceMatmulAdd(f16, lhs, rhs, addend, "lhs16", "rhs16", "add16", "out16");
+}
+
+pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16), addend: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
+    return tryDeviceMatmulAdd(BFloat16, lhs, rhs, addend, "lhs_bf16", "rhs_bf16", "add_bf16", "out_bf16");
 }
 
 fn tryDeviceMatmulAdd(
@@ -3680,10 +3688,6 @@ fn tryDeviceMatmulAdd(
         return tryDeviceBinaryMemRefs(T, .add, matmul_out.*, addend);
     }
     return null;
-}
-
-pub fn tryDeviceMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceMatmul(BFloat16, lhs, rhs, "lhs_bf16", "rhs_bf16", "out_bf16");
 }
 
 fn tryDeviceMatmul(
@@ -4311,10 +4315,6 @@ pub fn runPendingMatmulAddUnaryF32(
     ) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
-}
-
-pub fn tryDeviceMatmulAddBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16), addend: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceMatmulAdd(BFloat16, lhs, rhs, addend, "lhs_bf16", "rhs_bf16", "add_bf16", "out_bf16");
 }
 
 pub fn tryMatmulBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
