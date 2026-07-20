@@ -19409,7 +19409,7 @@ pub fn Array(comptime T: type) type {
                 defer squared.deinit();
                 var summed = try squared.sumAxes(axes, keepdims);
                 errdefer summed.deinit();
-                const denom = castValue(T, reduce_count) - correction;
+                const denom = subValue(T, castValue(T, reduce_count), correction);
                 const scaled = try summed.divScalar(denom);
                 summed.deinit();
                 return scaled;
