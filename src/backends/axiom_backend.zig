@@ -2717,6 +2717,8 @@ fn executeCpuTrace(comptime T: type, input: array_mod.Array(T), offset: isize) a
 }
 
 fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuUnaryFastPath(T, op, input)) |out| return out;
+
     const cpu_op: axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp = switch (op) {
         .abs => .abs,
         .square => .square,
@@ -2761,6 +2763,48 @@ fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
         return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+const cpu_unary_fast_path_min_elements: usize = 1 << 20;
+
+fn executeCpuUnaryFastPath(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!input.device.isCpu() or input.data.len < cpu_unary_fast_path_min_elements or !input.isContiguous()) return null;
+
+    // Axiom CPU unary reports intentionally hash and verify outputs for smoke
+    // evidence.  That is useful for small diagnostic runs, but on production
+    // CPU arrays (for example large GEMM+add+exp examples) it means another
+    // full output scan and, for transcendental ops, often a second expensive
+    // math evaluation.  Keep small arrays on the evidence-rich Axiom path while
+    // letting large materialized CPU arrays use the same typed operation
+    // directly without report generation.
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    for (input.data, out.data) |value, *slot| {
+        slot.* = cpuUnaryValue(T, op, value);
+    }
+    return out;
+}
+
+fn cpuUnaryValue(comptime T: type, op: ExecutionUnaryOp, value: T) T {
+    return switch (op) {
+        .abs => @abs(value),
+        .square => value * value,
+        .sqrt => std.math.sqrt(value),
+        .exp => std.math.exp(value),
+        .log => std.math.log(T, std.math.e, value),
+        .exp2 => std.math.exp2(value),
+        .expm1 => std.math.expm1(value),
+        .log1p => std.math.log1p(value),
+        .log2 => std.math.log2(value),
+        .log10 => std.math.log10(value),
+        .sin => std.math.sin(value),
+        .cos => std.math.cos(value),
+        .tan => std.math.tan(value),
+        .asin => std.math.asin(value),
+        .acos => std.math.acos(value),
+        .atan => std.math.atan(value),
+    };
 }
 
 fn executeCudaUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
