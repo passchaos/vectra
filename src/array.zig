@@ -10214,25 +10214,52 @@ pub fn Array(comptime T: type) type {
             return dest_view.divAssignArray(source);
         }
 
+        fn tryDeviceBinaryAssignView(self: Self, source: ArrayView(T), op: axiom_backend.ElementwiseOp) ArrayError!bool {
+            if (self.device.isCpu()) return false;
+            if (source.device.isCpu()) {
+                if (source.numel() == 1) {
+                    if (!broadcastsExactlyTo(source.shape, self.shape)) return error.ShapeMismatch;
+                    return self.tryDeviceScalarAssign(op, source.data[source.offset]);
+                }
+                if (!std.mem.eql(usize, self.shape, source.shape)) return error.ShapeMismatch;
+                var materialized = try source.toArray();
+                defer materialized.deinit();
+                var device_source = try materialized.to(self.device);
+                defer device_source.deinit();
+                return self.tryDeviceBinaryAssign(device_source, op);
+            }
+            // Device-backed ArrayView storage/offset ownership is not modeled
+            // yet. Owning device Array sources are covered by add/sub/mul/divAssign.
+            return false;
+        }
+
         pub fn addAssignView(self: Self, source: ArrayView(T)) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceBinaryAssignView(source, .add)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.addAssign(source);
         }
 
         pub fn subAssignView(self: Self, source: ArrayView(T)) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceBinaryAssignView(source, .sub)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.subAssign(source);
         }
 
         pub fn mulAssignView(self: Self, source: ArrayView(T)) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceBinaryAssignView(source, .mul)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.mulAssign(source);
         }
 
         pub fn divAssignView(self: Self, source: ArrayView(T)) ArrayError!void {
+            ensureNumeric(T);
+            if (try self.tryDeviceBinaryAssignView(source, .div)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.divAssign(source);
@@ -29484,6 +29511,30 @@ test "array dtype metadata and casts cover common numeric types" {
         var cuda_same_type_host = try cuda_same_type.cpu();
         defer cuda_same_type_host.deinit();
         try std.testing.expectEqualSlices(f64, cpu_source.data, cuda_same_type_host.data);
+
+        var cuda_assign_view = try cpu_source.cuda(0);
+        defer cuda_assign_view.deinit();
+        try cuda_assign_view.addAssignView(cpu_source_view);
+        try cuda_assign_view.subAssignView(cpu_source_view);
+        try cuda_assign_view.mulAssignView(cpu_source_view);
+        try cuda_assign_view.divAssignView(cpu_source_view);
+        var cuda_assign_view_host = try cuda_assign_view.cpu();
+        defer cuda_assign_view_host.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, cuda_assign_view_host.data);
+
+        var cuda_assign_scalar_view = try Array(f64).onesOn(gpa, &.{ 2, 2 }, Device.cuda(0));
+        defer cuda_assign_scalar_view.deinit();
+        try cuda_assign_scalar_view.addAssignView(cpu_scalar_view);
+        var cuda_assign_scalar_host = try cuda_assign_scalar_view.cpu();
+        defer cuda_assign_scalar_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 8, 8, 8, 8 }, cuda_assign_scalar_host.data);
+
+        var cuda_assign_strided_view = try Array(f64).zerosOn(gpa, &.{ 2, 2 }, Device.cuda(0));
+        defer cuda_assign_strided_view.deinit();
+        try cuda_assign_strided_view.addAssignView(cpu_transposed_view);
+        var cuda_assign_strided_host = try cuda_assign_strided_view.cpu();
+        defer cuda_assign_strided_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, cuda_assign_strided_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
