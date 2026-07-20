@@ -16,6 +16,13 @@ const axiom_cpu = @import("axiom_cpu.zig");
 const axiom_cuda = @import("axiom_cuda.zig");
 const axiom_mps = @import("axiom_mps.zig");
 
+// Production CPU fast paths intentionally bypass Axiom's diagnostic
+// report/hash/verify layer once the operation is large enough that the extra
+// full-array scans dominate user-visible runtime.  Keep the thresholds
+// centralized so new CPU fast paths do not drift independently.
+const cpu_streaming_fast_path_min_elements: usize = 1 << 20;
+const cpu_matmul_like_fast_path_min_ops: usize = 4 * 1024 * 1024;
+
 pub const BackendRoute = enum(u8) {
     direct_cpu,
     axiom_cpu_veyra,
@@ -1413,13 +1420,11 @@ fn executeCpuVecmatTarget(comptime T: type, vector: array_mod.Array(T), matrix: 
     return null;
 }
 
-const cpu_vector_matmul_fast_path_min_ops: usize = 4 * 1024 * 1024;
-
 fn executeCpuDotFastPath(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
     if (!lhs.device.isCpu() or !rhs.device.isCpu()) return null;
     if (lhs.shape.len != 1 or rhs.shape.len != 1 or lhs.shape[0] != rhs.shape[0]) return null;
-    if (lhs.data.len < cpu_vector_matmul_fast_path_min_ops) return null;
+    if (lhs.data.len < cpu_matmul_like_fast_path_min_ops) return null;
     if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
     const value = if (T == f32)
         cpuDotSimd(f32, 8, lhs.data, rhs.data)
@@ -1432,7 +1437,7 @@ fn executeCpuMatvecFastPath(comptime T: type, matrix: array_mod.Array(T), vector
     if (T != f32 and T != f64) return null;
     if (!matrix.device.isCpu() or !vector.device.isCpu()) return null;
     if (matrix.shape.len != 2 or vector.shape.len != 1 or matrix.shape[1] != vector.shape[0]) return null;
-    if (matrix.data.len < cpu_vector_matmul_fast_path_min_ops) return null;
+    if (matrix.data.len < cpu_matmul_like_fast_path_min_ops) return null;
     if (!matrix.isContiguous() or !vector.isContiguous()) return null;
     const rows = matrix.shape[0];
     const cols = matrix.shape[1];
@@ -1449,7 +1454,7 @@ fn executeCpuVecmatFastPath(comptime T: type, vector: array_mod.Array(T), matrix
     if (T != f32 and T != f64) return null;
     if (!vector.device.isCpu() or !matrix.device.isCpu()) return null;
     if (vector.shape.len != 1 or matrix.shape.len != 2 or vector.shape[0] != matrix.shape[0]) return null;
-    if (matrix.data.len < cpu_vector_matmul_fast_path_min_ops) return null;
+    if (matrix.data.len < cpu_matmul_like_fast_path_min_ops) return null;
     if (!vector.isContiguous() or !matrix.isContiguous()) return null;
     const rows = matrix.shape[0];
     const cols = matrix.shape[1];
@@ -1586,12 +1591,10 @@ fn executeCpuGemmAddTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array
     return executeCpuGemmScaledTarget(T, lhs, rhs, addend, 1.0, 1.0);
 }
 
-const cpu_gemm_direct_min_mul_adds: usize = 4 * 1024 * 1024;
-
 fn largeCpuGemm(m: usize, n: usize, k: usize) bool {
     const mn = std.math.mul(usize, m, n) catch return true;
     const work = std.math.mul(usize, mn, k) catch return true;
-    return work >= cpu_gemm_direct_min_mul_adds;
+    return work >= cpu_matmul_like_fast_path_min_ops;
 }
 
 fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: ?array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
@@ -2961,11 +2964,9 @@ fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
     return null;
 }
 
-const cpu_unary_fast_path_min_elements: usize = 1 << 20;
-
 fn executeCpuUnaryFastPath(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
-    if (!input.device.isCpu() or input.data.len < cpu_unary_fast_path_min_elements or !input.isContiguous()) return null;
+    if (!input.device.isCpu() or input.data.len < cpu_streaming_fast_path_min_elements or !input.isContiguous()) return null;
 
     // Axiom CPU unary reports intentionally hash and verify outputs for smoke
     // evidence.  That is useful for small diagnostic runs, but on production
@@ -3235,8 +3236,6 @@ fn executeCpuReduction(
     return null;
 }
 
-const cpu_reduction_fast_path_min_elements: usize = 1 << 20;
-
 fn executeCpuReductionFastPath(
     comptime T: type,
     op: DialectReductionOp,
@@ -3245,7 +3244,7 @@ fn executeCpuReductionFastPath(
     keepdims: bool,
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
-    if (!input.device.isCpu() or input.data.len < cpu_reduction_fast_path_min_elements) return null;
+    if (!input.device.isCpu() or input.data.len < cpu_streaming_fast_path_min_elements) return null;
     if (input.shape.len != 2 or !input.isContiguous()) return null;
     const rows = input.shape[0];
     const cols = input.shape[1];
@@ -3529,12 +3528,10 @@ fn executeCpuBroadcastBinary(comptime T: type, op: ElementwiseOp, input: array_m
     return null;
 }
 
-const cpu_broadcast_fast_path_min_elements: usize = 1 << 20;
-
 fn executeCpuBroadcastFastPath(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
     if (!input.device.isCpu() or !bias.device.isCpu()) return null;
-    if (input.data.len < cpu_broadcast_fast_path_min_elements) return null;
+    if (input.data.len < cpu_streaming_fast_path_min_elements) return null;
     if (input.shape.len != 2 or !input.isContiguous() or !bias.isContiguous()) return null;
     if (!broadcastBiasMatchesArrayAdd(T, input, bias, axis)) return null;
 
@@ -3678,11 +3675,9 @@ fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.Ar
     return null;
 }
 
-const cpu_transpose_fast_path_min_elements: usize = 1 << 20;
-
 fn executeCpuTransposeFastPath(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
-    if (!input.device.isCpu() or input.data.len < cpu_transpose_fast_path_min_elements) return null;
+    if (!input.device.isCpu() or input.data.len < cpu_streaming_fast_path_min_elements) return null;
     if (input.shape.len != 2 or !input.isContiguous()) return null;
     const rows = input.shape[0];
     const cols = input.shape[1];
@@ -3760,8 +3755,6 @@ fn executeCpuElementwiseTarget(comptime T: type, op: ElementwiseOp, lhs: array_m
     return null;
 }
 
-const cpu_elementwise_fast_path_min_elements: usize = 1 << 20;
-
 fn cpuElementwiseSimd(
     comptime T: type,
     comptime lanes: usize,
@@ -3809,7 +3802,7 @@ fn cpuElementwiseSimdOp(
 fn executeCpuElementwiseFastPath(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
     if (!lhs.device.isCpu() or !rhs.device.isCpu()) return null;
-    if (lhs.data.len < cpu_elementwise_fast_path_min_elements) return null;
+    if (lhs.data.len < cpu_streaming_fast_path_min_elements) return null;
     if (!lhs.sameShape(rhs) or !lhs.isContiguous() or !rhs.isContiguous()) return null;
 
     // Like large unary, same-shape CPU elementwise on production arrays should
@@ -3892,7 +3885,7 @@ fn executeCpuElementwiseScalar(
 
 fn executeCpuScalarFastPath(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), scalar: T, scalar_side: ScalarSide) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
-    if (!input.device.isCpu() or input.data.len < cpu_elementwise_fast_path_min_elements or !input.isContiguous()) return null;
+    if (!input.device.isCpu() or input.data.len < cpu_streaming_fast_path_min_elements or !input.isContiguous()) return null;
 
     // Large scalar elementwise is another production streaming op where Axiom's
     // diagnostic report would add a full verification/hash pass.  Preserve the
