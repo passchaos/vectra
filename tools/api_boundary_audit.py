@@ -180,6 +180,26 @@ REQUIRED_PLATFORM_BUILD_SNIPPETS = (
     'b.option(bool, "axiom-cuda-dispatch", "Compatibility flag: supported CUDA dispatch uses Axiom on non-macOS targets") orelse !is_macos_target',
 )
 
+REQUIRED_TEST_GATE_DEPENDENCIES = (
+    "run_mod_tests",
+    "run_exe_tests",
+    "api_boundary_audit_cmd",
+    "array_api_coverage_audit_cmd",
+    "dtype_promotion_smoke_cmd",
+    "einsum_smoke_cmd",
+    "contraction_smoke_cmd",
+    "indexing_smoke_cmd",
+    "shape_view_smoke_cmd",
+    "axiom_cpu_dispatch_smoke_cmd",
+    "axiom_backend_policy_smoke_cmd",
+    "axiom_device_fallback_policy_smoke_cmd",
+    "axiom_dialect_lowering_smoke_cmd",
+    "axiom_descriptor_smoke_cmd",
+    "axiom_gemm_layout_smoke_cmd",
+    "basic_array_example_cmd",
+    "axiom_backend_policy_example_cmd",
+)
+
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -296,6 +316,28 @@ def mps_build_step_gating_issues(build_text: str) -> list[dict[str, Any]]:
     )
 
 
+def test_gate_dependency_issues(build_text: str) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    step_start = build_text.find('const test_step = b.step("test", "Run tests");')
+    if step_start < 0:
+        return [{
+            "kind": "missing_test_step",
+            "path": "build.zig",
+            "snippet": 'const test_step = b.step("test", "Run tests");',
+        }]
+    comment_after_step = build_text.find("// Just like flags", step_start)
+    step_body = build_text[step_start:comment_after_step if comment_after_step >= 0 else len(build_text)]
+    for dependency in REQUIRED_TEST_GATE_DEPENDENCIES:
+        snippet = f"test_step.dependOn(&{dependency}.step);"
+        if snippet not in step_body:
+            issues.append({
+                "kind": "missing_test_gate_dependency",
+                "path": "build.zig",
+                "snippet": snippet,
+            })
+    return issues
+
+
 def main() -> int:
     issues: list[dict[str, Any]] = []
 
@@ -342,6 +384,7 @@ def main() -> int:
     build_text = read(BUILD)
     issues.extend(cuda_build_step_gating_issues(build_text))
     issues.extend(mps_build_step_gating_issues(build_text))
+    issues.extend(test_gate_dependency_issues(build_text))
     for snippet in REQUIRED_PLATFORM_BUILD_SNIPPETS:
         if snippet not in build_text:
             issues.append({"kind": "missing_platform_build_gate", "path": "build.zig", "snippet": snippet})
