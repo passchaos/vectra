@@ -8335,9 +8335,15 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn putMultiIndexScalar(self: Self, indices: []const Array(usize), value: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putMultiIndexScalar(indices, value);
+            var out = try self.toArray();
+            errdefer out.deinit();
+            var flat = try out.ravelMultiIndex(indices);
+            defer flat.deinit();
+            for (flat.data) |idx| {
+                if (idx >= out.data.len) return error.IndexOutOfBounds;
+                out.data[idx] = value;
+            }
+            return out;
         }
 
         pub fn scatter(self: Self, axis_index: isize, indices: Array(usize), src: Array(T)) ArrayError!Array(T) {
