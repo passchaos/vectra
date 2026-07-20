@@ -25,6 +25,10 @@ pub fn main(init: std.process.Init) !void {
     var direct_shape_view_ok = !cuda_available;
     var direct_add_ok = !cuda_available;
     var direct_square_ok = !cuda_available;
+    var direct_rand_f32_ok = !cuda_available;
+    var direct_rand_f64_ok = !cuda_available;
+    var direct_rand_f16_ok = !cuda_available;
+    var direct_rand_bf16_ok = !cuda_available;
     var direct_unary_scalar_ok = !cuda_available;
     var direct_norm_ok = !cuda_available;
     var direct_reduction_ok = !cuda_available;
@@ -105,6 +109,27 @@ pub fn main(init: std.process.Init) !void {
         var addend = try vx.Array(f32).onesOn(allocator, &.{ 2, 2 }, vx.cuda(0));
         defer addend.deinit();
         direct_storage_ok = lhs.device_storage != null and rhs.device_storage != null and lhs.data.len == 0 and rhs.data.len == 0;
+        var np = vx.withAllocator(allocator);
+        var cuda_rand_f32 = try np.randWith(f32, &.{8}, vx.seededOn(vx.cuda(0), 1234));
+        defer cuda_rand_f32.deinit();
+        var cuda_rand_f32_host = try cuda_rand_f32.cpu();
+        defer cuda_rand_f32_host.deinit();
+        var cuda_rand_f64 = try np.randWith(f64, &.{8}, vx.seededOn(vx.cuda(0), 1234));
+        defer cuda_rand_f64.deinit();
+        var cuda_rand_f64_host = try cuda_rand_f64.cpu();
+        defer cuda_rand_f64_host.deinit();
+        var cuda_rand_f16 = try np.randWith(f16, &.{8}, vx.seededOn(vx.cuda(0), 1234));
+        defer cuda_rand_f16.deinit();
+        var cuda_rand_f16_host = try cuda_rand_f16.cpu();
+        defer cuda_rand_f16_host.deinit();
+        var cuda_rand_bf16 = try np.randWith(vx.BFloat16, &.{8}, vx.seededOn(vx.cuda(0), 1234));
+        defer cuda_rand_bf16.deinit();
+        var cuda_rand_bf16_host = try cuda_rand_bf16.cpu();
+        defer cuda_rand_bf16_host.deinit();
+        direct_rand_f32_ok = cuda_rand_f32.device_storage != null and inRangeF32(cuda_rand_f32_host.data);
+        direct_rand_f64_ok = cuda_rand_f64.device_storage != null and inRangeF64(cuda_rand_f64_host.data);
+        direct_rand_f16_ok = cuda_rand_f16.device_storage != null and inRangeF16(cuda_rand_f16_host.data);
+        direct_rand_bf16_ok = cuda_rand_bf16.device_storage != null and inRangeBF16(cuda_rand_bf16_host.data);
 
         var reshaped = try lhs.reshape(&.{4});
         defer reshaped.deinit();
@@ -2124,23 +2149,23 @@ pub fn main(init: std.process.Init) !void {
             transpose_memref_fingerprint != 0 and
             softmax_memref_fingerprint != 0 and
             log_softmax_memref_fingerprint != 0);
-    ok = ok and memref_fingerprints_ok and direct_storage_ok and direct_shape_view_ok and direct_add_ok and direct_square_ok and direct_unary_scalar_ok and direct_norm_ok and direct_reduction_ok and direct_broadcast_ok and direct_rank3_scalar_broadcast_ok and direct_rank3_lastdim_broadcast_ok and direct_rank3_middle_broadcast_ok and direct_rank3_reduction_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_bmm_ok and direct_batched_matmul_ok and direct_higher_rank_batched_matmul_ok and direct_broadcasted_batched_matmul_ok and direct_mixed_batched_matmul_ok and direct_batched_matvec_ok and direct_batched_vecmat_ok and direct_dot_ok and direct_inner_ok and direct_outer_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_bmm_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_bmm_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_bmm_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
+    ok = ok and memref_fingerprints_ok and direct_storage_ok and direct_shape_view_ok and direct_add_ok and direct_square_ok and direct_rand_f32_ok and direct_rand_f64_ok and direct_rand_f16_ok and direct_rand_bf16_ok and direct_unary_scalar_ok and direct_norm_ok and direct_reduction_ok and direct_broadcast_ok and direct_rank3_scalar_broadcast_ok and direct_rank3_lastdim_broadcast_ok and direct_rank3_middle_broadcast_ok and direct_rank3_reduction_ok and direct_transpose_ok and direct_softmax_ok and direct_log_softmax_ok and direct_ternary_ok and direct_matmul_ok and direct_bmm_ok and direct_batched_matmul_ok and direct_higher_rank_batched_matmul_ok and direct_broadcasted_batched_matmul_ok and direct_mixed_batched_matmul_ok and direct_batched_matvec_ok and direct_batched_vecmat_ok and direct_dot_ok and direct_inner_ok and direct_outer_ok and direct_matmul_add_ok and scaled_matmul_add_ok and chained_matmul_add_ok and chained_matmul_sub_ok and chained_sqrt_ok and chained_exp_ok and reversed_add_fusion_ok and reversed_sub_fusion_ok and pending_fusion_status_ok and bf16_chained_sqrt_ok and bf16_chained_exp_ok and bf16_bmm_ok and bf16_scalar_mul_ok and bf16_broadcast_ok and bf16_reduction_ok and bf16_transpose_ok and bf16_softmax_ok and bf16_log_softmax_ok and f16_activation_ok and f16_bmm_ok and f16_broadcast_ok and f16_reduction_ok and f16_transpose_ok and f16_softmax_ok and f16_log_softmax_ok and f64_matmul_ok and f64_bmm_ok and f64_elementwise_ok and f64_transpose_ok and f64_broadcast_ok and f64_reduction_ok and f64_softmax_ok and f64_log_softmax_ok and f64_matmul_add_ok;
 
     var stdout_buffer: [2048]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     // Zig's std.Io formatter intentionally caps each call at 32 arguments, so
     // keep the smoke JSON evidence split across contiguous writes as coverage grows.
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_shape_view_ok\":{},\"direct_add_ok\":{},\"direct_square_ok\":{},\"direct_unary_scalar_ok\":{},\"direct_norm_ok\":{},\"direct_reduction_ok\":{},\"direct_broadcast_ok\":{},\"direct_transpose_ok\":{},\"direct_softmax_ok\":{},\"direct_log_softmax_ok\":{},\"direct_ternary_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"scaled_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"reversed_add_fusion_ok\":{},\"reversed_sub_fusion_ok\":{},\"pending_fusion_status_ok\":{},\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{},\"bf16_broadcast_ok\":{},\"bf16_reduction_ok\":{}",
-        .{ vx.axiom_backend.cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_shape_view_ok, direct_add_ok, direct_square_ok, direct_unary_scalar_ok, direct_norm_ok, direct_reduction_ok, direct_broadcast_ok, direct_transpose_ok, direct_softmax_ok, direct_log_softmax_ok, direct_ternary_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok, bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, bf16_broadcast_ok, bf16_reduction_ok },
+        "{{\"kind\":\"vectra_axiom_cuda_device_smoke\",\"enabled\":{},\"status\":\"{s}\",\"ok\":{},\"bytes\":{d},\"fingerprint\":{d},\"direct_storage_ok\":{},\"direct_shape_view_ok\":{},\"direct_add_ok\":{},\"direct_square_ok\":{},\"direct_rand_f32_ok\":{},\"direct_rand_f64_ok\":{},\"direct_rand_f16_ok\":{},\"direct_rand_bf16_ok\":{},\"direct_unary_scalar_ok\":{},\"direct_norm_ok\":{},\"direct_reduction_ok\":{},\"direct_broadcast_ok\":{},\"direct_transpose_ok\":{},\"direct_softmax_ok\":{},\"direct_log_softmax_ok\":{},\"direct_ternary_ok\":{},\"direct_matmul_ok\":{},\"direct_matmul_add_ok\":{},\"scaled_matmul_add_ok\":{},\"chained_matmul_add_ok\":{},\"chained_matmul_sub_ok\":{},\"chained_sqrt_ok\":{},\"chained_exp_ok\":{},\"reversed_add_fusion_ok\":{},\"reversed_sub_fusion_ok\":{},\"pending_fusion_status_ok\":{}",
+        .{ vx.axiom_backend.cuda.enabled(), status, ok, bytes, fingerprint, direct_storage_ok, direct_shape_view_ok, direct_add_ok, direct_square_ok, direct_rand_f32_ok, direct_rand_f64_ok, direct_rand_f16_ok, direct_rand_bf16_ok, direct_unary_scalar_ok, direct_norm_ok, direct_reduction_ok, direct_broadcast_ok, direct_transpose_ok, direct_softmax_ok, direct_log_softmax_ok, direct_ternary_ok, direct_matmul_ok, direct_matmul_add_ok, scaled_matmul_add_ok, chained_matmul_add_ok, chained_matmul_sub_ok, chained_sqrt_ok, chained_exp_ok, reversed_add_fusion_ok, reversed_sub_fusion_ok, pending_fusion_status_ok },
     );
     try stdout.interface.print(
-        ",\"direct_rank3_scalar_broadcast_ok\":{},\"direct_rank3_lastdim_broadcast_ok\":{},\"bf16_transpose_ok\":{},\"bf16_softmax_ok\":{},\"bf16_bmm_ok\":{},\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_bmm_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_bmm_ok\":{},\"direct_bmm_ok\":{},\"direct_batched_matmul_ok\":{},\"direct_higher_rank_batched_matmul_ok\":{},\"direct_broadcasted_batched_matmul_ok\":{},\"direct_mixed_batched_matmul_ok\":{},\"direct_batched_matvec_ok\":{},\"direct_batched_vecmat_ok\":{},\"direct_dot_ok\":{},\"direct_inner_ok\":{},\"direct_outer_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{},\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{}",
-        .{ direct_rank3_scalar_broadcast_ok, direct_rank3_lastdim_broadcast_ok, bf16_transpose_ok, bf16_softmax_ok, bf16_bmm_ok, bf16_log_softmax_ok, f16_activation_ok, f16_bmm_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_bmm_ok, direct_bmm_ok, direct_batched_matmul_ok, direct_higher_rank_batched_matmul_ok, direct_broadcasted_batched_matmul_ok, direct_mixed_batched_matmul_ok, direct_batched_matvec_ok, direct_batched_vecmat_ok, direct_dot_ok, direct_inner_ok, direct_outer_ok, f64_elementwise_ok, f64_transpose_ok, f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok },
+        ",\"bf16_chained_sqrt_ok\":{},\"bf16_chained_exp_ok\":{},\"bf16_scalar_mul_ok\":{},\"bf16_broadcast_ok\":{},\"bf16_reduction_ok\":{},\"direct_rank3_scalar_broadcast_ok\":{},\"direct_rank3_lastdim_broadcast_ok\":{},\"bf16_transpose_ok\":{},\"bf16_softmax_ok\":{},\"bf16_bmm_ok\":{},\"bf16_log_softmax_ok\":{},\"f16_activation_ok\":{},\"f16_bmm_ok\":{},\"f16_broadcast_ok\":{},\"f16_reduction_ok\":{},\"f16_transpose_ok\":{},\"f16_softmax_ok\":{},\"f16_log_softmax_ok\":{},\"f64_matmul_ok\":{},\"f64_bmm_ok\":{},\"direct_bmm_ok\":{},\"direct_batched_matmul_ok\":{},\"direct_higher_rank_batched_matmul_ok\":{},\"direct_broadcasted_batched_matmul_ok\":{},\"direct_mixed_batched_matmul_ok\":{},\"direct_batched_matvec_ok\":{},\"direct_batched_vecmat_ok\":{},\"direct_dot_ok\":{},\"direct_inner_ok\":{},\"direct_outer_ok\":{},\"f64_elementwise_ok\":{},\"f64_transpose_ok\":{}",
+        .{ bf16_chained_sqrt_ok, bf16_chained_exp_ok, bf16_scalar_mul_ok, bf16_broadcast_ok, bf16_reduction_ok, direct_rank3_scalar_broadcast_ok, direct_rank3_lastdim_broadcast_ok, bf16_transpose_ok, bf16_softmax_ok, bf16_bmm_ok, bf16_log_softmax_ok, f16_activation_ok, f16_bmm_ok, f16_broadcast_ok, f16_reduction_ok, f16_transpose_ok, f16_softmax_ok, f16_log_softmax_ok, f64_matmul_ok, f64_bmm_ok, direct_bmm_ok, direct_batched_matmul_ok, direct_higher_rank_batched_matmul_ok, direct_broadcasted_batched_matmul_ok, direct_mixed_batched_matmul_ok, direct_batched_matvec_ok, direct_batched_vecmat_ok, direct_dot_ok, direct_inner_ok, direct_outer_ok, f64_elementwise_ok, f64_transpose_ok },
     );
     try stdout.interface.print(
-        ",\"direct_rank3_middle_broadcast_ok\":{},\"direct_rank3_reduction_ok\":{},\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_backend\":\"{s}\",\"mixed_batched_gemm_backend\":\"{s}\",\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"scalar_api_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
-        .{ direct_rank3_middle_broadcast_ok, direct_rank3_reduction_ok, memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, batched_gemm_backend, mixed_batched_gemm_backend, batched_gemm_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, scalar_api_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
+        ",\"f64_broadcast_ok\":{},\"f64_reduction_ok\":{},\"f64_softmax_ok\":{},\"f64_log_softmax_ok\":{},\"f64_matmul_add_ok\":{},\"direct_rank3_middle_broadcast_ok\":{},\"direct_rank3_reduction_ok\":{},\"memref_fingerprints_ok\":{},\"elementwise_binary_memref_fingerprint\":{d},\"elementwise_unary_memref_fingerprint\":{d},\"gemm_memref_fingerprint\":{d},\"batched_gemm_backend\":\"{s}\",\"mixed_batched_gemm_backend\":\"{s}\",\"batched_gemm_fingerprint\":{d},\"f64_gemm_memref_fingerprint\":{d},\"matmul_add_memref_fingerprint\":{d},\"matmul_add_unary_memref_fingerprint\":{d},\"scalar_api_memref_fingerprint\":{d},\"reduction_memref_fingerprint\":{d},\"broadcast_memref_fingerprint\":{d},\"transpose_memref_fingerprint\":{d},\"softmax_memref_fingerprint\":{d},\"log_softmax_memref_fingerprint\":{d}}}\n",
+        .{ f64_broadcast_ok, f64_reduction_ok, f64_softmax_ok, f64_log_softmax_ok, f64_matmul_add_ok, direct_rank3_middle_broadcast_ok, direct_rank3_reduction_ok, memref_fingerprints_ok, elementwise_binary_memref_fingerprint, elementwise_unary_memref_fingerprint, gemm_memref_fingerprint, batched_gemm_backend, mixed_batched_gemm_backend, batched_gemm_fingerprint, f64_gemm_memref_fingerprint, matmul_add_memref_fingerprint, matmul_add_unary_memref_fingerprint, scalar_api_memref_fingerprint, reduction_memref_fingerprint, broadcast_memref_fingerprint, transpose_memref_fingerprint, softmax_memref_fingerprint, log_softmax_memref_fingerprint },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);
@@ -2152,6 +2177,36 @@ fn approxF32(actual: f32, expected: f32, tolerance: f32) bool {
 
 fn approxF16(actual: f16, expected: f32, tolerance: f32) bool {
     return approxF32(@as(f32, @floatCast(actual)), expected, tolerance);
+}
+
+fn inRangeF32(values: []const f32) bool {
+    for (values) |value| {
+        if (!(value >= 0 and value < 1)) return false;
+    }
+    return true;
+}
+
+fn inRangeF64(values: []const f64) bool {
+    for (values) |value| {
+        if (!(value >= 0 and value < 1)) return false;
+    }
+    return true;
+}
+
+fn inRangeF16(values: []const f16) bool {
+    for (values) |value| {
+        const casted: f32 = @floatCast(value);
+        if (!(casted >= 0 and casted < 1)) return false;
+    }
+    return true;
+}
+
+fn inRangeBF16(values: []const vx.BFloat16) bool {
+    for (values) |value| {
+        const casted = value.toF32();
+        if (!(casted >= 0 and casted < 1)) return false;
+    }
+    return true;
 }
 
 fn equalF32(actual: []const f32, expected: []const f32) bool {
