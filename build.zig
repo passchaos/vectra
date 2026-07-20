@@ -735,6 +735,10 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&api_boundary_audit_cmd.step);
     test_step.dependOn(&array_api_coverage_audit_cmd.step);
     test_step.dependOn(&dtype_promotion_smoke_cmd.step);
+    test_step.dependOn(&einsum_smoke_cmd.step);
+    test_step.dependOn(&contraction_smoke_cmd.step);
+    test_step.dependOn(&indexing_smoke_cmd.step);
+    test_step.dependOn(&shape_view_smoke_cmd.step);
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //
