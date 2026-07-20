@@ -3064,6 +3064,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn copyFromView(self: Self, source: Self) ArrayError!void {
+            if (try self.copySameShapeFast(source)) return;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, source.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
@@ -3073,6 +3074,32 @@ pub fn ArrayView(comptime T: type) type {
                 unravelIndexInto(flat, self.shape, multi);
                 self.data[self.offset + ravelIndex(multi, self.strides)] = source.data[source.broadcastOffsetOf(multi, self.shape.len)];
             }
+        }
+
+        fn copySameShapeFast(self: Self, source: Self) ArrayError!bool {
+            if (!std.mem.eql(usize, self.shape, source.shape)) return false;
+            if (self.numel() == 0) return true;
+            if (self.isContiguous() and source.isContiguous()) {
+                const dst_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                const src_end = std.math.add(usize, source.offset, source.numel()) catch return error.InvalidShape;
+                if (dst_end > self.data.len or src_end > source.data.len) return error.IndexOutOfBounds;
+                @memcpy(self.data[self.offset..dst_end], source.data[source.offset..src_end]);
+                return true;
+            }
+            if (self.isOneDimensionalStrided() and source.isOneDimensionalStrided()) {
+                const dst_end = try self.oneDimensionalEndOffset();
+                const src_end = try source.oneDimensionalEndOffset();
+                if (dst_end >= self.data.len or src_end >= source.data.len) return error.IndexOutOfBounds;
+                var dst_offset = self.offset;
+                var src_offset = source.offset;
+                for (0..self.numel()) |_| {
+                    self.data[dst_offset] = source.data[src_offset];
+                    dst_offset += self.strides[0];
+                    src_offset += source.strides[0];
+                }
+                return true;
+            }
+            return false;
         }
 
         pub fn copyFrom(self: Self, source: Self) ArrayError!void {
@@ -27370,6 +27397,32 @@ test "array non contiguous view helpers" {
     try std.testing.expectEqual(@as(f64, 8), a.data[2]);
     try std.testing.expectEqual(@as(f64, 7), a.data[4]);
     try std.testing.expectEqual(@as(f64, 8), a.data[6]);
+
+    var strided_copy_dst_source = try Array(f64).fromSlice(gpa, &.{ 0, 90, 0, 80, 0, 70 }, &.{6});
+    defer strided_copy_dst_source.deinit();
+    var strided_copy_dst = try strided_copy_dst_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_copy_dst.deinit();
+    var strided_copy_src_source = try Array(f64).fromSlice(gpa, &.{ 11, 60, 12, 50, 13, 40 }, &.{6});
+    defer strided_copy_src_source.deinit();
+    var strided_copy_src = try strided_copy_src_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_copy_src.deinit();
+    try std.testing.expect(!strided_copy_dst.isContiguous());
+    try std.testing.expect(!strided_copy_src.isContiguous());
+    try strided_copy_dst.copyFromView(strided_copy_src);
+    try std.testing.expectEqualSlices(f64, &.{ 11, 90, 12, 80, 13, 70 }, strided_copy_dst_source.data);
+
+    var contiguous_copy_dst_source = try Array(f64).fromSlice(gpa, &.{ 0, 0, 0, 0, 50, 60 }, &.{ 3, 2 });
+    defer contiguous_copy_dst_source.deinit();
+    var contiguous_copy_dst = try contiguous_copy_dst_source.narrowView(0, 0, 2);
+    defer contiguous_copy_dst.deinit();
+    var contiguous_copy_src_source = try Array(f64).fromSlice(gpa, &.{ 21, 22, 23, 24, 70, 80 }, &.{ 3, 2 });
+    defer contiguous_copy_src_source.deinit();
+    var contiguous_copy_src = try contiguous_copy_src_source.narrowView(0, 0, 2);
+    defer contiguous_copy_src.deinit();
+    try std.testing.expect(contiguous_copy_dst.isContiguous());
+    try std.testing.expect(contiguous_copy_src.isContiguous());
+    try contiguous_copy_dst.copyFromView(contiguous_copy_src);
+    try std.testing.expectEqualSlices(f64, &.{ 21, 22, 23, 24, 50, 60 }, contiguous_copy_dst_source.data);
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
