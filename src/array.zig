@@ -17293,6 +17293,15 @@ pub fn Array(comptime T: type) type {
 
         pub fn selu(self: Self) ArrayError!Self {
             ensureFloat(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (axiom_backend.composableElementwiseDeviceSupported(T, self.device)) {
+                    const scale = castValue(T, 1.0507009873554805);
+                    const alpha = castValue(T, 1.6732632423543772);
+                    var activated = try self.elu(alpha);
+                    defer activated.deinit();
+                    return activated.mulScalar(scale);
+                }
+            }
             return self.unary(struct {
                 fn f(a: T) T {
                     const scale = 1.0507009873554805;
