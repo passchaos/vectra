@@ -1044,7 +1044,8 @@ const cached_philox_uniform_f32_ptx =
     \\}
 ;
 
-pub fn fillPhiloxUniformF32(storage: array_mod.DeviceStorage, seed: u64) array_mod.ArrayError!void {
+pub fn fillPhiloxUniform(comptime T: type, storage: array_mod.DeviceStorage, seed: u64) array_mod.ArrayError!void {
+    if (comptime T != f32) return error.TypeUnsupported;
     if (!build_options.enable_axiom_cuda or !storage.device.isCuda()) return error.InvalidDevice;
     if (storage.len == 0) return;
     if (storage.bytes != storage.len * @sizeOf(f32)) return error.ShapeMismatch;

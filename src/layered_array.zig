@@ -672,6 +672,14 @@ test "random creation options keep device explicit" {
         defer mps_random.deinit();
         try std.testing.expect(mps_random.device.isMps());
         try std.testing.expect(mps_random.device_storage != null);
+        var mps_random_f16 = try np.randWith(f16, &.{4}, mps_opts);
+        defer mps_random_f16.deinit();
+        try std.testing.expect(mps_random_f16.device.isMps());
+        try std.testing.expect(mps_random_f16.device_storage != null);
+        var mps_random_bf16 = try np.randWith(array_mod.BFloat16, &.{4}, mps_opts);
+        defer mps_random_bf16.deinit();
+        try std.testing.expect(mps_random_bf16.device.isMps());
+        try std.testing.expect(mps_random_bf16.device_storage != null);
     }
     try std.testing.expectError(error.TypeUnsupported, np.randWith(f64, &.{4}, mps_opts));
 }

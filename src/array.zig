@@ -10052,11 +10052,11 @@ pub fn Array(comptime T: type) type {
 
         pub fn randOn(allocator: std.mem.Allocator, dims: []const usize, seed: u64, device: Device) ArrayError!Self {
             if (device.isCpu()) return Self.rand(allocator, dims, seed);
-            if (comptime T != f32) return error.TypeUnsupported;
+            if (comptime T != f32 and T != f16 and T != BFloat16) return error.TypeUnsupported;
             var out = try Self.emptyOn(allocator, dims, device);
             errdefer out.deinit();
             const storage = out.device_storage orelse return error.InvalidDevice;
-            try axiom_backend.fillPhiloxUniformF32(storage, seed);
+            try axiom_backend.fillPhiloxUniform(T, storage, seed);
             return out;
         }
 
@@ -10216,7 +10216,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn uniform(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Self {
             if (comptime !isNumeric(T)) @compileError("uniform requires a numeric array type");
-            if (low > high) return error.InvalidShape;
+            if (lessValue(T, high, low)) return error.InvalidShape;
             const out = try Self.empty(allocator, dims);
             for (out.data, 0..) |*slot, i| slot.* = philoxUniformValue(T, seed, i, low, high);
             return out;

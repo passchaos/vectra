@@ -69,13 +69,21 @@ pub fn fillStorage(comptime T: type, storage: array_mod.DeviceStorage, value: T)
     return uploadStorage(storage, std.mem.sliceAsBytes(tmp));
 }
 
-pub fn fillPhiloxUniformF32(storage: array_mod.DeviceStorage, seed: u64) array_mod.ArrayError!void {
+pub fn fillPhiloxUniform(comptime T: type, storage: array_mod.DeviceStorage, seed: u64) array_mod.ArrayError!void {
     if (!storage.device.isMps()) return error.InvalidDevice;
     if (storage.len == 0) return;
-    if (storage.bytes != storage.len * @sizeOf(f32)) return error.ShapeMismatch;
+    if (T != f32 and T != f16 and T != array_mod.BFloat16) return error.TypeUnsupported;
+    if (storage.bytes != storage.len * @sizeOf(T)) return error.ShapeMismatch;
     var runtime = axiom.accelerator.MpsRuntime.open(storage.device.index) catch return error.InvalidDevice;
     defer runtime.close();
-    runtime.runPhiloxUniformF32(.{ .ptr = storage.ptr, .bytes = storage.bytes }, storage.len, seed) catch return error.BackendFailure;
+    const buffer = axiom.accelerator.MpsBuffer{ .ptr = storage.ptr, .bytes = storage.bytes };
+    if (T == f32) {
+        runtime.runPhiloxUniformF32(buffer, storage.len, seed) catch return error.BackendFailure;
+    } else if (T == f16) {
+        runtime.runPhiloxUniformF16(buffer, storage.len, seed) catch return error.BackendFailure;
+    } else {
+        runtime.runPhiloxUniformBF16(buffer, storage.len, seed) catch return error.BackendFailure;
+    }
 }
 
 fn rank3BroadcastShape(lhs: []const usize, rhs: []const usize) ?[3]usize {

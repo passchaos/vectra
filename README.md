@@ -84,9 +84,9 @@ context RNG stream. Creation helpers keep `dtype` as the explicit Zig type
 parameter and use a fixed `CreationOptions` value in the final argument for
 runtime device/seed metadata, e.g. `try np.zerosWith(f32, &.{ rows, cols }, vx.onDevice(vx.cuda(0)))`
 or `try vx.Array(f32).fromSliceOn(allocator, values, dims, vx.cuda(0))`. `rand`
-uses a Philox stream; `randWith(f32, dims, vx.seededOn(device, seed))` generates
-directly into CUDA/MPS device storage when that accelerator is selected, never by
-CPU generation followed by upload. Arrays implement Zig's standard `{f}` formatter
+uses a Philox stream; `randWith(T, dims, vx.seededOn(device, seed))` generates
+directly into supported CUDA/MPS device storage when that accelerator is selected,
+never by CPU generation followed by upload. Arrays implement Zig's standard `{f}` formatter
 with a PyTorch-like `tensor(...)` representation, e.g. `try writer.print("{f}", .{array})`;
 `toOwnedTensorString` returns the same format as an owned string.
 
@@ -199,7 +199,7 @@ surface, local CUDA dtype matrix, and current limits.
 
 ## Random Backends
 
-Vectra uses Philox for the `rand` stream so CPU, CUDA, and MPS can share one deterministic algorithm. CUDA/MPS `randWith(f32, ..., vx.seededOn(device, seed))` writes directly into device storage. The sibling [`../alea`](../alea) Zig package remains the local path dependency for higher-level distribution helpers such as normal, Bernoulli, exponential, gamma, beta, Poisson, multinomial, Dirichlet, log-normal, Student-t, Cauchy, Laplace, Weibull, half-normal, chi/chi-squared, Erlang, Fisher-F, triangular, arcsine, logistic/log-logistic, Kumaraswamy, power-function, Rayleigh, Maxwell, Pareto, Gumbel, Frechet, skew-normal, PERT, inverse-Gaussian, and normal-inverse-Gaussian generation until those distributions grow device-side Philox kernels.
+Vectra uses Philox for the `rand` stream so CPU, CUDA, and MPS can share one deterministic algorithm. CUDA `randWith(f32, ..., vx.seededOn(device, seed))` and MPS `randWith(f32/f16/BFloat16, ..., vx.seededOn(device, seed))` write directly into device storage. The sibling [`../alea`](../alea) Zig package remains the local path dependency for higher-level distribution helpers such as normal, Bernoulli, exponential, gamma, beta, Poisson, multinomial, Dirichlet, log-normal, Student-t, Cauchy, Laplace, Weibull, half-normal, chi/chi-squared, Erlang, Fisher-F, triangular, arcsine, logistic/log-logistic, Kumaraswamy, power-function, Rayleigh, Maxwell, Pareto, Gumbel, Frechet, skew-normal, PERT, inverse-Gaussian, and normal-inverse-Gaussian generation until those distributions grow device-side Philox kernels.
 
 ## Veyra backend
 
