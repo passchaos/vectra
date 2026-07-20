@@ -4119,9 +4119,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn square(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewElementwiseDefault(T, .mul, self, self)) |out| return out;
-                }
+                if (try axiom_backend.executeViewElementwiseDefault(T, .mul, self, self)) |out| return out;
             }
             return self.unary(opSquare);
         }
@@ -4129,9 +4127,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn reciprocal(self: Self) ArrayError!Array(T) {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (self.shape.len == 1) {
-                    if (try axiom_backend.executeViewElementwiseScalarDefault(T, .div, self, one(T), .lhs)) |out| return out;
-                }
+                if (try axiom_backend.executeViewElementwiseScalarDefault(T, .div, self, one(T), .lhs)) |out| return out;
             }
             return self.unary(opReciprocal);
         }
@@ -22222,6 +22218,13 @@ test "array comparison and logical wrappers" {
     defer large_view_neg.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 8, 8 }, large_view_neg.shape);
     try std.testing.expectEqual(@as(f32, -2), large_view_neg.data[10]);
+    var large_view_square = try large_view.square();
+    defer large_view_square.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 8, 8 }, large_view_square.shape);
+    try std.testing.expectEqual(@as(f32, 4), large_view_square.data[10]);
+    var large_view_recip = try large_view.reciprocal();
+    defer large_view_recip.deinit();
+    try std.testing.expectEqual(@as(f32, 0.5), large_view_recip.data[10]);
     var large_other_source = try Array(f32).ones(gpa, &.{ 8, 8 });
     defer large_other_source.deinit();
     large_other_source.data[10] = 1.5;
