@@ -1324,6 +1324,8 @@ fn bufferView(comptime T: type, input: array_mod.Array(T), name: []const u8) ?ax
 }
 
 fn executeCpuDotTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuDotFastPath(T, lhs, rhs)) |out| return out;
+
     const lhs_view = bufferView(T, lhs, "lhs") orelse return null;
     const rhs_view = bufferView(T, rhs, "rhs") orelse return null;
     if (T == f32) {
@@ -1341,6 +1343,8 @@ fn executeCpuDotTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod
 }
 
 fn executeCpuMatvecTarget(comptime T: type, matrix: array_mod.Array(T), vector: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuMatvecFastPath(T, matrix, vector)) |out| return out;
+
     const matrix_view = matrixView(T, matrix, "matrix") orelse return null;
     const vector_view = bufferView(T, vector, "vector") orelse return null;
     if (T == f32) {
@@ -1376,6 +1380,8 @@ fn executeCpuMatvecTarget(comptime T: type, matrix: array_mod.Array(T), vector: 
 }
 
 fn executeCpuVecmatTarget(comptime T: type, vector: array_mod.Array(T), matrix: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuVecmatFastPath(T, vector, matrix)) |out| return out;
+
     const vector_view = bufferView(T, vector, "vector") orelse return null;
     const matrix_view = matrixView(T, matrix, "matrix") orelse return null;
     if (T == f32) {
@@ -1408,6 +1414,117 @@ fn executeCpuVecmatTarget(comptime T: type, vector: array_mod.Array(T), matrix: 
         return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+const cpu_vector_matmul_fast_path_min_ops: usize = 4 * 1024 * 1024;
+
+fn executeCpuDotFastPath(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!lhs.device.isCpu() or !rhs.device.isCpu()) return null;
+    if (lhs.shape.len != 1 or rhs.shape.len != 1 or lhs.shape[0] != rhs.shape[0]) return null;
+    if (lhs.data.len < cpu_vector_matmul_fast_path_min_ops) return null;
+    if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const value = if (T == f32)
+        cpuDotSimd(f32, 8, lhs.data, rhs.data)
+    else
+        cpuDotSimd(f64, 4, lhs.data, rhs.data);
+    return try array_mod.Array(T).fromSlice(lhs.allocator, &.{value}, &.{});
+}
+
+fn executeCpuMatvecFastPath(comptime T: type, matrix: array_mod.Array(T), vector: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!matrix.device.isCpu() or !vector.device.isCpu()) return null;
+    if (matrix.shape.len != 2 or vector.shape.len != 1 or matrix.shape[1] != vector.shape[0]) return null;
+    if (matrix.data.len < cpu_vector_matmul_fast_path_min_ops) return null;
+    if (!matrix.isContiguous() or !vector.isContiguous()) return null;
+    const rows = matrix.shape[0];
+    const cols = matrix.shape[1];
+    var out = try array_mod.Array(T).empty(matrix.allocator, &.{rows});
+    errdefer out.deinit();
+    if (T == f32)
+        cpuMatvecSimd(f32, 8, out.data, matrix.data, vector.data, rows, cols)
+    else
+        cpuMatvecSimd(f64, 4, out.data, matrix.data, vector.data, rows, cols);
+    return out;
+}
+
+fn executeCpuVecmatFastPath(comptime T: type, vector: array_mod.Array(T), matrix: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!vector.device.isCpu() or !matrix.device.isCpu()) return null;
+    if (vector.shape.len != 1 or matrix.shape.len != 2 or vector.shape[0] != matrix.shape[0]) return null;
+    if (matrix.data.len < cpu_vector_matmul_fast_path_min_ops) return null;
+    if (!vector.isContiguous() or !matrix.isContiguous()) return null;
+    const rows = matrix.shape[0];
+    const cols = matrix.shape[1];
+    var out = try array_mod.Array(T).empty(vector.allocator, &.{cols});
+    errdefer out.deinit();
+    @memset(out.data, 0);
+    if (T == f32)
+        cpuVecmatStreaming(f32, 8, out.data, vector.data, matrix.data, rows, cols)
+    else
+        cpuVecmatStreaming(f64, 4, out.data, vector.data, matrix.data, rows, cols);
+    return out;
+}
+
+fn cpuDotSimd(comptime T: type, comptime lanes: usize, lhs: []const T, rhs: []const T) T {
+    const Vec = @Vector(lanes, T);
+    var i: usize = 0;
+    var acc0: Vec = @splat(0);
+    var acc1: Vec = @splat(0);
+    while (i + lanes * 2 <= lhs.len) : (i += lanes * 2) {
+        const lhs0: Vec = lhs[i..][0..lanes].*;
+        const rhs0: Vec = rhs[i..][0..lanes].*;
+        const lhs1: Vec = lhs[i + lanes ..][0..lanes].*;
+        const rhs1: Vec = rhs[i + lanes ..][0..lanes].*;
+        acc0 += lhs0 * rhs0;
+        acc1 += lhs1 * rhs1;
+    }
+    while (i + lanes <= lhs.len) : (i += lanes) {
+        const lhs_value: Vec = lhs[i..][0..lanes].*;
+        const rhs_value: Vec = rhs[i..][0..lanes].*;
+        acc0 += lhs_value * rhs_value;
+    }
+    var total: T = 0;
+    inline for (0..lanes) |lane| {
+        total += acc0[lane] + acc1[lane];
+    }
+    while (i < lhs.len) : (i += 1) {
+        total += lhs[i] * rhs[i];
+    }
+    return total;
+}
+
+fn cpuMatvecSimd(comptime T: type, comptime lanes: usize, out: []T, matrix: []const T, vector: []const T, rows: usize, cols: usize) void {
+    var row: usize = 0;
+    while (row < rows) : (row += 1) {
+        out[row] = cpuDotSimd(T, lanes, matrix[row * cols ..][0..cols], vector[0..cols]);
+    }
+}
+
+fn cpuVecmatStreaming(comptime T: type, comptime lanes: usize, out: []T, vector: []const T, matrix: []const T, rows: usize, cols: usize) void {
+    const Vec = @Vector(lanes, T);
+    var row: usize = 0;
+    while (row < rows) : (row += 1) {
+        const scale_vec: Vec = @splat(vector[row]);
+        const row_values = matrix[row * cols ..][0..cols];
+        var col: usize = 0;
+        while (col + lanes * 2 <= cols) : (col += lanes * 2) {
+            const current0: Vec = out[col..][0..lanes].*;
+            const values0: Vec = row_values[col..][0..lanes].*;
+            const current1: Vec = out[col + lanes ..][0..lanes].*;
+            const values1: Vec = row_values[col + lanes ..][0..lanes].*;
+            out[col..][0..lanes].* = current0 + scale_vec * values0;
+            out[col + lanes ..][0..lanes].* = current1 + scale_vec * values1;
+        }
+        while (col + lanes <= cols) : (col += lanes) {
+            const current: Vec = out[col..][0..lanes].*;
+            const values: Vec = row_values[col..][0..lanes].*;
+            out[col..][0..lanes].* = current + scale_vec * values;
+        }
+        while (col < cols) : (col += 1) {
+            out[col] += vector[row] * row_values[col];
+        }
+    }
 }
 
 fn executeCpuMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -5187,6 +5304,35 @@ test "CPU blocked transpose helper handles non-square tails" {
         3, 7,
         4, 8,
     }, &out64);
+}
+
+test "CPU vector matmul SIMD helpers cover dot matvec and vecmat tails" {
+    const lhs32 = [_]f32{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    const rhs32 = [_]f32{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+    try std.testing.expectEqual(@as(f32, 165), cpuDotSimd(f32, 8, &lhs32, &rhs32));
+
+    const rows32: usize = 2;
+    const cols32: usize = 5;
+    const matrix32 = [_]f32{
+        1, 2, 3, 4, 5,
+        6, 7, 8, 9, 10,
+    };
+    const vector32 = [_]f32{ 1, 10, 100, 1000, 10000 };
+    var matvec32: [rows32]f32 = undefined;
+    cpuMatvecSimd(f32, 8, &matvec32, &matrix32, &vector32, rows32, cols32);
+    try std.testing.expectEqualSlices(f32, &.{ 54321, 109876 }, &matvec32);
+
+    const rows64: usize = 3;
+    const cols64: usize = 5;
+    const vector64 = [_]f64{ 1, 2, 3 };
+    const matrix64 = [_]f64{
+        1, 2, 3, 4, 5,
+        10, 20, 30, 40, 50,
+        100, 200, 300, 400, 500,
+    };
+    var vecmat64: [cols64]f64 = .{ 0, 0, 0, 0, 0 };
+    cpuVecmatStreaming(f64, 4, &vecmat64, &vector64, &matrix64, rows64, cols64);
+    try std.testing.expectEqualSlices(f64, &.{ 321, 642, 963, 1284, 1605 }, &vecmat64);
 }
 
 test "Axiom dialect lowering reports linalg memref gpu route" {
