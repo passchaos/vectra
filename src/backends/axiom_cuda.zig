@@ -4200,35 +4200,37 @@ fn describeBroadcastedBatchedMatmulMemRef(
 }
 
 pub fn runPendingMatmulF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
-    resetLastCudaDeviceGemmReport();
-    const spec = try describeDeviceGemmMemRefSpec(f32, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs", "pending_rhs", "pending_out");
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch return error.BackendFailure;
-    recordCudaDeviceGemmReport(report);
-    return report.valid();
+    return runPendingMatmul(f32, allocator, device, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs", "pending_rhs", "pending_out");
 }
 
 pub fn runPendingMatmulBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
-    resetLastCudaDeviceGemmReport();
-    const spec = try describeDeviceGemmMemRefSpec(BFloat16, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_bf16", "pending_rhs_bf16", "pending_out_bf16");
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch return error.BackendFailure;
-    recordCudaDeviceGemmReport(report);
-    return report.valid();
+    return runPendingMatmul(BFloat16, allocator, device, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_bf16", "pending_rhs_bf16", "pending_out_bf16");
 }
 
 pub fn runPendingMatmulF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
-    resetLastCudaDeviceGemmReport();
-    const spec = try describeDeviceGemmMemRefSpec(f16, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_f16", "pending_rhs_f16", "pending_out_f16");
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch return error.BackendFailure;
-    recordCudaDeviceGemmReport(report);
-    return report.valid();
+    return runPendingMatmul(f16, allocator, device, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_f16", "pending_rhs_f16", "pending_out_f16");
 }
 
 pub fn runPendingMatmulF64(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
+    return runPendingMatmul(f64, allocator, device, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_f64", "pending_rhs_f64", "pending_out_f64");
+}
+
+fn runPendingMatmul(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    m: usize,
+    n: usize,
+    k: usize,
+    lhs_ptr: u64,
+    rhs_ptr: u64,
+    out_ptr: u64,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
-    const spec = try describeDeviceGemmMemRefSpec(f64, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_f64", "pending_rhs_f64", "pending_out_f64");
+    const spec = try describeDeviceGemmMemRefSpec(T, m, n, k, lhs_ptr, rhs_ptr, out_ptr, lhs_name, rhs_name, out_name);
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
     const report = runtime.runCudaDeviceGemmMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
@@ -4236,41 +4238,41 @@ pub fn runPendingMatmulF64(allocator: std.mem.Allocator, device: array_mod.Devic
 }
 
 pub fn runPendingMatmulAddF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
-    resetLastCudaDeviceGemmReport();
-    var spec = try describeDeviceGemmAddMemRefSpec(f32, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, "pending_lhs", "pending_rhs", "pending_add", "pending_out");
-    spec.alpha = alpha;
-    spec.beta = beta;
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceMatmulAddMemRefs(device.index, spec) catch return error.BackendFailure;
-    recordCudaDeviceGemmReport(report);
-    return report.valid();
+    return runPendingMatmulAdd(f32, allocator, device, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta, "pending_lhs", "pending_rhs", "pending_add", "pending_out");
 }
 
 pub fn runPendingMatmulAddBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
-    resetLastCudaDeviceGemmReport();
-    var spec = try describeDeviceGemmAddMemRefSpec(BFloat16, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, "pending_lhs_bf16", "pending_rhs_bf16", "pending_add_bf16", "pending_out_bf16");
-    spec.alpha = alpha;
-    spec.beta = beta;
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceMatmulAddMemRefs(device.index, spec) catch return error.BackendFailure;
-    recordCudaDeviceGemmReport(report);
-    return report.valid();
+    return runPendingMatmulAdd(BFloat16, allocator, device, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta, "pending_lhs_bf16", "pending_rhs_bf16", "pending_add_bf16", "pending_out_bf16");
 }
 
 pub fn runPendingMatmulAddF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
-    resetLastCudaDeviceGemmReport();
-    var spec = try describeDeviceGemmAddMemRefSpec(f16, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, "pending_lhs_f16", "pending_rhs_f16", "pending_add_f16", "pending_out_f16");
-    spec.alpha = alpha;
-    spec.beta = beta;
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
-    const report = runtime.runCudaDeviceMatmulAddMemRefs(device.index, spec) catch return error.BackendFailure;
-    recordCudaDeviceGemmReport(report);
-    return report.valid();
+    return runPendingMatmulAdd(f16, allocator, device, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta, "pending_lhs_f16", "pending_rhs_f16", "pending_add_f16", "pending_out_f16");
 }
 
 pub fn runPendingMatmulAddF64(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
+    return runPendingMatmulAdd(f64, allocator, device, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta, "pending_lhs_f64", "pending_rhs_f64", "pending_add_f64", "pending_out_f64");
+}
+
+fn runPendingMatmulAdd(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    m: usize,
+    n: usize,
+    k: usize,
+    lhs_ptr: u64,
+    rhs_ptr: u64,
+    add_ptr: u64,
+    out_ptr: u64,
+    alpha: f32,
+    beta: f32,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    add_name: []const u8,
+    out_name: []const u8,
+) array_mod.ArrayError!bool {
     resetLastCudaDeviceGemmReport();
-    var spec = try describeDeviceGemmAddMemRefSpec(f64, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, "pending_lhs_f64", "pending_rhs_f64", "pending_add_f64", "pending_out_f64");
+    var spec = try describeDeviceGemmAddMemRefSpec(T, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, lhs_name, rhs_name, add_name, out_name);
     spec.alpha = alpha;
     spec.beta = beta;
     var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
