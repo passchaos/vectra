@@ -733,6 +733,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
     test_step.dependOn(&api_boundary_audit_cmd.step);
+    test_step.dependOn(&array_api_coverage_audit_cmd.step);
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //
