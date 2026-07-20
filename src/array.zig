@@ -2400,6 +2400,7 @@ pub fn ArrayView(comptime T: type) type {
             if (self.isContiguous()) {
                 const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
+                if (unaryBoolSimd(out.data, self.data[self.offset..end], op)) return out;
                 for (self.data[self.offset..end], out.data) |value, *slot| slot.* = op(value);
                 return out;
             }
@@ -2420,6 +2421,39 @@ pub fn ArrayView(comptime T: type) type {
                 slot.* = op(self.data[self.offset + ravelIndex(multi, self.strides)]);
             }
             return out;
+        }
+
+        fn unaryBoolSimdLanes(comptime lanes: usize, out: []bool, input: []const T, comptime op: fn (T) bool) bool {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            if (comptime op == opIsNan) {
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = value != value;
+                }
+            } else if (comptime op == opIsInf) {
+                const inf_vec: Vec = @splat(std.math.inf(T));
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = @abs(value) == inf_vec;
+                }
+            } else if (comptime op == opIsFinite) {
+                const inf_vec: Vec = @splat(std.math.inf(T));
+                while (i + lanes <= out.len) : (i += lanes) {
+                    const value: Vec = input[i..][0..lanes].*;
+                    out[i..][0..lanes].* = (@abs(value) != inf_vec) & (value == value);
+                }
+            } else {
+                return false;
+            }
+            while (i < out.len) : (i += 1) out[i] = op(input[i]);
+            return true;
+        }
+
+        fn unaryBoolSimd(out: []bool, input: []const T, comptime op: fn (T) bool) bool {
+            if (comptime T == f64) return unaryBoolSimdLanes(4, out, input, op);
+            if (comptime T == f32) return unaryBoolSimdLanes(8, out, input, op);
+            return false;
         }
 
         fn binaryScalarOut(self: Self, scalar: T, out: Array(T), comptime op: fn (T, T) T) ArrayError!void {
@@ -25002,6 +25036,15 @@ test "array non contiguous view helpers" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, normal_mask.data);
     var predicate_full_view = try predicate_source.asView();
     defer predicate_full_view.deinit();
+    var full_nan_mask = try predicate_full_view.isNan();
+    defer full_nan_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false, false, false, false }, full_nan_mask.data);
+    var full_inf_mask = try predicate_full_view.isInf();
+    defer full_inf_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false, false, false, true }, full_inf_mask.data);
+    var full_finite_mask = try predicate_full_view.isFinite();
+    defer full_finite_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false, true, true, true, false }, full_finite_mask.data);
     var pos_inf_mask = try predicate_full_view.isPosInf();
     defer pos_inf_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false, false, false, false }, pos_inf_mask.data);
