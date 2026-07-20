@@ -3083,19 +3083,40 @@ pub fn ArrayView(comptime T: type) type {
                 const dst_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 const src_end = std.math.add(usize, source.offset, source.numel()) catch return error.InvalidShape;
                 if (dst_end > self.data.len or src_end > source.data.len) return error.IndexOutOfBounds;
-                @memcpy(self.data[self.offset..dst_end], source.data[source.offset..src_end]);
+                const dst = self.data[self.offset..dst_end];
+                const src = source.data[source.offset..src_end];
+                // Views may share storage.  Use memmove-style direction when
+                // source and destination ranges overlap, while preserving the
+                // faster memcpy-equivalent path for the common non-overlap case.
+                if (self.data.ptr == source.data.ptr and rangesOverlap(self.offset, dst_end, source.offset, src_end)) {
+                    if (self.offset > source.offset) {
+                        std.mem.copyBackwards(T, dst, src);
+                    } else {
+                        std.mem.copyForwards(T, dst, src);
+                    }
+                } else {
+                    @memcpy(dst, src);
+                }
                 return true;
             }
             if (self.isOneDimensionalStrided() and source.isOneDimensionalStrided()) {
                 const dst_end = try self.oneDimensionalEndOffset();
                 const src_end = try source.oneDimensionalEndOffset();
                 if (dst_end >= self.data.len or src_end >= source.data.len) return error.IndexOutOfBounds;
-                var dst_offset = self.offset;
-                var src_offset = source.offset;
-                for (0..self.numel()) |_| {
-                    self.data[dst_offset] = source.data[src_offset];
-                    dst_offset += self.strides[0];
-                    src_offset += source.strides[0];
+                if (self.data.ptr == source.data.ptr and rangesOverlap(@min(self.offset, dst_end), @max(self.offset, dst_end) + 1, @min(source.offset, src_end), @max(source.offset, src_end) + 1) and self.offset > source.offset) {
+                    var i = self.numel();
+                    while (i > 0) {
+                        i -= 1;
+                        self.data[self.offset + i * self.strides[0]] = source.data[source.offset + i * source.strides[0]];
+                    }
+                } else {
+                    var dst_offset = self.offset;
+                    var src_offset = source.offset;
+                    for (0..self.numel()) |_| {
+                        self.data[dst_offset] = source.data[src_offset];
+                        dst_offset += self.strides[0];
+                        src_offset += source.strides[0];
+                    }
                 }
                 return true;
             }
@@ -27423,6 +27444,24 @@ test "array non contiguous view helpers" {
     try std.testing.expect(contiguous_copy_src.isContiguous());
     try contiguous_copy_dst.copyFromView(contiguous_copy_src);
     try std.testing.expectEqualSlices(f64, &.{ 21, 22, 23, 24, 50, 60 }, contiguous_copy_dst_source.data);
+
+    var overlapping_contiguous_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5 }, &.{5});
+    defer overlapping_contiguous_source.deinit();
+    var overlapping_contiguous_dst = try overlapping_contiguous_source.narrowView(0, 1, 3);
+    defer overlapping_contiguous_dst.deinit();
+    var overlapping_contiguous_src = try overlapping_contiguous_source.narrowView(0, 0, 3);
+    defer overlapping_contiguous_src.deinit();
+    try overlapping_contiguous_dst.copyFromView(overlapping_contiguous_src);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1, 2, 3, 5 }, overlapping_contiguous_source.data);
+
+    var overlapping_strided_source = try Array(f64).fromSlice(gpa, &.{ 1, 90, 2, 80, 3, 70, 4 }, &.{7});
+    defer overlapping_strided_source.deinit();
+    var overlapping_strided_dst = try overlapping_strided_source.sliceAxisView(0, .{ .start = 2, .stop = 7, .step = 2 });
+    defer overlapping_strided_dst.deinit();
+    var overlapping_strided_src = try overlapping_strided_source.sliceAxisView(0, .{ .start = 0, .stop = 5, .step = 2 });
+    defer overlapping_strided_src.deinit();
+    try overlapping_strided_dst.copyFromView(overlapping_strided_src);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 90, 1, 80, 2, 70, 3 }, overlapping_strided_source.data);
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
