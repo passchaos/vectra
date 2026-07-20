@@ -12947,6 +12947,7 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedScatter(self: Self, mask: Array(bool), src: Self) ArrayError!Self {
+            if (try self.maskedScatterSameShapeFast(mask, src)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try self.broadcastTo(out_shape);
@@ -12967,7 +12968,28 @@ pub fn Array(comptime T: type) type {
             return out;
         }
 
+        fn maskedScatterSameShapeFast(self: Self, mask: Array(bool), src: Self) ArrayError!?Self {
+            if (!self.device.isCpu() or !mask.device.isCpu() or !src.device.isCpu()) return null;
+            if (!std.mem.eql(usize, self.shape, mask.shape)) return null;
+            if (!self.isContiguous() or !mask.isContiguous() or !src.isContiguous()) return null;
+
+            const selected = countTrueContiguousMask(mask);
+            if (src.data.len != selected) return error.ShapeMismatch;
+
+            var out = try self.clone();
+            errdefer out.deinit();
+            var write: usize = 0;
+            for (mask.data, out.data) |keep, *slot| {
+                if (keep) {
+                    slot.* = src.data[write];
+                    write += 1;
+                }
+            }
+            return out;
+        }
+
         pub fn maskedPut(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
+            if (try self.maskedPutSameShapeFast(mask, values)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             var out = try self.broadcastTo(out_shape);
@@ -12991,6 +13013,40 @@ pub fn Array(comptime T: type) type {
                 }
             }
             return out;
+        }
+
+        fn maskedPutSameShapeFast(self: Self, mask: Array(bool), values: Self) ArrayError!?Self {
+            if (!self.device.isCpu() or !mask.device.isCpu() or !values.device.isCpu()) return null;
+            if (!std.mem.eql(usize, self.shape, mask.shape)) return null;
+            if (!self.isContiguous() or !mask.isContiguous() or !values.isContiguous()) return null;
+
+            const selected = countTrueContiguousMask(mask);
+            const scalar_values = values.data.len == 1;
+            if (!scalar_values and values.data.len != selected) return error.ShapeMismatch;
+
+            var out = try self.clone();
+            errdefer out.deinit();
+            if (scalar_values) {
+                const scalar_value = values.data[0];
+                for (mask.data, out.data) |keep, *slot| {
+                    if (keep) slot.* = scalar_value;
+                }
+            } else {
+                var write: usize = 0;
+                for (mask.data, out.data) |keep, *slot| {
+                    if (keep) {
+                        slot.* = values.data[write];
+                        write += 1;
+                    }
+                }
+            }
+            return out;
+        }
+
+        fn countTrueContiguousMask(mask: Array(bool)) usize {
+            var count: usize = 0;
+            for (mask.data) |keep| count += @intFromBool(keep);
+            return count;
         }
 
         pub fn putMask(self: Self, mask: Array(bool), values: Self) ArrayError!Self {
