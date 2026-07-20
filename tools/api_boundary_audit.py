@@ -147,9 +147,28 @@ FORBIDDEN_DIRECT_ACCELERATOR_SNIPPETS = (
     "axiom_cuda_backend.UnaryOp",
 )
 
+PUBLIC_FN_PATTERN = re.compile(r"(?m)^\s*pub\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
+
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def public_fn_naming_issues(path: Path, text: str) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for match in PUBLIC_FN_PATTERN.finditer(text):
+        name = match.group(1)
+        if "_" not in name:
+            continue
+        line = text.count("\n", 0, match.start()) + 1
+        issues.append({
+            "kind": "non_zig_style_public_function",
+            "path": str(path.relative_to(REPO)),
+            "line": line,
+            "match": name,
+            "reason": "Public function APIs should use Zig-style camelCase names only; avoid snake_case or trailing-underscore aliases.",
+        })
+    return issues
 
 
 def main() -> int:
@@ -157,6 +176,7 @@ def main() -> int:
 
     for path in PUBLIC_SOURCE_FILES:
         text = read(path)
+        issues.extend(public_fn_naming_issues(path, text))
         for issue_kind, pattern in BANNED_PATTERNS:
             for match in pattern.finditer(text):
                 line = text.count("\n", 0, match.start()) + 1

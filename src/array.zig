@@ -10190,7 +10190,7 @@ pub fn Array(comptime T: type) type {
             return dest_view.copyWhereFromView(mask, source);
         }
 
-        fn tryDeviceBinaryAssign(self: Self, source: Self, op: axiom_backend.ElementwiseOp) ArrayError!bool {
+        fn tryStorageElementwiseAssign(self: Self, source: Self, op: axiom_backend.ElementwiseOp) ArrayError!bool {
             if (self.device.isCpu()) return false;
             if (!self.device.sameDevice(source.device)) return false;
             if (!std.mem.eql(usize, self.shape, source.shape)) return false;
@@ -10209,7 +10209,7 @@ pub fn Array(comptime T: type) type {
             if (source.pending_matmul != null) {
                 var materialized_source = try source.materializePendingMatmul();
                 defer materialized_source.deinit();
-                return self.tryDeviceBinaryAssign(materialized_source, op);
+                return self.tryStorageElementwiseAssign(materialized_source, op);
             }
 
             // Match scalar in-place assignment: compute into temporary device
@@ -10221,13 +10221,16 @@ pub fn Array(comptime T: type) type {
             if (!out.device.sameDevice(self.device)) return error.InvalidDevice;
             if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
             const src_storage = out.device_storage orelse return error.InvalidDevice;
-            try axiom_backend.copyStorage(dst_storage, src_storage);
+            try axiom_backend.transferStorage(
+                .{ .device = self.device, .host_bytes = std.mem.sliceAsBytes(self.data), .storage = dst_storage },
+                .{ .device = out.device, .host_bytes = std.mem.sliceAsBytes(out.data), .storage = src_storage },
+            );
             return true;
         }
 
         pub fn addAssign(self: Self, source: Self) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceBinaryAssign(source, .add)) return;
+            if (try self.tryStorageElementwiseAssign(source, .add)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.addAssignArray(source);
@@ -10235,7 +10238,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn subAssign(self: Self, source: Self) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceBinaryAssign(source, .sub)) return;
+            if (try self.tryStorageElementwiseAssign(source, .sub)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.subAssignArray(source);
@@ -10243,7 +10246,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn mulAssign(self: Self, source: Self) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceBinaryAssign(source, .mul)) return;
+            if (try self.tryStorageElementwiseAssign(source, .mul)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.mulAssignArray(source);
@@ -10251,24 +10254,24 @@ pub fn Array(comptime T: type) type {
 
         pub fn divAssign(self: Self, source: Self) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceBinaryAssign(source, .div)) return;
+            if (try self.tryStorageElementwiseAssign(source, .div)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.divAssignArray(source);
         }
 
-        fn tryDeviceBinaryAssignView(self: Self, source: ArrayView(T), op: axiom_backend.ElementwiseOp) ArrayError!bool {
+        fn tryStorageElementwiseAssignView(self: Self, source: ArrayView(T), op: axiom_backend.ElementwiseOp) ArrayError!bool {
             if (self.device.isCpu()) return false;
             if (source.device.isCpu()) {
                 if (source.numel() == 1) {
                     if (!broadcastsExactlyTo(source.shape, self.shape)) return error.ShapeMismatch;
-                    return self.tryDeviceScalarAssign(op, source.data[source.offset]);
+                    return self.tryStorageScalarAssign(op, source.data[source.offset]);
                 }
                 if (!std.mem.eql(usize, self.shape, source.shape)) return error.ShapeMismatch;
                 var device_source = try Self.emptyOn(self.allocator, self.shape, self.device);
                 defer device_source.deinit();
                 try device_source.copyFromView(source);
-                return self.tryDeviceBinaryAssign(device_source, op);
+                return self.tryStorageElementwiseAssign(device_source, op);
             }
             // Device-backed ArrayView storage/offset ownership is not modeled
             // yet. Owning device Array sources are covered by add/sub/mul/divAssign.
@@ -10277,7 +10280,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn addAssignView(self: Self, source: ArrayView(T)) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceBinaryAssignView(source, .add)) return;
+            if (try self.tryStorageElementwiseAssignView(source, .add)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.addAssign(source);
@@ -10285,7 +10288,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn subAssignView(self: Self, source: ArrayView(T)) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceBinaryAssignView(source, .sub)) return;
+            if (try self.tryStorageElementwiseAssignView(source, .sub)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.subAssign(source);
@@ -10293,7 +10296,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn mulAssignView(self: Self, source: ArrayView(T)) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceBinaryAssignView(source, .mul)) return;
+            if (try self.tryStorageElementwiseAssignView(source, .mul)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.mulAssign(source);
@@ -10301,13 +10304,13 @@ pub fn Array(comptime T: type) type {
 
         pub fn divAssignView(self: Self, source: ArrayView(T)) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceBinaryAssignView(source, .div)) return;
+            if (try self.tryStorageElementwiseAssignView(source, .div)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.divAssign(source);
         }
 
-        fn tryDeviceScalarAssign(self: Self, op: axiom_backend.ElementwiseOp, scalar: T) ArrayError!bool {
+        fn tryStorageScalarAssign(self: Self, op: axiom_backend.ElementwiseOp, scalar: T) ArrayError!bool {
             if (self.device.isCpu()) return false;
             if (self.numel() == 0) return true;
             if (self.device.isCuda()) {
@@ -10335,13 +10338,16 @@ pub fn Array(comptime T: type) type {
             if (!out.device.sameDevice(self.device)) return error.InvalidDevice;
             if (!std.mem.eql(usize, out.shape, self.shape)) return error.ShapeMismatch;
             const src_storage = out.device_storage orelse return error.InvalidDevice;
-            try axiom_backend.copyStorage(dst_storage, src_storage);
+            try axiom_backend.transferStorage(
+                .{ .device = self.device, .host_bytes = std.mem.sliceAsBytes(self.data), .storage = dst_storage },
+                .{ .device = out.device, .host_bytes = std.mem.sliceAsBytes(out.data), .storage = src_storage },
+            );
             return true;
         }
 
         pub fn addScalarAssign(self: Self, scalar: T) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceScalarAssign(.add, scalar)) return;
+            if (try self.tryStorageScalarAssign(.add, scalar)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.addScalarAssign(scalar);
@@ -10349,7 +10355,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn subScalarAssign(self: Self, scalar: T) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceScalarAssign(.sub, scalar)) return;
+            if (try self.tryStorageScalarAssign(.sub, scalar)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.subScalarAssign(scalar);
@@ -10357,7 +10363,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn mulScalarAssign(self: Self, scalar: T) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceScalarAssign(.mul, scalar)) return;
+            if (try self.tryStorageScalarAssign(.mul, scalar)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.mulScalarAssign(scalar);
@@ -10365,7 +10371,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn divScalarAssign(self: Self, scalar: T) ArrayError!void {
             ensureNumeric(T);
-            if (try self.tryDeviceScalarAssign(.div, scalar)) return;
+            if (try self.tryStorageScalarAssign(.div, scalar)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.divScalarAssign(scalar);
