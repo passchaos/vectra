@@ -8286,9 +8286,21 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn takeCoords(self: Self, coords: Array(usize)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.takeCoords(coords);
+            if (coords.shape.len == 0 or coords.shape[coords.shape.len - 1] != self.shape.len) return error.ShapeMismatch;
+            const out_shape = coords.shape[0 .. coords.shape.len - 1];
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            for (out.data, 0..) |*slot, row| {
+                var source_offset = self.offset;
+                for (0..self.shape.len) |axis| {
+                    const coord = coords.data[row * self.shape.len + axis];
+                    if (coord >= self.shape[axis]) return error.IndexOutOfBounds;
+                    source_offset += coord * self.strides[axis];
+                }
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn putCoords(self: Self, coords: Array(usize), values: Array(T)) ArrayError!Array(T) {
