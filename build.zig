@@ -728,6 +728,10 @@ pub fn build(b: *std.Build) void {
     // A run step that will run the second test executable.
     const run_exe_tests = b.addRunArtifact(exe_tests);
 
+    const unit_test_step = b.step("unit-test", "Run Zig unit tests without audits, smokes, or examples");
+    unit_test_step.dependOn(&run_mod_tests.step);
+    unit_test_step.dependOn(&run_exe_tests.step);
+
     // A top level step for running all tests. dependOn can be called multiple
     // times and since the two run steps do not depend on one another, this will
     // make the two of them run in parallel.
