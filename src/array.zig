@@ -8219,15 +8219,22 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn putFlatScalar(self: Self, indices: Array(usize), value: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putFlatScalar(indices, value);
+            var out = try self.toArray();
+            errdefer out.deinit();
+            for (indices.data) |idx| {
+                if (idx >= out.data.len) return error.IndexOutOfBounds;
+                out.data[idx] = value;
+            }
+            return out;
         }
 
         pub fn putFlatScalarMode(self: Self, indices: Array(usize), value: T, mode: IndexMode) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putFlatScalarMode(indices, value, mode);
+            var out = try self.toArray();
+            errdefer out.deinit();
+            for (indices.data) |idx| {
+                out.data[try Array(T).applyIndexMode(idx, out.data.len, mode)] = value;
+            }
+            return out;
         }
 
         pub fn putFlatSigned(self: Self, indices: Array(isize), values: Array(T)) ArrayError!Array(T) {
@@ -8237,9 +8244,12 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn putFlatScalarSigned(self: Self, indices: Array(isize), value: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putFlatScalarSigned(indices, value);
+            var out = try self.toArray();
+            errdefer out.deinit();
+            for (indices.data) |idx| {
+                out.data[try normalizeIndex(idx, out.data.len)] = value;
+            }
+            return out;
         }
 
         pub fn indexPut(self: Self, indices: Array(usize), values: Array(T)) ArrayError!Array(T) {
