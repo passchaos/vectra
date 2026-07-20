@@ -1050,6 +1050,7 @@ pub fn tryBroadcastBinary(
     rhs: array_mod.Array(T),
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
+    if (try tryMpsLastDimBroadcast(T, op, target, lhs, rhs)) |out| return out;
     if (try tryCudaLastDimBroadcast(T, op, target, lhs, rhs)) |out| return out;
     if (lhs.shape.len == 2) {
         if (broadcastBiasMatchesArrayAdd(T, lhs, rhs, .row)) return executeBroadcastBinary(T, op, target, lhs, rhs, .row);
@@ -1087,6 +1088,67 @@ fn tryCudaGenericBroadcast(comptime T: type, op: ElementwiseOp, target: DialectB
         if (try axiom_cuda.tryDeviceBroadcastBF16(cudaBinaryOp(op), @as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+fn tryMpsLastDimBroadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .mps or !lhs.device.sameDevice(rhs.device) or !lhs.device.isMps()) return null;
+    if (T != f32 and T != f16 and T != array_mod.BFloat16) return null;
+    if (try tryMpsLastDimBroadcastOrdered(T, op, lhs, rhs, false)) |out| return out;
+    return tryMpsLastDimBroadcastOrdered(T, op, rhs, lhs, true);
+}
+
+fn tryMpsLastDimBroadcastOrdered(
+    comptime T: type,
+    op: ElementwiseOp,
+    input: array_mod.Array(T),
+    bias: array_mod.Array(T),
+    reversed: bool,
+) array_mod.ArrayError!?array_mod.Array(T) {
+    if (input.shape.len <= 2 or !input.isContiguous() or !bias.isContiguous()) return null;
+    const last_dim = input.shape[input.shape.len - 1];
+    if (last_dim == 0 or input.numel() == 0) return null;
+    if (!lastDimBiasMatches(input.shape, bias.shape, last_dim)) return null;
+
+    var matrix = try input.reshape(&.{ input.numel() / last_dim, last_dim });
+    defer matrix.deinit();
+    var row_bias = try bias.reshape(&.{last_dim});
+    defer row_bias.deinit();
+    var out_2d = if (reversed) reversed_blk: {
+        switch (op) {
+            .add, .mul => break :reversed_blk (try executeBroadcastBinary(T, op, .mps, matrix, row_bias, .row)) orelse return null,
+            .sub => {
+                var diff = (try executeBroadcastBinary(T, .sub, .mps, matrix, row_bias, .row)) orelse return null;
+                defer diff.deinit();
+                break :reversed_blk (try executeElementwiseScalar(T, .mul, .mps, diff, scalarValue(T, -1), .rhs)) orelse return null;
+            },
+            .div => {
+                var recip = (try executeElementwiseScalar(T, .div, .mps, matrix, scalarValue(T, 1), .lhs)) orelse return null;
+                defer recip.deinit();
+                break :reversed_blk (try executeBroadcastBinary(T, .mul, .mps, recip, row_bias, .row)) orelse return null;
+            },
+        }
+    } else (try executeBroadcastBinary(T, op, .mps, matrix, row_bias, .row)) orelse return null;
+    errdefer out_2d.deinit();
+    const reshaped = try out_2d.reshape(input.shape);
+    out_2d.deinit();
+    return reshaped;
+}
+
+fn lastDimBiasMatches(input_shape: []const usize, bias_shape: []const usize, last_dim: usize) bool {
+    if (bias_shape.len == 1) return bias_shape[0] == last_dim;
+    if (bias_shape.len == 0 or bias_shape.len > input_shape.len) return false;
+    const offset = input_shape.len - bias_shape.len;
+    for (bias_shape, 0..) |extent, i| {
+        const input_axis = offset + i;
+        const expected = if (input_axis + 1 == input_shape.len) last_dim else 1;
+        if (extent != expected) return false;
+    }
+    return true;
+}
+
+fn scalarValue(comptime T: type, comptime value: comptime_int) T {
+    if (T == array_mod.BFloat16) return array_mod.BFloat16.fromF32(@floatFromInt(value));
+    return value;
 }
 
 fn tryCudaLastDimBroadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
