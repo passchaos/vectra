@@ -53,11 +53,11 @@ pub fn build(b: *std.Build) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
-    _ = b.option(bool, "axiom-cuda", "Compatibility flag: Axiom CUDA wrapping is always compiled in") orelse true;
-    _ = b.option(bool, "axiom-cuda-dispatch", "Compatibility flag: supported CUDA dispatch always uses Axiom") orelse true;
+    _ = b.option(bool, "axiom-cuda", "Compatibility flag: Axiom CUDA wrapping is enabled on non-macOS targets") orelse !is_macos_target;
+    _ = b.option(bool, "axiom-cuda-dispatch", "Compatibility flag: supported CUDA dispatch uses Axiom on non-macOS targets") orelse !is_macos_target;
     _ = b.option(bool, "axiom-cpu-dispatch", "Compatibility flag: supported CPU dispatch always uses Axiom CPU lowering") orelse true;
-    const enable_axiom_cuda = true;
-    const enable_axiom_cuda_dispatch = true;
+    const enable_axiom_cuda = !is_macos_target;
+    const enable_axiom_cuda_dispatch = enable_axiom_cuda;
     const enable_axiom_cpu_dispatch = true;
     const enable_device_host_fallback = b.option(bool, "device-host-fallback", "Allow CUDA/MPS owning arrays to fall back to host generic kernels when no device runtime covers an operation") orelse false;
     const axiom_cuda_expect = b.option([]const u8, "axiom-cuda-expect", "Optional Axiom CUDA smoke status expectation: disabled, skipped, ran, or failed");
@@ -104,7 +104,7 @@ pub fn build(b: *std.Build) void {
         // Later on we'll use this module as the root module of a test executable
         // which requires us to specify a target.
         .target = target,
-        .link_libc = enable_axiom_cuda,
+        .link_libc = true,
         .imports = &.{
             .{ .name = "veyra", .module = veyra_mod },
             .{ .name = "alea", .module = alea_mod },
