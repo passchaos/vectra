@@ -7767,6 +7767,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            if (comptime T != bool) @compileError("allAxes requires Array(bool)");
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.boolScalarReductionResult(self.all(), keepdims);
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.allAxes(axes, keepdims);
@@ -7800,6 +7802,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
+            if (comptime T != bool) @compileError("anyAxes requires Array(bool)");
+            if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.boolScalarReductionResult(self.any(), keepdims);
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.anyAxes(axes, keepdims);
