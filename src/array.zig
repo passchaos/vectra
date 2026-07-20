@@ -3065,6 +3065,14 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn copyFromView(self: Self, source: Self) ArrayError!void {
             if (try self.copySameShapeFast(source)) return;
+            if (source.numel() == 1) {
+                // A single source element broadcasts to every destination
+                // element.  Delegate to fill so contiguous and 1-D strided
+                // destinations reuse the specialized fill loops instead of the
+                // general broadcast multi-index path.
+                try self.fill(source.data[source.offset]);
+                return;
+            }
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, source.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
@@ -27462,6 +27470,24 @@ test "array non contiguous view helpers" {
     defer overlapping_strided_src.deinit();
     try overlapping_strided_dst.copyFromView(overlapping_strided_src);
     try std.testing.expectEqualSlices(f64, &.{ 1, 90, 1, 80, 2, 70, 3 }, overlapping_strided_source.data);
+
+    var scalar_copy = try Array(f64).fromSlice(gpa, &.{42}, &.{});
+    defer scalar_copy.deinit();
+    var scalar_copy_view = try scalar_copy.asView();
+    defer scalar_copy_view.deinit();
+    var scalar_broadcast_contiguous_source = try Array(f64).fromSlice(gpa, &.{ 0, 0, 0, 0, 50, 60 }, &.{ 3, 2 });
+    defer scalar_broadcast_contiguous_source.deinit();
+    var scalar_broadcast_contiguous = try scalar_broadcast_contiguous_source.narrowView(0, 0, 2);
+    defer scalar_broadcast_contiguous.deinit();
+    try scalar_broadcast_contiguous.copyFromView(scalar_copy_view);
+    try std.testing.expectEqualSlices(f64, &.{ 42, 42, 42, 42, 50, 60 }, scalar_broadcast_contiguous_source.data);
+
+    var scalar_broadcast_strided_source = try Array(f64).fromSlice(gpa, &.{ 0, 90, 0, 80, 0, 70 }, &.{6});
+    defer scalar_broadcast_strided_source.deinit();
+    var scalar_broadcast_strided = try scalar_broadcast_strided_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer scalar_broadcast_strided.deinit();
+    try scalar_broadcast_strided.copyFromView(scalar_copy_view);
+    try std.testing.expectEqualSlices(f64, &.{ 42, 90, 42, 80, 42, 70 }, scalar_broadcast_strided_source.data);
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
