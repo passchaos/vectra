@@ -1049,10 +1049,7 @@ pub fn executeBroadcastBinary(
 ) array_mod.ArrayError!?array_mod.Array(T) {
     if (!supportedBroadcastBinaryExecution(T, op, target, input, bias, axis)) return null;
     return switch (target) {
-        // Veyra currently exposes only row/column broadcast add.  Other CPU
-        // broadcast ops intentionally fall back to Array's generic CPU path
-        // rather than pretending they went through the Axiom runtime.
-        .cpu => if (op == .add) executeCpuBroadcastAdd(T, input, bias, axis) else null,
+        .cpu => executeCpuBroadcastBinary(T, op, input, bias, axis),
         .cuda => executeCudaBroadcastBinary(T, op, input, bias, axis),
         .mps => executeMpsBroadcastBinary(T, op, input, bias, axis),
     };
@@ -3472,8 +3469,9 @@ fn executeMpsReduction(
     return try axiom_mps.tryReduction(T, mpsReductionOp(op), input, axis, keepdims);
 }
 
-fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
-    if (try executeCpuBroadcastAddFastPath(T, input, bias, axis)) |out| return out;
+fn executeCpuBroadcastBinary(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuBroadcastFastPath(T, op, input, bias, axis)) |out| return out;
+    if (op != .add) return null;
 
     if (T == f32) {
         const input32 = @as(array_mod.Array(f32), input);
@@ -3533,7 +3531,7 @@ fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: arr
 
 const cpu_broadcast_fast_path_min_elements: usize = 1 << 20;
 
-fn executeCpuBroadcastAddFastPath(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+fn executeCpuBroadcastFastPath(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
     if (!input.device.isCpu() or !bias.device.isCpu()) return null;
     if (input.data.len < cpu_broadcast_fast_path_min_elements) return null;
@@ -3545,9 +3543,9 @@ fn executeCpuBroadcastAddFastPath(comptime T: type, input: array_mod.Array(T), b
     if (bias.numel() == 1) {
         const scalar = bias.data[0];
         if (T == f32)
-            cpuScalarElementwiseSimd(f32, 8, .add, out.data, input.data, scalar, .rhs)
+            cpuScalarElementwiseSimd(f32, 8, op, out.data, input.data, scalar, .rhs)
         else
-            cpuScalarElementwiseSimd(f64, 4, .add, out.data, input.data, scalar, .rhs);
+            cpuScalarElementwiseSimd(f64, 4, op, out.data, input.data, scalar, .rhs);
         return out;
     }
 
@@ -3557,24 +3555,25 @@ fn executeCpuBroadcastAddFastPath(comptime T: type, input: array_mod.Array(T), b
         .row => {
             const row_bias = if (bias.shape.len == 1) bias.data else bias.data[0..cols];
             if (T == f32)
-                cpuBroadcastRowAdd(f32, 8, out.data, input.data, row_bias, rows, cols)
+                cpuBroadcastRowBinary(f32, 8, op, out.data, input.data, row_bias, rows, cols)
             else
-                cpuBroadcastRowAdd(f64, 4, out.data, input.data, row_bias, rows, cols);
+                cpuBroadcastRowBinary(f64, 4, op, out.data, input.data, row_bias, rows, cols);
         },
         .column => {
             const col_bias = if (bias.shape.len == 1) bias.data else bias.data[0..rows];
             if (T == f32)
-                cpuBroadcastColumnAdd(f32, 8, out.data, input.data, col_bias, rows, cols)
+                cpuBroadcastColumnBinary(f32, 8, op, out.data, input.data, col_bias, rows, cols)
             else
-                cpuBroadcastColumnAdd(f64, 4, out.data, input.data, col_bias, rows, cols);
+                cpuBroadcastColumnBinary(f64, 4, op, out.data, input.data, col_bias, rows, cols);
         },
     }
     return out;
 }
 
-fn cpuBroadcastRowAdd(
+fn cpuBroadcastRowBinary(
     comptime T: type,
     comptime lanes: usize,
+    op: ElementwiseOp,
     out: []T,
     input: []const T,
     bias: []const T,
@@ -3584,13 +3583,14 @@ fn cpuBroadcastRowAdd(
     var row: usize = 0;
     while (row < rows) : (row += 1) {
         const start = row * cols;
-        cpuElementwiseSimd(T, lanes, .add, out[start..][0..cols], input[start..][0..cols], bias[0..cols]);
+        cpuElementwiseSimd(T, lanes, op, out[start..][0..cols], input[start..][0..cols], bias[0..cols]);
     }
 }
 
-fn cpuBroadcastColumnAdd(
+fn cpuBroadcastColumnBinary(
     comptime T: type,
     comptime lanes: usize,
+    op: ElementwiseOp,
     out: []T,
     input: []const T,
     bias: []const T,
@@ -3600,7 +3600,7 @@ fn cpuBroadcastColumnAdd(
     var row: usize = 0;
     while (row < rows) : (row += 1) {
         const start = row * cols;
-        cpuScalarElementwiseSimd(T, lanes, .add, out[start..][0..cols], input[start..][0..cols], bias[row], .rhs);
+        cpuScalarElementwiseSimd(T, lanes, op, out[start..][0..cols], input[start..][0..cols], bias[row], .rhs);
     }
 }
 
@@ -4918,11 +4918,12 @@ fn supportedBroadcastAddExecution(comptime T: type, target: DialectBackend, inpu
 }
 
 fn supportedBroadcastBinaryExecution(comptime T: type, op: ElementwiseOp, target: DialectBackend, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) bool {
+    _ = op;
     return broadcastAddRuntimeCapability(target).executable() and
         targetCanAccessDevice(target, input.device) and
         input.device.sameDevice(bias.device) and
         switch (target) {
-            .cpu => op == .add and supportedBroadcastAdd(T, input, bias, axis),
+            .cpu => supportedBroadcastAdd(T, input, bias, axis),
             .cuda => (T == f32 or T == f64 or T == f16 or T == array_mod.BFloat16) and input.device.isCuda() and supportedBroadcastAddLowering(T, input, bias, axis),
             .mps => (T == f32 or T == f16 or T == array_mod.BFloat16) and input.device.isMps() and supportedBroadcastAddLowering(T, input, bias, axis),
         };
@@ -5251,16 +5252,26 @@ test "CPU broadcast add SIMD helpers cover row column and scalar bias" {
     const col_bias32 = [_]f32{ 1000, 2000 };
     var out32: [input32.len]f32 = undefined;
 
-    cpuBroadcastRowAdd(f32, 8, &out32, &input32, &row_bias32, rows32, cols32);
+    cpuBroadcastRowBinary(f32, 8, .add, &out32, &input32, &row_bias32, rows32, cols32);
     try std.testing.expectEqualSlices(f32, &.{
         101, 202, 303, 404, 505, 606, 707, 808, 909,
         110, 220, 330, 440, 550, 660, 770, 880, 990,
     }, &out32);
+    cpuBroadcastRowBinary(f32, 8, .sub, &out32, &input32, &row_bias32, rows32, cols32);
+    try std.testing.expectEqualSlices(f32, &.{
+        -99, -198, -297, -396, -495, -594, -693, -792, -891,
+        -90, -180, -270, -360, -450, -540, -630, -720, -810,
+    }, &out32);
 
-    cpuBroadcastColumnAdd(f32, 8, &out32, &input32, &col_bias32, rows32, cols32);
+    cpuBroadcastColumnBinary(f32, 8, .add, &out32, &input32, &col_bias32, rows32, cols32);
     try std.testing.expectEqualSlices(f32, &.{
         1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009,
         2010, 2020, 2030, 2040, 2050, 2060, 2070, 2080, 2090,
+    }, &out32);
+    cpuBroadcastColumnBinary(f32, 8, .mul, &out32, &input32, &col_bias32, rows32, cols32);
+    try std.testing.expectEqualSlices(f32, &.{
+        1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000,
+        20000, 40000, 60000, 80000, 100000, 120000, 140000, 160000, 180000,
     }, &out32);
 
     const input64 = [_]f64{
