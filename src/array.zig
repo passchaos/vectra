@@ -3154,6 +3154,7 @@ pub fn ArrayView(comptime T: type) type {
                 try self.maskedFill(mask, values.data[values.offset]);
                 return;
             }
+            if (try self.maskedCopyContiguousFast(mask, values)) return;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
@@ -3175,6 +3176,29 @@ pub fn ArrayView(comptime T: type) type {
                     write += 1;
                 }
             }
+        }
+
+        fn maskedCopyContiguousFast(self: Self, mask: Array(bool), values: Self) ArrayError!bool {
+            if (!self.device.isCpu() or !values.device.isCpu() or !mask.device.isCpu()) return false;
+            if (!std.mem.eql(usize, self.shape, mask.shape)) return false;
+            if (!self.isContiguous() or !mask.isContiguous() or !values.isContiguous()) return false;
+            const dst_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+            const values_end = std.math.add(usize, values.offset, values.numel()) catch return error.InvalidShape;
+            if (dst_end > self.data.len or values_end > values.data.len) return error.IndexOutOfBounds;
+
+            var count: usize = 0;
+            for (mask.data) |keep| count += @intFromBool(keep);
+            if (values.numel() != count) return error.ShapeMismatch;
+
+            var write: usize = 0;
+            const value_slice = values.data[values.offset..values_end];
+            for (mask.data, self.data[self.offset..dst_end]) |keep, *slot| {
+                if (keep) {
+                    slot.* = value_slice[write];
+                    write += 1;
+                }
+            }
+            return true;
         }
 
         pub fn maskedCopyFrom(self: Self, mask: Array(bool), values: Self) ArrayError!void {
