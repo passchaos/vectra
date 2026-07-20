@@ -7645,6 +7645,12 @@ pub fn ArrayView(comptime T: type) type {
                 }
                 return Array(usize).fromSlice(self.allocator, &.{count}, &.{});
             }
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape.len == 1 and axis == 0) {
+                const count = self.countNonzero();
+                if (keepdims) return Array(usize).fromSlice(self.allocator, &.{count}, &.{1});
+                return Array(usize).fromSlice(self.allocator, &.{count}, &.{});
+            }
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.countNonzeroAxis(axis_opt, keepdims);
@@ -7753,6 +7759,8 @@ pub fn ArrayView(comptime T: type) type {
         pub fn allAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             if (comptime T != bool) @compileError("allAxis requires Array(bool)");
             if (axis_opt == null) return self.boolScalarReductionResult(self.all(), keepdims);
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape.len == 1 and axis == 0) return self.boolScalarReductionResult(self.all(), keepdims);
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.allAxis(axis_opt, keepdims);
@@ -7775,6 +7783,8 @@ pub fn ArrayView(comptime T: type) type {
         pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
             if (comptime T != bool) @compileError("anyAxis requires Array(bool)");
             if (axis_opt == null) return self.boolScalarReductionResult(self.any(), keepdims);
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape.len == 1 and axis == 0) return self.boolScalarReductionResult(self.any(), keepdims);
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.anyAxis(axis_opt, keepdims);
