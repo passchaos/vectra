@@ -648,6 +648,22 @@ pub fn build(b: *std.Build) void {
     axiom_mps_mixed_bmm_smoke_step.dependOn(&axiom_mps_mixed_bmm_smoke_cmd.step);
     axiom_mps_storage_smoke_step.dependOn(&axiom_mps_mixed_bmm_smoke_cmd.step);
 
+    const axiom_mps_inner_outer_smoke_exe = b.addExecutable(.{
+        .name = "vectra-axiom-mps-inner-outer-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/axiom_mps_inner_outer_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const axiom_mps_inner_outer_smoke_cmd = b.addRunArtifact(axiom_mps_inner_outer_smoke_exe);
+    const axiom_mps_inner_outer_smoke_step = b.step("axiom-mps-inner-outer-smoke", "Run focused MPS inner/outer smoke");
+    axiom_mps_inner_outer_smoke_step.dependOn(&axiom_mps_inner_outer_smoke_cmd.step);
+    axiom_mps_storage_smoke_step.dependOn(&axiom_mps_inner_outer_smoke_cmd.step);
+
     const fusion_smoke_step = b.step("fusion-smoke", "Run CPU/CUDA fusion correctness, status, and quick performance smoke gates");
     fusion_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
     fusion_smoke_step.dependOn(&axiom_cuda_dispatch_smoke_cmd.step);

@@ -22250,7 +22250,7 @@ pub fn Array(comptime T: type) type {
 
         fn tryAxiomInner(self: Self, other: Self) ArrayError!?Self {
             if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
-            if (!self.device.isCuda() or !self.isContiguous() or !other.isContiguous()) return null;
+            if (!(self.device.isCuda() or self.device.isMps()) or !self.isContiguous() or !other.isContiguous()) return null;
             const k = self.shape[self.shape.len - 1];
             const lhs_outer = self.shape[0 .. self.shape.len - 1];
             const rhs_outer = other.shape[0 .. other.shape.len - 1];
@@ -22303,7 +22303,7 @@ pub fn Array(comptime T: type) type {
 
         fn tryAxiomOuter(self: Self, other: Self) ArrayError!?Self {
             if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
-            if (!self.device.isCuda() or !self.isContiguous() or !other.isContiguous()) return null;
+            if (!(self.device.isCuda() or self.device.isMps()) or !self.isContiguous() or !other.isContiguous()) return null;
             if (self.shape[0] == 0 or other.shape[0] == 0) return null;
             const lhs_shape = [_]usize{ self.shape[0], 1 };
             const rhs_shape = [_]usize{ 1, other.shape[0] };
