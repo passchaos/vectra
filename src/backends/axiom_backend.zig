@@ -3513,6 +3513,8 @@ fn executeMpsBroadcastBinary(comptime T: type, op: ElementwiseOp, input: array_m
 }
 
 fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuTransposeFastPath(T, input)) |out| return out;
+
     if (T == f32) {
         const input32 = @as(array_mod.Array(f32), input);
         var out = try array_mod.Array(f32).empty(input.allocator, &.{ input.shape[1], input.shape[0] });
@@ -3557,6 +3559,39 @@ fn executeCpuTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.Ar
         return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+const cpu_transpose_fast_path_min_elements: usize = 1 << 20;
+
+fn executeCpuTransposeFastPath(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!input.device.isCpu() or input.data.len < cpu_transpose_fast_path_min_elements) return null;
+    if (input.shape.len != 2 or !input.isContiguous()) return null;
+    const rows = input.shape[0];
+    const cols = input.shape[1];
+    var out = try array_mod.Array(T).empty(input.allocator, &.{ cols, rows });
+    errdefer out.deinit();
+    cpuTransposeBlocked(T, out.data, input.data, rows, cols);
+    return out;
+}
+
+fn cpuTransposeBlocked(comptime T: type, out: []T, input: []const T, rows: usize, cols: usize) void {
+    const block: usize = 32;
+    var row0: usize = 0;
+    while (row0 < rows) : (row0 += block) {
+        const row_end = @min(row0 + block, rows);
+        var col0: usize = 0;
+        while (col0 < cols) : (col0 += block) {
+            const col_end = @min(col0 + block, cols);
+            var row = row0;
+            while (row < row_end) : (row += 1) {
+                var col = col0;
+                while (col < col_end) : (col += 1) {
+                    out[col * rows + row] = input[row * cols + col];
+                }
+            }
+        }
+    }
 }
 
 fn executeCudaTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -5118,6 +5153,40 @@ test "CPU broadcast add SIMD helpers cover row column and scalar bias" {
     var out64: [input64.len]f64 = undefined;
     cpuScalarElementwiseSimd(f64, 4, .add, &out64, &input64, 0.5, .rhs);
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5 }, &out64);
+}
+
+test "CPU blocked transpose helper handles non-square tails" {
+    const rows32: usize = 3;
+    const cols32: usize = 5;
+    const input32 = [_]f32{
+        1, 2, 3, 4, 5,
+        6, 7, 8, 9, 10,
+        11, 12, 13, 14, 15,
+    };
+    var out32: [input32.len]f32 = undefined;
+    cpuTransposeBlocked(f32, &out32, &input32, rows32, cols32);
+    try std.testing.expectEqualSlices(f32, &.{
+        1, 6, 11,
+        2, 7, 12,
+        3, 8, 13,
+        4, 9, 14,
+        5, 10, 15,
+    }, &out32);
+
+    const rows64: usize = 2;
+    const cols64: usize = 4;
+    const input64 = [_]f64{
+        1, 2, 3, 4,
+        5, 6, 7, 8,
+    };
+    var out64: [input64.len]f64 = undefined;
+    cpuTransposeBlocked(f64, &out64, &input64, rows64, cols64);
+    try std.testing.expectEqualSlices(f64, &.{
+        1, 5,
+        2, 6,
+        3, 7,
+        4, 8,
+    }, &out64);
 }
 
 test "Axiom dialect lowering reports linalg memref gpu route" {
