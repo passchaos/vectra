@@ -4000,6 +4000,7 @@ fn executeMpsElementwiseScalar(
 
 pub fn tryElementwiseScalarBroadcastDefault(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (try tryCudaDeviceScalarArrayBroadcast(T, op, defaultTargetForDevice(lhs.device), lhs, rhs)) |out| return out;
+    if (try tryMpsDeviceScalarArrayBroadcast(T, op, defaultTargetForDevice(lhs.device), lhs, rhs)) |out| return out;
     if (lhs.data.len == rhs.data.len) return null;
     if (lhs.data.len == 1 and rhs.data.len != 0 and scalarBroadcastPreservesVectorShape(lhs.shape, rhs.shape)) return try executeElementwiseScalarDefault(T, op, rhs, lhs.data[0], .lhs);
     if (rhs.data.len == 1 and lhs.data.len != 0 and scalarBroadcastPreservesVectorShape(rhs.shape, lhs.shape)) return try executeElementwiseScalarDefault(T, op, lhs, rhs.data[0], .rhs);
@@ -4009,6 +4010,7 @@ pub fn tryElementwiseScalarBroadcastDefault(comptime T: type, op: ElementwiseOp,
 pub fn tryElementwiseScalarBroadcast(comptime T: type, op: ElementwiseOp, policy: BackendPolicy, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     const target = policyExecutionTarget(policy);
     if (try tryCudaDeviceScalarArrayBroadcast(T, op, target, lhs, rhs)) |out| return out;
+    if (try tryMpsDeviceScalarArrayBroadcast(T, op, target, lhs, rhs)) |out| return out;
     if (lhs.data.len == rhs.data.len) return null;
     if (lhs.data.len == 1 and rhs.data.len != 0 and scalarBroadcastPreservesVectorShape(lhs.shape, rhs.shape)) return try executeElementwiseScalar(T, op, target, rhs, lhs.data[0], .lhs);
     if (rhs.data.len == 1 and lhs.data.len != 0 and scalarBroadcastPreservesVectorShape(rhs.shape, lhs.shape)) return try executeElementwiseScalar(T, op, target, lhs, rhs.data[0], .rhs);
@@ -4035,6 +4037,24 @@ fn tryCudaDeviceScalarArrayBroadcast(comptime T: type, op: ElementwiseOp, target
         if (try axiom_cuda.tryDeviceContiguousScalarBroadcastBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), vector), @as(array_mod.Array(array_mod.BFloat16), scalar), scalar_left)) |out| return @as(array_mod.Array(T), out);
     }
     return null;
+}
+
+fn tryMpsDeviceScalarArrayBroadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (target != .mps or !lhs.device.sameDevice(rhs.device) or !lhs.device.isMps()) return null;
+    if (T != f32 and T != f16 and T != array_mod.BFloat16) return null;
+    const lhs_scalar = lhs.numel() == 1;
+    const rhs_scalar = rhs.numel() == 1;
+    if (lhs_scalar == rhs_scalar) return null;
+    const scalar_left = lhs_scalar;
+    const vector = if (scalar_left) rhs else lhs;
+    const scalar_array = if (scalar_left) lhs else rhs;
+    if (vector.shape.len == 0 or !vector.isContiguous() or !scalar_array.isContiguous()) return null;
+    const scalar_storage = scalar_array.device_storage orelse return null;
+    if (scalar_storage.len != 1) return null;
+    var scalar_value_array = try scalar_array.cpu();
+    defer scalar_value_array.deinit();
+    if (scalar_value_array.data.len != 1) return null;
+    return executeElementwiseScalar(T, op, target, vector, scalar_value_array.data[0], if (scalar_left) .lhs else .rhs);
 }
 
 fn directElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!array_mod.Array(T) {

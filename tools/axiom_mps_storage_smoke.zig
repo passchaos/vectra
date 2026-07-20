@@ -117,10 +117,24 @@ pub fn main(init: std.process.Init) !void {
         defer rsub.deinit();
         var rsub_back = try rsub.cpu();
         defer rsub_back.deinit();
+        var scalar_array = try vx.Array(f32).fromSliceOn(allocator, &.{2.0}, &.{1}, vx.mps(0));
+        defer scalar_array.deinit();
+        var array_scalar_mul = try device.mul(scalar_array);
+        defer array_scalar_mul.deinit();
+        var array_scalar_mul_back = try array_scalar_mul.cpu();
+        defer array_scalar_mul_back.deinit();
+        var scalar_array_rsub = try scalar_array.sub(device);
+        defer scalar_array_rsub.deinit();
+        var scalar_array_rsub_back = try scalar_array_rsub.cpu();
+        defer scalar_array_rsub_back.deinit();
         scalar_ok = scaled.device.isMps() and scaled.device_storage != null and
             rsub.device.isMps() and rsub.device_storage != null and
+            array_scalar_mul.device.isMps() and array_scalar_mul.device_storage != null and
+            scalar_array_rsub.device.isMps() and scalar_array_rsub.device_storage != null and
             equalF32(scaled_back.data, &.{ 2, 4, 6, 8 }) and
-            equalF32(rsub_back.data, &.{ -9, -8, -7, -6 });
+            equalF32(rsub_back.data, &.{ -9, -8, -7, -6 }) and
+            equalF32(array_scalar_mul_back.data, &.{ 2, 4, 6, 8 }) and
+            equalF32(scalar_array_rsub_back.data, &.{ 1, 0, -1, -2 });
 
         var square = try device.square();
         defer square.deinit();
@@ -224,10 +238,24 @@ pub fn main(init: std.process.Init) !void {
         defer f16_rsub.deinit();
         var f16_rsub_back = try f16_rsub.cpu();
         defer f16_rsub_back.deinit();
+        var f16_scalar_array = try vx.Array(f16).fromSliceOn(allocator, &.{@as(f16, 2.0)}, &.{1}, vx.mps(0));
+        defer f16_scalar_array.deinit();
+        var f16_array_scalar_mul = try f16_lhs.mul(f16_scalar_array);
+        defer f16_array_scalar_mul.deinit();
+        var f16_array_scalar_mul_back = try f16_array_scalar_mul.cpu();
+        defer f16_array_scalar_mul_back.deinit();
+        var f16_scalar_array_rsub = try f16_scalar_array.sub(f16_lhs);
+        defer f16_scalar_array_rsub.deinit();
+        var f16_scalar_array_rsub_back = try f16_scalar_array_rsub.cpu();
+        defer f16_scalar_array_rsub_back.deinit();
         f16_scalar_ok = f16_scaled.device.isMps() and f16_scaled.device_storage != null and
             f16_rsub.device.isMps() and f16_rsub.device_storage != null and
+            f16_array_scalar_mul.device.isMps() and f16_array_scalar_mul.device_storage != null and
+            f16_scalar_array_rsub.device.isMps() and f16_scalar_array_rsub.device_storage != null and
             closeF16(f16_scaled_back.data, &.{ 2, 4, 6, 8 }, 0.02) and
-            closeF16(f16_rsub_back.data, &.{ -9, -8, -7, -6 }, 0.02);
+            closeF16(f16_rsub_back.data, &.{ -9, -8, -7, -6 }, 0.02) and
+            closeF16(f16_array_scalar_mul_back.data, &.{ 2, 4, 6, 8 }, 0.02) and
+            closeF16(f16_scalar_array_rsub_back.data, &.{ 1, 0, -1, -2 }, 0.02);
 
         var f16_abs_source = try vx.Array(f16).fromSliceOn(allocator, &.{ @as(f16, -1), @as(f16, -2), @as(f16, 3), @as(f16, 4) }, &.{ 2, 2 }, vx.mps(0));
         defer f16_abs_source.deinit();
@@ -781,10 +809,24 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_rsub.deinit();
         var bf16_rsub_back = try bf16_rsub.cpu();
         defer bf16_rsub_back.deinit();
+        var bf16_scalar_array = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{vx.BFloat16.fromF32(2.0)}, &.{1}, vx.mps(0));
+        defer bf16_scalar_array.deinit();
+        var bf16_array_scalar_mul = try bf16_lhs.mul(bf16_scalar_array);
+        defer bf16_array_scalar_mul.deinit();
+        var bf16_array_scalar_mul_back = try bf16_array_scalar_mul.cpu();
+        defer bf16_array_scalar_mul_back.deinit();
+        var bf16_scalar_array_rsub = try bf16_scalar_array.sub(bf16_lhs);
+        defer bf16_scalar_array_rsub.deinit();
+        var bf16_scalar_array_rsub_back = try bf16_scalar_array_rsub.cpu();
+        defer bf16_scalar_array_rsub_back.deinit();
         bf16_scalar_ok = bf16_scaled.device.isMps() and bf16_scaled.device_storage != null and
             bf16_rsub.device.isMps() and bf16_rsub.device_storage != null and
+            bf16_array_scalar_mul.device.isMps() and bf16_array_scalar_mul.device_storage != null and
+            bf16_scalar_array_rsub.device.isMps() and bf16_scalar_array_rsub.device_storage != null and
             closeBF16(bf16_scaled_back.data, &.{ 2, 4, 6, 8 }, 0.125) and
-            closeBF16(bf16_rsub_back.data, &.{ -9, -8, -7, -6 }, 0.125);
+            closeBF16(bf16_rsub_back.data, &.{ -9, -8, -7, -6 }, 0.125) and
+            closeBF16(bf16_array_scalar_mul_back.data, &.{ 2, 4, 6, 8 }, 0.125) and
+            closeBF16(bf16_scalar_array_rsub_back.data, &.{ 1, 0, -1, -2 }, 0.125);
 
         var bf16_abs_source = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{ vx.BFloat16.fromF32(-1), vx.BFloat16.fromF32(-2), vx.BFloat16.fromF32(3), vx.BFloat16.fromF32(4) }, &.{ 2, 2 }, vx.mps(0));
         defer bf16_abs_source.deinit();
