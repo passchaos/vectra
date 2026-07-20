@@ -10335,7 +10335,11 @@ pub fn Array(comptime T: type) type {
 
         pub fn randOn(allocator: std.mem.Allocator, dims: []const usize, seed: u64, device: Device) ArrayError!Self {
             if (device.isCpu()) return Self.rand(allocator, dims, seed);
-            if (comptime T != f32 and T != f16 and T != BFloat16) return error.TypeUnsupported;
+            if (device.isCuda()) {
+                if (comptime T != f32 and T != f64 and T != f16 and T != BFloat16) return error.TypeUnsupported;
+            } else if (device.isMps()) {
+                if (comptime T != f32 and T != f16 and T != BFloat16) return error.TypeUnsupported;
+            }
             var out = try Self.emptyOn(allocator, dims, device);
             errdefer out.deinit();
             const storage = out.device_storage orelse return error.InvalidDevice;

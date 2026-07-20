@@ -683,7 +683,29 @@ test "random creation options keep device explicit" {
     const device_opts = seededOn(Device.cuda(0), 1234);
     try std.testing.expect(@TypeOf(device_opts) == CreationOptions);
     try std.testing.expect(device_opts.device.isCuda());
-    if (!device_opts.device.isAvailable()) try std.testing.expectError(error.InvalidDevice, np.randWith(f32, &.{4}, device_opts));
+    if (device_opts.device.isAvailable()) {
+        var cuda_random = try np.randWith(f32, &.{4}, device_opts);
+        defer cuda_random.deinit();
+        try std.testing.expect(cuda_random.device.isCuda());
+        try std.testing.expect(cuda_random.device_storage != null);
+        var cuda_random_f64 = try np.randWith(f64, &.{4}, device_opts);
+        defer cuda_random_f64.deinit();
+        var cuda_random_f64_back = try cuda_random_f64.cpu();
+        defer cuda_random_f64_back.deinit();
+        for (cuda_random_f64_back.data) |value| try std.testing.expect(value >= 0 and value < 1);
+        var cuda_random_f16 = try np.randWith(f16, &.{4}, device_opts);
+        defer cuda_random_f16.deinit();
+        var cuda_random_f16_back = try cuda_random_f16.cpu();
+        defer cuda_random_f16_back.deinit();
+        for (cuda_random_f16_back.data) |value| try std.testing.expect(@as(f32, value) >= 0 and @as(f32, value) < 1);
+        var cuda_random_bf16 = try np.randWith(array_mod.BFloat16, &.{4}, device_opts);
+        defer cuda_random_bf16.deinit();
+        var cuda_random_bf16_back = try cuda_random_bf16.cpu();
+        defer cuda_random_bf16_back.deinit();
+        for (cuda_random_bf16_back.data) |value| try std.testing.expect(value.toF32() >= 0 and value.toF32() < 1);
+    } else {
+        try std.testing.expectError(error.InvalidDevice, np.randWith(f32, &.{4}, device_opts));
+    }
     const mps_opts = seededOn(Device.mps(0), 1234);
     if (mps_opts.device.isAvailable()) {
         var mps_random = try np.randWith(f32, &.{4}, mps_opts);
