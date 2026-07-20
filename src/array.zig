@@ -8274,9 +8274,21 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn ravelCoords(self: Self, coords: Array(usize)) ArrayError!Array(usize) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.ravelCoords(coords);
+            if (coords.shape.len == 0 or coords.shape[coords.shape.len - 1] != self.shape.len) return error.ShapeMismatch;
+            const out_shape = coords.shape[0 .. coords.shape.len - 1];
+            var out = try Array(usize).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            for (out.data, 0..) |*slot, row| {
+                var flat_index: usize = 0;
+                for (0..self.shape.len) |axis| {
+                    const coord = coords.data[row * self.shape.len + axis];
+                    if (coord >= self.shape[axis]) return error.IndexOutOfBounds;
+                    flat_index = std.math.mul(usize, flat_index, self.shape[axis]) catch return error.InvalidShape;
+                    flat_index = std.math.add(usize, flat_index, coord) catch return error.InvalidShape;
+                }
+                slot.* = flat_index;
+            }
+            return out;
         }
 
         pub fn unravelFlat(self: Self, indices: Array(usize)) ArrayError!Array(usize) {
