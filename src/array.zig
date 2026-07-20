@@ -10134,6 +10134,14 @@ pub fn Array(comptime T: type) type {
             return Self.normal(allocator, dims, zero(T), one(T), seed);
         }
 
+        pub fn randnOn(allocator: std.mem.Allocator, dims: []const usize, seed: u64, device: Device) ArrayError!Self {
+            return Self.normalOn(allocator, dims, zero(T), one(T), seed, device);
+        }
+
+        pub fn randn_on(allocator: std.mem.Allocator, dims: []const usize, seed: u64, device: Device) ArrayError!Self {
+            return Self.randnOn(allocator, dims, seed, device);
+        }
+
         pub fn shuffle(self: Self, seed: u64) ArrayError!Self {
             var out = try self.clone();
             errdefer out.deinit();
@@ -10230,6 +10238,22 @@ pub fn Array(comptime T: type) type {
             const out = try Self.empty(allocator, dims);
             for (out.data) |*slot| slot.* = alea.distributions.normal(rng, T, mean_value, stddev_value);
             return out;
+        }
+
+        pub fn normalOn(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64, device: Device) ArrayError!Self {
+            ensureFloat(T);
+            if (stddev_value < zero(T)) return error.InvalidShape;
+            if (device.isCpu()) return Self.normal(allocator, dims, mean_value, stddev_value, seed);
+            if (comptime T != f32) return error.TypeUnsupported;
+            var out = try Self.emptyOn(allocator, dims, device);
+            errdefer out.deinit();
+            const storage = out.device_storage orelse return error.InvalidDevice;
+            try axiom_backend.fillPhiloxNormal(T, storage, seed, mean_value, stddev_value);
+            return out;
+        }
+
+        pub fn normal_on(allocator: std.mem.Allocator, dims: []const usize, mean_value: T, stddev_value: T, seed: u64, device: Device) ArrayError!Self {
+            return Self.normalOn(allocator, dims, mean_value, stddev_value, seed, device);
         }
 
         pub fn randint(allocator: std.mem.Allocator, dims: []const usize, low: T, high: T, seed: u64) ArrayError!Self {

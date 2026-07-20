@@ -406,6 +406,14 @@ pub fn fillPhiloxUniform(comptime T: type, storage: array_mod.DeviceStorage, see
     };
 }
 
+pub fn fillPhiloxNormal(comptime T: type, storage: array_mod.DeviceStorage, seed: u64, mean: T, stddev: T) array_mod.ArrayError!void {
+    return switch (executionTargetForDevice(storage.device)) {
+        .cpu => error.InvalidDevice,
+        .cuda => axiom_cuda.fillPhiloxNormal(T, storage, seed, mean, stddev),
+        .mps => axiom_mps.fillPhiloxNormal(T, storage, seed, mean, stddev),
+    };
+}
+
 pub fn uploadStorage(storage: array_mod.DeviceStorage, bytes: []const u8) array_mod.ArrayError!void {
     return switch (executionTargetForDevice(storage.device)) {
         .cpu => error.InvalidDevice,

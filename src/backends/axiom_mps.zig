@@ -86,6 +86,16 @@ pub fn fillPhiloxUniform(comptime T: type, storage: array_mod.DeviceStorage, see
     }
 }
 
+pub fn fillPhiloxNormal(comptime T: type, storage: array_mod.DeviceStorage, seed: u64, mean: T, stddev: T) array_mod.ArrayError!void {
+    if (T != f32) return error.TypeUnsupported;
+    if (!storage.device.isMps()) return error.InvalidDevice;
+    if (storage.len == 0) return;
+    if (storage.bytes != storage.len * @sizeOf(f32)) return error.ShapeMismatch;
+    var runtime = axiom.accelerator.MpsRuntime.open(storage.device.index) catch return error.InvalidDevice;
+    defer runtime.close();
+    runtime.runPhiloxNormalF32(.{ .ptr = storage.ptr, .bytes = storage.bytes }, storage.len, seed, mean, stddev) catch return error.BackendFailure;
+}
+
 fn rank3BroadcastShape(lhs: []const usize, rhs: []const usize) ?[3]usize {
     if (lhs.len != 3 or rhs.len != 3) return null;
     return .{

@@ -1079,6 +1079,14 @@ pub fn fillPhiloxUniform(comptime T: type, storage: array_mod.DeviceStorage, see
     session.driver.synchronize() catch return error.BackendFailure;
 }
 
+pub fn fillPhiloxNormal(comptime T: type, storage: array_mod.DeviceStorage, seed: u64, mean: T, stddev: T) array_mod.ArrayError!void {
+    _ = storage;
+    _ = seed;
+    _ = mean;
+    _ = stddev;
+    return error.TypeUnsupported;
+}
+
 fn ptxFallbackNameForImage(file_name: []const u8, buffer: *[256]u8) ![]const u8 {
     if (std.mem.endsWith(u8, file_name, ".ptx")) return file_name;
     if (!std.mem.endsWith(u8, file_name, ".cubin")) return error.BackendFailure;

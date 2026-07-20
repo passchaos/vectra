@@ -460,6 +460,24 @@ pub const Context = struct {
         return Array(T).randOn(self.allocator, dims, seed, opts.device);
     }
 
+    pub fn randn(self: *Context, comptime T: type, dims: []const usize) ArrayError!Array(T) {
+        return Array(T).randn(self.allocator, dims, self.nextSeed());
+    }
+
+    pub fn randnWith(self: *Context, comptime T: type, dims: []const usize, opts: CreationOptions) ArrayError!Array(T) {
+        const seed = opts.seed orelse self.nextSeed();
+        return Array(T).randnOn(self.allocator, dims, seed, opts.device);
+    }
+
+    pub fn normal(self: *Context, comptime T: type, dims: []const usize, mean_value: T, stddev_value: T) ArrayError!Array(T) {
+        return Array(T).normal(self.allocator, dims, mean_value, stddev_value, self.nextSeed());
+    }
+
+    pub fn normalWith(self: *Context, comptime T: type, dims: []const usize, mean_value: T, stddev_value: T, opts: CreationOptions) ArrayError!Array(T) {
+        const seed = opts.seed orelse self.nextSeed();
+        return Array(T).normalOn(self.allocator, dims, mean_value, stddev_value, seed, opts.device);
+    }
+
     pub fn randSeeded(self: Context, comptime T: type, dims: []const usize, seed: u64) ArrayError!Array(T) {
         return Array(T).rand(self.allocator, dims, seed);
     }
@@ -680,6 +698,14 @@ test "random creation options keep device explicit" {
         defer mps_random_bf16.deinit();
         try std.testing.expect(mps_random_bf16.device.isMps());
         try std.testing.expect(mps_random_bf16.device_storage != null);
+        var mps_normal = try np.normalWith(f32, &.{4}, 10, 0, mps_opts);
+        defer mps_normal.deinit();
+        try std.testing.expect(mps_normal.device.isMps());
+        try std.testing.expect(mps_normal.device_storage != null);
+        var mps_normal_back = try mps_normal.cpu();
+        defer mps_normal_back.deinit();
+        try std.testing.expectEqualSlices(f32, &.{ 10, 10, 10, 10 }, mps_normal_back.data);
     }
     try std.testing.expectError(error.TypeUnsupported, np.randWith(f64, &.{4}, mps_opts));
+    try std.testing.expectError(error.TypeUnsupported, np.normalWith(f64, &.{4}, 0, 1, mps_opts));
 }
