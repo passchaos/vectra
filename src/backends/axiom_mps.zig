@@ -561,6 +561,222 @@ pub fn tryBmmBF16(lhs: array_mod.Array(array_mod.BFloat16), rhs: array_mod.Array
     return out;
 }
 
+pub fn tryBatchedMatvecF32(matrix: array_mod.Array(f32), vector: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!matrix.device.isMps() or !vector.device.isMps() or !matrix.device.sameDevice(vector.device)) return null;
+    if (matrix.shape.len != 3 or vector.shape.len != 1 or !matrix.isContiguous() or !vector.isContiguous()) return null;
+    if (matrix.shape[2] != vector.shape[0]) return null;
+    const matrix_storage = matrix.device_storage orelse return null;
+    const vector_storage = vector.device_storage orelse return null;
+    const batch = matrix.shape[0];
+    const m = matrix.shape[1];
+    const k = matrix.shape[2];
+
+    var out = try array_mod.Array(f32).emptyOn(matrix.allocator, &.{ batch, m }, matrix.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(matrix.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runBatchedMatvecF32(
+        .{ .ptr = matrix_storage.ptr, .bytes = matrix_storage.bytes },
+        .{ .ptr = vector_storage.ptr, .bytes = vector_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        batch,
+        m,
+        k,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryBatchedVecmatF32(vector: array_mod.Array(f32), matrix: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!vector.device.isMps() or !matrix.device.isMps() or !vector.device.sameDevice(matrix.device)) return null;
+    if (vector.shape.len != 1 or matrix.shape.len != 3 or !vector.isContiguous() or !matrix.isContiguous()) return null;
+    if (vector.shape[0] != matrix.shape[1]) return null;
+    const vector_storage = vector.device_storage orelse return null;
+    const matrix_storage = matrix.device_storage orelse return null;
+    const batch = matrix.shape[0];
+    const k = matrix.shape[1];
+    const n = matrix.shape[2];
+
+    var out = try array_mod.Array(f32).emptyOn(vector.allocator, &.{ batch, n }, vector.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(vector.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runBatchedVecmatF32(
+        .{ .ptr = vector_storage.ptr, .bytes = vector_storage.bytes },
+        .{ .ptr = matrix_storage.ptr, .bytes = matrix_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        batch,
+        k,
+        n,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryBatchedMatvecF16(matrix: array_mod.Array(f16), vector: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!matrix.device.isMps() or !vector.device.isMps() or !matrix.device.sameDevice(vector.device)) return null;
+    if (matrix.shape.len != 3 or vector.shape.len != 1 or !matrix.isContiguous() or !vector.isContiguous()) return null;
+    if (matrix.shape[2] != vector.shape[0]) return null;
+    const matrix_storage = matrix.device_storage orelse return null;
+    const vector_storage = vector.device_storage orelse return null;
+    const batch = matrix.shape[0];
+    const m = matrix.shape[1];
+    const k = matrix.shape[2];
+
+    var out = try array_mod.Array(f16).emptyOn(matrix.allocator, &.{ batch, m }, matrix.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(matrix.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runBatchedMatvecF16(
+        .{ .ptr = matrix_storage.ptr, .bytes = matrix_storage.bytes },
+        .{ .ptr = vector_storage.ptr, .bytes = vector_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        batch,
+        m,
+        k,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryBatchedVecmatF16(vector: array_mod.Array(f16), matrix: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!vector.device.isMps() or !matrix.device.isMps() or !vector.device.sameDevice(matrix.device)) return null;
+    if (vector.shape.len != 1 or matrix.shape.len != 3 or !vector.isContiguous() or !matrix.isContiguous()) return null;
+    if (vector.shape[0] != matrix.shape[1]) return null;
+    const vector_storage = vector.device_storage orelse return null;
+    const matrix_storage = matrix.device_storage orelse return null;
+    const batch = matrix.shape[0];
+    const k = matrix.shape[1];
+    const n = matrix.shape[2];
+
+    var out = try array_mod.Array(f16).emptyOn(vector.allocator, &.{ batch, n }, vector.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(vector.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runBatchedVecmatF16(
+        .{ .ptr = vector_storage.ptr, .bytes = vector_storage.bytes },
+        .{ .ptr = matrix_storage.ptr, .bytes = matrix_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        batch,
+        k,
+        n,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryBatchedMatvecBF16(matrix: array_mod.Array(array_mod.BFloat16), vector: array_mod.Array(array_mod.BFloat16)) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    if (!matrix.device.isMps() or !vector.device.isMps() or !matrix.device.sameDevice(vector.device)) return null;
+    if (matrix.shape.len != 3 or vector.shape.len != 1 or !matrix.isContiguous() or !vector.isContiguous()) return null;
+    if (matrix.shape[2] != vector.shape[0]) return null;
+    const matrix_storage = matrix.device_storage orelse return null;
+    const vector_storage = vector.device_storage orelse return null;
+    const batch = matrix.shape[0];
+    const m = matrix.shape[1];
+    const k = matrix.shape[2];
+
+    var out = try array_mod.Array(array_mod.BFloat16).emptyOn(matrix.allocator, &.{ batch, m }, matrix.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(matrix.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runBatchedMatvecBF16(
+        .{ .ptr = matrix_storage.ptr, .bytes = matrix_storage.bytes },
+        .{ .ptr = vector_storage.ptr, .bytes = vector_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        batch,
+        m,
+        k,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryBatchedVecmatBF16(vector: array_mod.Array(array_mod.BFloat16), matrix: array_mod.Array(array_mod.BFloat16)) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    if (!vector.device.isMps() or !matrix.device.isMps() or !vector.device.sameDevice(matrix.device)) return null;
+    if (vector.shape.len != 1 or matrix.shape.len != 3 or !vector.isContiguous() or !matrix.isContiguous()) return null;
+    if (vector.shape[0] != matrix.shape[1]) return null;
+    const vector_storage = vector.device_storage orelse return null;
+    const matrix_storage = matrix.device_storage orelse return null;
+    const batch = matrix.shape[0];
+    const k = matrix.shape[1];
+    const n = matrix.shape[2];
+
+    var out = try array_mod.Array(array_mod.BFloat16).emptyOn(vector.allocator, &.{ batch, n }, vector.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(vector.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runBatchedVecmatBF16(
+        .{ .ptr = vector_storage.ptr, .bytes = vector_storage.bytes },
+        .{ .ptr = matrix_storage.ptr, .bytes = matrix_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        batch,
+        k,
+        n,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
 pub fn tryMatmulAddF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32), addend: array_mod.Array(f32), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!lhs.device.isMps() or !rhs.device.isMps() or !addend.device.isMps()) return null;
     if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(addend.device)) return null;

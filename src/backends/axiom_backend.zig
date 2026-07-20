@@ -1502,6 +1502,12 @@ fn executeMpsMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Ar
         if (try axiom_mps.tryMatmulBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     if (T == f32 or T == f16 or T == array_mod.BFloat16) {
+        if (lhs.shape.len == 3 and rhs.shape.len == 1) {
+            return executeMpsBatchedMatvec(T, lhs, rhs);
+        }
+        if (lhs.shape.len == 1 and rhs.shape.len == 3) {
+            return executeMpsBatchedVecmat(T, lhs, rhs);
+        }
         if (lhs.shape.len == 1 and rhs.shape.len == 1) {
             var lhs_matrix = try lhs.reshape(&.{ 1, lhs.shape[0] });
             defer lhs_matrix.deinit();
@@ -1531,6 +1537,28 @@ fn executeMpsMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Ar
             matrix_out.deinit();
             return vector;
         }
+    }
+    return null;
+}
+
+fn executeMpsBatchedMatvec(comptime T: type, matrix: array_mod.Array(T), vector: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.tryBatchedMatvecF32(@as(array_mod.Array(f32), matrix), @as(array_mod.Array(f32), vector))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryBatchedMatvecF16(@as(array_mod.Array(f16), matrix), @as(array_mod.Array(f16), vector))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryBatchedMatvecBF16(@as(array_mod.Array(array_mod.BFloat16), matrix), @as(array_mod.Array(array_mod.BFloat16), vector))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeMpsBatchedVecmat(comptime T: type, vector: array_mod.Array(T), matrix: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T == f32) {
+        if (try axiom_mps.tryBatchedVecmatF32(@as(array_mod.Array(f32), vector), @as(array_mod.Array(f32), matrix))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryBatchedVecmatF16(@as(array_mod.Array(f16), vector), @as(array_mod.Array(f16), matrix))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryBatchedVecmatBF16(@as(array_mod.Array(array_mod.BFloat16), vector), @as(array_mod.Array(array_mod.BFloat16), matrix))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
@@ -3900,7 +3928,9 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
         return (lhs.shape.len == 1 and rhs.shape.len == 1) or
             (lhs.shape.len == 2 and rhs.shape.len == 2) or
             (lhs.shape.len == 2 and rhs.shape.len == 1) or
-            (lhs.shape.len == 1 and rhs.shape.len == 2);
+            (lhs.shape.len == 1 and rhs.shape.len == 2) or
+            (lhs.shape.len == 3 and rhs.shape.len == 1) or
+            (lhs.shape.len == 1 and rhs.shape.len == 3);
     }
     if (!lhs.device.isCuda() or (T != f32 and T != f64 and T != f16 and T != array_mod.BFloat16)) return false;
     return (lhs.shape.len == 1 and rhs.shape.len == 1) or
