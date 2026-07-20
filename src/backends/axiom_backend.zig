@@ -4055,8 +4055,9 @@ fn hostViewBackingSlice(comptime T: type, view: array_mod.ArrayView(T)) ?[]const
 }
 
 fn hostContiguousViewSlice(comptime T: type, view: array_mod.ArrayView(T)) ?[]const T {
-    if (!view.device.isCpu() or view.shape.len != 1 or view.strides.len != 1 or view.strides[0] != 1) return null;
-    const end_index = std.math.add(usize, view.offset, view.shape[0]) catch return null;
+    if (!view.device.isCpu() or !view.isContiguous()) return null;
+    const len = view.numel();
+    const end_index = std.math.add(usize, view.offset, len) catch return null;
     if (end_index > view.data.len) return null;
     return view.data[view.offset..end_index];
 }
@@ -4141,8 +4142,8 @@ fn executeCpuViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod
 
 fn executeCpuViewElementwiseFastPath(comptime T: type, op: ElementwiseOp, lhs: array_mod.ArrayView(T), rhs: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
-    if (!lhs.device.isCpu() or !rhs.device.isCpu() or !std.mem.eql(usize, lhs.shape, rhs.shape) or lhs.shape.len != 1) return null;
-    if (lhs.shape[0] < cpu_streaming_fast_path_min_elements) return null;
+    if (!lhs.device.isCpu() or !rhs.device.isCpu() or !std.mem.eql(usize, lhs.shape, rhs.shape)) return null;
+    if (lhs.numel() < cpu_streaming_fast_path_min_elements) return null;
     const lhs_slice = hostContiguousViewSlice(T, lhs) orelse return null;
     const rhs_slice = hostContiguousViewSlice(T, rhs) orelse return null;
     var out = try array_mod.Array(T).empty(lhs.allocator, lhs.shape);
@@ -4204,7 +4205,7 @@ fn executeCpuViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.
 
 fn executeCpuViewUnaryFastPath(comptime T: type, op: ExecutionUnaryOp, input: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
-    if (!input.device.isCpu() or input.shape.len != 1 or input.shape[0] < cpu_streaming_fast_path_min_elements) return null;
+    if (!input.device.isCpu() or input.numel() < cpu_streaming_fast_path_min_elements) return null;
     const input_slice = hostContiguousViewSlice(T, input) orelse return null;
     var out = try array_mod.Array(T).empty(input.allocator, input.shape);
     errdefer out.deinit();
@@ -4289,7 +4290,7 @@ fn executeCpuViewElementwiseScalar(comptime T: type, op: ElementwiseOp, input: a
 
 fn executeCpuViewElementwiseScalarFastPath(comptime T: type, op: ElementwiseOp, input: array_mod.ArrayView(T), scalar: T, scalar_side: ScalarSide) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
-    if (!input.device.isCpu() or input.shape.len != 1 or input.shape[0] < cpu_streaming_fast_path_min_elements) return null;
+    if (!input.device.isCpu() or input.numel() < cpu_streaming_fast_path_min_elements) return null;
     const input_slice = hostContiguousViewSlice(T, input) orelse return null;
     var out = try array_mod.Array(T).empty(input.allocator, input.shape);
     errdefer out.deinit();
@@ -5428,6 +5429,19 @@ test "CPU contiguous view fast paths bypass memref report for large vectors" {
     var strided_view = try strided_source.sliceAxisView(0, .{ .start = 0, .stop = @intCast(n * 2), .step = 2 });
     defer strided_view.deinit();
     try std.testing.expect((try executeCpuViewUnaryFastPath(f32, .sqrt, strided_view)) == null);
+
+    var matrix_lhs = try lhs.reshape(&.{ 1024, 1024 });
+    defer matrix_lhs.deinit();
+    var matrix_rhs = try rhs.reshape(&.{ 1024, 1024 });
+    defer matrix_rhs.deinit();
+    var matrix_lhs_view = try matrix_lhs.asView();
+    defer matrix_lhs_view.deinit();
+    var matrix_rhs_view = try matrix_rhs.asView();
+    defer matrix_rhs_view.deinit();
+    var matrix_sum = (try executeCpuViewElementwiseFastPath(f32, .add, matrix_lhs_view, matrix_rhs_view)) orelse return error.BackendFailure;
+    defer matrix_sum.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1024, 1024 }, matrix_sum.shape);
+    try std.testing.expectEqual(matrix_lhs.data[2048] + matrix_rhs.data[2048], matrix_sum.data[2048]);
 }
 
 test "Axiom dialect lowering reports linalg memref gpu route" {
