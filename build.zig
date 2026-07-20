@@ -598,7 +598,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     const axiom_mps_batched_vector_matmul_smoke_cmd = b.addRunArtifact(axiom_mps_batched_vector_matmul_smoke_exe);
-    const axiom_mps_batched_vector_matmul_smoke_step = b.step("axiom-mps-batched-vector-matmul-smoke", "Run focused MPS batched matvec/vecmat smoke");
+    const axiom_mps_batched_vector_matmul_smoke_step = b.step("axiom-mps-batched-vector-matmul-smoke", "Run focused MPS rank-3/rank-4 batched matvec/vecmat smoke");
     axiom_mps_batched_vector_matmul_smoke_step.dependOn(&axiom_mps_batched_vector_matmul_smoke_cmd.step);
     axiom_mps_storage_smoke_step.dependOn(&axiom_mps_batched_vector_matmul_smoke_cmd.step);
 

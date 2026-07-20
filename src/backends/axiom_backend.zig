@@ -1542,6 +1542,12 @@ fn executeMpsMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Ar
         if (try axiom_mps.tryMatmulBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     if (T == f32 or T == f16 or T == array_mod.BFloat16) {
+        if (lhs.shape.len > 3 and rhs.shape.len == 1) {
+            return executeMpsFlattenedBatchedMatvec(T, lhs, rhs);
+        }
+        if (lhs.shape.len == 1 and rhs.shape.len > 3) {
+            return executeMpsFlattenedBatchedVecmat(T, lhs, rhs);
+        }
         if (lhs.shape.len == 3 and rhs.shape.len == 1) {
             return executeMpsBatchedMatvec(T, lhs, rhs);
         }
@@ -1579,6 +1585,54 @@ fn executeMpsMatmul(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Ar
         }
     }
     return null;
+}
+
+fn executeMpsFlattenedBatchedMatvec(comptime T: type, matrix: array_mod.Array(T), vector: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f16 and T != array_mod.BFloat16) return null;
+    if (!matrix.device.isMps() or !vector.device.isMps() or !matrix.device.sameDevice(vector.device)) return null;
+    if (matrix.shape.len <= 3 or vector.shape.len != 1 or !matrix.isContiguous() or !vector.isContiguous()) return null;
+    const batch_shape = matrix.shape[0 .. matrix.shape.len - 2];
+    const m = matrix.shape[matrix.shape.len - 2];
+    const k = matrix.shape[matrix.shape.len - 1];
+    if (vector.shape[0] != k) return null;
+    var batch_count: usize = 1;
+    for (batch_shape) |extent| batch_count = std.math.mul(usize, batch_count, extent) catch return error.InvalidShape;
+
+    const matrix_3d_shape = [_]usize{ batch_count, m, k };
+    var matrix_3d = try matrix.reshape(&matrix_3d_shape);
+    defer matrix_3d.deinit();
+    var out_2d = (try executeMpsBatchedMatvec(T, matrix_3d, vector)) orelse return null;
+    defer out_2d.deinit();
+
+    var out_shape = try matrix.allocator.alloc(usize, batch_shape.len + 1);
+    defer matrix.allocator.free(out_shape);
+    @memcpy(out_shape[0..batch_shape.len], batch_shape);
+    out_shape[batch_shape.len] = m;
+    return try out_2d.reshape(out_shape);
+}
+
+fn executeMpsFlattenedBatchedVecmat(comptime T: type, vector: array_mod.Array(T), matrix: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f16 and T != array_mod.BFloat16) return null;
+    if (!vector.device.isMps() or !matrix.device.isMps() or !vector.device.sameDevice(matrix.device)) return null;
+    if (vector.shape.len != 1 or matrix.shape.len <= 3 or !vector.isContiguous() or !matrix.isContiguous()) return null;
+    const batch_shape = matrix.shape[0 .. matrix.shape.len - 2];
+    const k = matrix.shape[matrix.shape.len - 2];
+    const n = matrix.shape[matrix.shape.len - 1];
+    if (vector.shape[0] != k) return null;
+    var batch_count: usize = 1;
+    for (batch_shape) |extent| batch_count = std.math.mul(usize, batch_count, extent) catch return error.InvalidShape;
+
+    const matrix_3d_shape = [_]usize{ batch_count, k, n };
+    var matrix_3d = try matrix.reshape(&matrix_3d_shape);
+    defer matrix_3d.deinit();
+    var out_2d = (try executeMpsBatchedVecmat(T, vector, matrix_3d)) orelse return null;
+    defer out_2d.deinit();
+
+    var out_shape = try matrix.allocator.alloc(usize, batch_shape.len + 1);
+    defer matrix.allocator.free(out_shape);
+    @memcpy(out_shape[0..batch_shape.len], batch_shape);
+    out_shape[batch_shape.len] = n;
+    return try out_2d.reshape(out_shape);
 }
 
 fn executeMpsBatchedMatvec(comptime T: type, matrix: array_mod.Array(T), vector: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -4056,8 +4110,8 @@ fn supportedMatmulExecution(comptime T: type, lhs: array_mod.Array(T), rhs: arra
             (lhs.shape.len == 2 and rhs.shape.len == 2) or
             (lhs.shape.len == 2 and rhs.shape.len == 1) or
             (lhs.shape.len == 1 and rhs.shape.len == 2) or
-            (lhs.shape.len == 3 and rhs.shape.len == 1) or
-            (lhs.shape.len == 1 and rhs.shape.len == 3);
+            (lhs.shape.len >= 2 and rhs.shape.len == 1) or
+            (lhs.shape.len == 1 and rhs.shape.len >= 2);
     }
     if (!lhs.device.isCuda() or (T != f32 and T != f64 and T != f16 and T != array_mod.BFloat16)) return false;
     return (lhs.shape.len == 1 and rhs.shape.len == 1) or

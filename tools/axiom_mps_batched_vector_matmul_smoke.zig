@@ -30,13 +30,41 @@ pub fn main(init: std.process.Init) !void {
         defer vecmat.deinit();
         var vecmat_back = try vecmat.cpu();
         defer vecmat_back.deinit();
+        var rank4_matrix = try vx.Array(f32).fromSliceOn(allocator, &.{
+            1,  2,
+            3,  4,
+
+            5,  6,
+            7,  8,
+
+            9,  10,
+            11, 12,
+
+            13, 14,
+            15, 16,
+        }, &.{ 2, 2, 2, 2 }, vx.mps(0));
+        defer rank4_matrix.deinit();
+        var rank4_matvec = try rank4_matrix.matmul(rhs_vec);
+        defer rank4_matvec.deinit();
+        var rank4_matvec_back = try rank4_matvec.cpu();
+        defer rank4_matvec_back.deinit();
+        var rank4_vecmat = try rhs_vec.matmul(rank4_matrix);
+        defer rank4_vecmat.deinit();
+        var rank4_vecmat_back = try rank4_vecmat.cpu();
+        defer rank4_vecmat_back.deinit();
         f32_ok = matvec.device.isMps() and matvec.device_storage != null and
             vecmat.device.isMps() and vecmat.device_storage != null and
+            rank4_matvec.device.isMps() and rank4_matvec.device_storage != null and
+            rank4_vecmat.device.isMps() and rank4_vecmat.device_storage != null and
             std.mem.eql(usize, matvec_back.shape, &.{ 2, 2 }) and
             std.mem.eql(usize, vecmat_back.shape, &.{ 2, 2 }) and
+            std.mem.eql(usize, rank4_matvec_back.shape, &.{ 2, 2, 2 }) and
+            std.mem.eql(usize, rank4_vecmat_back.shape, &.{ 2, 2, 2 }) and
             closeF32(matvec_back.data, &.{ 50, 110, 170, 230 }, 0.001) and
-            closeF32(vecmat_back.data, &.{ 70, 100, 190, 220 }, 0.001);
-        fingerprint ^= hashF32(matvec_back.data) ^ hashF32(vecmat_back.data);
+            closeF32(vecmat_back.data, &.{ 70, 100, 190, 220 }, 0.001) and
+            closeF32(rank4_matvec_back.data, &.{ 50, 110, 170, 230, 290, 350, 410, 470 }, 0.001) and
+            closeF32(rank4_vecmat_back.data, &.{ 70, 100, 190, 220, 310, 340, 430, 460 }, 0.001);
+        fingerprint ^= hashF32(matvec_back.data) ^ hashF32(vecmat_back.data) ^ hashF32(rank4_matvec_back.data) ^ hashF32(rank4_vecmat_back.data);
 
         var f16_matrix = try vx.Array(f16).fromSliceOn(allocator, &.{ @as(f16, 1), @as(f16, 2), @as(f16, 3), @as(f16, 4), @as(f16, 5), @as(f16, 6), @as(f16, 7), @as(f16, 8) }, &.{ 2, 2, 2 }, vx.mps(0));
         defer f16_matrix.deinit();
@@ -50,13 +78,38 @@ pub fn main(init: std.process.Init) !void {
         defer f16_vecmat.deinit();
         var f16_vecmat_back = try f16_vecmat.cpu();
         defer f16_vecmat_back.deinit();
+        var f16_rank4_matrix = try vx.Array(f16).fromSliceOn(allocator, &.{
+            @as(f16, 1),  @as(f16, 2),
+            @as(f16, 3),  @as(f16, 4),
+            @as(f16, 5),  @as(f16, 6),
+            @as(f16, 7),  @as(f16, 8),
+            @as(f16, 9),  @as(f16, 10),
+            @as(f16, 11), @as(f16, 12),
+            @as(f16, 13), @as(f16, 14),
+            @as(f16, 15), @as(f16, 16),
+        }, &.{ 2, 2, 2, 2 }, vx.mps(0));
+        defer f16_rank4_matrix.deinit();
+        var f16_rank4_matvec = try f16_rank4_matrix.matmul(f16_vec);
+        defer f16_rank4_matvec.deinit();
+        var f16_rank4_matvec_back = try f16_rank4_matvec.cpu();
+        defer f16_rank4_matvec_back.deinit();
+        var f16_rank4_vecmat = try f16_vec.matmul(f16_rank4_matrix);
+        defer f16_rank4_vecmat.deinit();
+        var f16_rank4_vecmat_back = try f16_rank4_vecmat.cpu();
+        defer f16_rank4_vecmat_back.deinit();
         f16_ok = f16_matvec.device.isMps() and f16_matvec.device_storage != null and
             f16_vecmat.device.isMps() and f16_vecmat.device_storage != null and
+            f16_rank4_matvec.device.isMps() and f16_rank4_matvec.device_storage != null and
+            f16_rank4_vecmat.device.isMps() and f16_rank4_vecmat.device_storage != null and
             std.mem.eql(usize, f16_matvec_back.shape, &.{ 2, 2 }) and
             std.mem.eql(usize, f16_vecmat_back.shape, &.{ 2, 2 }) and
+            std.mem.eql(usize, f16_rank4_matvec_back.shape, &.{ 2, 2, 2 }) and
+            std.mem.eql(usize, f16_rank4_vecmat_back.shape, &.{ 2, 2, 2 }) and
             closeF16(f16_matvec_back.data, &.{ 50, 110, 170, 230 }, 0.25) and
-            closeF16(f16_vecmat_back.data, &.{ 70, 100, 190, 220 }, 0.25);
-        fingerprint ^= hashF16(f16_matvec_back.data) ^ hashF16(f16_vecmat_back.data);
+            closeF16(f16_vecmat_back.data, &.{ 70, 100, 190, 220 }, 0.25) and
+            closeF16(f16_rank4_matvec_back.data, &.{ 50, 110, 170, 230, 290, 350, 410, 470 }, 0.5) and
+            closeF16(f16_rank4_vecmat_back.data, &.{ 70, 100, 190, 220, 310, 340, 430, 460 }, 0.5);
+        fingerprint ^= hashF16(f16_matvec_back.data) ^ hashF16(f16_vecmat_back.data) ^ hashF16(f16_rank4_matvec_back.data) ^ hashF16(f16_rank4_vecmat_back.data);
 
         var bf16_matrix = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{ vx.BFloat16.fromF32(1), vx.BFloat16.fromF32(2), vx.BFloat16.fromF32(3), vx.BFloat16.fromF32(4), vx.BFloat16.fromF32(5), vx.BFloat16.fromF32(6), vx.BFloat16.fromF32(7), vx.BFloat16.fromF32(8) }, &.{ 2, 2, 2 }, vx.mps(0));
         defer bf16_matrix.deinit();
@@ -70,13 +123,38 @@ pub fn main(init: std.process.Init) !void {
         defer bf16_vecmat.deinit();
         var bf16_vecmat_back = try bf16_vecmat.cpu();
         defer bf16_vecmat_back.deinit();
+        var bf16_rank4_matrix = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &.{
+            vx.BFloat16.fromF32(1),  vx.BFloat16.fromF32(2),
+            vx.BFloat16.fromF32(3),  vx.BFloat16.fromF32(4),
+            vx.BFloat16.fromF32(5),  vx.BFloat16.fromF32(6),
+            vx.BFloat16.fromF32(7),  vx.BFloat16.fromF32(8),
+            vx.BFloat16.fromF32(9),  vx.BFloat16.fromF32(10),
+            vx.BFloat16.fromF32(11), vx.BFloat16.fromF32(12),
+            vx.BFloat16.fromF32(13), vx.BFloat16.fromF32(14),
+            vx.BFloat16.fromF32(15), vx.BFloat16.fromF32(16),
+        }, &.{ 2, 2, 2, 2 }, vx.mps(0));
+        defer bf16_rank4_matrix.deinit();
+        var bf16_rank4_matvec = try bf16_rank4_matrix.matmul(bf16_vec);
+        defer bf16_rank4_matvec.deinit();
+        var bf16_rank4_matvec_back = try bf16_rank4_matvec.cpu();
+        defer bf16_rank4_matvec_back.deinit();
+        var bf16_rank4_vecmat = try bf16_vec.matmul(bf16_rank4_matrix);
+        defer bf16_rank4_vecmat.deinit();
+        var bf16_rank4_vecmat_back = try bf16_rank4_vecmat.cpu();
+        defer bf16_rank4_vecmat_back.deinit();
         bf16_ok = bf16_matvec.device.isMps() and bf16_matvec.device_storage != null and
             bf16_vecmat.device.isMps() and bf16_vecmat.device_storage != null and
+            bf16_rank4_matvec.device.isMps() and bf16_rank4_matvec.device_storage != null and
+            bf16_rank4_vecmat.device.isMps() and bf16_rank4_vecmat.device_storage != null and
             std.mem.eql(usize, bf16_matvec_back.shape, &.{ 2, 2 }) and
             std.mem.eql(usize, bf16_vecmat_back.shape, &.{ 2, 2 }) and
+            std.mem.eql(usize, bf16_rank4_matvec_back.shape, &.{ 2, 2, 2 }) and
+            std.mem.eql(usize, bf16_rank4_vecmat_back.shape, &.{ 2, 2, 2 }) and
             closeBF16(bf16_matvec_back.data, &.{ 50, 110, 170, 230 }, 0.5) and
-            closeBF16(bf16_vecmat_back.data, &.{ 70, 100, 190, 220 }, 0.5);
-        fingerprint ^= hashBF16(bf16_matvec_back.data) ^ hashBF16(bf16_vecmat_back.data);
+            closeBF16(bf16_vecmat_back.data, &.{ 70, 100, 190, 220 }, 0.5) and
+            closeBF16(bf16_rank4_matvec_back.data, &.{ 50, 110, 170, 230, 290, 350, 410, 470 }, 1.0) and
+            closeBF16(bf16_rank4_vecmat_back.data, &.{ 70, 100, 190, 220, 310, 340, 430, 460 }, 1.0);
+        fingerprint ^= hashBF16(bf16_matvec_back.data) ^ hashBF16(bf16_vecmat_back.data) ^ hashBF16(bf16_rank4_matvec_back.data) ^ hashBF16(bf16_rank4_vecmat_back.data);
     }
 
     const ok = if (available)
