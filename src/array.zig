@@ -3289,6 +3289,11 @@ pub fn ArrayView(comptime T: type) type {
 
         fn assignView(self: Self, source: Self, comptime op: fn (T, T) T) ArrayError!void {
             if (try self.assignSameShapeFast(source, op)) return;
+            if (source.numel() == 1) {
+                if (!broadcastsExactlyTo(source.shape, self.shape)) return error.ShapeMismatch;
+                try self.assignScalar(source.data[source.offset], op);
+                return;
+            }
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, source.shape);
             defer self.allocator.free(out_shape);
             if (!std.mem.eql(usize, out_shape, self.shape)) return error.ShapeMismatch;
@@ -29504,17 +29509,30 @@ test "array object in-place assignment helpers" {
     try strided_assign_view.addAssign(strided_assign_delta);
     try std.testing.expectEqualSlices(f64, &.{ 11, 90, 22, 80, 33, 70 }, strided_assign_target.data);
 
+    var scalar_assign_source = try Array(f64).fromSlice(gpa, &.{2}, &.{});
+    defer scalar_assign_source.deinit();
+    var scalar_assign_source_view = try scalar_assign_source.asView();
+    defer scalar_assign_source_view.deinit();
+    try contiguous_block.mulAssign(scalar_assign_source_view);
+    try std.testing.expectEqualSlices(f64, &.{ 44, 24, 44, 26, 13, 26 }, base.data);
+
+    var higher_rank_singleton_assign = try Array(f64).fromSlice(gpa, &.{1}, &.{ 1, 1, 1 });
+    defer higher_rank_singleton_assign.deinit();
+    var higher_rank_singleton_assign_view = try higher_rank_singleton_assign.asView();
+    defer higher_rank_singleton_assign_view.deinit();
+    try std.testing.expectError(error.ShapeMismatch, contiguous_block.addAssign(higher_rank_singleton_assign_view));
+
     var patch = try Array(f64).fromSlice(gpa, &.{ 5, 6 }, &.{ 1, 2 });
     defer patch.deinit();
     try cols.copyFromArray(patch);
-    try std.testing.expectEqualSlices(f64, &.{ 5, 12, 6, 5, 13, 6 }, base.data);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 24, 6, 5, 13, 6 }, base.data);
 
     var selected = try base.selectView(0, 1);
     defer selected.deinit();
     var selected_delta = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer selected_delta.deinit();
     try selected.addAssignArray(selected_delta);
-    try std.testing.expectEqualSlices(f64, &.{ 5, 12, 6, 6, 15, 9 }, base.data);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 24, 6, 6, 15, 9 }, base.data);
 
     var copied = try Array(f64).zeros(gpa, &.{ 2, 3 });
     defer copied.deinit();
