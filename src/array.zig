@@ -7340,9 +7340,44 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn takeSigned(self: Self, indices: Array(isize), axis_opt: ?isize) ArrayError!Array(T) {
+            if (axis_opt == null) return self.takeSignedFlat(indices);
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.takeSigned(indices, axis_opt);
+        }
+
+        fn takeSignedFlat(self: Self, indices: Array(isize)) ArrayError!Array(T) {
+            var out = try Array(T).empty(self.allocator, indices.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                const source = self.data[self.offset..end];
+                for (indices.data, out.data) |idx, *slot| {
+                    slot.* = source[try normalizeIndex(idx, source.len)];
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                for (indices.data, out.data) |idx, *slot| {
+                    const normalized = try normalizeIndex(idx, self.numel());
+                    const delta = std.math.mul(usize, normalized, self.strides[0]) catch return error.InvalidShape;
+                    const source_offset = std.math.add(usize, self.offset, delta) catch return error.InvalidShape;
+                    slot.* = self.data[source_offset];
+                }
+                return out;
+            }
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (indices.data, out.data) |idx, *slot| {
+                const normalized = try normalizeIndex(idx, self.numel());
+                unravelIndexInto(normalized, self.shape, multi);
+                slot.* = self.data[self.offset + ravelIndex(multi, self.strides)];
+            }
+            return out;
         }
 
         pub fn takeSignedMode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
