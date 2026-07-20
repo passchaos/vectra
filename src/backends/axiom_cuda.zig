@@ -2484,7 +2484,7 @@ pub fn tryDeviceReductionBF16(op: axiom.accelerator.DialectReductionOp, input: a
     return tryDeviceReduction(BFloat16, op, input, axis, keepdims);
 }
 
-fn tryDeviceReduction(comptime T: type, op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(T), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(T) {
+pub fn tryDeviceReduction(comptime T: type, op: axiom.accelerator.DialectReductionOp, input: array_mod.Array(T), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
     if (T != f32 and T != f64 and T != f16 and T != BFloat16) return null;
     if (!input.device.isCuda() or input.data.len != 0 or !input.isContiguous()) return null;

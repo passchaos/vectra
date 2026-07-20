@@ -2982,19 +2982,8 @@ fn executeCudaReduction(
     axis: u1,
     keepdims: bool,
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        if (try axiom_cuda.tryDeviceReductionF32(op, @as(array_mod.Array(f32), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
-    }
-    if (T == f64) {
-        if (try axiom_cuda.tryDeviceReductionF64(op, @as(array_mod.Array(f64), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
-    }
-    if (T == f16) {
-        if (try axiom_cuda.tryDeviceReductionF16(op, @as(array_mod.Array(f16), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
-    }
-    if (T == array_mod.BFloat16) {
-        if (try axiom_cuda.tryDeviceReductionBF16(op, @as(array_mod.Array(array_mod.BFloat16), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    if (comptime !supportsAxiomCudaElementwise(T)) return null;
+    return try axiom_cuda.tryDeviceReduction(T, op, input, axis, keepdims);
 }
 
 fn executeMpsReduction(
