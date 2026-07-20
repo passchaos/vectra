@@ -4054,6 +4054,13 @@ fn hostViewBackingSlice(comptime T: type, view: array_mod.ArrayView(T)) ?[]const
     return view.data[view.offset .. end_index + 1];
 }
 
+fn hostContiguousViewSlice(comptime T: type, view: array_mod.ArrayView(T)) ?[]const T {
+    if (!view.device.isCpu() or view.shape.len != 1 or view.strides.len != 1 or view.strides[0] != 1) return null;
+    const end_index = std.math.add(usize, view.offset, view.shape[0]) catch return null;
+    if (end_index > view.data.len) return null;
+    return view.data[view.offset..end_index];
+}
+
 fn cpuUnaryOp(op: ExecutionUnaryOp) axiom.accelerator.cpu_veyra.TensorUnaryElementwiseOp {
     return switch (op) {
         .abs => .abs,
@@ -4076,6 +4083,8 @@ fn cpuUnaryOp(op: ExecutionUnaryOp) axiom.accelerator.cpu_veyra.TensorUnaryEleme
 }
 
 fn executeCpuViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod.ArrayView(T), rhs: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuViewElementwiseFastPath(T, op, lhs, rhs)) |out| return out;
+
     if (!lhs.device.isCpu() or !std.mem.eql(usize, lhs.shape, rhs.shape) or lhs.shape.len != 1) return null;
     if (T != f32 and T != f64) return null;
     const lhs_slice = hostViewBackingSlice(T, lhs) orelse return null;
@@ -4130,7 +4139,24 @@ fn executeCpuViewElementwise(comptime T: type, op: ElementwiseOp, lhs: array_mod
     return out;
 }
 
+fn executeCpuViewElementwiseFastPath(comptime T: type, op: ElementwiseOp, lhs: array_mod.ArrayView(T), rhs: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!lhs.device.isCpu() or !rhs.device.isCpu() or !std.mem.eql(usize, lhs.shape, rhs.shape) or lhs.shape.len != 1) return null;
+    if (lhs.shape[0] < cpu_streaming_fast_path_min_elements) return null;
+    const lhs_slice = hostContiguousViewSlice(T, lhs) orelse return null;
+    const rhs_slice = hostContiguousViewSlice(T, rhs) orelse return null;
+    var out = try array_mod.Array(T).empty(lhs.allocator, lhs.shape);
+    errdefer out.deinit();
+    if (T == f32)
+        cpuElementwiseSimd(f32, 8, op, out.data, lhs_slice, rhs_slice)
+    else
+        cpuElementwiseSimd(f64, 4, op, out.data, lhs_slice, rhs_slice);
+    return out;
+}
+
 fn executeCpuViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuViewUnaryFastPath(T, op, input)) |out| return out;
+
     if (!input.device.isCpu() or input.shape.len != 1) return null;
     if (T != f32 and T != f64) return null;
     const input_slice = hostViewBackingSlice(T, input) orelse return null;
@@ -4176,7 +4202,22 @@ fn executeCpuViewUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.
     return out;
 }
 
+fn executeCpuViewUnaryFastPath(comptime T: type, op: ExecutionUnaryOp, input: array_mod.ArrayView(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!input.device.isCpu() or input.shape.len != 1 or input.shape[0] < cpu_streaming_fast_path_min_elements) return null;
+    const input_slice = hostContiguousViewSlice(T, input) orelse return null;
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    if (T == f32)
+        cpuUnarySimd(f32, 8, op, out.data, input_slice)
+    else
+        cpuUnarySimd(f64, 4, op, out.data, input_slice);
+    return out;
+}
+
 fn executeCpuViewElementwiseScalar(comptime T: type, op: ElementwiseOp, input: array_mod.ArrayView(T), scalar: T, scalar_side: ScalarSide) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try executeCpuViewElementwiseScalarFastPath(T, op, input, scalar, scalar_side)) |out| return out;
+
     if (!input.device.isCpu() or input.shape.len != 1) return null;
     if (T != f32 and T != f64) return null;
     const input_slice = hostViewBackingSlice(T, input) orelse return null;
@@ -4243,6 +4284,19 @@ fn executeCpuViewElementwiseScalar(comptime T: type, op: ElementwiseOp, input: a
         return null;
     }
     recordCpuViewElementwiseReport(report);
+    return out;
+}
+
+fn executeCpuViewElementwiseScalarFastPath(comptime T: type, op: ElementwiseOp, input: array_mod.ArrayView(T), scalar: T, scalar_side: ScalarSide) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!input.device.isCpu() or input.shape.len != 1 or input.shape[0] < cpu_streaming_fast_path_min_elements) return null;
+    const input_slice = hostContiguousViewSlice(T, input) orelse return null;
+    var out = try array_mod.Array(T).empty(input.allocator, input.shape);
+    errdefer out.deinit();
+    if (T == f32)
+        cpuScalarElementwiseSimd(f32, 8, op, out.data, input_slice, scalar, scalar_side)
+    else
+        cpuScalarElementwiseSimd(f64, 4, op, out.data, input_slice, scalar, scalar_side);
     return out;
 }
 
@@ -5337,6 +5391,43 @@ test "CPU vector matmul SIMD helpers cover dot matvec and vecmat tails" {
     var vecmat64: [cols64]f64 = .{ 0, 0, 0, 0, 0 };
     cpuVecmatStreaming(f64, 4, &vecmat64, &vector64, &matrix64, rows64, cols64);
     try std.testing.expectEqualSlices(f64, &.{ 321, 642, 963, 1284, 1605 }, &vecmat64);
+}
+
+test "CPU contiguous view fast paths bypass memref report for large vectors" {
+    const gpa = std.testing.allocator;
+    const n = cpu_streaming_fast_path_min_elements;
+    var lhs = try array_mod.Array(f32).empty(gpa, &.{n});
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f32).empty(gpa, &.{n});
+    defer rhs.deinit();
+    for (lhs.data, rhs.data, 0..) |*lhs_slot, *rhs_slot, i| {
+        lhs_slot.* = @floatFromInt(i % 17);
+        rhs_slot.* = @floatFromInt(i % 5);
+    }
+
+    var lhs_view = try lhs.asView();
+    defer lhs_view.deinit();
+    var rhs_view = try rhs.asView();
+    defer rhs_view.deinit();
+
+    var added = (try executeCpuViewElementwiseFastPath(f32, .add, lhs_view, rhs_view)) orelse return error.BackendFailure;
+    defer added.deinit();
+    try std.testing.expectEqual(@as(usize, n), added.data.len);
+    try std.testing.expectEqual(lhs.data[123] + rhs.data[123], added.data[123]);
+
+    var scaled = (try executeCpuViewElementwiseScalarFastPath(f32, .mul, lhs_view, 2.0, .rhs)) orelse return error.BackendFailure;
+    defer scaled.deinit();
+    try std.testing.expectEqual(lhs.data[456] * 2.0, scaled.data[456]);
+
+    var rooted = (try executeCpuViewUnaryFastPath(f32, .sqrt, lhs_view)) orelse return error.BackendFailure;
+    defer rooted.deinit();
+    try std.testing.expectApproxEqAbs(std.math.sqrt(lhs.data[789]), rooted.data[789], 1e-6);
+
+    var strided_source = try array_mod.Array(f32).empty(gpa, &.{n * 2});
+    defer strided_source.deinit();
+    var strided_view = try strided_source.sliceAxisView(0, .{ .start = 0, .stop = @intCast(n * 2), .step = 2 });
+    defer strided_view.deinit();
+    try std.testing.expect((try executeCpuViewUnaryFastPath(f32, .sqrt, strided_view)) == null);
 }
 
 test "Axiom dialect lowering reports linalg memref gpu route" {
