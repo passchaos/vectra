@@ -60,6 +60,20 @@ pub fn main(init: std.process.Init) !void {
         defer out_rank5.deinit();
         var back_rank5 = try out_rank5.cpu();
         defer back_rank5.deinit();
+        var lhs_rank6 = try vx.Array(f32).fromSliceOn(allocator, &lhs_values, &.{ 2, 1, 1, 1, 2, 2 }, vx.mps(0));
+        defer lhs_rank6.deinit();
+        var rhs_rank6 = try vx.Array(f32).fromSliceOn(allocator, &.{
+            1, 0,
+            0, 1,
+
+            2, 1,
+            1, 2,
+        }, &.{ 1, 2, 1, 1, 2, 2 }, vx.mps(0));
+        defer rhs_rank6.deinit();
+        var out_rank6 = try lhs_rank6.matmul(rhs_rank6);
+        defer out_rank6.deinit();
+        var back_rank6 = try out_rank6.cpu();
+        defer back_rank6.deinit();
         const expected_rank5 = [_]f32{
             1,  2,  3,  4,
             4,  5,  10, 11,
@@ -78,8 +92,11 @@ pub fn main(init: std.process.Init) !void {
             closeF32(back.data, &expected, 0.001) and
             out_rank5.device.isMps() and out_rank5.device_storage != null and
             std.mem.eql(usize, back_rank5.shape, &.{ 2, 2, 1, 2, 2 }) and
-            closeF32(back_rank5.data, &expected_rank5, 0.001);
-        fingerprint ^= hashF32(back.data) ^ hashF32(back_rank5.data);
+            closeF32(back_rank5.data, &expected_rank5, 0.001) and
+            out_rank6.device.isMps() and out_rank6.device_storage != null and
+            std.mem.eql(usize, back_rank6.shape, &.{ 2, 2, 1, 1, 2, 2 }) and
+            closeF32(back_rank6.data, &expected_rank5, 0.001);
+        fingerprint ^= hashF32(back.data) ^ hashF32(back_rank5.data) ^ hashF32(back_rank6.data);
 
         var lhs16 = try vx.Array(f16).fromSliceOn(allocator, &toF16(lhs_values), &.{ 2, 1, 2, 2 }, vx.mps(0));
         defer lhs16.deinit();
@@ -97,13 +114,24 @@ pub fn main(init: std.process.Init) !void {
         defer out_rank5_16.deinit();
         var back_rank5_16 = try out_rank5_16.cpu();
         defer back_rank5_16.deinit();
+        var lhs_rank6_16 = try vx.Array(f16).fromSliceOn(allocator, &toF16(lhs_values), &.{ 2, 1, 1, 1, 2, 2 }, vx.mps(0));
+        defer lhs_rank6_16.deinit();
+        var rhs_rank6_16 = try vx.Array(f16).fromSliceOn(allocator, &toF16(rhs_rank5_values), &.{ 1, 2, 1, 1, 2, 2 }, vx.mps(0));
+        defer rhs_rank6_16.deinit();
+        var out_rank6_16 = try lhs_rank6_16.matmul(rhs_rank6_16);
+        defer out_rank6_16.deinit();
+        var back_rank6_16 = try out_rank6_16.cpu();
+        defer back_rank6_16.deinit();
         f16_ok = out16.device.isMps() and out16.device_storage != null and
             std.mem.eql(usize, back16.shape, &.{ 2, 3, 2, 2 }) and
             closeF16(back16.data, &expected, 0.25) and
             out_rank5_16.device.isMps() and out_rank5_16.device_storage != null and
             std.mem.eql(usize, back_rank5_16.shape, &.{ 2, 2, 1, 2, 2 }) and
-            closeF16(back_rank5_16.data, &expected_rank5, 0.25);
-        fingerprint ^= hashF16(back16.data) ^ hashF16(back_rank5_16.data);
+            closeF16(back_rank5_16.data, &expected_rank5, 0.25) and
+            out_rank6_16.device.isMps() and out_rank6_16.device_storage != null and
+            std.mem.eql(usize, back_rank6_16.shape, &.{ 2, 2, 1, 1, 2, 2 }) and
+            closeF16(back_rank6_16.data, &expected_rank5, 0.25);
+        fingerprint ^= hashF16(back16.data) ^ hashF16(back_rank5_16.data) ^ hashF16(back_rank6_16.data);
 
         var lhs_bf16 = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &toBF16(lhs_values), &.{ 2, 1, 2, 2 }, vx.mps(0));
         defer lhs_bf16.deinit();
@@ -121,13 +149,24 @@ pub fn main(init: std.process.Init) !void {
         defer out_rank5_bf16.deinit();
         var back_rank5_bf16 = try out_rank5_bf16.cpu();
         defer back_rank5_bf16.deinit();
+        var lhs_rank6_bf16 = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &toBF16(lhs_values), &.{ 2, 1, 1, 1, 2, 2 }, vx.mps(0));
+        defer lhs_rank6_bf16.deinit();
+        var rhs_rank6_bf16 = try vx.Array(vx.BFloat16).fromSliceOn(allocator, &toBF16(rhs_rank5_values), &.{ 1, 2, 1, 1, 2, 2 }, vx.mps(0));
+        defer rhs_rank6_bf16.deinit();
+        var out_rank6_bf16 = try lhs_rank6_bf16.matmul(rhs_rank6_bf16);
+        defer out_rank6_bf16.deinit();
+        var back_rank6_bf16 = try out_rank6_bf16.cpu();
+        defer back_rank6_bf16.deinit();
         bf16_ok = out_bf16.device.isMps() and out_bf16.device_storage != null and
             std.mem.eql(usize, back_bf16.shape, &.{ 2, 3, 2, 2 }) and
             closeBF16(back_bf16.data, &expected, 0.5) and
             out_rank5_bf16.device.isMps() and out_rank5_bf16.device_storage != null and
             std.mem.eql(usize, back_rank5_bf16.shape, &.{ 2, 2, 1, 2, 2 }) and
-            closeBF16(back_rank5_bf16.data, &expected_rank5, 0.5);
-        fingerprint ^= hashBF16(back_bf16.data) ^ hashBF16(back_rank5_bf16.data);
+            closeBF16(back_rank5_bf16.data, &expected_rank5, 0.5) and
+            out_rank6_bf16.device.isMps() and out_rank6_bf16.device_storage != null and
+            std.mem.eql(usize, back_rank6_bf16.shape, &.{ 2, 2, 1, 1, 2, 2 }) and
+            closeBF16(back_rank6_bf16.data, &expected_rank5, 0.5);
+        fingerprint ^= hashBF16(back_bf16.data) ^ hashBF16(back_rank5_bf16.data) ^ hashBF16(back_rank6_bf16.data);
     }
 
     const ok = if (available)
