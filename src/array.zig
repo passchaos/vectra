@@ -667,6 +667,12 @@ fn divValue(comptime T: type, a: T, b: T) T {
     return a / b;
 }
 
+fn sqrtValue(comptime T: type, value: T) T {
+    if (comptime T == BFloat16) return BFloat16.fromF32(std.math.sqrt(value.toF32()));
+    if (comptime isComplex(T)) return std.math.complex.sqrt(value);
+    return std.math.sqrt(value);
+}
+
 fn negValue(comptime T: type, a: T) T {
     if (comptime T == BFloat16) return a.neg();
     if (comptime isComplex(T)) return a.neg();
@@ -5393,7 +5399,7 @@ pub fn ArrayView(comptime T: type) type {
                 out.deinit();
                 return scaled;
             }
-            for (out.data) |*value| value.* /= divisor;
+            for (out.data) |*value| value.* = divValue(T, value.*, divisor);
             return out;
         }
 
@@ -5431,18 +5437,18 @@ pub fn ArrayView(comptime T: type) type {
                 defer self.allocator.free(multi);
                 for (0..self.numel()) |flat| {
                     unravelIndexInto(flat, self.shape, multi);
-                    mean_value += self.data[self.offset + ravelIndex(multi, self.strides)];
+                    mean_value = addValue(T, mean_value, self.data[self.offset + ravelIndex(multi, self.strides)]);
                 }
-                mean_value /= castValue(T, self.numel());
+                mean_value = divValue(T, mean_value, castValue(T, self.numel()));
                 var total: T = zero(T);
                 for (0..self.numel()) |flat| {
                     unravelIndexInto(flat, self.shape, multi);
                     const value = self.data[self.offset + ravelIndex(multi, self.strides)];
-                    const delta = value - mean_value;
-                    total += delta * delta;
+                    const delta = subValue(T, value, mean_value);
+                    total = addValue(T, total, mulValue(T, delta, delta));
                 }
-                const denom = castValue(T, self.numel()) - correction;
-                const result = total / denom;
+                const denom = subValue(T, castValue(T, self.numel()), correction);
+                const result = divValue(T, total, denom);
                 if (keepdims) {
                     const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
                     defer self.allocator.free(out_shape);
@@ -5479,11 +5485,12 @@ pub fn ArrayView(comptime T: type) type {
                 }
                 const value = self.data[self.offset + ravelIndex(in_multi, self.strides)];
                 const mean_value = mean_values.data[ravelIndex(mean_multi, mean_values.strides)];
-                const delta = value - mean_value;
-                out.data[ravelIndex(out_multi, out.strides)] += delta * delta;
+                const delta = subValue(T, value, mean_value);
+                const out_index = ravelIndex(out_multi, out.strides);
+                out.data[out_index] = addValue(T, out.data[out_index], mulValue(T, delta, delta));
             }
-            const denom = castValue(T, self.shape[axis]) - correction;
-            for (out.data) |*value| value.* /= denom;
+            const denom = subValue(T, castValue(T, self.shape[axis]), correction);
+            for (out.data) |*value| value.* = divValue(T, value.*, denom);
             return out;
         }
 
@@ -5552,13 +5559,13 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn stddev(self: Self, axis_opt: ?isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             const out = try self.variance(axis_opt, keepdims, correction);
-            for (out.data) |*value| value.* = std.math.sqrt(value.*);
+            for (out.data) |*value| value.* = sqrtValue(T, value.*);
             return out;
         }
 
         pub fn stddevAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) ArrayError!Array(T) {
             const out = try self.varianceAxes(axes, keepdims, correction);
-            for (out.data) |*value| value.* = std.math.sqrt(value.*);
+            for (out.data) |*value| value.* = sqrtValue(T, value.*);
             return out;
         }
 
@@ -19236,7 +19243,7 @@ pub fn Array(comptime T: type) type {
                     defer squared.deinit();
                     var summed = try squared.sum(axis_opt, keepdims);
                     errdefer summed.deinit();
-                    const denom = castValue(T, n) - correction;
+                    const denom = subValue(T, castValue(T, n), correction);
                     const scaled = try summed.divScalar(denom);
                     summed.deinit();
                     return scaled;
@@ -19268,12 +19275,12 @@ pub fn Array(comptime T: type) type {
                         for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
                         for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
                     }
-                    const delta = v - mean_t.data[ravelIndex(mean_multi, mean_t.strides)];
+                    const delta = subValue(T, v, mean_t.data[ravelIndex(mean_multi, mean_t.strides)]);
                     const oi = ravelIndex(out_multi, out.strides);
-                    out.data[oi] += delta * delta;
+                    out.data[oi] = addValue(T, out.data[oi], mulValue(T, delta, delta));
                 }
-                const denom = castValue(T, n) - correction;
-                for (out.data) |*v| v.* /= denom;
+                const denom = subValue(T, castValue(T, n), correction);
+                for (out.data) |*v| v.* = divValue(T, v.*, denom);
                 return out;
             }
 
@@ -19287,7 +19294,7 @@ pub fn Array(comptime T: type) type {
                 defer squared.deinit();
                 var total = try squared.sum(null, false);
                 errdefer total.deinit();
-                const denom = castValue(T, self.numel()) - correction;
+                const denom = subValue(T, castValue(T, self.numel()), correction);
                 var scaled = try total.divScalar(denom);
                 total.deinit();
                 errdefer scaled.deinit();
@@ -19301,15 +19308,15 @@ pub fn Array(comptime T: type) type {
                 return scaled;
             }
             var mean_value: T = zero(T);
-            for (self.data) |v| mean_value += v;
-            mean_value /= castValue(T, self.data.len);
+            for (self.data) |v| mean_value = addValue(T, mean_value, v);
+            mean_value = divValue(T, mean_value, castValue(T, self.data.len));
             var total: T = zero(T);
             for (self.data) |v| {
-                const delta = v - mean_value;
-                total += delta * delta;
+                const delta = subValue(T, v, mean_value);
+                total = addValue(T, total, mulValue(T, delta, delta));
             }
-            const denom = castValue(T, self.data.len) - correction;
-            const result = total / denom;
+            const denom = subValue(T, castValue(T, self.data.len), correction);
+            const result = divValue(T, total, denom);
             if (keepdims) {
                 const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
                 defer self.allocator.free(out_shape);
@@ -19394,11 +19401,11 @@ pub fn Array(comptime T: type) type {
                     }
                 }
                 const out_index = ravelIndex(out_multi, out.strides);
-                const delta = value - means.data[ravelIndex(out_multi, means.strides)];
-                out.data[out_index] += delta * delta;
+                const delta = subValue(T, value, means.data[ravelIndex(out_multi, means.strides)]);
+                out.data[out_index] = addValue(T, out.data[out_index], mulValue(T, delta, delta));
             }
-            const denom = castValue(T, reduce_count) - correction;
-            for (out.data) |*value| value.* /= denom;
+            const denom = subValue(T, castValue(T, reduce_count), correction);
+            for (out.data) |*value| value.* = divValue(T, value.*, denom);
             return out;
         }
 
@@ -19453,7 +19460,7 @@ pub fn Array(comptime T: type) type {
                 out.deinit();
                 return result;
             }
-            for (out.data) |*v| v.* = std.math.sqrt(v.*);
+            for (out.data) |*v| v.* = sqrtValue(T, v.*);
             return out;
         }
 
@@ -19465,7 +19472,7 @@ pub fn Array(comptime T: type) type {
                 out.deinit();
                 return result;
             }
-            for (out.data) |*value| value.* = std.math.sqrt(value.*);
+            for (out.data) |*value| value.* = sqrtValue(T, value.*);
             return out;
         }
 
