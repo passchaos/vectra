@@ -8266,7 +8266,6 @@ pub fn Array(comptime T: type) type {
         device: Device = .cpu,
         device_storage: ?DeviceStorage = null,
         pending_matmul: ?MatmulFusion = null,
-        cpu_matmul: ?CpuMatmulFusion = null,
 
         const MatmulFusion = struct {
             lhs_storage: DeviceStorage,
@@ -8296,26 +8295,6 @@ pub fn Array(comptime T: type) type {
             cuda_matmul_sub_exp,
             cuda_matmul_rsub_sqrt,
             cuda_matmul_rsub_exp,
-            cpu_matmul,
-            cpu_matmul_add,
-            cpu_matmul_sub,
-            cpu_matmul_rsub,
-            cpu_matmul_add_sqrt,
-            cpu_matmul_add_exp,
-            cpu_matmul_sub_sqrt,
-            cpu_matmul_sub_exp,
-            cpu_matmul_rsub_sqrt,
-            cpu_matmul_rsub_exp,
-        };
-
-        const CpuMatmulFusion = struct {
-            lhs_data: []T,
-            rhs_data: []T,
-            lhs_shape: [2]usize,
-            rhs_shape: [2]usize,
-            alpha: f32 = 1.0,
-            beta: f32 = 0.0,
-            unary: ?PendingUnary = null,
         };
 
         pub const Scalar = T;
@@ -8340,19 +8319,6 @@ pub fn Array(comptime T: type) type {
                 }
                 if (is_rsub) return .cuda_matmul_rsub;
                 return if (is_sub) .cuda_matmul_sub else .cuda_matmul_add;
-            }
-            if (self.cpu_matmul) |cpu_fusion| {
-                if (cpu_fusion.beta == 0.0) return .cpu_matmul;
-                const is_rsub = cpu_fusion.alpha < 0.0;
-                const is_sub = cpu_fusion.beta < 0.0;
-                if (cpu_fusion.unary) |unary_op| {
-                    return switch (unary_op) {
-                        .sqrt => if (is_rsub) .cpu_matmul_rsub_sqrt else if (is_sub) .cpu_matmul_sub_sqrt else .cpu_matmul_add_sqrt,
-                        .exp => if (is_rsub) .cpu_matmul_rsub_exp else if (is_sub) .cpu_matmul_sub_exp else .cpu_matmul_add_exp,
-                    };
-                }
-                if (is_rsub) return .cpu_matmul_rsub;
-                return if (is_sub) .cpu_matmul_sub else .cpu_matmul_add;
             }
             return .none;
         }
@@ -9087,7 +9053,6 @@ pub fn Array(comptime T: type) type {
         pub fn deinit(self: *Self) void {
             if (self.device_storage) |storage| axiom_backend.freeStorage(storage);
             self.pending_matmul = null;
-            self.cpu_matmul = null;
             self.allocator.free(self.data);
             self.allocator.free(self.shape);
             self.allocator.free(self.strides);
@@ -13409,111 +13374,13 @@ pub fn Array(comptime T: type) type {
             return error.BackendFailure;
         }
 
-        fn attachCpuMatmulProvenance(out: *Self, lhs: Self, rhs: Self) void {
-            if (comptime T != f32 and T != f64) return;
-            if (!axiom_backend.hostFallbackAllowed(out.device) or !axiom_backend.hostFallbackAllowed(lhs.device) or !axiom_backend.hostFallbackAllowed(rhs.device)) return;
-            if (lhs.shape.len != 2 or rhs.shape.len != 2 or lhs.shape[1] != rhs.shape[0]) return;
-            if (!lhs.isContiguous() or !rhs.isContiguous()) return;
-            out.cpu_matmul = .{
-                .lhs_data = lhs.data,
-                .rhs_data = rhs.data,
-                .lhs_shape = .{ lhs.shape[0], lhs.shape[1] },
-                .rhs_shape = .{ rhs.shape[0], rhs.shape[1] },
-            };
-        }
-
-        fn attachCpuMatmulDerived(out: *Self, pending: CpuMatmulFusion, alpha_value: f32, beta_value: f32) void {
-            if (comptime T != f32 and T != f64) return;
-            if (!axiom_backend.hostFallbackAllowed(out.device)) return;
-            out.cpu_matmul = pending;
-            out.cpu_matmul.?.alpha = alpha_value;
-            out.cpu_matmul.?.beta = beta_value;
-            out.cpu_matmul.?.unary = null;
-        }
-
-        fn attachCpuUnaryDerived(out: *Self, pending: CpuMatmulFusion, unary_op: PendingUnary) void {
-            if (comptime T != f32 and T != f64) return;
-            if (!axiom_backend.hostFallbackAllowed(out.device)) return;
-            out.cpu_matmul = pending;
-            out.cpu_matmul.?.unary = unary_op;
-        }
-
-        fn tryFuseCpuMatmulAdd(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!?Self {
-            if (comptime T != f32 and T != f64) return null;
-            const pending = self.cpu_matmul orelse return null;
-            if (comptime op != opAdd and op != opSub) return null;
-            if (!axiom_backend.hostFallbackAllowed(self.device) or !axiom_backend.hostFallbackAllowed(other.device)) return null;
-            if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
-            if (!other.isContiguous()) return null;
-            var lhs_shape = [_]usize{ pending.lhs_shape[0], pending.lhs_shape[1] };
-            var lhs_strides = [_]usize{ pending.lhs_shape[1], 1 };
-            var rhs_shape = [_]usize{ pending.rhs_shape[0], pending.rhs_shape[1] };
-            var rhs_strides = [_]usize{ pending.rhs_shape[1], 1 };
-            const lhs_array = Self{
-                .allocator = self.allocator,
-                .data = pending.lhs_data,
-                .shape = &lhs_shape,
-                .strides = &lhs_strides,
-                .device = .cpu,
-            };
-            const rhs_array = Self{
-                .allocator = self.allocator,
-                .data = pending.rhs_data,
-                .shape = &rhs_shape,
-                .strides = &rhs_strides,
-                .device = .cpu,
-            };
-            const beta_value: f32 = if (comptime op == opAdd) 1.0 else -1.0;
-            if (try axiom_backend.executeMatmulAddScaledDefault(T, lhs_array, rhs_array, other, 1.0, beta_value)) |out_value| {
-                var out = out_value;
-                out.attachCpuMatmulDerived(pending, 1.0, beta_value);
-                return out;
-            }
-            return null;
-        }
-
-        fn tryFuseCpuMatmulRSub(self: Self, other: Self) ArrayError!?Self {
-            if (comptime T != f32 and T != f64) return null;
-            const pending = self.cpu_matmul orelse return null;
-            if (!axiom_backend.hostFallbackAllowed(self.device) or !axiom_backend.hostFallbackAllowed(other.device)) return null;
-            if (!std.mem.eql(usize, self.shape, other.shape)) return error.ShapeMismatch;
-            if (!other.isContiguous()) return null;
-            var lhs_shape = [_]usize{ pending.lhs_shape[0], pending.lhs_shape[1] };
-            var lhs_strides = [_]usize{ pending.lhs_shape[1], 1 };
-            var rhs_shape = [_]usize{ pending.rhs_shape[0], pending.rhs_shape[1] };
-            var rhs_strides = [_]usize{ pending.rhs_shape[1], 1 };
-            const lhs_array = Self{
-                .allocator = self.allocator,
-                .data = pending.lhs_data,
-                .shape = &lhs_shape,
-                .strides = &lhs_strides,
-                .device = .cpu,
-            };
-            const rhs_array = Self{
-                .allocator = self.allocator,
-                .data = pending.rhs_data,
-                .shape = &rhs_shape,
-                .strides = &rhs_strides,
-                .device = .cpu,
-            };
-            if (try axiom_backend.executeMatmulAddScaledDefault(T, lhs_array, rhs_array, other, -1.0, 1.0)) |out_value| {
-                var out = out_value;
-                out.attachCpuMatmulDerived(pending, -1.0, 1.0);
-                return out;
-            }
-            return null;
-        }
-
         fn binaryArray(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Self {
             if (!self.device.sameDevice(other.device)) return error.InvalidDevice;
             if (try self.tryFusePendingMatmulAdd(other, op)) |out| return out;
-            if (try self.tryFuseCpuMatmulAdd(other, op)) |out| return out;
             if (comptime op == opAdd) {
                 if (try other.tryFusePendingMatmulAdd(self, op)) |out| return out;
-                if (try other.tryFuseCpuMatmulAdd(self, op)) |out| return out;
             } else if (comptime op == opSub) {
                 if (try other.tryFusePendingMatmulRSub(self)) |out| return out;
-                if (try other.tryFuseCpuMatmulRSub(self)) |out| return out;
             }
             if (self.pending_matmul != null) {
                 var materialized = try self.materializePendingMatmul();
@@ -14679,13 +14546,7 @@ pub fn Array(comptime T: type) type {
                 if (try self.tryPendingUnary(.exp)) |out| return out;
                 return self.runAxiomUnaryRequired(.exp);
             }
-            if (try axiom_backend.executeUnaryDefault(T, .exp, self)) |out_value| {
-                var out = out_value;
-                if (self.cpu_matmul) |pending| {
-                    if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .exp);
-                }
-                return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .exp, self)) |out| return out;
             return self.unary(opExp);
         }
 
@@ -14749,13 +14610,7 @@ pub fn Array(comptime T: type) type {
                 if (try self.tryPendingUnary(.sqrt)) |out| return out;
                 return self.runAxiomUnaryRequired(.sqrt);
             }
-            if (try axiom_backend.executeUnaryDefault(T, .sqrt, self)) |out_value| {
-                var out = out_value;
-                if (self.cpu_matmul) |pending| {
-                    if (pending.beta != 0.0) out.attachCpuUnaryDerived(pending, .sqrt);
-                }
-                return out;
-            }
+            if (try axiom_backend.executeUnaryDefault(T, .sqrt, self)) |out| return out;
             return self.unary(opSqrt);
         }
 
