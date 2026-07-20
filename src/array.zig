@@ -7471,15 +7471,57 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn gather(self: Self, axis_index: isize, indices: Array(usize)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.gather(axis_index, indices);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
+            for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
+                if (i != axis and index_dim > self_dim) return error.ShapeMismatch;
+            }
+
+            var out = try Array(T).empty(self.allocator, indices.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, indices.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, indices.shape, out_multi);
+                const selected = indices.data[flat];
+                if (selected >= self.shape[axis]) return error.IndexOutOfBounds;
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = selected;
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn gatherSigned(self: Self, axis_index: isize, indices: Array(isize)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.gatherSigned(axis_index, indices);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            if (indices.shape.len != self.shape.len) return error.ShapeMismatch;
+            for (indices.shape, self.shape, 0..) |index_dim, self_dim, i| {
+                if (i != axis and index_dim > self_dim) return error.ShapeMismatch;
+            }
+
+            var out = try Array(T).empty(self.allocator, indices.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, indices.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, indices.shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = try normalizeIndex(indices.data[flat], self.shape[axis]);
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn takeAlongAxis(self: Self, indices: Array(usize), axis_index: isize) ArrayError!Array(T) {
