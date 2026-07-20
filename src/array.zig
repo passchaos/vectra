@@ -2538,7 +2538,7 @@ pub fn ArrayView(comptime T: type) type {
 
         fn binaryScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (self.shape.len == 1) {
+                if (self.device.isCpu() or self.shape.len == 1) {
                     const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
                         .add
                     else if (comptime op == opSub)
@@ -2718,7 +2718,7 @@ pub fn ArrayView(comptime T: type) type {
 
         fn binaryView(self: Self, other: Self, comptime op: fn (T, T) T) ArrayError!Array(T) {
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
-                if (std.mem.eql(usize, self.shape, other.shape) and self.shape.len == 1) {
+                if (std.mem.eql(usize, self.shape, other.shape) and (self.device.isCpu() or self.shape.len == 1)) {
                     const maybe_op: ?axiom_backend.ElementwiseOp = if (comptime op == opAdd)
                         .add
                     else if (comptime op == opSub)
@@ -22283,6 +22283,13 @@ test "array comparison and logical wrappers" {
     large_other_source.data[20] = -1;
     var large_other_view = try large_other_source.asView();
     defer large_other_view.deinit();
+    var large_added = try large_view.add(large_other_view);
+    defer large_added.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 8, 8 }, large_added.shape);
+    try std.testing.expectEqual(large_view_source.data[10] + large_other_source.data[10], large_added.data[10]);
+    var large_scaled_scalar = try large_view.mulScalar(4);
+    defer large_scaled_scalar.deinit();
+    try std.testing.expectEqual(large_view_source.data[10] * 4, large_scaled_scalar.data[10]);
     var large_view_gt = try large_view.gt(large_other_view);
     defer large_view_gt.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 8, 8 }, large_view_gt.shape);
