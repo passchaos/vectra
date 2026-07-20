@@ -3199,6 +3199,7 @@ pub fn ArrayView(comptime T: type) type {
                 }
                 return;
             }
+            if (try self.copyWhereSameShapeFast(mask, source)) return;
             if (source.numel() == 1) {
                 try self.maskedFill(mask, source.data[source.offset]);
                 return;
@@ -3216,6 +3217,20 @@ pub fn ArrayView(comptime T: type) type {
                     self.data[self.offset + ravelIndex(multi, self.strides)] = source.data[source.broadcastOffsetOf(multi, self.shape.len)];
                 }
             }
+        }
+
+        fn copyWhereSameShapeFast(self: Self, mask: Array(bool), source: Self) ArrayError!bool {
+            if (!self.device.isCpu() or !source.device.isCpu() or !mask.device.isCpu()) return false;
+            if (!std.mem.eql(usize, self.shape, source.shape) or !std.mem.eql(usize, self.shape, mask.shape)) return false;
+            if (self.numel() == 0) return true;
+            if (!self.isContiguous() or !source.isContiguous() or !mask.isContiguous()) return false;
+            const dst_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+            const src_end = std.math.add(usize, source.offset, source.numel()) catch return error.InvalidShape;
+            if (dst_end > self.data.len or src_end > source.data.len) return error.IndexOutOfBounds;
+            for (mask.data, self.data[self.offset..dst_end], source.data[source.offset..src_end]) |keep, *dst, src| {
+                if (keep) dst.* = src;
+            }
+            return true;
         }
 
         pub fn copyWhereAssign(self: Self, mask: Array(bool), source: Self) ArrayError!void {
@@ -27490,6 +27505,13 @@ test "array object masked in-place assignment helpers" {
     defer copy_where_scalar_false_view.deinit();
     try copy_where_scalar_false_view.copyWhereFromView(scalar_mask_false, copy_where_source_view);
     try std.testing.expectEqualSlices(f64, &.{ 5, 6, 7, 8 }, copy_where_scalar_false_target.data);
+
+    var copy_where_same_shape_target = try Array(f64).fromSlice(gpa, &.{ 10, 20, 30, 40 }, &.{ 2, 2 });
+    defer copy_where_same_shape_target.deinit();
+    var copy_where_same_shape_view = try copy_where_same_shape_target.asView();
+    defer copy_where_same_shape_view.deinit();
+    try copy_where_same_shape_view.copyWhereFromView(contiguous_mask, copy_where_source_view);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 20, 30, 4 }, copy_where_same_shape_target.data);
 
     var copy_where_singleton_target = try Array(f64).fromSlice(gpa, &.{ 0, 0, 0, 0, 50, 60 }, &.{ 3, 2 });
     defer copy_where_singleton_target.deinit();
