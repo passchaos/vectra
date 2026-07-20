@@ -3782,54 +3782,63 @@ fn deviceGemmNames(comptime T: type) DeviceGemmNames {
 }
 
 pub fn tryDeviceMatvecF32(matrix: array_mod.Array(f32), vector: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceMatvec(f32, matrix, vector, "matvec_lhs_f32", "matvec_rhs_f32", "matvec_out_f32");
+    return tryDeviceMatvec(f32, matrix, vector);
 }
 
 pub fn tryDeviceMatvecF64(matrix: array_mod.Array(f64), vector: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceMatvec(f64, matrix, vector, "matvec_lhs_f64", "matvec_rhs_f64", "matvec_out_f64");
+    return tryDeviceMatvec(f64, matrix, vector);
 }
 
 pub fn tryDeviceMatvecF16(matrix: array_mod.Array(f16), vector: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceMatvec(f16, matrix, vector, "matvec_lhs_f16", "matvec_rhs_f16", "matvec_out_f16");
+    return tryDeviceMatvec(f16, matrix, vector);
 }
 
 pub fn tryDeviceMatvecBF16(matrix: array_mod.Array(BFloat16), vector: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceMatvec(BFloat16, matrix, vector, "matvec_lhs_bf16", "matvec_rhs_bf16", "matvec_out_bf16");
+    return tryDeviceMatvec(BFloat16, matrix, vector);
 }
 
 pub fn tryDeviceVecmatF32(vector: array_mod.Array(f32), matrix: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceVecmat(f32, vector, matrix, "vecmat_lhs_f32", "vecmat_rhs_f32", "vecmat_out_f32");
+    return tryDeviceVecmat(f32, vector, matrix);
 }
 
 pub fn tryDeviceVecmatF64(vector: array_mod.Array(f64), matrix: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceVecmat(f64, vector, matrix, "vecmat_lhs_f64", "vecmat_rhs_f64", "vecmat_out_f64");
+    return tryDeviceVecmat(f64, vector, matrix);
 }
 
 pub fn tryDeviceVecmatF16(vector: array_mod.Array(f16), matrix: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceVecmat(f16, vector, matrix, "vecmat_lhs_f16", "vecmat_rhs_f16", "vecmat_out_f16");
+    return tryDeviceVecmat(f16, vector, matrix);
 }
 
 pub fn tryDeviceVecmatBF16(vector: array_mod.Array(BFloat16), matrix: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceVecmat(BFloat16, vector, matrix, "vecmat_lhs_bf16", "vecmat_rhs_bf16", "vecmat_out_bf16");
+    return tryDeviceVecmat(BFloat16, vector, matrix);
 }
 
 pub fn tryDeviceDotF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    return tryDeviceDot(f32, lhs, rhs, "dot_lhs_f32", "dot_rhs_f32", "dot_out_f32");
+    return tryDeviceDot(f32, lhs, rhs);
 }
 
 pub fn tryDeviceDotF64(lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    return tryDeviceDot(f64, lhs, rhs, "dot_lhs_f64", "dot_rhs_f64", "dot_out_f64");
+    return tryDeviceDot(f64, lhs, rhs);
 }
 
 pub fn tryDeviceDotF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    return tryDeviceDot(f16, lhs, rhs, "dot_lhs_f16", "dot_rhs_f16", "dot_out_f16");
+    return tryDeviceDot(f16, lhs, rhs);
 }
 
 pub fn tryDeviceDotBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    return tryDeviceDot(BFloat16, lhs, rhs, "dot_lhs_bf16", "dot_rhs_bf16", "dot_out_bf16");
+    return tryDeviceDot(BFloat16, lhs, rhs);
 }
 
-fn tryDeviceDot(
+pub fn tryDeviceDot(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    const names = batchedGemmNames(T, "dot");
+    return tryDeviceDotNamed(T, lhs, rhs, names.lhs, names.rhs, names.out);
+}
+
+fn tryDeviceDotNamed(
     comptime T: type,
     lhs: array_mod.Array(T),
     rhs: array_mod.Array(T),
@@ -3923,7 +3932,16 @@ pub fn tryDeviceBmmBF16(lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFl
     return tryDeviceBmm(BFloat16, lhs, rhs);
 }
 
-fn tryDeviceMatvec(
+pub fn tryDeviceMatvec(
+    comptime T: type,
+    matrix: array_mod.Array(T),
+    vector: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    const names = batchedGemmNames(T, "matvec");
+    return tryDeviceMatvecNamed(T, matrix, vector, names.lhs, names.rhs, names.out);
+}
+
+fn tryDeviceMatvecNamed(
     comptime T: type,
     matrix: array_mod.Array(T),
     vector: array_mod.Array(T),
@@ -3982,7 +4000,16 @@ fn tryDeviceMatvec(
     return finishDeviceBatchedGemm(T, &out, matrix.allocator, matrix.device, matrix_desc, vector_desc, out_desc);
 }
 
-fn tryDeviceVecmat(
+pub fn tryDeviceVecmat(
+    comptime T: type,
+    vector: array_mod.Array(T),
+    matrix: array_mod.Array(T),
+) array_mod.ArrayError!?array_mod.Array(T) {
+    const names = batchedGemmNames(T, "vecmat");
+    return tryDeviceVecmatNamed(T, vector, matrix, names.lhs, names.rhs, names.out);
+}
+
+fn tryDeviceVecmatNamed(
     comptime T: type,
     vector: array_mod.Array(T),
     matrix: array_mod.Array(T),
