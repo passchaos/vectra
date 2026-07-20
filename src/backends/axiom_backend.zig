@@ -2862,10 +2862,62 @@ fn executeCpuUnaryFastPath(comptime T: type, op: ExecutionUnaryOp, input: array_
     // directly without report generation.
     var out = try array_mod.Array(T).empty(input.allocator, input.shape);
     errdefer out.deinit();
-    for (input.data, out.data) |value, *slot| {
+    if (T == f32)
+        cpuUnarySimd(f32, 8, op, out.data, input.data)
+    else
+        cpuUnarySimd(f64, 4, op, out.data, input.data);
+    return out;
+}
+
+fn cpuUnarySimd(comptime T: type, comptime lanes: usize, op: ExecutionUnaryOp, out: []T, input: []const T) void {
+    switch (op) {
+        .abs => cpuUnarySimdOp(T, lanes, .abs, out, input),
+        .square => cpuUnarySimdOp(T, lanes, .square, out, input),
+        .sqrt => cpuUnarySimdOp(T, lanes, .sqrt, out, input),
+        .exp => cpuUnarySimdOp(T, lanes, .exp, out, input),
+        .log => cpuUnarySimdOp(T, lanes, .log, out, input),
+        .exp2 => cpuUnarySimdOp(T, lanes, .exp2, out, input),
+        // Zig exposes vector builtins for the common transcendental ops, but
+        // not for the accuracy-sensitive `expm1/log1p` pair or inverse trig.
+        // Keep those scalar instead of replacing them with less accurate
+        // identities such as `exp(x) - 1` or `log(1 + x)`.
+        .expm1, .log1p, .asin, .acos, .atan => cpuUnaryScalar(T, out, input, op),
+        .log2 => cpuUnarySimdOp(T, lanes, .log2, out, input),
+        .log10 => cpuUnarySimdOp(T, lanes, .log10, out, input),
+        .sin => cpuUnarySimdOp(T, lanes, .sin, out, input),
+        .cos => cpuUnarySimdOp(T, lanes, .cos, out, input),
+        .tan => cpuUnarySimdOp(T, lanes, .tan, out, input),
+    }
+}
+
+fn cpuUnaryScalar(comptime T: type, out: []T, input: []const T, op: ExecutionUnaryOp) void {
+    for (input, out) |value, *slot| {
         slot.* = cpuUnaryValue(T, op, value);
     }
-    return out;
+}
+
+fn cpuUnarySimdOp(
+    comptime T: type,
+    comptime lanes: usize,
+    comptime op: ExecutionUnaryOp,
+    out: []T,
+    input: []const T,
+) void {
+    const Vec = @Vector(lanes, T);
+    var i: usize = 0;
+    while (i + lanes * 2 <= out.len) : (i += lanes * 2) {
+        const value0: Vec = input[i..][0..lanes].*;
+        const value1: Vec = input[i + lanes ..][0..lanes].*;
+        out[i..][0..lanes].* = vectorUnaryValue(T, lanes, op, value0);
+        out[i + lanes ..][0..lanes].* = vectorUnaryValue(T, lanes, op, value1);
+    }
+    while (i + lanes <= out.len) : (i += lanes) {
+        const value: Vec = input[i..][0..lanes].*;
+        out[i..][0..lanes].* = vectorUnaryValue(T, lanes, op, value);
+    }
+    while (i < out.len) : (i += 1) {
+        out[i] = cpuUnaryValue(T, op, input[i]);
+    }
 }
 
 fn cpuUnaryValue(comptime T: type, op: ExecutionUnaryOp, value: T) T {
@@ -2886,6 +2938,28 @@ fn cpuUnaryValue(comptime T: type, op: ExecutionUnaryOp, value: T) T {
         .asin => std.math.asin(value),
         .acos => std.math.acos(value),
         .atan => std.math.atan(value),
+    };
+}
+
+fn vectorUnaryValue(
+    comptime T: type,
+    comptime lanes: usize,
+    comptime op: ExecutionUnaryOp,
+    value: @Vector(lanes, T),
+) @Vector(lanes, T) {
+    return switch (op) {
+        .abs => @abs(value),
+        .square => value * value,
+        .sqrt => @sqrt(value),
+        .exp => @exp(value),
+        .log => @log(value),
+        .exp2 => @exp2(value),
+        .log2 => @log2(value),
+        .log10 => @log10(value),
+        .sin => @sin(value),
+        .cos => @cos(value),
+        .tan => @tan(value),
+        .expm1, .log1p, .asin, .acos, .atan => @compileError("vectorUnaryValue does not support this op"),
     };
 }
 
@@ -4661,6 +4735,27 @@ test "CPU elementwise SIMD helpers cover vector blocks and tails" {
 
     cpuScalarElementwiseSimd(f64, 4, .sub, &out64, &rhs64, 20.0, .lhs);
     try std.testing.expectEqualSlices(f64, &.{ 19, 17, 15, 13, 11, 9, 7, 5, 3 }, &out64);
+}
+
+test "CPU unary SIMD helper preserves vector and scalar fallback semantics" {
+    const input32 = [_]f32{ 1, 4, 9, 16, 25, 36, 49, 64, 81 };
+    var sqrt32: [input32.len]f32 = undefined;
+    cpuUnarySimd(f32, 8, .sqrt, &sqrt32, &input32);
+    try std.testing.expectEqualSlices(f32, &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, &sqrt32);
+
+    const trig_input64 = [_]f64{ 0, 0.25, 0.5, 0.75, 1.0 };
+    var atan64: [trig_input64.len]f64 = undefined;
+    cpuUnarySimd(f64, 4, .atan, &atan64, &trig_input64);
+    for (trig_input64, atan64) |value, actual| {
+        try std.testing.expectApproxEqAbs(std.math.atan(value), actual, 1e-15);
+    }
+
+    const exp_input64 = [_]f64{ 0, 1, 2, 3, 4 };
+    var exp64: [exp_input64.len]f64 = undefined;
+    cpuUnarySimd(f64, 4, .exp, &exp64, &exp_input64);
+    for (exp_input64, exp64) |value, actual| {
+        try std.testing.expectApproxEqAbs(std.math.exp(value), actual, 1e-12);
+    }
 }
 
 test "Axiom dialect lowering reports linalg memref gpu route" {
