@@ -3175,6 +3175,7 @@ pub fn ArrayView(comptime T: type) type {
                 const dst_end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 const src_end = std.math.add(usize, source.offset, source.numel()) catch return error.InvalidShape;
                 if (dst_end > self.data.len or src_end > source.data.len) return error.IndexOutOfBounds;
+                if (assignArraySimd(self.data[self.offset..dst_end], source.data[source.offset..src_end], op)) return true;
                 for (self.data[self.offset..dst_end], source.data[source.offset..src_end]) |*dst, src| {
                     dst.* = op(dst.*, src);
                 }
@@ -3207,6 +3208,7 @@ pub fn ArrayView(comptime T: type) type {
             if (self.isContiguous()) {
                 const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
+                if (assignScalarSimd(self.data[self.offset..end], scalar, op)) return;
                 for (self.data[self.offset..end]) |*slot| slot.* = op(slot.*, scalar);
                 return;
             }
@@ -3227,6 +3229,83 @@ pub fn ArrayView(comptime T: type) type {
                 const dst_offset = self.offset + ravelIndex(multi, self.strides);
                 self.data[dst_offset] = op(self.data[dst_offset], scalar);
             }
+        }
+
+        fn assignArraySimdLanes(comptime lanes: usize, dst: []T, src: []const T, comptime op: fn (T, T) T) bool {
+            const Vec = @Vector(lanes, T);
+            var i: usize = 0;
+            if (comptime op == opAdd) {
+                while (i + lanes <= dst.len) : (i += lanes) {
+                    const lhs: Vec = dst[i..][0..lanes].*;
+                    const rhs: Vec = src[i..][0..lanes].*;
+                    dst[i..][0..lanes].* = lhs + rhs;
+                }
+            } else if (comptime op == opSub) {
+                while (i + lanes <= dst.len) : (i += lanes) {
+                    const lhs: Vec = dst[i..][0..lanes].*;
+                    const rhs: Vec = src[i..][0..lanes].*;
+                    dst[i..][0..lanes].* = lhs - rhs;
+                }
+            } else if (comptime op == opMul) {
+                while (i + lanes <= dst.len) : (i += lanes) {
+                    const lhs: Vec = dst[i..][0..lanes].*;
+                    const rhs: Vec = src[i..][0..lanes].*;
+                    dst[i..][0..lanes].* = lhs * rhs;
+                }
+            } else if (comptime op == opDiv) {
+                while (i + lanes <= dst.len) : (i += lanes) {
+                    const lhs: Vec = dst[i..][0..lanes].*;
+                    const rhs: Vec = src[i..][0..lanes].*;
+                    dst[i..][0..lanes].* = lhs / rhs;
+                }
+            } else {
+                return false;
+            }
+            while (i < dst.len) : (i += 1) dst[i] = op(dst[i], src[i]);
+            return true;
+        }
+
+        fn assignArraySimd(dst: []T, src: []const T, comptime op: fn (T, T) T) bool {
+            if (comptime T == f64) return assignArraySimdLanes(4, dst, src, op);
+            if (comptime T == f32) return assignArraySimdLanes(8, dst, src, op);
+            return false;
+        }
+
+        fn assignScalarSimdLanes(comptime lanes: usize, dst: []T, scalar: T, comptime op: fn (T, T) T) bool {
+            const Vec = @Vector(lanes, T);
+            const scalar_vec: Vec = @splat(scalar);
+            var i: usize = 0;
+            if (comptime op == opAdd) {
+                while (i + lanes <= dst.len) : (i += lanes) {
+                    const lhs: Vec = dst[i..][0..lanes].*;
+                    dst[i..][0..lanes].* = lhs + scalar_vec;
+                }
+            } else if (comptime op == opSub) {
+                while (i + lanes <= dst.len) : (i += lanes) {
+                    const lhs: Vec = dst[i..][0..lanes].*;
+                    dst[i..][0..lanes].* = lhs - scalar_vec;
+                }
+            } else if (comptime op == opMul) {
+                while (i + lanes <= dst.len) : (i += lanes) {
+                    const lhs: Vec = dst[i..][0..lanes].*;
+                    dst[i..][0..lanes].* = lhs * scalar_vec;
+                }
+            } else if (comptime op == opDiv) {
+                while (i + lanes <= dst.len) : (i += lanes) {
+                    const lhs: Vec = dst[i..][0..lanes].*;
+                    dst[i..][0..lanes].* = lhs / scalar_vec;
+                }
+            } else {
+                return false;
+            }
+            while (i < dst.len) : (i += 1) dst[i] = op(dst[i], scalar);
+            return true;
+        }
+
+        fn assignScalarSimd(dst: []T, scalar: T, comptime op: fn (T, T) T) bool {
+            if (comptime T == f64) return assignScalarSimdLanes(4, dst, scalar, op);
+            if (comptime T == f32) return assignScalarSimdLanes(8, dst, scalar, op);
+            return false;
         }
 
         pub fn addAssign(self: Self, source: Self) ArrayError!void {
@@ -21935,6 +22014,16 @@ test "array comparison and logical wrappers" {
     try large_view.mulScalarOut(3, large_view_out);
     try std.testing.expectEqual(large_view_source.data[10] * 3, large_view_out.data[10]);
     try std.testing.expectEqual(large_view_source.data[20] * 3, large_view_out.data[20]);
+    var large_assign_target = try Array(f32).ones(gpa, &.{ 8, 8 });
+    defer large_assign_target.deinit();
+    var large_assign_view = try large_assign_target.asView();
+    defer large_assign_view.deinit();
+    try large_assign_view.addAssign(large_other_view);
+    try std.testing.expectEqual(@as(f32, 2.5), large_assign_target.data[10]);
+    try std.testing.expectEqual(@as(f32, 0), large_assign_target.data[20]);
+    try large_assign_view.mulScalarAssign(2);
+    try std.testing.expectEqual(@as(f32, 5), large_assign_target.data[10]);
+    try std.testing.expectEqual(@as(f32, 0), large_assign_target.data[20]);
     var large_view_eq_zero = try large_view.eqScalar(0);
     defer large_view_eq_zero.deinit();
     try std.testing.expect(large_view_eq_zero.data[20]);
