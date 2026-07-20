@@ -10079,7 +10079,38 @@ pub fn Array(comptime T: type) type {
             return dest_view.copyFromView(source_view);
         }
 
+        fn tryStorageCopyFromView(self: Self, source: ArrayView(T)) ArrayError!bool {
+            if (self.device.isCpu() and source.device.isCpu()) return false;
+            if (self.pending_matmul != null) return error.InvalidDevice;
+            if (source.device.isCpu()) {
+                if (source.numel() == 1) {
+                    if (!broadcastsExactlyTo(source.shape, self.shape)) return error.ShapeMismatch;
+                    try self.fill(source.data[source.offset]);
+                    return true;
+                }
+                if (!std.mem.eql(usize, self.shape, source.shape)) return error.ShapeMismatch;
+                if (self.numel() == 0) return true;
+                if (source.isContiguous()) {
+                    const src = try source.asConstSlice();
+                    try axiom_backend.transferStorage(
+                        .{ .device = self.device, .host_bytes = std.mem.sliceAsBytes(self.data), .storage = self.device_storage },
+                        .{ .device = source.device, .host_bytes = std.mem.sliceAsBytes(src), .storage = null },
+                    );
+                    return true;
+                }
+                var materialized = try source.toArray();
+                defer materialized.deinit();
+                try self.copyFrom(materialized);
+                return true;
+            }
+            // Device-backed ArrayView storage/offset ownership is not modeled
+            // yet, so keep non-CPU views on the explicit unsupported path.
+            // Ordinary device owning Array sources are covered by copyFrom().
+            return false;
+        }
+
         pub fn copyFromView(self: Self, source: ArrayView(T)) ArrayError!void {
+            if (try self.tryStorageCopyFromView(source)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.copyFromView(source);
@@ -29419,6 +29450,31 @@ test "array dtype metadata and casts cover common numeric types" {
         var cuda_direct_fill_host = try cuda_scalar_fill.cpu();
         defer cuda_direct_fill_host.deinit();
         try std.testing.expectEqualSlices(f64, &.{ 3.5, 3.5, 3.5, 3.5 }, cuda_direct_fill_host.data);
+
+        var cpu_source_view = try cpu_source.asView();
+        defer cpu_source_view.deinit();
+        var cuda_view_dest = try Array(f64).zerosOn(gpa, &.{ 2, 2 }, Device.cuda(0));
+        defer cuda_view_dest.deinit();
+        try cuda_view_dest.copyFromView(cpu_source_view);
+        var cuda_view_dest_host = try cuda_view_dest.cpu();
+        defer cuda_view_dest_host.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, cuda_view_dest_host.data);
+
+        var cpu_transposed_view = try cpu_source.transposeView();
+        defer cpu_transposed_view.deinit();
+        var cuda_strided_view_dest = try Array(f64).zerosOn(gpa, &.{ 2, 2 }, Device.cuda(0));
+        defer cuda_strided_view_dest.deinit();
+        try cuda_strided_view_dest.copyFromView(cpu_transposed_view);
+        var cuda_strided_view_host = try cuda_strided_view_dest.cpu();
+        defer cuda_strided_view_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, cuda_strided_view_host.data);
+
+        var cpu_scalar_view = try cpu_scalar.asView();
+        defer cpu_scalar_view.deinit();
+        try cuda_strided_view_dest.copyFromView(cpu_scalar_view);
+        var cuda_view_scalar_fill_host = try cuda_strided_view_dest.cpu();
+        defer cuda_view_scalar_fill_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7 }, cuda_view_scalar_fill_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
