@@ -19351,9 +19351,12 @@ pub fn Array(comptime T: type) type {
                     }
                 }
                 if (try axiom_backend.executeMatmulDefault(T, self, other)) |accelerated_value| {
-                    var accelerated = accelerated_value;
-                    if (axiom_backend.hostFallbackAllowed(accelerated.device) and !lhs_vec and !rhs_vec) accelerated.attachCpuMatmulProvenance(self, other);
-                    return accelerated;
+                    // CPU matmul returns a fully materialized Array.  Do not attach
+                    // implicit provenance that makes a subsequent plain `add` or
+                    // unary op recompute GEMM; large CPU workloads should reuse the
+                    // materialized result unless the caller explicitly requests
+                    // `matmulAdd`, which still routes through the fused GEMM path.
+                    return accelerated_value;
                 }
             }
             if (!axiom_backend.hostFallbackAllowed(self.device)) return error.TypeUnsupported;
