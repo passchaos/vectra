@@ -10853,6 +10853,17 @@ pub fn Array(comptime T: type) type {
             return self.clone();
         }
 
+        pub fn hasPendingWork(self: Self) bool {
+            return self.pending_matmul != null;
+        }
+
+        pub fn materializeAndSynchronize(self: Self) ArrayError!Self {
+            var out = try self.materialize();
+            errdefer out.deinit();
+            if (out.device.isCuda()) try axiom_backend.cuda.synchronizeDevice(out.allocator, out.device);
+            return out;
+        }
+
         pub fn astype(self: Self, comptime U: type) ArrayError!Array(U) {
             if (!axiom_backend.hostFallbackAllowed(self.device)) {
                 var host = try self.to(.cpu);
@@ -24786,6 +24797,11 @@ test "array reductions and matmul" {
     defer matrix_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, matrix_product.shape);
     try std.testing.expectEqualSlices(f64, &.{ 14, 32, 32, 77 }, matrix_product.data);
+    try std.testing.expect(!matrix_product.hasPendingWork());
+    var matrix_product_done = try matrix_product.materializeAndSynchronize();
+    defer matrix_product_done.deinit();
+    try std.testing.expect(!matrix_product_done.hasPendingWork());
+    try std.testing.expectEqualSlices(f64, matrix_product.data, matrix_product_done.data);
 }
 
 test "array and view dim aliases mirror axis APIs" {

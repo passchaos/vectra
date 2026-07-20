@@ -1735,6 +1735,12 @@ pub fn main(init: std.process.Init) !void {
         defer f64_rhs.deinit();
         var f64_product = try f64_lhs.matmul(f64_rhs);
         defer f64_product.deinit();
+        const f64_pending_status_ok = f64_product.hasPendingWork() and f64_product.fusionStatus() == .cuda_matmul;
+        var f64_materialized_product = try f64_product.materializeAndSynchronize();
+        defer f64_materialized_product.deinit();
+        const f64_materialized_status_ok = !f64_materialized_product.hasPendingWork() and f64_materialized_product.device_storage != null;
+        var f64_materialized_host = try f64_materialized_product.cpu();
+        defer f64_materialized_host.deinit();
         var f64_product_host = try f64_product.cpu();
         defer f64_product_host.deinit();
         const f64_gemm_report = vx.axiom_backend.cuda.lastCudaDeviceGemmReport();
@@ -1744,9 +1750,11 @@ pub fn main(init: std.process.Init) !void {
         var f64_target_host = try f64_target_product.cpu();
         defer f64_target_host.deinit();
         f64_matmul_ok = f64_product.device.isCuda() and
-            f64_product.fusionStatus() == .cuda_matmul and
+            f64_pending_status_ok and
+            f64_materialized_status_ok and
             f64_gemm_report.valid() and
             f64_gemm_report.memref_spec_fingerprint != 0 and
+            equalF64(f64_materialized_host.data, &.{ 3, 3, 7, 7 }) and
             equalF64(f64_product_host.data, &.{ 3, 3, 7, 7 }) and
             f64_target_product.device.isCuda() and
             f64_target_product.device_storage != null and

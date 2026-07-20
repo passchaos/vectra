@@ -270,6 +270,15 @@ the selected Vectra op's average time divided by the selected PyTorch baseline.
 Use `--max-first-error` and `--max-checksum-error` to make correctness drift fail
 alongside performance regressions.
 
+CUDA owning `Array(f32/f64/f16/BFloat16).matmul` may return a pending
+matmul/fusion handle so a following add/sub/unary can fuse into one backend
+operation.  Timing only `a.matmul(b)` can therefore measure handle creation
+rather than GEMM completion.  Use `out.hasPendingWork()` to detect this state,
+then call `out.materializeAndSynchronize()` (or download with `out.cpu()`) when
+you need a clear completion point.  The `large_matmul_add` benchmark already
+materializes pending CUDA matmul results and synchronizes the device before it
+reports elapsed time.
+
 ## Roadmap
 
 - Descriptor-first Axiom lowering/runtime convergence; see [`docs/AXIOM_ARCHITECTURE_PLAN.md`](docs/AXIOM_ARCHITECTURE_PLAN.md).
