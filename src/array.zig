@@ -10022,7 +10022,46 @@ pub fn Array(comptime T: type) type {
             @memset(self.data, value);
         }
 
+        fn tryStorageCopyFrom(self: Self, source: Self) ArrayError!bool {
+            if (self.device.isCpu() and source.device.isCpu()) return false;
+            if (self.pending_matmul != null) return error.InvalidDevice;
+            if (source.pending_matmul != null) {
+                var materialized_source = try source.materializePendingMatmul();
+                defer materialized_source.deinit();
+                return self.tryStorageCopyFrom(materialized_source);
+            }
+            if (self.numel() == 0 and std.mem.eql(usize, self.shape, source.shape)) return true;
+
+            if (source.numel() == 1) {
+                if (!broadcastsExactlyTo(source.shape, self.shape)) return error.ShapeMismatch;
+                var source_host: ?Self = null;
+                defer if (source_host) |*host| host.deinit();
+                const scalar_source = if (source.device.isCpu()) source else blk: {
+                    source_host = try source.cpu();
+                    break :blk source_host.?;
+                };
+                if (scalar_source.data.len != 1) return error.ShapeMismatch;
+                // Scalar copy broadcasts are fills.  Route through the backend
+                // storage facade so CUDA/MPS owning arrays are initialized in
+                // device memory instead of requiring a host ArrayView fallback.
+                try axiom_backend.fillAllocated(T, self.device, self.data, self.device_storage, scalar_source.data[0]);
+                return true;
+            }
+
+            if (!std.mem.eql(usize, self.shape, source.shape)) return error.ShapeMismatch;
+            // Exact-shape owning Array copies are byte transfers between the
+            // source and destination storage domains.  This covers CPU↔device
+            // upload/download and same-device device-to-device copies via the
+            // central target facade.
+            try axiom_backend.transferStorage(
+                .{ .device = self.device, .host_bytes = std.mem.sliceAsBytes(self.data), .storage = self.device_storage },
+                .{ .device = source.device, .host_bytes = std.mem.sliceAsBytes(source.data), .storage = source.device_storage },
+            );
+            return true;
+        }
+
         pub fn copyFrom(self: Self, source: Self) ArrayError!void {
+            if (try self.tryStorageCopyFrom(source)) return;
             var dest_view = try self.asView();
             defer dest_view.deinit();
             var source_view = try source.asView();
@@ -29350,6 +29389,22 @@ test "array dtype metadata and casts cover common numeric types" {
         var binary_host = try cuda_binary.cpu();
         defer binary_host.deinit();
         try std.testing.expectEqualSlices(f64, cpu_source.data, binary_host.data);
+
+        var cuda_copy_dest = try Array(f64).zerosOn(gpa, &.{ 2, 2 }, Device.cuda(0));
+        defer cuda_copy_dest.deinit();
+        try cuda_copy_dest.copyFrom(cuda_binary);
+        var cuda_copy_dest_host = try cuda_copy_dest.cpu();
+        defer cuda_copy_dest_host.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, cuda_copy_dest_host.data);
+
+        var cuda_scalar_fill = try Array(f64).zerosOn(gpa, &.{ 2, 2 }, Device.cuda(0));
+        defer cuda_scalar_fill.deinit();
+        var cpu_scalar = try Array(f64).fromSlice(gpa, &.{7}, &.{1});
+        defer cpu_scalar.deinit();
+        try cuda_scalar_fill.copyFrom(cpu_scalar);
+        var cuda_scalar_fill_host = try cuda_scalar_fill.cpu();
+        defer cuda_scalar_fill_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7 }, cuda_scalar_fill_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
