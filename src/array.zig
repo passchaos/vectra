@@ -16784,6 +16784,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn allcloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!bool {
             ensureFloat(T);
+            if (try self.allcloseSameShapeFast(other, rtol, atol, equal_nan)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out_multi = try self.allocator.alloc(usize, out_shape.len);
@@ -16803,6 +16804,14 @@ pub fn Array(comptime T: type) type {
             return self.allcloseEqualNan(other, rtol, atol, equal_nan);
         }
 
+        fn allcloseSameShapeFast(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!?bool {
+            if (!std.mem.eql(usize, self.shape, other.shape)) return null;
+            for (self.data, other.data) |lhs, rhs| {
+                if (!closeValue(T, lhs, rhs, rtol, atol, equal_nan)) return false;
+            }
+            return true;
+        }
+
         pub fn isclose(self: Self, other: Self, rtol: T, atol: T) ArrayError!Array(bool) {
             return self.iscloseEqualNan(other, rtol, atol, false);
         }
@@ -16813,6 +16822,7 @@ pub fn Array(comptime T: type) type {
 
         pub fn iscloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
             ensureFloat(T);
+            if (try self.iscloseSameShapeFast(other, rtol, atol, equal_nan)) |out| return out;
             const out_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
             defer self.allocator.free(out_shape);
             const out = try Array(bool).empty(self.allocator, out_shape);
@@ -16831,6 +16841,16 @@ pub fn Array(comptime T: type) type {
 
         pub fn isCloseEqualNan(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!Array(bool) {
             return self.iscloseEqualNan(other, rtol, atol, equal_nan);
+        }
+
+        fn iscloseSameShapeFast(self: Self, other: Self, rtol: T, atol: T, equal_nan: bool) ArrayError!?Array(bool) {
+            if (!std.mem.eql(usize, self.shape, other.shape)) return null;
+            const out = try Array(bool).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (self.data, other.data, out.data) |lhs, rhs, *slot| {
+                slot.* = closeValue(T, lhs, rhs, rtol, atol, equal_nan);
+            }
+            return out;
         }
 
         pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T) ArrayError!Array(bool) {
