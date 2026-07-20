@@ -7,6 +7,8 @@
 //! Objective-C-backed code through Axiom.
 
 const builtin = @import("builtin");
+const axiom = @import("axiom");
+const array_mod = @import("../array.zig");
 
 const impl = if (builtin.os.tag == .macos)
     @import("axiom_mps_macos.zig")
@@ -79,3 +81,36 @@ pub const tryReductionBF16 = impl.tryReductionBF16;
 pub const trySoftmaxF32 = impl.trySoftmaxF32;
 pub const trySoftmaxF16 = impl.trySoftmaxF16;
 pub const trySoftmaxBF16 = impl.trySoftmaxBF16;
+
+pub fn trySoftmax(comptime T: type, op: axiom.accelerator.MpsSoftmaxOp, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
+    return if (T == f32)
+        trySoftmaxF32(op, @as(array_mod.Array(f32), input), axis)
+    else if (T == f16)
+        trySoftmaxF16(op, @as(array_mod.Array(f16), input), axis)
+    else if (T == array_mod.BFloat16)
+        trySoftmaxBF16(op, @as(array_mod.Array(array_mod.BFloat16), input), axis)
+    else
+        null;
+}
+
+pub fn tryReduction(comptime T: type, op: axiom.accelerator.MpsReductionOp, input: array_mod.Array(T), axis: u1, keepdims: bool) array_mod.ArrayError!?array_mod.Array(T) {
+    return if (T == f32)
+        tryReductionF32(op, @as(array_mod.Array(f32), input), axis, keepdims)
+    else if (T == f16)
+        tryReductionF16(op, @as(array_mod.Array(f16), input), axis, keepdims)
+    else if (T == array_mod.BFloat16)
+        tryReductionBF16(op, @as(array_mod.Array(array_mod.BFloat16), input), axis, keepdims)
+    else
+        null;
+}
+
+pub fn tryTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    return if (T == f32)
+        tryTransposeF32(@as(array_mod.Array(f32), input))
+    else if (T == f16)
+        tryTransposeF16(@as(array_mod.Array(f16), input))
+    else if (T == array_mod.BFloat16)
+        tryTransposeBF16(@as(array_mod.Array(array_mod.BFloat16), input))
+    else
+        null;
+}

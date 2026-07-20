@@ -2930,25 +2930,11 @@ fn executeCudaSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) arr
 }
 
 fn executeMpsLogSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        if (try axiom_mps.trySoftmaxF32(.log_softmax, @as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_mps.trySoftmaxF16(.log_softmax, @as(array_mod.Array(f16), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_mps.trySoftmaxBF16(.log_softmax, @as(array_mod.Array(array_mod.BFloat16), input), axis)) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    return try axiom_mps.trySoftmax(T, .log_softmax, input, axis);
 }
 
 fn executeMpsSoftmax(comptime T: type, input: array_mod.Array(T), axis: u1) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        if (try axiom_mps.trySoftmaxF32(.softmax, @as(array_mod.Array(f32), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_mps.trySoftmaxF16(.softmax, @as(array_mod.Array(f16), input), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_mps.trySoftmaxBF16(.softmax, @as(array_mod.Array(array_mod.BFloat16), input), axis)) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    return try axiom_mps.trySoftmax(T, .softmax, input, axis);
 }
 
 fn executeCudaReduction(
@@ -2969,14 +2955,7 @@ fn executeMpsReduction(
     axis: u1,
     keepdims: bool,
 ) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        if (try axiom_mps.tryReductionF32(mpsReductionOp(op), @as(array_mod.Array(f32), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_mps.tryReductionF16(mpsReductionOp(op), @as(array_mod.Array(f16), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_mps.tryReductionBF16(mpsReductionOp(op), @as(array_mod.Array(array_mod.BFloat16), input), axis, keepdims)) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    return try axiom_mps.tryReduction(T, mpsReductionOp(op), input, axis, keepdims);
 }
 
 fn executeCpuBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
@@ -3114,14 +3093,7 @@ fn executeCudaTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.A
 }
 
 fn executeMpsTranspose(comptime T: type, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
-    if (T == f32) {
-        if (try axiom_mps.tryTransposeF32(@as(array_mod.Array(f32), input))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_mps.tryTransposeF16(@as(array_mod.Array(f16), input))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_mps.tryTransposeBF16(@as(array_mod.Array(array_mod.BFloat16), input))) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    return try axiom_mps.tryTranspose(T, input);
 }
 
 fn tensorBinaryOp(op: ElementwiseOp) axiom.accelerator.TensorBinaryElementwiseOp {
