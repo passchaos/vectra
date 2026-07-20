@@ -180,6 +180,29 @@ REQUIRED_PLATFORM_BUILD_SNIPPETS = (
     'b.option(bool, "axiom-cuda-dispatch", "Compatibility flag: supported CUDA dispatch uses Axiom on non-macOS targets") orelse !is_macos_target',
 )
 
+REQUIRED_UNIT_TEST_DEPENDENCIES = (
+    "run_mod_tests",
+    "run_exe_tests",
+)
+
+FORBIDDEN_UNIT_TEST_DEPENDENCIES = (
+    "api_boundary_audit_quiet_cmd",
+    "array_api_coverage_audit_quiet_cmd",
+    "dtype_promotion_smoke_cmd",
+    "einsum_smoke_cmd",
+    "contraction_smoke_cmd",
+    "indexing_smoke_cmd",
+    "shape_view_smoke_cmd",
+    "axiom_cpu_dispatch_smoke_cmd",
+    "axiom_backend_policy_smoke_cmd",
+    "axiom_device_fallback_policy_smoke_cmd",
+    "axiom_dialect_lowering_smoke_cmd",
+    "axiom_descriptor_smoke_cmd",
+    "axiom_gemm_layout_smoke_cmd",
+    "basic_array_example_cmd",
+    "axiom_backend_policy_example_cmd",
+)
+
 REQUIRED_TEST_GATE_DEPENDENCIES = (
     "run_mod_tests",
     "run_exe_tests",
@@ -316,6 +339,42 @@ def mps_build_step_gating_issues(build_text: str) -> list[dict[str, Any]]:
     )
 
 
+def unit_test_step_issues(build_text: str) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    step_start = build_text.find('const unit_test_step = b.step("unit-test", "Run Zig unit tests without audits, smokes, or examples");')
+    if step_start < 0:
+        return [{
+            "kind": "missing_unit_test_step",
+            "path": "build.zig",
+            "snippet": 'const unit_test_step = b.step("unit-test", "Run Zig unit tests without audits, smokes, or examples");',
+        }]
+
+    test_step_start = build_text.find('const test_step = b.step("test", "Run tests");', step_start)
+    step_body = build_text[step_start:test_step_start if test_step_start >= 0 else len(build_text)]
+    for dependency in REQUIRED_UNIT_TEST_DEPENDENCIES:
+        snippet = f"unit_test_step.dependOn(&{dependency}.step);"
+        if snippet not in step_body:
+            issues.append({
+                "kind": "missing_unit_test_dependency",
+                "path": "build.zig",
+                "snippet": snippet,
+            })
+
+    for dependency in FORBIDDEN_UNIT_TEST_DEPENDENCIES:
+        snippet = f"unit_test_step.dependOn(&{dependency}.step);"
+        if snippet not in step_body:
+            continue
+        line = build_text.count("\n", 0, build_text.find(snippet, step_start)) + 1
+        issues.append({
+            "kind": "slow_dependency_in_unit_test_step",
+            "path": "build.zig",
+            "line": line,
+            "snippet": snippet,
+            "reason": "The unit-test build step should stay a fast Zig-only gate; audits, smokes, and examples belong to the full `zig build test` gate.",
+        })
+    return issues
+
+
 def test_gate_dependency_issues(build_text: str) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     step_start = build_text.find('const test_step = b.step("test", "Run tests");')
@@ -385,6 +444,7 @@ def main() -> int:
     build_text = read(BUILD)
     issues.extend(cuda_build_step_gating_issues(build_text))
     issues.extend(mps_build_step_gating_issues(build_text))
+    issues.extend(unit_test_step_issues(build_text))
     issues.extend(test_gate_dependency_issues(build_text))
     for snippet in REQUIRED_PLATFORM_BUILD_SNIPPETS:
         if snippet not in build_text:
