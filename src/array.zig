@@ -10265,10 +10265,9 @@ pub fn Array(comptime T: type) type {
                     return self.tryDeviceScalarAssign(op, source.data[source.offset]);
                 }
                 if (!std.mem.eql(usize, self.shape, source.shape)) return error.ShapeMismatch;
-                var materialized = try source.toArray();
-                defer materialized.deinit();
-                var device_source = try materialized.to(self.device);
+                var device_source = try Self.emptyOn(self.allocator, self.shape, self.device);
                 defer device_source.deinit();
+                try device_source.copyFromView(source);
                 return self.tryDeviceBinaryAssign(device_source, op);
             }
             // Device-backed ArrayView storage/offset ownership is not modeled
