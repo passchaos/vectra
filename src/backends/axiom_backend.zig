@@ -20,7 +20,9 @@ const axiom_mps = @import("axiom_mps.zig");
 // report/hash/verify layer once the operation is large enough that the extra
 // full-array scans dominate user-visible runtime.  Keep the thresholds
 // centralized so new CPU fast paths do not drift independently.
-const cpu_streaming_fast_path_min_elements: usize = 1 << 20;
+// Unit tests use a much smaller streaming threshold so they exercise the same
+// dispatch branches without allocating production-sized buffers.
+const cpu_streaming_fast_path_min_elements: usize = if (builtin.is_test) 64 else 1 << 20;
 const cpu_matmul_like_fast_path_min_ops: usize = 4 * 1024 * 1024;
 
 pub fn cpuStreamingFastPathMinElements() usize {
@@ -5418,15 +5420,15 @@ test "CPU contiguous view fast paths bypass memref report for large vectors" {
     var added = (try executeCpuViewElementwiseFastPath(f32, .add, lhs_view, rhs_view)) orelse return error.BackendFailure;
     defer added.deinit();
     try std.testing.expectEqual(@as(usize, n), added.data.len);
-    try std.testing.expectEqual(lhs.data[123] + rhs.data[123], added.data[123]);
+    try std.testing.expectEqual(lhs.data[13] + rhs.data[13], added.data[13]);
 
     var scaled = (try executeCpuViewElementwiseScalarFastPath(f32, .mul, lhs_view, 2.0, .rhs)) orelse return error.BackendFailure;
     defer scaled.deinit();
-    try std.testing.expectEqual(lhs.data[456] * 2.0, scaled.data[456]);
+    try std.testing.expectEqual(lhs.data[26] * 2.0, scaled.data[26]);
 
     var rooted = (try executeCpuViewUnaryFastPath(f32, .sqrt, lhs_view)) orelse return error.BackendFailure;
     defer rooted.deinit();
-    try std.testing.expectApproxEqAbs(std.math.sqrt(lhs.data[789]), rooted.data[789], 1e-6);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(lhs.data[39]), rooted.data[39], 1e-6);
 
     var strided_source = try array_mod.Array(f32).empty(gpa, &.{n * 2});
     defer strided_source.deinit();
@@ -5434,9 +5436,9 @@ test "CPU contiguous view fast paths bypass memref report for large vectors" {
     defer strided_view.deinit();
     try std.testing.expect((try executeCpuViewUnaryFastPath(f32, .sqrt, strided_view)) == null);
 
-    var matrix_lhs = try lhs.reshape(&.{ 1024, 1024 });
+    var matrix_lhs = try lhs.reshape(&.{ 8, 8 });
     defer matrix_lhs.deinit();
-    var matrix_rhs = try rhs.reshape(&.{ 1024, 1024 });
+    var matrix_rhs = try rhs.reshape(&.{ 8, 8 });
     defer matrix_rhs.deinit();
     var matrix_lhs_view = try matrix_lhs.asView();
     defer matrix_lhs_view.deinit();
@@ -5444,8 +5446,8 @@ test "CPU contiguous view fast paths bypass memref report for large vectors" {
     defer matrix_rhs_view.deinit();
     var matrix_sum = (try executeCpuViewElementwiseFastPath(f32, .add, matrix_lhs_view, matrix_rhs_view)) orelse return error.BackendFailure;
     defer matrix_sum.deinit();
-    try std.testing.expectEqualSlices(usize, &.{ 1024, 1024 }, matrix_sum.shape);
-    try std.testing.expectEqual(matrix_lhs.data[2048] + matrix_rhs.data[2048], matrix_sum.data[2048]);
+    try std.testing.expectEqualSlices(usize, &.{ 8, 8 }, matrix_sum.shape);
+    try std.testing.expectEqual(matrix_lhs.data[16] + matrix_rhs.data[16], matrix_sum.data[16]);
 }
 
 test "Axiom dialect lowering reports linalg memref gpu route" {
