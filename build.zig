@@ -324,211 +324,6 @@ pub fn build(b: *std.Build) void {
     axiom_backend_policy_example_step.dependOn(&axiom_backend_policy_example_cmd.step);
     examples_step.dependOn(&axiom_backend_policy_example_cmd.step);
 
-    const axiom_cuda_bridge_example_exe = b.addExecutable(.{
-        .name = "vectra-example-axiom-cuda-bridge",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("examples/axiom_cuda_bridge.zig"),
-            .target = target,
-            .optimize = optimize,
-            .imports = &.{
-                .{ .name = "vectra", .module = mod },
-            },
-        }),
-    });
-    const axiom_cuda_bridge_example_cmd = b.addRunArtifact(axiom_cuda_bridge_example_exe);
-    const axiom_cuda_bridge_example_step = b.step("example-axiom-cuda-bridge", "Run explicit Axiom CUDA bridge usage example");
-    axiom_cuda_bridge_example_step.dependOn(&axiom_cuda_bridge_example_cmd.step);
-    examples_step.dependOn(&axiom_cuda_bridge_example_cmd.step);
-
-    const large_matmul_add_example_exe = b.addExecutable(.{
-        .name = "vectra-example-large-matmul-add",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("examples/large_matmul_add.zig"),
-            .target = target,
-            .optimize = optimize,
-            .imports = &.{
-                .{ .name = "vectra", .module = mod },
-            },
-        }),
-    });
-    const large_matmul_add_example_cmd = b.addRunArtifact(large_matmul_add_example_exe);
-    if (b.args) |args| {
-        large_matmul_add_example_cmd.addArgs(args);
-    }
-    const large_matmul_add_example_step = b.step("example-large-matmul-add", "Run large random GEMM-plus-add CPU/CUDA usage example (dry-run by default)");
-    large_matmul_add_example_step.dependOn(&large_matmul_add_example_cmd.step);
-    examples_step.dependOn(&large_matmul_add_example_cmd.step);
-
-    const large_matmul_add_smoke_cmd = b.addRunArtifact(large_matmul_add_example_exe);
-    large_matmul_add_smoke_cmd.addArgs(&.{ "--smoke", "--backend=both" });
-    const large_matmul_add_smoke_step = b.step("example-large-matmul-add-smoke", "Run tiny executable smoke for the large GEMM-plus-add example");
-    large_matmul_add_smoke_step.dependOn(&large_matmul_add_smoke_cmd.step);
-
-    const matmul_add_compare_smoke_cmd = b.addSystemCommand(&.{
-        "python3",
-        "tools/bench_matmul_add_compare.py",
-        "--smoke",
-        "--m=64",
-        "--n=64",
-        "--k=64",
-        "--warmup=1",
-        "--iters=2",
-        "--op=matmul_add",
-        "--skip-torch-compile",
-        "--repeat=2",
-        "--max-ratio=2.0",
-    });
-    const matmul_add_compare_smoke_step = b.step("bench-matmul-add-compare-smoke", "Run quick Vectra/Axiom vs PyTorch CUDA matmul+add ratio gate");
-    matmul_add_compare_smoke_step.dependOn(&matmul_add_compare_smoke_cmd.step);
-
-    const matmul_add_compare_production_cmd = b.addSystemCommand(&.{
-        "python3",
-        "tools/bench_matmul_add_compare.py",
-        "--execute",
-        "--m=16384",
-        "--n=4096",
-        "--k=4096",
-        "--warmup=3",
-        "--iters=5",
-        "--baseline=torch_addmm",
-        "--max-ratio=1.10",
-    });
-    const matmul_add_compare_production_step = b.step("bench-matmul-add-compare-production", "Run production Vectra/Axiom vs PyTorch CUDA matmul+add ratio gate");
-    matmul_add_compare_production_step.dependOn(&matmul_add_compare_production_cmd.step);
-
-    const matmul_add_compare_compile_cmd = b.addSystemCommand(&.{
-        "python3",
-        "tools/bench_matmul_add_compare.py",
-        "--execute",
-        "--m=16384",
-        "--n=4096",
-        "--k=4096",
-        "--warmup=3",
-        "--iters=5",
-        "--baseline=torch_compile",
-        "--max-ratio=1.10",
-    });
-    const matmul_add_compare_compile_step = b.step("bench-matmul-add-compare-production-compile", "Run production Vectra/Axiom vs torch.compile CUDA matmul+add ratio gate");
-    matmul_add_compare_compile_step.dependOn(&matmul_add_compare_compile_cmd.step);
-
-    const matmul_add_compare_bf16_large_cmd = b.addSystemCommand(&.{
-        "python3",
-        "tools/bench_matmul_add_compare.py",
-        "--smoke",
-        "--m=2048",
-        "--n=2048",
-        "--k=2048",
-        "--warmup=2",
-        "--iters=3",
-        "--dtype=bf16",
-        "--op=matmul_add",
-        "--skip-torch-compile",
-        "--repeat=2",
-        "--max-ratio=1.10",
-        "--max-first-error=0.01",
-        "--max-checksum-error=64.0",
-    });
-    const matmul_add_compare_bf16_large_step = b.step("bench-matmul-add-compare-bf16-large", "Run repeated BF16 CUDA matmulAdd vs PyTorch ratio gate");
-    matmul_add_compare_bf16_large_step.dependOn(&matmul_add_compare_bf16_large_cmd.step);
-
-    const matmul_add_compare_bf16_stability_cmd = b.addSystemCommand(&.{
-        "python3",
-        "tools/bench_matmul_add_compare.py",
-        "--smoke",
-        "--m=512",
-        "--n=512",
-        "--k=512",
-        "--warmup=5",
-        "--iters=50",
-        "--dtype=bf16",
-        "--op=matmul_then_add_exp",
-        "--baseline=torch_best",
-        "--skip-torch-compile",
-        "--repeat=2",
-        "--max-ratio=1.10",
-        "--max-first-error=0.01",
-        "--max-checksum-error=64.0",
-    });
-    const matmul_add_compare_bf16_stability_step = b.step("bench-matmul-add-compare-bf16-stability", "Run repeated BF16 CUDA exp-chain stability and ratio gate");
-    matmul_add_compare_bf16_stability_step.dependOn(&matmul_add_compare_bf16_stability_cmd.step);
-
-    const matmul_add_compare_f64_exp_large_cmd = b.addSystemCommand(&.{
-        "python3",
-        "tools/bench_matmul_add_compare.py",
-        "--smoke",
-        "--m=2048",
-        "--n=2048",
-        "--k=2048",
-        "--warmup=2",
-        "--iters=3",
-        "--dtype=f64",
-        "--op=matmul_then_add_exp",
-        "--skip-torch-compile",
-        "--repeat=2",
-        "--max-ratio=1.20",
-        "--max-first-error=0.001",
-        "--max-checksum-error=0.01",
-    });
-    const matmul_add_compare_f64_exp_large_step = b.step("bench-matmul-add-compare-f64-exp-large", "Run repeated f64 CUDA matmul+add+exp vs PyTorch ratio gate");
-    matmul_add_compare_f64_exp_large_step.dependOn(&matmul_add_compare_f64_exp_large_cmd.step);
-
-    const matmul_add_compare_cmd = b.addSystemCommand(&.{
-        "python3",
-        "tools/bench_matmul_add_compare.py",
-    });
-    if (b.args) |args| {
-        matmul_add_compare_cmd.addArgs(args);
-    }
-    const matmul_add_compare_step = b.step("bench-matmul-add-compare", "Run Vectra/Axiom vs PyTorch/torch.compile CUDA matmul+add comparison; pass args after --");
-    matmul_add_compare_step.dependOn(&matmul_add_compare_cmd.step);
-
-    const axiom_cuda_smoke_exe = b.addExecutable(.{
-        .name = "vectra-axiom-cuda-smoke",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("tools/axiom_cuda_smoke.zig"),
-            .target = target,
-            .optimize = optimize,
-            .imports = &.{
-                .{ .name = "vectra", .module = mod },
-            },
-        }),
-    });
-    const axiom_cuda_smoke_cmd = b.addRunArtifact(axiom_cuda_smoke_exe);
-    axiom_cuda_smoke_cmd.addArg("--json");
-    if (axiom_cuda_expect) |expect| axiom_cuda_smoke_cmd.addArgs(&.{ "--expect", expect });
-    const axiom_cuda_smoke_step = b.step("axiom-cuda-smoke", "Run Axiom CUDA f32 elementwise/SAXPY smoke bridge");
-    axiom_cuda_smoke_step.dependOn(&axiom_cuda_smoke_cmd.step);
-
-    const axiom_cuda_dispatch_smoke_exe = b.addExecutable(.{
-        .name = "vectra-axiom-cuda-dispatch-smoke",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("tools/axiom_cuda_dispatch_smoke.zig"),
-            .target = target,
-            .optimize = optimize,
-            .imports = &.{
-                .{ .name = "vectra", .module = mod },
-            },
-        }),
-    });
-    const axiom_cuda_dispatch_smoke_cmd = b.addRunArtifact(axiom_cuda_dispatch_smoke_exe);
-    const axiom_cuda_dispatch_smoke_step = b.step("axiom-cuda-dispatch-smoke", "Run ordinary Array(f32) methods through Axiom CUDA dispatch");
-    axiom_cuda_dispatch_smoke_step.dependOn(&axiom_cuda_dispatch_smoke_cmd.step);
-
-    const axiom_cuda_device_smoke_exe = b.addExecutable(.{
-        .name = "vectra-axiom-cuda-device-smoke",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("tools/axiom_cuda_device_smoke.zig"),
-            .target = target,
-            .optimize = optimize,
-            .imports = &.{
-                .{ .name = "vectra", .module = mod },
-            },
-        }),
-    });
-    const axiom_cuda_device_smoke_cmd = b.addRunArtifact(axiom_cuda_device_smoke_exe);
-    const axiom_cuda_device_smoke_step = b.step("axiom-cuda-device-smoke", "Run explicit Axiom CUDA device-buffer handle smoke");
-    axiom_cuda_device_smoke_step.dependOn(&axiom_cuda_device_smoke_cmd.step);
-
     const axiom_cpu_dispatch_smoke_exe = b.addExecutable(.{
         .name = "vectra-axiom-cpu-dispatch-smoke",
         .root_module = b.createModule(.{
@@ -543,6 +338,224 @@ pub fn build(b: *std.Build) void {
     const axiom_cpu_dispatch_smoke_cmd = b.addRunArtifact(axiom_cpu_dispatch_smoke_exe);
     const axiom_cpu_dispatch_smoke_step = b.step("axiom-cpu-dispatch-smoke", "Run ordinary Array(f32/f64).matmul through Axiom CPU-to-Veyra dispatch");
     axiom_cpu_dispatch_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
+
+    if (!is_macos_target) {
+        const axiom_cuda_bridge_example_exe = b.addExecutable(.{
+            .name = "vectra-example-axiom-cuda-bridge",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("examples/axiom_cuda_bridge.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "vectra", .module = mod },
+                },
+            }),
+        });
+        const axiom_cuda_bridge_example_cmd = b.addRunArtifact(axiom_cuda_bridge_example_exe);
+        const axiom_cuda_bridge_example_step = b.step("example-axiom-cuda-bridge", "Run explicit Axiom CUDA bridge usage example");
+        axiom_cuda_bridge_example_step.dependOn(&axiom_cuda_bridge_example_cmd.step);
+        examples_step.dependOn(&axiom_cuda_bridge_example_cmd.step);
+
+        const large_matmul_add_example_exe = b.addExecutable(.{
+            .name = "vectra-example-large-matmul-add",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("examples/large_matmul_add.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "vectra", .module = mod },
+                },
+            }),
+        });
+        const large_matmul_add_example_cmd = b.addRunArtifact(large_matmul_add_example_exe);
+        if (b.args) |args| {
+            large_matmul_add_example_cmd.addArgs(args);
+        }
+        const large_matmul_add_example_step = b.step("example-large-matmul-add", "Run large random GEMM-plus-add CPU/CUDA usage example (dry-run by default)");
+        large_matmul_add_example_step.dependOn(&large_matmul_add_example_cmd.step);
+        examples_step.dependOn(&large_matmul_add_example_cmd.step);
+
+        const large_matmul_add_smoke_cmd = b.addRunArtifact(large_matmul_add_example_exe);
+        large_matmul_add_smoke_cmd.addArgs(&.{ "--smoke", "--backend=both" });
+        const large_matmul_add_smoke_step = b.step("example-large-matmul-add-smoke", "Run tiny executable smoke for the large GEMM-plus-add example");
+        large_matmul_add_smoke_step.dependOn(&large_matmul_add_smoke_cmd.step);
+
+        const matmul_add_compare_smoke_cmd = b.addSystemCommand(&.{
+            "python3",
+            "tools/bench_matmul_add_compare.py",
+            "--smoke",
+            "--m=64",
+            "--n=64",
+            "--k=64",
+            "--warmup=1",
+            "--iters=2",
+            "--op=matmul_add",
+            "--skip-torch-compile",
+            "--repeat=2",
+            "--max-ratio=2.0",
+        });
+        const matmul_add_compare_smoke_step = b.step("bench-matmul-add-compare-smoke", "Run quick Vectra/Axiom vs PyTorch CUDA matmul+add ratio gate");
+        matmul_add_compare_smoke_step.dependOn(&matmul_add_compare_smoke_cmd.step);
+
+        const matmul_add_compare_production_cmd = b.addSystemCommand(&.{
+            "python3",
+            "tools/bench_matmul_add_compare.py",
+            "--execute",
+            "--m=16384",
+            "--n=4096",
+            "--k=4096",
+            "--warmup=3",
+            "--iters=5",
+            "--baseline=torch_addmm",
+            "--max-ratio=1.10",
+        });
+        const matmul_add_compare_production_step = b.step("bench-matmul-add-compare-production", "Run production Vectra/Axiom vs PyTorch CUDA matmul+add ratio gate");
+        matmul_add_compare_production_step.dependOn(&matmul_add_compare_production_cmd.step);
+
+        const matmul_add_compare_compile_cmd = b.addSystemCommand(&.{
+            "python3",
+            "tools/bench_matmul_add_compare.py",
+            "--execute",
+            "--m=16384",
+            "--n=4096",
+            "--k=4096",
+            "--warmup=3",
+            "--iters=5",
+            "--baseline=torch_compile",
+            "--max-ratio=1.10",
+        });
+        const matmul_add_compare_compile_step = b.step("bench-matmul-add-compare-production-compile", "Run production Vectra/Axiom vs torch.compile CUDA matmul+add ratio gate");
+        matmul_add_compare_compile_step.dependOn(&matmul_add_compare_compile_cmd.step);
+
+        const matmul_add_compare_bf16_large_cmd = b.addSystemCommand(&.{
+            "python3",
+            "tools/bench_matmul_add_compare.py",
+            "--smoke",
+            "--m=2048",
+            "--n=2048",
+            "--k=2048",
+            "--warmup=2",
+            "--iters=3",
+            "--dtype=bf16",
+            "--op=matmul_add",
+            "--skip-torch-compile",
+            "--repeat=2",
+            "--max-ratio=1.10",
+            "--max-first-error=0.01",
+            "--max-checksum-error=64.0",
+        });
+        const matmul_add_compare_bf16_large_step = b.step("bench-matmul-add-compare-bf16-large", "Run repeated BF16 CUDA matmulAdd vs PyTorch ratio gate");
+        matmul_add_compare_bf16_large_step.dependOn(&matmul_add_compare_bf16_large_cmd.step);
+
+        const matmul_add_compare_bf16_stability_cmd = b.addSystemCommand(&.{
+            "python3",
+            "tools/bench_matmul_add_compare.py",
+            "--smoke",
+            "--m=512",
+            "--n=512",
+            "--k=512",
+            "--warmup=5",
+            "--iters=50",
+            "--dtype=bf16",
+            "--op=matmul_then_add_exp",
+            "--baseline=torch_best",
+            "--skip-torch-compile",
+            "--repeat=2",
+            "--max-ratio=1.10",
+            "--max-first-error=0.01",
+            "--max-checksum-error=64.0",
+        });
+        const matmul_add_compare_bf16_stability_step = b.step("bench-matmul-add-compare-bf16-stability", "Run repeated BF16 CUDA exp-chain stability and ratio gate");
+        matmul_add_compare_bf16_stability_step.dependOn(&matmul_add_compare_bf16_stability_cmd.step);
+
+        const matmul_add_compare_f64_exp_large_cmd = b.addSystemCommand(&.{
+            "python3",
+            "tools/bench_matmul_add_compare.py",
+            "--smoke",
+            "--m=2048",
+            "--n=2048",
+            "--k=2048",
+            "--warmup=2",
+            "--iters=3",
+            "--dtype=f64",
+            "--op=matmul_then_add_exp",
+            "--skip-torch-compile",
+            "--repeat=2",
+            "--max-ratio=1.20",
+            "--max-first-error=0.001",
+            "--max-checksum-error=0.01",
+        });
+        const matmul_add_compare_f64_exp_large_step = b.step("bench-matmul-add-compare-f64-exp-large", "Run repeated f64 CUDA matmul+add+exp vs PyTorch ratio gate");
+        matmul_add_compare_f64_exp_large_step.dependOn(&matmul_add_compare_f64_exp_large_cmd.step);
+
+        const matmul_add_compare_cmd = b.addSystemCommand(&.{
+            "python3",
+            "tools/bench_matmul_add_compare.py",
+        });
+        if (b.args) |args| {
+            matmul_add_compare_cmd.addArgs(args);
+        }
+        const matmul_add_compare_step = b.step("bench-matmul-add-compare", "Run Vectra/Axiom vs PyTorch/torch.compile CUDA matmul+add comparison; pass args after --");
+        matmul_add_compare_step.dependOn(&matmul_add_compare_cmd.step);
+
+        const axiom_cuda_smoke_exe = b.addExecutable(.{
+            .name = "vectra-axiom-cuda-smoke",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("tools/axiom_cuda_smoke.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "vectra", .module = mod },
+                },
+            }),
+        });
+        const axiom_cuda_smoke_cmd = b.addRunArtifact(axiom_cuda_smoke_exe);
+        axiom_cuda_smoke_cmd.addArg("--json");
+        if (axiom_cuda_expect) |expect| axiom_cuda_smoke_cmd.addArgs(&.{ "--expect", expect });
+        const axiom_cuda_smoke_step = b.step("axiom-cuda-smoke", "Run Axiom CUDA f32 elementwise/SAXPY smoke bridge");
+        axiom_cuda_smoke_step.dependOn(&axiom_cuda_smoke_cmd.step);
+
+        const axiom_cuda_dispatch_smoke_exe = b.addExecutable(.{
+            .name = "vectra-axiom-cuda-dispatch-smoke",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("tools/axiom_cuda_dispatch_smoke.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "vectra", .module = mod },
+                },
+            }),
+        });
+        const axiom_cuda_dispatch_smoke_cmd = b.addRunArtifact(axiom_cuda_dispatch_smoke_exe);
+        const axiom_cuda_dispatch_smoke_step = b.step("axiom-cuda-dispatch-smoke", "Run ordinary Array(f32) methods through Axiom CUDA dispatch");
+        axiom_cuda_dispatch_smoke_step.dependOn(&axiom_cuda_dispatch_smoke_cmd.step);
+
+        const axiom_cuda_device_smoke_exe = b.addExecutable(.{
+            .name = "vectra-axiom-cuda-device-smoke",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("tools/axiom_cuda_device_smoke.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "vectra", .module = mod },
+                },
+            }),
+        });
+        const axiom_cuda_device_smoke_cmd = b.addRunArtifact(axiom_cuda_device_smoke_exe);
+        const axiom_cuda_device_smoke_step = b.step("axiom-cuda-device-smoke", "Run explicit Axiom CUDA device-buffer handle smoke");
+        axiom_cuda_device_smoke_step.dependOn(&axiom_cuda_device_smoke_cmd.step);
+
+        const fusion_smoke_step = b.step("fusion-smoke", "Run CPU/CUDA fusion correctness, status, and quick performance smoke gates");
+        fusion_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
+        fusion_smoke_step.dependOn(&axiom_cuda_dispatch_smoke_cmd.step);
+        fusion_smoke_step.dependOn(&axiom_cuda_device_smoke_cmd.step);
+        fusion_smoke_step.dependOn(&large_matmul_add_smoke_cmd.step);
+        fusion_smoke_step.dependOn(&matmul_add_compare_smoke_cmd.step);
+
+        const fusion_production_gate_step = b.step("fusion-production-gate", "Run production matmul+add PyTorch and torch.compile performance gates");
+        fusion_production_gate_step.dependOn(&matmul_add_compare_production_cmd.step);
+        fusion_production_gate_step.dependOn(&matmul_add_compare_compile_cmd.step);
+    }
 
     if (is_macos_target) {
         // MPS is intentionally absent from non-macOS build graphs.  Keep the
@@ -616,17 +629,6 @@ pub fn build(b: *std.Build) void {
             axiom_mps_storage_smoke.step.dependOn(&smoke.run.step);
         }
     }
-
-    const fusion_smoke_step = b.step("fusion-smoke", "Run CPU/CUDA fusion correctness, status, and quick performance smoke gates");
-    fusion_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
-    fusion_smoke_step.dependOn(&axiom_cuda_dispatch_smoke_cmd.step);
-    fusion_smoke_step.dependOn(&axiom_cuda_device_smoke_cmd.step);
-    fusion_smoke_step.dependOn(&large_matmul_add_smoke_cmd.step);
-    fusion_smoke_step.dependOn(&matmul_add_compare_smoke_cmd.step);
-
-    const fusion_production_gate_step = b.step("fusion-production-gate", "Run production matmul+add PyTorch and torch.compile performance gates");
-    fusion_production_gate_step.dependOn(&matmul_add_compare_production_cmd.step);
-    fusion_production_gate_step.dependOn(&matmul_add_compare_compile_cmd.step);
 
     const axiom_backend_policy_smoke_exe = b.addExecutable(.{
         .name = "vectra-axiom-backend-policy-smoke",
