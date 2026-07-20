@@ -3278,6 +3278,23 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         fn assignScalar(self: Self, scalar: T, comptime op: fn (T, T) T) ArrayError!void {
+            if (self.numel() == 0) return;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end]) |*slot| slot.* = op(slot.*, scalar);
+                return;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var dst_offset = self.offset;
+                for (0..self.numel()) |_| {
+                    self.data[dst_offset] = op(self.data[dst_offset], scalar);
+                    dst_offset += self.strides[0];
+                }
+                return;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (0..self.numel()) |flat| {
@@ -29398,17 +29415,23 @@ test "array object in-place assignment helpers" {
     try cols.mulScalarAssign(2);
     try std.testing.expectEqualSlices(f64, &.{ 20, 10, 20, 26, 13, 26 }, base.data);
 
+    var contiguous_block = try base.narrowView(0, 0, 1);
+    defer contiguous_block.deinit();
+    try std.testing.expect(contiguous_block.isContiguous());
+    try contiguous_block.addScalarAssign(1);
+    try std.testing.expectEqualSlices(f64, &.{ 21, 11, 21, 26, 13, 26 }, base.data);
+
     var patch = try Array(f64).fromSlice(gpa, &.{ 5, 6 }, &.{ 1, 2 });
     defer patch.deinit();
     try cols.copyFromArray(patch);
-    try std.testing.expectEqualSlices(f64, &.{ 5, 10, 6, 5, 13, 6 }, base.data);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 11, 6, 5, 13, 6 }, base.data);
 
     var selected = try base.selectView(0, 1);
     defer selected.deinit();
     var selected_delta = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer selected_delta.deinit();
     try selected.addAssignArray(selected_delta);
-    try std.testing.expectEqualSlices(f64, &.{ 5, 10, 6, 6, 15, 9 }, base.data);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 11, 6, 6, 15, 9 }, base.data);
 
     var copied = try Array(f64).zeros(gpa, &.{ 2, 3 });
     defer copied.deinit();
