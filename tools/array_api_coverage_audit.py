@@ -131,6 +131,7 @@ def capability_row(capability: Capability, methods: set[str]) -> dict[str, Any]:
 
 
 def main() -> int:
+    quiet = "--quiet" in sys.argv[1:]
     array_text = read(ARRAY)
     methods = public_methods(array_text) | public_methods(read(REPO / "src" / "root.zig"))
     rows = [capability_row(capability, methods) for capability in CAPABILITIES]
@@ -175,7 +176,8 @@ def main() -> int:
         "issues": issues,
         "issue_count": len(issues),
     }
-    print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+    if not quiet or not result["ok"]:
+        print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
     return 0 if result["ok"] else 2
 
 

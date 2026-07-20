@@ -210,10 +210,12 @@ pub fn build(b: *std.Build) void {
     const api_boundary_audit_cmd = b.addSystemCommand(&.{ "python3", "tools/api_boundary_audit.py" });
     const api_boundary_audit_step = b.step("api-boundary-audit", "Check that Vectra keeps Array API boundaries and leaves Tensor/autograd to Forge");
     api_boundary_audit_step.dependOn(&api_boundary_audit_cmd.step);
+    const api_boundary_audit_quiet_cmd = b.addSystemCommand(&.{ "python3", "tools/api_boundary_audit.py", "--quiet" });
 
     const array_api_coverage_audit_cmd = b.addSystemCommand(&.{ "python3", "tools/array_api_coverage_audit.py" });
     const array_api_coverage_audit_step = b.step("array-api-coverage-audit", "Audit NumPy/PyTorch-style dense Array API coverage with autograd out of scope");
     array_api_coverage_audit_step.dependOn(&array_api_coverage_audit_cmd.step);
+    const array_api_coverage_audit_quiet_cmd = b.addSystemCommand(&.{ "python3", "tools/array_api_coverage_audit.py", "--quiet" });
 
     const dtype_promotion_smoke_exe = b.addExecutable(.{
         .name = "vectra-dtype-promotion-smoke",
@@ -732,8 +734,8 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
-    test_step.dependOn(&api_boundary_audit_cmd.step);
-    test_step.dependOn(&array_api_coverage_audit_cmd.step);
+    test_step.dependOn(&api_boundary_audit_quiet_cmd.step);
+    test_step.dependOn(&array_api_coverage_audit_quiet_cmd.step);
     test_step.dependOn(&dtype_promotion_smoke_cmd.step);
     test_step.dependOn(&einsum_smoke_cmd.step);
     test_step.dependOn(&contraction_smoke_cmd.step);

@@ -183,8 +183,8 @@ REQUIRED_PLATFORM_BUILD_SNIPPETS = (
 REQUIRED_TEST_GATE_DEPENDENCIES = (
     "run_mod_tests",
     "run_exe_tests",
-    "api_boundary_audit_cmd",
-    "array_api_coverage_audit_cmd",
+    "api_boundary_audit_quiet_cmd",
+    "array_api_coverage_audit_quiet_cmd",
     "dtype_promotion_smoke_cmd",
     "einsum_smoke_cmd",
     "contraction_smoke_cmd",
@@ -339,6 +339,7 @@ def test_gate_dependency_issues(build_text: str) -> list[dict[str, Any]]:
 
 
 def main() -> int:
+    quiet = "--quiet" in sys.argv[1:]
     issues: list[dict[str, Any]] = []
 
     for path in PUBLIC_SOURCE_FILES:
@@ -444,7 +445,8 @@ def main() -> int:
             "axiom": "linalg/memref/gpu dialects plus backend, compiler, kernel, CUDA/MPS/native lowering",
         },
     }
-    print(json.dumps(row, ensure_ascii=False, separators=(",", ":")))
+    if not quiet or not row["ok"]:
+        print(json.dumps(row, ensure_ascii=False, separators=(",", ":")))
     return 0 if row["ok"] else 2
 
 
