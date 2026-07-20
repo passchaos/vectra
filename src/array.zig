@@ -10137,12 +10137,36 @@ pub fn Array(comptime T: type) type {
         }
 
         pub fn maskedCopyFrom(self: Self, mask: Array(bool), values: Self) ArrayError!void {
+            if (!self.device.isCpu() and mask.numel() == 1) {
+                if (!broadcastsExactlyTo(mask.shape, self.shape)) return error.ShapeMismatch;
+                var mask_host: ?Array(bool) = null;
+                defer if (mask_host) |*host| host.deinit();
+                const mask_values = if (mask.device.isCpu()) mask else blk: {
+                    mask_host = try mask.cpu();
+                    break :blk mask_host.?;
+                };
+                if (mask_values.data.len != 1) return error.ShapeMismatch;
+                if (mask_values.data[0]) try self.copyFrom(values);
+                return;
+            }
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.maskedCopyFromArray(mask, values);
         }
 
         pub fn maskedCopyFromView(self: Self, mask: Array(bool), values: ArrayView(T)) ArrayError!void {
+            if (!self.device.isCpu() and mask.numel() == 1) {
+                if (!broadcastsExactlyTo(mask.shape, self.shape)) return error.ShapeMismatch;
+                var mask_host: ?Array(bool) = null;
+                defer if (mask_host) |*host| host.deinit();
+                const mask_values = if (mask.device.isCpu()) mask else blk: {
+                    mask_host = try mask.cpu();
+                    break :blk mask_host.?;
+                };
+                if (mask_values.data.len != 1) return error.ShapeMismatch;
+                if (mask_values.data[0]) try self.copyFromView(values);
+                return;
+            }
             var dest_view = try self.asView();
             defer dest_view.deinit();
             return dest_view.maskedCopyFromView(mask, values);
@@ -29564,6 +29588,22 @@ test "array dtype metadata and casts cover common numeric types" {
         var cuda_masked_fill_false_host = try cuda_masked_fill.cpu();
         defer cuda_masked_fill_false_host.deinit();
         try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9, 9 }, cuda_masked_fill_false_host.data);
+
+        var cuda_masked_copy = try Array(f64).zerosOn(gpa, &.{ 2, 2 }, Device.cuda(0));
+        defer cuda_masked_copy.deinit();
+        try cuda_masked_copy.maskedCopyFrom(scalar_true_mask, cpu_source);
+        var cuda_masked_copy_true_host = try cuda_masked_copy.cpu();
+        defer cuda_masked_copy_true_host.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, cuda_masked_copy_true_host.data);
+        try cuda_masked_copy.maskedCopyFrom(scalar_false_mask, cuda_delta);
+        var cuda_masked_copy_false_host = try cuda_masked_copy.cpu();
+        defer cuda_masked_copy_false_host.deinit();
+        try std.testing.expectEqualSlices(f64, cpu_source.data, cuda_masked_copy_false_host.data);
+
+        try cuda_masked_copy.maskedCopyFromView(scalar_true_mask, cpu_transposed_view);
+        var cuda_masked_copy_view_host = try cuda_masked_copy.cpu();
+        defer cuda_masked_copy_view_host.deinit();
+        try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2, 4 }, cuda_masked_copy_view_host.data);
     } else {
         try std.testing.expectError(error.InvalidDevice, cpu_source.cuda(0));
     }
