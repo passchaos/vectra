@@ -95,6 +95,13 @@ const RankedBroadcastShape = struct {
     dims: [max_ranked_broadcast_rank]usize = [_]usize{1} ** max_ranked_broadcast_rank,
 };
 
+const max_ranked_bmm_batch_rank = 4;
+
+const RankedBmmBatchShape = struct {
+    rank: usize = 0,
+    dims: [max_ranked_bmm_batch_rank]usize = [_]usize{1} ** max_ranked_bmm_batch_rank,
+};
+
 fn broadcastExtent(lhs: usize, rhs: usize) ?usize {
     if (lhs == rhs) return lhs;
     if (lhs == 1) return rhs;
@@ -135,6 +142,47 @@ fn rankedBroadcastStrides(input_shape: []const usize, out_shape: RankedBroadcast
         if (input_shape[in_index] == out_shape.dims[out_index]) {
             out[out_index] = dense[in_index];
         } else if (input_shape[in_index] == 1) {
+            out[out_index] = 0;
+        } else {
+            return null;
+        }
+    }
+    return out;
+}
+
+fn rankedBmmBatchShape(lhs_batch: []const usize, rhs_batch: []const usize) ?RankedBmmBatchShape {
+    const rank = @max(lhs_batch.len, rhs_batch.len);
+    if (rank == 0 or rank > max_ranked_bmm_batch_rank) return null;
+    var out: RankedBmmBatchShape = .{ .rank = rank };
+    for (0..rank) |i| {
+        const lhs_dim = if (i >= rank - lhs_batch.len) lhs_batch[i - (rank - lhs_batch.len)] else 1;
+        const rhs_dim = if (i >= rank - rhs_batch.len) rhs_batch[i - (rank - rhs_batch.len)] else 1;
+        out.dims[i] = broadcastExtent(lhs_dim, rhs_dim) orelse return null;
+    }
+    return out;
+}
+
+fn rankedBmmBatchStrides(input_batch: []const usize, out_batch: RankedBmmBatchShape, matrix_stride: usize) ?[max_ranked_bmm_batch_rank]usize {
+    if (input_batch.len == 0 or input_batch.len > out_batch.rank) return null;
+    var dense = [_]usize{0} ** max_ranked_bmm_batch_rank;
+    var stride = matrix_stride;
+    var dim_index = input_batch.len;
+    while (dim_index > 0) {
+        dim_index -= 1;
+        dense[dim_index] = stride;
+        stride = std.math.mul(usize, stride, input_batch[dim_index]) catch return null;
+    }
+    var out = [_]usize{0} ** max_ranked_bmm_batch_rank;
+    const rank_delta = out_batch.rank - input_batch.len;
+    for (0..out_batch.rank) |out_index| {
+        if (out_index < rank_delta) {
+            out[out_index] = 0;
+            continue;
+        }
+        const in_index = out_index - rank_delta;
+        if (input_batch[in_index] == out_batch.dims[out_index]) {
+            out[out_index] = dense[in_index];
+        } else if (input_batch[in_index] == 1) {
             out[out_index] = 0;
         } else {
             return null;
@@ -1225,6 +1273,159 @@ pub fn tryRank4BroadcastBmmBF16(lhs: array_mod.Array(array_mod.BFloat16), rhs: a
         lhs.shape[1],
         rhs.shape[0],
         rhs.shape[1],
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryRankedBroadcastBmmF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len < 5 or rhs.shape.len < 5 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_batch = lhs.shape[0 .. lhs.shape.len - 2];
+    const rhs_batch = rhs.shape[0 .. rhs.shape.len - 2];
+    const out_batch = rankedBmmBatchShape(lhs_batch, rhs_batch) orelse return null;
+    const m = lhs.shape[lhs.shape.len - 2];
+    const k = lhs.shape[lhs.shape.len - 1];
+    if (rhs.shape[rhs.shape.len - 2] != k) return null;
+    const n = rhs.shape[rhs.shape.len - 1];
+    const lhs_matrix_stride = std.math.mul(usize, m, k) catch return error.InvalidShape;
+    const rhs_matrix_stride = std.math.mul(usize, k, n) catch return error.InvalidShape;
+    const lhs_batch_strides = rankedBmmBatchStrides(lhs_batch, out_batch, lhs_matrix_stride) orelse return null;
+    const rhs_batch_strides = rankedBmmBatchStrides(rhs_batch, out_batch, rhs_matrix_stride) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+
+    var out_shape_buf = [_]usize{1} ** (max_ranked_bmm_batch_rank + 2);
+    @memcpy(out_shape_buf[0..out_batch.rank], out_batch.dims[0..out_batch.rank]);
+    out_shape_buf[out_batch.rank] = m;
+    out_shape_buf[out_batch.rank + 1] = n;
+    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, out_shape_buf[0 .. out_batch.rank + 2], lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRankedBroadcastBmmF32(
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        out_batch.rank,
+        out_batch.dims[0..out_batch.rank],
+        lhs_batch_strides[0..out_batch.rank],
+        rhs_batch_strides[0..out_batch.rank],
+        m,
+        k,
+        n,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryRankedBroadcastBmmF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len < 5 or rhs.shape.len < 5 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_batch = lhs.shape[0 .. lhs.shape.len - 2];
+    const rhs_batch = rhs.shape[0 .. rhs.shape.len - 2];
+    const out_batch = rankedBmmBatchShape(lhs_batch, rhs_batch) orelse return null;
+    const m = lhs.shape[lhs.shape.len - 2];
+    const k = lhs.shape[lhs.shape.len - 1];
+    if (rhs.shape[rhs.shape.len - 2] != k) return null;
+    const n = rhs.shape[rhs.shape.len - 1];
+    const lhs_matrix_stride = std.math.mul(usize, m, k) catch return error.InvalidShape;
+    const rhs_matrix_stride = std.math.mul(usize, k, n) catch return error.InvalidShape;
+    const lhs_batch_strides = rankedBmmBatchStrides(lhs_batch, out_batch, lhs_matrix_stride) orelse return null;
+    const rhs_batch_strides = rankedBmmBatchStrides(rhs_batch, out_batch, rhs_matrix_stride) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+
+    var out_shape_buf = [_]usize{1} ** (max_ranked_bmm_batch_rank + 2);
+    @memcpy(out_shape_buf[0..out_batch.rank], out_batch.dims[0..out_batch.rank]);
+    out_shape_buf[out_batch.rank] = m;
+    out_shape_buf[out_batch.rank + 1] = n;
+    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, out_shape_buf[0 .. out_batch.rank + 2], lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRankedBroadcastBmmF16(
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        out_batch.rank,
+        out_batch.dims[0..out_batch.rank],
+        lhs_batch_strides[0..out_batch.rank],
+        rhs_batch_strides[0..out_batch.rank],
+        m,
+        k,
+        n,
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryRankedBroadcastBmmBF16(lhs: array_mod.Array(array_mod.BFloat16), rhs: array_mod.Array(array_mod.BFloat16)) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len < 5 or rhs.shape.len < 5 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    const lhs_batch = lhs.shape[0 .. lhs.shape.len - 2];
+    const rhs_batch = rhs.shape[0 .. rhs.shape.len - 2];
+    const out_batch = rankedBmmBatchShape(lhs_batch, rhs_batch) orelse return null;
+    const m = lhs.shape[lhs.shape.len - 2];
+    const k = lhs.shape[lhs.shape.len - 1];
+    if (rhs.shape[rhs.shape.len - 2] != k) return null;
+    const n = rhs.shape[rhs.shape.len - 1];
+    const lhs_matrix_stride = std.math.mul(usize, m, k) catch return error.InvalidShape;
+    const rhs_matrix_stride = std.math.mul(usize, k, n) catch return error.InvalidShape;
+    const lhs_batch_strides = rankedBmmBatchStrides(lhs_batch, out_batch, lhs_matrix_stride) orelse return null;
+    const rhs_batch_strides = rankedBmmBatchStrides(rhs_batch, out_batch, rhs_matrix_stride) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+
+    var out_shape_buf = [_]usize{1} ** (max_ranked_bmm_batch_rank + 2);
+    @memcpy(out_shape_buf[0..out_batch.rank], out_batch.dims[0..out_batch.rank]);
+    out_shape_buf[out_batch.rank] = m;
+    out_shape_buf[out_batch.rank + 1] = n;
+    var out = try array_mod.Array(array_mod.BFloat16).emptyOn(lhs.allocator, out_shape_buf[0 .. out_batch.rank + 2], lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRankedBroadcastBmmBF16(
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        out_batch.rank,
+        out_batch.dims[0..out_batch.rank],
+        lhs_batch_strides[0..out_batch.rank],
+        rhs_batch_strides[0..out_batch.rank],
+        m,
+        k,
+        n,
     ) catch {
         out.deinit();
         return null;

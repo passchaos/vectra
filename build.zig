@@ -646,7 +646,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     const axiom_mps_mixed_bmm_smoke_cmd = b.addRunArtifact(axiom_mps_mixed_bmm_smoke_exe);
-    const axiom_mps_mixed_bmm_smoke_step = b.step("axiom-mps-mixed-bmm-smoke", "Run focused MPS rank-4 mixed-batch BMM smoke");
+    const axiom_mps_mixed_bmm_smoke_step = b.step("axiom-mps-mixed-bmm-smoke", "Run focused MPS rank-4/rank-5 mixed-batch BMM smoke");
     axiom_mps_mixed_bmm_smoke_step.dependOn(&axiom_mps_mixed_bmm_smoke_cmd.step);
     axiom_mps_storage_smoke_step.dependOn(&axiom_mps_mixed_bmm_smoke_cmd.step);
 

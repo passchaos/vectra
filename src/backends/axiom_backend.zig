@@ -1632,12 +1632,27 @@ fn executeMpsBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array
     if (try executeMpsRank4BroadcastBmm(T, lhs, rhs)) |out| return out;
     if (try executeMpsBroadcastBatchBmm(T, lhs, rhs)) |out| return out;
     if (try executeMpsFlattenedEqualBatchBmm(T, lhs, rhs)) |out| return out;
+    if (try executeMpsRankedBroadcastBmm(T, lhs, rhs)) |out| return out;
     if (T == f32) {
         if (try axiom_mps.tryBmmF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == f16) {
         if (try axiom_mps.tryBmmF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
     } else if (T == array_mod.BFloat16) {
         if (try axiom_mps.tryBmmBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
+    }
+    return null;
+}
+
+fn executeMpsRankedBroadcastBmm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f16 and T != array_mod.BFloat16) return null;
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len < 5 or rhs.shape.len < 5 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    if (T == f32) {
+        if (try axiom_mps.tryRankedBroadcastBmmF32(@as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == f16) {
+        if (try axiom_mps.tryRankedBroadcastBmmF16(@as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
+    } else if (T == array_mod.BFloat16) {
+        if (try axiom_mps.tryRankedBroadcastBmmBF16(@as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
     }
     return null;
 }
