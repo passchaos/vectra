@@ -3038,6 +3038,23 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn fill(self: Self, value: T) ArrayError!void {
+            if (self.numel() == 0) return;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                @memset(self.data[self.offset..end], value);
+                return;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (0..self.numel()) |_| {
+                    self.data[source_offset] = value;
+                    source_offset += self.strides[0];
+                }
+                return;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (0..self.numel()) |flat| {
@@ -27356,6 +27373,22 @@ test "array non contiguous view helpers" {
 
     try narrowed.fill(-1);
     try std.testing.expectEqualSlices(f64, &.{ 7, -1, -1, 4, 7, -1, -1, 80 }, a.data);
+
+    var strided_fill_source = try Array(f64).fromSlice(gpa, &.{ 1, 90, 2, 80, 3, 70 }, &.{6});
+    defer strided_fill_source.deinit();
+    var strided_fill_view = try strided_fill_source.sliceAxisView(0, .{ .start = 0, .stop = 6, .step = 2 });
+    defer strided_fill_view.deinit();
+    try std.testing.expect(!strided_fill_view.isContiguous());
+    try strided_fill_view.fill(5);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 90, 5, 80, 5, 70 }, strided_fill_source.data);
+
+    var contiguous_fill_source = try Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 50, 60 }, &.{ 3, 2 });
+    defer contiguous_fill_source.deinit();
+    var contiguous_fill_view = try contiguous_fill_source.narrowView(0, 0, 2);
+    defer contiguous_fill_view.deinit();
+    try std.testing.expect(contiguous_fill_view.isContiguous());
+    try contiguous_fill_view.fill(9);
+    try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9, 9, 50, 60 }, contiguous_fill_source.data);
 }
 
 test "array view transcendental unary math is view aware" {
