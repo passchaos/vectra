@@ -1097,16 +1097,8 @@ pub fn tryBroadcastBinaryDefault(comptime T: type, op: ElementwiseOp, lhs: array
 fn tryCudaGenericBroadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (target != .cuda or !lhs.device.sameDevice(rhs.device) or !lhs.device.isCuda()) return null;
     if (lhs.numel() == 1 or rhs.numel() == 1) return null;
-    if (T == f32) {
-        if (try axiom_cuda.tryDeviceBroadcastF32(cudaBinaryOp(op), @as(array_mod.Array(f32), lhs), @as(array_mod.Array(f32), rhs))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f64) {
-        if (try axiom_cuda.tryDeviceBroadcastF64(cudaBinaryOp(op), @as(array_mod.Array(f64), lhs), @as(array_mod.Array(f64), rhs))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_cuda.tryDeviceBroadcastF16(cudaBinaryOp(op), @as(array_mod.Array(f16), lhs), @as(array_mod.Array(f16), rhs))) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_cuda.tryDeviceBroadcastBF16(cudaBinaryOp(op), @as(array_mod.Array(array_mod.BFloat16), lhs), @as(array_mod.Array(array_mod.BFloat16), rhs))) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    if (comptime !supportsAxiomCudaElementwise(T)) return null;
+    return try axiom_cuda.tryDeviceBroadcast(T, cudaBinaryOp(op), lhs, rhs);
 }
 
 fn tryMpsRank4Broadcast(comptime T: type, op: ElementwiseOp, target: DialectBackend, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -3065,17 +3057,8 @@ fn executeCudaBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: ar
 }
 
 fn executeCudaBroadcastBinary(comptime T: type, op: ElementwiseOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
-    const cuda_op = cudaBinaryOp(op);
-    if (T == f32) {
-        if (try axiom_cuda.tryDeviceBroadcastBinaryF32(cuda_op, @as(array_mod.Array(f32), input), @as(array_mod.Array(f32), bias), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f64) {
-        if (try axiom_cuda.tryDeviceBroadcastBinaryF64(cuda_op, @as(array_mod.Array(f64), input), @as(array_mod.Array(f64), bias), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == f16) {
-        if (try axiom_cuda.tryDeviceBroadcastBinaryF16(cuda_op, @as(array_mod.Array(f16), input), @as(array_mod.Array(f16), bias), axis)) |out| return @as(array_mod.Array(T), out);
-    } else if (T == array_mod.BFloat16) {
-        if (try axiom_cuda.tryDeviceBroadcastBinaryBF16(cuda_op, @as(array_mod.Array(array_mod.BFloat16), input), @as(array_mod.Array(array_mod.BFloat16), bias), axis)) |out| return @as(array_mod.Array(T), out);
-    }
-    return null;
+    if (comptime !supportsAxiomCudaElementwise(T)) return null;
+    return try axiom_cuda.tryDeviceBroadcastBinary(T, cudaBinaryOp(op), input, bias, axis);
 }
 
 fn executeMpsBroadcastAdd(comptime T: type, input: array_mod.Array(T), bias: array_mod.Array(T), axis: DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {

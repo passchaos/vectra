@@ -2590,7 +2590,7 @@ pub fn tryDeviceLastDimBroadcastF32(op: BinaryOp, input: array_mod.Array(f32), b
 }
 
 pub fn tryDeviceBroadcastF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
-    if (try tryDeviceGenericBroadcastF32(op, lhs, rhs)) |out| return out;
+    if (try tryDeviceGenericBroadcast(f32, op, lhs, rhs)) |out| return out;
     return null;
 }
 
@@ -2611,7 +2611,7 @@ pub fn tryDeviceLastDimBroadcastF64(op: BinaryOp, input: array_mod.Array(f64), b
 }
 
 pub fn tryDeviceBroadcastF64(op: BinaryOp, lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    if (try tryDeviceGenericBroadcastF64(op, lhs, rhs)) |out| return out;
+    if (try tryDeviceGenericBroadcast(f64, op, lhs, rhs)) |out| return out;
     return null;
 }
 
@@ -2632,7 +2632,7 @@ pub fn tryDeviceLastDimBroadcastF16(op: BinaryOp, input: array_mod.Array(f16), b
 }
 
 pub fn tryDeviceBroadcastF16(op: BinaryOp, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    if (try tryDeviceGenericBroadcastF16(op, lhs, rhs)) |out| return out;
+    if (try tryDeviceGenericBroadcast(f16, op, lhs, rhs)) |out| return out;
     return null;
 }
 
@@ -2653,7 +2653,12 @@ pub fn tryDeviceLastDimBroadcastBF16(op: BinaryOp, input: array_mod.Array(BFloat
 }
 
 pub fn tryDeviceBroadcastBF16(op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    if (try tryDeviceGenericBroadcastBF16(op, lhs, rhs)) |out| return out;
+    if (try tryDeviceGenericBroadcast(BFloat16, op, lhs, rhs)) |out| return out;
+    return null;
+}
+
+pub fn tryDeviceBroadcast(comptime T: type, op: BinaryOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (try tryDeviceGenericBroadcast(T, op, lhs, rhs)) |out| return out;
     return null;
 }
 
@@ -2785,7 +2790,7 @@ fn tryDeviceLastDimBroadcast(comptime T: type, op: BinaryOp, input: array_mod.Ar
     return out;
 }
 
-fn tryDeviceGenericBroadcastF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+fn tryDeviceGenericBroadcast(comptime T: type, op: BinaryOp, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (!build_options.enable_axiom_cuda) return null;
     if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
     if (lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
@@ -2795,7 +2800,7 @@ fn tryDeviceGenericBroadcastF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: ar
     alignTrailingDims(out_shape.dims[0..out_shape.rank], &out_dims);
     const lhs_strides = broadcastDeviceStrides(lhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
     const rhs_strides = broadcastDeviceStrides(rhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
-    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, out_shape.dims[0..out_shape.rank], lhs.device);
+    var out = try array_mod.Array(T).emptyOn(lhs.allocator, out_shape.dims[0..out_shape.rank], lhs.device);
     errdefer out.deinit();
     const lhs_storage = lhs.device_storage orelse {
         out.deinit();
@@ -2813,188 +2818,49 @@ fn tryDeviceGenericBroadcastF32(op: BinaryOp, lhs: array_mod.Array(f32), rhs: ar
         out.deinit();
         return null;
     }
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceBroadcast4F32(
-        lhs.device.index,
-        axiomBinaryOp(op),
-        false,
-        out_shape.rank,
-        out_dims,
-        lhs_strides,
-        rhs_strides,
-        lhs_storage.ptr,
-        rhs_storage.ptr,
-        out_storage.ptr,
-        broadcast4SpecFingerprint(op, out_dims, lhs_strides, rhs_strides),
-    ) catch {
+    const ok = runCudaDeviceBroadcast4(T, lhs.allocator, lhs.device, op, out_shape.rank, out_dims, lhs_strides, rhs_strides, lhs_storage.ptr, rhs_storage.ptr, out_storage.ptr) catch {
         out.deinit();
         return null;
     };
-    if (!report.valid()) {
+    if (!ok) {
         out.deinit();
         return null;
     }
-    recordCudaDeviceMemRefReport("broadcast4_f32", report);
     return out;
 }
 
-fn tryDeviceGenericBroadcastF64(op: BinaryOp, lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!?array_mod.Array(f64) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
-    if (lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
-    const out_shape = broadcastShapeStack(lhs.shape, rhs.shape) orelse return null;
-    if (out_shape.rank == 0 or out_shape.rank > 4) return null;
-    var out_dims = [_]usize{ 1, 1, 1, 1 };
-    alignTrailingDims(out_shape.dims[0..out_shape.rank], &out_dims);
-    const lhs_strides = broadcastDeviceStrides(lhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
-    const rhs_strides = broadcastDeviceStrides(rhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
-    var out = try array_mod.Array(f64).emptyOn(lhs.allocator, out_shape.dims[0..out_shape.rank], lhs.device);
-    errdefer out.deinit();
-    const lhs_storage = lhs.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    const rhs_storage = rhs.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    if (lhs_storage.len == 0 or rhs_storage.len == 0 or out_storage.len == 0) {
-        out.deinit();
-        return null;
-    }
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceBroadcast4F64(
-        lhs.device.index,
-        axiomBinaryOp(op),
-        false,
-        out_shape.rank,
-        out_dims,
-        lhs_strides,
-        rhs_strides,
-        lhs_storage.ptr,
-        rhs_storage.ptr,
-        out_storage.ptr,
-        broadcast4SpecFingerprint(op, out_dims, lhs_strides, rhs_strides),
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    recordCudaDeviceMemRefReport("broadcast4_f64", report);
-    return out;
+fn runCudaDeviceBroadcast4(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    op: BinaryOp,
+    rank: u8,
+    out_dims: [4]usize,
+    lhs_strides: [4]usize,
+    rhs_strides: [4]usize,
+    lhs_ptr: u64,
+    rhs_ptr: u64,
+    out_ptr: u64,
+) !bool {
+    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(allocator);
+    const fingerprint = broadcast4SpecFingerprint(op, out_dims, lhs_strides, rhs_strides);
+    const report = if (T == f32)
+        try runtime.runCudaDeviceBroadcast4F32(device.index, axiomBinaryOp(op), false, rank, out_dims, lhs_strides, rhs_strides, lhs_ptr, rhs_ptr, out_ptr, fingerprint)
+    else if (T == f64)
+        try runtime.runCudaDeviceBroadcast4F64(device.index, axiomBinaryOp(op), false, rank, out_dims, lhs_strides, rhs_strides, lhs_ptr, rhs_ptr, out_ptr, fingerprint)
+    else if (T == f16)
+        try runtime.runCudaDeviceBroadcast4F16(device.index, axiomBinaryOp(op), false, rank, out_dims, lhs_strides, rhs_strides, lhs_ptr, rhs_ptr, out_ptr, fingerprint)
+    else if (T == BFloat16)
+        try runtime.runCudaDeviceBroadcast4BF16(device.index, axiomBinaryOp(op), false, rank, out_dims, lhs_strides, rhs_strides, lhs_ptr, rhs_ptr, out_ptr, fingerprint)
+    else
+        return error.TypeUnsupported;
+    if (!report.valid()) return false;
+    recordCudaDeviceMemRefReport(broadcast4OperationName(T), report);
+    return true;
 }
 
-fn tryDeviceGenericBroadcastF16(op: BinaryOp, lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
-    if (lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
-    const out_shape = broadcastShapeStack(lhs.shape, rhs.shape) orelse return null;
-    if (out_shape.rank == 0 or out_shape.rank > 4) return null;
-    var out_dims = [_]usize{ 1, 1, 1, 1 };
-    alignTrailingDims(out_shape.dims[0..out_shape.rank], &out_dims);
-    const lhs_strides = broadcastDeviceStrides(lhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
-    const rhs_strides = broadcastDeviceStrides(rhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
-    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, out_shape.dims[0..out_shape.rank], lhs.device);
-    errdefer out.deinit();
-    const lhs_storage = lhs.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    const rhs_storage = rhs.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    if (lhs_storage.len == 0 or rhs_storage.len == 0 or out_storage.len == 0) {
-        out.deinit();
-        return null;
-    }
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceBroadcast4F16(
-        lhs.device.index,
-        axiomBinaryOp(op),
-        false,
-        out_shape.rank,
-        out_dims,
-        lhs_strides,
-        rhs_strides,
-        lhs_storage.ptr,
-        rhs_storage.ptr,
-        out_storage.ptr,
-        broadcast4SpecFingerprint(op, out_dims, lhs_strides, rhs_strides),
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    recordCudaDeviceMemRefReport("broadcast4_f16", report);
-    return out;
-}
-
-fn tryDeviceGenericBroadcastBF16(op: BinaryOp, lhs: array_mod.Array(BFloat16), rhs: array_mod.Array(BFloat16)) array_mod.ArrayError!?array_mod.Array(BFloat16) {
-    if (!build_options.enable_axiom_cuda) return null;
-    if (!lhs.device.isCuda() or !rhs.device.isCuda() or !lhs.device.sameDevice(rhs.device)) return null;
-    if (lhs.data.len != 0 or rhs.data.len != 0 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
-    const out_shape = broadcastShapeStack(lhs.shape, rhs.shape) orelse return null;
-    if (out_shape.rank == 0 or out_shape.rank > 4) return null;
-    var out_dims = [_]usize{ 1, 1, 1, 1 };
-    alignTrailingDims(out_shape.dims[0..out_shape.rank], &out_dims);
-    const lhs_strides = broadcastDeviceStrides(lhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
-    const rhs_strides = broadcastDeviceStrides(rhs.shape, out_shape.dims[0..out_shape.rank]) orelse return null;
-    var out = try array_mod.Array(BFloat16).emptyOn(lhs.allocator, out_shape.dims[0..out_shape.rank], lhs.device);
-    errdefer out.deinit();
-    const lhs_storage = lhs.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    const rhs_storage = rhs.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    const out_storage = out.device_storage orelse {
-        out.deinit();
-        return null;
-    };
-    if (lhs_storage.len == 0 or rhs_storage.len == 0 or out_storage.len == 0) {
-        out.deinit();
-        return null;
-    }
-    var runtime = axiom.accelerator.AcceleratorRuntime.cuda(lhs.allocator);
-    const report = runtime.runCudaDeviceBroadcast4BF16(
-        lhs.device.index,
-        axiomBinaryOp(op),
-        false,
-        out_shape.rank,
-        out_dims,
-        lhs_strides,
-        rhs_strides,
-        lhs_storage.ptr,
-        rhs_storage.ptr,
-        out_storage.ptr,
-        broadcast4SpecFingerprint(op, out_dims, lhs_strides, rhs_strides),
-    ) catch {
-        out.deinit();
-        return null;
-    };
-    if (!report.valid()) {
-        out.deinit();
-        return null;
-    }
-    recordCudaDeviceMemRefReport("broadcast4_bf16", report);
-    return out;
+fn broadcast4OperationName(comptime T: type) []const u8 {
+    return if (T == f32) "broadcast4_f32" else if (T == f64) "broadcast4_f64" else if (T == f16) "broadcast4_f16" else if (T == BFloat16) "broadcast4_bf16" else @compileError("unsupported CUDA broadcast dtype: " ++ @typeName(T));
 }
 
 const StackBroadcastShape = struct {
@@ -3076,7 +2942,7 @@ fn lastDimBiasMatches(input_shape: []const usize, bias_shape: []const usize) boo
     return true;
 }
 
-fn tryDeviceBroadcastBinary(comptime T: type, op: BinaryOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
+pub fn tryDeviceBroadcastBinary(comptime T: type, op: BinaryOp, input: array_mod.Array(T), bias: array_mod.Array(T), axis: axiom.accelerator.DialectBroadcastAxis) array_mod.ArrayError!?array_mod.Array(T) {
     return tryDeviceBroadcastBinaryWithOrder(T, op, false, input, bias, axis);
 }
 
