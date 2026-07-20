@@ -690,6 +690,141 @@ pub fn tryBroadcastBmmBF16(lhs: array_mod.Array(array_mod.BFloat16), rhs: array_
     return out;
 }
 
+pub fn tryRank4BroadcastBmmF32(lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len != 4 or rhs.shape.len != 4 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    if (lhs.shape[3] != rhs.shape[2]) return null;
+    const batch0, const batch1 = broadcastBatch2(lhs.shape[0], lhs.shape[1], rhs.shape[0], rhs.shape[1]) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    const m = lhs.shape[2];
+    const k = lhs.shape[3];
+    const n = rhs.shape[3];
+
+    var out = try array_mod.Array(f32).emptyOn(lhs.allocator, &.{ batch0, batch1, m, n }, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRank4BroadcastBmmF32(
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        batch0,
+        batch1,
+        m,
+        k,
+        n,
+        lhs.shape[0],
+        lhs.shape[1],
+        rhs.shape[0],
+        rhs.shape[1],
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryRank4BroadcastBmmF16(lhs: array_mod.Array(f16), rhs: array_mod.Array(f16)) array_mod.ArrayError!?array_mod.Array(f16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len != 4 or rhs.shape.len != 4 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    if (lhs.shape[3] != rhs.shape[2]) return null;
+    const batch0, const batch1 = broadcastBatch2(lhs.shape[0], lhs.shape[1], rhs.shape[0], rhs.shape[1]) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    const m = lhs.shape[2];
+    const k = lhs.shape[3];
+    const n = rhs.shape[3];
+
+    var out = try array_mod.Array(f16).emptyOn(lhs.allocator, &.{ batch0, batch1, m, n }, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRank4BroadcastBmmF16(
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        batch0,
+        batch1,
+        m,
+        k,
+        n,
+        lhs.shape[0],
+        lhs.shape[1],
+        rhs.shape[0],
+        rhs.shape[1],
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+pub fn tryRank4BroadcastBmmBF16(lhs: array_mod.Array(array_mod.BFloat16), rhs: array_mod.Array(array_mod.BFloat16)) array_mod.ArrayError!?array_mod.Array(array_mod.BFloat16) {
+    if (!lhs.device.isMps() or !rhs.device.isMps() or !lhs.device.sameDevice(rhs.device)) return null;
+    if (lhs.shape.len != 4 or rhs.shape.len != 4 or !lhs.isContiguous() or !rhs.isContiguous()) return null;
+    if (lhs.shape[3] != rhs.shape[2]) return null;
+    const batch0, const batch1 = broadcastBatch2(lhs.shape[0], lhs.shape[1], rhs.shape[0], rhs.shape[1]) orelse return null;
+    const lhs_storage = lhs.device_storage orelse return null;
+    const rhs_storage = rhs.device_storage orelse return null;
+    const m = lhs.shape[2];
+    const k = lhs.shape[3];
+    const n = rhs.shape[3];
+
+    var out = try array_mod.Array(array_mod.BFloat16).emptyOn(lhs.allocator, &.{ batch0, batch1, m, n }, lhs.device);
+    errdefer out.deinit();
+    const out_storage = out.device_storage orelse {
+        out.deinit();
+        return null;
+    };
+
+    var runtime = axiom.accelerator.MpsRuntime.open(lhs.device.index) catch {
+        out.deinit();
+        return null;
+    };
+    defer runtime.close();
+    runtime.runRank4BroadcastBmmBF16(
+        .{ .ptr = lhs_storage.ptr, .bytes = lhs_storage.bytes },
+        .{ .ptr = rhs_storage.ptr, .bytes = rhs_storage.bytes },
+        .{ .ptr = out_storage.ptr, .bytes = out_storage.bytes },
+        batch0,
+        batch1,
+        m,
+        k,
+        n,
+        lhs.shape[0],
+        lhs.shape[1],
+        rhs.shape[0],
+        rhs.shape[1],
+    ) catch {
+        out.deinit();
+        return null;
+    };
+    return out;
+}
+
+fn broadcastBatch2(lhs0: usize, lhs1: usize, rhs0: usize, rhs1: usize) ?struct { usize, usize } {
+    if (lhs0 != rhs0 and lhs0 != 1 and rhs0 != 1) return null;
+    if (lhs1 != rhs1 and lhs1 != 1 and rhs1 != 1) return null;
+    return .{ @max(lhs0, rhs0), @max(lhs1, rhs1) };
+}
+
 pub fn tryBatchedMatvecF32(matrix: array_mod.Array(f32), vector: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     if (!matrix.device.isMps() or !vector.device.isMps() or !matrix.device.sameDevice(vector.device)) return null;
     if (matrix.shape.len != 3 or vector.shape.len != 1 or !matrix.isContiguous() or !vector.isContiguous()) return null;
