@@ -4223,23 +4223,22 @@ fn describeBroadcastedBatchedMatmulMemRef(
     return describeDeviceBufferMemRef(T, storage, shape_buf[0..rank], stride_buf[0..rank], name);
 }
 
-pub fn runPendingMatmulF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
-    return runPendingMatmul(f32, allocator, device, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs", "pending_rhs", "pending_out");
+pub fn runPendingMatmul(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    m: usize,
+    n: usize,
+    k: usize,
+    lhs_ptr: u64,
+    rhs_ptr: u64,
+    out_ptr: u64,
+) array_mod.ArrayError!bool {
+    const names = pendingGemmNames(T);
+    return runPendingMatmulNamed(T, allocator, device, m, n, k, lhs_ptr, rhs_ptr, out_ptr, names.lhs, names.rhs, names.out);
 }
 
-pub fn runPendingMatmulBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
-    return runPendingMatmul(BFloat16, allocator, device, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_bf16", "pending_rhs_bf16", "pending_out_bf16");
-}
-
-pub fn runPendingMatmulF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
-    return runPendingMatmul(f16, allocator, device, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_f16", "pending_rhs_f16", "pending_out_f16");
-}
-
-pub fn runPendingMatmulF64(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, out_ptr: u64) array_mod.ArrayError!bool {
-    return runPendingMatmul(f64, allocator, device, m, n, k, lhs_ptr, rhs_ptr, out_ptr, "pending_lhs_f64", "pending_rhs_f64", "pending_out_f64");
-}
-
-fn runPendingMatmul(
+fn runPendingMatmulNamed(
     comptime T: type,
     allocator: std.mem.Allocator,
     device: array_mod.Device,
@@ -4261,23 +4260,25 @@ fn runPendingMatmul(
     return report.valid();
 }
 
-pub fn runPendingMatmulAddF32(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
-    return runPendingMatmulAdd(f32, allocator, device, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta, "pending_lhs", "pending_rhs", "pending_add", "pending_out");
+pub fn runPendingMatmulAdd(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    device: array_mod.Device,
+    m: usize,
+    n: usize,
+    k: usize,
+    lhs_ptr: u64,
+    rhs_ptr: u64,
+    add_ptr: u64,
+    out_ptr: u64,
+    alpha: f32,
+    beta: f32,
+) array_mod.ArrayError!bool {
+    const names = pendingGemmNames(T);
+    return runPendingMatmulAddNamed(T, allocator, device, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta, names.lhs, names.rhs, names.add, names.out);
 }
 
-pub fn runPendingMatmulAddBF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
-    return runPendingMatmulAdd(BFloat16, allocator, device, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta, "pending_lhs_bf16", "pending_rhs_bf16", "pending_add_bf16", "pending_out_bf16");
-}
-
-pub fn runPendingMatmulAddF16(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
-    return runPendingMatmulAdd(f16, allocator, device, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta, "pending_lhs_f16", "pending_rhs_f16", "pending_add_f16", "pending_out_f16");
-}
-
-pub fn runPendingMatmulAddF64(allocator: std.mem.Allocator, device: array_mod.Device, m: usize, n: usize, k: usize, lhs_ptr: u64, rhs_ptr: u64, add_ptr: u64, out_ptr: u64, alpha: f32, beta: f32) array_mod.ArrayError!bool {
-    return runPendingMatmulAdd(f64, allocator, device, m, n, k, lhs_ptr, rhs_ptr, add_ptr, out_ptr, alpha, beta, "pending_lhs_f64", "pending_rhs_f64", "pending_add_f64", "pending_out_f64");
-}
-
-fn runPendingMatmulAdd(
+fn runPendingMatmulAddNamed(
     comptime T: type,
     allocator: std.mem.Allocator,
     device: array_mod.Device,
@@ -4303,6 +4304,37 @@ fn runPendingMatmulAdd(
     const report = runtime.runCudaDeviceMatmulAddMemRefs(device.index, spec) catch return error.BackendFailure;
     recordCudaDeviceGemmReport(report);
     return report.valid();
+}
+
+const PendingGemmNames = struct {
+    lhs: []const u8,
+    rhs: []const u8,
+    add: []const u8,
+    out: []const u8,
+};
+
+fn pendingGemmNames(comptime T: type) PendingGemmNames {
+    return if (T == f32) .{
+        .lhs = "pending_lhs",
+        .rhs = "pending_rhs",
+        .add = "pending_add",
+        .out = "pending_out",
+    } else if (T == f64) .{
+        .lhs = "pending_lhs_f64",
+        .rhs = "pending_rhs_f64",
+        .add = "pending_add_f64",
+        .out = "pending_out_f64",
+    } else if (T == f16) .{
+        .lhs = "pending_lhs_f16",
+        .rhs = "pending_rhs_f16",
+        .add = "pending_add_f16",
+        .out = "pending_out_f16",
+    } else if (T == BFloat16) .{
+        .lhs = "pending_lhs_bf16",
+        .rhs = "pending_rhs_bf16",
+        .add = "pending_add_bf16",
+        .out = "pending_out_bf16",
+    } else @compileError("unsupported CUDA pending GEMM dtype: " ++ @typeName(T));
 }
 
 pub fn runPendingMatmulAddUnaryF32(

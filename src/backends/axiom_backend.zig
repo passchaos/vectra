@@ -1937,27 +1937,9 @@ fn runCudaPendingMatmul(
         return runCudaPendingMatmulUnary(T, allocator, device, m, n, k, pending, out_ptr, unary);
     }
     if (pending.add_storage) |add_storage| {
-        return if (T == f32)
-            axiom_cuda.runPendingMatmulAddF32(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_ptr, pending.alpha, pending.beta)
-        else if (T == f64)
-            axiom_cuda.runPendingMatmulAddF64(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_ptr, pending.alpha, pending.beta)
-        else if (T == f16)
-            axiom_cuda.runPendingMatmulAddF16(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_ptr, pending.alpha, pending.beta)
-        else if (T == array_mod.BFloat16)
-            axiom_cuda.runPendingMatmulAddBF16(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_ptr, pending.alpha, pending.beta)
-        else
-            error.TypeUnsupported;
+        return axiom_cuda.runPendingMatmulAdd(T, allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, add_storage.ptr, out_ptr, pending.alpha, pending.beta);
     }
-    return if (T == f32)
-        axiom_cuda.runPendingMatmulF32(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_ptr)
-    else if (T == f64)
-        axiom_cuda.runPendingMatmulF64(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_ptr)
-    else if (T == f16)
-        axiom_cuda.runPendingMatmulF16(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_ptr)
-    else if (T == array_mod.BFloat16)
-        axiom_cuda.runPendingMatmulBF16(allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_ptr)
-    else
-        error.TypeUnsupported;
+    return axiom_cuda.runPendingMatmul(T, allocator, device, m, n, k, pending.lhs_storage.ptr, pending.rhs_storage.ptr, out_ptr);
 }
 
 fn runCudaPendingMatmulUnary(
