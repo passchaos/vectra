@@ -7404,23 +7404,46 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn where(self: Self, mask: Array(bool), other: Self) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            var rhs = try other.toArray();
-            defer rhs.deinit();
-            return lhs.where(mask, rhs);
+            const tmp_shape = try computeBroadcastShape(self.allocator, self.shape, other.shape);
+            defer self.allocator.free(tmp_shape);
+            const out_shape = try computeBroadcastShape(self.allocator, tmp_shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const mask_index = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                slot.* = if (mask.data[mask_index])
+                    self.data[self.broadcastOffsetOf(out_multi, out_shape.len)]
+                else
+                    other.data[other.broadcastOffsetOf(out_multi, out_shape.len)];
+            }
+            return out;
         }
 
         pub fn whereArray(self: Self, mask: Array(bool), other: Array(T)) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            return lhs.where(mask, other);
+            var other_view = try other.asView();
+            defer other_view.deinit();
+            return self.where(mask, other_view);
         }
 
         pub fn whereScalar(self: Self, mask: Array(bool), other_value: T) ArrayError!Array(T) {
-            var lhs = try self.toArray();
-            defer lhs.deinit();
-            return lhs.whereScalar(mask, other_value);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const mask_index = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                slot.* = if (mask.data[mask_index]) self.data[self.broadcastOffsetOf(out_multi, out_shape.len)] else other_value;
+            }
+            return out;
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) ArrayError!Array(T) {
