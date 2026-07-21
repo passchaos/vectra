@@ -8918,9 +8918,7 @@ pub fn ArrayView(comptime T: type) type {
         pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             if (comptime T != bool) @compileError("allAxes requires Array(bool)");
             if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.boolScalarReductionResult(self.all(), keepdims);
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.allAxes(axes, keepdims);
+            return self.boolAxesReduction(axes, keepdims, true);
         }
 
         pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
@@ -8983,9 +8981,23 @@ pub fn ArrayView(comptime T: type) type {
         pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
             if (comptime T != bool) @compileError("anyAxes requires Array(bool)");
             if (try axesCoverAllDims(self.allocator, axes, self.shape.len)) return self.boolScalarReductionResult(self.any(), keepdims);
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.anyAxes(axes, keepdims);
+            return self.boolAxesReduction(axes, keepdims, false);
+        }
+
+        fn boolAxesReduction(self: Self, axes: []const isize, keepdims: bool, comptime require_all: bool) ArrayError!Array(T) {
+            const normalized_axes = try normalizeAxesDescending(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var current = try self.boolAxisReduction(normalized_axes[0], keepdims, require_all);
+            errdefer current.deinit();
+            for (normalized_axes[1..]) |axis| {
+                const next = if (require_all)
+                    try current.allAxis(@intCast(axis), keepdims)
+                else
+                    try current.anyAxis(@intCast(axis), keepdims);
+                current.deinit();
+                current = next;
+            }
+            return current;
         }
 
         pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(T) {
