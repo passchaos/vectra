@@ -937,9 +937,100 @@ pub const DeviceLazyFrame = struct {
     }
 };
 
+pub const DeviceParquetScan = struct {
+    allocator: std.mem.Allocator,
+    bytes: []u8,
+    device: array_mod.Device,
+    projection: ?[][]const u8 = null,
+    range_predicate: ?RangePredicate = null,
+
+    const RangePredicate = struct {
+        column: []const u8,
+        predicate: ParquetRangePredicate,
+    };
+
+    pub fn init(allocator: std.mem.Allocator, bytes: []const u8, device_value: array_mod.Device) std.mem.Allocator.Error!DeviceParquetScan {
+        return .{
+            .allocator = allocator,
+            .bytes = try allocator.dupe(u8, bytes),
+            .device = device_value,
+        };
+    }
+
+    pub fn deinit(self: *DeviceParquetScan) void {
+        self.allocator.free(self.bytes);
+        if (self.projection) |names| freeNameList(self.allocator, names);
+        if (self.range_predicate) |predicate| self.allocator.free(predicate.column);
+        self.* = undefined;
+    }
+
+    pub fn select(self: *DeviceParquetScan, names: []const []const u8) std.mem.Allocator.Error!void {
+        if (self.projection) |old| freeNameList(self.allocator, old);
+        self.projection = try cloneNameList(self.allocator, names);
+    }
+
+    pub fn whereRange(self: *DeviceParquetScan, column: []const u8, predicate: ParquetRangePredicate) std.mem.Allocator.Error!void {
+        if (self.range_predicate) |old| self.allocator.free(old.column);
+        self.range_predicate = .{
+            .column = try self.allocator.dupe(u8, column),
+            .predicate = predicate,
+        };
+    }
+
+    pub fn collect(self: DeviceParquetScan) ParquetInteropError!DeviceDataFrame {
+        var frame = if (self.range_predicate) |predicate|
+            try DeviceDataFrame.fromParquetBytesPruned(self.allocator, self.bytes, predicate.column, predicate.predicate, self.device)
+        else
+            try DeviceDataFrame.fromParquetBytes(self.allocator, self.bytes, self.device);
+        errdefer frame.deinit();
+        if (self.projection) |names| {
+            const projected = try frame.select(names);
+            frame.deinit();
+            frame = projected;
+        }
+        return frame;
+    }
+
+    pub fn explain(self: DeviceParquetScan, allocator: std.mem.Allocator) (std.mem.Allocator.Error || std.Io.Writer.Error)![]u8 {
+        var aw: std.Io.Writer.Allocating = .init(allocator);
+        errdefer aw.deinit();
+        try aw.writer.print("DeviceParquetScan(bytes={d}, device={s}", .{ self.bytes.len, self.device.backendName() });
+        if (self.range_predicate) |predicate| try aw.writer.print(", range={s}", .{predicate.column});
+        if (self.projection) |names| {
+            try aw.writer.print(", projection=[", .{});
+            for (names, 0..) |name, i| {
+                if (i != 0) try aw.writer.print(",", .{});
+                try aw.writer.print("{s}", .{name});
+            }
+            try aw.writer.print("]", .{});
+        }
+        try aw.writer.print(")\n", .{});
+        return aw.toOwnedSlice();
+    }
+};
+
 fn deinitLazyOps(allocator: std.mem.Allocator, ops: *std.ArrayList(DeviceLazyOp)) void {
     for (ops.items) |*op| op.deinit(allocator);
     ops.deinit(allocator);
+}
+
+fn cloneNameList(allocator: std.mem.Allocator, names: []const []const u8) std.mem.Allocator.Error![][]const u8 {
+    const owned = try allocator.alloc([]const u8, names.len);
+    errdefer allocator.free(owned);
+    var initialized: usize = 0;
+    errdefer {
+        for (owned[0..initialized]) |name| allocator.free(name);
+    }
+    for (names, owned) |name, *slot| {
+        slot.* = try allocator.dupe(u8, name);
+        initialized += 1;
+    }
+    return owned;
+}
+
+fn freeNameList(allocator: std.mem.Allocator, names: [][]const u8) void {
+    for (names) |name| allocator.free(name);
+    allocator.free(names);
 }
 
 fn allNamesIn(names: []const []const u8, allowed: []const []const u8) bool {
@@ -5204,4 +5295,43 @@ test "device dataframe reads boltha parquet with range pruning" {
     defer empty.deinit();
     try std.testing.expectEqual(@as(usize, 0), empty.height());
     try std.testing.expectEqual(@as(usize, 2), empty.width());
+}
+
+test "device parquet scan pushes range predicate and projection into collect" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer id.deinit();
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "sales", .data = sales },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+
+    var scan = try DeviceParquetScan.init(gpa, bytes, .cpu);
+    defer scan.deinit();
+    try scan.whereRange("id", .{ .i32 = .{ .min = 2, .max = 3 } });
+    try scan.select(&.{ "id", "sales" });
+
+    const explain = try scan.explain(gpa);
+    defer gpa.free(explain);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "range=id") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "projection=[id,sales]") != null);
+
+    var result = try scan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 3), result.height());
+    try std.testing.expectEqual(@as(usize, 2), result.width());
+    try std.testing.expectEqual(DeviceDType.i32, try result.columnDType("id"));
+    try std.testing.expectEqual(DeviceDType.f64, try result.columnDType("sales"));
+    try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
 }

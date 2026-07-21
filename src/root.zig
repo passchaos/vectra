@@ -65,6 +65,7 @@ pub const DataError = dataframe_mod.DataError;
 pub const DeviceDataFrame = dataframe_mod.DeviceDataFrame;
 pub const DeviceLazyFrame = dataframe_mod.DeviceLazyFrame;
 pub const DeviceLazyOp = dataframe_mod.DeviceLazyOp;
+pub const DeviceParquetScan = dataframe_mod.DeviceParquetScan;
 pub const DeviceDataFrameView = dataframe_mod.DeviceDataFrameView;
 pub const DeviceColumn = dataframe_mod.DeviceColumn;
 pub const DeviceColumnView = dataframe_mod.DeviceColumnView;
