@@ -1638,35 +1638,15 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     };
     if (T == f32) {
         const options: veyra.GemmOptions(f32) = .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) };
-        var threaded_ran = false;
-        var mt_workspace = veyra.GemmF32MtWorkspace.init(std.heap.smp_allocator, veyra.recommendedGemmF32ThreadCount()) catch null;
-        if (mt_workspace) |*workspace| {
-            defer workspace.deinit();
-            // Large Vectra CPU matmul calls arrive here after Axiom has already
-            // selected the CPU/Veyra route.  Use Veyra's explicit threaded API
-            // first so the benchmark shape can use multiple cores; keep the
-            // single-thread workspace path as a safe fallback for constrained
-            // environments where thread/workspace allocation fails.  A thread
-            // spawn failure can happen after earlier workers have written their
-            // row chunks, so fallback must restore the destination's beta input
-            // before invoking the single-thread GEMM below.
-            threaded_ran = blk: {
-                veyra.gemmThreadedWithWorkspace(f32, lhs_view, rhs_view, out_view, options, workspace) catch break :blk false;
-                break :blk true;
-            };
-        }
-        if (!threaded_ran) {
-            restoreCpuGemmDestination(T, out.data, addend, beta);
-            var workspace = veyra.GemmF32Workspace.init(std.heap.smp_allocator, 1) catch {
-                out.deinit();
-                return null;
-            };
-            defer workspace.deinit();
-            veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, options, &workspace) catch {
-                out.deinit();
-                return null;
-            };
-        }
+        var workspace = veyra.GemmF32Workspace.init(std.heap.smp_allocator, 1) catch {
+            out.deinit();
+            return null;
+        };
+        defer workspace.deinit();
+        veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, options, &workspace) catch {
+            out.deinit();
+            return null;
+        };
     } else {
         const options: veyra.GemmOptions(f64) = .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) };
         var threaded_ran = false;
