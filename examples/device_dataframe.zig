@@ -81,6 +81,8 @@ pub fn main(init: std.process.Init) !void {
     defer anti_joined.deinit();
     var anti_joined_on = try df.antiJoinOn(lookup, &.{"units"}, &.{"units"});
     defer anti_joined_on.deinit();
+    var asof_joined = try df.asofJoin(lookup, "units", "units", .{ .strategy = .nearest });
+    defer asof_joined.deinit();
     const parquet_bytes = try df.toParquetBytes(allocator);
     defer allocator.free(parquet_bytes);
     var parquet_roundtrip = try vx.DeviceDataFrame.fromParquetBytes(allocator, parquet_bytes, vx.cpu);
@@ -128,6 +130,7 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 2), semi_joined_on.height());
     try std.testing.expectEqual(@as(usize, 1), anti_joined.height());
     try std.testing.expectEqual(@as(usize, 1), anti_joined_on.height());
+    try std.testing.expectEqual(df.height(), asof_joined.height());
     try std.testing.expectEqual(df.height(), parquet_roundtrip.height());
     try std.testing.expectEqual(df.width(), parquet_roundtrip.width());
     try std.testing.expectEqual(df.height(), parquet_pruned.height());
@@ -167,6 +170,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "semi_joined_on_rows": {d},
         \\  "anti_joined_rows": {d},
         \\  "anti_joined_on_rows": {d},
+        \\  "asof_joined_rows": {d},
         \\  "parquet_bytes": {d},
         \\  "parquet_rows": {d},
         \\  "parquet_pruned_rows": {d},
@@ -202,6 +206,7 @@ pub fn main(init: std.process.Init) !void {
         semi_joined_on.height(),
         anti_joined.height(),
         anti_joined_on.height(),
+        asof_joined.height(),
         parquet_bytes.len,
         parquet_roundtrip.height(),
         parquet_pruned.height(),

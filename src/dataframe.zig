@@ -84,6 +84,17 @@ pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };
 
+pub const AsofStrategy = enum {
+    previous,
+    next,
+    nearest,
+};
+
+pub const DeviceAsofOptions = struct {
+    strategy: AsofStrategy = .previous,
+    right_suffix: []const u8 = "_right",
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -1386,6 +1397,26 @@ pub const DeviceDataFrame = struct {
         return self.take(indices);
     }
 
+    pub fn asofJoin(
+        self: DeviceDataFrame,
+        right: DeviceDataFrame,
+        left_key_name: []const u8,
+        right_key_name: []const u8,
+        options_value: DeviceAsofOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
+        const left_key = try self.column(left_key_name);
+        const right_key = try right.column(right_key_name);
+        if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
+
+        const right_indices = try asofRightRowIndices(self.allocator, left_key.*, right_key.*, options_value.strategy);
+        defer self.allocator.free(right_indices);
+        var right_rows = try takeOptionalRows(right, right_indices);
+        defer right_rows.deinit();
+
+        return concatJoinedTables(self.allocator, self, right_rows, right_key_name, .{ .right_suffix = options_value.right_suffix });
+    }
+
     fn semiAntiJoinIndices(
         self: DeviceDataFrame,
         right: DeviceDataFrame,
@@ -2254,6 +2285,74 @@ fn columnsRowsEqualTyped(
     const right_values = try right.values.toOwnedSlice(allocator);
     defer allocator.free(right_values);
     return groupKeyEqual(T, left_values[left_i], right_values[right_i]);
+}
+
+fn asofRightRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn, strategy: AsofStrategy) DeviceDataError![]?usize {
+    return switch (left) {
+        .i8 => |typed| asofRightRowIndicesTyped(i8, allocator, typed, right.i8, strategy),
+        .i16 => |typed| asofRightRowIndicesTyped(i16, allocator, typed, right.i16, strategy),
+        .i32 => |typed| asofRightRowIndicesTyped(i32, allocator, typed, right.i32, strategy),
+        .i64 => |typed| asofRightRowIndicesTyped(i64, allocator, typed, right.i64, strategy),
+        .u8 => |typed| asofRightRowIndicesTyped(u8, allocator, typed, right.u8, strategy),
+        .u16 => |typed| asofRightRowIndicesTyped(u16, allocator, typed, right.u16, strategy),
+        .u32 => |typed| asofRightRowIndicesTyped(u32, allocator, typed, right.u32, strategy),
+        .u64 => |typed| asofRightRowIndicesTyped(u64, allocator, typed, right.u64, strategy),
+        .usize => |typed| asofRightRowIndicesTyped(usize, allocator, typed, right.usize, strategy),
+        .isize => |typed| asofRightRowIndicesTyped(isize, allocator, typed, right.isize, strategy),
+        .f16 => |typed| asofRightRowIndicesTyped(f16, allocator, typed, right.f16, strategy),
+        .f32 => |typed| asofRightRowIndicesTyped(f32, allocator, typed, right.f32, strategy),
+        .f64 => |typed| asofRightRowIndicesTyped(f64, allocator, typed, right.f64, strategy),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn asofRightRowIndicesTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    left: DeviceTypedColumn(T),
+    right: DeviceTypedColumn(T),
+    strategy: AsofStrategy,
+) DeviceDataError![]?usize {
+    if (!left.device().sameDevice(right.device())) return error.InvalidDevice;
+    const left_values = try left.values.toOwnedSlice(allocator);
+    defer allocator.free(left_values);
+    const right_values = try right.values.toOwnedSlice(allocator);
+    defer allocator.free(right_values);
+    const maybe_left_validity = try validityValues(left, allocator);
+    defer if (maybe_left_validity) |validity| allocator.free(validity);
+    const maybe_right_validity = try validityValues(right, allocator);
+    defer if (maybe_right_validity) |validity| allocator.free(validity);
+
+    const indices = try allocator.alloc(?usize, left_values.len);
+    for (left_values, indices, 0..) |left_value, *slot, left_i| {
+        slot.* = null;
+        if (maybe_left_validity) |validity| {
+            if (!validity[left_i]) continue;
+        }
+        var best: ?usize = null;
+        for (right_values, 0..) |right_value, right_i| {
+            if (maybe_right_validity) |validity| {
+                if (!validity[right_i]) continue;
+            }
+            switch (strategy) {
+                .previous => {
+                    if (compareSortValues(T, right_value, left_value) <= 0 and (best == null or compareSortValues(T, right_value, right_values[best.?]) > 0)) best = right_i;
+                },
+                .next => {
+                    if (compareSortValues(T, right_value, left_value) >= 0 and (best == null or compareSortValues(T, right_value, right_values[best.?]) < 0)) best = right_i;
+                },
+                .nearest => {
+                    if (best == null or asofDistance(T, left_value, right_value) < asofDistance(T, left_value, right_values[best.?])) best = right_i;
+                },
+            }
+        }
+        slot.* = best;
+    }
+    return indices;
+}
+
+fn asofDistance(comptime T: type, lhs: T, rhs: T) f64 {
+    return @abs(castToF64(T, lhs) - castToF64(T, rhs));
 }
 
 fn leftJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
@@ -4495,6 +4594,58 @@ test "device dataframe full joins with nullable payloads from both sides" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false, false }, left_validity);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 200.0, 0.0, 0.0, 400.0, 900.0 }, right_values);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, true, true }, right_validity);
+}
+
+test "device dataframe asof joins with previous next and nearest strategies" {
+    const gpa = std.testing.allocator;
+
+    var left_time = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 1, 5, 8, 12, 20 }, &.{ true, true, true, true, false }, .cpu);
+    defer left_time.deinit();
+    var left_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 10.0, 50.0, 80.0, 120.0, 200.0 }, .cpu);
+    defer left_value.deinit();
+
+    var right_time = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 2, 6, 10, 30 }, &.{ true, true, true, false }, .cpu);
+    defer right_time.deinit();
+    var quote = try DeviceColumn.fromSlice(i64, gpa, &.{ 20, 60, 100, 300 }, .cpu);
+    defer quote.deinit();
+
+    var left = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "time", .data = left_time },
+        .{ .name = "value", .data = left_value },
+    });
+    defer left.deinit();
+    var right = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "time", .data = right_time },
+        .{ .name = "quote", .data = quote },
+    });
+    defer right.deinit();
+
+    var previous = try left.asofJoin(right, "time", "time", .{ .strategy = .previous });
+    defer previous.deinit();
+    const previous_quote = try (try previous.column("quote")).i64.toOwnedSlice(gpa);
+    defer gpa.free(previous_quote);
+    const previous_validity = try (try previous.column("quote")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(previous_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 20, 60, 100, 0 }, previous_quote);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, false }, previous_validity);
+
+    var next = try left.asofJoin(right, "time", "time", .{ .strategy = .next });
+    defer next.deinit();
+    const next_quote = try (try next.column("quote")).i64.toOwnedSlice(gpa);
+    defer gpa.free(next_quote);
+    const next_validity = try (try next.column("quote")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(next_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 20, 60, 100, 0, 0 }, next_quote);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false, false }, next_validity);
+
+    var nearest = try left.asofJoin(right, "time", "time", .{ .strategy = .nearest });
+    defer nearest.deinit();
+    const nearest_quote = try (try nearest.column("quote")).i64.toOwnedSlice(gpa);
+    defer gpa.free(nearest_quote);
+    const nearest_validity = try (try nearest.column("quote")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(nearest_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 20, 60, 60, 100, 0 }, nearest_quote);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, nearest_validity);
 }
 
 test "device dataframe round-trips through boltha parquet" {
