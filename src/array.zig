@@ -8802,9 +8802,16 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(usize) {
             if (axes.len == 0) return self.countNonzeroValues();
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.countNonzeroAxes(axes, keepdims);
+            const normalized_axes = try normalizeAxesDescending(self.allocator, axes, self.shape.len);
+            defer self.allocator.free(normalized_axes);
+            var current = try self.countNonzeroAxis(@intCast(normalized_axes[0]), keepdims);
+            errdefer current.deinit();
+            for (normalized_axes[1..]) |axis| {
+                const next = try current.sum(@intCast(axis), keepdims);
+                current.deinit();
+                current = next;
+            }
+            return current;
         }
 
         fn countNonzeroValues(self: Self) ArrayError!Array(usize) {
