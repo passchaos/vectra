@@ -7911,16 +7911,127 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn repeatInterleave(self: Self, repeats: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.repeatInterleave(repeats, axis_opt);
+            if (axis_opt == null) return self.repeatInterleaveFlat(repeats);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            const total = try repeatInterleaveTotal(self.shape[axis], repeats);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = total;
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |extent, i| slice_shape[i] = extent;
+            for (self.shape[axis + 1 ..], axis..) |extent, i| slice_shape[i] = extent;
+            const slice_count = try numelFrom(slice_shape);
+            const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+
+            for (0..slice_count) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| {
+                    in_multi[i] = coord;
+                    out_multi[i] = coord;
+                }
+                for (slice_multi[axis..], axis + 1..) |coord, i| {
+                    in_multi[i] = coord;
+                    out_multi[i] = coord;
+                }
+
+                var out_axis: usize = 0;
+                for (0..self.shape[axis]) |source_axis| {
+                    in_multi[axis] = source_axis;
+                    const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    const value = self.data[source_offset];
+                    const repeat_count = repeatInterleaveCount(repeats, source_axis);
+                    for (0..repeat_count) |_| {
+                        out_multi[axis] = out_axis;
+                        out.data[ravelIndex(out_multi, out.strides)] = value;
+                        out_axis += 1;
+                    }
+                }
+            }
+            return out;
         }
 
         pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Array(T) {
             if (axis_opt == null) return self.repeatInterleaveScalarFlat(repeat_count);
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.repeatInterleaveScalar(repeat_count, axis_opt);
+            var repeats = try Array(usize).fromScalar(self.allocator, repeat_count);
+            defer repeats.deinit();
+            return self.repeatInterleave(repeats, axis_opt);
+        }
+
+        fn repeatInterleaveTotal(source_len: usize, repeats: Array(usize)) ArrayError!usize {
+            if (repeats.data.len != 1 and repeats.data.len != source_len) return error.ShapeMismatch;
+            if (repeats.data.len == 1) {
+                return std.math.mul(usize, source_len, repeats.data[0]) catch return error.InvalidShape;
+            }
+            var total: usize = 0;
+            for (repeats.data) |repeat_count| {
+                total = std.math.add(usize, total, repeat_count) catch return error.InvalidShape;
+            }
+            return total;
+        }
+
+        fn repeatInterleaveCount(repeats: Array(usize), source_index: usize) usize {
+            return if (repeats.data.len == 1) repeats.data[0] else repeats.data[source_index];
+        }
+
+        fn repeatInterleaveFlat(self: Self, repeats: Array(usize)) ArrayError!Array(T) {
+            const total = try repeatInterleaveTotal(self.numel(), repeats);
+            var out = try Array(T).empty(self.allocator, &.{total});
+            errdefer out.deinit();
+            if (total == 0) return out;
+            var write: usize = 0;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], 0..) |value, source_index| {
+                    const repeat_count = repeatInterleaveCount(repeats, source_index);
+                    for (0..repeat_count) |_| {
+                        out.data[write] = value;
+                        write += 1;
+                    }
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (0..self.numel()) |source_index| {
+                    const value = self.data[source_offset];
+                    const repeat_count = repeatInterleaveCount(repeats, source_index);
+                    for (0..repeat_count) |_| {
+                        out.data[write] = value;
+                        write += 1;
+                    }
+                    source_offset += self.strides[0];
+                }
+                return out;
+            }
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |source_index| {
+                unravelIndexInto(source_index, self.shape, multi);
+                const source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                const value = self.data[source_offset];
+                const repeat_count = repeatInterleaveCount(repeats, source_index);
+                for (0..repeat_count) |_| {
+                    out.data[write] = value;
+                    write += 1;
+                }
+            }
+            return out;
         }
 
         fn repeatInterleaveScalarFlat(self: Self, repeat_count: usize) ArrayError!Array(T) {
