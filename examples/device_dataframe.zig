@@ -52,6 +52,8 @@ pub fn main(init: std.process.Init) !void {
     defer meaned.deinit();
     var stats = try df.groupByStats("units", "sales", "sales");
     defer stats.deinit();
+    var stats_on = try df.groupByStatsOn(&.{"units"}, "sales", "sales");
+    defer stats_on.deinit();
     var lookup_units = try vx.DeviceColumn.fromSliceWithValidity(i64, allocator, &.{ 1, 3, 99 }, &.{ true, true, false }, vx.cpu);
     defer lookup_units.deinit();
     var region = try vx.DeviceColumn.fromSlice(i64, allocator, &.{ 10, 30, 990 }, vx.cpu);
@@ -120,6 +122,7 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 2), maxed.height());
     try std.testing.expectEqual(@as(usize, 2), meaned.height());
     try std.testing.expectEqual(@as(usize, 6), stats.width());
+    try std.testing.expectEqual(@as(usize, 6), stats_on.width());
     try std.testing.expectEqual(@as(usize, 2), joined.height());
     try std.testing.expectEqual(@as(usize, 2), joined_on.height());
     try std.testing.expectEqual(df.height(), left_joined.height());
@@ -160,6 +163,28 @@ pub fn main(init: std.process.Init) !void {
         \\  "maxed_rows": {d},
         \\  "meaned_rows": {d},
         \\  "stats_width": {d},
+        \\  "stats_on_width": {d},
+        \\
+    , .{
+        df.device.backendName(),
+        df.height(),
+        df.width(),
+        view.columns[0].dtype.name(),
+        view.columns[1].null_count,
+        arrow_batch.row_count,
+        arrow_batch.columnCount(),
+        expression_filtered.height(),
+        doubled_values[2],
+        sorted_values[0],
+        grouped.height(),
+        summed.height(),
+        minned.height(),
+        maxed.height(),
+        meaned.height(),
+        stats.width(),
+        stats_on.width(),
+    });
+    try stdout.interface.print(
         \\  "joined_rows": {d},
         \\  "joined_on_rows": {d},
         \\  "left_joined_rows": {d},
@@ -180,22 +205,6 @@ pub fn main(init: std.process.Init) !void {
         \\}}
         \\
     , .{
-        df.device.backendName(),
-        df.height(),
-        df.width(),
-        view.columns[0].dtype.name(),
-        view.columns[1].null_count,
-        arrow_batch.row_count,
-        arrow_batch.columnCount(),
-        expression_filtered.height(),
-        doubled_values[2],
-        sorted_values[0],
-        grouped.height(),
-        summed.height(),
-        minned.height(),
-        maxed.height(),
-        meaned.height(),
-        stats.width(),
         joined.height(),
         joined_on.height(),
         left_joined.height(),
