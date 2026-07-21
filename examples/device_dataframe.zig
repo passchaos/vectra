@@ -89,6 +89,13 @@ pub fn main(init: std.process.Init) !void {
     defer joined.deinit();
     var joined_on = try df.innerJoinOn(lookup, &.{"units"}, &.{"units"}, .{});
     defer joined_on.deinit();
+    var lazy_join = try vx.DeviceLazyFrame.init(allocator, df);
+    defer lazy_join.deinit();
+    try lazy_join.innerJoinOn(lookup, &.{"units"}, &.{"units"}, .{});
+    const lazy_join_explain = try lazy_join.explain(allocator);
+    defer allocator.free(lazy_join_explain);
+    var lazy_joined = try lazy_join.collect();
+    defer lazy_joined.deinit();
     var left_joined = try df.leftJoin(lookup, "units", "units", .{});
     defer left_joined.deinit();
     var left_joined_on = try df.leftJoinOn(lookup, &.{"units"}, &.{"units"}, .{});
@@ -174,6 +181,8 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 6), stats_on.width());
     try std.testing.expectEqual(@as(usize, 2), joined.height());
     try std.testing.expectEqual(@as(usize, 2), joined_on.height());
+    try std.testing.expectEqual(@as(usize, 2), lazy_joined.height());
+    try std.testing.expect(std.mem.indexOf(u8, lazy_join_explain, "inner_join_on(left=[units]") != null);
     try std.testing.expectEqual(df.height(), left_joined.height());
     try std.testing.expectEqual(df.height(), left_joined_on.height());
     try std.testing.expectEqual(@as(usize, 4), full_joined.height());
@@ -250,6 +259,7 @@ pub fn main(init: std.process.Init) !void {
     try stdout.interface.print(
         \\  "joined_rows": {d},
         \\  "joined_on_rows": {d},
+        \\  "lazy_joined_rows": {d},
         \\  "left_joined_rows": {d},
         \\  "left_joined_on_rows": {d},
         \\  "full_joined_rows": {d},
@@ -272,6 +282,7 @@ pub fn main(init: std.process.Init) !void {
     , .{
         joined.height(),
         joined_on.height(),
+        lazy_joined.height(),
         left_joined.height(),
         left_joined_on.height(),
         full_joined.height(),

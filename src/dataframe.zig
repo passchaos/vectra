@@ -809,6 +809,14 @@ pub const DeviceLazyGroupByAggregation = enum {
     mean,
 };
 
+pub const DeviceLazyJoinKind = enum {
+    inner,
+    left,
+    full,
+    semi,
+    anti,
+};
+
 pub const DeviceLazyOp = union(enum) {
     select: [][]const u8,
     with_column_binary: struct {
@@ -860,6 +868,13 @@ pub const DeviceLazyOp = union(enum) {
         key_names: [][]const u8,
         value_name: []const u8,
         output_prefix: []const u8,
+    },
+    join_on: struct {
+        kind: DeviceLazyJoinKind,
+        right: DeviceDataFrame,
+        left_key_names: [][]const u8,
+        right_key_names: [][]const u8,
+        options: DeviceJoinOptions,
     },
     sort_by: struct {
         name: []const u8,
@@ -917,6 +932,12 @@ pub const DeviceLazyOp = union(enum) {
                 freeNameList(allocator, group.key_names);
                 allocator.free(group.value_name);
                 allocator.free(group.output_prefix);
+            },
+            .join_on => |*join| {
+                join.right.deinit();
+                freeNameList(allocator, join.left_key_names);
+                freeNameList(allocator, join.right_key_names);
+                allocator.free(join.options.right_suffix);
             },
             .sort_by => |sort| allocator.free(sort.name),
             .top_k => |top| allocator.free(top.name),
@@ -1046,6 +1067,23 @@ pub const DeviceLazyOp = union(enum) {
                     .key_names = key_names,
                     .value_name = value_name,
                     .output_prefix = output_prefix,
+                } };
+            },
+            .join_on => |join| blk: {
+                var right = try join.right.clone();
+                errdefer right.deinit();
+                const left_key_names = try cloneNameList(allocator, join.left_key_names);
+                errdefer freeNameList(allocator, left_key_names);
+                const right_key_names = try cloneNameList(allocator, join.right_key_names);
+                errdefer freeNameList(allocator, right_key_names);
+                const right_suffix = try allocator.dupe(u8, join.options.right_suffix);
+                errdefer allocator.free(right_suffix);
+                break :blk .{ .join_on = .{
+                    .kind = join.kind,
+                    .right = right,
+                    .left_key_names = left_key_names,
+                    .right_key_names = right_key_names,
+                    .options = .{ .right_suffix = right_suffix },
                 } };
             },
             .sort_by => |sort| .{ .sort_by = .{
@@ -1292,6 +1330,52 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn joinOn(
+        self: *DeviceLazyFrame,
+        right: DeviceDataFrame,
+        left_key_names: []const []const u8,
+        right_key_names: []const []const u8,
+        kind: DeviceLazyJoinKind,
+        options_value: DeviceJoinOptions,
+    ) DeviceDataError!void {
+        if (left_key_names.len == 0 or left_key_names.len != right_key_names.len) return error.LengthMismatch;
+        var owned_right = try right.clone();
+        errdefer owned_right.deinit();
+        const owned_left_keys = try cloneNameList(self.allocator, left_key_names);
+        errdefer freeNameList(self.allocator, owned_left_keys);
+        const owned_right_keys = try cloneNameList(self.allocator, right_key_names);
+        errdefer freeNameList(self.allocator, owned_right_keys);
+        const owned_suffix = try self.allocator.dupe(u8, options_value.right_suffix);
+        errdefer self.allocator.free(owned_suffix);
+        try self.ops.append(self.allocator, .{ .join_on = .{
+            .kind = kind,
+            .right = owned_right,
+            .left_key_names = owned_left_keys,
+            .right_key_names = owned_right_keys,
+            .options = .{ .right_suffix = owned_suffix },
+        } });
+    }
+
+    pub fn innerJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8, options_value: DeviceJoinOptions) DeviceDataError!void {
+        return self.joinOn(right, left_key_names, right_key_names, .inner, options_value);
+    }
+
+    pub fn leftJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8, options_value: DeviceJoinOptions) DeviceDataError!void {
+        return self.joinOn(right, left_key_names, right_key_names, .left, options_value);
+    }
+
+    pub fn fullJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8, options_value: DeviceJoinOptions) DeviceDataError!void {
+        return self.joinOn(right, left_key_names, right_key_names, .full, options_value);
+    }
+
+    pub fn semiJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8) DeviceDataError!void {
+        return self.joinOn(right, left_key_names, right_key_names, .semi, .{});
+    }
+
+    pub fn antiJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8) DeviceDataError!void {
+        return self.joinOn(right, left_key_names, right_key_names, .anti, .{});
+    }
+
     pub fn filterColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .filter_scalar = .{
             .name = try self.allocator.dupe(u8, name),
@@ -1358,6 +1442,13 @@ pub const DeviceLazyFrame = struct {
                 },
                 .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
                 .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),
+                .join_on => |join| switch (join.kind) {
+                    .inner => try current.innerJoinOn(join.right, join.left_key_names, join.right_key_names, join.options),
+                    .left => try current.leftJoinOn(join.right, join.left_key_names, join.right_key_names, join.options),
+                    .full => try current.fullJoinOn(join.right, join.left_key_names, join.right_key_names, join.options),
+                    .semi => try current.semiJoinOn(join.right, join.left_key_names, join.right_key_names),
+                    .anti => try current.antiJoinOn(join.right, join.left_key_names, join.right_key_names),
+                },
                 .sort_by => |sort| try current.sortBy(sort.name, sort.options),
                 .top_k => |top| try current.topKBy(top.name, top.k, top.options),
                 .head => |n| try current.head(n),
@@ -1664,6 +1755,13 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 saw_select = true;
                 break :op_loop;
             },
+            .join_on => |join| {
+                for (join.left_key_names) |key_name| {
+                    if (!nameInBorrowedList(key_name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, key_name);
+                    }
+                }
+            },
             .filter_scalar => |filter_op| {
                 const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
                 if (filter_depends_on_source) try appendOwnedNameUnique(allocator, &required_names, filter_op.name);
@@ -1826,6 +1924,19 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
                 try writer.print("{s}", .{name});
             }
             try writer.print("], value={s}, prefix={s})", .{ group.value_name, group.output_prefix });
+        },
+        .join_on => |join| {
+            try writer.print("{s}_join_on(left=[", .{@tagName(join.kind)});
+            for (join.left_key_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], right=[", .{});
+            for (join.right_key_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("])", .{});
         },
         .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
@@ -6227,6 +6338,68 @@ test "device lazy frame collects groupby aggregations" {
     try std.testing.expectEqualSlices(i32, &.{ 10, 10, 11 }, stats_day);
     try std.testing.expectEqualSlices(i64, &.{ 2, 1, 2 }, stats_count);
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 5.0, 18.0 }, stats_sum);
+}
+
+test "device lazy frame collects multi-key joins" {
+    const gpa = std.testing.allocator;
+
+    var left_store = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 3 }, .cpu);
+    defer left_store.deinit();
+    var left_day = try DeviceColumn.fromSlice(i32, gpa, &.{ 10, 11, 10, 10 }, .cpu);
+    defer left_day.deinit();
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0, 7.0 }, .cpu);
+    defer sales.deinit();
+    var right_store = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 9 }, .cpu);
+    defer right_store.deinit();
+    var right_day = try DeviceColumn.fromSlice(i32, gpa, &.{ 11, 10, 10 }, .cpu);
+    defer right_day.deinit();
+    var region = try DeviceColumn.fromSlice(i64, gpa, &.{ 100, 200, 900 }, .cpu);
+    defer region.deinit();
+
+    var left = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "store", .data = left_store },
+        .{ .name = "day", .data = left_day },
+        .{ .name = "sales", .data = sales },
+    });
+    defer left.deinit();
+    var right = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "store", .data = right_store },
+        .{ .name = "day", .data = right_day },
+        .{ .name = "region", .data = region },
+    });
+    defer right.deinit();
+
+    var joined_plan = try DeviceLazyFrame.init(gpa, left);
+    defer joined_plan.deinit();
+    try joined_plan.filterColumnScalar("sales", f64, 2.5, .gt);
+    try joined_plan.innerJoinOn(right, &.{ "store", "day" }, &.{ "store", "day" }, .{});
+    try joined_plan.select(&.{ "store", "day", "sales", "region" });
+    const joined_explain = try joined_plan.explain(gpa);
+    defer gpa.free(joined_explain);
+    try std.testing.expect(std.mem.indexOf(u8, joined_explain, "inner_join_on(left=[store,day]") != null);
+    var joined = try joined_plan.collect();
+    defer joined.deinit();
+    try std.testing.expectEqual(@as(usize, 2), joined.height());
+    try std.testing.expectEqual(@as(usize, 4), joined.width());
+    const joined_store = try (try joined.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(joined_store);
+    const joined_sales = try (try joined.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(joined_sales);
+    const joined_region = try (try joined.column("region")).i64.toOwnedSlice(gpa);
+    defer gpa.free(joined_region);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, joined_store);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, joined_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 100, 200 }, joined_region);
+
+    var anti_plan = try DeviceLazyFrame.init(gpa, left);
+    defer anti_plan.deinit();
+    try anti_plan.antiJoinOn(right, &.{ "store", "day" }, &.{ "store", "day" });
+    var anti = try anti_plan.collect();
+    defer anti.deinit();
+    try std.testing.expectEqual(@as(usize, 2), anti.height());
+    const anti_store = try (try anti.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(anti_store);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 3 }, anti_store);
 }
 test "device dataframe round-trips through boltha parquet" {
     const gpa = std.testing.allocator;
