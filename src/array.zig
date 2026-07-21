@@ -7760,9 +7760,42 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn compress(self: Self, condition: Array(bool), axis_opt: ?isize) ArrayError!Array(T) {
             if (axis_opt == null) return self.compressFlat(condition);
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.compress(condition, axis_opt);
+            if (condition.shape.len != 1) return error.ShapeMismatch;
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (condition.data.len != self.shape[axis]) return error.ShapeMismatch;
+
+            var selected_count: usize = 0;
+            for (condition.data) |keep| selected_count += @intFromBool(keep);
+            const selected = try self.allocator.alloc(usize, selected_count);
+            defer self.allocator.free(selected);
+            var selected_write: usize = 0;
+            for (condition.data, 0..) |keep, i| {
+                if (keep) {
+                    selected[selected_write] = i;
+                    selected_write += 1;
+                }
+            }
+
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = selected_count;
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = selected[out_multi[axis]];
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         fn compressFlat(self: Self, condition: Array(bool)) ArrayError!Array(T) {
