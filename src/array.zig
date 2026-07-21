@@ -9098,15 +9098,35 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn triu(self: Self, diagonal_offset: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.triu(diagonal_offset);
+            return self.triangular(diagonal_offset, true);
         }
 
         pub fn tril(self: Self, diagonal_offset: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.tril(diagonal_offset);
+            return self.triangular(diagonal_offset, false);
+        }
+
+        fn triangular(self: Self, diagonal_offset: isize, upper: bool) ArrayError!Array(T) {
+            ensureNumeric(T);
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            for (0..rows) |r| {
+                for (0..cols) |c| {
+                    const diag_distance = @as(isize, @intCast(c)) - @as(isize, @intCast(r));
+                    const keep = if (upper) diag_distance >= diagonal_offset else diag_distance <= diagonal_offset;
+                    const out_index = r * cols + c;
+                    if (keep) {
+                        const source_offset = self.offset + r * self.strides[0] + c * self.strides[1];
+                        if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                        out.data[out_index] = self.data[source_offset];
+                    } else {
+                        out.data[out_index] = zero(T);
+                    }
+                }
+            }
+            return out;
         }
 
         pub fn real(self: Self) ArrayError!Array(complexRealType(T)) {
