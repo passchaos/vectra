@@ -7970,9 +7970,36 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn tile(self: Self, repeats: []const usize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.tile(repeats);
+            const out_rank = @max(self.shape.len, repeats.len);
+            const out_shape = try self.allocator.alloc(usize, out_rank);
+            defer self.allocator.free(out_shape);
+            const shape_leading = out_rank - self.shape.len;
+            const repeats_leading = out_rank - repeats.len;
+            for (out_shape, 0..) |*slot, axis| {
+                const extent = if (axis < shape_leading) 1 else self.shape[axis - shape_leading];
+                const repeat_count = if (axis < repeats_leading) 1 else repeats[axis - repeats_leading];
+                slot.* = std.math.mul(usize, extent, repeat_count) catch return error.InvalidShape;
+            }
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                for (in_multi, 0..) |*coord_slot, axis| {
+                    const out_axis = shape_leading + axis;
+                    const extent = self.shape[axis];
+                    coord_slot.* = if (extent == 0) 0 else out_multi[out_axis] % extent;
+                }
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn flip(self: Self, axis_index: isize) ArrayError!Array(T) {
