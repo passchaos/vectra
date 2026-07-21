@@ -118,6 +118,15 @@ pub fn main(init: std.process.Init) !void {
     var parquet_scanned = try parquet_scan.collect();
     defer parquet_scanned.deinit();
 
+    var lazy_scan = try vx.DeviceLazyFrame.scanParquetBytes(allocator, parquet_bytes, vx.cpu);
+    defer lazy_scan.deinit();
+    try lazy_scan.filterColumnScalar("sales", f64, 4.0, .ge);
+    try lazy_scan.select(&.{ "sales", "units" });
+    const lazy_scan_plan = try lazy_scan.explain(allocator);
+    defer allocator.free(lazy_scan_plan);
+    var lazy_scanned = try lazy_scan.collect();
+    defer lazy_scanned.deinit();
+
     var legacy = try filtered.toDataFrame();
     defer legacy.deinit();
 
@@ -163,6 +172,8 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(df.height(), parquet_pruned.height());
     try std.testing.expectEqual(@as(usize, 2), parquet_scanned.width());
     try std.testing.expect(parquet_scan_plan.len != 0);
+    try std.testing.expectEqual(@as(usize, 2), lazy_scanned.width());
+    try std.testing.expect(std.mem.indexOf(u8, lazy_scan_plan, "scan_pushdown: range=sales, projection=[sales,units]") != null);
     try std.testing.expectEqual(@as(usize, 2), filtered.height());
     try std.testing.expectEqual(@as(usize, 0), filtered_units.nullCount());
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, legacy.columns[0].f64);
@@ -234,6 +245,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "parquet_rows": {d},
         \\  "parquet_pruned_rows": {d},
         \\  "parquet_scan_width": {d},
+        \\  "lazy_scan_width": {d},
         \\  "filtered_rows": {d},
         \\  "filtered_units_nulls": {d},
         \\  "ok": true
@@ -255,6 +267,7 @@ pub fn main(init: std.process.Init) !void {
         parquet_roundtrip.height(),
         parquet_pruned.height(),
         parquet_scanned.width(),
+        lazy_scanned.width(),
         filtered.height(),
         filtered_units.nullCount(),
     });

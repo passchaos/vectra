@@ -140,6 +140,11 @@ pub const ParquetRangePredicate = union(DeviceDType) {
     isize: Range(isize),
 };
 
+pub const DeviceParquetRangeFilter = struct {
+    column: []const u8,
+    predicate: ParquetRangePredicate,
+};
+
 pub fn Range(comptime T: type) type {
     return struct {
         min: ?T = null,
@@ -854,24 +859,82 @@ pub const DeviceLazyOp = union(enum) {
     }
 };
 
+pub const DeviceLazySource = union(enum) {
+    dataframe: DeviceDataFrame,
+    parquet_scan: DeviceParquetScan,
+
+    fn deinit(self: *DeviceLazySource) void {
+        switch (self.*) {
+            .dataframe => |*frame| frame.deinit(),
+            .parquet_scan => |*scan| scan.deinit(),
+        }
+        self.* = undefined;
+    }
+
+    fn clone(self: DeviceLazySource) DeviceDataError!DeviceLazySource {
+        return switch (self) {
+            .dataframe => |frame| .{ .dataframe = try frame.clone() },
+            .parquet_scan => |scan| .{ .parquet_scan = try scan.clone() },
+        };
+    }
+
+    fn name(self: DeviceLazySource) []const u8 {
+        return switch (self) {
+            .dataframe => "dataframe",
+            .parquet_scan => "parquet_scan",
+        };
+    }
+};
+
 /// A compact eager-backed lazy plan for `DeviceDataFrame`.
 ///
 /// Polars' lazy API is valuable because it gives the planner a concrete list of
-/// projections, filters, and ordering operations before execution.  This first
-/// Vectra layer deliberately keeps the plan small and executes through the
-/// existing `DeviceDataFrame` methods in `collect()`.  That gives callers a
+/// projections, filters, and ordering operations before execution.  Vectra keeps
+/// the plan small and still executes through the existing `DeviceDataFrame`
+/// methods in `collect()`, but scan sources are represented explicitly so the
+/// planner can push conservative Parquet row-group pruning and column projection
+/// toward Boltha before materializing CPU/CUDA/MPS columns.  That gives callers a
 /// stable API today and gives Axiom a single future lowering boundary for
 /// fusing/reordering dataframe operations across CPU/CUDA/MPS.
 pub const DeviceLazyFrame = struct {
     allocator: std.mem.Allocator,
-    source: DeviceDataFrame,
+    source: DeviceLazySource,
     ops: std.ArrayList(DeviceLazyOp) = .empty,
 
     pub fn init(allocator: std.mem.Allocator, source: DeviceDataFrame) DeviceDataError!DeviceLazyFrame {
         return .{
             .allocator = allocator,
-            .source = try source.clone(),
+            .source = .{ .dataframe = try source.clone() },
         };
+    }
+
+    pub fn initParquetScan(allocator: std.mem.Allocator, scan: DeviceParquetScan) DeviceDataError!DeviceLazyFrame {
+        return .{
+            .allocator = allocator,
+            .source = .{ .parquet_scan = try scan.clone() },
+        };
+    }
+
+    pub fn scanParquetBytes(allocator: std.mem.Allocator, bytes: []const u8, device_value: array_mod.Device) DeviceDataError!DeviceLazyFrame {
+        return .{
+            .allocator = allocator,
+            .source = .{ .parquet_scan = try DeviceParquetScan.init(allocator, bytes, device_value) },
+        };
+    }
+
+    pub fn clone(self: DeviceLazyFrame) DeviceDataError!DeviceLazyFrame {
+        var cloned = DeviceLazyFrame{
+            .allocator = self.allocator,
+            .source = try self.source.clone(),
+        };
+        errdefer cloned.source.deinit();
+        errdefer deinitLazyOps(self.allocator, &cloned.ops);
+        for (self.ops.items) |op| {
+            var cloned_op = try op.clone(self.allocator);
+            errdefer cloned_op.deinit(self.allocator);
+            try cloned.ops.append(self.allocator, cloned_op);
+        }
+        return cloned;
     }
 
     pub fn deinit(self: *DeviceLazyFrame) void {
@@ -922,10 +985,10 @@ pub const DeviceLazyFrame = struct {
         try self.ops.append(self.allocator, .{ .tail = n });
     }
 
-    pub fn collect(self: DeviceLazyFrame) DeviceDataError!DeviceDataFrame {
+    pub fn collect(self: DeviceLazyFrame) ParquetInteropError!DeviceDataFrame {
         var optimized = try self.optimizedOps();
         defer deinitLazyOps(self.allocator, &optimized);
-        var current = try self.source.clone();
+        var current = try self.collectSource(optimized.items);
         errdefer current.deinit();
         for (optimized.items) |op| {
             const next = switch (op) {
@@ -952,7 +1015,14 @@ pub const DeviceLazyFrame = struct {
         defer deinitLazyOps(self.allocator, &optimized);
         var aw: std.Io.Writer.Allocating = .init(allocator);
         errdefer aw.deinit();
-        try aw.writer.print("DeviceLazyFrame(raw_ops={d}, optimized_ops={d})\n", .{ self.ops.items.len, optimized.items.len });
+        try aw.writer.print("DeviceLazyFrame(raw_ops={d}, optimized_ops={d}, source={s})\n", .{ self.ops.items.len, optimized.items.len, self.source.name() });
+        if (self.source == .parquet_scan) {
+            var pushdown = try planLazyScanPushdown(self.allocator, optimized.items);
+            defer pushdown.deinit();
+            try aw.writer.print("  scan_pushdown: ", .{});
+            try formatLazyScanPushdown(&aw.writer, pushdown);
+            try aw.writer.print("\n", .{});
+        }
         for (optimized.items, 0..) |op, i| {
             try aw.writer.print("  {d}: ", .{i});
             try formatLazyOp(&aw.writer, op);
@@ -1016,6 +1086,27 @@ pub const DeviceLazyFrame = struct {
         }
         return optimized;
     }
+
+    fn collectSource(self: DeviceLazyFrame, ops: []const DeviceLazyOp) ParquetInteropError!DeviceDataFrame {
+        return switch (self.source) {
+            .dataframe => |frame| try frame.clone(),
+            .parquet_scan => |scan| blk: {
+                var scan_plan = try scan.clone();
+                defer scan_plan.deinit();
+
+                var pushdown = try planLazyScanPushdown(self.allocator, ops);
+                defer pushdown.deinit();
+                if (pushdown.range_predicate) |predicate| {
+                    try scan_plan.whereRange(predicate.column, predicate.predicate);
+                }
+                if (pushdown.projection) |names| {
+                    try scan_plan.select(names);
+                }
+
+                break :blk try scan_plan.collect();
+            },
+        };
+    }
 };
 
 pub const DeviceParquetScan = struct {
@@ -1023,12 +1114,7 @@ pub const DeviceParquetScan = struct {
     bytes: []u8,
     device: array_mod.Device,
     projection: ?[][]const u8 = null,
-    range_predicate: ?RangePredicate = null,
-
-    const RangePredicate = struct {
-        column: []const u8,
-        predicate: ParquetRangePredicate,
-    };
+    range_predicate: ?DeviceParquetRangeFilter = null,
 
     pub fn init(allocator: std.mem.Allocator, bytes: []const u8, device_value: array_mod.Device) std.mem.Allocator.Error!DeviceParquetScan {
         return .{
@@ -1045,6 +1131,18 @@ pub const DeviceParquetScan = struct {
         self.* = undefined;
     }
 
+    pub fn clone(self: DeviceParquetScan) std.mem.Allocator.Error!DeviceParquetScan {
+        var cloned = try DeviceParquetScan.init(self.allocator, self.bytes, self.device);
+        errdefer cloned.deinit();
+        if (self.projection) |names| try cloned.select(names);
+        if (self.range_predicate) |predicate| try cloned.whereRange(predicate.column, predicate.predicate);
+        return cloned;
+    }
+
+    pub fn lazy(self: DeviceParquetScan) DeviceDataError!DeviceLazyFrame {
+        return DeviceLazyFrame.initParquetScan(self.allocator, self);
+    }
+
     pub fn select(self: *DeviceParquetScan, names: []const []const u8) std.mem.Allocator.Error!void {
         if (self.projection) |old| freeNameList(self.allocator, old);
         self.projection = try cloneNameList(self.allocator, names);
@@ -1059,17 +1157,16 @@ pub const DeviceParquetScan = struct {
     }
 
     pub fn collect(self: DeviceParquetScan) ParquetInteropError!DeviceDataFrame {
-        var frame = if (self.range_predicate) |predicate|
-            try DeviceDataFrame.fromParquetBytesPruned(self.allocator, self.bytes, predicate.column, predicate.predicate, self.device)
+        var table = if (self.range_predicate) |predicate|
+            try readBolthaTableWithRangePruning(self.allocator, self.bytes, predicate.column, predicate.predicate)
         else
-            try DeviceDataFrame.fromParquetBytes(self.allocator, self.bytes, self.device);
-        errdefer frame.deinit();
+            try boltha.parquet.readTable(self.allocator, self.bytes);
+        defer table.deinit(self.allocator);
+
         if (self.projection) |names| {
-            const projected = try frame.select(names);
-            frame.deinit();
-            frame = projected;
+            return DeviceDataFrame.fromArrowTableProjection(self.allocator, table, names, self.device);
         }
-        return frame;
+        return DeviceDataFrame.fromArrowTable(self.allocator, table, self.device);
     }
 
     pub fn explain(self: DeviceParquetScan, allocator: std.mem.Allocator) (std.mem.Allocator.Error || std.Io.Writer.Error)![]u8 {
@@ -1114,6 +1211,119 @@ fn freeNameList(allocator: std.mem.Allocator, names: [][]const u8) void {
     allocator.free(names);
 }
 
+const LazyScanPushdown = struct {
+    allocator: std.mem.Allocator,
+    projection: ?[][]const u8 = null,
+    range_predicate: ?DeviceParquetRangeFilter = null,
+
+    fn deinit(self: *LazyScanPushdown) void {
+        if (self.projection) |names| freeNameList(self.allocator, names);
+        if (self.range_predicate) |predicate| self.allocator.free(predicate.column);
+        self.* = undefined;
+    }
+};
+
+fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp) DeviceDataError!LazyScanPushdown {
+    var required_names: std.ArrayList([]const u8) = .empty;
+    errdefer required_names.deinit(allocator);
+    errdefer freeOwnedNameItems(allocator, required_names.items);
+
+    var saw_select = false;
+    var range_predicate: ?DeviceParquetRangeFilter = null;
+    errdefer if (range_predicate) |predicate| allocator.free(predicate.column);
+
+    for (ops) |op| {
+        switch (op) {
+            .select => |names| {
+                saw_select = true;
+                for (names) |name| try appendOwnedNameUnique(allocator, &required_names, name);
+            },
+            .filter_scalar => |filter_op| {
+                try appendOwnedNameUnique(allocator, &required_names, filter_op.name);
+                if (range_predicate == null) {
+                    if (parquetRangePredicateFromScalar(filter_op.scalar, filter_op.op)) |predicate| {
+                        range_predicate = .{
+                            .column = try allocator.dupe(u8, filter_op.name),
+                            .predicate = predicate,
+                        };
+                    }
+                }
+            },
+            .sort_by => |sort| try appendOwnedNameUnique(allocator, &required_names, sort.name),
+            .top_k => |top| try appendOwnedNameUnique(allocator, &required_names, top.name),
+            .filter_mask, .head, .tail => {},
+        }
+    }
+
+    const projection = if (saw_select) blk: {
+        const owned = try required_names.toOwnedSlice(allocator);
+        required_names = .empty;
+        break :blk owned;
+    } else null;
+    if (!saw_select) freeOwnedNameItems(allocator, required_names.items);
+    required_names.deinit(allocator);
+
+    const out = LazyScanPushdown{
+        .allocator = allocator,
+        .projection = projection,
+        .range_predicate = range_predicate,
+    };
+    range_predicate = null;
+    return out;
+}
+
+fn appendOwnedNameUnique(allocator: std.mem.Allocator, names: *std.ArrayList([]const u8), name: []const u8) std.mem.Allocator.Error!void {
+    for (names.items) |existing| {
+        if (std.mem.eql(u8, existing, name)) return;
+    }
+    const owned = try allocator.dupe(u8, name);
+    errdefer allocator.free(owned);
+    try names.append(allocator, owned);
+}
+
+fn freeOwnedNameItems(allocator: std.mem.Allocator, names: []const []const u8) void {
+    for (names) |name| allocator.free(name);
+}
+
+fn parquetRangePredicateFromScalar(scalar: DeviceScalar, op: DeviceColumnCompareOp) ?ParquetRangePredicate {
+    return switch (scalar) {
+        .bool => |value| blk: {
+            const exact = switch (op) {
+                .eq => value,
+                .ne => !value,
+                .gt, .ge, .lt, .le => break :blk null,
+            };
+            break :blk .{ .bool = .{ .min = exact, .max = exact } };
+        },
+        .i8 => |value| if (rangeFromScalarPredicate(i8, value, op)) |range| .{ .i8 = range } else null,
+        .i16 => |value| if (rangeFromScalarPredicate(i16, value, op)) |range| .{ .i16 = range } else null,
+        .i32 => |value| if (rangeFromScalarPredicate(i32, value, op)) |range| .{ .i32 = range } else null,
+        .i64 => |value| if (rangeFromScalarPredicate(i64, value, op)) |range| .{ .i64 = range } else null,
+        .u8 => |value| if (rangeFromScalarPredicate(u8, value, op)) |range| .{ .u8 = range } else null,
+        .u16 => |value| if (rangeFromScalarPredicate(u16, value, op)) |range| .{ .u16 = range } else null,
+        .u32 => |value| if (rangeFromScalarPredicate(u32, value, op)) |range| .{ .u32 = range } else null,
+        .u64 => |value| if (rangeFromScalarPredicate(u64, value, op)) |range| .{ .u64 = range } else null,
+        .usize => |value| if (rangeFromScalarPredicate(usize, value, op)) |range| .{ .usize = range } else null,
+        .isize => |value| if (rangeFromScalarPredicate(isize, value, op)) |range| .{ .isize = range } else null,
+        .f16 => |value| if (rangeFromScalarPredicate(f16, value, op)) |range| .{ .f16 = range } else null,
+        .f32 => |value| if (rangeFromScalarPredicate(f32, value, op)) |range| .{ .f32 = range } else null,
+        .f64 => |value| if (rangeFromScalarPredicate(f64, value, op)) |range| .{ .f64 = range } else null,
+        .bf16, .c64, .c128 => null,
+    };
+}
+
+fn rangeFromScalarPredicate(comptime T: type, value: T, op: DeviceColumnCompareOp) ?Range(T) {
+    if (comptime @typeInfo(T) == .float) {
+        if (std.math.isNan(value)) return null;
+    }
+    return switch (op) {
+        .eq => .{ .min = value, .max = value },
+        .gt, .ge => .{ .min = value },
+        .lt, .le => .{ .max = value },
+        .ne => null,
+    };
+}
+
 fn allNamesIn(names: []const []const u8, allowed: []const []const u8) bool {
     for (names) |name| {
         var found = false;
@@ -1126,6 +1336,25 @@ fn allNamesIn(names: []const []const u8, allowed: []const []const u8) bool {
         if (!found) return false;
     }
     return true;
+}
+
+fn formatLazyScanPushdown(writer: *std.Io.Writer, pushdown: LazyScanPushdown) std.Io.Writer.Error!void {
+    var printed = false;
+    if (pushdown.range_predicate) |predicate| {
+        try writer.print("range={s}", .{predicate.column});
+        printed = true;
+    }
+    if (pushdown.projection) |names| {
+        if (printed) try writer.print(", ", .{});
+        try writer.print("projection=[", .{});
+        for (names, 0..) |name, i| {
+            if (i != 0) try writer.print(",", .{});
+            try writer.print("{s}", .{name});
+        }
+        try writer.print("]", .{});
+        printed = true;
+    }
+    if (!printed) try writer.print("none", .{});
 }
 
 fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!void {
@@ -1338,10 +1567,23 @@ pub const DeviceDataFrame = struct {
         };
         if (!typed_mask.device().sameDevice(self.device)) return error.InvalidDevice;
         if (typed_mask.len() != self.rows) return error.LengthMismatch;
-        if (typed_mask.hasNulls()) return error.TypeUnsupported;
-        const host_mask = try typed_mask.values.toOwnedSlice(self.allocator);
-        defer self.allocator.free(host_mask);
-        return self.filter(host_mask);
+        const host_values = try typed_mask.values.toOwnedSlice(self.allocator);
+        defer self.allocator.free(host_values);
+        if (typed_mask.validity) |validity_array| {
+            const host_validity = try validity_array.toOwnedSlice(self.allocator);
+            defer self.allocator.free(host_validity);
+            const host_mask = try self.allocator.alloc(bool, self.rows);
+            defer self.allocator.free(host_mask);
+            for (host_values, host_validity, host_mask) |value, valid, *slot| {
+                // Match dataframe query semantics used by Polars/Arrow engines:
+                // a null predicate does not select the row.  Keeping the mask
+                // resolution here makes scalar-filter and Parquet statistics
+                // pushdown conservative even when predicate columns are nullable.
+                slot.* = valid and value;
+            }
+            return self.filter(host_mask);
+        }
+        return self.filter(host_values);
     }
 
     /// Export a Boltha/Arrow schema for the fixed-width device dataframe.
@@ -1455,6 +1697,33 @@ pub const DeviceDataFrame = struct {
         return out;
     }
 
+    pub fn fromArrowTableProjection(
+        allocator: std.mem.Allocator,
+        table: boltha.arrow.Table,
+        wanted_names: []const []const u8,
+        device_value: array_mod.Device,
+    ) ArrowInteropError!DeviceDataFrame {
+        if (wanted_names.len == 0) return DeviceDataFrame.initEmpty(allocator, table.row_count, device_value);
+        if (table.batches.len == 0) return emptyFromArrowSchemaProjection(allocator, table.schema, table.row_count, wanted_names, device_value);
+
+        // Projection is applied while crossing the Arrow -> DeviceDataFrame
+        // boundary.  Boltha's current simple Parquet reader still decodes full
+        // row groups, but dropped columns are not uploaded/materialized into
+        // Vectra CPU/CUDA/MPS arrays.  That keeps the public scan plan aligned
+        // with Polars-style projection pushdown while leaving a narrow seam for
+        // a future Boltha column-projection reader.
+        var out = try DeviceDataFrame.fromArrowRecordBatchProjection(allocator, table.batches[0], wanted_names, device_value);
+        errdefer out.deinit();
+        for (table.batches[1..]) |batch| {
+            var next = try DeviceDataFrame.fromArrowRecordBatchProjection(allocator, batch, wanted_names, device_value);
+            defer next.deinit();
+            const combined = try concatRows(out, next);
+            out.deinit();
+            out = combined;
+        }
+        return out;
+    }
+
     pub fn fromArrowRecordBatch(allocator: std.mem.Allocator, batch: boltha.arrow.RecordBatch, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
         if (!device_value.isAvailable()) return error.InvalidDevice;
         var defs = try allocator.alloc(DeviceColumnDef, batch.columns.len);
@@ -1467,6 +1736,32 @@ pub const DeviceDataFrame = struct {
             defs[i] = .{
                 .name = field.name,
                 .data = try deviceColumnFromArrowArray(allocator, arrow_column, device_value),
+            };
+            initialized += 1;
+        }
+        return DeviceDataFrame.init(allocator, defs);
+    }
+
+    pub fn fromArrowRecordBatchProjection(
+        allocator: std.mem.Allocator,
+        batch: boltha.arrow.RecordBatch,
+        wanted_names: []const []const u8,
+        device_value: array_mod.Device,
+    ) ArrowInteropError!DeviceDataFrame {
+        if (!device_value.isAvailable()) return error.InvalidDevice;
+        if (wanted_names.len == 0) return DeviceDataFrame.initEmpty(allocator, batch.row_count, device_value);
+
+        var defs = try allocator.alloc(DeviceColumnDef, wanted_names.len);
+        defer allocator.free(defs);
+        var initialized: usize = 0;
+        defer {
+            for (defs[0..initialized]) |*def| def.data.deinit();
+        }
+        for (wanted_names, 0..) |name, i| {
+            const column_index = batch.schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
+            defs[i] = .{
+                .name = batch.schema.fields[column_index].name,
+                .data = try deviceColumnFromArrowArray(allocator, batch.columns[column_index], device_value),
             };
             initialized += 1;
         }
@@ -3630,6 +3925,32 @@ fn emptyFromArrowSchema(allocator: std.mem.Allocator, schema: boltha.arrow.Schem
     return DeviceDataFrame.init(allocator, defs);
 }
 
+fn emptyFromArrowSchemaProjection(
+    allocator: std.mem.Allocator,
+    schema: boltha.arrow.Schema,
+    rows: usize,
+    wanted_names: []const []const u8,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceDataFrame {
+    if (rows != 0) return error.TypeUnsupported;
+    var defs = try allocator.alloc(DeviceColumnDef, wanted_names.len);
+    defer allocator.free(defs);
+    var initialized: usize = 0;
+    defer {
+        for (defs[0..initialized]) |*def| def.data.deinit();
+    }
+    for (wanted_names, 0..) |name, i| {
+        const column_index = schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
+        const field = schema.fields[column_index];
+        defs[i] = .{
+            .name = field.name,
+            .data = try emptyDeviceColumnFromArrowType(allocator, field.data_type, device_value),
+        };
+        initialized += 1;
+    }
+    return DeviceDataFrame.init(allocator, defs);
+}
+
 fn emptyDeviceColumnFromArrowType(allocator: std.mem.Allocator, dtype: boltha.arrow.DataType, device_value: array_mod.Device) ArrowInteropError!DeviceColumn {
     return switch (dtype) {
         .bool => DeviceColumn.fromSlice(bool, allocator, &.{}, device_value),
@@ -3662,6 +3983,7 @@ fn readBolthaTableWithRangePruning(
     predicate: ParquetRangePredicate,
 ) ParquetInteropError!boltha.arrow.Table {
     return switch (predicate) {
+        .bool => |range| readBolthaTableWithBoolRangePruning(allocator, bytes, column_name, range),
         .i8 => |range| boltha.parquet.readTableWithInt8Pruning(allocator, bytes, column_name, .{ .min = optionalCast(i32, range.min), .max = optionalCast(i32, range.max) }),
         .i16 => |range| boltha.parquet.readTableWithInt16Pruning(allocator, bytes, column_name, .{ .min = optionalCast(i32, range.min), .max = optionalCast(i32, range.max) }),
         .i32 => |range| boltha.parquet.readTableWithInt32Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
@@ -3675,8 +3997,44 @@ fn readBolthaTableWithRangePruning(
         .f16 => |range| boltha.parquet.readTableWithFloat16Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
         .f32 => |range| boltha.parquet.readTableWithFloatPruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
         .f64 => |range| boltha.parquet.readTableWithDoublePruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
-        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+        .bf16, .c64, .c128 => error.TypeUnsupported,
     };
+}
+
+fn readBolthaTableWithBoolRangePruning(
+    allocator: std.mem.Allocator,
+    bytes: []const u8,
+    column_name: []const u8,
+    range: Range(bool),
+) ParquetInteropError!boltha.arrow.Table {
+    if (range.min) |min_value| {
+        if (range.max) |max_value| {
+            if (min_value == max_value) {
+                return boltha.parquet.readTableWithBooleanPruning(allocator, bytes, column_name, .{ .value = min_value });
+            }
+            if (!min_value and max_value) return boltha.parquet.readTable(allocator, bytes);
+            return emptyBolthaTableForParquetBytes(allocator, bytes);
+        }
+        return if (min_value)
+            boltha.parquet.readTableWithBooleanPruning(allocator, bytes, column_name, .{ .value = true })
+        else
+            boltha.parquet.readTable(allocator, bytes);
+    }
+    if (range.max) |max_value| {
+        return if (!max_value)
+            boltha.parquet.readTableWithBooleanPruning(allocator, bytes, column_name, .{ .value = false })
+        else
+            boltha.parquet.readTable(allocator, bytes);
+    }
+    return boltha.parquet.readTable(allocator, bytes);
+}
+
+fn emptyBolthaTableForParquetBytes(allocator: std.mem.Allocator, bytes: []const u8) ParquetInteropError!boltha.arrow.Table {
+    var schema = try boltha.parquet.readSchema(allocator, bytes);
+    errdefer schema.deinit(allocator);
+    const batches = try allocator.alloc(boltha.arrow.RecordBatch, 0);
+    errdefer allocator.free(batches);
+    return boltha.arrow.Table.initOwned(schema, batches);
 }
 
 fn optionalCast(comptime T: type, value: anytype) ?T {
@@ -4664,7 +5022,12 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     var units_mask = try table.compareColumnScalar("units", i64, 1, .gt);
     defer units_mask.deinit();
     try std.testing.expectEqual(@as(usize, 1), units_mask.bool.null_count);
-    try std.testing.expectError(error.TypeUnsupported, table.filterColumnMask(units_mask));
+    var nullable_mask_filtered = try table.filterColumnMask(units_mask);
+    defer nullable_mask_filtered.deinit();
+    try std.testing.expectEqual(@as(usize, 1), nullable_mask_filtered.height());
+    const nullable_mask_sales = try (try nullable_mask_filtered.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(nullable_mask_sales);
+    try std.testing.expectEqualSlices(f64, &.{5.0}, nullable_mask_sales);
 }
 
 test "device dataframe sorts by device column keys" {
@@ -5455,4 +5818,44 @@ test "device parquet scan pushes range predicate and projection into collect" {
     try std.testing.expectEqual(DeviceDType.i32, try result.columnDType("id"));
     try std.testing.expectEqual(DeviceDType.f64, try result.columnDType("sales"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
+}
+
+test "device lazy frame pushes scalar filters and projection into parquet scan source" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer id.deinit();
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "sales", .data = sales },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+
+    var lazy_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_scan.deinit();
+    try lazy_scan.filterColumnScalar("sales", f64, 2.5, .gt);
+    try lazy_scan.select(&.{ "sales", "id" });
+
+    const explain = try lazy_scan.explain(gpa);
+    defer gpa.free(explain);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "source=parquet_scan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "scan_pushdown: range=sales, projection=[sales,id]") != null);
+
+    var result = try lazy_scan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 2), result.height());
+    try std.testing.expectEqual(@as(usize, 2), result.width());
+    try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
+    const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, result_sales);
 }
