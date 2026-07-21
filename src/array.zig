@@ -8989,9 +8989,26 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn diag(self: Self, offset: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.diag(offset);
+            if (self.shape.len == 2) return self.diagonal(offset);
+            if (self.shape.len != 1) return error.InvalidShape;
+
+            const n = self.shape[0];
+            const offset_abs: usize = if (offset < 0) @intCast(-offset) else @intCast(offset);
+            const matrix_size = n + offset_abs;
+            var out = try Array(T).zeros(self.allocator, &.{ matrix_size, matrix_size });
+            errdefer out.deinit();
+            if (n == 0) return out;
+
+            const end_offset = try self.oneDimensionalEndOffset();
+            if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+            var source_offset = self.offset;
+            for (0..n) |i| {
+                const row = if (offset < 0) i + offset_abs else i;
+                const col = if (offset > 0) i + offset_abs else i;
+                out.data[row * matrix_size + col] = self.data[source_offset];
+                source_offset += self.strides[0];
+            }
+            return out;
         }
 
         pub fn diagflat(self: Self, offset: isize) ArrayError!Array(T) {
