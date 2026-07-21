@@ -780,6 +780,31 @@ pub const DeviceLazyOp = union(enum) {
         }
         self.* = undefined;
     }
+
+    fn clone(self: DeviceLazyOp, allocator: std.mem.Allocator) DeviceDataError!DeviceLazyOp {
+        return switch (self) {
+            .select => |names| blk: {
+                const owned = try allocator.alloc([]const u8, names.len);
+                errdefer allocator.free(owned);
+                var initialized: usize = 0;
+                errdefer {
+                    for (owned[0..initialized]) |name| allocator.free(name);
+                }
+                for (names, owned) |name, *slot| {
+                    slot.* = try allocator.dupe(u8, name);
+                    initialized += 1;
+                }
+                break :blk .{ .select = owned };
+            },
+            .filter_mask => |mask| .{ .filter_mask = try mask.clone() },
+            .sort_by => |sort| .{ .sort_by = .{
+                .name = try allocator.dupe(u8, sort.name),
+                .options = sort.options,
+            } },
+            .head => |n| .{ .head = n },
+            .tail => |n| .{ .tail = n },
+        };
+    }
 };
 
 /// A compact eager-backed lazy plan for `DeviceDataFrame`.
@@ -843,9 +868,11 @@ pub const DeviceLazyFrame = struct {
     }
 
     pub fn collect(self: DeviceLazyFrame) DeviceDataError!DeviceDataFrame {
+        var optimized = try self.optimizedOps();
+        defer deinitLazyOps(self.allocator, &optimized);
         var current = try self.source.clone();
         errdefer current.deinit();
-        for (self.ops.items) |op| {
+        for (optimized.items) |op| {
             const next = switch (op) {
                 .select => |names| try current.select(names),
                 .filter_mask => |mask| try current.filterColumnMask(mask),
@@ -858,7 +885,93 @@ pub const DeviceLazyFrame = struct {
         }
         return current;
     }
+
+    pub fn explain(self: DeviceLazyFrame, allocator: std.mem.Allocator) DeviceDataError![]u8 {
+        var optimized = try self.optimizedOps();
+        defer deinitLazyOps(self.allocator, &optimized);
+        var aw: std.Io.Writer.Allocating = .init(allocator);
+        errdefer aw.deinit();
+        try aw.writer.print("DeviceLazyFrame(raw_ops={d}, optimized_ops={d})\n", .{ self.ops.items.len, optimized.items.len });
+        for (optimized.items, 0..) |op, i| {
+            try aw.writer.print("  {d}: ", .{i});
+            try formatLazyOp(&aw.writer, op);
+            try aw.writer.print("\n", .{});
+        }
+        return aw.toOwnedSlice();
+    }
+
+    fn optimizedOps(self: DeviceLazyFrame) DeviceDataError!std.ArrayList(DeviceLazyOp) {
+        var optimized: std.ArrayList(DeviceLazyOp) = .empty;
+        errdefer deinitLazyOps(self.allocator, &optimized);
+        for (self.ops.items) |op| {
+            switch (op) {
+                .select => |names| {
+                    if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .select) {
+                        const previous = optimized.items[optimized.items.len - 1].select;
+                        if (allNamesIn(names, previous)) {
+                            optimized.items[optimized.items.len - 1].deinit(self.allocator);
+                            optimized.items[optimized.items.len - 1] = try op.clone(self.allocator);
+                            continue;
+                        }
+                    }
+                },
+                .head => |n| {
+                    if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .head) {
+                        const prev = optimized.items[optimized.items.len - 1].head;
+                        optimized.items[optimized.items.len - 1] = .{ .head = @min(prev, n) };
+                        continue;
+                    }
+                },
+                .tail => |n| {
+                    if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .tail) {
+                        const prev = optimized.items[optimized.items.len - 1].tail;
+                        optimized.items[optimized.items.len - 1] = .{ .tail = @min(prev, n) };
+                        continue;
+                    }
+                },
+                else => {},
+            }
+            try optimized.append(self.allocator, try op.clone(self.allocator));
+        }
+        return optimized;
+    }
 };
+
+fn deinitLazyOps(allocator: std.mem.Allocator, ops: *std.ArrayList(DeviceLazyOp)) void {
+    for (ops.items) |*op| op.deinit(allocator);
+    ops.deinit(allocator);
+}
+
+fn allNamesIn(names: []const []const u8, allowed: []const []const u8) bool {
+    for (names) |name| {
+        var found = false;
+        for (allowed) |candidate| {
+            if (std.mem.eql(u8, name, candidate)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
+fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!void {
+    switch (op) {
+        .select => |names| {
+            try writer.print("select[", .{});
+            for (names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]", .{});
+        },
+        .filter_mask => |mask| try writer.print("filter_mask(dtype={s}, rows={d})", .{ mask.dtype().name(), mask.len() }),
+        .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
+        .head => |n| try writer.print("head({d})", .{n}),
+        .tail => |n| try writer.print("tail({d})", .{n}),
+    }
+}
 
 /// Owning fixed-width dataframe that can keep every column on the same Vectra
 /// device.
@@ -4972,8 +5085,15 @@ test "device lazy frame collects staged select filter sort and limit operations"
     defer plan.deinit();
     try plan.filter(mask);
     try plan.sortBy("sales", .{ .descending = true });
+    try plan.select(&.{ "sales", "units", "active" });
     try plan.select(&.{ "sales", "units" });
+    try plan.head(3);
     try plan.head(2);
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=6") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=4") != null);
 
     var result = try plan.collect();
     defer result.deinit();
