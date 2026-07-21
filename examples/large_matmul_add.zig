@@ -17,21 +17,22 @@ const Shape = struct { m: usize, n: usize, k: usize };
 pub fn main(init: std.process.Init) !void {
     var np = vx.withAllocator(init.gpa);
 
-    const device = vx.Device.cuda(0);
+    // const device = vx.Device.cuda(0);
+    const device = vx.Device.cpu;
 
-    var a = try np.randWith(vx.BFloat16, &.{ production.m, production.k }, .{ .device = device });
+    var a = try np.randWith(f32, &.{ production.m, production.k }, .{ .device = device });
     defer a.deinit();
 
-    var b = try np.randWith(vx.BFloat16, &.{ production.k, production.n }, .{ .device = device });
+    var b = try np.randWith(f32, &.{ production.k, production.n }, .{ .device = device });
     defer b.deinit();
 
     // Build the addend at its final value in CUDA storage.  In-place scalar
     // assignment currently goes through host ArrayView semantics, so using
     // `fullOn` avoids accidentally requesting a host view of a CUDA array.
-    var c = try vx.Array(vx.BFloat16).fullOn(init.gpa, &.{ production.m, production.n }, vx.BFloat16.fromF32(10.0), device);
+    var c = try vx.Array(f32).fullOn(init.gpa, &.{ production.m, production.n }, 50.0, device);
     defer c.deinit();
 
-    for (0..200) |_| {
+    for (0..20000) |_| {
         const begin = std.Io.Timestamp.now(init.io, .real);
         var h = try a.matmul(b);
         defer h.deinit();
@@ -39,12 +40,16 @@ pub fn main(init: std.process.Init) !void {
         var i = try h.add(c);
         defer i.deinit();
 
-        var j = try i.materializeAndSynchronize();
+        var ii = i;
+        // var ii = try i.exp();
+        // defer ii.deinit();
+
+        var j = try ii.materializeAndSynchronize();
         defer j.deinit();
 
         const cost = std.Io.Timestamp.untilNow(begin, init.io, .real);
 
-        std.debug.print("a first: {f} h: {f} j: {f}\n", .{ a, h, j });
+        // std.debug.print("a first: {f} h: {f} j: {f}\n", .{ a, h, j });
         std.debug.print("device: {} matmul cost: {}\n", .{ device, cost.toMicroseconds() });
     }
 }
