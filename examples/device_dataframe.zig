@@ -31,6 +31,14 @@ pub fn main(init: std.process.Init) !void {
     defer expensive.deinit();
     var doubled_sales = try df.binaryColumnScalar("sales", f64, 2.0, .mul);
     defer doubled_sales.deinit();
+    var lazy = try vx.DeviceLazyFrame.init(allocator, df);
+    defer lazy.deinit();
+    try lazy.filter(expensive);
+    try lazy.sortBy("sales", .{ .descending = true });
+    try lazy.select(&.{ "sales", "units" });
+    try lazy.head(2);
+    var lazy_result = try lazy.collect();
+    defer lazy_result.deinit();
 
     var filtered = try df.filter(&.{ true, false, true });
     defer filtered.deinit();
@@ -109,6 +117,8 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 3), arrow_batch.row_count);
     try std.testing.expectEqual(@as(?usize, 1), arrow_batch.columnIndexByName("units"));
     try std.testing.expectEqual(@as(?i64, null), arrow_batch.columns[1].int64.value(1));
+    try std.testing.expectEqual(@as(usize, 2), lazy_result.height());
+    try std.testing.expectEqual(@as(usize, 2), lazy_result.width());
     try std.testing.expectEqual(@as(usize, 2), expression_filtered.height());
     const doubled_values = try doubled_sales.f64.toOwnedSlice(allocator);
     defer allocator.free(doubled_values);
@@ -154,6 +164,8 @@ pub fn main(init: std.process.Init) !void {
         \\  "units_nulls": {d},
         \\  "arrow_rows": {d},
         \\  "arrow_columns": {d},
+        \\  "lazy_rows": {d},
+        \\  "lazy_width": {d},
         \\  "expression_filtered_rows": {d},
         \\  "doubled_sales_last": {d:.1},
         \\  "sorted_sales_first": {d:.1},
@@ -173,6 +185,8 @@ pub fn main(init: std.process.Init) !void {
         view.columns[1].null_count,
         arrow_batch.row_count,
         arrow_batch.columnCount(),
+        lazy_result.height(),
+        lazy_result.width(),
         expression_filtered.height(),
         doubled_values[2],
         sorted_values[0],

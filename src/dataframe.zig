@@ -758,6 +758,108 @@ pub const DeviceColumnDef = struct {
     data: DeviceColumn,
 };
 
+pub const DeviceLazyOp = union(enum) {
+    select: [][]const u8,
+    filter_mask: DeviceColumn,
+    sort_by: struct {
+        name: []const u8,
+        options: DeviceSortOptions,
+    },
+    head: usize,
+    tail: usize,
+
+    fn deinit(self: *DeviceLazyOp, allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .select => |names| {
+                for (names) |name| allocator.free(name);
+                allocator.free(names);
+            },
+            .filter_mask => |*mask| mask.deinit(),
+            .sort_by => |sort| allocator.free(sort.name),
+            .head, .tail => {},
+        }
+        self.* = undefined;
+    }
+};
+
+/// A compact eager-backed lazy plan for `DeviceDataFrame`.
+///
+/// Polars' lazy API is valuable because it gives the planner a concrete list of
+/// projections, filters, and ordering operations before execution.  This first
+/// Vectra layer deliberately keeps the plan small and executes through the
+/// existing `DeviceDataFrame` methods in `collect()`.  That gives callers a
+/// stable API today and gives Axiom a single future lowering boundary for
+/// fusing/reordering dataframe operations across CPU/CUDA/MPS.
+pub const DeviceLazyFrame = struct {
+    allocator: std.mem.Allocator,
+    source: DeviceDataFrame,
+    ops: std.ArrayList(DeviceLazyOp) = .empty,
+
+    pub fn init(allocator: std.mem.Allocator, source: DeviceDataFrame) DeviceDataError!DeviceLazyFrame {
+        return .{
+            .allocator = allocator,
+            .source = try source.clone(),
+        };
+    }
+
+    pub fn deinit(self: *DeviceLazyFrame) void {
+        self.source.deinit();
+        for (self.ops.items) |*op| op.deinit(self.allocator);
+        self.ops.deinit(self.allocator);
+        self.* = undefined;
+    }
+
+    pub fn select(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+        const owned = try self.allocator.alloc([]const u8, names.len);
+        errdefer self.allocator.free(owned);
+        var initialized: usize = 0;
+        errdefer {
+            for (owned[0..initialized]) |name| self.allocator.free(name);
+        }
+        for (names, owned) |name, *slot| {
+            slot.* = try self.allocator.dupe(u8, name);
+            initialized += 1;
+        }
+        try self.ops.append(self.allocator, .{ .select = owned });
+    }
+
+    pub fn filter(self: *DeviceLazyFrame, mask: DeviceColumn) DeviceDataError!void {
+        try self.ops.append(self.allocator, .{ .filter_mask = try mask.clone() });
+    }
+
+    pub fn sortBy(self: *DeviceLazyFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!void {
+        try self.ops.append(self.allocator, .{ .sort_by = .{
+            .name = try self.allocator.dupe(u8, name),
+            .options = options_value,
+        } });
+    }
+
+    pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+        try self.ops.append(self.allocator, .{ .head = n });
+    }
+
+    pub fn tail(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+        try self.ops.append(self.allocator, .{ .tail = n });
+    }
+
+    pub fn collect(self: DeviceLazyFrame) DeviceDataError!DeviceDataFrame {
+        var current = try self.source.clone();
+        errdefer current.deinit();
+        for (self.ops.items) |op| {
+            const next = switch (op) {
+                .select => |names| try current.select(names),
+                .filter_mask => |mask| try current.filterColumnMask(mask),
+                .sort_by => |sort| try current.sortBy(sort.name, sort.options),
+                .head => |n| try current.head(n),
+                .tail => |n| try current.tail(n),
+            };
+            current.deinit();
+            current = next;
+        }
+        return current;
+    }
+};
+
 /// Owning fixed-width dataframe that can keep every column on the same Vectra
 /// device.
 ///
@@ -838,6 +940,20 @@ pub const DeviceDataFrame = struct {
         if (self.names.len != 0) self.allocator.free(self.names);
         if (self.columns.len != 0) self.allocator.free(self.columns);
         self.* = undefined;
+    }
+
+    pub fn clone(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, self.rows, self.device);
     }
 
     pub fn height(self: DeviceDataFrame) usize {
@@ -4830,6 +4946,45 @@ test "device dataframe asof joins with previous next and nearest strategies" {
     defer gpa.free(nearest_validity);
     try std.testing.expectEqualSlices(i64, &.{ 20, 60, 60, 100, 0 }, nearest_quote);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, nearest_validity);
+}
+
+test "device lazy frame collects staged select filter sort and limit operations" {
+    const gpa = std.testing.allocator;
+
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0, 7.0 }, .cpu);
+    defer sales.deinit();
+    var units = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4 }, .cpu);
+    defer units.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true, true }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = sales },
+        .{ .name = "units", .data = units },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    var mask = try table.compareColumnScalar("sales", f64, 2.5, .gt);
+    defer mask.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.filter(mask);
+    try plan.sortBy("sales", .{ .descending = true });
+    try plan.select(&.{ "sales", "units" });
+    try plan.head(2);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 2), result.height());
+    try std.testing.expectEqual(@as(usize, 2), result.width());
+    const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales);
+    const result_units = try (try result.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(result_units);
+    try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, result_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 4, 3 }, result_units);
 }
 
 test "device dataframe round-trips through boltha parquet" {
