@@ -8773,9 +8773,31 @@ pub fn ArrayView(comptime T: type) type {
                 if (keepdims) return Array(usize).fromSlice(self.allocator, &.{count}, &.{1});
                 return Array(usize).fromSlice(self.allocator, &.{count}, &.{});
             }
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.countNonzeroAxis(axis_opt, keepdims);
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Array(usize).zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (self.numel() == 0) return out;
+
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, in_multi);
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                if (self.data[source_offset] == zero(T)) continue;
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                out.data[ravelIndex(out_multi, out.strides)] += 1;
+            }
+            return out;
         }
 
         pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(usize) {
