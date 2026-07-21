@@ -1647,6 +1647,16 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
             return null;
         };
     } else {
+        var mt_workspace = veyra.GemmF64MtWorkspace.init(std.heap.smp_allocator, veyra.recommendedGemmF64ThreadCount()) catch null;
+        if (mt_workspace) |*workspace| {
+            defer workspace.deinit();
+            veyra.gemmThreadedWithWorkspace(f64, @as(veyra.MatrixView(f64), lhs_view), @as(veyra.MatrixView(f64), rhs_view), @as(veyra.MatrixMut(f64), out_view), .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) }, workspace) catch {
+                out.deinit();
+                return null;
+            };
+            return out;
+        }
+
         var workspace = veyra.GemmF64Workspace.init(std.heap.smp_allocator, @max(n, 1)) catch {
             out.deinit();
             return null;
@@ -5269,8 +5279,8 @@ test "CPU column reduction SIMD helper covers vector blocks and tails" {
     const rows32: usize = 3;
     const cols32: usize = 9;
     const input32 = [_]f32{
-        1, 2, 3, 4, 5, 6, 7, 8, 9,
-        10, 20, 30, 40, 50, 60, 70, 80, 90,
+        1,   2,   3,   4,   5,   6,   7,   8,   9,
+        10,  20,  30,  40,  50,  60,  70,  80,  90,
         100, 200, 300, 400, 500, 600, 700, 800, 900,
     };
     var out32: [cols32]f32 = undefined;
@@ -5299,7 +5309,7 @@ test "CPU broadcast add SIMD helpers cover row column and scalar bias" {
     const rows32: usize = 2;
     const cols32: usize = 9;
     const input32 = [_]f32{
-        1, 2, 3, 4, 5, 6, 7, 8, 9,
+        1,  2,  3,  4,  5,  6,  7,  8,  9,
         10, 20, 30, 40, 50, 60, 70, 80, 90,
     };
     const row_bias32 = [_]f32{ 100, 200, 300, 400, 500, 600, 700, 800, 900 };
@@ -5324,7 +5334,7 @@ test "CPU broadcast add SIMD helpers cover row column and scalar bias" {
     }, &out32);
     cpuBroadcastColumnBinary(f32, 8, .mul, &out32, &input32, &col_bias32, rows32, cols32);
     try std.testing.expectEqualSlices(f32, &.{
-        1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000,
+        1000,  2000,  3000,  4000,  5000,   6000,   7000,   8000,   9000,
         20000, 40000, 60000, 80000, 100000, 120000, 140000, 160000, 180000,
     }, &out32);
 
@@ -5341,17 +5351,17 @@ test "CPU blocked transpose helper handles non-square tails" {
     const rows32: usize = 3;
     const cols32: usize = 5;
     const input32 = [_]f32{
-        1, 2, 3, 4, 5,
-        6, 7, 8, 9, 10,
+        1,  2,  3,  4,  5,
+        6,  7,  8,  9,  10,
         11, 12, 13, 14, 15,
     };
     var out32: [input32.len]f32 = undefined;
     cpuTransposeBlocked(f32, &out32, &input32, rows32, cols32);
     try std.testing.expectEqualSlices(f32, &.{
-        1, 6, 11,
-        2, 7, 12,
-        3, 8, 13,
-        4, 9, 14,
+        1, 6,  11,
+        2, 7,  12,
+        3, 8,  13,
+        4, 9,  14,
         5, 10, 15,
     }, &out32);
 
@@ -5391,8 +5401,8 @@ test "CPU vector matmul SIMD helpers cover dot matvec and vecmat tails" {
     const cols64: usize = 5;
     const vector64 = [_]f64{ 1, 2, 3 };
     const matrix64 = [_]f64{
-        1, 2, 3, 4, 5,
-        10, 20, 30, 40, 50,
+        1,   2,   3,   4,   5,
+        10,  20,  30,  40,  50,
         100, 200, 300, 400, 500,
     };
     var vecmat64: [cols64]f64 = .{ 0, 0, 0, 0, 0 };
