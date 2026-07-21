@@ -6985,9 +6985,8 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn nanargmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.nanargmaxAxis(axis_opt, keepdims);
+            ensureFloat(T);
+            return self.nanArgReduceAxis(axis_opt, keepdims, false);
         }
 
         pub fn nanargmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
@@ -6995,9 +6994,55 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.nanargminAxis(axis_opt, keepdims);
+            ensureFloat(T);
+            return self.nanArgReduceAxis(axis_opt, keepdims, true);
+        }
+
+        fn nanArgReduceAxis(self: Self, axis_opt: ?isize, keepdims: bool, comptime find_min: bool) ArrayError!Array(usize) {
+            if (axis_opt == null) {
+                const best = try self.argReduceFlat(find_min, true);
+                if (keepdims) {
+                    const out_shape = try keepDimsAllOnes(self.allocator, self.shape.len);
+                    defer self.allocator.free(out_shape);
+                    return Array(usize).fromSlice(self.allocator, &.{best}, out_shape);
+                }
+                return Array(usize).fromSlice(self.allocator, &.{best}, &.{});
+            }
+
+            const axis = try normalizeDim(axis_opt.?, self.shape.len);
+            if (self.shape[axis] == 0) return error.EmptyArray;
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Array(usize).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                mapReducedToInput(axis, keepdims, out_multi, in_multi);
+                var found = false;
+                var best_axis: usize = 0;
+                var best_value: T = undefined;
+                for (0..self.shape[axis]) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    const value = self.data[source_offset];
+                    if (isNanValue(T, value)) continue;
+                    if (!found or if (find_min) lessValue(T, value, best_value) else lessValue(T, best_value, value)) {
+                        best_value = value;
+                        best_axis = axis_i;
+                        found = true;
+                    }
+                }
+                if (!found) return error.EmptyArray;
+                slot.* = best_axis;
+            }
+            return out;
         }
 
         pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) ArrayError!Array(usize) {
