@@ -63,6 +63,16 @@ pub const DeviceColumnCompareOp = enum {
     le,
 };
 
+pub const NullPlacement = enum {
+    first,
+    last,
+};
+
+pub const DeviceSortOptions = struct {
+    descending: bool = false,
+    nulls: NullPlacement = .last,
+};
+
 pub const DeviceColumnView = struct {
     dtype: DeviceDType,
     rows: usize,
@@ -503,6 +513,26 @@ pub const DeviceColumn = union(DeviceDType) {
     pub fn filter(self: DeviceColumn, mask: []const bool) array_mod.ArrayError!DeviceColumn {
         return switch (self) {
             inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.filter(mask)),
+        };
+    }
+
+    pub fn argsort(self: DeviceColumn, allocator: std.mem.Allocator, options_value: DeviceSortOptions) DeviceDataError![]usize {
+        return switch (self) {
+            .bool => |typed| try argsortTypedColumn(bool, typed, allocator, options_value),
+            .i8 => |typed| try argsortTypedColumn(i8, typed, allocator, options_value),
+            .i16 => |typed| try argsortTypedColumn(i16, typed, allocator, options_value),
+            .i32 => |typed| try argsortTypedColumn(i32, typed, allocator, options_value),
+            .i64 => |typed| try argsortTypedColumn(i64, typed, allocator, options_value),
+            .u8 => |typed| try argsortTypedColumn(u8, typed, allocator, options_value),
+            .u16 => |typed| try argsortTypedColumn(u16, typed, allocator, options_value),
+            .u32 => |typed| try argsortTypedColumn(u32, typed, allocator, options_value),
+            .u64 => |typed| try argsortTypedColumn(u64, typed, allocator, options_value),
+            .usize => |typed| try argsortTypedColumn(usize, typed, allocator, options_value),
+            .isize => |typed| try argsortTypedColumn(isize, typed, allocator, options_value),
+            .f16 => |typed| try argsortTypedColumn(f16, typed, allocator, options_value),
+            .f32 => |typed| try argsortTypedColumn(f32, typed, allocator, options_value),
+            .f64 => |typed| try argsortTypedColumn(f64, typed, allocator, options_value),
+            .bf16, .c64, .c128 => error.TypeUnsupported,
         };
     }
 
@@ -967,6 +997,21 @@ pub const DeviceDataFrame = struct {
         return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, row_indices.len, self.device);
     }
 
+    pub fn argsortBy(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError![]usize {
+        const sort_key = try self.column(name);
+        return sort_key.argsort(self.allocator, options_value);
+    }
+
+    pub fn sortBy(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
+        const order = try self.argsortBy(name, options_value);
+        defer self.allocator.free(order);
+        return self.take(order);
+    }
+
+    pub fn sortByColumn(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
+        return self.sortBy(name, options_value);
+    }
+
     pub fn filter(self: DeviceDataFrame, mask: []const bool) DeviceDataError!DeviceDataFrame {
         if (mask.len != self.rows) return error.LengthMismatch;
         const row_indices = try rowIndicesFromMask(self.allocator, mask);
@@ -1036,6 +1081,71 @@ fn countNullsInArray(mask: array_mod.Array(bool)) array_mod.ArrayError!usize {
     const values = try mask.toOwnedSlice(mask.allocator);
     defer mask.allocator.free(values);
     return countNulls(values);
+}
+
+fn argsortTypedColumn(comptime T: type, column: DeviceTypedColumn(T), allocator: std.mem.Allocator, options_value: DeviceSortOptions) DeviceDataError![]usize {
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const order = try allocator.alloc(usize, values.len);
+    for (order, 0..) |*slot, i| slot.* = i;
+
+    const Ctx = struct {
+        values: []const T,
+        validity: ?[]const bool,
+        options: DeviceSortOptions,
+
+        fn isValid(ctx: @This(), index: usize) bool {
+            return if (ctx.validity) |validity| validity[index] else true;
+        }
+
+        fn lessThan(ctx: @This(), a: usize, b: usize) bool {
+            const a_valid = ctx.isValid(a);
+            const b_valid = ctx.isValid(b);
+            if (a_valid != b_valid) {
+                return switch (ctx.options.nulls) {
+                    .first => !a_valid,
+                    .last => a_valid,
+                };
+            }
+            if (!a_valid and !b_valid) return a < b;
+
+            const cmp = compareSortValues(T, ctx.values[a], ctx.values[b]);
+            if (cmp == 0) return a < b;
+            return if (ctx.options.descending) cmp > 0 else cmp < 0;
+        }
+    };
+
+    std.sort.insertion(usize, order, Ctx{
+        .values = values,
+        .validity = maybe_validity,
+        .options = options_value,
+    }, Ctx.lessThan);
+    return order;
+}
+
+fn compareSortValues(comptime T: type, lhs: T, rhs: T) i8 {
+    if (comptime T == bool) {
+        if (lhs == rhs) return 0;
+        return if (!lhs and rhs) -1 else 1;
+    }
+    return switch (@typeInfo(T)) {
+        .int, .comptime_int => if (lhs < rhs) -1 else if (rhs < lhs) 1 else 0,
+        .float, .comptime_float => compareFloatSortValues(T, lhs, rhs),
+        else => @compileError("sort requires bool or ordered numeric column values"),
+    };
+}
+
+fn compareFloatSortValues(comptime T: type, lhs: T, rhs: T) i8 {
+    const lhs_nan = std.math.isNan(lhs);
+    const rhs_nan = std.math.isNan(rhs);
+    if (lhs_nan != rhs_nan) return if (lhs_nan) 1 else -1;
+    if (lhs_nan and rhs_nan) return 0;
+    if (lhs < rhs) return -1;
+    if (rhs < lhs) return 1;
+    return 0;
 }
 
 fn requireCompatibleColumnArrays(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!void {
@@ -2027,4 +2137,47 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer units_mask.deinit();
     try std.testing.expectEqual(@as(usize, 1), units_mask.bool.null_count);
     try std.testing.expectError(error.TypeUnsupported, table.filterColumnMask(units_mask));
+}
+
+test "device dataframe sorts by device column keys" {
+    const gpa = std.testing.allocator;
+
+    var score = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 3.0, 1.0, 2.0, 4.0 }, &.{ true, true, false, true }, .cpu);
+    defer score.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 30, 10, 20, 40 }, .cpu);
+    defer id.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true, false }, .cpu);
+    defer flag.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "score", .data = score },
+        .{ .name = "id", .data = id },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    const asc = try table.argsortBy("score", .{ .descending = false, .nulls = .last });
+    defer gpa.free(asc);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 0, 3, 2 }, asc);
+
+    var sorted = try table.sortBy("score", .{ .descending = false, .nulls = .last });
+    defer sorted.deinit();
+    const sorted_id = try sorted.column("id");
+    const sorted_id_values = try sorted_id.i64.toOwnedSlice(gpa);
+    defer gpa.free(sorted_id_values);
+    try std.testing.expectEqualSlices(i64, &.{ 10, 30, 40, 20 }, sorted_id_values);
+
+    var desc_nulls_first = try table.sortBy("score", .{ .descending = true, .nulls = .first });
+    defer desc_nulls_first.deinit();
+    const desc_id = try desc_nulls_first.column("id");
+    const desc_id_values = try desc_id.i64.toOwnedSlice(gpa);
+    defer gpa.free(desc_id_values);
+    try std.testing.expectEqualSlices(i64, &.{ 20, 40, 30, 10 }, desc_id_values);
+
+    var bool_sorted = try table.sortBy("flag", .{});
+    defer bool_sorted.deinit();
+    const bool_sorted_id = try bool_sorted.column("id");
+    const bool_sorted_id_values = try bool_sorted_id.i64.toOwnedSlice(gpa);
+    defer gpa.free(bool_sorted_id_values);
+    try std.testing.expectEqualSlices(i64, &.{ 10, 40, 30, 20 }, bool_sorted_id_values);
 }
