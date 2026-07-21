@@ -883,6 +883,8 @@ pub const DeviceLazyOp = union(enum) {
         options: DeviceAsofOptions,
     },
     concat_rows: DeviceDataFrame,
+    distinct_rows,
+    distinct_on: [][]const u8,
     sort_by: struct {
         name: []const u8,
         options: DeviceSortOptions,
@@ -953,9 +955,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(join.options.right_suffix);
             },
             .concat_rows => |*right| right.deinit(),
+            .distinct_on => |names| freeNameList(allocator, names),
             .sort_by => |sort| allocator.free(sort.name),
             .top_k => |top| allocator.free(top.name),
-            .head, .tail => {},
+            .distinct_rows, .head, .tail => {},
         }
         self.* = undefined;
     }
@@ -1120,6 +1123,8 @@ pub const DeviceLazyOp = union(enum) {
                 } };
             },
             .concat_rows => |right| .{ .concat_rows = try right.clone() },
+            .distinct_rows => .{ .distinct_rows = {} },
+            .distinct_on => |names| .{ .distinct_on = try cloneNameList(allocator, names) },
             .sort_by => |sort| .{ .sort_by = .{
                 .name = try allocator.dupe(u8, sort.name),
                 .options = sort.options,
@@ -1450,6 +1455,27 @@ pub const DeviceLazyFrame = struct {
         return self.concatRows(right);
     }
 
+    pub fn distinctRows(self: *DeviceLazyFrame) DeviceDataError!void {
+        try self.ops.append(self.allocator, .{ .distinct_rows = {} });
+    }
+
+    pub fn distinctOn(self: *DeviceLazyFrame, key_names: []const []const u8) DeviceDataError!void {
+        if (key_names.len == 0) return error.LengthMismatch;
+        try self.ops.append(self.allocator, .{ .distinct_on = try cloneNameList(self.allocator, key_names) });
+    }
+
+    pub fn dropDuplicates(self: *DeviceLazyFrame) DeviceDataError!void {
+        return self.distinctRows();
+    }
+
+    pub fn dropDuplicatesOn(self: *DeviceLazyFrame, key_names: []const []const u8) DeviceDataError!void {
+        return self.distinctOn(key_names);
+    }
+
+    pub fn uniqueRows(self: *DeviceLazyFrame) DeviceDataError!void {
+        return self.distinctRows();
+    }
+
     pub fn filterColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .filter_scalar = .{
             .name = try self.allocator.dupe(u8, name),
@@ -1525,6 +1551,8 @@ pub const DeviceLazyFrame = struct {
                 },
                 .asof_join => |join| try current.asofJoin(join.right, join.left_key_name, join.right_key_name, join.options),
                 .concat_rows => |right| try current.concatRows(right),
+                .distinct_rows => try current.distinctRows(),
+                .distinct_on => |names| try current.distinctOn(names),
                 .sort_by => |sort| try current.sortBy(sort.name, sort.options),
                 .top_k => |top| try current.topKBy(top.name, top.k, top.options),
                 .head => |n| try current.head(n),
@@ -1858,6 +1886,16 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
             .concat_rows => {
                 break :op_loop;
             },
+            .distinct_rows => {
+                projection_blocked = true;
+            },
+            .distinct_on => |names| {
+                for (names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
             .filter_scalar => |filter_op| {
                 const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
                 if (filter_depends_on_source) try appendOwnedNameUnique(allocator, &required_names, filter_op.name);
@@ -2036,6 +2074,15 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         },
         .asof_join => |join| try writer.print("asof_join({s}->{s}, strategy={s})", .{ join.left_key_name, join.right_key_name, @tagName(join.options.strategy) }),
         .concat_rows => |right| try writer.print("concat_rows(rows={d}, cols={d})", .{ right.height(), right.width() }),
+        .distinct_rows => try writer.print("distinct_rows", .{}),
+        .distinct_on => |names| {
+            try writer.print("distinct_on([", .{});
+            for (names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("])", .{});
+        },
         .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
         .head => |n| try writer.print("head({d})", .{n}),
@@ -2556,6 +2603,28 @@ pub const DeviceDataFrame = struct {
 
     pub fn vstack(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
         return self.concatRows(other);
+    }
+
+    pub fn distinctRows(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+        return self.distinctOn(self.names);
+    }
+
+    pub fn distinctOn(self: DeviceDataFrame, key_names: []const []const u8) DeviceDataError!DeviceDataFrame {
+        const indices = try distinctRowIndices(self.allocator, self, key_names);
+        defer self.allocator.free(indices);
+        return self.take(indices);
+    }
+
+    pub fn dropDuplicates(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+        return self.distinctRows();
+    }
+
+    pub fn dropDuplicatesOn(self: DeviceDataFrame, key_names: []const []const u8) DeviceDataError!DeviceDataFrame {
+        return self.distinctOn(key_names);
+    }
+
+    pub fn uniqueRows(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+        return self.distinctRows();
     }
 
     pub fn argsortBy(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError![]usize {
@@ -3558,6 +3627,27 @@ fn groupByStatsOnTyped(
     columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, means, device_value);
     initialized += 1;
     return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, representative_rows.items.len, device_value);
+}
+
+fn distinctRowIndices(allocator: std.mem.Allocator, frame: DeviceDataFrame, key_names: []const []const u8) DeviceDataError![]usize {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |name| _ = try frame.column(name);
+
+    var representatives: std.ArrayList(usize) = .empty;
+    errdefer representatives.deinit(allocator);
+
+    // Preserve first-seen row order, matching the common stable
+    // `drop_duplicates(keep=first)` dataframe behavior.  The current
+    // implementation deliberately routes through the same row-comparison helper
+    // used by multi-key joins/grouping so null-key rows are skipped and future
+    // Axiom hash-distinct lowering has a single API seam to replace.
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const maybe_seen = try findMultiKeyGroupIndex(allocator, frame, key_names, representatives.items, row);
+        if (maybe_seen == null) try representatives.append(allocator, row);
+    }
+
+    return representatives.toOwnedSlice(allocator);
 }
 
 fn rowHasValidKeys(allocator: std.mem.Allocator, frame: DeviceDataFrame, key_names: []const []const u8, row: usize) DeviceDataError!bool {
@@ -6374,6 +6464,52 @@ test "device dataframe concatenates rows eagerly and lazily" {
     const lazy_ids = try (try lazy_stacked.column("id")).i32.toOwnedSlice(gpa);
     defer gpa.free(lazy_ids);
     try std.testing.expectEqualSlices(i32, &.{ 2, 3, 4 }, lazy_ids);
+}
+
+test "device dataframe drops duplicate rows eagerly and lazily" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 3 }, .cpu);
+    defer id.deinit();
+    var value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 10.0, 99.0, 20.0, 21.0, 30.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer value.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "value", .data = value },
+    });
+    defer table.deinit();
+
+    var distinct = try table.distinctOn(&.{"id"});
+    defer distinct.deinit();
+    try std.testing.expectEqual(@as(usize, 3), distinct.height());
+    const distinct_ids = try (try distinct.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(distinct_ids);
+    const distinct_values = try (try distinct.column("value")).f64.toOwnedSlice(gpa);
+    defer gpa.free(distinct_values);
+    const distinct_validity = try (try distinct.column("value")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(distinct_validity);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3 }, distinct_ids);
+    try std.testing.expectEqualSlices(f64, &.{ 10.0, 20.0, 30.0 }, distinct_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, distinct_validity);
+
+    var full_distinct = try table.distinctRows();
+    defer full_distinct.deinit();
+    try std.testing.expectEqual(@as(usize, 4), full_distinct.height());
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.distinctOn(&.{"id"});
+    try plan.select(&.{ "id", "value" });
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "distinct_on([id])") != null);
+    var lazy_distinct = try plan.collect();
+    defer lazy_distinct.deinit();
+    try std.testing.expectEqual(@as(usize, 3), lazy_distinct.height());
+    const lazy_ids = try (try lazy_distinct.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ids);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3 }, lazy_ids);
 }
 test "device lazy frame collects staged select filter sort and limit operations" {
     const gpa = std.testing.allocator;

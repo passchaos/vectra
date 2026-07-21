@@ -71,6 +71,15 @@ pub fn main(init: std.process.Init) !void {
     defer allocator.free(lazy_stack_explain);
     var lazy_stacked = try lazy_stack.collect();
     defer lazy_stacked.deinit();
+    var deduped = try stacked.distinctOn(&.{"sales"});
+    defer deduped.deinit();
+    var lazy_distinct = try vx.DeviceLazyFrame.init(allocator, stacked);
+    defer lazy_distinct.deinit();
+    try lazy_distinct.distinctOn(&.{"sales"});
+    const lazy_distinct_explain = try lazy_distinct.explain(allocator);
+    defer allocator.free(lazy_distinct_explain);
+    var lazy_deduped = try lazy_distinct.collect();
+    defer lazy_deduped.deinit();
     var grouped = try df.groupByCount("units", "rows");
     defer grouped.deinit();
     var summed = try df.groupBySum("units", "sales", "sales_sum");
@@ -190,6 +199,9 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 2), top2.height());
     try std.testing.expectEqual(@as(usize, 5), stacked.height());
     try std.testing.expectEqual(@as(usize, 5), lazy_stacked.height());
+    try std.testing.expectEqual(@as(usize, 3), deduped.height());
+    try std.testing.expectEqual(@as(usize, 3), lazy_deduped.height());
+    try std.testing.expect(std.mem.indexOf(u8, lazy_distinct_explain, "distinct_on([sales])") != null);
     try std.testing.expect(std.mem.indexOf(u8, lazy_stack_explain, "concat_rows(rows=2, cols=2)") != null);
     try std.testing.expectEqual(@as(usize, 2), grouped.height());
     try std.testing.expectEqual(@as(usize, 2), summed.height());
@@ -247,6 +259,8 @@ pub fn main(init: std.process.Init) !void {
         \\  "top2_rows": {d},
         \\  "stacked_rows": {d},
         \\  "lazy_stacked_rows": {d},
+        \\  "deduped_rows": {d},
+        \\  "lazy_deduped_rows": {d},
         \\  "grouped_rows": {d},
         \\  "summed_rows": {d},
         \\  "minned_rows": {d},
@@ -273,6 +287,8 @@ pub fn main(init: std.process.Init) !void {
         top2.height(),
         stacked.height(),
         lazy_stacked.height(),
+        deduped.height(),
+        lazy_deduped.height(),
         grouped.height(),
         summed.height(),
         minned.height(),
