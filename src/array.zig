@@ -5553,9 +5553,52 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn sumToSize(self: Self, dims: []const usize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.sumToSize(dims);
+            ensureNumeric(T);
+            if (dims.len > self.shape.len) return error.ShapeMismatch;
+            const leading = self.shape.len - dims.len;
+            for (dims, 0..) |target_extent, i| {
+                const source_extent = self.shape[leading + i];
+                if (target_extent != source_extent and target_extent != 1) return error.ShapeMismatch;
+            }
+
+            var current_view: ?Self = self;
+            var current_array: ?Array(T) = null;
+            errdefer if (current_array) |*array| array.deinit();
+
+            var leading_left = leading;
+            while (leading_left > 0) : (leading_left -= 1) {
+                const next = if (current_view) |active_view|
+                    try active_view.sum(0, false)
+                else
+                    try current_array.?.sum(0, false);
+                if (current_array) |*array| array.deinit();
+                current_array = next;
+                current_view = null;
+            }
+
+            var i: usize = dims.len;
+            while (i > 0) {
+                i -= 1;
+                const current_shape = if (current_view) |active_view| active_view.shape else current_array.?.shape;
+                if (dims[i] == 1 and current_shape[i] != 1) {
+                    const next = if (current_view) |active_view|
+                        try active_view.sum(@intCast(i), true)
+                    else
+                        try current_array.?.sum(@intCast(i), true);
+                    if (current_array) |*array| array.deinit();
+                    current_array = next;
+                    current_view = null;
+                }
+            }
+
+            var result = if (current_view) |active_view| try active_view.toArray() else current_array.?;
+            current_array = null;
+            if (!std.mem.eql(usize, result.shape, dims)) {
+                const reshaped = try result.reshape(dims);
+                result.deinit();
+                result = reshaped;
+            }
+            return result;
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(T) {
