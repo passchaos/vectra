@@ -34,6 +34,7 @@ pub const ColumnDef = struct {
 pub const DeviceDType = array_mod.DType;
 pub const DeviceDataError = DataError || array_mod.ArrayError;
 pub const ArrowInteropError = DeviceDataError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;
+pub const ParquetInteropError = ArrowInteropError || boltha.parquet.SimpleError;
 
 /// Vectra's portable validity representation for device dataframe columns.
 ///
@@ -911,6 +912,39 @@ pub const DeviceDataFrame = struct {
         return boltha.arrow.Table.initOwned(schema, batches);
     }
 
+    pub fn toParquetBytes(self: DeviceDataFrame, allocator: std.mem.Allocator) ParquetInteropError![]u8 {
+        var batch = try self.toArrowRecordBatch(allocator);
+        defer batch.deinit(allocator);
+        var out: std.ArrayList(u8) = .empty;
+        errdefer out.deinit(allocator);
+        try boltha.parquet.writeRecordBatch(allocator, &out, batch);
+        return out.toOwnedSlice(allocator);
+    }
+
+    pub fn fromParquetBytes(allocator: std.mem.Allocator, bytes: []const u8, device_value: array_mod.Device) ParquetInteropError!DeviceDataFrame {
+        var batch = try boltha.parquet.readRecordBatch(allocator, bytes);
+        defer batch.deinit(allocator);
+        return DeviceDataFrame.fromArrowRecordBatch(allocator, batch, device_value);
+    }
+
+    pub fn fromArrowRecordBatch(allocator: std.mem.Allocator, batch: boltha.arrow.RecordBatch, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
+        if (!device_value.isAvailable()) return error.InvalidDevice;
+        var defs = try allocator.alloc(DeviceColumnDef, batch.columns.len);
+        defer allocator.free(defs);
+        var initialized: usize = 0;
+        defer {
+            for (defs[0..initialized]) |*def| def.data.deinit();
+        }
+        for (batch.schema.fields, batch.columns, 0..) |field, arrow_column, i| {
+            defs[i] = .{
+                .name = field.name,
+                .data = try deviceColumnFromArrowArray(allocator, arrow_column, device_value),
+            };
+            initialized += 1;
+        }
+        return DeviceDataFrame.init(allocator, defs);
+    }
+
     pub fn view(self: DeviceDataFrame) DeviceDataError!DeviceDataFrameView {
         const columns = try self.allocator.alloc(DeviceColumnView, self.columns.len);
         errdefer self.allocator.free(columns);
@@ -1628,6 +1662,56 @@ fn boolColumnToArrow(column: DeviceTypedColumn(bool), allocator: std.mem.Allocat
         break :blk try boltha.arrow.BooleanArray.fromOptionalSlice(allocator, optional_values);
     } else try boltha.arrow.BooleanArray.fromSlice(allocator, values);
     return .{ .boolean = array_value };
+}
+
+fn deviceColumnFromArrowArray(allocator: std.mem.Allocator, column: boltha.arrow.AnyArray, device_value: array_mod.Device) ArrowInteropError!DeviceColumn {
+    return switch (column) {
+        .boolean => |array| boolDeviceColumnFromArrow(allocator, array, device_value),
+        .int8 => |array| primitiveDeviceColumnFromArrow(i8, allocator, array, device_value),
+        .uint8 => |array| primitiveDeviceColumnFromArrow(u8, allocator, array, device_value),
+        .int16 => |array| primitiveDeviceColumnFromArrow(i16, allocator, array, device_value),
+        .uint16 => |array| primitiveDeviceColumnFromArrow(u16, allocator, array, device_value),
+        .int32 => |array| primitiveDeviceColumnFromArrow(i32, allocator, array, device_value),
+        .uint32 => |array| primitiveDeviceColumnFromArrow(u32, allocator, array, device_value),
+        .int64 => |array| primitiveDeviceColumnFromArrow(i64, allocator, array, device_value),
+        .uint64 => |array| primitiveDeviceColumnFromArrow(u64, allocator, array, device_value),
+        .float16 => |array| primitiveDeviceColumnFromArrow(f16, allocator, array, device_value),
+        .float32 => |array| primitiveDeviceColumnFromArrow(f32, allocator, array, device_value),
+        .float64 => |array| primitiveDeviceColumnFromArrow(f64, allocator, array, device_value),
+        else => error.TypeUnsupported,
+    };
+}
+
+fn primitiveDeviceColumnFromArrow(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    arrow_array: boltha.arrow.PrimitiveArray(T),
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceColumn {
+    if (arrow_array.null_count == 0) return DeviceColumn.fromSlice(T, allocator, arrow_array.values, device_value);
+
+    const validity = try allocator.alloc(bool, arrow_array.values.len);
+    defer allocator.free(validity);
+    for (validity, 0..) |*slot, i| slot.* = !arrow_array.isNull(i);
+    return DeviceColumn.fromSliceWithValidity(T, allocator, arrow_array.values, validity, device_value);
+}
+
+fn boolDeviceColumnFromArrow(allocator: std.mem.Allocator, arrow_array: boltha.arrow.BooleanArray, device_value: array_mod.Device) ArrowInteropError!DeviceColumn {
+    const values = try allocator.alloc(bool, arrow_array.len());
+    defer allocator.free(values);
+    const validity = try allocator.alloc(bool, arrow_array.len());
+    defer allocator.free(validity);
+    for (values, validity, 0..) |*value_slot, *valid_slot, i| {
+        if (arrow_array.value(i)) |value| {
+            value_slot.* = value;
+            valid_slot.* = true;
+        } else {
+            value_slot.* = false;
+            valid_slot.* = false;
+        }
+    }
+    if (arrow_array.null_count == 0) return DeviceColumn.fromSlice(bool, allocator, values, device_value);
+    return DeviceColumn.fromSliceWithValidity(bool, allocator, values, validity, device_value);
 }
 
 fn indexColumnToArrow(comptime T: type, column: DeviceTypedColumn(T), allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.AnyArray {
@@ -2633,4 +2717,48 @@ test "device dataframe inner joins on fixed-width keys" {
     try std.testing.expectEqualSlices(f64, &.{ 20.0, 20.0, 30.0, 21.0, 21.0 }, left_values);
     try std.testing.expectEqualSlices(f64, &.{ 200.0, 201.0, 300.0, 200.0, 201.0 }, right_values);
     try std.testing.expectEqualSlices(i64, &.{ 20, 21, 30, 20, 21 }, labels);
+}
+
+test "device dataframe round-trips through boltha parquet" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer id.deinit();
+    var sales = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 2.0, 3.0, 5.0 }, &.{ true, false, true }, .cpu);
+    defer sales.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "sales", .data = sales },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+    try std.testing.expect(bytes.len > 0);
+
+    var restored = try DeviceDataFrame.fromParquetBytes(gpa, bytes, .cpu);
+    defer restored.deinit();
+    try std.testing.expectEqual(table.height(), restored.height());
+    try std.testing.expectEqual(table.width(), restored.width());
+    try std.testing.expectEqual(DeviceDType.i32, try restored.columnDType("id"));
+    try std.testing.expectEqual(DeviceDType.f64, try restored.columnDType("sales"));
+    try std.testing.expectEqual(DeviceDType.bool, try restored.columnDType("active"));
+
+    const ids = try (try restored.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(ids);
+    const sales_values = try (try restored.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_values);
+    const sales_validity = try (try restored.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(sales_validity);
+    const active_values = try (try restored.column("active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_values);
+
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3 }, ids);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 0.0, 5.0 }, sales_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, sales_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, active_values);
 }
