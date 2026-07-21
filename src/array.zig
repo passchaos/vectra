@@ -9010,14 +9010,10 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn flatNonzero(self: Self) ArrayError!Array(usize) {
             if (try self.flatNonzeroFast()) |out| return out;
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.flatNonzero();
+            unreachable;
         }
 
         fn flatNonzeroFast(self: Self) ArrayError!?Array(usize) {
-            if (!self.device.isCpu()) return null;
-            if (!self.isContiguous() and !self.isOneDimensionalStrided()) return null;
             const count = self.countNonzero();
             var out = try Array(usize).empty(self.allocator, &.{count});
             errdefer out.deinit();
@@ -9045,20 +9041,25 @@ pub fn ArrayView(comptime T: type) type {
                 }
                 return out;
             }
-            unreachable;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                if (self.data[source_offset] == zero(T)) continue;
+                out.data[write] = flat;
+                write += 1;
+            }
+            return out;
         }
 
         pub fn nonzero(self: Self) ArrayError!Array(usize) {
             if (try self.nonzeroFast()) |out| return out;
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.nonzero();
+            unreachable;
         }
 
         fn nonzeroFast(self: Self) ArrayError!?Array(usize) {
-            if (!self.device.isCpu()) return null;
-            if (!self.isContiguous() and !self.isOneDimensionalStrided()) return null;
-
             const count = self.countNonzero();
             var out = try Array(usize).empty(self.allocator, &.{ count, self.shape.len });
             errdefer out.deinit();
@@ -9071,7 +9072,7 @@ pub fn ArrayView(comptime T: type) type {
                 var write: usize = 0;
                 for (0..self.numel()) |flat| {
                     if (self.data[source_offset] != zero(T)) {
-                        out.data[write] = flat;
+                        out.data[write * self.shape.len] = flat;
                         write += 1;
                     }
                     source_offset += self.strides[0];
@@ -9079,14 +9080,27 @@ pub fn ArrayView(comptime T: type) type {
                 return out;
             }
 
-            const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
-            if (end > self.data.len) return error.IndexOutOfBounds;
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             var write: usize = 0;
-            for (self.data[self.offset..end], 0..) |value, flat| {
-                if (value == zero(T)) continue;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], 0..) |value, flat| {
+                    if (value == zero(T)) continue;
+                    unravelIndexInto(flat, self.shape, multi);
+                    @memcpy(out.data[write * self.shape.len ..][0..self.shape.len], multi);
+                    write += 1;
+                }
+                return out;
+            }
+
+            for (0..self.numel()) |flat| {
                 unravelIndexInto(flat, self.shape, multi);
+                const source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                const value = self.data[source_offset];
+                if (value == zero(T)) continue;
                 @memcpy(out.data[write * self.shape.len ..][0..self.shape.len], multi);
                 write += 1;
             }
