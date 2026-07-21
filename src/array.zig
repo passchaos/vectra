@@ -9056,9 +9056,45 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn diagEmbed(self: Self, offset: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.diagEmbed(offset);
+            if (self.shape.len == 0) return error.NonVectorArray;
+            const diagonal_len = self.shape[self.shape.len - 1];
+            const offset_abs: usize = if (offset < 0) @intCast(-offset) else @intCast(offset);
+            const matrix_size = std.math.add(usize, diagonal_len, offset_abs) catch return error.InvalidShape;
+            const out_shape = try self.allocator.alloc(usize, self.shape.len + 1);
+            defer self.allocator.free(out_shape);
+            for (self.shape[0 .. self.shape.len - 1], 0..) |extent, axis| out_shape[axis] = extent;
+            out_shape[out_shape.len - 2] = matrix_size;
+            out_shape[out_shape.len - 1] = matrix_size;
+            var out = try Array(T).zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (diagonal_len == 0 or out.data.len == 0) return out;
+
+            const batch_shape = self.shape[0 .. self.shape.len - 1];
+            const batch_count = product(batch_shape);
+            const batch_multi = try self.allocator.alloc(usize, batch_shape.len);
+            defer self.allocator.free(batch_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (0..batch_count) |batch_flat| {
+                unravelIndexInto(batch_flat, batch_shape, batch_multi);
+                for (batch_multi, 0..) |coord, axis| {
+                    in_multi[axis] = coord;
+                    out_multi[axis] = coord;
+                }
+                for (0..diagonal_len) |diag_i| {
+                    in_multi[self.shape.len - 1] = diag_i;
+                    const row = if (offset < 0) diag_i + offset_abs else diag_i;
+                    const col = if (offset > 0) diag_i + offset_abs else diag_i;
+                    out_multi[out_shape.len - 2] = row;
+                    out_multi[out_shape.len - 1] = col;
+                    const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    out.data[ravelIndex(out_multi, out.strides)] = self.data[source_offset];
+                }
+            }
+            return out;
         }
 
         pub fn triu(self: Self, diagonal_offset: isize) ArrayError!Array(T) {
