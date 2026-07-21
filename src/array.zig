@@ -6878,15 +6878,13 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn argmax(self: Self) ArrayError!usize {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.argmax();
+            ensureNumeric(T);
+            return self.argReduceFlat(false, false);
         }
 
         pub fn argmin(self: Self) ArrayError!usize {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.argmin();
+            ensureNumeric(T);
+            return self.argReduceFlat(true, false);
         }
 
         pub fn argmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
@@ -6910,15 +6908,36 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn nanargmax(self: Self) ArrayError!usize {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.nanargmax();
+            ensureFloat(T);
+            return self.argReduceFlat(false, true);
         }
 
         pub fn nanargmin(self: Self) ArrayError!usize {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.nanargmin();
+            ensureFloat(T);
+            return self.argReduceFlat(true, true);
+        }
+
+        fn argReduceFlat(self: Self, comptime find_min: bool, comptime skip_nan: bool) ArrayError!usize {
+            if (self.numel() == 0) return error.EmptyArray;
+            var found = false;
+            var best_index: usize = 0;
+            var best_value: T = undefined;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                const value = self.data[source_offset];
+                if (skip_nan and isNanValue(T, value)) continue;
+                if (!found or if (find_min) lessValue(T, value, best_value) else lessValue(T, best_value, value)) {
+                    best_index = flat;
+                    best_value = value;
+                    found = true;
+                }
+            }
+            if (!found) return error.EmptyArray;
+            return best_index;
         }
 
         pub fn nanargmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) ArrayError!Array(usize) {
