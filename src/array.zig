@@ -7426,9 +7426,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn takeSignedMode(self: Self, indices: Array(isize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
             if (axis_opt == null) return self.takeSignedFlatMode(indices, mode);
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.takeSignedMode(indices, axis_opt, mode);
+            return self.takeSignedAxisMode(indices, axis_opt.?, mode);
         }
 
         fn takeSignedFlatMode(self: Self, indices: Array(isize), mode: IndexMode) ArrayError!Array(T) {
@@ -7465,11 +7463,32 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
+        fn takeSignedAxisMode(self: Self, indices: Array(isize), axis_index: isize, mode: IndexMode) ArrayError!Array(T) {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = indices.data.len;
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = try Array(T).applySignedIndexMode(indices.data[out_multi[axis]], self.shape[axis], mode);
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
+        }
+
         pub fn takeMode(self: Self, indices: Array(usize), axis_opt: ?isize, mode: IndexMode) ArrayError!Array(T) {
             if (axis_opt == null) return self.takeFlatMode(indices, mode);
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.takeMode(indices, axis_opt, mode);
+            return self.takeAxisMode(indices, axis_opt.?, mode);
         }
 
         fn takeFlatMode(self: Self, indices: Array(usize), mode: IndexMode) ArrayError!Array(T) {
@@ -7502,6 +7521,29 @@ pub fn ArrayView(comptime T: type) type {
                 const normalized = try Array(T).applyIndexMode(idx, self.numel(), mode);
                 unravelIndexInto(normalized, self.shape, multi);
                 slot.* = self.data[self.offset + ravelIndex(multi, self.strides)];
+            }
+            return out;
+        }
+
+        fn takeAxisMode(self: Self, indices: Array(usize), axis_index: isize, mode: IndexMode) ArrayError!Array(T) {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = indices.data.len;
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = try Array(T).applyIndexMode(indices.data[out_multi[axis]], self.shape[axis], mode);
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
             }
             return out;
         }
