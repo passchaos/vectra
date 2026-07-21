@@ -6994,9 +6994,40 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn ediff1d(self: Self, prepend: ?Array(T), append: ?Array(T)) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.ediff1d(prepend, append);
+            ensureNumeric(T);
+            const total = self.numel();
+            const diff_len = if (total == 0) 0 else total - 1;
+            const prepend_len = if (prepend) |values| values.data.len else 0;
+            const append_len = if (append) |values| values.data.len else 0;
+            const out_len = std.math.add(usize, prepend_len, diff_len) catch return error.InvalidShape;
+            const total_len = std.math.add(usize, out_len, append_len) catch return error.InvalidShape;
+            var out = try Array(T).empty(self.allocator, &.{total_len});
+            errdefer out.deinit();
+
+            var write: usize = 0;
+            if (prepend) |values| {
+                @memcpy(out.data[write..][0..values.data.len], values.data);
+                write += values.data.len;
+            }
+            if (total >= 2) {
+                const lhs_multi = try self.allocator.alloc(usize, self.shape.len);
+                defer self.allocator.free(lhs_multi);
+                const rhs_multi = try self.allocator.alloc(usize, self.shape.len);
+                defer self.allocator.free(rhs_multi);
+                for (1..total) |flat| {
+                    unravelIndexInto(flat - 1, self.shape, lhs_multi);
+                    unravelIndexInto(flat, self.shape, rhs_multi);
+                    const lhs_offset = self.offset + ravelIndex(lhs_multi, self.strides);
+                    const rhs_offset = self.offset + ravelIndex(rhs_multi, self.strides);
+                    if (lhs_offset >= self.data.len or rhs_offset >= self.data.len) return error.IndexOutOfBounds;
+                    out.data[write] = subValue(T, self.data[rhs_offset], self.data[lhs_offset]);
+                    write += 1;
+                }
+            }
+            if (append) |values| {
+                @memcpy(out.data[write..][0..values.data.len], values.data);
+            }
+            return out;
         }
 
         pub fn trapezoid(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
