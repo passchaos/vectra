@@ -7752,9 +7752,26 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn maskedPutScalar(self: Self, mask: Array(bool), value: T) ArrayError!Array(T) {
             if (try self.maskedPutScalarSameShapeFast(mask, value)) |out| return out;
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.maskedPutScalar(mask, value);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const mask_index = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                if (mask.data[mask_index]) {
+                    slot.* = value;
+                } else {
+                    const source_offset = self.broadcastOffsetOf(out_multi, out_shape.len);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    slot.* = self.data[source_offset];
+                }
+            }
+            return out;
         }
 
         fn maskedPutScalarSameShapeFast(self: Self, mask: Array(bool), value: T) ArrayError!?Array(T) {
