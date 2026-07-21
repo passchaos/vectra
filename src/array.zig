@@ -7979,9 +7979,42 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn rollFlat(self: Self, shift: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.rollFlat(shift);
+            const len_flat = self.numel();
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (len_flat == 0) return out;
+            const normalized_shift: usize = @intCast(@mod(shift, @as(isize, @intCast(len_flat))));
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, len_flat) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                const source = self.data[self.offset..end];
+                for (out.data, 0..) |*slot, out_index| {
+                    const in_index = (out_index + len_flat - normalized_shift) % len_flat;
+                    slot.* = source[in_index];
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                for (out.data, 0..) |*slot, out_index| {
+                    const in_index = (out_index + len_flat - normalized_shift) % len_flat;
+                    const delta = std.math.mul(usize, in_index, self.strides[0]) catch return error.InvalidShape;
+                    const source_offset = std.math.add(usize, self.offset, delta) catch return error.InvalidShape;
+                    slot.* = self.data[source_offset];
+                }
+                return out;
+            }
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, out_index| {
+                const in_index = (out_index + len_flat - normalized_shift) % len_flat;
+                unravelIndexInto(in_index, self.shape, multi);
+                const source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) ArrayError!Array(T) {
