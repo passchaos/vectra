@@ -8905,9 +8905,7 @@ pub fn ArrayView(comptime T: type) type {
             if (axis_opt == null) return self.boolScalarReductionResult(self.all(), keepdims);
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
             if (self.shape.len == 1 and axis == 0) return self.boolScalarReductionResult(self.all(), keepdims);
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.allAxis(axis_opt, keepdims);
+            return self.boolAxisReduction(axis, keepdims, true);
         }
 
         pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
@@ -8931,9 +8929,7 @@ pub fn ArrayView(comptime T: type) type {
             if (axis_opt == null) return self.boolScalarReductionResult(self.any(), keepdims);
             const axis = try normalizeDim(axis_opt.?, self.shape.len);
             if (self.shape.len == 1 and axis == 0) return self.boolScalarReductionResult(self.any(), keepdims);
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.anyAxis(axis_opt, keepdims);
+            return self.boolAxisReduction(axis, keepdims, false);
         }
 
         fn boolScalarReductionResult(self: Self, value: bool, keepdims: bool) ArrayError!Array(T) {
@@ -8943,6 +8939,38 @@ pub fn ArrayView(comptime T: type) type {
                 return Array(T).fromSlice(self.allocator, &.{value}, out_shape);
             }
             return Array(T).fromSlice(self.allocator, &.{value}, &.{});
+        }
+
+        fn boolAxisReduction(self: Self, axis: usize, keepdims: bool, comptime require_all: bool) ArrayError!Array(T) {
+            const out_shape = try self.reducedShape(axis, keepdims);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).full(self.allocator, out_shape, if (require_all) true else false);
+            errdefer out.deinit();
+            if (self.numel() == 0) return out;
+
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, in_multi);
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                if (keepdims) {
+                    @memcpy(out_multi, in_multi);
+                    out_multi[axis] = 0;
+                } else {
+                    for (in_multi[0..axis], 0..) |coord, i| out_multi[i] = coord;
+                    for (in_multi[axis + 1 ..], axis..) |coord, i| out_multi[i] = coord;
+                }
+                const out_index = ravelIndex(out_multi, out.strides);
+                if (require_all) {
+                    out.data[out_index] = out.data[out_index] and self.data[source_offset];
+                } else {
+                    out.data[out_index] = out.data[out_index] or self.data[source_offset];
+                }
+            }
+            return out;
         }
 
         pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) ArrayError!Array(T) {
