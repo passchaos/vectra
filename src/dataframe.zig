@@ -316,6 +316,34 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn takeOptional(self: Self, row_indices: []const ?usize) array_mod.ArrayError!Self {
+            const host_values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(host_values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+
+            const values = try self.values.allocator.alloc(T, row_indices.len);
+            defer self.values.allocator.free(values);
+            const validity_values = try self.values.allocator.alloc(bool, row_indices.len);
+            defer self.values.allocator.free(validity_values);
+            for (row_indices, values, validity_values) |maybe_idx, *value_slot, *valid_slot| {
+                if (maybe_idx) |idx| {
+                    if (idx >= host_values.len) return error.IndexOutOfBounds;
+                    value_slot.* = host_values[idx];
+                    valid_slot.* = if (maybe_validity) |validity| validity[idx] else true;
+                } else {
+                    value_slot.* = zeroValue(T);
+                    valid_slot.* = false;
+                }
+            }
+            var value_array = try array_mod.Array(T).fromSliceOn(self.values.allocator, values, &.{row_indices.len}, self.device());
+            errdefer value_array.deinit();
+            if (countNulls(validity_values) == 0) return .{ .values = value_array, .validity = null, .null_count = 0 };
+            var validity_array = try array_mod.Array(bool).fromSliceOn(self.values.allocator, validity_values, &.{row_indices.len}, self.device());
+            errdefer validity_array.deinit();
+            return .{ .values = value_array, .validity = validity_array, .null_count = countNulls(validity_values) };
+        }
+
         pub fn filter(self: Self, mask: []const bool) array_mod.ArrayError!Self {
             if (mask.len != self.len()) return error.ShapeMismatch;
             const row_indices = try rowIndicesFromMask(self.values.allocator, mask);
@@ -540,6 +568,12 @@ pub const DeviceColumn = union(DeviceDType) {
     pub fn take(self: DeviceColumn, row_indices: []const usize) array_mod.ArrayError!DeviceColumn {
         return switch (self) {
             inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.take(row_indices)),
+        };
+    }
+
+    pub fn takeOptional(self: DeviceColumn, row_indices: []const ?usize) array_mod.ArrayError!DeviceColumn {
+        return switch (self) {
+            inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.takeOptional(row_indices)),
         };
     }
 
@@ -1148,7 +1182,30 @@ pub const DeviceDataFrame = struct {
 
         var left_rows = try self.take(pair.left);
         defer left_rows.deinit();
-        var right_rows = try right.take(pair.right);
+        var right_rows = try takeOptionalRows(right, pair.right);
+        defer right_rows.deinit();
+
+        return concatJoinedTables(self.allocator, left_rows, right_rows, right_key_name, options_value);
+    }
+
+    pub fn leftJoin(
+        self: DeviceDataFrame,
+        right: DeviceDataFrame,
+        left_key_name: []const u8,
+        right_key_name: []const u8,
+        options_value: DeviceJoinOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
+        const left_key = try self.column(left_key_name);
+        const right_key = try right.column(right_key_name);
+        if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
+
+        var pair = try leftJoinRowIndices(self.allocator, left_key.*, right_key.*);
+        defer pair.deinit();
+
+        var left_rows = try self.take(pair.left);
+        defer left_rows.deinit();
+        var right_rows = try takeOptionalRows(right, pair.right);
         defer right_rows.deinit();
 
         return concatJoinedTables(self.allocator, left_rows, right_rows, right_key_name, options_value);
@@ -1467,7 +1524,7 @@ fn groupKeyEqual(comptime T: type, lhs: T, rhs: T) bool {
 const JoinRowIndexPair = struct {
     allocator: std.mem.Allocator,
     left: []usize,
-    right: []usize,
+    right: []?usize,
 
     fn deinit(self: *JoinRowIndexPair) void {
         self.allocator.free(self.left);
@@ -1496,6 +1553,26 @@ fn innerJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: 
     };
 }
 
+fn leftJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
+    return switch (left) {
+        .bool => |typed| leftJoinRowIndicesTyped(bool, allocator, typed, right.bool),
+        .i8 => |typed| leftJoinRowIndicesTyped(i8, allocator, typed, right.i8),
+        .i16 => |typed| leftJoinRowIndicesTyped(i16, allocator, typed, right.i16),
+        .i32 => |typed| leftJoinRowIndicesTyped(i32, allocator, typed, right.i32),
+        .i64 => |typed| leftJoinRowIndicesTyped(i64, allocator, typed, right.i64),
+        .u8 => |typed| leftJoinRowIndicesTyped(u8, allocator, typed, right.u8),
+        .u16 => |typed| leftJoinRowIndicesTyped(u16, allocator, typed, right.u16),
+        .u32 => |typed| leftJoinRowIndicesTyped(u32, allocator, typed, right.u32),
+        .u64 => |typed| leftJoinRowIndicesTyped(u64, allocator, typed, right.u64),
+        .usize => |typed| leftJoinRowIndicesTyped(usize, allocator, typed, right.usize),
+        .isize => |typed| leftJoinRowIndicesTyped(isize, allocator, typed, right.isize),
+        .f16 => |typed| leftJoinRowIndicesTyped(f16, allocator, typed, right.f16),
+        .f32 => |typed| leftJoinRowIndicesTyped(f32, allocator, typed, right.f32),
+        .f64 => |typed| leftJoinRowIndicesTyped(f64, allocator, typed, right.f64),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
 fn innerJoinRowIndicesTyped(
     comptime T: type,
     allocator: std.mem.Allocator,
@@ -1514,7 +1591,7 @@ fn innerJoinRowIndicesTyped(
 
     var left_indices: std.ArrayList(usize) = .empty;
     errdefer left_indices.deinit(allocator);
-    var right_indices: std.ArrayList(usize) = .empty;
+    var right_indices: std.ArrayList(?usize) = .empty;
     errdefer right_indices.deinit(allocator);
 
     for (left_values, 0..) |left_value, left_i| {
@@ -1542,6 +1619,74 @@ fn innerJoinRowIndicesTyped(
         .left = owned_left,
         .right = owned_right,
     };
+}
+
+fn leftJoinRowIndicesTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    left: DeviceTypedColumn(T),
+    right: DeviceTypedColumn(T),
+) DeviceDataError!JoinRowIndexPair {
+    if (!left.device().sameDevice(right.device())) return error.InvalidDevice;
+    const left_values = try left.values.toOwnedSlice(allocator);
+    defer allocator.free(left_values);
+    const right_values = try right.values.toOwnedSlice(allocator);
+    defer allocator.free(right_values);
+    const maybe_left_validity = try validityValues(left, allocator);
+    defer if (maybe_left_validity) |validity| allocator.free(validity);
+    const maybe_right_validity = try validityValues(right, allocator);
+    defer if (maybe_right_validity) |validity| allocator.free(validity);
+
+    var left_indices: std.ArrayList(usize) = .empty;
+    errdefer left_indices.deinit(allocator);
+    var right_indices: std.ArrayList(?usize) = .empty;
+    errdefer right_indices.deinit(allocator);
+
+    for (left_values, 0..) |left_value, left_i| {
+        var matched = false;
+        const left_valid = if (maybe_left_validity) |validity| validity[left_i] else true;
+        if (left_valid) {
+            for (right_values, 0..) |right_value, right_i| {
+                if (maybe_right_validity) |validity| {
+                    if (!validity[right_i]) continue;
+                }
+                if (groupKeyEqual(T, left_value, right_value)) {
+                    try left_indices.append(allocator, left_i);
+                    try right_indices.append(allocator, right_i);
+                    matched = true;
+                }
+            }
+        }
+        if (!matched) {
+            try left_indices.append(allocator, left_i);
+            try right_indices.append(allocator, null);
+        }
+    }
+
+    const owned_left = try left_indices.toOwnedSlice(allocator);
+    left_indices = .empty;
+    errdefer allocator.free(owned_left);
+    const owned_right = try right_indices.toOwnedSlice(allocator);
+    right_indices = .empty;
+    return .{
+        .allocator = allocator,
+        .left = owned_left,
+        .right = owned_right,
+    };
+}
+
+fn takeOptionalRows(input: DeviceDataFrame, row_indices: []const ?usize) DeviceDataError!DeviceDataFrame {
+    var columns = try input.allocator.alloc(DeviceColumn, input.columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        input.allocator.free(columns);
+    }
+    for (input.columns, 0..) |col, i| {
+        columns[i] = try col.takeOptional(row_indices);
+        initialized += 1;
+    }
+    return initDeviceDataFrameFromOwnedColumns(input.allocator, input.names, columns, row_indices.len, input.device);
 }
 
 fn concatJoinedTables(
@@ -1952,6 +2097,10 @@ fn indexColumnToArrow(comptime T: type, column: DeviceTypedColumn(T), allocator:
 }
 
 fn zeroValue(comptime T: type) T {
+    if (comptime T == bool) return false;
+    if (comptime T == array_mod.BFloat16) return array_mod.BFloat16.fromF32(0);
+    if (comptime T == array_mod.Complex64) return .{ .re = 0, .im = 0 };
+    if (comptime T == array_mod.Complex128) return .{ .re = 0, .im = 0 };
     return switch (@typeInfo(T)) {
         .int, .float => 0,
         else => @compileError("zeroValue only supports primitive numeric Arrow values"),
@@ -2911,6 +3060,47 @@ test "device dataframe inner joins on fixed-width keys" {
     try std.testing.expectEqualSlices(f64, &.{ 20.0, 20.0, 30.0, 21.0, 21.0 }, left_values);
     try std.testing.expectEqualSlices(f64, &.{ 200.0, 201.0, 300.0, 200.0, 201.0 }, right_values);
     try std.testing.expectEqualSlices(i64, &.{ 20, 21, 30, 20, 21 }, labels);
+}
+
+test "device dataframe left joins with nullable unmatched right payloads" {
+    const gpa = std.testing.allocator;
+
+    var left_id = try DeviceColumn.fromSliceWithValidity(i32, gpa, &.{ 1, 2, 3, 2, 9 }, &.{ true, true, true, true, false }, .cpu);
+    defer left_id.deinit();
+    var left_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 10.0, 20.0, 30.0, 21.0, 90.0 }, .cpu);
+    defer left_value.deinit();
+
+    var right_id = try DeviceColumn.fromSlice(i32, gpa, &.{ 2, 3 }, .cpu);
+    defer right_id.deinit();
+    var right_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 200.0, 300.0 }, .cpu);
+    defer right_value.deinit();
+
+    var left = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = left_id },
+        .{ .name = "value", .data = left_value },
+    });
+    defer left.deinit();
+    var right = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = right_id },
+        .{ .name = "value", .data = right_value },
+    });
+    defer right.deinit();
+
+    var joined = try left.leftJoin(right, "id", "id", .{});
+    defer joined.deinit();
+    try std.testing.expectEqual(@as(usize, 5), joined.height());
+    try std.testing.expectEqual(DeviceDType.f64, try joined.columnDType("value_right"));
+
+    const ids = try (try joined.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(ids);
+    const right_values = try (try joined.column("value_right")).f64.toOwnedSlice(gpa);
+    defer gpa.free(right_values);
+    const right_validity = try (try joined.column("value_right")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(right_validity);
+
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 2, 9 }, ids);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 200.0, 300.0, 200.0, 0.0 }, right_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, false }, right_validity);
 }
 
 test "device dataframe round-trips through boltha parquet" {

@@ -55,6 +55,8 @@ pub fn main(init: std.process.Init) !void {
     defer lookup.deinit();
     var joined = try df.innerJoin(lookup, "units", "units", .{});
     defer joined.deinit();
+    var left_joined = try df.leftJoin(lookup, "units", "units", .{});
+    defer left_joined.deinit();
     const parquet_bytes = try df.toParquetBytes(allocator);
     defer allocator.free(parquet_bytes);
     var parquet_roundtrip = try vx.DeviceDataFrame.fromParquetBytes(allocator, parquet_bytes, vx.cpu);
@@ -89,6 +91,7 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 2), grouped.height());
     try std.testing.expectEqual(@as(usize, 2), summed.height());
     try std.testing.expectEqual(@as(usize, 2), joined.height());
+    try std.testing.expectEqual(df.height(), left_joined.height());
     try std.testing.expectEqual(df.height(), parquet_roundtrip.height());
     try std.testing.expectEqual(df.width(), parquet_roundtrip.width());
     try std.testing.expectEqual(df.height(), parquet_pruned.height());
@@ -115,6 +118,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "grouped_rows": {d},
         \\  "summed_rows": {d},
         \\  "joined_rows": {d},
+        \\  "left_joined_rows": {d},
         \\  "parquet_bytes": {d},
         \\  "parquet_rows": {d},
         \\  "parquet_pruned_rows": {d},
@@ -137,6 +141,7 @@ pub fn main(init: std.process.Init) !void {
         grouped.height(),
         summed.height(),
         joined.height(),
+        left_joined.height(),
         parquet_bytes.len,
         parquet_roundtrip.height(),
         parquet_pruned.height(),
