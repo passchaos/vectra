@@ -65,6 +65,8 @@ pub fn main(init: std.process.Init) !void {
     defer joined.deinit();
     var left_joined = try df.leftJoin(lookup, "units", "units", .{});
     defer left_joined.deinit();
+    var full_joined = try df.fullJoin(lookup, "units", "units", .{});
+    defer full_joined.deinit();
     var semi_joined = try df.semiJoin(lookup, "units", "units");
     defer semi_joined.deinit();
     var anti_joined = try df.antiJoin(lookup, "units", "units");
@@ -108,6 +110,7 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 6), stats.width());
     try std.testing.expectEqual(@as(usize, 2), joined.height());
     try std.testing.expectEqual(df.height(), left_joined.height());
+    try std.testing.expectEqual(@as(usize, 4), full_joined.height());
     try std.testing.expectEqual(@as(usize, 2), semi_joined.height());
     try std.testing.expectEqual(@as(usize, 1), anti_joined.height());
     try std.testing.expectEqual(df.height(), parquet_roundtrip.height());
@@ -141,6 +144,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "stats_width": {d},
         \\  "joined_rows": {d},
         \\  "left_joined_rows": {d},
+        \\  "full_joined_rows": {d},
         \\  "semi_joined_rows": {d},
         \\  "anti_joined_rows": {d},
         \\  "parquet_bytes": {d},
@@ -170,6 +174,7 @@ pub fn main(init: std.process.Init) !void {
         stats.width(),
         joined.height(),
         left_joined.height(),
+        full_joined.height(),
         semi_joined.height(),
         anti_joined.height(),
         parquet_bytes.len,
