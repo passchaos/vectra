@@ -12112,6 +12112,10 @@ pub fn Array(comptime T: type) type {
         /// lazy until materialization so timing code can choose this API when
         /// it needs the result and completion boundary in one step.
         pub fn materializeAndSynchronize(self: Self) ArrayError!Self {
+            if (self.pending_matmul == null) {
+                try self.synchronize();
+                return self;
+            }
             var out = try self.materialize();
             errdefer out.deinit();
             try out.synchronize();
