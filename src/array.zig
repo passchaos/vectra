@@ -9135,9 +9135,13 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn magnitude(self: Self) ArrayError!Array(complexRealType(T)) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.magnitude();
+            ensureComplex(T);
+            const Real = complexRealType(T);
+            return self.complexPart(Real, struct {
+                fn f(value: T) Real {
+                    return value.magnitude();
+                }
+            }.f);
         }
 
         pub fn absComplex(self: Self) ArrayError!Array(complexRealType(T)) {
@@ -9145,9 +9149,13 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn angle(self: Self) ArrayError!Array(complexRealType(T)) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.angle();
+            ensureComplex(T);
+            const Real = complexRealType(T);
+            return self.complexPart(Real, struct {
+                fn f(value: T) Real {
+                    return std.math.atan2(value.im, value.re);
+                }
+            }.f);
         }
 
         pub fn phase(self: Self) ArrayError!Array(complexRealType(T)) {
