@@ -8948,9 +8948,61 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn traceAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.traceAxes(offset, axis1, axis2);
+            ensureNumeric(T);
+            if (self.shape.len < 2) return error.InvalidAxis;
+            const axis1_norm = try normalizeDim(axis1, self.shape.len);
+            const axis2_norm = try normalizeDim(axis2, self.shape.len);
+            if (axis1_norm == axis2_norm) return error.InvalidAxis;
+            const axis1_extent = self.shape[axis1_norm];
+            const axis2_extent = self.shape[axis2_norm];
+            const start_axis1: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= axis1_extent) break :blk axis1_extent;
+                break :blk offset_abs;
+            } else 0;
+            const start_axis2: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= axis2_extent) break :blk axis2_extent;
+                break :blk offset_abs;
+            } else 0;
+            const diagonal_len = if (start_axis1 >= axis1_extent or start_axis2 >= axis2_extent)
+                0
+            else
+                @min(axis1_extent - start_axis1, axis2_extent - start_axis2);
+            const out_shape = try self.allocator.alloc(usize, self.shape.len - 2);
+            defer self.allocator.free(out_shape);
+            var write: usize = 0;
+            for (self.shape, 0..) |extent, axis| {
+                if (axis == axis1_norm or axis == axis2_norm) continue;
+                out_shape[write] = extent;
+                write += 1;
+            }
+            var out = try Array(T).zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0 or diagonal_len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                var read: usize = 0;
+                for (0..self.shape.len) |axis| {
+                    if (axis == axis1_norm or axis == axis2_norm) continue;
+                    in_multi[axis] = out_multi[read];
+                    read += 1;
+                }
+                var total = zero(T);
+                for (0..diagonal_len) |diagonal_index| {
+                    in_multi[axis1_norm] = start_axis1 + diagonal_index;
+                    in_multi[axis2_norm] = start_axis2 + diagonal_index;
+                    const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    total = addValue(T, total, self.data[source_offset]);
+                }
+                slot.* = total;
+            }
+            return out;
         }
 
         pub fn traceOffsetAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
