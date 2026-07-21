@@ -24,6 +24,9 @@ pub fn main(init: std.process.Init) !void {
     var view = try df.view();
     defer view.deinit();
 
+    var arrow_batch = try df.toArrowRecordBatch(allocator);
+    defer arrow_batch.deinit(allocator);
+
     var filtered = try df.filter(&.{ true, false, true });
     defer filtered.deinit();
     const filtered_units = try filtered.column("units");
@@ -36,6 +39,9 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(vx.DeviceDType.f64, view.columns[0].dtype);
     try std.testing.expectEqual(vx.DeviceValidityEncoding.bool_mask, view.columns[1].validity_encoding);
     try std.testing.expectEqual(@as(usize, 1), view.columns[1].null_count);
+    try std.testing.expectEqual(@as(usize, 3), arrow_batch.row_count);
+    try std.testing.expectEqual(@as(?usize, 1), arrow_batch.columnIndexByName("units"));
+    try std.testing.expectEqual(@as(?i64, null), arrow_batch.columns[1].int64.value(1));
     try std.testing.expectEqual(@as(usize, 2), filtered.height());
     try std.testing.expectEqual(@as(usize, 0), filtered_units.nullCount());
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, legacy.columns[0].f64);
@@ -51,6 +57,8 @@ pub fn main(init: std.process.Init) !void {
         \\  "shape": [{d},{d}],
         \\  "sales_dtype": "{s}",
         \\  "units_nulls": {d},
+        \\  "arrow_rows": {d},
+        \\  "arrow_columns": {d},
         \\  "filtered_rows": {d},
         \\  "filtered_units_nulls": {d},
         \\  "ok": true
@@ -62,6 +70,8 @@ pub fn main(init: std.process.Init) !void {
         df.width(),
         view.columns[0].dtype.name(),
         view.columns[1].null_count,
+        arrow_batch.row_count,
+        arrow_batch.columnCount(),
         filtered.height(),
         filtered_units.nullCount(),
     });

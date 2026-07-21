@@ -69,6 +69,7 @@ pub const DeviceColumnView = dataframe_mod.DeviceColumnView;
 pub const DeviceColumnDef = dataframe_mod.DeviceColumnDef;
 pub const DeviceTypedColumn = dataframe_mod.DeviceTypedColumn;
 pub const DeviceDataError = dataframe_mod.DeviceDataError;
+pub const ArrowInteropError = dataframe_mod.ArrowInteropError;
 pub const DeviceDType = dataframe_mod.DeviceDType;
 pub const DeviceValidityEncoding = dataframe_mod.DeviceValidityEncoding;
 

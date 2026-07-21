@@ -1,6 +1,7 @@
 const std = @import("std");
 const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
+const boltha = @import("boltha");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -32,6 +33,7 @@ pub const ColumnDef = struct {
 
 pub const DeviceDType = array_mod.DType;
 pub const DeviceDataError = DataError || array_mod.ArrayError;
+pub const ArrowInteropError = DeviceDataError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;
 
 /// Vectra's portable validity representation for device dataframe columns.
 ///
@@ -399,6 +401,30 @@ pub const DeviceColumn = union(DeviceDType) {
             inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.filter(mask)),
         };
     }
+
+    pub fn arrowDataType(self: DeviceColumn) ArrowInteropError!boltha.arrow.DataType {
+        return deviceDTypeToArrowDataType(self.dtype());
+    }
+
+    pub fn toArrowArray(self: DeviceColumn, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.AnyArray {
+        return switch (self) {
+            .bool => |typed| try boolColumnToArrow(typed, allocator),
+            .i8 => |typed| try primitiveColumnToArrow(i8, "int8", typed, allocator),
+            .i16 => |typed| try primitiveColumnToArrow(i16, "int16", typed, allocator),
+            .i32 => |typed| try primitiveColumnToArrow(i32, "int32", typed, allocator),
+            .i64 => |typed| try primitiveColumnToArrow(i64, "int64", typed, allocator),
+            .u8 => |typed| try primitiveColumnToArrow(u8, "uint8", typed, allocator),
+            .u16 => |typed| try primitiveColumnToArrow(u16, "uint16", typed, allocator),
+            .u32 => |typed| try primitiveColumnToArrow(u32, "uint32", typed, allocator),
+            .u64 => |typed| try primitiveColumnToArrow(u64, "uint64", typed, allocator),
+            .f16 => |typed| try primitiveColumnToArrow(f16, "float16", typed, allocator),
+            .f32 => |typed| try primitiveColumnToArrow(f32, "float32", typed, allocator),
+            .f64 => |typed| try primitiveColumnToArrow(f64, "float64", typed, allocator),
+            .usize => |typed| try indexColumnToArrow(usize, typed, allocator),
+            .isize => |typed| try indexColumnToArrow(isize, typed, allocator),
+            .bf16, .c64, .c128 => error.TypeUnsupported,
+        };
+    }
 };
 
 pub const DeviceColumnDef = struct {
@@ -515,6 +541,76 @@ pub const DeviceDataFrame = struct {
     pub fn columnDType(self: DeviceDataFrame, name: []const u8) DataError!DeviceDType {
         const idx = self.columnIndex(name) orelse return error.ColumnNotFound;
         return self.columns[idx].dtype();
+    }
+
+    /// Export a Boltha/Arrow schema for the fixed-width device dataframe.
+    ///
+    /// Polars keeps Arrow as the explicit columnar interchange boundary:
+    /// dataframe fields describe logical dtype and nullability, while each
+    /// column exports its Arrow array independently.  Vectra follows the same
+    /// split here, but the source columns may live on CPU, CUDA, or MPS; array
+    /// bytes are downloaded/materialized only when `toArrowRecordBatch()` is
+    /// called.
+    pub fn toArrowSchema(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
+        var fields = try allocator.alloc(boltha.arrow.Field, self.columns.len);
+        defer allocator.free(fields);
+        var initialized: usize = 0;
+        defer {
+            for (fields[0..initialized]) |*field| field.deinit(allocator);
+        }
+
+        for (self.names, self.columns, 0..) |name, col, i| {
+            fields[i] = try boltha.arrow.Field.init(
+                allocator,
+                name,
+                try col.arrowDataType(),
+                col.nullable(),
+            );
+            initialized += 1;
+        }
+        return boltha.arrow.Schema.init(allocator, fields);
+    }
+
+    /// Materialize the dataframe as a single Boltha/Arrow record batch.
+    ///
+    /// This is the host-side interoperability boundary for Arrow IPC/Parquet
+    /// and external consumers.  Device-resident columns remain authoritative in
+    /// `DeviceDataFrame`; export downloads through `Array.toOwnedSlice()` so the
+    /// same method works on CPU, CUDA, and MPS.  A zero-column table with a
+    /// non-zero row count is representable by `DeviceDataFrameView`, but Boltha's
+    /// current `RecordBatch` has no explicit row-count constructor for that
+    /// case, so export rejects it instead of silently dropping rows.
+    pub fn toArrowRecordBatch(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.RecordBatch {
+        if (self.columns.len == 0 and self.rows != 0) return error.TypeUnsupported;
+
+        var schema = try self.toArrowSchema(allocator);
+        errdefer schema.deinit(allocator);
+
+        const columns = try allocator.alloc(boltha.arrow.AnyArray, self.columns.len);
+        errdefer allocator.free(columns);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*column_value| column_value.deinit(allocator);
+        }
+
+        for (self.columns, columns) |col, *slot| {
+            slot.* = try col.toArrowArray(allocator);
+            initialized += 1;
+        }
+        return boltha.arrow.RecordBatch.initOwned(schema, columns);
+    }
+
+    pub fn toArrowTable(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Table {
+        var batch = try self.toArrowRecordBatch(allocator);
+        errdefer batch.deinit(allocator);
+
+        var schema = try batch.schema.clone(allocator);
+        errdefer schema.deinit(allocator);
+
+        const batches = try allocator.alloc(boltha.arrow.RecordBatch, 1);
+        errdefer allocator.free(batches);
+        batches[0] = batch;
+        return boltha.arrow.Table.initOwned(schema, batches);
     }
 
     pub fn view(self: DeviceDataFrame) DeviceDataError!DeviceDataFrameView {
@@ -677,6 +773,122 @@ fn countNullsInArray(mask: array_mod.Array(bool)) array_mod.ArrayError!usize {
     const values = try mask.toOwnedSlice(mask.allocator);
     defer mask.allocator.free(values);
     return countNulls(values);
+}
+
+fn deviceDTypeToArrowDataType(dtype: DeviceDType) ArrowInteropError!boltha.arrow.DataType {
+    return switch (dtype) {
+        .bool => .bool,
+        .i8 => .{ .int = .{ .bit_width = 8, .signed = true } },
+        .i16 => .{ .int = .{ .bit_width = 16, .signed = true } },
+        .i32 => .{ .int = .{ .bit_width = 32, .signed = true } },
+        .i64, .isize => .{ .int = .{ .bit_width = 64, .signed = true } },
+        .u8 => .{ .int = .{ .bit_width = 8, .signed = false } },
+        .u16 => .{ .int = .{ .bit_width = 16, .signed = false } },
+        .u32 => .{ .int = .{ .bit_width = 32, .signed = false } },
+        .u64, .usize => .{ .int = .{ .bit_width = 64, .signed = false } },
+        .f16 => .{ .floating_point = .half },
+        .f32 => .{ .floating_point = .single },
+        .f64 => .{ .floating_point = .double },
+        // Boltha already models Arrow primitive/fixed/nested types. Vectra's
+        // BFloat16 and complex values need explicit logical-extension metadata
+        // before they can be exported without losing semantics, so keep them
+        // rejected rather than pretending they are plain fixed-size binaries.
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn validityValues(column: anytype, allocator: std.mem.Allocator) array_mod.ArrayError!?[]bool {
+    const mask = column.validity orelse return null;
+    return try mask.toOwnedSlice(allocator);
+}
+
+fn primitiveColumnToArrow(
+    comptime T: type,
+    comptime tag_name: []const u8,
+    column: DeviceTypedColumn(T),
+    allocator: std.mem.Allocator,
+) ArrowInteropError!boltha.arrow.AnyArray {
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const primitive = if (maybe_validity) |validity| blk: {
+        const optional_values = try allocator.alloc(?T, values.len);
+        defer allocator.free(optional_values);
+        for (values, validity, optional_values) |value, valid, *slot| {
+            slot.* = if (valid) value else null;
+        }
+        break :blk try boltha.arrow.PrimitiveArray(T).fromOptionalSlice(allocator, optional_values, zeroValue(T));
+    } else try boltha.arrow.PrimitiveArray(T).fromSlice(allocator, values);
+    return @unionInit(boltha.arrow.AnyArray, tag_name, primitive);
+}
+
+fn boolColumnToArrow(column: DeviceTypedColumn(bool), allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.AnyArray {
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const array_value = if (maybe_validity) |validity| blk: {
+        const optional_values = try allocator.alloc(?bool, values.len);
+        defer allocator.free(optional_values);
+        for (values, validity, optional_values) |value, valid, *slot| {
+            slot.* = if (valid) value else null;
+        }
+        break :blk try boltha.arrow.BooleanArray.fromOptionalSlice(allocator, optional_values);
+    } else try boltha.arrow.BooleanArray.fromSlice(allocator, values);
+    return .{ .boolean = array_value };
+}
+
+fn indexColumnToArrow(comptime T: type, column: DeviceTypedColumn(T), allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.AnyArray {
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    if (comptime T == usize) {
+        const converted = try allocator.alloc(u64, values.len);
+        defer allocator.free(converted);
+        for (values, converted) |value, *slot| {
+            slot.* = std.math.cast(u64, value) orelse return error.TypeUnsupported;
+        }
+        if (maybe_validity) |validity| {
+            const optional_values = try allocator.alloc(?u64, values.len);
+            defer allocator.free(optional_values);
+            for (converted, validity, optional_values) |value, valid, *slot| {
+                slot.* = if (valid) value else null;
+            }
+            return .{ .uint64 = try boltha.arrow.PrimitiveArray(u64).fromOptionalSlice(allocator, optional_values, 0) };
+        }
+        return .{ .uint64 = try boltha.arrow.PrimitiveArray(u64).fromSlice(allocator, converted) };
+    }
+
+    if (comptime T == isize) {
+        const converted = try allocator.alloc(i64, values.len);
+        defer allocator.free(converted);
+        for (values, converted) |value, *slot| {
+            slot.* = std.math.cast(i64, value) orelse return error.TypeUnsupported;
+        }
+        if (maybe_validity) |validity| {
+            const optional_values = try allocator.alloc(?i64, values.len);
+            defer allocator.free(optional_values);
+            for (converted, validity, optional_values) |value, valid, *slot| {
+                slot.* = if (valid) value else null;
+            }
+            return .{ .int64 = try boltha.arrow.PrimitiveArray(i64).fromOptionalSlice(allocator, optional_values, 0) };
+        }
+        return .{ .int64 = try boltha.arrow.PrimitiveArray(i64).fromSlice(allocator, converted) };
+    }
+
+    unreachable;
+}
+
+fn zeroValue(comptime T: type) T {
+    return switch (@typeInfo(T)) {
+        .int, .float => 0,
+        else => @compileError("zeroValue only supports primitive numeric Arrow values"),
+    };
 }
 
 fn rowIndicesFromMask(allocator: std.mem.Allocator, mask: []const bool) array_mod.ArrayError![]usize {
@@ -1412,4 +1624,47 @@ test "device dataframe round-trips legacy dataframe fixed-width columns" {
     try std.testing.expectEqualSlices(f64, legacy.columns[0].f64, roundtrip.columns[0].f64);
     try std.testing.expectEqualSlices(i64, legacy.columns[1].i64, roundtrip.columns[1].i64);
     try std.testing.expectEqualSlices(bool, legacy.columns[2].bool, roundtrip.columns[2].bool);
+}
+
+test "device dataframe exports boltha arrow record batch" {
+    const gpa = std.testing.allocator;
+
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+    var units = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 1, 2, 3 }, &.{ true, false, true }, .cpu);
+    defer units.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = sales },
+        .{ .name = "units", .data = units },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    var schema = try table.toArrowSchema(gpa);
+    defer schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 3), schema.fieldCount());
+    try std.testing.expectEqual(@as(?usize, 0), schema.fieldIndexByName("sales"));
+    try std.testing.expect(schema.fields[0].data_type.eql(.{ .floating_point = .double }));
+    try std.testing.expect(schema.fields[1].nullable);
+    try std.testing.expect(schema.fields[1].data_type.eql(.{ .int = .{ .bit_width = 64, .signed = true } }));
+    try std.testing.expect(schema.fields[2].data_type.eql(.bool));
+
+    var batch = try table.toArrowRecordBatch(gpa);
+    defer batch.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 3), batch.row_count);
+    try std.testing.expectEqual(@as(usize, 3), batch.columnCount());
+    try std.testing.expectEqual(@as(?f64, 2.0), batch.columns[0].float64.value(0));
+    try std.testing.expectEqual(@as(?i64, 1), batch.columns[1].int64.value(0));
+    try std.testing.expectEqual(@as(?i64, null), batch.columns[1].int64.value(1));
+    try std.testing.expectEqual(@as(?bool, true), batch.columns[2].boolean.value(0));
+    try std.testing.expectEqual(@as(usize, 1), batch.columns[1].nullCount());
+
+    var arrow_table = try table.toArrowTable(gpa);
+    defer arrow_table.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 1), arrow_table.batchCount());
+    try std.testing.expectEqual(@as(usize, 3), arrow_table.row_count);
+    try std.testing.expectEqual(@as(?usize, 1), arrow_table.columnIndexByName("units"));
 }

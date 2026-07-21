@@ -87,6 +87,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const boltha_dep = b.dependency("boltha", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const boltha_mod = boltha_dep.module("boltha");
     const build_options = b.addOptions();
     build_options.addOption(bool, "enable_axiom_cuda", enable_axiom_cuda);
     build_options.addOption(bool, "enable_axiom_cuda_dispatch", enable_axiom_cuda_dispatch);
@@ -108,6 +113,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "veyra", .module = veyra_mod },
             .{ .name = "alea", .module = alea_mod },
+            .{ .name = "boltha", .module = boltha_mod },
         },
     });
     mod.addOptions("vectra_build_options", build_options);
