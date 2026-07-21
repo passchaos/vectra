@@ -8126,9 +8126,28 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.padConstant(before, after, value);
+            if (before.len != self.shape.len or after.len != self.shape.len) return error.ShapeMismatch;
+            var out_shape = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_shape);
+            for (self.shape, before, after, 0..) |d, b, a, i| {
+                const with_before = std.math.add(usize, d, b) catch return error.InvalidShape;
+                out_shape[i] = std.math.add(usize, with_before, a) catch return error.InvalidShape;
+            }
+            var out = try Array(T).full(self.allocator, out_shape, value);
+            errdefer out.deinit();
+            if (self.numel() == 0) return out;
+            const in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            var out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, in_multi);
+                for (in_multi, before, 0..) |coord, b, i| out_multi[i] = coord + b;
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                out.data[ravelIndex(out_multi, out.strides)] = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn padEdge(self: Self, before: []const usize, after: []const usize) ArrayError!Array(T) {
