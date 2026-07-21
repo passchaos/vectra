@@ -2131,6 +2131,14 @@ pub fn ArrayView(comptime T: type) type {
             return !lessValue(T, b, a);
         }
 
+        fn opCummax(a: T, b: T) T {
+            return if (lessValue(T, a, b)) b else a;
+        }
+
+        fn opCummin(a: T, b: T) T {
+            return if (lessValue(T, b, a)) b else a;
+        }
+
         fn opNeg(a: T) T {
             return negValue(T, a);
         }
@@ -6764,27 +6772,59 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn cumsum(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cumsum();
+            return self.cumulativeFlatFromInit(zero(T), opAdd);
         }
 
         pub fn cumprod(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cumprod();
+            return self.cumulativeFlatFromInit(one(T), opMul);
         }
 
         pub fn cummax(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cummax();
+            return self.cumulativeFlatFromFirst(opCummax);
         }
 
         pub fn cummin(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cummin();
+            return self.cumulativeFlatFromFirst(opCummin);
+        }
+
+        fn cumulativeFlatFromInit(self: Self, init_value: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            var acc = init_value;
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                acc = op(acc, self.data[source_offset]);
+                slot.* = acc;
+            }
+            return out;
+        }
+
+        fn cumulativeFlatFromFirst(self: Self, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            unravelIndexInto(0, self.shape, multi);
+            var source_offset = self.offset + ravelIndex(multi, self.strides);
+            if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+            var acc = self.data[source_offset];
+            out.data[0] = acc;
+            for (out.data[1..], 1..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                acc = op(acc, self.data[source_offset]);
+                slot.* = acc;
+            }
+            return out;
         }
 
         pub fn cumsumAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
