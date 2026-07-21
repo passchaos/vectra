@@ -6931,15 +6931,13 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn logcumsumexp(self: Self) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.logcumsumexp();
+            ensureFloat(T);
+            return self.cumulativeFlatFromFirst(opLogAddExp);
         }
 
         pub fn logcumsumexpAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.logcumsumexpAxis(axis_index);
+            ensureFloat(T);
+            return self.cumulativeAxisFromFirst(axis_index, opLogAddExp);
         }
 
         pub fn logcumsumexpDim(self: Self, dim_index: isize) ArrayError!Array(T) {
