@@ -7899,9 +7899,56 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) ArrayError!Array(T) {
+            if (axis_opt == null) return self.repeatInterleaveScalarFlat(repeat_count);
             var owned = try self.toArray();
             defer owned.deinit();
             return owned.repeatInterleaveScalar(repeat_count, axis_opt);
+        }
+
+        fn repeatInterleaveScalarFlat(self: Self, repeat_count: usize) ArrayError!Array(T) {
+            const total = std.math.mul(usize, self.numel(), repeat_count) catch return error.InvalidShape;
+            var out = try Array(T).empty(self.allocator, &.{total});
+            errdefer out.deinit();
+            if (total == 0) return out;
+            var write: usize = 0;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end]) |value| {
+                    for (0..repeat_count) |_| {
+                        out.data[write] = value;
+                        write += 1;
+                    }
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (0..self.numel()) |_| {
+                    const value = self.data[source_offset];
+                    for (0..repeat_count) |_| {
+                        out.data[write] = value;
+                        write += 1;
+                    }
+                    source_offset += self.strides[0];
+                }
+                return out;
+            }
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..self.numel()) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                const value = self.data[source_offset];
+                for (0..repeat_count) |_| {
+                    out.data[write] = value;
+                    write += 1;
+                }
+            }
+            return out;
         }
 
         pub fn tile(self: Self, repeats: []const usize) ArrayError!Array(T) {
