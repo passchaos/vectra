@@ -33,7 +33,7 @@ pub fn main(init: std.process.Init) !void {
     defer doubled_sales.deinit();
     var lazy = try vx.DeviceLazyFrame.init(allocator, df);
     defer lazy.deinit();
-    try lazy.filter(expensive);
+    try lazy.filterColumnScalar("sales", f64, 2.5, .gt);
     try lazy.sortBy("sales", .{ .descending = true });
     try lazy.select(&.{ "sales", "units" });
     try lazy.head(2);

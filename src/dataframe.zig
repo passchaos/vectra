@@ -64,6 +64,31 @@ pub const DeviceColumnCompareOp = enum {
     le,
 };
 
+pub const DeviceScalar = union(DeviceDType) {
+    f32: f32,
+    f64: f64,
+    i8: i8,
+    i16: i16,
+    i32: i32,
+    i64: i64,
+    u8: u8,
+    u16: u16,
+    u32: u32,
+    u64: u64,
+    usize: usize,
+    bool: bool,
+    bf16: array_mod.BFloat16,
+    f16: f16,
+    c64: array_mod.Complex64,
+    c128: array_mod.Complex128,
+    isize: isize,
+
+    pub fn init(comptime T: type, value: T) DeviceScalar {
+        const tag = comptime DeviceDType.of(T);
+        return @unionInit(DeviceScalar, @tagName(tag), value);
+    }
+};
+
 pub const DeviceGroupByAggregation = enum {
     sum,
     min,
@@ -761,6 +786,11 @@ pub const DeviceColumnDef = struct {
 pub const DeviceLazyOp = union(enum) {
     select: [][]const u8,
     filter_mask: DeviceColumn,
+    filter_scalar: struct {
+        name: []const u8,
+        op: DeviceColumnCompareOp,
+        scalar: DeviceScalar,
+    },
     sort_by: struct {
         name: []const u8,
         options: DeviceSortOptions,
@@ -780,6 +810,7 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(names);
             },
             .filter_mask => |*mask| mask.deinit(),
+            .filter_scalar => |filter_op| allocator.free(filter_op.name),
             .sort_by => |sort| allocator.free(sort.name),
             .top_k => |top| allocator.free(top.name),
             .head, .tail => {},
@@ -803,6 +834,11 @@ pub const DeviceLazyOp = union(enum) {
                 break :blk .{ .select = owned };
             },
             .filter_mask => |mask| .{ .filter_mask = try mask.clone() },
+            .filter_scalar => |filter_op| .{ .filter_scalar = .{
+                .name = try allocator.dupe(u8, filter_op.name),
+                .op = filter_op.op,
+                .scalar = filter_op.scalar,
+            } },
             .sort_by => |sort| .{ .sort_by = .{
                 .name = try allocator.dupe(u8, sort.name),
                 .options = sort.options,
@@ -863,6 +899,14 @@ pub const DeviceLazyFrame = struct {
         try self.ops.append(self.allocator, .{ .filter_mask = try mask.clone() });
     }
 
+    pub fn filterColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
+        try self.ops.append(self.allocator, .{ .filter_scalar = .{
+            .name = try self.allocator.dupe(u8, name),
+            .op = op,
+            .scalar = DeviceScalar.init(T, scalar),
+        } });
+    }
+
     pub fn sortBy(self: *DeviceLazyFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .sort_by = .{
             .name = try self.allocator.dupe(u8, name),
@@ -887,6 +931,11 @@ pub const DeviceLazyFrame = struct {
             const next = switch (op) {
                 .select => |names| try current.select(names),
                 .filter_mask => |mask| try current.filterColumnMask(mask),
+                .filter_scalar => |filter_op| blk: {
+                    var mask = try current.compareColumnScalarWithDeviceScalar(filter_op.name, filter_op.scalar, filter_op.op);
+                    defer mask.deinit();
+                    break :blk try current.filterColumnMask(mask);
+                },
                 .sort_by => |sort| try current.sortBy(sort.name, sort.options),
                 .top_k => |top| try current.topKBy(top.name, top.k, top.options),
                 .head => |n| try current.head(n),
@@ -1090,6 +1139,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
             try writer.print("]", .{});
         },
         .filter_mask => |mask| try writer.print("filter_mask(dtype={s}, rows={d})", .{ mask.dtype().name(), mask.len() }),
+        .filter_scalar => |filter_op| try writer.print("filter_scalar({s}, op={s}, dtype={s})", .{ filter_op.name, @tagName(filter_op.op), @tagName(filter_op.scalar) }),
         .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
         .head => |n| try writer.print("head({d})", .{n}),
@@ -1258,6 +1308,27 @@ pub const DeviceDataFrame = struct {
     pub fn compareColumnScalar(self: DeviceDataFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
         const col = try self.column(name);
         return col.compareScalar(T, scalar, op);
+    }
+
+    pub fn compareColumnScalarWithDeviceScalar(self: DeviceDataFrame, name: []const u8, scalar: DeviceScalar, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
+        const col = try self.column(name);
+        return switch (scalar) {
+            .bool => |value| col.compareScalar(bool, value, op),
+            .i8 => |value| col.compareScalar(i8, value, op),
+            .i16 => |value| col.compareScalar(i16, value, op),
+            .i32 => |value| col.compareScalar(i32, value, op),
+            .i64 => |value| col.compareScalar(i64, value, op),
+            .u8 => |value| col.compareScalar(u8, value, op),
+            .u16 => |value| col.compareScalar(u16, value, op),
+            .u32 => |value| col.compareScalar(u32, value, op),
+            .u64 => |value| col.compareScalar(u64, value, op),
+            .usize => |value| col.compareScalar(usize, value, op),
+            .isize => |value| col.compareScalar(isize, value, op),
+            .f16 => |value| col.compareScalar(f16, value, op),
+            .f32 => |value| col.compareScalar(f32, value, op),
+            .f64 => |value| col.compareScalar(f64, value, op),
+            .bf16, .c64, .c128 => error.TypeUnsupported,
+        };
     }
 
     pub fn filterColumnMask(self: DeviceDataFrame, mask: DeviceColumn) DeviceDataError!DeviceDataFrame {
@@ -5208,12 +5279,9 @@ test "device lazy frame collects staged select filter sort and limit operations"
     });
     defer table.deinit();
 
-    var mask = try table.compareColumnScalar("sales", f64, 2.5, .gt);
-    defer mask.deinit();
-
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
-    try plan.filter(mask);
+    try plan.filterColumnScalar("sales", f64, 2.5, .gt);
     try plan.sortBy("sales", .{ .descending = true });
     try plan.select(&.{ "sales", "units", "active" });
     try plan.select(&.{ "sales", "units" });
@@ -5224,6 +5292,7 @@ test "device lazy frame collects staged select filter sort and limit operations"
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=6") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=4") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "filter_scalar(sales") != null);
 
     var result = try plan.collect();
     defer result.deinit();
