@@ -16,9 +16,10 @@
 //! target-specific bridge module.
 
 const std = @import("std");
+const build_options = @import("vectra_build_options");
 const array_mod = @import("array.zig");
 const series_mod = @import("series.zig");
-const dataframe_mod = @import("dataframe.zig");
+const dataframe_mod = if (build_options.enable_boltha) @import("dataframe.zig") else @import("dataframe_no_boltha.zig");
 const layered_array_mod = @import("layered_array.zig");
 const forge_interop_mod = @import("forge_interop.zig");
 pub const linalg = @import("linalg.zig");

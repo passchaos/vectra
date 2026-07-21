@@ -60,6 +60,7 @@ pub fn build(b: *std.Build) void {
     const enable_axiom_cuda_dispatch = enable_axiom_cuda;
     const enable_axiom_cpu_dispatch = true;
     const enable_device_host_fallback = b.option(bool, "device-host-fallback", "Allow CUDA/MPS owning arrays to fall back to host generic kernels when no device runtime covers an operation") orelse false;
+    const enable_boltha = b.option(bool, "boltha", "Enable Boltha-backed Arrow/Parquet dataframe interop") orelse false;
     const axiom_cuda_expect = b.option([]const u8, "axiom-cuda-expect", "Optional Axiom CUDA smoke status expectation: disabled, skipped, ran, or failed");
     // It's also possible to define more custom flags to toggle optional features
     // of this build script using `b.option()`. All defined flags (including
@@ -87,16 +88,12 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    const boltha_dep = b.dependency("boltha", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    const boltha_mod = boltha_dep.module("boltha");
     const build_options = b.addOptions();
     build_options.addOption(bool, "enable_axiom_cuda", enable_axiom_cuda);
     build_options.addOption(bool, "enable_axiom_cuda_dispatch", enable_axiom_cuda_dispatch);
     build_options.addOption(bool, "enable_axiom_cpu_dispatch", enable_axiom_cpu_dispatch);
     build_options.addOption(bool, "enable_device_host_fallback", enable_device_host_fallback);
+    build_options.addOption(bool, "enable_boltha", enable_boltha);
 
     const mod = b.addModule("vectra", .{
         // The root source file is the "entry point" of this module. Users of
@@ -113,11 +110,17 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "veyra", .module = veyra_mod },
             .{ .name = "alea", .module = alea_mod },
-            .{ .name = "boltha", .module = boltha_mod },
         },
     });
     mod.addOptions("vectra_build_options", build_options);
     mod.addImport("axiom", axiom_dep.module("axiom"));
+    if (enable_boltha) {
+        const boltha_dep = b.dependency("boltha", .{
+            .target = target,
+            .optimize = optimize,
+        });
+        mod.addImport("boltha", boltha_dep.module("boltha"));
+    }
     if (is_macos_target) {
         mod.linkSystemLibrary("objc", .{});
         mod.linkFramework("Metal", .{});
