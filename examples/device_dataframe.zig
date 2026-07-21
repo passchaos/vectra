@@ -73,8 +73,12 @@ pub fn main(init: std.process.Init) !void {
     defer full_joined.deinit();
     var semi_joined = try df.semiJoin(lookup, "units", "units");
     defer semi_joined.deinit();
+    var semi_joined_on = try df.semiJoinOn(lookup, &.{"units"}, &.{"units"});
+    defer semi_joined_on.deinit();
     var anti_joined = try df.antiJoin(lookup, "units", "units");
     defer anti_joined.deinit();
+    var anti_joined_on = try df.antiJoinOn(lookup, &.{"units"}, &.{"units"});
+    defer anti_joined_on.deinit();
     const parquet_bytes = try df.toParquetBytes(allocator);
     defer allocator.free(parquet_bytes);
     var parquet_roundtrip = try vx.DeviceDataFrame.fromParquetBytes(allocator, parquet_bytes, vx.cpu);
@@ -118,7 +122,9 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(df.height(), left_joined_on.height());
     try std.testing.expectEqual(@as(usize, 4), full_joined.height());
     try std.testing.expectEqual(@as(usize, 2), semi_joined.height());
+    try std.testing.expectEqual(@as(usize, 2), semi_joined_on.height());
     try std.testing.expectEqual(@as(usize, 1), anti_joined.height());
+    try std.testing.expectEqual(@as(usize, 1), anti_joined_on.height());
     try std.testing.expectEqual(df.height(), parquet_roundtrip.height());
     try std.testing.expectEqual(df.width(), parquet_roundtrip.width());
     try std.testing.expectEqual(df.height(), parquet_pruned.height());
@@ -154,7 +160,9 @@ pub fn main(init: std.process.Init) !void {
         \\  "left_joined_on_rows": {d},
         \\  "full_joined_rows": {d},
         \\  "semi_joined_rows": {d},
+        \\  "semi_joined_on_rows": {d},
         \\  "anti_joined_rows": {d},
+        \\  "anti_joined_on_rows": {d},
         \\  "parquet_bytes": {d},
         \\  "parquet_rows": {d},
         \\  "parquet_pruned_rows": {d},
@@ -186,7 +194,9 @@ pub fn main(init: std.process.Init) !void {
         left_joined_on.height(),
         full_joined.height(),
         semi_joined.height(),
+        semi_joined_on.height(),
         anti_joined.height(),
+        anti_joined_on.height(),
         parquet_bytes.len,
         parquet_roundtrip.height(),
         parquet_pruned.height(),
