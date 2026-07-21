@@ -8424,9 +8424,24 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn unbind(self: Self, axis_index: isize) ArrayError!Array(T).SplitResult {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.unbind(axis_index);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            const items = try self.allocator.alloc(Array(T), axis_len);
+            errdefer self.allocator.free(items);
+            var initialized: usize = 0;
+            errdefer {
+                for (items[0..initialized]) |*part| part.deinit();
+            }
+            for (items, 0..) |*part, index| {
+                var part_view = try self.select(@intCast(axis), index);
+                part.* = part_view.toArray() catch |err| {
+                    part_view.deinit();
+                    return err;
+                };
+                part_view.deinit();
+                initialized += 1;
+            }
+            return .{ .allocator = self.allocator, .items = items };
         }
 
         pub fn countNonzero(self: Self) usize {
