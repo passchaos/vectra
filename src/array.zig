@@ -6945,9 +6945,46 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn diff(self: Self, axis_index: isize, n: usize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.diff(axis_index, n);
+            ensureNumeric(T);
+            if (n == 0) return self.toArray();
+            var current = try self.diffOnce(axis_index);
+            errdefer current.deinit();
+            var i: usize = 1;
+            while (i < n) : (i += 1) {
+                const next = try current.diffOnce(axis_index);
+                current.deinit();
+                current = next;
+            }
+            return current;
+        }
+
+        fn diffOnce(self: Self, axis_index: isize) ArrayError!Array(T) {
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = if (self.shape[axis] == 0) 0 else self.shape[axis] - 1;
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            const lhs_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(lhs_multi);
+            var rhs_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(rhs_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(lhs_multi, out_multi);
+                @memcpy(rhs_multi, out_multi);
+                rhs_multi[axis] = out_multi[axis] + 1;
+                const lhs_offset = self.offset + ravelIndex(lhs_multi, self.strides);
+                const rhs_offset = self.offset + ravelIndex(rhs_multi, self.strides);
+                if (lhs_offset >= self.data.len or rhs_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = subValue(T, self.data[rhs_offset], self.data[lhs_offset]);
+            }
+            return out;
         }
 
         pub fn diffWith(self: Self, axis_index: isize, n: usize, prepend: ?Array(T), append: ?Array(T)) ArrayError!Array(T) {
