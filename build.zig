@@ -341,6 +341,25 @@ pub fn build(b: *std.Build) void {
     const axiom_cpu_dispatch_smoke_step = b.step("axiom-cpu-dispatch-smoke", "Run ordinary Array(f32/f64).matmul through Axiom CPU-to-Veyra dispatch");
     axiom_cpu_dispatch_smoke_step.dependOn(&axiom_cpu_dispatch_smoke_cmd.step);
 
+    const large_matmul_add_example_exe = b.addExecutable(.{
+        .name = "vectra-example-large-matmul-add",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/large_matmul_add.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const large_matmul_add_example_cmd = b.addRunArtifact(large_matmul_add_example_exe);
+    if (b.args) |args| {
+        large_matmul_add_example_cmd.addArgs(args);
+    }
+    const large_matmul_add_example_step = b.step("example-large-matmul-add", "Run large random GEMM-plus-add CPU/CUDA usage example (dry-run by default)");
+    large_matmul_add_example_step.dependOn(&large_matmul_add_example_cmd.step);
+    examples_step.dependOn(&large_matmul_add_example_cmd.step);
+
     if (!is_macos_target) {
         const axiom_cuda_bridge_example_exe = b.addExecutable(.{
             .name = "vectra-example-axiom-cuda-bridge",
@@ -357,25 +376,6 @@ pub fn build(b: *std.Build) void {
         const axiom_cuda_bridge_example_step = b.step("example-axiom-cuda-bridge", "Run explicit Axiom CUDA bridge usage example");
         axiom_cuda_bridge_example_step.dependOn(&axiom_cuda_bridge_example_cmd.step);
         examples_step.dependOn(&axiom_cuda_bridge_example_cmd.step);
-
-        const large_matmul_add_example_exe = b.addExecutable(.{
-            .name = "vectra-example-large-matmul-add",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("examples/large_matmul_add.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "vectra", .module = mod },
-                },
-            }),
-        });
-        const large_matmul_add_example_cmd = b.addRunArtifact(large_matmul_add_example_exe);
-        if (b.args) |args| {
-            large_matmul_add_example_cmd.addArgs(args);
-        }
-        const large_matmul_add_example_step = b.step("example-large-matmul-add", "Run large random GEMM-plus-add CPU/CUDA usage example (dry-run by default)");
-        large_matmul_add_example_step.dependOn(&large_matmul_add_example_cmd.step);
-        examples_step.dependOn(&large_matmul_add_example_cmd.step);
 
         const large_matmul_add_smoke_cmd = b.addRunArtifact(large_matmul_add_example_exe);
         large_matmul_add_smoke_cmd.addArgs(&.{ "--smoke", "--backend=both" });

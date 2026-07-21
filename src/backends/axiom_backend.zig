@@ -13,7 +13,7 @@ const array_mod = @import("../array.zig");
 const veyra = @import("veyra");
 const axiom = @import("axiom");
 const axiom_cpu = @import("axiom_cpu.zig");
-const axiom_cuda = @import("axiom_cuda.zig");
+const axiom_cuda = if (build_options.enable_axiom_cuda) @import("axiom_cuda.zig") else @import("axiom_cuda_stub.zig");
 const axiom_mps = @import("axiom_mps.zig");
 
 // Production CPU fast paths intentionally bypass Axiom's diagnostic
