@@ -8237,9 +8237,31 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.padSymmetric(before, after);
+            if (before.len != self.shape.len or after.len != self.shape.len) return error.ShapeMismatch;
+            if (self.numel() == 0) return error.EmptyArray;
+            var out_shape = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_shape);
+            for (self.shape, before, after, 0..) |extent, before_i, after_i, axis| {
+                const with_before = std.math.add(usize, extent, before_i) catch return error.InvalidShape;
+                out_shape[axis] = std.math.add(usize, with_before, after_i) catch return error.InvalidShape;
+            }
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                for (out_multi, before, self.shape, 0..) |coord, before_i, extent, axis| {
+                    in_multi[axis] = Array(T).symmetricPadCoord(coord, before_i, extent);
+                }
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn slice1d(self: Self, slice_value: Slice) ArrayError!Array(T) {
