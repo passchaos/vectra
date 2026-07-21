@@ -8412,9 +8412,15 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn chunk(self: Self, chunks: usize, axis_index: isize) ArrayError!Array(T).SplitResult {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.chunk(chunks, axis_index);
+            if (chunks == 0) return error.InvalidShape;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            if (axis_len == 0) {
+                const items = try self.allocator.alloc(Array(T), 0);
+                return .{ .allocator = self.allocator, .items = items };
+            }
+            const split_size = (axis_len + chunks - 1) / chunks;
+            return self.split(split_size, axis_index);
         }
 
         pub fn unbind(self: Self, axis_index: isize) ArrayError!Array(T).SplitResult {
