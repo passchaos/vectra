@@ -8919,15 +8919,32 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn trace(self: Self) ArrayError!T {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.trace();
+            return self.traceOffset(0);
         }
 
         pub fn traceOffset(self: Self, offset: isize) ArrayError!T {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.traceOffset(offset);
+            ensureNumeric(T);
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            const start_row: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= rows) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const start_col: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= cols) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const count = @min(rows - start_row, cols - start_col);
+            var total = zero(T);
+            for (0..count) |i| {
+                const source_offset = self.offset + (start_row + i) * self.strides[0] + (start_col + i) * self.strides[1];
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                total = addValue(T, total, self.data[source_offset]);
+            }
+            return total;
         }
 
         pub fn traceAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
