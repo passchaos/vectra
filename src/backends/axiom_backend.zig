@@ -1637,37 +1637,71 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
         return null;
     };
     if (T == f32) {
-        var workspace = veyra.GemmF32Workspace.init(std.heap.smp_allocator, 1) catch {
-            out.deinit();
-            return null;
-        };
-        defer workspace.deinit();
-        veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) }, &workspace) catch {
-            out.deinit();
-            return null;
-        };
-    } else {
-        var mt_workspace = veyra.GemmF64MtWorkspace.init(std.heap.smp_allocator, veyra.recommendedGemmF64ThreadCount()) catch null;
+        const options: veyra.GemmOptions(f32) = .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) };
+        var threaded_ran = false;
+        var mt_workspace = veyra.GemmF32MtWorkspace.init(std.heap.smp_allocator, veyra.recommendedGemmF32ThreadCount()) catch null;
         if (mt_workspace) |*workspace| {
             defer workspace.deinit();
-            veyra.gemmThreadedWithWorkspace(f64, @as(veyra.MatrixView(f64), lhs_view), @as(veyra.MatrixView(f64), rhs_view), @as(veyra.MatrixMut(f64), out_view), .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) }, workspace) catch {
+            // Large Vectra CPU matmul calls arrive here after Axiom has already
+            // selected the CPU/Veyra route.  Use Veyra's explicit threaded API
+            // first so the benchmark shape can use multiple cores; keep the
+            // single-thread workspace path as a safe fallback for constrained
+            // environments where thread/workspace allocation fails.  A thread
+            // spawn failure can happen after earlier workers have written their
+            // row chunks, so fallback must restore the destination's beta input
+            // before invoking the single-thread GEMM below.
+            threaded_ran = blk: {
+                veyra.gemmThreadedWithWorkspace(f32, lhs_view, rhs_view, out_view, options, workspace) catch break :blk false;
+                break :blk true;
+            };
+        }
+        if (!threaded_ran) {
+            restoreCpuGemmDestination(T, out.data, addend, beta);
+            var workspace = veyra.GemmF32Workspace.init(std.heap.smp_allocator, 1) catch {
                 out.deinit();
                 return null;
             };
-            return out;
+            defer workspace.deinit();
+            veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, options, &workspace) catch {
+                out.deinit();
+                return null;
+            };
         }
-
-        var workspace = veyra.GemmF64Workspace.init(std.heap.smp_allocator, @max(n, 1)) catch {
-            out.deinit();
-            return null;
-        };
-        defer workspace.deinit();
-        veyra.gemmF64WithWorkspace(lhs_view, rhs_view, out_view, .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) }, &workspace) catch {
-            out.deinit();
-            return null;
-        };
+    } else {
+        const options: veyra.GemmOptions(f64) = .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) };
+        var threaded_ran = false;
+        var mt_workspace = veyra.GemmF64MtWorkspace.init(std.heap.smp_allocator, veyra.recommendedGemmF64ThreadCount()) catch null;
+        if (mt_workspace) |*workspace| {
+            defer workspace.deinit();
+            veyra.ensureGemmF64MtAppleAmxWorkspace(workspace, m, n, k) catch {};
+            threaded_ran = blk: {
+                veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, options, workspace) catch break :blk false;
+                break :blk true;
+            };
+        }
+        if (!threaded_ran) {
+            restoreCpuGemmDestination(T, out.data, addend, beta);
+            var workspace = veyra.GemmF64Workspace.init(std.heap.smp_allocator, @max(n, 1)) catch {
+                out.deinit();
+                return null;
+            };
+            defer workspace.deinit();
+            veyra.gemmF64WithWorkspace(lhs_view, rhs_view, out_view, options, &workspace) catch {
+                out.deinit();
+                return null;
+            };
+        }
     }
     return out;
+}
+
+fn restoreCpuGemmDestination(comptime T: type, out: []T, addend: ?array_mod.Array(T), beta: f32) void {
+    if (beta == 0) return;
+    if (addend) |c| {
+        @memcpy(out, c.data);
+    } else {
+        @memset(out, 0);
+    }
 }
 
 fn executeCpuGemmScaledTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
