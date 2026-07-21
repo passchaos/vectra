@@ -8,6 +8,9 @@
 //! available through the default Axiom backend when a CUDA device is
 //! present; CUDA arrays own device-resident storage and dispatch supported f32/f64
 //! operations without staging through host arrays.
+//! `DeviceDataFrame` extends the same device model to fixed-width tabular
+//! columns on CPU/CUDA/MPS while the existing heterogeneous `DataFrame` remains
+//! the compact host/CSV-oriented API.
 //! Public backend diagnostics intentionally flow through `axiom_backend` so
 //! callers choose targets and inspect capability reports instead of binding to a
 //! target-specific bridge module.
@@ -59,6 +62,15 @@ pub const DataFrame = dataframe_mod.DataFrame;
 pub const Column = dataframe_mod.Column;
 pub const ColumnDef = dataframe_mod.ColumnDef;
 pub const DataError = dataframe_mod.DataError;
+pub const DeviceDataFrame = dataframe_mod.DeviceDataFrame;
+pub const DeviceDataFrameView = dataframe_mod.DeviceDataFrameView;
+pub const DeviceColumn = dataframe_mod.DeviceColumn;
+pub const DeviceColumnView = dataframe_mod.DeviceColumnView;
+pub const DeviceColumnDef = dataframe_mod.DeviceColumnDef;
+pub const DeviceTypedColumn = dataframe_mod.DeviceTypedColumn;
+pub const DeviceDataError = dataframe_mod.DeviceDataError;
+pub const DeviceDType = dataframe_mod.DeviceDType;
+pub const DeviceValidityEncoding = dataframe_mod.DeviceValidityEncoding;
 
 pub const CsrMatrix = sparse.CsrMatrix;
 pub const CscMatrix = sparse.CscMatrix;

@@ -30,6 +30,718 @@ pub const ColumnDef = struct {
     data: Column,
 };
 
+pub const DeviceDType = array_mod.DType;
+pub const DeviceDataError = DataError || array_mod.ArrayError;
+
+/// Vectra's portable validity representation for device dataframe columns.
+///
+/// cuDF uses Arrow-compatible packed bitmasks.  Vectra starts one abstraction
+/// level higher and keeps validity as a `Array(bool)` so the dataframe wrapper
+/// can work across CPU, CUDA, and MPS storage immediately.  A future Arrow ABI
+/// bridge can add a packed-bitmask view without changing the owning column/table
+/// shape introduced here.
+pub const DeviceValidityEncoding = enum {
+    none,
+    bool_mask,
+};
+
+pub const DeviceColumnView = struct {
+    dtype: DeviceDType,
+    rows: usize,
+    device: array_mod.Device,
+    data_ptr: u64,
+    data_nbytes: usize,
+    validity_ptr: ?u64 = null,
+    validity_nbytes: usize = 0,
+    null_count: usize = 0,
+    validity_encoding: DeviceValidityEncoding = .none,
+
+    pub fn nullable(self: DeviceColumnView) bool {
+        return self.validity_ptr != null;
+    }
+
+    pub fn hasNulls(self: DeviceColumnView) bool {
+        return self.null_count != 0;
+    }
+
+    pub fn isDeviceBacked(self: DeviceColumnView) bool {
+        return !self.device.isCpu();
+    }
+};
+
+/// Non-owning table metadata modeled after cuDF's `table_view`.
+///
+/// The view does not own column storage or names; it only owns the small
+/// `columns` metadata slice allocated by `DeviceDataFrame.view()`.  Users may pass
+/// this compact description to backend bridges without copying column buffers.
+pub const DeviceDataFrameView = struct {
+    allocator: std.mem.Allocator,
+    names: []const []const u8,
+    columns: []DeviceColumnView,
+    rows: usize,
+    device: array_mod.Device,
+
+    pub fn deinit(self: *DeviceDataFrameView) void {
+        if (self.columns.len != 0) self.allocator.free(self.columns);
+        self.* = undefined;
+    }
+
+    pub fn height(self: DeviceDataFrameView) usize {
+        return self.rows;
+    }
+
+    pub fn width(self: DeviceDataFrameView) usize {
+        return self.columns.len;
+    }
+
+    pub fn shape(self: DeviceDataFrameView) struct { rows: usize, cols: usize } {
+        return .{ .rows = self.rows, .cols = self.columns.len };
+    }
+
+    pub fn columnIndex(self: DeviceDataFrameView, name: []const u8) ?usize {
+        for (self.names, 0..) |existing, i| {
+            if (std.mem.eql(u8, existing, name)) return i;
+        }
+        return null;
+    }
+
+    pub fn column(self: DeviceDataFrameView, name: []const u8) DataError!DeviceColumnView {
+        const idx = self.columnIndex(name) orelse return error.ColumnNotFound;
+        return self.columns[idx];
+    }
+};
+
+pub fn DeviceTypedColumn(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        values: array_mod.Array(T),
+        validity: ?array_mod.Array(bool) = null,
+        null_count: usize = 0,
+
+        pub fn init(values: array_mod.Array(T), validity: ?array_mod.Array(bool), null_count: usize) array_mod.ArrayError!Self {
+            if (values.shape.len != 1) return error.InvalidShape;
+            if (validity) |mask| {
+                if (mask.shape.len != 1 or mask.shape[0] != values.shape[0]) return error.ShapeMismatch;
+                if (!mask.device.sameDevice(values.device)) return error.InvalidDevice;
+            }
+            return .{ .values = values, .validity = validity, .null_count = null_count };
+        }
+
+        pub fn fromSlice(allocator: std.mem.Allocator, values: []const T, device_value: array_mod.Device) array_mod.ArrayError!Self {
+            const value_array = try array_mod.Array(T).fromSliceOn(allocator, values, &.{values.len}, device_value);
+            errdefer {
+                var cleanup = value_array;
+                cleanup.deinit();
+            }
+            return Self.init(value_array, null, 0);
+        }
+
+        pub fn fromSliceWithValidity(
+            allocator: std.mem.Allocator,
+            values: []const T,
+            validity_values: []const bool,
+            device_value: array_mod.Device,
+        ) array_mod.ArrayError!Self {
+            if (validity_values.len != values.len) return error.ShapeMismatch;
+            const value_array = try array_mod.Array(T).fromSliceOn(allocator, values, &.{values.len}, device_value);
+            errdefer {
+                var cleanup = value_array;
+                cleanup.deinit();
+            }
+            const validity_array = try array_mod.Array(bool).fromSliceOn(allocator, validity_values, &.{validity_values.len}, device_value);
+            errdefer {
+                var cleanup = validity_array;
+                cleanup.deinit();
+            }
+            return Self.init(value_array, validity_array, countNulls(validity_values));
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.values.deinit();
+            if (self.validity) |*mask| mask.deinit();
+            self.* = undefined;
+        }
+
+        pub fn len(self: Self) usize {
+            return self.values.shape[0];
+        }
+
+        pub fn dtype(self: Self) DeviceDType {
+            _ = self;
+            return DeviceDType.of(T);
+        }
+
+        pub fn device(self: Self) array_mod.Device {
+            return self.values.device;
+        }
+
+        pub fn nullable(self: Self) bool {
+            return self.validity != null;
+        }
+
+        pub fn hasNulls(self: Self) bool {
+            return self.null_count != 0;
+        }
+
+        pub fn dataNbytes(self: Self) usize {
+            return self.values.nbytes();
+        }
+
+        pub fn view(self: Self) DeviceColumnView {
+            const validity_ptr: ?u64 = if (self.validity) |mask| @intFromPtr(mask.dataPtr()) else null;
+            return .{
+                .dtype = DeviceDType.of(T),
+                .rows = self.len(),
+                .device = self.device(),
+                .data_ptr = @intFromPtr(self.values.dataPtr()),
+                .data_nbytes = self.values.nbytes(),
+                .validity_ptr = validity_ptr,
+                .validity_nbytes = if (self.validity) |mask| mask.nbytes() else 0,
+                .null_count = self.null_count,
+                .validity_encoding = if (validity_ptr != null) .bool_mask else .none,
+            };
+        }
+
+        pub fn clone(self: Self) array_mod.ArrayError!Self {
+            var values = try self.values.clone();
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn to(self: Self, device_value: array_mod.Device) array_mod.ArrayError!Self {
+            var values = try self.values.to(device_value);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.to(device_value);
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn cpu(self: Self) array_mod.ArrayError!Self {
+            return self.to(.cpu);
+        }
+
+        pub fn cuda(self: Self, index: usize) array_mod.ArrayError!Self {
+            return self.to(array_mod.Device.cuda(index));
+        }
+
+        pub fn mps(self: Self, index: usize) array_mod.ArrayError!Self {
+            return self.to(array_mod.Device.mps(index));
+        }
+
+        pub fn sliceRows(self: Self, start: usize, stop: usize) array_mod.ArrayError!Self {
+            const end = @min(stop, self.len());
+            const begin = @min(start, end);
+            var values = try sliceArray1d(T, self.values, begin, end);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try sliceArray1d(bool, mask, begin, end);
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
+        pub fn take(self: Self, row_indices: []const usize) array_mod.ArrayError!Self {
+            var values = try takeArray1d(T, self.values, row_indices);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try takeArray1d(bool, mask, row_indices);
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
+        pub fn filter(self: Self, mask: []const bool) array_mod.ArrayError!Self {
+            if (mask.len != self.len()) return error.ShapeMismatch;
+            const row_indices = try rowIndicesFromMask(self.values.allocator, mask);
+            defer self.values.allocator.free(row_indices);
+            return self.take(row_indices);
+        }
+
+        pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) array_mod.ArrayError![]T {
+            return self.values.toOwnedSlice(allocator);
+        }
+    };
+}
+
+pub const DeviceColumn = union(DeviceDType) {
+    f32: DeviceTypedColumn(f32),
+    f64: DeviceTypedColumn(f64),
+    i8: DeviceTypedColumn(i8),
+    i16: DeviceTypedColumn(i16),
+    i32: DeviceTypedColumn(i32),
+    i64: DeviceTypedColumn(i64),
+    u8: DeviceTypedColumn(u8),
+    u16: DeviceTypedColumn(u16),
+    u32: DeviceTypedColumn(u32),
+    u64: DeviceTypedColumn(u64),
+    usize: DeviceTypedColumn(usize),
+    bool: DeviceTypedColumn(bool),
+    bf16: DeviceTypedColumn(array_mod.BFloat16),
+    f16: DeviceTypedColumn(f16),
+    c64: DeviceTypedColumn(array_mod.Complex64),
+    c128: DeviceTypedColumn(array_mod.Complex128),
+    isize: DeviceTypedColumn(isize),
+
+    pub fn fromSlice(comptime T: type, allocator: std.mem.Allocator, values: []const T, device_value: array_mod.Device) array_mod.ArrayError!DeviceColumn {
+        const tag = comptime DeviceDType.of(T);
+        const typed = try DeviceTypedColumn(T).fromSlice(allocator, values, device_value);
+        return @unionInit(DeviceColumn, @tagName(tag), typed);
+    }
+
+    pub fn fromSliceWithValidity(
+        comptime T: type,
+        allocator: std.mem.Allocator,
+        values: []const T,
+        validity_values: []const bool,
+        device_value: array_mod.Device,
+    ) array_mod.ArrayError!DeviceColumn {
+        const tag = comptime DeviceDType.of(T);
+        const typed = try DeviceTypedColumn(T).fromSliceWithValidity(allocator, values, validity_values, device_value);
+        return @unionInit(DeviceColumn, @tagName(tag), typed);
+    }
+
+    pub fn deinit(self: *DeviceColumn) void {
+        switch (self.*) {
+            inline else => |*typed| typed.deinit(),
+        }
+        self.* = undefined;
+    }
+
+    pub fn len(self: DeviceColumn) usize {
+        return switch (self) {
+            inline else => |typed| typed.len(),
+        };
+    }
+
+    pub fn dtype(self: DeviceColumn) DeviceDType {
+        return std.meta.activeTag(self);
+    }
+
+    pub fn device(self: DeviceColumn) array_mod.Device {
+        return switch (self) {
+            inline else => |typed| typed.device(),
+        };
+    }
+
+    pub fn nullable(self: DeviceColumn) bool {
+        return switch (self) {
+            inline else => |typed| typed.nullable(),
+        };
+    }
+
+    pub fn hasNulls(self: DeviceColumn) bool {
+        return switch (self) {
+            inline else => |typed| typed.hasNulls(),
+        };
+    }
+
+    pub fn nullCount(self: DeviceColumn) usize {
+        return switch (self) {
+            inline else => |typed| typed.null_count,
+        };
+    }
+
+    pub fn dataNbytes(self: DeviceColumn) usize {
+        return switch (self) {
+            inline else => |typed| typed.dataNbytes(),
+        };
+    }
+
+    pub fn view(self: DeviceColumn) DeviceColumnView {
+        return switch (self) {
+            inline else => |typed| typed.view(),
+        };
+    }
+
+    pub fn clone(self: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return switch (self) {
+            inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.clone()),
+        };
+    }
+
+    pub fn to(self: DeviceColumn, device_value: array_mod.Device) array_mod.ArrayError!DeviceColumn {
+        return switch (self) {
+            inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.to(device_value)),
+        };
+    }
+
+    pub fn cpu(self: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.to(.cpu);
+    }
+
+    pub fn cuda(self: DeviceColumn, index: usize) array_mod.ArrayError!DeviceColumn {
+        return self.to(array_mod.Device.cuda(index));
+    }
+
+    pub fn mps(self: DeviceColumn, index: usize) array_mod.ArrayError!DeviceColumn {
+        return self.to(array_mod.Device.mps(index));
+    }
+
+    pub fn sliceRows(self: DeviceColumn, start: usize, stop: usize) array_mod.ArrayError!DeviceColumn {
+        return switch (self) {
+            inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.sliceRows(start, stop)),
+        };
+    }
+
+    pub fn take(self: DeviceColumn, row_indices: []const usize) array_mod.ArrayError!DeviceColumn {
+        return switch (self) {
+            inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.take(row_indices)),
+        };
+    }
+
+    pub fn filter(self: DeviceColumn, mask: []const bool) array_mod.ArrayError!DeviceColumn {
+        return switch (self) {
+            inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.filter(mask)),
+        };
+    }
+};
+
+pub const DeviceColumnDef = struct {
+    name: []const u8,
+    data: DeviceColumn,
+};
+
+/// Owning fixed-width dataframe that can keep every column on the same Vectra
+/// device.
+///
+/// This is intentionally an owning/table wrapper rather than a CUDA-only API:
+/// `.cpu`, `.cuda(index)`, and `.mps(index)` use the same metadata and column
+/// invariants.  CUDA/MPS row slicing and host-mask filtering currently
+/// materialize through host memory because Vectra has not yet grown
+/// dataframe-specific gather/compact kernels; preserving the operation behind
+/// this API gives those kernels a single integration point later.
+pub const DeviceDataFrame = struct {
+    allocator: std.mem.Allocator,
+    names: [][]const u8,
+    columns: []DeviceColumn,
+    rows: usize,
+    device: array_mod.Device,
+
+    pub fn init(allocator: std.mem.Allocator, defs: []const DeviceColumnDef) DeviceDataError!DeviceDataFrame {
+        if (defs.len == 0) return DeviceDataFrame.initEmpty(allocator, 0, .cpu);
+        const rows = defs[0].data.len();
+        const device_value = defs[0].data.device();
+        for (defs) |def| {
+            if (def.data.len() != rows) return error.LengthMismatch;
+            if (!def.data.device().sameDevice(device_value)) return error.InvalidDevice;
+        }
+
+        var names = try allocator.alloc([]const u8, defs.len);
+        errdefer allocator.free(names);
+        var columns = try allocator.alloc(DeviceColumn, defs.len);
+        errdefer allocator.free(columns);
+
+        var initialized: usize = 0;
+        errdefer {
+            for (0..initialized) |i| {
+                allocator.free(names[i]);
+                columns[i].deinit();
+            }
+        }
+
+        for (defs, 0..) |def, i| {
+            names[i] = try allocator.dupe(u8, def.name);
+            columns[i] = try def.data.clone();
+            initialized += 1;
+        }
+
+        return .{ .allocator = allocator, .names = names, .columns = columns, .rows = rows, .device = device_value };
+    }
+
+    pub fn initEmpty(allocator: std.mem.Allocator, rows: usize, device_value: array_mod.Device) DeviceDataError!DeviceDataFrame {
+        if (!device_value.isAvailable()) return error.InvalidDevice;
+        return .{ .allocator = allocator, .names = &.{}, .columns = &.{}, .rows = rows, .device = device_value };
+    }
+
+    pub fn fromDataFrame(allocator: std.mem.Allocator, frame: DataFrame, device_value: array_mod.Device) DeviceDataError!DeviceDataFrame {
+        if (!device_value.isAvailable()) return error.InvalidDevice;
+        if (frame.columns.len == 0) return DeviceDataFrame.initEmpty(allocator, frame.rows, device_value);
+        var defs = try allocator.alloc(DeviceColumnDef, frame.columns.len);
+        defer allocator.free(defs);
+        var initialized: usize = 0;
+        defer {
+            for (defs[0..initialized]) |*def| def.data.deinit();
+        }
+        for (frame.names, frame.columns, 0..) |name, col, i| {
+            defs[i].name = name;
+            defs[i].data = switch (col) {
+                .f64 => |values| try DeviceColumn.fromSlice(f64, allocator, values, device_value),
+                .i64 => |values| try DeviceColumn.fromSlice(i64, allocator, values, device_value),
+                .bool => |values| try DeviceColumn.fromSlice(bool, allocator, values, device_value),
+                .string => return error.TypeUnsupported,
+            };
+            initialized += 1;
+        }
+        return DeviceDataFrame.init(allocator, defs);
+    }
+
+    pub fn deinit(self: *DeviceDataFrame) void {
+        for (self.names) |name| self.allocator.free(name);
+        for (self.columns) |*col| col.deinit();
+        if (self.names.len != 0) self.allocator.free(self.names);
+        if (self.columns.len != 0) self.allocator.free(self.columns);
+        self.* = undefined;
+    }
+
+    pub fn height(self: DeviceDataFrame) usize {
+        return self.rows;
+    }
+
+    pub fn width(self: DeviceDataFrame) usize {
+        return self.columns.len;
+    }
+
+    pub fn shape(self: DeviceDataFrame) struct { rows: usize, cols: usize } {
+        return .{ .rows = self.rows, .cols = self.columns.len };
+    }
+
+    pub fn columnIndex(self: DeviceDataFrame, name: []const u8) ?usize {
+        for (self.names, 0..) |existing, i| {
+            if (std.mem.eql(u8, existing, name)) return i;
+        }
+        return null;
+    }
+
+    pub fn column(self: *const DeviceDataFrame, name: []const u8) DataError!*const DeviceColumn {
+        const idx = self.columnIndex(name) orelse return error.ColumnNotFound;
+        return &self.columns[idx];
+    }
+
+    pub fn columnDType(self: DeviceDataFrame, name: []const u8) DataError!DeviceDType {
+        const idx = self.columnIndex(name) orelse return error.ColumnNotFound;
+        return self.columns[idx].dtype();
+    }
+
+    pub fn view(self: DeviceDataFrame) DeviceDataError!DeviceDataFrameView {
+        const columns = try self.allocator.alloc(DeviceColumnView, self.columns.len);
+        errdefer self.allocator.free(columns);
+        for (self.columns, columns) |col, *slot| slot.* = col.view();
+        return .{
+            .allocator = self.allocator,
+            .names = self.names,
+            .columns = columns,
+            .rows = self.rows,
+            .device = self.device,
+        };
+    }
+
+    pub fn select(self: DeviceDataFrame, wanted_names: []const []const u8) DeviceDataError!DeviceDataFrame {
+        if (wanted_names.len == 0) return DeviceDataFrame.initEmpty(self.allocator, self.rows, self.device);
+        var columns = try self.allocator.alloc(DeviceColumn, wanted_names.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (wanted_names, 0..) |name, i| {
+            const source = try self.column(name);
+            columns[i] = try source.clone();
+            initialized += 1;
+        }
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, wanted_names, columns, self.rows, self.device);
+    }
+
+    pub fn withColumn(self: DeviceDataFrame, name: []const u8, data: DeviceColumn) DeviceDataError!DeviceDataFrame {
+        if (data.len() != self.rows) return error.LengthMismatch;
+        if (!data.device().sameDevice(self.device)) return error.InvalidDevice;
+        var source_names = try self.allocator.alloc([]const u8, self.columns.len + 1);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |existing, i| source_names[i] = existing;
+        source_names[self.columns.len] = name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + 1);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        columns[self.columns.len] = try data.clone();
+        initialized += 1;
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn head(self: DeviceDataFrame, n: usize) DeviceDataError!DeviceDataFrame {
+        return self.sliceRows(0, @min(n, self.rows));
+    }
+
+    pub fn tail(self: DeviceDataFrame, n: usize) DeviceDataError!DeviceDataFrame {
+        const count = @min(n, self.rows);
+        return self.sliceRows(self.rows - count, self.rows);
+    }
+
+    pub fn sliceRows(self: DeviceDataFrame, start: usize, stop: usize) DeviceDataError!DeviceDataFrame {
+        const end = @min(stop, self.rows);
+        const begin = @min(start, end);
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.sliceRows(begin, end);
+            initialized += 1;
+        }
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, end - begin, self.device);
+    }
+
+    pub fn take(self: DeviceDataFrame, row_indices: []const usize) DeviceDataError!DeviceDataFrame {
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.take(row_indices);
+            initialized += 1;
+        }
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, row_indices.len, self.device);
+    }
+
+    pub fn filter(self: DeviceDataFrame, mask: []const bool) DeviceDataError!DeviceDataFrame {
+        if (mask.len != self.rows) return error.LengthMismatch;
+        const row_indices = try rowIndicesFromMask(self.allocator, mask);
+        defer self.allocator.free(row_indices);
+        return self.take(row_indices);
+    }
+
+    pub fn to(self: DeviceDataFrame, device_value: array_mod.Device) DeviceDataError!DeviceDataFrame {
+        if (!device_value.isAvailable()) return error.InvalidDevice;
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.to(device_value);
+            initialized += 1;
+        }
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, self.rows, device_value);
+    }
+
+    pub fn cpu(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+        return self.to(.cpu);
+    }
+
+    pub fn cuda(self: DeviceDataFrame, index: usize) DeviceDataError!DeviceDataFrame {
+        return self.to(array_mod.Device.cuda(index));
+    }
+
+    pub fn mps(self: DeviceDataFrame, index: usize) DeviceDataError!DeviceDataFrame {
+        return self.to(array_mod.Device.mps(index));
+    }
+
+    pub fn toDataFrame(self: DeviceDataFrame) DeviceDataError!DataFrame {
+        var defs = try self.allocator.alloc(ColumnDef, self.columns.len);
+        defer self.allocator.free(defs);
+        var initialized: usize = 0;
+        defer {
+            for (defs[0..initialized]) |def| freeColumn(self.allocator, def.data);
+        }
+
+        for (self.names, self.columns, 0..) |name, col, i| {
+            if (col.hasNulls()) return error.TypeUnsupported;
+            defs[i].name = name;
+            defs[i].data = switch (col) {
+                .f64 => |typed| .{ .f64 = try typed.toOwnedSlice(self.allocator) },
+                .i64 => |typed| .{ .i64 = try typed.toOwnedSlice(self.allocator) },
+                .bool => |typed| .{ .bool = try typed.toOwnedSlice(self.allocator) },
+                else => return error.TypeUnsupported,
+            };
+            initialized += 1;
+        }
+        return DataFrame.init(self.allocator, defs);
+    }
+};
+
+fn countNulls(validity_values: []const bool) usize {
+    var nulls: usize = 0;
+    for (validity_values) |valid| {
+        if (!valid) nulls += 1;
+    }
+    return nulls;
+}
+
+fn countNullsInArray(mask: array_mod.Array(bool)) array_mod.ArrayError!usize {
+    const values = try mask.toOwnedSlice(mask.allocator);
+    defer mask.allocator.free(values);
+    return countNulls(values);
+}
+
+fn rowIndicesFromMask(allocator: std.mem.Allocator, mask: []const bool) array_mod.ArrayError![]usize {
+    var count: usize = 0;
+    for (mask) |keep| {
+        if (keep) count += 1;
+    }
+    const indices = try allocator.alloc(usize, count);
+    var write: usize = 0;
+    for (mask, 0..) |keep, i| {
+        if (keep) {
+            indices[write] = i;
+            write += 1;
+        }
+    }
+    return indices;
+}
+
+fn sliceArray1d(comptime T: type, values: array_mod.Array(T), start: usize, stop: usize) array_mod.ArrayError!array_mod.Array(T) {
+    if (values.shape.len != 1) return error.InvalidShape;
+    if (start > values.shape[0] or stop < start or stop > values.shape[0]) return error.IndexOutOfBounds;
+    const host_values = try values.toOwnedSlice(values.allocator);
+    defer values.allocator.free(host_values);
+    return array_mod.Array(T).fromSliceOn(values.allocator, host_values[start..stop], &.{stop - start}, values.device);
+}
+
+fn takeArray1d(comptime T: type, values: array_mod.Array(T), row_indices: []const usize) array_mod.ArrayError!array_mod.Array(T) {
+    if (values.shape.len != 1) return error.InvalidShape;
+    const host_values = try values.toOwnedSlice(values.allocator);
+    defer values.allocator.free(host_values);
+    const out_values = try values.allocator.alloc(T, row_indices.len);
+    defer values.allocator.free(out_values);
+    for (row_indices, out_values) |idx, *slot| {
+        if (idx >= host_values.len) return error.IndexOutOfBounds;
+        slot.* = host_values[idx];
+    }
+    return array_mod.Array(T).fromSliceOn(values.allocator, out_values, &.{row_indices.len}, values.device);
+}
+
+fn initDeviceDataFrameFromOwnedColumns(
+    allocator: std.mem.Allocator,
+    source_names: []const []const u8,
+    columns: []DeviceColumn,
+    rows: usize,
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    if (source_names.len != columns.len) return error.LengthMismatch;
+    for (columns) |col| {
+        if (col.len() != rows) return error.LengthMismatch;
+        if (!col.device().sameDevice(device_value)) return error.InvalidDevice;
+    }
+
+    var names = try allocator.alloc([]const u8, source_names.len);
+    errdefer allocator.free(names);
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    for (source_names, names) |source, *slot| {
+        slot.* = try allocator.dupe(u8, source);
+        initialized += 1;
+    }
+    return .{ .allocator = allocator, .names = names, .columns = columns, .rows = rows, .device = device_value };
+}
+
 pub const DataFrame = struct {
     allocator: std.mem.Allocator,
     names: [][]const u8,
@@ -599,6 +1311,10 @@ pub fn dataframe(allocator: std.mem.Allocator, defs: []const ColumnDef) DataErro
     return DataFrame.init(allocator, defs);
 }
 
+pub fn deviceDataFrame(allocator: std.mem.Allocator, defs: []const DeviceColumnDef) DeviceDataError!DeviceDataFrame {
+    return DeviceDataFrame.init(allocator, defs);
+}
+
 test "dataframe select filter groupby and csv" {
     const gpa = std.testing.allocator;
     var df = try DataFrame.init(gpa, &.{
@@ -622,4 +1338,78 @@ test "dataframe select filter groupby and csv" {
     var parsed = try DataFrame.readCsv(gpa, csv, true);
     defer parsed.deinit();
     try std.testing.expectEqual(df.height(), parsed.height());
+}
+
+test "device dataframe owns fixed-width columns on a shared device" {
+    const gpa = std.testing.allocator;
+
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+    var units = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 1, 2, 3 }, &.{ true, false, true }, .cpu);
+    defer units.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = sales },
+        .{ .name = "units", .data = units },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 3), table.height());
+    try std.testing.expectEqual(@as(usize, 3), table.width());
+    try std.testing.expect(table.device.isCpu());
+    try std.testing.expectEqual(DeviceDType.i64, try table.columnDType("units"));
+
+    const units_col = try table.column("units");
+    try std.testing.expect(units_col.nullable());
+    try std.testing.expect(units_col.hasNulls());
+    try std.testing.expectEqual(@as(usize, 1), units_col.nullCount());
+
+    var view = try table.view();
+    defer view.deinit();
+    try std.testing.expectEqual(@as(usize, 3), view.height());
+    try std.testing.expectEqual(DeviceDType.f64, view.columns[0].dtype);
+    try std.testing.expectEqual(DeviceValidityEncoding.bool_mask, view.columns[1].validity_encoding);
+    try std.testing.expect(view.columns[0].data_ptr != 0);
+
+    var selected = try table.select(&.{"sales"});
+    defer selected.deinit();
+    try std.testing.expectEqual(@as(usize, 1), selected.width());
+    try std.testing.expectEqual(DeviceDType.f64, try selected.columnDType("sales"));
+
+    var head = try table.head(2);
+    defer head.deinit();
+    try std.testing.expectEqual(@as(usize, 2), head.height());
+    const head_units = try head.column("units");
+    try std.testing.expectEqual(@as(usize, 1), head_units.nullCount());
+
+    var filtered = try table.filter(&.{ true, false, true });
+    defer filtered.deinit();
+    try std.testing.expectEqual(@as(usize, 2), filtered.height());
+    const filtered_units = try filtered.column("units");
+    try std.testing.expectEqual(@as(usize, 0), filtered_units.nullCount());
+}
+
+test "device dataframe round-trips legacy dataframe fixed-width columns" {
+    const gpa = std.testing.allocator;
+    var legacy = try DataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = .{ .f64 = &.{ 2.0, 3.0, 5.0 } } },
+        .{ .name = "units", .data = .{ .i64 = &.{ 1, 2, 3 } } },
+        .{ .name = "active", .data = .{ .bool = &.{ true, false, true } } },
+    });
+    defer legacy.deinit();
+
+    var device_table = try DeviceDataFrame.fromDataFrame(gpa, legacy, .cpu);
+    defer device_table.deinit();
+    try std.testing.expectEqual(@as(usize, 3), device_table.height());
+    try std.testing.expectEqual(DeviceDType.f64, try device_table.columnDType("sales"));
+
+    var roundtrip = try device_table.toDataFrame();
+    defer roundtrip.deinit();
+    try std.testing.expectEqual(legacy.height(), roundtrip.height());
+    try std.testing.expectEqualSlices(f64, legacy.columns[0].f64, roundtrip.columns[0].f64);
+    try std.testing.expectEqualSlices(i64, legacy.columns[1].i64, roundtrip.columns[1].i64);
+    try std.testing.expectEqualSlices(bool, legacy.columns[2].bool, roundtrip.columns[2].bool);
 }

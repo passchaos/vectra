@@ -310,6 +310,22 @@ pub fn build(b: *std.Build) void {
     basic_array_example_step.dependOn(&basic_array_example_cmd.step);
     examples_step.dependOn(&basic_array_example_cmd.step);
 
+    const device_dataframe_example_exe = b.addExecutable(.{
+        .name = "vectra-example-device-dataframe",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/device_dataframe.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const device_dataframe_example_cmd = b.addRunArtifact(device_dataframe_example_exe);
+    const device_dataframe_example_step = b.step("example-device-dataframe", "Run device-aware DataFrame/table-view usage example");
+    device_dataframe_example_step.dependOn(&device_dataframe_example_cmd.step);
+    examples_step.dependOn(&device_dataframe_example_cmd.step);
+
     const axiom_backend_policy_example_exe = b.addExecutable(.{
         .name = "vectra-example-axiom-backend-policy",
         .root_module = b.createModule(.{
@@ -752,6 +768,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&axiom_descriptor_smoke_cmd.step);
     test_step.dependOn(&axiom_gemm_layout_smoke_cmd.step);
     test_step.dependOn(&basic_array_example_cmd.step);
+    test_step.dependOn(&device_dataframe_example_cmd.step);
     test_step.dependOn(&axiom_backend_policy_example_cmd.step);
 
     // Just like flags, top level steps are also listed in the `--help` menu.
