@@ -700,7 +700,21 @@ pub const DeviceColumn = union(DeviceDType) {
         if (self.dtype() != other.dtype()) return error.TypeUnsupported;
         if (!self.device().sameDevice(other.device())) return error.InvalidDevice;
         return switch (self) {
-            inline else => |typed, tag| .{ .bool = try typed.compare(@field(other, @tagName(tag)), op) },
+            .bool => |typed| .{ .bool = try typed.compare(other.bool, op) },
+            .i8 => |typed| .{ .bool = try typed.compare(other.i8, op) },
+            .i16 => |typed| .{ .bool = try typed.compare(other.i16, op) },
+            .i32 => |typed| .{ .bool = try typed.compare(other.i32, op) },
+            .i64 => |typed| .{ .bool = try typed.compare(other.i64, op) },
+            .u8 => |typed| .{ .bool = try typed.compare(other.u8, op) },
+            .u16 => |typed| .{ .bool = try typed.compare(other.u16, op) },
+            .u32 => |typed| .{ .bool = try typed.compare(other.u32, op) },
+            .u64 => |typed| .{ .bool = try typed.compare(other.u64, op) },
+            .usize => |typed| .{ .bool = try typed.compare(other.usize, op) },
+            .isize => |typed| .{ .bool = try typed.compare(other.isize, op) },
+            .f16 => |typed| .{ .bool = try typed.compare(other.f16, op) },
+            .f32 => |typed| .{ .bool = try typed.compare(other.f32, op) },
+            .f64 => |typed| .{ .bool = try typed.compare(other.f64, op) },
+            .bf16, .c64, .c128 => error.TypeUnsupported,
         };
     }
 
@@ -790,6 +804,30 @@ pub const DeviceColumnDef = struct {
 
 pub const DeviceLazyOp = union(enum) {
     select: [][]const u8,
+    with_column_binary: struct {
+        name: []const u8,
+        lhs_name: []const u8,
+        rhs_name: []const u8,
+        op: DeviceColumnBinaryOp,
+    },
+    with_column_scalar: struct {
+        name: []const u8,
+        input_name: []const u8,
+        op: DeviceColumnBinaryOp,
+        scalar: DeviceScalar,
+    },
+    with_column_compare: struct {
+        name: []const u8,
+        lhs_name: []const u8,
+        rhs_name: []const u8,
+        op: DeviceColumnCompareOp,
+    },
+    with_column_compare_scalar: struct {
+        name: []const u8,
+        input_name: []const u8,
+        op: DeviceColumnCompareOp,
+        scalar: DeviceScalar,
+    },
     filter_mask: DeviceColumn,
     filter_scalar: struct {
         name: []const u8,
@@ -814,6 +852,24 @@ pub const DeviceLazyOp = union(enum) {
                 for (names) |name| allocator.free(name);
                 allocator.free(names);
             },
+            .with_column_binary => |expr| {
+                allocator.free(expr.name);
+                allocator.free(expr.lhs_name);
+                allocator.free(expr.rhs_name);
+            },
+            .with_column_scalar => |expr| {
+                allocator.free(expr.name);
+                allocator.free(expr.input_name);
+            },
+            .with_column_compare => |expr| {
+                allocator.free(expr.name);
+                allocator.free(expr.lhs_name);
+                allocator.free(expr.rhs_name);
+            },
+            .with_column_compare_scalar => |expr| {
+                allocator.free(expr.name);
+                allocator.free(expr.input_name);
+            },
             .filter_mask => |*mask| mask.deinit(),
             .filter_scalar => |filter_op| allocator.free(filter_op.name),
             .sort_by => |sort| allocator.free(sort.name),
@@ -837,6 +893,58 @@ pub const DeviceLazyOp = union(enum) {
                     initialized += 1;
                 }
                 break :blk .{ .select = owned };
+            },
+            .with_column_binary => |expr| blk: {
+                const name = try allocator.dupe(u8, expr.name);
+                errdefer allocator.free(name);
+                const lhs_name = try allocator.dupe(u8, expr.lhs_name);
+                errdefer allocator.free(lhs_name);
+                const rhs_name = try allocator.dupe(u8, expr.rhs_name);
+                errdefer allocator.free(rhs_name);
+                break :blk .{ .with_column_binary = .{
+                    .name = name,
+                    .lhs_name = lhs_name,
+                    .rhs_name = rhs_name,
+                    .op = expr.op,
+                } };
+            },
+            .with_column_scalar => |expr| blk: {
+                const name = try allocator.dupe(u8, expr.name);
+                errdefer allocator.free(name);
+                const input_name = try allocator.dupe(u8, expr.input_name);
+                errdefer allocator.free(input_name);
+                break :blk .{ .with_column_scalar = .{
+                    .name = name,
+                    .input_name = input_name,
+                    .op = expr.op,
+                    .scalar = expr.scalar,
+                } };
+            },
+            .with_column_compare => |expr| blk: {
+                const name = try allocator.dupe(u8, expr.name);
+                errdefer allocator.free(name);
+                const lhs_name = try allocator.dupe(u8, expr.lhs_name);
+                errdefer allocator.free(lhs_name);
+                const rhs_name = try allocator.dupe(u8, expr.rhs_name);
+                errdefer allocator.free(rhs_name);
+                break :blk .{ .with_column_compare = .{
+                    .name = name,
+                    .lhs_name = lhs_name,
+                    .rhs_name = rhs_name,
+                    .op = expr.op,
+                } };
+            },
+            .with_column_compare_scalar => |expr| blk: {
+                const name = try allocator.dupe(u8, expr.name);
+                errdefer allocator.free(name);
+                const input_name = try allocator.dupe(u8, expr.input_name);
+                errdefer allocator.free(input_name);
+                break :blk .{ .with_column_compare_scalar = .{
+                    .name = name,
+                    .input_name = input_name,
+                    .op = expr.op,
+                    .scalar = expr.scalar,
+                } };
             },
             .filter_mask => |mask| .{ .filter_mask = try mask.clone() },
             .filter_scalar => |filter_op| .{ .filter_scalar = .{
@@ -962,6 +1070,62 @@ pub const DeviceLazyFrame = struct {
         try self.ops.append(self.allocator, .{ .filter_mask = try mask.clone() });
     }
 
+    pub fn withColumnBinary(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_lhs = try self.allocator.dupe(u8, lhs_name);
+        errdefer self.allocator.free(owned_lhs);
+        const owned_rhs = try self.allocator.dupe(u8, rhs_name);
+        errdefer self.allocator.free(owned_rhs);
+        try self.ops.append(self.allocator, .{ .with_column_binary = .{
+            .name = owned_name,
+            .lhs_name = owned_lhs,
+            .rhs_name = owned_rhs,
+            .op = op,
+        } });
+    }
+
+    pub fn withColumnScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, op: DeviceColumnBinaryOp) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_input = try self.allocator.dupe(u8, input_name);
+        errdefer self.allocator.free(owned_input);
+        try self.ops.append(self.allocator, .{ .with_column_scalar = .{
+            .name = owned_name,
+            .input_name = owned_input,
+            .op = op,
+            .scalar = DeviceScalar.init(T, scalar),
+        } });
+    }
+
+    pub fn withColumnCompare(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_lhs = try self.allocator.dupe(u8, lhs_name);
+        errdefer self.allocator.free(owned_lhs);
+        const owned_rhs = try self.allocator.dupe(u8, rhs_name);
+        errdefer self.allocator.free(owned_rhs);
+        try self.ops.append(self.allocator, .{ .with_column_compare = .{
+            .name = owned_name,
+            .lhs_name = owned_lhs,
+            .rhs_name = owned_rhs,
+            .op = op,
+        } });
+    }
+
+    pub fn withColumnCompareScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_input = try self.allocator.dupe(u8, input_name);
+        errdefer self.allocator.free(owned_input);
+        try self.ops.append(self.allocator, .{ .with_column_compare_scalar = .{
+            .name = owned_name,
+            .input_name = owned_input,
+            .op = op,
+            .scalar = DeviceScalar.init(T, scalar),
+        } });
+    }
+
     pub fn filterColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .filter_scalar = .{
             .name = try self.allocator.dupe(u8, name),
@@ -993,6 +1157,26 @@ pub const DeviceLazyFrame = struct {
         for (optimized.items) |op| {
             const next = switch (op) {
                 .select => |names| try current.select(names),
+                .with_column_binary => |expr| blk: {
+                    var column_value = try current.binaryColumns(expr.lhs_name, expr.rhs_name, expr.op);
+                    defer column_value.deinit();
+                    break :blk try current.withColumn(expr.name, column_value);
+                },
+                .with_column_scalar => |expr| blk: {
+                    var column_value = try current.binaryColumnScalarWithDeviceScalar(expr.input_name, expr.scalar, expr.op);
+                    defer column_value.deinit();
+                    break :blk try current.withColumn(expr.name, column_value);
+                },
+                .with_column_compare => |expr| blk: {
+                    var column_value = try current.compareColumns(expr.lhs_name, expr.rhs_name, expr.op);
+                    defer column_value.deinit();
+                    break :blk try current.withColumn(expr.name, column_value);
+                },
+                .with_column_compare_scalar => |expr| blk: {
+                    var column_value = try current.compareColumnScalarWithDeviceScalar(expr.input_name, expr.scalar, expr.op);
+                    defer column_value.deinit();
+                    break :blk try current.withColumn(expr.name, column_value);
+                },
                 .filter_mask => |mask| try current.filterColumnMask(mask),
                 .filter_scalar => |filter_op| blk: {
                     var mask = try current.compareColumnScalarWithDeviceScalar(filter_op.name, filter_op.scalar, filter_op.op);
@@ -1041,7 +1225,9 @@ pub const DeviceLazyFrame = struct {
                         const previous = optimized.items[optimized.items.len - 1].select;
                         if (allNamesIn(names, previous)) {
                             optimized.items[optimized.items.len - 1].deinit(self.allocator);
-                            optimized.items[optimized.items.len - 1] = try op.clone(self.allocator);
+                            var cloned_op = try op.clone(self.allocator);
+                            errdefer cloned_op.deinit(self.allocator);
+                            optimized.items[optimized.items.len - 1] = cloned_op;
                             continue;
                         }
                     }
@@ -1227,6 +1413,8 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
     var required_names: std.ArrayList([]const u8) = .empty;
     errdefer required_names.deinit(allocator);
     errdefer freeOwnedNameItems(allocator, required_names.items);
+    var derived_names: std.ArrayList([]const u8) = .empty;
+    defer derived_names.deinit(allocator);
 
     var saw_select = false;
     var range_predicate: ?DeviceParquetRangeFilter = null;
@@ -1236,11 +1424,34 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
         switch (op) {
             .select => |names| {
                 saw_select = true;
-                for (names) |name| try appendOwnedNameUnique(allocator, &required_names, name);
+                for (names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
+            .with_column_binary => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
+                try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
+            },
+            .with_column_scalar => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+            },
+            .with_column_compare => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
+                try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
+            },
+            .with_column_compare_scalar => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
             },
             .filter_scalar => |filter_op| {
-                try appendOwnedNameUnique(allocator, &required_names, filter_op.name);
-                if (range_predicate == null) {
+                const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
+                if (filter_depends_on_source) try appendOwnedNameUnique(allocator, &required_names, filter_op.name);
+                if (filter_depends_on_source and range_predicate == null) {
                     if (parquetRangePredicateFromScalar(filter_op.scalar, filter_op.op)) |predicate| {
                         range_predicate = .{
                             .column = try allocator.dupe(u8, filter_op.name),
@@ -1249,8 +1460,12 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                     }
                 }
             },
-            .sort_by => |sort| try appendOwnedNameUnique(allocator, &required_names, sort.name),
-            .top_k => |top| try appendOwnedNameUnique(allocator, &required_names, top.name),
+            .sort_by => |sort| {
+                if (!nameInBorrowedList(sort.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, sort.name);
+            },
+            .top_k => |top| {
+                if (!nameInBorrowedList(top.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, top.name);
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -1279,6 +1494,18 @@ fn appendOwnedNameUnique(allocator: std.mem.Allocator, names: *std.ArrayList([]c
     const owned = try allocator.dupe(u8, name);
     errdefer allocator.free(owned);
     try names.append(allocator, owned);
+}
+
+fn appendBorrowedNameUnique(allocator: std.mem.Allocator, names: *std.ArrayList([]const u8), name: []const u8) std.mem.Allocator.Error!void {
+    if (nameInBorrowedList(name, names.items)) return;
+    try names.append(allocator, name);
+}
+
+fn nameInBorrowedList(name: []const u8, names: []const []const u8) bool {
+    for (names) |existing| {
+        if (std.mem.eql(u8, existing, name)) return true;
+    }
+    return false;
 }
 
 fn freeOwnedNameItems(allocator: std.mem.Allocator, names: []const []const u8) void {
@@ -1369,6 +1596,10 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         },
         .filter_mask => |mask| try writer.print("filter_mask(dtype={s}, rows={d})", .{ mask.dtype().name(), mask.len() }),
         .filter_scalar => |filter_op| try writer.print("filter_scalar({s}, op={s}, dtype={s})", .{ filter_op.name, @tagName(filter_op.op), @tagName(filter_op.scalar) }),
+        .with_column_binary => |expr| try writer.print("with_column_binary({s}={s} {s} {s})", .{ expr.name, expr.lhs_name, @tagName(expr.op), expr.rhs_name }),
+        .with_column_scalar => |expr| try writer.print("with_column_scalar({s}={s} {s} scalar:{s})", .{ expr.name, expr.input_name, @tagName(expr.op), @tagName(expr.scalar) }),
+        .with_column_compare => |expr| try writer.print("with_column_compare({s}={s} {s} {s})", .{ expr.name, expr.lhs_name, @tagName(expr.op), expr.rhs_name }),
+        .with_column_compare_scalar => |expr| try writer.print("with_column_compare_scalar({s}={s} {s} scalar:{s})", .{ expr.name, expr.input_name, @tagName(expr.op), @tagName(expr.scalar) }),
         .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
         .head => |n| try writer.print("head({d})", .{n}),
@@ -1526,6 +1757,26 @@ pub const DeviceDataFrame = struct {
     pub fn binaryColumnScalar(self: DeviceDataFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
         const col = try self.column(name);
         return col.binaryScalar(T, scalar, op);
+    }
+
+    pub fn binaryColumnScalarWithDeviceScalar(self: DeviceDataFrame, name: []const u8, scalar: DeviceScalar, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
+        const col = try self.column(name);
+        return switch (scalar) {
+            .i8 => |value| col.binaryScalar(i8, value, op),
+            .i16 => |value| col.binaryScalar(i16, value, op),
+            .i32 => |value| col.binaryScalar(i32, value, op),
+            .i64 => |value| col.binaryScalar(i64, value, op),
+            .u8 => |value| col.binaryScalar(u8, value, op),
+            .u16 => |value| col.binaryScalar(u16, value, op),
+            .u32 => |value| col.binaryScalar(u32, value, op),
+            .u64 => |value| col.binaryScalar(u64, value, op),
+            .usize => |value| col.binaryScalar(usize, value, op),
+            .isize => |value| col.binaryScalar(isize, value, op),
+            .f16 => |value| col.binaryScalar(f16, value, op),
+            .f32 => |value| col.binaryScalar(f32, value, op),
+            .f64 => |value| col.binaryScalar(f64, value, op),
+            .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+        };
     }
 
     pub fn compareColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
@@ -5644,29 +5895,39 @@ test "device lazy frame collects staged select filter sort and limit operations"
 
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
+    try plan.withColumnScalar("sales_x2", "sales", f64, 2.0, .mul);
+    try plan.withColumnCompareScalar("big_sale", "sales_x2", f64, 10.0, .gt);
     try plan.filterColumnScalar("sales", f64, 2.5, .gt);
     try plan.sortBy("sales", .{ .descending = true });
-    try plan.select(&.{ "sales", "units", "active" });
-    try plan.select(&.{ "sales", "units" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "big_sale", "active" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "big_sale" });
     try plan.head(3);
     try plan.head(2);
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=6") != null);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=4") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=8") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=6") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_scalar(sales_x2") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_compare_scalar(big_sale") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "filter_scalar(sales") != null);
 
     var result = try plan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 2), result.width());
+    try std.testing.expectEqual(@as(usize, 4), result.width());
     const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales);
     const result_units = try (try result.column("units")).i64.toOwnedSlice(gpa);
     defer gpa.free(result_units);
+    const result_sales_x2 = try (try result.column("sales_x2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_x2);
+    const result_big_sale = try (try result.column("big_sale")).bool.toOwnedSlice(gpa);
+    defer gpa.free(result_big_sale);
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, result_sales);
     try std.testing.expectEqualSlices(i64, &.{ 4, 3 }, result_units);
+    try std.testing.expectEqualSlices(f64, &.{ 14.0, 10.0 }, result_sales_x2);
+    try std.testing.expectEqualSlices(bool, &.{ true, false }, result_big_sale);
 
     var topk_plan = try DeviceLazyFrame.init(gpa, table);
     defer topk_plan.deinit();
@@ -5842,12 +6103,14 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
 
     var lazy_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer lazy_scan.deinit();
+    try lazy_scan.withColumnScalar("sales_x2", "sales", f64, 2.0, .mul);
     try lazy_scan.filterColumnScalar("sales", f64, 2.5, .gt);
-    try lazy_scan.select(&.{ "sales", "id" });
+    try lazy_scan.select(&.{ "sales_x2", "id" });
 
     const explain = try lazy_scan.explain(gpa);
     defer gpa.free(explain);
     try std.testing.expect(std.mem.indexOf(u8, explain, "source=parquet_scan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_scalar(sales_x2") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "scan_pushdown: range=sales, projection=[sales,id]") != null);
 
     var result = try lazy_scan.collect();
@@ -5855,7 +6118,8 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expectEqual(@as(usize, 2), result.height());
     try std.testing.expectEqual(@as(usize, 2), result.width());
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
-    const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
-    defer gpa.free(result_sales);
-    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, result_sales);
+    try std.testing.expectEqual(@as(?usize, null), result.columnIndex("sales"));
+    const result_sales_x2 = try (try result.column("sales_x2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_x2);
+    try std.testing.expectEqualSlices(f64, &.{ 6.0, 10.0 }, result_sales_x2);
 }

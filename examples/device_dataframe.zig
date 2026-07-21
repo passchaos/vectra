@@ -33,9 +33,11 @@ pub fn main(init: std.process.Init) !void {
     defer doubled_sales.deinit();
     var lazy = try vx.DeviceLazyFrame.init(allocator, df);
     defer lazy.deinit();
+    try lazy.withColumnScalar("sales_x2", "sales", f64, 2.0, .mul);
+    try lazy.withColumnCompareScalar("expensive", "sales_x2", f64, 6.0, .gt);
     try lazy.filterColumnScalar("sales", f64, 2.5, .gt);
     try lazy.sortBy("sales", .{ .descending = true });
-    try lazy.select(&.{ "sales", "units" });
+    try lazy.select(&.{ "sales", "units", "sales_x2", "expensive" });
     try lazy.head(2);
     const lazy_explain = try lazy.explain(allocator);
     defer allocator.free(lazy_explain);
@@ -139,8 +141,12 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(?usize, 1), arrow_batch.columnIndexByName("units"));
     try std.testing.expectEqual(@as(?i64, null), arrow_batch.columns[1].int64.value(1));
     try std.testing.expectEqual(@as(usize, 2), lazy_result.height());
-    try std.testing.expectEqual(@as(usize, 2), lazy_result.width());
+    try std.testing.expectEqual(@as(usize, 4), lazy_result.width());
     try std.testing.expect(lazy_explain.len != 0);
+    try std.testing.expect(std.mem.indexOf(u8, lazy_explain, "with_column_scalar(sales_x2") != null);
+    const lazy_sales_x2 = try (try lazy_result.column("sales_x2")).f64.toOwnedSlice(allocator);
+    defer allocator.free(lazy_sales_x2);
+    try std.testing.expectEqualSlices(f64, &.{ 10.0, 6.0 }, lazy_sales_x2);
     try std.testing.expectEqual(@as(usize, 2), expression_filtered.height());
     const doubled_values = try doubled_sales.f64.toOwnedSlice(allocator);
     defer allocator.free(doubled_values);
