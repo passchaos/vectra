@@ -8353,9 +8353,32 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.splitWithSizes(sizes, axis_index);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            var total: usize = 0;
+            for (sizes) |part_len| {
+                total = std.math.add(usize, total, part_len) catch return error.InvalidShape;
+            }
+            if (total != axis_len) return error.ShapeMismatch;
+
+            const items = try self.allocator.alloc(Array(T), sizes.len);
+            errdefer self.allocator.free(items);
+            var initialized: usize = 0;
+            errdefer {
+                for (items[0..initialized]) |*part| part.deinit();
+            }
+            var start: usize = 0;
+            for (sizes, 0..) |part_len, i| {
+                var part_view = try self.narrow(axis_index, start, part_len);
+                items[i] = part_view.toArray() catch |err| {
+                    part_view.deinit();
+                    return err;
+                };
+                part_view.deinit();
+                initialized += 1;
+                start += part_len;
+            }
+            return .{ .allocator = self.allocator, .items = items };
         }
 
         pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
