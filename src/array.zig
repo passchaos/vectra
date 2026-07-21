@@ -8958,9 +8958,28 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn diagonal(self: Self, offset: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.diagonal(offset);
+            if (self.shape.len != 2) return error.NonMatrixArray;
+            const rows = self.shape[0];
+            const cols = self.shape[1];
+            const start_row: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= rows) return Array(T).empty(self.allocator, &.{0});
+                break :blk offset_abs;
+            } else 0;
+            const start_col: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= cols) return Array(T).empty(self.allocator, &.{0});
+                break :blk offset_abs;
+            } else 0;
+            const count = @min(rows - start_row, cols - start_col);
+            var out = try Array(T).empty(self.allocator, &.{count});
+            errdefer out.deinit();
+            for (out.data, 0..) |*slot, i| {
+                const source_offset = self.offset + (start_row + i) * self.strides[0] + (start_col + i) * self.strides[1];
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn diagonalAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
