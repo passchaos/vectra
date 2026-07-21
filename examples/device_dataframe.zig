@@ -44,6 +44,12 @@ pub fn main(init: std.process.Init) !void {
     defer grouped.deinit();
     var summed = try df.groupBySum("units", "sales", "sales_sum");
     defer summed.deinit();
+    var minned = try df.groupByMin("units", "sales", "sales_min");
+    defer minned.deinit();
+    var maxed = try df.groupByMax("units", "sales", "sales_max");
+    defer maxed.deinit();
+    var meaned = try df.groupByMean("units", "sales", "sales_mean");
+    defer meaned.deinit();
     var lookup_units = try vx.DeviceColumn.fromSliceWithValidity(i64, allocator, &.{ 1, 3, 99 }, &.{ true, true, false }, vx.cpu);
     defer lookup_units.deinit();
     var region = try vx.DeviceColumn.fromSlice(i64, allocator, &.{ 10, 30, 990 }, vx.cpu);
@@ -94,6 +100,9 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 3.0, 2.0 }, sorted_values);
     try std.testing.expectEqual(@as(usize, 2), grouped.height());
     try std.testing.expectEqual(@as(usize, 2), summed.height());
+    try std.testing.expectEqual(@as(usize, 2), minned.height());
+    try std.testing.expectEqual(@as(usize, 2), maxed.height());
+    try std.testing.expectEqual(@as(usize, 2), meaned.height());
     try std.testing.expectEqual(@as(usize, 2), joined.height());
     try std.testing.expectEqual(df.height(), left_joined.height());
     try std.testing.expectEqual(@as(usize, 2), semi_joined.height());
@@ -123,6 +132,9 @@ pub fn main(init: std.process.Init) !void {
         \\  "sorted_sales_first": {d:.1},
         \\  "grouped_rows": {d},
         \\  "summed_rows": {d},
+        \\  "minned_rows": {d},
+        \\  "maxed_rows": {d},
+        \\  "meaned_rows": {d},
         \\  "joined_rows": {d},
         \\  "left_joined_rows": {d},
         \\  "semi_joined_rows": {d},
@@ -148,6 +160,9 @@ pub fn main(init: std.process.Init) !void {
         sorted_values[0],
         grouped.height(),
         summed.height(),
+        minned.height(),
+        maxed.height(),
+        meaned.height(),
         joined.height(),
         left_joined.height(),
         semi_joined.height(),
