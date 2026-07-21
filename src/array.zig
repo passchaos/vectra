@@ -9012,9 +9012,47 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn diagflat(self: Self, offset: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.diagflat(offset);
+            const n = self.numel();
+            const offset_abs: usize = if (offset < 0) @intCast(-offset) else @intCast(offset);
+            const matrix_size = std.math.add(usize, n, offset_abs) catch return error.InvalidShape;
+            var out = try Array(T).zeros(self.allocator, &.{ matrix_size, matrix_size });
+            errdefer out.deinit();
+            if (n == 0) return out;
+
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, n) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], 0..) |value, i| {
+                    const row = if (offset < 0) i + offset_abs else i;
+                    const col = if (offset > 0) i + offset_abs else i;
+                    out.data[row * matrix_size + col] = value;
+                }
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (0..n) |i| {
+                    const row = if (offset < 0) i + offset_abs else i;
+                    const col = if (offset > 0) i + offset_abs else i;
+                    out.data[row * matrix_size + col] = self.data[source_offset];
+                    source_offset += self.strides[0];
+                }
+                return out;
+            }
+
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (0..n) |flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                const row = if (offset < 0) flat + offset_abs else flat;
+                const col = if (offset > 0) flat + offset_abs else flat;
+                out.data[row * matrix_size + col] = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn diagEmbed(self: Self, offset: isize) ArrayError!Array(T) {
