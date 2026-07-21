@@ -6828,9 +6828,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn cumsumAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cumsumAxis(axis_index);
+            return self.cumulativeAxisFromInit(axis_index, zero(T), opAdd);
         }
 
         pub fn cumsumDim(self: Self, dim_index: isize) ArrayError!Array(T) {
@@ -6838,9 +6836,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn cumprodAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cumprodAxis(axis_index);
+            return self.cumulativeAxisFromInit(axis_index, one(T), opMul);
         }
 
         pub fn cumprodDim(self: Self, dim_index: isize) ArrayError!Array(T) {
@@ -6848,9 +6844,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn cummaxAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cummaxAxis(axis_index);
+            return self.cumulativeAxisFromFirst(axis_index, opCummax);
         }
 
         pub fn cummaxDim(self: Self, dim_index: isize) ArrayError!Array(T) {
@@ -6858,9 +6852,78 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn cumminAxis(self: Self, axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.cumminAxis(axis_index);
+            return self.cumulativeAxisFromFirst(axis_index, opCummin);
+        }
+
+        fn cumulativeAxisFromInit(self: Self, axis_index: isize, init_value: T, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |extent, i| slice_shape[i] = extent;
+            for (self.shape[axis + 1 ..], axis..) |extent, i| slice_shape[i] = extent;
+            const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var full_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(full_multi);
+
+            for (0..try numelFrom(slice_shape)) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| full_multi[i] = coord;
+                for (slice_multi[axis..], axis + 1..) |coord, i| full_multi[i] = coord;
+                var acc = init_value;
+                for (0..self.shape[axis]) |axis_i| {
+                    full_multi[axis] = axis_i;
+                    const source_offset = self.offset + ravelIndex(full_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    acc = op(acc, self.data[source_offset]);
+                    out.data[ravelIndex(full_multi, out.strides)] = acc;
+                }
+            }
+            return out;
+        }
+
+        fn cumulativeAxisFromFirst(self: Self, axis_index: isize, comptime op: fn (T, T) T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |extent, i| slice_shape[i] = extent;
+            for (self.shape[axis + 1 ..], axis..) |extent, i| slice_shape[i] = extent;
+            const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var full_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(full_multi);
+
+            for (0..try numelFrom(slice_shape)) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| full_multi[i] = coord;
+                for (slice_multi[axis..], axis + 1..) |coord, i| full_multi[i] = coord;
+                if (self.shape[axis] == 0) continue;
+                full_multi[axis] = 0;
+                var source_offset = self.offset + ravelIndex(full_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                var acc = self.data[source_offset];
+                out.data[ravelIndex(full_multi, out.strides)] = acc;
+                for (1..self.shape[axis]) |axis_i| {
+                    full_multi[axis] = axis_i;
+                    source_offset = self.offset + ravelIndex(full_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    acc = op(acc, self.data[source_offset]);
+                    out.data[ravelIndex(full_multi, out.strides)] = acc;
+                }
+            }
+            return out;
         }
 
         pub fn cumminDim(self: Self, dim_index: isize) ArrayError!Array(T) {
