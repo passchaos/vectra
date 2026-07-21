@@ -62,6 +62,15 @@ pub fn main(init: std.process.Init) !void {
     const sorted_sales = try sorted.column("sales");
     var top2 = try df.topKBy("sales", 2, .{ .descending = true });
     defer top2.deinit();
+    var stacked = try df.concatRows(filtered);
+    defer stacked.deinit();
+    var lazy_stack = try vx.DeviceLazyFrame.init(allocator, df);
+    defer lazy_stack.deinit();
+    try lazy_stack.concatRows(filtered);
+    const lazy_stack_explain = try lazy_stack.explain(allocator);
+    defer allocator.free(lazy_stack_explain);
+    var lazy_stacked = try lazy_stack.collect();
+    defer lazy_stacked.deinit();
     var grouped = try df.groupByCount("units", "rows");
     defer grouped.deinit();
     var summed = try df.groupBySum("units", "sales", "sales_sum");
@@ -179,6 +188,9 @@ pub fn main(init: std.process.Init) !void {
     defer allocator.free(sorted_values);
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 3.0, 2.0 }, sorted_values);
     try std.testing.expectEqual(@as(usize, 2), top2.height());
+    try std.testing.expectEqual(@as(usize, 5), stacked.height());
+    try std.testing.expectEqual(@as(usize, 5), lazy_stacked.height());
+    try std.testing.expect(std.mem.indexOf(u8, lazy_stack_explain, "concat_rows(rows=2, cols=2)") != null);
     try std.testing.expectEqual(@as(usize, 2), grouped.height());
     try std.testing.expectEqual(@as(usize, 2), summed.height());
     try std.testing.expectEqual(@as(usize, 2), minned.height());
@@ -233,6 +245,8 @@ pub fn main(init: std.process.Init) !void {
         \\  "doubled_sales_last": {d:.1},
         \\  "sorted_sales_first": {d:.1},
         \\  "top2_rows": {d},
+        \\  "stacked_rows": {d},
+        \\  "lazy_stacked_rows": {d},
         \\  "grouped_rows": {d},
         \\  "summed_rows": {d},
         \\  "minned_rows": {d},
@@ -257,6 +271,8 @@ pub fn main(init: std.process.Init) !void {
         doubled_values[2],
         sorted_values[0],
         top2.height(),
+        stacked.height(),
+        lazy_stacked.height(),
         grouped.height(),
         summed.height(),
         minned.height(),

@@ -882,6 +882,7 @@ pub const DeviceLazyOp = union(enum) {
         right_key_name: []const u8,
         options: DeviceAsofOptions,
     },
+    concat_rows: DeviceDataFrame,
     sort_by: struct {
         name: []const u8,
         options: DeviceSortOptions,
@@ -951,6 +952,7 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(join.right_key_name);
                 allocator.free(join.options.right_suffix);
             },
+            .concat_rows => |*right| right.deinit(),
             .sort_by => |sort| allocator.free(sort.name),
             .top_k => |top| allocator.free(top.name),
             .head, .tail => {},
@@ -1117,6 +1119,7 @@ pub const DeviceLazyOp = union(enum) {
                     },
                 } };
             },
+            .concat_rows => |right| .{ .concat_rows = try right.clone() },
             .sort_by => |sort| .{ .sort_by = .{
                 .name = try allocator.dupe(u8, sort.name),
                 .options = sort.options,
@@ -1433,6 +1436,20 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn concatRows(self: *DeviceLazyFrame, right: DeviceDataFrame) DeviceDataError!void {
+        var owned_right = try right.clone();
+        errdefer owned_right.deinit();
+        try self.ops.append(self.allocator, .{ .concat_rows = owned_right });
+    }
+
+    pub fn appendRows(self: *DeviceLazyFrame, right: DeviceDataFrame) DeviceDataError!void {
+        return self.concatRows(right);
+    }
+
+    pub fn vstack(self: *DeviceLazyFrame, right: DeviceDataFrame) DeviceDataError!void {
+        return self.concatRows(right);
+    }
+
     pub fn filterColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .filter_scalar = .{
             .name = try self.allocator.dupe(u8, name),
@@ -1507,6 +1524,7 @@ pub const DeviceLazyFrame = struct {
                     .anti => try current.antiJoinOn(join.right, join.left_key_names, join.right_key_names),
                 },
                 .asof_join => |join| try current.asofJoin(join.right, join.left_key_name, join.right_key_name, join.options),
+                .concat_rows => |right| try current.concatRows(right),
                 .sort_by => |sort| try current.sortBy(sort.name, sort.options),
                 .top_k => |top| try current.topKBy(top.name, top.k, top.options),
                 .head => |n| try current.head(n),
@@ -1828,12 +1846,17 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                         try appendOwnedNameUnique(allocator, &required_names, key_name);
                     }
                 }
+                break :op_loop;
             },
             .asof_join => |join| {
                 projection_blocked = true;
                 if (!nameInBorrowedList(join.left_key_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, join.left_key_name);
                 }
+                break :op_loop;
+            },
+            .concat_rows => {
+                break :op_loop;
             },
             .filter_scalar => |filter_op| {
                 const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
@@ -2012,6 +2035,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
             try writer.print("])", .{});
         },
         .asof_join => |join| try writer.print("asof_join({s}->{s}, strategy={s})", .{ join.left_key_name, join.right_key_name, @tagName(join.options.strategy) }),
+        .concat_rows => |right| try writer.print("concat_rows(rows={d}, cols={d})", .{ right.height(), right.width() }),
         .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
         .head => |n| try writer.print("head({d})", .{n}),
@@ -2353,7 +2377,7 @@ pub const DeviceDataFrame = struct {
         for (table.batches[1..]) |batch| {
             var next = try DeviceDataFrame.fromArrowRecordBatch(allocator, batch, device_value);
             defer next.deinit();
-            const combined = try concatRows(out, next);
+            const combined = try concatDeviceDataFramesRows(out, next);
             out.deinit();
             out = combined;
         }
@@ -2380,7 +2404,7 @@ pub const DeviceDataFrame = struct {
         for (table.batches[1..]) |batch| {
             var next = try DeviceDataFrame.fromArrowRecordBatchProjection(allocator, batch, wanted_names, device_value);
             defer next.deinit();
-            const combined = try concatRows(out, next);
+            const combined = try concatDeviceDataFramesRows(out, next);
             out.deinit();
             out = combined;
         }
@@ -2520,6 +2544,18 @@ pub const DeviceDataFrame = struct {
             initialized += 1;
         }
         return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, row_indices.len, self.device);
+    }
+
+    pub fn concatRows(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+        return concatDeviceDataFramesRows(self, other);
+    }
+
+    pub fn appendRows(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+        return self.concatRows(other);
+    }
+
+    pub fn vstack(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+        return self.concatRows(other);
     }
 
     pub fn argsortBy(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError![]usize {
@@ -4705,7 +4741,7 @@ fn optionalCast(comptime T: type, value: anytype) ?T {
     return std.math.cast(T, unwrapped) orelse unreachable;
 }
 
-fn concatRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+fn concatDeviceDataFramesRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
     if (!first.device.sameDevice(second.device)) return error.InvalidDevice;
     if (first.columns.len != second.columns.len) return error.LengthMismatch;
     for (first.names, second.names, first.columns, second.columns) |first_name, second_name, first_col, second_col| {
@@ -6288,6 +6324,57 @@ test "device dataframe asof joins with previous next and nearest strategies" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, nearest_validity);
 }
 
+test "device dataframe concatenates rows eagerly and lazily" {
+    const gpa = std.testing.allocator;
+
+    var left_id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2 }, .cpu);
+    defer left_id.deinit();
+    var left_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 10.0, 20.0 }, &.{ true, false }, .cpu);
+    defer left_value.deinit();
+    var right_id = try DeviceColumn.fromSlice(i32, gpa, &.{ 3, 4 }, .cpu);
+    defer right_id.deinit();
+    var right_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 30.0, 40.0 }, .cpu);
+    defer right_value.deinit();
+
+    var left = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = left_id },
+        .{ .name = "value", .data = left_value },
+    });
+    defer left.deinit();
+    var right = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = right_id },
+        .{ .name = "value", .data = right_value },
+    });
+    defer right.deinit();
+
+    var stacked = try left.concatRows(right);
+    defer stacked.deinit();
+    try std.testing.expectEqual(@as(usize, 4), stacked.height());
+    try std.testing.expectEqual(@as(usize, 2), stacked.width());
+    const stacked_ids = try (try stacked.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(stacked_ids);
+    const stacked_values = try (try stacked.column("value")).f64.toOwnedSlice(gpa);
+    defer gpa.free(stacked_values);
+    const stacked_validity = try (try stacked.column("value")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(stacked_validity);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3, 4 }, stacked_ids);
+    try std.testing.expectEqualSlices(f64, &.{ 10.0, 20.0, 30.0, 40.0 }, stacked_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, stacked_validity);
+
+    var plan = try DeviceLazyFrame.init(gpa, left);
+    defer plan.deinit();
+    try plan.concatRows(right);
+    try plan.filterColumnScalar("id", i32, 2, .ge);
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "concat_rows(rows=2, cols=2)") != null);
+    var lazy_stacked = try plan.collect();
+    defer lazy_stacked.deinit();
+    try std.testing.expectEqual(@as(usize, 3), lazy_stacked.height());
+    const lazy_ids = try (try lazy_stacked.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ids);
+    try std.testing.expectEqualSlices(i32, &.{ 2, 3, 4 }, lazy_ids);
+}
 test "device lazy frame collects staged select filter sort and limit operations" {
     const gpa = std.testing.allocator;
 
