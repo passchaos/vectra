@@ -7080,9 +7080,51 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn gradient(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.gradient(x_values, dx, axis_index);
+            ensureFloat(T);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            if (x_values) |x| {
+                if (x.shape.len != 1 or x.data.len != axis_len) return error.ShapeMismatch;
+            }
+
+            var out = try Array(T).zeros(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0 or axis_len < 2) return out;
+
+            var slice_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(slice_shape);
+            for (self.shape[0..axis], 0..) |extent, i| slice_shape[i] = extent;
+            for (self.shape[axis + 1 ..], axis..) |extent, i| slice_shape[i] = extent;
+
+            const slice_multi = try self.allocator.alloc(usize, slice_shape.len);
+            defer self.allocator.free(slice_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (0..try numelFrom(slice_shape)) |slice_flat| {
+                unravelIndexInto(slice_flat, slice_shape, slice_multi);
+                for (slice_multi[0..axis], 0..) |coord, i| in_multi[i] = coord;
+                for (slice_multi[axis..], axis + 1..) |coord, i| in_multi[i] = coord;
+
+                for (0..axis_len) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    const out_index = ravelIndex(in_multi, out.strides);
+                    const lhs_axis = if (axis_i == 0) 0 else axis_i - 1;
+                    const rhs_axis = if (axis_i + 1 >= axis_len) axis_len - 1 else axis_i + 1;
+                    in_multi[axis] = lhs_axis;
+                    var source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    const left = self.data[source_offset];
+                    in_multi[axis] = rhs_axis;
+                    source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    const right = self.data[source_offset];
+                    const width = if (x_values) |x| x.data[rhs_axis] - x.data[lhs_axis] else dx * castValue(T, rhs_axis - lhs_axis);
+                    out.data[out_index] = (right - left) / width;
+                }
+            }
+            return out;
         }
 
         pub fn argmax(self: Self) ArrayError!usize {
