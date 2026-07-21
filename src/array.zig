@@ -7887,9 +7887,27 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.repeat(repeats, axis_index);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = std.math.mul(usize, out_shape[axis], repeats) catch return error.InvalidShape;
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = out_multi[axis] / repeats;
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn repeatInterleave(self: Self, repeats: Array(usize), axis_opt: ?isize) ArrayError!Array(T) {
