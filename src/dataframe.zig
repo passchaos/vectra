@@ -73,6 +73,10 @@ pub const DeviceSortOptions = struct {
     nulls: NullPlacement = .last,
 };
 
+pub const DeviceJoinOptions = struct {
+    right_suffix: []const u8 = "_right",
+};
+
 pub const DeviceColumnView = struct {
     dtype: DeviceDType,
     rows: usize,
@@ -1040,6 +1044,29 @@ pub const DeviceDataFrame = struct {
         return groupBySumDispatchKey(self.allocator, key_name, output_name, key.*, value.*, self.device);
     }
 
+    pub fn innerJoin(
+        self: DeviceDataFrame,
+        right: DeviceDataFrame,
+        left_key_name: []const u8,
+        right_key_name: []const u8,
+        options_value: DeviceJoinOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
+        const left_key = try self.column(left_key_name);
+        const right_key = try right.column(right_key_name);
+        if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
+
+        var pair = try innerJoinRowIndices(self.allocator, left_key.*, right_key.*);
+        defer pair.deinit();
+
+        var left_rows = try self.take(pair.left);
+        defer left_rows.deinit();
+        var right_rows = try right.take(pair.right);
+        defer right_rows.deinit();
+
+        return concatJoinedTables(self.allocator, left_rows, right_rows, right_key_name, options_value);
+    }
+
     pub fn filter(self: DeviceDataFrame, mask: []const bool) DeviceDataError!DeviceDataFrame {
         if (mask.len != self.rows) return error.LengthMismatch;
         const row_indices = try rowIndicesFromMask(self.allocator, mask);
@@ -1348,6 +1375,146 @@ fn groupKeyEqual(comptime T: type, lhs: T, rhs: T) bool {
         return if (lhs_nan or rhs_nan) lhs_nan and rhs_nan else lhs == rhs;
     }
     return lhs == rhs;
+}
+
+const JoinRowIndexPair = struct {
+    allocator: std.mem.Allocator,
+    left: []usize,
+    right: []usize,
+
+    fn deinit(self: *JoinRowIndexPair) void {
+        self.allocator.free(self.left);
+        self.allocator.free(self.right);
+        self.* = undefined;
+    }
+};
+
+fn innerJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
+    return switch (left) {
+        .bool => |typed| innerJoinRowIndicesTyped(bool, allocator, typed, right.bool),
+        .i8 => |typed| innerJoinRowIndicesTyped(i8, allocator, typed, right.i8),
+        .i16 => |typed| innerJoinRowIndicesTyped(i16, allocator, typed, right.i16),
+        .i32 => |typed| innerJoinRowIndicesTyped(i32, allocator, typed, right.i32),
+        .i64 => |typed| innerJoinRowIndicesTyped(i64, allocator, typed, right.i64),
+        .u8 => |typed| innerJoinRowIndicesTyped(u8, allocator, typed, right.u8),
+        .u16 => |typed| innerJoinRowIndicesTyped(u16, allocator, typed, right.u16),
+        .u32 => |typed| innerJoinRowIndicesTyped(u32, allocator, typed, right.u32),
+        .u64 => |typed| innerJoinRowIndicesTyped(u64, allocator, typed, right.u64),
+        .usize => |typed| innerJoinRowIndicesTyped(usize, allocator, typed, right.usize),
+        .isize => |typed| innerJoinRowIndicesTyped(isize, allocator, typed, right.isize),
+        .f16 => |typed| innerJoinRowIndicesTyped(f16, allocator, typed, right.f16),
+        .f32 => |typed| innerJoinRowIndicesTyped(f32, allocator, typed, right.f32),
+        .f64 => |typed| innerJoinRowIndicesTyped(f64, allocator, typed, right.f64),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn innerJoinRowIndicesTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    left: DeviceTypedColumn(T),
+    right: DeviceTypedColumn(T),
+) DeviceDataError!JoinRowIndexPair {
+    if (!left.device().sameDevice(right.device())) return error.InvalidDevice;
+    const left_values = try left.values.toOwnedSlice(allocator);
+    defer allocator.free(left_values);
+    const right_values = try right.values.toOwnedSlice(allocator);
+    defer allocator.free(right_values);
+    const maybe_left_validity = try validityValues(left, allocator);
+    defer if (maybe_left_validity) |validity| allocator.free(validity);
+    const maybe_right_validity = try validityValues(right, allocator);
+    defer if (maybe_right_validity) |validity| allocator.free(validity);
+
+    var left_indices: std.ArrayList(usize) = .empty;
+    errdefer left_indices.deinit(allocator);
+    var right_indices: std.ArrayList(usize) = .empty;
+    errdefer right_indices.deinit(allocator);
+
+    for (left_values, 0..) |left_value, left_i| {
+        if (maybe_left_validity) |validity| {
+            if (!validity[left_i]) continue;
+        }
+        for (right_values, 0..) |right_value, right_i| {
+            if (maybe_right_validity) |validity| {
+                if (!validity[right_i]) continue;
+            }
+            if (groupKeyEqual(T, left_value, right_value)) {
+                try left_indices.append(allocator, left_i);
+                try right_indices.append(allocator, right_i);
+            }
+        }
+    }
+
+    const owned_left = try left_indices.toOwnedSlice(allocator);
+    left_indices = .empty;
+    errdefer allocator.free(owned_left);
+    const owned_right = try right_indices.toOwnedSlice(allocator);
+    right_indices = .empty;
+    return .{
+        .allocator = allocator,
+        .left = owned_left,
+        .right = owned_right,
+    };
+}
+
+fn concatJoinedTables(
+    allocator: std.mem.Allocator,
+    left: DeviceDataFrame,
+    right: DeviceDataFrame,
+    right_key_name: []const u8,
+    options_value: DeviceJoinOptions,
+) DeviceDataError!DeviceDataFrame {
+    if (!left.device.sameDevice(right.device)) return error.InvalidDevice;
+    if (left.rows != right.rows) return error.LengthMismatch;
+
+    const total_cols = left.columns.len + right.columns.len - @as(usize, @intFromBool(right.columnIndex(right_key_name) != null));
+    var names = try allocator.alloc([]const u8, total_cols);
+    defer allocator.free(names);
+    var temporary_names: std.ArrayList([]const u8) = .empty;
+    defer {
+        for (temporary_names.items) |name| allocator.free(name);
+        temporary_names.deinit(allocator);
+    }
+    var columns = try allocator.alloc(DeviceColumn, total_cols);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        allocator.free(columns);
+    }
+
+    for (left.names, left.columns) |name, col| {
+        names[initialized] = name;
+        columns[initialized] = try col.clone();
+        initialized += 1;
+    }
+
+    for (right.names, right.columns) |name, col| {
+        if (std.mem.eql(u8, name, right_key_name)) continue;
+        if (nameNeedsSuffix(left, name)) {
+            const suffixed = try suffixedNameTemp(allocator, name, options_value.right_suffix);
+            errdefer allocator.free(suffixed);
+            try temporary_names.append(allocator, suffixed);
+            names[initialized] = suffixed;
+        } else {
+            names[initialized] = name;
+        }
+        columns[initialized] = try col.clone();
+        initialized += 1;
+    }
+
+    return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, left.rows, left.device);
+}
+
+fn nameNeedsSuffix(left: DeviceDataFrame, name: []const u8) bool {
+    return left.columnIndex(name) != null;
+}
+
+fn suffixedNameTemp(allocator: std.mem.Allocator, name: []const u8, suffix: []const u8) std.mem.Allocator.Error![]const u8 {
+    var buffer: std.ArrayList(u8) = .empty;
+    errdefer buffer.deinit(allocator);
+    try buffer.appendSlice(allocator, name);
+    try buffer.appendSlice(allocator, suffix);
+    return buffer.toOwnedSlice(allocator);
 }
 
 fn requireCompatibleColumnArrays(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!void {
@@ -2417,4 +2584,53 @@ test "device dataframe groupby count and sum fixed-width columns" {
     defer gpa.free(sums);
     try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, sum_keys);
     try std.testing.expectEqualSlices(f64, &.{ 15.0, 14.0 }, sums);
+}
+
+test "device dataframe inner joins on fixed-width keys" {
+    const gpa = std.testing.allocator;
+
+    var left_id = try DeviceColumn.fromSliceWithValidity(i32, gpa, &.{ 1, 2, 3, 2, 9 }, &.{ true, true, true, true, false }, .cpu);
+    defer left_id.deinit();
+    var left_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 10.0, 20.0, 30.0, 21.0, 90.0 }, .cpu);
+    defer left_value.deinit();
+
+    var right_id = try DeviceColumn.fromSliceWithValidity(i32, gpa, &.{ 2, 3, 2, 4, 9 }, &.{ true, true, true, true, false }, .cpu);
+    defer right_id.deinit();
+    var right_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 200.0, 300.0, 201.0, 400.0, 900.0 }, .cpu);
+    defer right_value.deinit();
+    var right_label = try DeviceColumn.fromSlice(i64, gpa, &.{ 20, 30, 21, 40, 90 }, .cpu);
+    defer right_label.deinit();
+
+    var left = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = left_id },
+        .{ .name = "value", .data = left_value },
+    });
+    defer left.deinit();
+    var right = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = right_id },
+        .{ .name = "value", .data = right_value },
+        .{ .name = "label", .data = right_label },
+    });
+    defer right.deinit();
+
+    var joined = try left.innerJoin(right, "id", "id", .{});
+    defer joined.deinit();
+    try std.testing.expectEqual(@as(usize, 5), joined.height());
+    try std.testing.expectEqual(@as(usize, 4), joined.width());
+    try std.testing.expectEqual(DeviceDType.f64, try joined.columnDType("value"));
+    try std.testing.expectEqual(DeviceDType.f64, try joined.columnDType("value_right"));
+
+    const ids = try (try joined.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(ids);
+    const left_values = try (try joined.column("value")).f64.toOwnedSlice(gpa);
+    defer gpa.free(left_values);
+    const right_values = try (try joined.column("value_right")).f64.toOwnedSlice(gpa);
+    defer gpa.free(right_values);
+    const labels = try (try joined.column("label")).i64.toOwnedSlice(gpa);
+    defer gpa.free(labels);
+
+    try std.testing.expectEqualSlices(i32, &.{ 2, 2, 3, 2, 2 }, ids);
+    try std.testing.expectEqualSlices(f64, &.{ 20.0, 20.0, 30.0, 21.0, 21.0 }, left_values);
+    try std.testing.expectEqualSlices(f64, &.{ 200.0, 201.0, 300.0, 200.0, 201.0 }, right_values);
+    try std.testing.expectEqualSlices(i64, &.{ 20, 21, 30, 20, 21 }, labels);
 }

@@ -44,6 +44,17 @@ pub fn main(init: std.process.Init) !void {
     defer grouped.deinit();
     var summed = try df.groupBySum("units", "sales", "sales_sum");
     defer summed.deinit();
+    var lookup_units = try vx.DeviceColumn.fromSliceWithValidity(i64, allocator, &.{ 1, 3, 99 }, &.{ true, true, false }, vx.cpu);
+    defer lookup_units.deinit();
+    var region = try vx.DeviceColumn.fromSlice(i64, allocator, &.{ 10, 30, 990 }, vx.cpu);
+    defer region.deinit();
+    var lookup = try vx.DeviceDataFrame.init(allocator, &.{
+        .{ .name = "units", .data = lookup_units },
+        .{ .name = "region", .data = region },
+    });
+    defer lookup.deinit();
+    var joined = try df.innerJoin(lookup, "units", "units", .{});
+    defer joined.deinit();
 
     var legacy = try filtered.toDataFrame();
     defer legacy.deinit();
@@ -65,6 +76,7 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 3.0, 2.0 }, sorted_values);
     try std.testing.expectEqual(@as(usize, 2), grouped.height());
     try std.testing.expectEqual(@as(usize, 2), summed.height());
+    try std.testing.expectEqual(@as(usize, 2), joined.height());
     try std.testing.expectEqual(@as(usize, 2), filtered.height());
     try std.testing.expectEqual(@as(usize, 0), filtered_units.nullCount());
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, legacy.columns[0].f64);
@@ -87,6 +99,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "sorted_sales_first": {d:.1},
         \\  "grouped_rows": {d},
         \\  "summed_rows": {d},
+        \\  "joined_rows": {d},
         \\  "filtered_rows": {d},
         \\  "filtered_units_nulls": {d},
         \\  "ok": true
@@ -105,6 +118,7 @@ pub fn main(init: std.process.Init) !void {
         sorted_values[0],
         grouped.height(),
         summed.height(),
+        joined.height(),
         filtered.height(),
         filtered_units.nullCount(),
     });
