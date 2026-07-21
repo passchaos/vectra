@@ -59,6 +59,14 @@ pub fn main(init: std.process.Init) !void {
     defer allocator.free(parquet_bytes);
     var parquet_roundtrip = try vx.DeviceDataFrame.fromParquetBytes(allocator, parquet_bytes, vx.cpu);
     defer parquet_roundtrip.deinit();
+    var parquet_pruned = try vx.DeviceDataFrame.fromParquetBytesPruned(
+        allocator,
+        parquet_bytes,
+        "sales",
+        .{ .f64 = .{ .min = 4.0 } },
+        vx.cpu,
+    );
+    defer parquet_pruned.deinit();
 
     var legacy = try filtered.toDataFrame();
     defer legacy.deinit();
@@ -83,6 +91,7 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 2), joined.height());
     try std.testing.expectEqual(df.height(), parquet_roundtrip.height());
     try std.testing.expectEqual(df.width(), parquet_roundtrip.width());
+    try std.testing.expectEqual(df.height(), parquet_pruned.height());
     try std.testing.expectEqual(@as(usize, 2), filtered.height());
     try std.testing.expectEqual(@as(usize, 0), filtered_units.nullCount());
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, legacy.columns[0].f64);
@@ -108,6 +117,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "joined_rows": {d},
         \\  "parquet_bytes": {d},
         \\  "parquet_rows": {d},
+        \\  "parquet_pruned_rows": {d},
         \\  "filtered_rows": {d},
         \\  "filtered_units_nulls": {d},
         \\  "ok": true
@@ -129,6 +139,7 @@ pub fn main(init: std.process.Init) !void {
         joined.height(),
         parquet_bytes.len,
         parquet_roundtrip.height(),
+        parquet_pruned.height(),
         filtered.height(),
         filtered_units.nullCount(),
     });

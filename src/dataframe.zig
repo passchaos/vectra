@@ -78,6 +78,33 @@ pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };
 
+pub const ParquetRangePredicate = union(DeviceDType) {
+    f32: Range(f32),
+    f64: Range(f64),
+    i8: Range(i8),
+    i16: Range(i16),
+    i32: Range(i32),
+    i64: Range(i64),
+    u8: Range(u8),
+    u16: Range(u16),
+    u32: Range(u32),
+    u64: Range(u64),
+    usize: Range(usize),
+    bool: Range(bool),
+    bf16: Range(array_mod.BFloat16),
+    f16: Range(f16),
+    c64: Range(array_mod.Complex64),
+    c128: Range(array_mod.Complex128),
+    isize: Range(isize),
+};
+
+pub fn Range(comptime T: type) type {
+    return struct {
+        min: ?T = null,
+        max: ?T = null,
+    };
+}
+
 pub const DeviceColumnView = struct {
     dtype: DeviceDType,
     rows: usize,
@@ -927,6 +954,32 @@ pub const DeviceDataFrame = struct {
         return DeviceDataFrame.fromArrowRecordBatch(allocator, batch, device_value);
     }
 
+    pub fn fromParquetBytesPruned(
+        allocator: std.mem.Allocator,
+        bytes: []const u8,
+        column_name: []const u8,
+        predicate: ParquetRangePredicate,
+        device_value: array_mod.Device,
+    ) ParquetInteropError!DeviceDataFrame {
+        var table = try readBolthaTableWithRangePruning(allocator, bytes, column_name, predicate);
+        defer table.deinit(allocator);
+        return DeviceDataFrame.fromArrowTable(allocator, table, device_value);
+    }
+
+    pub fn fromArrowTable(allocator: std.mem.Allocator, table: boltha.arrow.Table, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
+        if (table.batches.len == 0) return emptyFromArrowSchema(allocator, table.schema, table.row_count, device_value);
+        var out = try DeviceDataFrame.fromArrowRecordBatch(allocator, table.batches[0], device_value);
+        errdefer out.deinit();
+        for (table.batches[1..]) |batch| {
+            var next = try DeviceDataFrame.fromArrowRecordBatch(allocator, batch, device_value);
+            defer next.deinit();
+            const combined = try concatRows(out, next);
+            out.deinit();
+            out = combined;
+        }
+        return out;
+    }
+
     pub fn fromArrowRecordBatch(allocator: std.mem.Allocator, batch: boltha.arrow.RecordBatch, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
         if (!device_value.isAvailable()) return error.InvalidDevice;
         var defs = try allocator.alloc(DeviceColumnDef, batch.columns.len);
@@ -1680,6 +1733,147 @@ fn deviceColumnFromArrowArray(allocator: std.mem.Allocator, column: boltha.arrow
         .float64 => |array| primitiveDeviceColumnFromArrow(f64, allocator, array, device_value),
         else => error.TypeUnsupported,
     };
+}
+
+fn emptyFromArrowSchema(allocator: std.mem.Allocator, schema: boltha.arrow.Schema, rows: usize, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
+    if (rows != 0) return error.TypeUnsupported;
+    var defs = try allocator.alloc(DeviceColumnDef, schema.fields.len);
+    defer allocator.free(defs);
+    var initialized: usize = 0;
+    defer {
+        for (defs[0..initialized]) |*def| def.data.deinit();
+    }
+    for (schema.fields, 0..) |field, i| {
+        defs[i] = .{
+            .name = field.name,
+            .data = try emptyDeviceColumnFromArrowType(allocator, field.data_type, device_value),
+        };
+        initialized += 1;
+    }
+    return DeviceDataFrame.init(allocator, defs);
+}
+
+fn emptyDeviceColumnFromArrowType(allocator: std.mem.Allocator, dtype: boltha.arrow.DataType, device_value: array_mod.Device) ArrowInteropError!DeviceColumn {
+    return switch (dtype) {
+        .bool => DeviceColumn.fromSlice(bool, allocator, &.{}, device_value),
+        .int => |info| if (info.signed) switch (info.bit_width) {
+            8 => DeviceColumn.fromSlice(i8, allocator, &.{}, device_value),
+            16 => DeviceColumn.fromSlice(i16, allocator, &.{}, device_value),
+            32 => DeviceColumn.fromSlice(i32, allocator, &.{}, device_value),
+            64 => DeviceColumn.fromSlice(i64, allocator, &.{}, device_value),
+            else => error.TypeUnsupported,
+        } else switch (info.bit_width) {
+            8 => DeviceColumn.fromSlice(u8, allocator, &.{}, device_value),
+            16 => DeviceColumn.fromSlice(u16, allocator, &.{}, device_value),
+            32 => DeviceColumn.fromSlice(u32, allocator, &.{}, device_value),
+            64 => DeviceColumn.fromSlice(u64, allocator, &.{}, device_value),
+            else => error.TypeUnsupported,
+        },
+        .floating_point => |fp| switch (fp) {
+            .half => DeviceColumn.fromSlice(f16, allocator, &.{}, device_value),
+            .single => DeviceColumn.fromSlice(f32, allocator, &.{}, device_value),
+            .double => DeviceColumn.fromSlice(f64, allocator, &.{}, device_value),
+        },
+        else => error.TypeUnsupported,
+    };
+}
+
+fn readBolthaTableWithRangePruning(
+    allocator: std.mem.Allocator,
+    bytes: []const u8,
+    column_name: []const u8,
+    predicate: ParquetRangePredicate,
+) ParquetInteropError!boltha.arrow.Table {
+    return switch (predicate) {
+        .i8 => |range| boltha.parquet.readTableWithInt8Pruning(allocator, bytes, column_name, .{ .min = optionalCast(i32, range.min), .max = optionalCast(i32, range.max) }),
+        .i16 => |range| boltha.parquet.readTableWithInt16Pruning(allocator, bytes, column_name, .{ .min = optionalCast(i32, range.min), .max = optionalCast(i32, range.max) }),
+        .i32 => |range| boltha.parquet.readTableWithInt32Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
+        .i64 => |range| boltha.parquet.readTableWithInt64Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
+        .isize => |range| boltha.parquet.readTableWithInt64Pruning(allocator, bytes, column_name, .{ .min = optionalCast(i64, range.min), .max = optionalCast(i64, range.max) }),
+        .u8 => |range| boltha.parquet.readTableWithUInt8Pruning(allocator, bytes, column_name, .{ .min = optionalCast(u32, range.min), .max = optionalCast(u32, range.max) }),
+        .u16 => |range| boltha.parquet.readTableWithUInt16Pruning(allocator, bytes, column_name, .{ .min = optionalCast(u32, range.min), .max = optionalCast(u32, range.max) }),
+        .u32 => |range| boltha.parquet.readTableWithUInt32Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
+        .u64 => |range| boltha.parquet.readTableWithUInt64Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
+        .usize => |range| boltha.parquet.readTableWithUInt64Pruning(allocator, bytes, column_name, .{ .min = optionalCast(u64, range.min), .max = optionalCast(u64, range.max) }),
+        .f16 => |range| boltha.parquet.readTableWithFloat16Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
+        .f32 => |range| boltha.parquet.readTableWithFloatPruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
+        .f64 => |range| boltha.parquet.readTableWithDoublePruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn optionalCast(comptime T: type, value: anytype) ?T {
+    const unwrapped = value orelse return null;
+    return std.math.cast(T, unwrapped) orelse unreachable;
+}
+
+fn concatRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
+    if (!first.device.sameDevice(second.device)) return error.InvalidDevice;
+    if (first.columns.len != second.columns.len) return error.LengthMismatch;
+    for (first.names, second.names, first.columns, second.columns) |first_name, second_name, first_col, second_col| {
+        if (!std.mem.eql(u8, first_name, second_name)) return error.ColumnNotFound;
+        if (first_col.dtype() != second_col.dtype()) return error.TypeMismatch;
+    }
+
+    var columns = try first.allocator.alloc(DeviceColumn, first.columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        first.allocator.free(columns);
+    }
+    for (first.columns, second.columns, 0..) |first_col, second_col, i| {
+        columns[i] = try concatDeviceColumns(first_col, second_col);
+        initialized += 1;
+    }
+    return initDeviceDataFrameFromOwnedColumns(first.allocator, first.names, columns, first.rows + second.rows, first.device);
+}
+
+fn concatDeviceColumns(first: DeviceColumn, second: DeviceColumn) DeviceDataError!DeviceColumn {
+    if (first.dtype() != second.dtype()) return error.TypeMismatch;
+    return switch (first) {
+        .bool => |typed| .{ .bool = try concatTypedColumns(bool, typed, second.bool) },
+        .i8 => |typed| .{ .i8 = try concatTypedColumns(i8, typed, second.i8) },
+        .i16 => |typed| .{ .i16 = try concatTypedColumns(i16, typed, second.i16) },
+        .i32 => |typed| .{ .i32 = try concatTypedColumns(i32, typed, second.i32) },
+        .i64 => |typed| .{ .i64 = try concatTypedColumns(i64, typed, second.i64) },
+        .u8 => |typed| .{ .u8 = try concatTypedColumns(u8, typed, second.u8) },
+        .u16 => |typed| .{ .u16 = try concatTypedColumns(u16, typed, second.u16) },
+        .u32 => |typed| .{ .u32 = try concatTypedColumns(u32, typed, second.u32) },
+        .u64 => |typed| .{ .u64 = try concatTypedColumns(u64, typed, second.u64) },
+        .usize => |typed| .{ .usize = try concatTypedColumns(usize, typed, second.usize) },
+        .isize => |typed| .{ .isize = try concatTypedColumns(isize, typed, second.isize) },
+        .f16 => |typed| .{ .f16 = try concatTypedColumns(f16, typed, second.f16) },
+        .f32 => |typed| .{ .f32 = try concatTypedColumns(f32, typed, second.f32) },
+        .f64 => |typed| .{ .f64 = try concatTypedColumns(f64, typed, second.f64) },
+        .bf16 => |typed| .{ .bf16 = try concatTypedColumns(array_mod.BFloat16, typed, second.bf16) },
+        .c64 => |typed| .{ .c64 = try concatTypedColumns(array_mod.Complex64, typed, second.c64) },
+        .c128 => |typed| .{ .c128 = try concatTypedColumns(array_mod.Complex128, typed, second.c128) },
+    };
+}
+
+fn concatTypedColumns(comptime T: type, first: DeviceTypedColumn(T), second: DeviceTypedColumn(T)) DeviceDataError!DeviceTypedColumn(T) {
+    if (!first.device().sameDevice(second.device())) return error.InvalidDevice;
+    const allocator = first.values.allocator;
+    const first_values = try first.values.toOwnedSlice(allocator);
+    defer allocator.free(first_values);
+    const second_values = try second.values.toOwnedSlice(allocator);
+    defer allocator.free(second_values);
+    const values = try allocator.alloc(T, first_values.len + second_values.len);
+    defer allocator.free(values);
+    @memcpy(values[0..first_values.len], first_values);
+    @memcpy(values[first_values.len..], second_values);
+
+    const first_validity = try validityValues(first, allocator);
+    defer if (first_validity) |validity| allocator.free(validity);
+    const second_validity = try validityValues(second, allocator);
+    defer if (second_validity) |validity| allocator.free(validity);
+
+    if (first_validity == null and second_validity == null) return DeviceTypedColumn(T).fromSlice(allocator, values, first.device());
+    const validity = try allocator.alloc(bool, values.len);
+    defer allocator.free(validity);
+    for (validity[0..first_values.len], 0..) |*slot, i| slot.* = if (first_validity) |mask| mask[i] else true;
+    for (validity[first_values.len..], 0..) |*slot, i| slot.* = if (second_validity) |mask| mask[i] else true;
+    return DeviceTypedColumn(T).fromSliceWithValidity(allocator, values, validity, first.device());
 }
 
 fn primitiveDeviceColumnFromArrow(
@@ -2761,4 +2955,59 @@ test "device dataframe round-trips through boltha parquet" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 0.0, 5.0 }, sales_values);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, sales_validity);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, active_values);
+}
+
+test "device dataframe reads boltha parquet with range pruning" {
+    const gpa = std.testing.allocator;
+
+    var id_field = try boltha.arrow.Field.init(gpa, "id", .{ .int = .{ .bit_width = 32, .signed = true } }, false);
+    defer id_field.deinit(gpa);
+    var sales_field = try boltha.arrow.Field.init(gpa, "sales", .{ .floating_point = .double }, false);
+    defer sales_field.deinit(gpa);
+    const schema = try boltha.arrow.Schema.init(gpa, &.{ id_field, sales_field });
+
+    const batches = try gpa.alloc(boltha.arrow.RecordBatch, 2);
+    const schema0 = try boltha.arrow.Schema.init(gpa, &.{ id_field, sales_field });
+    const cols0 = try gpa.alloc(boltha.arrow.AnyArray, 2);
+    cols0[0] = .{ .int32 = try boltha.arrow.PrimitiveArray(i32).fromSlice(gpa, &.{ 1, 2 }) };
+    cols0[1] = .{ .float64 = try boltha.arrow.PrimitiveArray(f64).fromSlice(gpa, &.{ 10.0, 20.0 }) };
+    batches[0] = try boltha.arrow.RecordBatch.initOwned(schema0, cols0);
+    const schema1 = try boltha.arrow.Schema.init(gpa, &.{ id_field, sales_field });
+    const cols1 = try gpa.alloc(boltha.arrow.AnyArray, 2);
+    cols1[0] = .{ .int32 = try boltha.arrow.PrimitiveArray(i32).fromSlice(gpa, &.{ 100, 101 }) };
+    cols1[1] = .{ .float64 = try boltha.arrow.PrimitiveArray(f64).fromSlice(gpa, &.{ 1000.0, 1010.0 }) };
+    batches[1] = try boltha.arrow.RecordBatch.initOwned(schema1, cols1);
+
+    var arrow_table = try boltha.arrow.Table.initOwned(schema, batches);
+    defer arrow_table.deinit(gpa);
+    var parquet_bytes: std.ArrayList(u8) = .empty;
+    defer parquet_bytes.deinit(gpa);
+    try boltha.parquet.writeTable(gpa, &parquet_bytes, arrow_table);
+
+    var pruned = try DeviceDataFrame.fromParquetBytesPruned(
+        gpa,
+        parquet_bytes.items,
+        "id",
+        .{ .i32 = .{ .min = 100, .max = 101 } },
+        .cpu,
+    );
+    defer pruned.deinit();
+    try std.testing.expectEqual(@as(usize, 2), pruned.height());
+    const ids = try (try pruned.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(ids);
+    const sales_values = try (try pruned.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_values);
+    try std.testing.expectEqualSlices(i32, &.{ 100, 101 }, ids);
+    try std.testing.expectEqualSlices(f64, &.{ 1000.0, 1010.0 }, sales_values);
+
+    var empty = try DeviceDataFrame.fromParquetBytesPruned(
+        gpa,
+        parquet_bytes.items,
+        "id",
+        .{ .i32 = .{ .min = 10_000 } },
+        .cpu,
+    );
+    defer empty.deinit();
+    try std.testing.expectEqual(@as(usize, 0), empty.height());
+    try std.testing.expectEqual(@as(usize, 2), empty.width());
 }
