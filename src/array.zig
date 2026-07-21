@@ -7708,9 +7708,37 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn maskedPut(self: Self, mask: Array(bool), values: Array(T)) ArrayError!Array(T) {
             if (try self.maskedPutSameShapeFast(mask, values)) |out| return out;
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.maskedPut(mask, values);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            const out_len = try numelFrom(out_shape);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+
+            var selected_count: usize = 0;
+            for (0..out_len) |flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const mask_index = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                selected_count += @intFromBool(mask.data[mask_index]);
+            }
+            const scalar_values = values.data.len == 1;
+            if (!scalar_values and values.data.len != selected_count) return error.ShapeMismatch;
+
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            var write: usize = 0;
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const mask_index = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                if (mask.data[mask_index]) {
+                    slot.* = values.data[if (scalar_values) 0 else write];
+                    write += 1;
+                } else {
+                    const source_offset = self.broadcastOffsetOf(out_multi, out_shape.len);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    slot.* = self.data[source_offset];
+                }
+            }
+            return out;
         }
 
         fn maskedPutSameShapeFast(self: Self, mask: Array(bool), values: Array(T)) ArrayError!?Array(T) {
