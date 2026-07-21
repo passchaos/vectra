@@ -43,6 +43,14 @@ pub fn main(init: std.process.Init) !void {
     defer allocator.free(lazy_explain);
     var lazy_result = try lazy.collect();
     defer lazy_result.deinit();
+    var lazy_group = try vx.DeviceLazyFrame.init(allocator, df);
+    defer lazy_group.deinit();
+    try lazy_group.filterColumnScalar("sales", f64, 1.0, .gt);
+    try lazy_group.groupBySum("units", "sales", "lazy_sales_sum");
+    const lazy_group_explain = try lazy_group.explain(allocator);
+    defer allocator.free(lazy_group_explain);
+    var lazy_grouped = try lazy_group.collect();
+    defer lazy_grouped.deinit();
 
     var filtered = try df.filter(&.{ true, false, true });
     defer filtered.deinit();
@@ -147,6 +155,8 @@ pub fn main(init: std.process.Init) !void {
     const lazy_sales_x2 = try (try lazy_result.column("sales_x2")).f64.toOwnedSlice(allocator);
     defer allocator.free(lazy_sales_x2);
     try std.testing.expectEqualSlices(f64, &.{ 10.0, 6.0 }, lazy_sales_x2);
+    try std.testing.expectEqual(@as(usize, 2), lazy_grouped.height());
+    try std.testing.expect(std.mem.indexOf(u8, lazy_group_explain, "group_by_sum(units") != null);
     try std.testing.expectEqual(@as(usize, 2), expression_filtered.height());
     const doubled_values = try doubled_sales.f64.toOwnedSlice(allocator);
     defer allocator.free(doubled_values);
@@ -200,6 +210,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "lazy_rows": {d},
         \\  "lazy_width": {d},
         \\  "lazy_plan_bytes": {d},
+        \\  "lazy_grouped_rows": {d},
         \\  "expression_filtered_rows": {d},
         \\  "doubled_sales_last": {d:.1},
         \\  "sorted_sales_first": {d:.1},
@@ -223,6 +234,7 @@ pub fn main(init: std.process.Init) !void {
         lazy_result.height(),
         lazy_result.width(),
         lazy_explain.len,
+        lazy_grouped.height(),
         expression_filtered.height(),
         doubled_values[2],
         sorted_values[0],

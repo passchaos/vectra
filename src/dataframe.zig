@@ -802,6 +802,13 @@ pub const DeviceColumnDef = struct {
     data: DeviceColumn,
 };
 
+pub const DeviceLazyGroupByAggregation = enum {
+    sum,
+    min,
+    max,
+    mean,
+};
+
 pub const DeviceLazyOp = union(enum) {
     select: [][]const u8,
     with_column_binary: struct {
@@ -833,6 +840,26 @@ pub const DeviceLazyOp = union(enum) {
         name: []const u8,
         op: DeviceColumnCompareOp,
         scalar: DeviceScalar,
+    },
+    group_by_count: struct {
+        key_name: []const u8,
+        output_name: []const u8,
+    },
+    group_by_value: struct {
+        key_name: []const u8,
+        value_name: []const u8,
+        output_name: []const u8,
+        aggregation: DeviceLazyGroupByAggregation,
+    },
+    group_by_stats: struct {
+        key_name: []const u8,
+        value_name: []const u8,
+        output_prefix: []const u8,
+    },
+    group_by_stats_on: struct {
+        key_names: [][]const u8,
+        value_name: []const u8,
+        output_prefix: []const u8,
     },
     sort_by: struct {
         name: []const u8,
@@ -872,6 +899,25 @@ pub const DeviceLazyOp = union(enum) {
             },
             .filter_mask => |*mask| mask.deinit(),
             .filter_scalar => |filter_op| allocator.free(filter_op.name),
+            .group_by_count => |group| {
+                allocator.free(group.key_name);
+                allocator.free(group.output_name);
+            },
+            .group_by_value => |group| {
+                allocator.free(group.key_name);
+                allocator.free(group.value_name);
+                allocator.free(group.output_name);
+            },
+            .group_by_stats => |group| {
+                allocator.free(group.key_name);
+                allocator.free(group.value_name);
+                allocator.free(group.output_prefix);
+            },
+            .group_by_stats_on => |group| {
+                freeNameList(allocator, group.key_names);
+                allocator.free(group.value_name);
+                allocator.free(group.output_prefix);
+            },
             .sort_by => |sort| allocator.free(sort.name),
             .top_k => |top| allocator.free(top.name),
             .head, .tail => {},
@@ -952,6 +998,56 @@ pub const DeviceLazyOp = union(enum) {
                 .op = filter_op.op,
                 .scalar = filter_op.scalar,
             } },
+            .group_by_count => |group| blk: {
+                const key_name = try allocator.dupe(u8, group.key_name);
+                errdefer allocator.free(key_name);
+                const output_name = try allocator.dupe(u8, group.output_name);
+                errdefer allocator.free(output_name);
+                break :blk .{ .group_by_count = .{
+                    .key_name = key_name,
+                    .output_name = output_name,
+                } };
+            },
+            .group_by_value => |group| blk: {
+                const key_name = try allocator.dupe(u8, group.key_name);
+                errdefer allocator.free(key_name);
+                const value_name = try allocator.dupe(u8, group.value_name);
+                errdefer allocator.free(value_name);
+                const output_name = try allocator.dupe(u8, group.output_name);
+                errdefer allocator.free(output_name);
+                break :blk .{ .group_by_value = .{
+                    .key_name = key_name,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .aggregation = group.aggregation,
+                } };
+            },
+            .group_by_stats => |group| blk: {
+                const key_name = try allocator.dupe(u8, group.key_name);
+                errdefer allocator.free(key_name);
+                const value_name = try allocator.dupe(u8, group.value_name);
+                errdefer allocator.free(value_name);
+                const output_prefix = try allocator.dupe(u8, group.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .group_by_stats = .{
+                    .key_name = key_name,
+                    .value_name = value_name,
+                    .output_prefix = output_prefix,
+                } };
+            },
+            .group_by_stats_on => |group| blk: {
+                const key_names = try cloneNameList(allocator, group.key_names);
+                errdefer freeNameList(allocator, key_names);
+                const value_name = try allocator.dupe(u8, group.value_name);
+                errdefer allocator.free(value_name);
+                const output_prefix = try allocator.dupe(u8, group.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .group_by_stats_on = .{
+                    .key_names = key_names,
+                    .value_name = value_name,
+                    .output_prefix = output_prefix,
+                } };
+            },
             .sort_by => |sort| .{ .sort_by = .{
                 .name = try allocator.dupe(u8, sort.name),
                 .options = sort.options,
@@ -1126,6 +1222,76 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn groupByCount(self: *DeviceLazyFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
+        const owned_key = try self.allocator.dupe(u8, key_name);
+        errdefer self.allocator.free(owned_key);
+        const owned_output = try self.allocator.dupe(u8, output_name);
+        errdefer self.allocator.free(owned_output);
+        try self.ops.append(self.allocator, .{ .group_by_count = .{
+            .key_name = owned_key,
+            .output_name = owned_output,
+        } });
+    }
+
+    pub fn groupByValue(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
+        const owned_key = try self.allocator.dupe(u8, key_name);
+        errdefer self.allocator.free(owned_key);
+        const owned_value = try self.allocator.dupe(u8, value_name);
+        errdefer self.allocator.free(owned_value);
+        const owned_output = try self.allocator.dupe(u8, output_name);
+        errdefer self.allocator.free(owned_output);
+        try self.ops.append(self.allocator, .{ .group_by_value = .{
+            .key_name = owned_key,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .aggregation = aggregation,
+        } });
+    }
+
+    pub fn groupBySum(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+        return self.groupByValue(key_name, value_name, output_name, .sum);
+    }
+
+    pub fn groupByMin(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+        return self.groupByValue(key_name, value_name, output_name, .min);
+    }
+
+    pub fn groupByMax(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+        return self.groupByValue(key_name, value_name, output_name, .max);
+    }
+
+    pub fn groupByMean(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+        return self.groupByValue(key_name, value_name, output_name, .mean);
+    }
+
+    pub fn groupByStats(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
+        const owned_key = try self.allocator.dupe(u8, key_name);
+        errdefer self.allocator.free(owned_key);
+        const owned_value = try self.allocator.dupe(u8, value_name);
+        errdefer self.allocator.free(owned_value);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .group_by_stats = .{
+            .key_name = owned_key,
+            .value_name = owned_value,
+            .output_prefix = owned_prefix,
+        } });
+    }
+
+    pub fn groupByStatsOn(self: *DeviceLazyFrame, key_names: []const []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
+        const owned_keys = try cloneNameList(self.allocator, key_names);
+        errdefer freeNameList(self.allocator, owned_keys);
+        const owned_value = try self.allocator.dupe(u8, value_name);
+        errdefer self.allocator.free(owned_value);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .group_by_stats_on = .{
+            .key_names = owned_keys,
+            .value_name = owned_value,
+            .output_prefix = owned_prefix,
+        } });
+    }
+
     pub fn filterColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .filter_scalar = .{
             .name = try self.allocator.dupe(u8, name),
@@ -1183,6 +1349,15 @@ pub const DeviceLazyFrame = struct {
                     defer mask.deinit();
                     break :blk try current.filterColumnMask(mask);
                 },
+                .group_by_count => |group| try current.groupByCount(group.key_name, group.output_name),
+                .group_by_value => |group| switch (group.aggregation) {
+                    .sum => try current.groupBySum(group.key_name, group.value_name, group.output_name),
+                    .min => try current.groupByMin(group.key_name, group.value_name, group.output_name),
+                    .max => try current.groupByMax(group.key_name, group.value_name, group.output_name),
+                    .mean => try current.groupByMean(group.key_name, group.value_name, group.output_name),
+                },
+                .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
+                .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),
                 .sort_by => |sort| try current.sortBy(sort.name, sort.options),
                 .top_k => |top| try current.topKBy(top.name, top.k, top.options),
                 .head => |n| try current.head(n),
@@ -1268,7 +1443,9 @@ pub const DeviceLazyFrame = struct {
                 },
                 else => {},
             }
-            try optimized.append(self.allocator, try op.clone(self.allocator));
+            var cloned_op = try op.clone(self.allocator);
+            errdefer cloned_op.deinit(self.allocator);
+            try optimized.append(self.allocator, cloned_op);
         }
         return optimized;
     }
@@ -1420,7 +1597,7 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
     var range_predicate: ?DeviceParquetRangeFilter = null;
     errdefer if (range_predicate) |predicate| allocator.free(predicate.column);
 
-    for (ops) |op| {
+    op_loop: for (ops) |op| {
         switch (op) {
             .select => |names| {
                 saw_select = true;
@@ -1447,6 +1624,45 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
             .with_column_compare_scalar => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
                 try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+            },
+            .group_by_count => |group| {
+                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
+                }
+                saw_select = true;
+                break :op_loop;
+            },
+            .group_by_value => |group| {
+                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
+                }
+                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
+                }
+                saw_select = true;
+                break :op_loop;
+            },
+            .group_by_stats => |group| {
+                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
+                }
+                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
+                }
+                saw_select = true;
+                break :op_loop;
+            },
+            .group_by_stats_on => |group| {
+                for (group.key_names) |key_name| {
+                    if (!nameInBorrowedList(key_name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, key_name);
+                    }
+                }
+                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
+                }
+                saw_select = true;
+                break :op_loop;
             },
             .filter_scalar => |filter_op| {
                 const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
@@ -1600,6 +1816,17 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .with_column_scalar => |expr| try writer.print("with_column_scalar({s}={s} {s} scalar:{s})", .{ expr.name, expr.input_name, @tagName(expr.op), @tagName(expr.scalar) }),
         .with_column_compare => |expr| try writer.print("with_column_compare({s}={s} {s} {s})", .{ expr.name, expr.lhs_name, @tagName(expr.op), expr.rhs_name }),
         .with_column_compare_scalar => |expr| try writer.print("with_column_compare_scalar({s}={s} {s} scalar:{s})", .{ expr.name, expr.input_name, @tagName(expr.op), @tagName(expr.scalar) }),
+        .group_by_count => |group| try writer.print("group_by_count({s} -> {s})", .{ group.key_name, group.output_name }),
+        .group_by_value => |group| try writer.print("group_by_{s}({s}, value={s} -> {s})", .{ @tagName(group.aggregation), group.key_name, group.value_name, group.output_name }),
+        .group_by_stats => |group| try writer.print("group_by_stats({s}, value={s}, prefix={s})", .{ group.key_name, group.value_name, group.output_prefix }),
+        .group_by_stats_on => |group| {
+            try writer.print("group_by_stats_on([", .{});
+            for (group.key_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, prefix={s})", .{ group.value_name, group.output_prefix });
+        },
         .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
         .head => |n| try writer.print("head({d})", .{n}),
@@ -5943,6 +6170,64 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, topk_sales);
 }
 
+test "device lazy frame collects groupby aggregations" {
+    const gpa = std.testing.allocator;
+
+    var store = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 2 }, .cpu);
+    defer store.deinit();
+    var day = try DeviceColumn.fromSlice(i32, gpa, &.{ 10, 10, 10, 11, 11 }, .cpu);
+    defer day.deinit();
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0, 7.0, 11.0 }, .cpu);
+    defer sales.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "store", .data = store },
+        .{ .name = "day", .data = day },
+        .{ .name = "sales", .data = sales },
+    });
+    defer table.deinit();
+
+    var sum_plan = try DeviceLazyFrame.init(gpa, table);
+    defer sum_plan.deinit();
+    try sum_plan.filterColumnScalar("sales", f64, 2.5, .gt);
+    try sum_plan.groupBySum("store", "sales", "sales_sum");
+    const sum_explain = try sum_plan.explain(gpa);
+    defer gpa.free(sum_explain);
+    try std.testing.expect(std.mem.indexOf(u8, sum_explain, "group_by_sum(store") != null);
+    var summed = try sum_plan.collect();
+    defer summed.deinit();
+    try std.testing.expectEqual(@as(usize, 2), summed.height());
+    try std.testing.expectEqual(@as(usize, 2), summed.width());
+    const sum_store = try (try summed.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(sum_store);
+    const sum_values = try (try summed.column("sales_sum")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sum_values);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, sum_store);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 23.0 }, sum_values);
+
+    var stats_plan = try DeviceLazyFrame.init(gpa, table);
+    defer stats_plan.deinit();
+    try stats_plan.groupByStatsOn(&.{ "store", "day" }, "sales", "sales");
+    const stats_explain = try stats_plan.explain(gpa);
+    defer gpa.free(stats_explain);
+    try std.testing.expect(std.mem.indexOf(u8, stats_explain, "group_by_stats_on([store,day]") != null);
+    var stats = try stats_plan.collect();
+    defer stats.deinit();
+    try std.testing.expectEqual(@as(usize, 3), stats.height());
+    try std.testing.expectEqual(@as(usize, 7), stats.width());
+    const stats_store = try (try stats.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(stats_store);
+    const stats_day = try (try stats.column("day")).i32.toOwnedSlice(gpa);
+    defer gpa.free(stats_day);
+    const stats_count = try (try stats.column("sales_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(stats_count);
+    const stats_sum = try (try stats.column("sales_sum")).f64.toOwnedSlice(gpa);
+    defer gpa.free(stats_sum);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 2 }, stats_store);
+    try std.testing.expectEqualSlices(i32, &.{ 10, 10, 11 }, stats_day);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 2 }, stats_count);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 5.0, 18.0 }, stats_sum);
+}
 test "device dataframe round-trips through boltha parquet" {
     const gpa = std.testing.allocator;
 
