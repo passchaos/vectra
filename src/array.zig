@@ -7973,9 +7973,27 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn roll(self: Self, shift: isize, axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.roll(shift, axis_index);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const len_axis = self.shape[axis];
+            if (len_axis == 0) return self.toArray();
+            const signed_len: isize = @intCast(len_axis);
+            const normalized_shift: usize = @intCast(@mod(shift, signed_len));
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            const out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = (out_multi[axis] + len_axis - normalized_shift) % len_axis;
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn rollFlat(self: Self, shift: isize) ArrayError!Array(T) {
