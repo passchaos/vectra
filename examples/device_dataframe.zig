@@ -50,6 +50,8 @@ pub fn main(init: std.process.Init) !void {
     defer maxed.deinit();
     var meaned = try df.groupByMean("units", "sales", "sales_mean");
     defer meaned.deinit();
+    var stats = try df.groupByStats("units", "sales", "sales");
+    defer stats.deinit();
     var lookup_units = try vx.DeviceColumn.fromSliceWithValidity(i64, allocator, &.{ 1, 3, 99 }, &.{ true, true, false }, vx.cpu);
     defer lookup_units.deinit();
     var region = try vx.DeviceColumn.fromSlice(i64, allocator, &.{ 10, 30, 990 }, vx.cpu);
@@ -103,6 +105,7 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 2), minned.height());
     try std.testing.expectEqual(@as(usize, 2), maxed.height());
     try std.testing.expectEqual(@as(usize, 2), meaned.height());
+    try std.testing.expectEqual(@as(usize, 6), stats.width());
     try std.testing.expectEqual(@as(usize, 2), joined.height());
     try std.testing.expectEqual(df.height(), left_joined.height());
     try std.testing.expectEqual(@as(usize, 2), semi_joined.height());
@@ -135,6 +138,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "minned_rows": {d},
         \\  "maxed_rows": {d},
         \\  "meaned_rows": {d},
+        \\  "stats_width": {d},
         \\  "joined_rows": {d},
         \\  "left_joined_rows": {d},
         \\  "semi_joined_rows": {d},
@@ -163,6 +167,7 @@ pub fn main(init: std.process.Init) !void {
         minned.height(),
         maxed.height(),
         meaned.height(),
+        stats.width(),
         joined.height(),
         left_joined.height(),
         semi_joined.height(),

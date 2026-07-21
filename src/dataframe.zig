@@ -1189,6 +1189,12 @@ pub const DeviceDataFrame = struct {
         return groupByMeanDispatchKey(self.allocator, key_name, output_name, key.*, value.*, self.device);
     }
 
+    pub fn groupByStats(self: DeviceDataFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
+        const key = try self.column(key_name);
+        const value = try self.column(value_name);
+        return groupByStatsDispatchKey(self.allocator, key_name, output_prefix, key.*, value.*, self.device);
+    }
+
     pub fn innerJoin(
         self: DeviceDataFrame,
         right: DeviceDataFrame,
@@ -1665,6 +1671,173 @@ fn groupByMeanTyped(
     const key_col = try DeviceColumn.fromSlice(K, allocator, unique_keys.items, device_value);
     const mean_col = try DeviceColumn.fromSlice(f64, allocator, means, device_value);
     return initAggregatedDataFrame(allocator, key_name, key_col, output_name, mean_col, device_value);
+}
+
+fn groupByStatsDispatchKey(
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_prefix: []const u8,
+    key: DeviceColumn,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    return switch (key) {
+        .bool => |typed| groupByStatsDispatchValue(bool, allocator, key_name, output_prefix, typed, value, device_value),
+        .i8 => |typed| groupByStatsDispatchValue(i8, allocator, key_name, output_prefix, typed, value, device_value),
+        .i16 => |typed| groupByStatsDispatchValue(i16, allocator, key_name, output_prefix, typed, value, device_value),
+        .i32 => |typed| groupByStatsDispatchValue(i32, allocator, key_name, output_prefix, typed, value, device_value),
+        .i64 => |typed| groupByStatsDispatchValue(i64, allocator, key_name, output_prefix, typed, value, device_value),
+        .u8 => |typed| groupByStatsDispatchValue(u8, allocator, key_name, output_prefix, typed, value, device_value),
+        .u16 => |typed| groupByStatsDispatchValue(u16, allocator, key_name, output_prefix, typed, value, device_value),
+        .u32 => |typed| groupByStatsDispatchValue(u32, allocator, key_name, output_prefix, typed, value, device_value),
+        .u64 => |typed| groupByStatsDispatchValue(u64, allocator, key_name, output_prefix, typed, value, device_value),
+        .usize => |typed| groupByStatsDispatchValue(usize, allocator, key_name, output_prefix, typed, value, device_value),
+        .isize => |typed| groupByStatsDispatchValue(isize, allocator, key_name, output_prefix, typed, value, device_value),
+        .f16 => |typed| groupByStatsDispatchValue(f16, allocator, key_name, output_prefix, typed, value, device_value),
+        .f32 => |typed| groupByStatsDispatchValue(f32, allocator, key_name, output_prefix, typed, value, device_value),
+        .f64 => |typed| groupByStatsDispatchValue(f64, allocator, key_name, output_prefix, typed, value, device_value),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByStatsDispatchValue(
+    comptime K: type,
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_prefix: []const u8,
+    key: DeviceTypedColumn(K),
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByStatsTyped(K, i8, allocator, key_name, output_prefix, key, typed, device_value),
+        .i16 => |typed| groupByStatsTyped(K, i16, allocator, key_name, output_prefix, key, typed, device_value),
+        .i32 => |typed| groupByStatsTyped(K, i32, allocator, key_name, output_prefix, key, typed, device_value),
+        .i64 => |typed| groupByStatsTyped(K, i64, allocator, key_name, output_prefix, key, typed, device_value),
+        .u8 => |typed| groupByStatsTyped(K, u8, allocator, key_name, output_prefix, key, typed, device_value),
+        .u16 => |typed| groupByStatsTyped(K, u16, allocator, key_name, output_prefix, key, typed, device_value),
+        .u32 => |typed| groupByStatsTyped(K, u32, allocator, key_name, output_prefix, key, typed, device_value),
+        .u64 => |typed| groupByStatsTyped(K, u64, allocator, key_name, output_prefix, key, typed, device_value),
+        .usize => |typed| groupByStatsTyped(K, usize, allocator, key_name, output_prefix, key, typed, device_value),
+        .isize => |typed| groupByStatsTyped(K, isize, allocator, key_name, output_prefix, key, typed, device_value),
+        .f16 => |typed| groupByStatsTyped(K, f16, allocator, key_name, output_prefix, key, typed, device_value),
+        .f32 => |typed| groupByStatsTyped(K, f32, allocator, key_name, output_prefix, key, typed, device_value),
+        .f64 => |typed| groupByStatsTyped(K, f64, allocator, key_name, output_prefix, key, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByStatsTyped(
+    comptime K: type,
+    comptime V: type,
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_prefix: []const u8,
+    key: DeviceTypedColumn(K),
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    if (key.len() != value.len()) return error.LengthMismatch;
+    if (!key.device().sameDevice(value.device())) return error.InvalidDevice;
+
+    const keys = try key.values.toOwnedSlice(allocator);
+    defer allocator.free(keys);
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_key_validity = try validityValues(key, allocator);
+    defer if (maybe_key_validity) |validity| allocator.free(validity);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var unique_keys: std.ArrayList(K) = .empty;
+    defer unique_keys.deinit(allocator);
+    var counts: std.ArrayList(i64) = .empty;
+    defer counts.deinit(allocator);
+    var sums: std.ArrayList(V) = .empty;
+    defer sums.deinit(allocator);
+    var mins: std.ArrayList(V) = .empty;
+    defer mins.deinit(allocator);
+    var maxes: std.ArrayList(V) = .empty;
+    defer maxes.deinit(allocator);
+    var mean_sums: std.ArrayList(f64) = .empty;
+    defer mean_sums.deinit(allocator);
+
+    for (keys, values, 0..) |key_value, value_item, row| {
+        if (maybe_key_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        const maybe_group_index = findGroupIndex(K, unique_keys.items, key_value);
+        if (maybe_group_index == null) {
+            try unique_keys.append(allocator, key_value);
+            try counts.append(allocator, 1);
+            try sums.append(allocator, value_item);
+            try mins.append(allocator, value_item);
+            try maxes.append(allocator, value_item);
+            try mean_sums.append(allocator, castToF64(V, value_item));
+            continue;
+        }
+        const group_index = maybe_group_index.?;
+        counts.items[group_index] += 1;
+        sums.items[group_index] += value_item;
+        if (compareSortValues(V, value_item, mins.items[group_index]) < 0) mins.items[group_index] = value_item;
+        if (compareSortValues(V, value_item, maxes.items[group_index]) > 0) maxes.items[group_index] = value_item;
+        mean_sums.items[group_index] += castToF64(V, value_item);
+    }
+
+    const means = try allocator.alloc(f64, counts.items.len);
+    defer allocator.free(means);
+    for (mean_sums.items, counts.items, means) |sum_value, count, *slot| {
+        slot.* = sum_value / @as(f64, @floatFromInt(count));
+    }
+
+    var key_col = try DeviceColumn.fromSlice(K, allocator, unique_keys.items, device_value);
+    errdefer key_col.deinit();
+    var count_col = try DeviceColumn.fromSlice(i64, allocator, counts.items, device_value);
+    errdefer count_col.deinit();
+    var sum_col = try DeviceColumn.fromSlice(V, allocator, sums.items, device_value);
+    errdefer sum_col.deinit();
+    var min_col = try DeviceColumn.fromSlice(V, allocator, mins.items, device_value);
+    errdefer min_col.deinit();
+    var max_col = try DeviceColumn.fromSlice(V, allocator, maxes.items, device_value);
+    errdefer max_col.deinit();
+    var mean_col = try DeviceColumn.fromSlice(f64, allocator, means, device_value);
+    errdefer mean_col.deinit();
+
+    const names = try statsOutputNames(allocator, key_name, output_prefix);
+    defer freeStatsOutputNames(allocator, names);
+    const columns = try allocator.alloc(DeviceColumn, 6);
+    errdefer allocator.free(columns);
+    columns[0] = key_col;
+    columns[1] = count_col;
+    columns[2] = sum_col;
+    columns[3] = min_col;
+    columns[4] = max_col;
+    columns[5] = mean_col;
+    return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, unique_keys.items.len, device_value);
+}
+
+fn statsOutputNames(allocator: std.mem.Allocator, key_name: []const u8, prefix: []const u8) std.mem.Allocator.Error![]const []const u8 {
+    const names = try allocator.alloc([]const u8, 6);
+    errdefer allocator.free(names);
+    names[0] = key_name;
+    names[1] = try std.fmt.allocPrint(allocator, "{s}_count", .{prefix});
+    errdefer allocator.free(names[1]);
+    names[2] = try std.fmt.allocPrint(allocator, "{s}_sum", .{prefix});
+    errdefer allocator.free(names[2]);
+    names[3] = try std.fmt.allocPrint(allocator, "{s}_min", .{prefix});
+    errdefer allocator.free(names[3]);
+    names[4] = try std.fmt.allocPrint(allocator, "{s}_max", .{prefix});
+    errdefer allocator.free(names[4]);
+    names[5] = try std.fmt.allocPrint(allocator, "{s}_mean", .{prefix});
+    return names;
+}
+
+fn freeStatsOutputNames(allocator: std.mem.Allocator, names: []const []const u8) void {
+    for (names[1..]) |name| allocator.free(name);
+    allocator.free(names);
 }
 
 fn initAggregatedDataFrame(
@@ -3279,6 +3452,28 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const mean_values = try (try means.column("sales_mean")).f64.toOwnedSlice(gpa);
     defer gpa.free(mean_values);
     try std.testing.expectEqualSlices(f64, &.{ 7.5, 7.0 }, mean_values);
+
+    var stats = try table.groupByStats("store", "sales", "sales");
+    defer stats.deinit();
+    try std.testing.expectEqual(@as(usize, 6), stats.width());
+    const stats_keys = try (try stats.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(stats_keys);
+    const stats_counts = try (try stats.column("sales_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(stats_counts);
+    const stats_sums = try (try stats.column("sales_sum")).f64.toOwnedSlice(gpa);
+    defer gpa.free(stats_sums);
+    const stats_mins = try (try stats.column("sales_min")).f64.toOwnedSlice(gpa);
+    defer gpa.free(stats_mins);
+    const stats_maxes = try (try stats.column("sales_max")).f64.toOwnedSlice(gpa);
+    defer gpa.free(stats_maxes);
+    const stats_means = try (try stats.column("sales_mean")).f64.toOwnedSlice(gpa);
+    defer gpa.free(stats_means);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, stats_keys);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2 }, stats_counts);
+    try std.testing.expectEqualSlices(f64, &.{ 15.0, 14.0 }, stats_sums);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, stats_mins);
+    try std.testing.expectEqualSlices(f64, &.{ 13.0, 11.0 }, stats_maxes);
+    try std.testing.expectEqualSlices(f64, &.{ 7.5, 7.0 }, stats_means);
 }
 
 test "device dataframe inner joins on fixed-width keys" {
