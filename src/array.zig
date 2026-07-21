@@ -8312,9 +8312,19 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn slice1d(self: Self, slice_value: Slice) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.slice1d(slice_value);
+            if (self.shape.len != 1) return error.NonVectorArray;
+            const ns = try normalizeSlice(slice_value, self.shape[0]);
+            var out = try Array(T).empty(self.allocator, &.{ns.count});
+            errdefer out.deinit();
+            var idx = ns.start;
+            for (out.data) |*slot| {
+                const delta = std.math.mul(usize, idx, self.strides[0]) catch return error.InvalidShape;
+                const source_offset = std.math.add(usize, self.offset, delta) catch return error.InvalidShape;
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+                idx += ns.step;
+            }
+            return out;
         }
 
         pub fn split(self: Self, split_size: usize, axis_index: isize) ArrayError!Array(T).SplitResult {
