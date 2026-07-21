@@ -765,6 +765,11 @@ pub const DeviceLazyOp = union(enum) {
         name: []const u8,
         options: DeviceSortOptions,
     },
+    top_k: struct {
+        name: []const u8,
+        options: DeviceSortOptions,
+        k: usize,
+    },
     head: usize,
     tail: usize,
 
@@ -776,6 +781,7 @@ pub const DeviceLazyOp = union(enum) {
             },
             .filter_mask => |*mask| mask.deinit(),
             .sort_by => |sort| allocator.free(sort.name),
+            .top_k => |top| allocator.free(top.name),
             .head, .tail => {},
         }
         self.* = undefined;
@@ -800,6 +806,11 @@ pub const DeviceLazyOp = union(enum) {
             .sort_by => |sort| .{ .sort_by = .{
                 .name = try allocator.dupe(u8, sort.name),
                 .options = sort.options,
+            } },
+            .top_k => |top| .{ .top_k = .{
+                .name = try allocator.dupe(u8, top.name),
+                .options = top.options,
+                .k = top.k,
             } },
             .head => |n| .{ .head = n },
             .tail => |n| .{ .tail = n },
@@ -877,6 +888,7 @@ pub const DeviceLazyFrame = struct {
                 .select => |names| try current.select(names),
                 .filter_mask => |mask| try current.filterColumnMask(mask),
                 .sort_by => |sort| try current.sortBy(sort.name, sort.options),
+                .top_k => |top| try current.topKBy(top.name, top.k, top.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -916,6 +928,26 @@ pub const DeviceLazyFrame = struct {
                     }
                 },
                 .head => |n| {
+                    if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .sort_by) {
+                        const sort = optimized.items[optimized.items.len - 1].sort_by;
+                        const name = try self.allocator.dupe(u8, sort.name);
+                        optimized.items[optimized.items.len - 1].deinit(self.allocator);
+                        optimized.items[optimized.items.len - 1] = .{ .top_k = .{
+                            .name = name,
+                            .options = sort.options,
+                            .k = n,
+                        } };
+                        continue;
+                    }
+                    if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .top_k) {
+                        const top = optimized.items[optimized.items.len - 1].top_k;
+                        optimized.items[optimized.items.len - 1] = .{ .top_k = .{
+                            .name = top.name,
+                            .options = top.options,
+                            .k = @min(top.k, n),
+                        } };
+                        continue;
+                    }
                     if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .head) {
                         const prev = optimized.items[optimized.items.len - 1].head;
                         optimized.items[optimized.items.len - 1] = .{ .head = @min(prev, n) };
@@ -1059,6 +1091,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         },
         .filter_mask => |mask| try writer.print("filter_mask(dtype={s}, rows={d})", .{ mask.dtype().name(), mask.len() }),
         .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
+        .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -1473,6 +1506,12 @@ pub const DeviceDataFrame = struct {
 
     pub fn sortByColumn(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
         return self.sortBy(name, options_value);
+    }
+
+    pub fn topKBy(self: DeviceDataFrame, name: []const u8, k: usize, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
+        var sorted = try self.sortBy(name, options_value);
+        defer sorted.deinit();
+        return sorted.head(k);
     }
 
     pub fn groupByCount(self: DeviceDataFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
@@ -5196,6 +5235,19 @@ test "device lazy frame collects staged select filter sort and limit operations"
     defer gpa.free(result_units);
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, result_sales);
     try std.testing.expectEqualSlices(i64, &.{ 4, 3 }, result_units);
+
+    var topk_plan = try DeviceLazyFrame.init(gpa, table);
+    defer topk_plan.deinit();
+    try topk_plan.sortBy("sales", .{ .descending = true });
+    try topk_plan.head(2);
+    const topk_explain = try topk_plan.explain(gpa);
+    defer gpa.free(topk_explain);
+    try std.testing.expect(std.mem.indexOf(u8, topk_explain, "top_k(sales, k=2") != null);
+    var topk = try topk_plan.collect();
+    defer topk.deinit();
+    const topk_sales = try (try topk.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(topk_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, topk_sales);
 }
 
 test "device dataframe round-trips through boltha parquet" {

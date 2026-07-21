@@ -50,6 +50,8 @@ pub fn main(init: std.process.Init) !void {
     var sorted = try df.sortBy("sales", .{ .descending = true });
     defer sorted.deinit();
     const sorted_sales = try sorted.column("sales");
+    var top2 = try df.topKBy("sales", 2, .{ .descending = true });
+    defer top2.deinit();
     var grouped = try df.groupByCount("units", "rows");
     defer grouped.deinit();
     var summed = try df.groupBySum("units", "sales", "sales_sum");
@@ -137,6 +139,7 @@ pub fn main(init: std.process.Init) !void {
     const sorted_values = try sorted_sales.f64.toOwnedSlice(allocator);
     defer allocator.free(sorted_values);
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 3.0, 2.0 }, sorted_values);
+    try std.testing.expectEqual(@as(usize, 2), top2.height());
     try std.testing.expectEqual(@as(usize, 2), grouped.height());
     try std.testing.expectEqual(@as(usize, 2), summed.height());
     try std.testing.expectEqual(@as(usize, 2), minned.height());
@@ -183,6 +186,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "expression_filtered_rows": {d},
         \\  "doubled_sales_last": {d:.1},
         \\  "sorted_sales_first": {d:.1},
+        \\  "top2_rows": {d},
         \\  "grouped_rows": {d},
         \\  "summed_rows": {d},
         \\  "minned_rows": {d},
@@ -205,6 +209,7 @@ pub fn main(init: std.process.Init) !void {
         expression_filtered.height(),
         doubled_values[2],
         sorted_values[0],
+        top2.height(),
         grouped.height(),
         summed.height(),
         minned.height(),
