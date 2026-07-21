@@ -8382,9 +8382,33 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.splitAtIndices(indices, axis_index);
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            const items = try self.allocator.alloc(Array(T), indices.len + 1);
+            errdefer self.allocator.free(items);
+            var initialized: usize = 0;
+            errdefer {
+                for (items[0..initialized]) |*part| part.deinit();
+            }
+            var start: usize = 0;
+            for (indices, 0..) |stop, i| {
+                if (stop < start or stop > axis_len) return error.InvalidShape;
+                var part_view = try self.narrow(axis_index, start, stop - start);
+                items[i] = part_view.toArray() catch |err| {
+                    part_view.deinit();
+                    return err;
+                };
+                part_view.deinit();
+                initialized += 1;
+                start = stop;
+            }
+            var tail_view = try self.narrow(axis_index, start, axis_len - start);
+            items[indices.len] = tail_view.toArray() catch |err| {
+                tail_view.deinit();
+                return err;
+            };
+            tail_view.deinit();
+            return .{ .allocator = self.allocator, .items = items };
         }
 
         pub fn chunk(self: Self, chunks: usize, axis_index: isize) ArrayError!Array(T).SplitResult {
