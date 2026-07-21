@@ -7364,9 +7364,7 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn takeSigned(self: Self, indices: Array(isize), axis_opt: ?isize) ArrayError!Array(T) {
             if (axis_opt == null) return self.takeSignedFlat(indices);
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.takeSigned(indices, axis_opt);
+            return self.takeSignedAxis(indices, axis_opt.?);
         }
 
         fn takeSignedFlat(self: Self, indices: Array(isize)) ArrayError!Array(T) {
@@ -7399,6 +7397,29 @@ pub fn ArrayView(comptime T: type) type {
                 const normalized = try normalizeIndex(idx, self.numel());
                 unravelIndexInto(normalized, self.shape, multi);
                 slot.* = self.data[self.offset + ravelIndex(multi, self.strides)];
+            }
+            return out;
+        }
+
+        fn takeSignedAxis(self: Self, indices: Array(isize), axis_index: isize) ArrayError!Array(T) {
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            out_shape[axis] = indices.data.len;
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                in_multi[axis] = try normalizeIndex(indices.data[out_multi[axis]], self.shape[axis]);
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
             }
             return out;
         }
