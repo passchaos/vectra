@@ -7533,9 +7533,7 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn putAlongAxis(self: Self, indices: Array(usize), src: Array(T), axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.putAlongAxis(indices, src, axis_index);
+            return self.scatter(axis_index, indices, src);
         }
 
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Array(T) {
