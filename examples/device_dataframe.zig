@@ -71,6 +71,8 @@ pub fn main(init: std.process.Init) !void {
     defer left_joined_on.deinit();
     var full_joined = try df.fullJoin(lookup, "units", "units", .{});
     defer full_joined.deinit();
+    var full_joined_on = try df.fullJoinOn(lookup, &.{"units"}, &.{"units"}, .{});
+    defer full_joined_on.deinit();
     var semi_joined = try df.semiJoin(lookup, "units", "units");
     defer semi_joined.deinit();
     var semi_joined_on = try df.semiJoinOn(lookup, &.{"units"}, &.{"units"});
@@ -121,6 +123,7 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(df.height(), left_joined.height());
     try std.testing.expectEqual(df.height(), left_joined_on.height());
     try std.testing.expectEqual(@as(usize, 4), full_joined.height());
+    try std.testing.expectEqual(@as(usize, 4), full_joined_on.height());
     try std.testing.expectEqual(@as(usize, 2), semi_joined.height());
     try std.testing.expectEqual(@as(usize, 2), semi_joined_on.height());
     try std.testing.expectEqual(@as(usize, 1), anti_joined.height());
@@ -159,6 +162,7 @@ pub fn main(init: std.process.Init) !void {
         \\  "left_joined_rows": {d},
         \\  "left_joined_on_rows": {d},
         \\  "full_joined_rows": {d},
+        \\  "full_joined_on_rows": {d},
         \\  "semi_joined_rows": {d},
         \\  "semi_joined_on_rows": {d},
         \\  "anti_joined_rows": {d},
@@ -193,6 +197,7 @@ pub fn main(init: std.process.Init) !void {
         left_joined.height(),
         left_joined_on.height(),
         full_joined.height(),
+        full_joined_on.height(),
         semi_joined.height(),
         semi_joined_on.height(),
         anti_joined.height(),
