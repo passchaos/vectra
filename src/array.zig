@@ -9074,15 +9074,54 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn real(self: Self) ArrayError!Array(complexRealType(T)) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.real();
+            ensureComplex(T);
+            const Real = complexRealType(T);
+            return self.complexPart(Real, struct {
+                fn f(value: T) Real {
+                    return value.re;
+                }
+            }.f);
         }
 
         pub fn imag(self: Self) ArrayError!Array(complexRealType(T)) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.imag();
+            ensureComplex(T);
+            const Real = complexRealType(T);
+            return self.complexPart(Real, struct {
+                fn f(value: T) Real {
+                    return value.im;
+                }
+            }.f);
+        }
+
+        fn complexPart(self: Self, comptime Real: type, comptime mapper: fn (T) Real) ArrayError!Array(Real) {
+            var out = try Array(Real).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            if (self.isContiguous()) {
+                const end = std.math.add(usize, self.offset, self.numel()) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                for (self.data[self.offset..end], out.data) |value, *slot| slot.* = mapper(value);
+                return out;
+            }
+            if (self.isOneDimensionalStrided()) {
+                const end_offset = try self.oneDimensionalEndOffset();
+                if (end_offset >= self.data.len) return error.IndexOutOfBounds;
+                var source_offset = self.offset;
+                for (out.data) |*slot| {
+                    slot.* = mapper(self.data[source_offset]);
+                    source_offset += self.strides[0];
+                }
+                return out;
+            }
+            const multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, multi);
+                const source_offset = self.offset + ravelIndex(multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = mapper(self.data[source_offset]);
+            }
+            return out;
         }
 
         pub fn conjugate(self: Self) ArrayError!Array(T) {
