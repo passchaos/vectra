@@ -7942,9 +7942,34 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn flipAxes(self: Self, axes: []const isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.flipAxes(axes);
+            if (axes.len == 0) return self.toArray();
+            const normalized_axes = try self.allocator.alloc(usize, axes.len);
+            defer self.allocator.free(normalized_axes);
+            var seen = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(seen);
+            @memset(seen, false);
+            for (axes, 0..) |axis_index, i| {
+                const axis = try normalizeDim(axis_index, self.shape.len);
+                if (seen[axis]) return error.InvalidAxis;
+                seen[axis] = true;
+                normalized_axes[i] = axis;
+            }
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                for (normalized_axes) |axis| in_multi[axis] = self.shape[axis] - 1 - out_multi[axis];
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn roll(self: Self, shift: isize, axis_index: isize) ArrayError!Array(T) {
