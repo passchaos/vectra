@@ -8077,9 +8077,52 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn rot90(self: Self, k: isize, axes: [2]isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.rot90(k, axes);
+            if (self.shape.len < 2) return error.InvalidAxis;
+            const axis0 = try normalizeDim(axes[0], self.shape.len);
+            const axis1 = try normalizeDim(axes[1], self.shape.len);
+            if (axis0 == axis1) return error.InvalidAxis;
+            const turns: usize = @intCast(@mod(k, 4));
+            if (turns == 0) return self.toArray();
+
+            var out_shape = try self.allocator.dupe(usize, self.shape);
+            defer self.allocator.free(out_shape);
+            if (turns == 1 or turns == 3) {
+                out_shape[axis0] = self.shape[axis1];
+                out_shape[axis1] = self.shape[axis0];
+            }
+
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                switch (turns) {
+                    1 => {
+                        in_multi[axis0] = out_multi[axis1];
+                        in_multi[axis1] = self.shape[axis1] - 1 - out_multi[axis0];
+                    },
+                    2 => {
+                        in_multi[axis0] = self.shape[axis0] - 1 - out_multi[axis0];
+                        in_multi[axis1] = self.shape[axis1] - 1 - out_multi[axis1];
+                    },
+                    3 => {
+                        in_multi[axis0] = self.shape[axis0] - 1 - out_multi[axis1];
+                        in_multi[axis1] = out_multi[axis0];
+                    },
+                    else => unreachable,
+                }
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) ArrayError!Array(T) {
