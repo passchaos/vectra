@@ -7676,9 +7676,35 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn maskedScatter(self: Self, mask: Array(bool), src: Array(T)) ArrayError!Array(T) {
             if (try self.maskedScatterSameShapeFast(mask, src)) |out| return out;
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.maskedScatter(mask, src);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            const out_len = try numelFrom(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) {
+                if (src.data.len != 0) return error.ShapeMismatch;
+                return out;
+            }
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var write: usize = 0;
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const mask_index = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                if (mask.data[mask_index]) {
+                    if (write >= src.data.len) return error.ShapeMismatch;
+                    slot.* = src.data[write];
+                    write += 1;
+                } else {
+                    const source_offset = self.broadcastOffsetOf(out_multi, out_shape.len);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    slot.* = self.data[source_offset];
+                }
+            }
+            if (write != src.data.len) return error.ShapeMismatch;
+            if (write > out_len) return error.InvalidShape;
+            return out;
         }
 
         fn maskedScatterSameShapeFast(self: Self, mask: Array(bool), src: Array(T)) ArrayError!?Array(T) {
