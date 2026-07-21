@@ -8982,10 +8982,68 @@ pub fn ArrayView(comptime T: type) type {
             return out;
         }
 
+        fn diagonalAxesShape(self: Self, axis1: usize, axis2: usize, diagonal_len: usize) ArrayError![]usize {
+            const out_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            errdefer self.allocator.free(out_shape);
+            var write: usize = 0;
+            for (self.shape, 0..) |extent, axis| {
+                if (axis == axis1 or axis == axis2) continue;
+                out_shape[write] = extent;
+                write += 1;
+            }
+            out_shape[out_shape.len - 1] = diagonal_len;
+            return out_shape;
+        }
+
+        fn emptyDiagonalAxes(self: Self, axis1: usize, axis2: usize) ArrayError!Array(T) {
+            const out_shape = try self.diagonalAxesShape(axis1, axis2, 0);
+            defer self.allocator.free(out_shape);
+            return Array(T).empty(self.allocator, out_shape);
+        }
+
         pub fn diagonalAxes(self: Self, offset: isize, axis1: isize, axis2: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.diagonalAxes(offset, axis1, axis2);
+            if (self.shape.len < 2) return error.InvalidAxis;
+            const axis1_norm = try normalizeDim(axis1, self.shape.len);
+            const axis2_norm = try normalizeDim(axis2, self.shape.len);
+            if (axis1_norm == axis2_norm) return error.InvalidAxis;
+            const axis1_extent = self.shape[axis1_norm];
+            const axis2_extent = self.shape[axis2_norm];
+            const start_axis1: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= axis1_extent) return self.emptyDiagonalAxes(axis1_norm, axis2_norm);
+                break :blk offset_abs;
+            } else 0;
+            const start_axis2: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= axis2_extent) return self.emptyDiagonalAxes(axis1_norm, axis2_norm);
+                break :blk offset_abs;
+            } else 0;
+            const diagonal_len = @min(axis1_extent - start_axis1, axis2_extent - start_axis2);
+            const out_shape = try self.diagonalAxesShape(axis1_norm, axis2_norm, diagonal_len);
+            defer self.allocator.free(out_shape);
+            var out = try Array(T).empty(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                var read: usize = 0;
+                for (0..self.shape.len) |axis| {
+                    if (axis == axis1_norm or axis == axis2_norm) continue;
+                    in_multi[axis] = out_multi[read];
+                    read += 1;
+                }
+                const diagonal_index = out_multi[out_shape.len - 1];
+                in_multi[axis1_norm] = start_axis1 + diagonal_index;
+                in_multi[axis2_norm] = start_axis2 + diagonal_index;
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn diag(self: Self, offset: isize) ArrayError!Array(T) {
