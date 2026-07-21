@@ -7031,9 +7031,48 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn trapezoid(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.trapezoid(x_values, dx, axis_index);
+            ensureFloat(T);
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            if (x_values) |x| {
+                if (x.shape.len != 1 or x.data.len != axis_len) return error.ShapeMismatch;
+            }
+
+            var out_shape = try self.allocator.alloc(usize, self.shape.len - 1);
+            defer self.allocator.free(out_shape);
+            for (self.shape[0..axis], 0..) |extent, i| out_shape[i] = extent;
+            for (self.shape[axis + 1 ..], axis..) |extent, i| out_shape[i] = extent;
+
+            var out = try Array(T).zeros(self.allocator, out_shape);
+            errdefer out.deinit();
+            if (out.data.len == 0 or axis_len < 2) return out;
+
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                for (out_multi[0..axis], 0..) |coord, i| in_multi[i] = coord;
+                for (out_multi[axis..], axis + 1..) |coord, i| in_multi[i] = coord;
+                var total = zero(T);
+                for (0..axis_len - 1) |axis_i| {
+                    in_multi[axis] = axis_i;
+                    var source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    const left = self.data[source_offset];
+                    in_multi[axis] = axis_i + 1;
+                    source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    const right = self.data[source_offset];
+                    const width = if (x_values) |x| x.data[axis_i + 1] - x.data[axis_i] else dx;
+                    total += (left + right) * width / castValue(T, 2);
+                }
+                slot.* = total;
+            }
+            return out;
         }
 
         pub fn trapz(self: Self, x_values: ?Array(T), dx: T, axis_index: isize) ArrayError!Array(T) {
