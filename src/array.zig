@@ -8328,9 +8328,28 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn split(self: Self, split_size: usize, axis_index: isize) ArrayError!Array(T).SplitResult {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.split(split_size, axis_index);
+            if (split_size == 0) return error.InvalidShape;
+            const axis = try normalizeDim(axis_index, self.shape.len);
+            const axis_len = self.shape[axis];
+            const part_count = if (axis_len == 0) 0 else (axis_len + split_size - 1) / split_size;
+            const items = try self.allocator.alloc(Array(T), part_count);
+            errdefer self.allocator.free(items);
+            var initialized: usize = 0;
+            errdefer {
+                for (items[0..initialized]) |*part| part.deinit();
+            }
+            var start: usize = 0;
+            while (start < axis_len) : (start += split_size) {
+                const len_part = @min(split_size, axis_len - start);
+                var part_view = try self.narrow(axis_index, start, len_part);
+                items[initialized] = part_view.toArray() catch |err| {
+                    part_view.deinit();
+                    return err;
+                };
+                part_view.deinit();
+                initialized += 1;
+            }
+            return .{ .allocator = self.allocator, .items = items };
         }
 
         pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) ArrayError!Array(T).SplitResult {
