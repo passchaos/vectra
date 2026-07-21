@@ -47,6 +47,22 @@ pub const DeviceValidityEncoding = enum {
     bool_mask,
 };
 
+pub const DeviceColumnBinaryOp = enum {
+    add,
+    sub,
+    mul,
+    div,
+};
+
+pub const DeviceColumnCompareOp = enum {
+    eq,
+    ne,
+    gt,
+    ge,
+    lt,
+    le,
+};
+
 pub const DeviceColumnView = struct {
     dtype: DeviceDType,
     rows: usize,
@@ -264,6 +280,94 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.take(row_indices);
         }
 
+        pub fn binary(self: Self, other: Self, op: DeviceColumnBinaryOp) array_mod.ArrayError!Self {
+            if (comptime T == bool) return error.TypeUnsupported;
+            try requireCompatibleColumnArrays(T, self.values, other.values);
+            var values = switch (op) {
+                .add => try self.values.add(other.values),
+                .sub => try self.values.sub(other.values),
+                .mul => try self.values.mul(other.values),
+                .div => if (comptime isIntegerColumnType(T)) return error.TypeUnsupported else try self.values.div(other.values),
+            };
+            errdefer values.deinit();
+            var validity = try combineValidityMasks(self.values.allocator, self.validity, other.validity, self.len(), self.device());
+            errdefer if (validity) |*mask| mask.deinit();
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
+        pub fn binaryScalar(self: Self, scalar: T, op: DeviceColumnBinaryOp) array_mod.ArrayError!Self {
+            if (comptime T == bool) return error.TypeUnsupported;
+            var values = switch (op) {
+                .add => try self.values.addScalar(scalar),
+                .sub => try self.values.subScalar(scalar),
+                .mul => try self.values.mulScalar(scalar),
+                .div => if (comptime isIntegerColumnType(T)) return error.TypeUnsupported else try self.values.divScalar(scalar),
+            };
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn compare(self: Self, other: Self, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceTypedColumn(bool) {
+            try requireCompatibleColumnArrays(T, self.values, other.values);
+            if (comptime !isOrderedColumnType(T)) {
+                var values = switch (op) {
+                    .eq => try self.values.equal(other.values),
+                    .ne => try self.values.notEqual(other.values),
+                    .gt, .ge, .lt, .le => return error.TypeUnsupported,
+                };
+                errdefer values.deinit();
+                var validity = try combineValidityMasks(self.values.allocator, self.validity, other.validity, self.len(), self.device());
+                errdefer if (validity) |*mask| mask.deinit();
+                const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+                return .{ .values = values, .validity = validity, .null_count = nulls };
+            }
+            var values = switch (op) {
+                .eq => try self.values.equal(other.values),
+                .ne => try self.values.notEqual(other.values),
+                .gt => try self.values.greater(other.values),
+                .ge => try self.values.greaterEqual(other.values),
+                .lt => try self.values.less(other.values),
+                .le => try self.values.lessEqual(other.values),
+            };
+            errdefer values.deinit();
+            var validity = try combineValidityMasks(self.values.allocator, self.validity, other.validity, self.len(), self.device());
+            errdefer if (validity) |*mask| mask.deinit();
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
+        pub fn compareScalar(self: Self, scalar: T, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceTypedColumn(bool) {
+            if (comptime !isOrderedColumnType(T)) {
+                var values = switch (op) {
+                    .eq => try self.values.equalScalar(scalar),
+                    .ne => try self.values.notEqualScalar(scalar),
+                    .gt, .ge, .lt, .le => return error.TypeUnsupported,
+                };
+                errdefer values.deinit();
+                var validity: ?array_mod.Array(bool) = null;
+                errdefer if (validity) |*mask| mask.deinit();
+                if (self.validity) |mask| validity = try mask.clone();
+                return .{ .values = values, .validity = validity, .null_count = self.null_count };
+            }
+            var values = switch (op) {
+                .eq => try self.values.equalScalar(scalar),
+                .ne => try self.values.notEqualScalar(scalar),
+                .gt => try self.values.greaterScalar(scalar),
+                .ge => try self.values.greaterEqualScalar(scalar),
+                .lt => try self.values.lessScalar(scalar),
+                .le => try self.values.lessEqualScalar(scalar),
+            };
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) array_mod.ArrayError![]T {
             return self.values.toOwnedSlice(allocator);
         }
@@ -400,6 +504,114 @@ pub const DeviceColumn = union(DeviceDType) {
         return switch (self) {
             inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.filter(mask)),
         };
+    }
+
+    pub fn binary(self: DeviceColumn, other: DeviceColumn, op: DeviceColumnBinaryOp) array_mod.ArrayError!DeviceColumn {
+        if (self.dtype() != other.dtype()) return error.TypeUnsupported;
+        if (!self.device().sameDevice(other.device())) return error.InvalidDevice;
+        return switch (self) {
+            inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.binary(@field(other, @tagName(tag)), op)),
+        };
+    }
+
+    pub fn add(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.binary(other, .add);
+    }
+
+    pub fn sub(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.binary(other, .sub);
+    }
+
+    pub fn mul(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.binary(other, .mul);
+    }
+
+    pub fn div(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.binary(other, .div);
+    }
+
+    pub fn binaryScalar(self: DeviceColumn, comptime T: type, scalar: T, op: DeviceColumnBinaryOp) array_mod.ArrayError!DeviceColumn {
+        if (self.dtype() != DeviceDType.of(T)) return error.TypeUnsupported;
+        const tag = comptime DeviceDType.of(T);
+        return @unionInit(DeviceColumn, @tagName(tag), try @field(self, @tagName(tag)).binaryScalar(scalar, op));
+    }
+
+    pub fn addScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.binaryScalar(T, scalar, .add);
+    }
+
+    pub fn subScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.binaryScalar(T, scalar, .sub);
+    }
+
+    pub fn mulScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.binaryScalar(T, scalar, .mul);
+    }
+
+    pub fn divScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.binaryScalar(T, scalar, .div);
+    }
+
+    pub fn compare(self: DeviceColumn, other: DeviceColumn, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceColumn {
+        if (self.dtype() != other.dtype()) return error.TypeUnsupported;
+        if (!self.device().sameDevice(other.device())) return error.InvalidDevice;
+        return switch (self) {
+            inline else => |typed, tag| .{ .bool = try typed.compare(@field(other, @tagName(tag)), op) },
+        };
+    }
+
+    pub fn equal(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.compare(other, .eq);
+    }
+
+    pub fn notEqual(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.compare(other, .ne);
+    }
+
+    pub fn greater(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.compare(other, .gt);
+    }
+
+    pub fn greaterEqual(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.compare(other, .ge);
+    }
+
+    pub fn less(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.compare(other, .lt);
+    }
+
+    pub fn lessEqual(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
+        return self.compare(other, .le);
+    }
+
+    pub fn compareScalar(self: DeviceColumn, comptime T: type, scalar: T, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceColumn {
+        if (self.dtype() != DeviceDType.of(T)) return error.TypeUnsupported;
+        const tag = comptime DeviceDType.of(T);
+        return .{ .bool = try @field(self, @tagName(tag)).compareScalar(scalar, op) };
+    }
+
+    pub fn equalScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.compareScalar(T, scalar, .eq);
+    }
+
+    pub fn notEqualScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.compareScalar(T, scalar, .ne);
+    }
+
+    pub fn greaterScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.compareScalar(T, scalar, .gt);
+    }
+
+    pub fn greaterEqualScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.compareScalar(T, scalar, .ge);
+    }
+
+    pub fn lessScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.compareScalar(T, scalar, .lt);
+    }
+
+    pub fn lessEqualScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
+        return self.compareScalar(T, scalar, .le);
     }
 
     pub fn arrowDataType(self: DeviceColumn) ArrowInteropError!boltha.arrow.DataType {
@@ -541,6 +753,57 @@ pub const DeviceDataFrame = struct {
     pub fn columnDType(self: DeviceDataFrame, name: []const u8) DataError!DeviceDType {
         const idx = self.columnIndex(name) orelse return error.ColumnNotFound;
         return self.columns[idx].dtype();
+    }
+
+    pub fn binaryColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
+        const lhs = try self.column(lhs_name);
+        const rhs = try self.column(rhs_name);
+        return lhs.binary(rhs.*, op);
+    }
+
+    pub fn addColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!DeviceColumn {
+        return self.binaryColumns(lhs_name, rhs_name, .add);
+    }
+
+    pub fn subColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!DeviceColumn {
+        return self.binaryColumns(lhs_name, rhs_name, .sub);
+    }
+
+    pub fn mulColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!DeviceColumn {
+        return self.binaryColumns(lhs_name, rhs_name, .mul);
+    }
+
+    pub fn divColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!DeviceColumn {
+        return self.binaryColumns(lhs_name, rhs_name, .div);
+    }
+
+    pub fn binaryColumnScalar(self: DeviceDataFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
+        const col = try self.column(name);
+        return col.binaryScalar(T, scalar, op);
+    }
+
+    pub fn compareColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
+        const lhs = try self.column(lhs_name);
+        const rhs = try self.column(rhs_name);
+        return lhs.compare(rhs.*, op);
+    }
+
+    pub fn compareColumnScalar(self: DeviceDataFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
+        const col = try self.column(name);
+        return col.compareScalar(T, scalar, op);
+    }
+
+    pub fn filterColumnMask(self: DeviceDataFrame, mask: DeviceColumn) DeviceDataError!DeviceDataFrame {
+        const typed_mask = switch (mask) {
+            .bool => |typed| typed,
+            else => return error.TypeMismatch,
+        };
+        if (!typed_mask.device().sameDevice(self.device)) return error.InvalidDevice;
+        if (typed_mask.len() != self.rows) return error.LengthMismatch;
+        if (typed_mask.hasNulls()) return error.TypeUnsupported;
+        const host_mask = try typed_mask.values.toOwnedSlice(self.allocator);
+        defer self.allocator.free(host_mask);
+        return self.filter(host_mask);
     }
 
     /// Export a Boltha/Arrow schema for the fixed-width device dataframe.
@@ -773,6 +1036,53 @@ fn countNullsInArray(mask: array_mod.Array(bool)) array_mod.ArrayError!usize {
     const values = try mask.toOwnedSlice(mask.allocator);
     defer mask.allocator.free(values);
     return countNulls(values);
+}
+
+fn requireCompatibleColumnArrays(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!void {
+    if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
+    if (lhs.shape.len != 1 or rhs.shape.len != 1 or lhs.shape[0] != rhs.shape[0]) return error.ShapeMismatch;
+}
+
+fn combineValidityMasks(
+    _: std.mem.Allocator,
+    lhs: ?array_mod.Array(bool),
+    rhs: ?array_mod.Array(bool),
+    rows: usize,
+    device_value: array_mod.Device,
+) array_mod.ArrayError!?array_mod.Array(bool) {
+    if (lhs == null and rhs == null) return null;
+    if (lhs) |mask| {
+        if (!mask.device.sameDevice(device_value) or mask.shape.len != 1 or mask.shape[0] != rows) return error.InvalidDevice;
+    }
+    if (rhs) |mask| {
+        if (!mask.device.sameDevice(device_value) or mask.shape.len != 1 or mask.shape[0] != rows) return error.InvalidDevice;
+    }
+    if (lhs == null) return try rhs.?.clone();
+    if (rhs == null) return try lhs.?.clone();
+    const lhs_values = try lhs.?.toOwnedSlice(lhs.?.allocator);
+    defer lhs.?.allocator.free(lhs_values);
+    const rhs_values = try rhs.?.toOwnedSlice(rhs.?.allocator);
+    defer rhs.?.allocator.free(rhs_values);
+    const out_values = try lhs.?.allocator.alloc(bool, rows);
+    defer lhs.?.allocator.free(out_values);
+    for (lhs_values, rhs_values, out_values) |left_valid, right_valid, *slot| {
+        slot.* = left_valid and right_valid;
+    }
+    return try array_mod.Array(bool).fromSliceOn(lhs.?.allocator, out_values, &.{rows}, device_value);
+}
+
+fn isIntegerColumnType(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .int, .comptime_int => true,
+        else => false,
+    };
+}
+
+fn isOrderedColumnType(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .int, .float, .comptime_int, .comptime_float => true,
+        else => false,
+    };
 }
 
 fn deviceDTypeToArrowDataType(dtype: DeviceDType) ArrowInteropError!boltha.arrow.DataType {
@@ -1667,4 +1977,54 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 1), arrow_table.batchCount());
     try std.testing.expectEqual(@as(usize, 3), arrow_table.row_count);
     try std.testing.expectEqual(@as(?usize, 1), arrow_table.columnIndexByName("units"));
+}
+
+test "device dataframe eager column expressions and boolean mask filtering" {
+    const gpa = std.testing.allocator;
+
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+    var cost = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 1.5, 2.0 }, .cpu);
+    defer cost.deinit();
+    var units = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 1, 2, 3 }, &.{ true, false, true }, .cpu);
+    defer units.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = sales },
+        .{ .name = "cost", .data = cost },
+        .{ .name = "units", .data = units },
+    });
+    defer table.deinit();
+
+    var margin = try table.subColumns("sales", "cost");
+    defer margin.deinit();
+    const margin_values = try margin.f64.toOwnedSlice(gpa);
+    defer gpa.free(margin_values);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.5, 3.0 }, margin_values);
+
+    var doubled = try table.binaryColumnScalar("sales", f64, 2.0, .mul);
+    defer doubled.deinit();
+    const doubled_values = try doubled.f64.toOwnedSlice(gpa);
+    defer gpa.free(doubled_values);
+    try std.testing.expectEqualSlices(f64, &.{ 4.0, 6.0, 10.0 }, doubled_values);
+
+    var mask = try table.compareColumnScalar("sales", f64, 2.5, .gt);
+    defer mask.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, mask.dtype());
+    const mask_values = try mask.bool.toOwnedSlice(gpa);
+    defer gpa.free(mask_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true }, mask_values);
+
+    var filtered = try table.filterColumnMask(mask);
+    defer filtered.deinit();
+    try std.testing.expectEqual(@as(usize, 2), filtered.height());
+    const filtered_sales = try filtered.column("sales");
+    const filtered_sales_values = try filtered_sales.f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_sales_values);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, filtered_sales_values);
+
+    var units_mask = try table.compareColumnScalar("units", i64, 1, .gt);
+    defer units_mask.deinit();
+    try std.testing.expectEqual(@as(usize, 1), units_mask.bool.null_count);
+    try std.testing.expectError(error.TypeUnsupported, table.filterColumnMask(units_mask));
 }

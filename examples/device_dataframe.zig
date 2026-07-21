@@ -27,9 +27,16 @@ pub fn main(init: std.process.Init) !void {
     var arrow_batch = try df.toArrowRecordBatch(allocator);
     defer arrow_batch.deinit(allocator);
 
+    var expensive = try df.compareColumnScalar("sales", f64, 2.5, .gt);
+    defer expensive.deinit();
+    var doubled_sales = try df.binaryColumnScalar("sales", f64, 2.0, .mul);
+    defer doubled_sales.deinit();
+
     var filtered = try df.filter(&.{ true, false, true });
     defer filtered.deinit();
     const filtered_units = try filtered.column("units");
+    var expression_filtered = try df.filterColumnMask(expensive);
+    defer expression_filtered.deinit();
 
     var legacy = try filtered.toDataFrame();
     defer legacy.deinit();
@@ -42,6 +49,10 @@ pub fn main(init: std.process.Init) !void {
     try std.testing.expectEqual(@as(usize, 3), arrow_batch.row_count);
     try std.testing.expectEqual(@as(?usize, 1), arrow_batch.columnIndexByName("units"));
     try std.testing.expectEqual(@as(?i64, null), arrow_batch.columns[1].int64.value(1));
+    try std.testing.expectEqual(@as(usize, 2), expression_filtered.height());
+    const doubled_values = try doubled_sales.f64.toOwnedSlice(allocator);
+    defer allocator.free(doubled_values);
+    try std.testing.expectEqualSlices(f64, &.{ 4.0, 6.0, 10.0 }, doubled_values);
     try std.testing.expectEqual(@as(usize, 2), filtered.height());
     try std.testing.expectEqual(@as(usize, 0), filtered_units.nullCount());
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, legacy.columns[0].f64);
@@ -59,6 +70,8 @@ pub fn main(init: std.process.Init) !void {
         \\  "units_nulls": {d},
         \\  "arrow_rows": {d},
         \\  "arrow_columns": {d},
+        \\  "expression_filtered_rows": {d},
+        \\  "doubled_sales_last": {d:.1},
         \\  "filtered_rows": {d},
         \\  "filtered_units_nulls": {d},
         \\  "ok": true
@@ -72,6 +85,8 @@ pub fn main(init: std.process.Init) !void {
         view.columns[1].null_count,
         arrow_batch.row_count,
         arrow_batch.columnCount(),
+        expression_filtered.height(),
+        doubled_values[2],
         filtered.height(),
         filtered_units.nullCount(),
     });
