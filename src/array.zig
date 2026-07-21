@@ -8036,9 +8036,44 @@ pub fn ArrayView(comptime T: type) type {
         }
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) ArrayError!Array(T) {
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.rollAxes(shifts, axes);
+            if (shifts.len != axes.len) return error.ShapeMismatch;
+            if (shifts.len == 0) return self.toArray();
+            if (self.shape.len == 0) return error.InvalidAxis;
+            const normalized_axes = try self.allocator.alloc(usize, axes.len);
+            defer self.allocator.free(normalized_axes);
+            const normalized_shifts = try self.allocator.alloc(usize, axes.len);
+            defer self.allocator.free(normalized_shifts);
+            var seen = try self.allocator.alloc(bool, self.shape.len);
+            defer self.allocator.free(seen);
+            @memset(seen, false);
+            for (axes, 0..) |axis_index, i| {
+                const axis = try normalizeDim(axis_index, self.shape.len);
+                if (seen[axis]) return error.InvalidAxis;
+                seen[axis] = true;
+                normalized_axes[i] = axis;
+                const len_axis = self.shape[axis];
+                normalized_shifts[i] = if (len_axis == 0) 0 else @intCast(@mod(shifts[i], @as(isize, @intCast(len_axis))));
+            }
+
+            var out = try Array(T).empty(self.allocator, self.shape);
+            errdefer out.deinit();
+            if (out.data.len == 0) return out;
+            const out_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(out_multi);
+            var in_multi = try self.allocator.alloc(usize, self.shape.len);
+            defer self.allocator.free(in_multi);
+            for (out.data, 0..) |*slot, flat| {
+                unravelIndexInto(flat, self.shape, out_multi);
+                @memcpy(in_multi, out_multi);
+                for (normalized_axes, normalized_shifts) |axis, normalized_shift| {
+                    const len_axis = self.shape[axis];
+                    in_multi[axis] = if (len_axis == 0) 0 else (out_multi[axis] + len_axis - normalized_shift) % len_axis;
+                }
+                const source_offset = self.offset + ravelIndex(in_multi, self.strides);
+                if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                slot.* = self.data[source_offset];
+            }
+            return out;
         }
 
         pub fn rot90(self: Self, k: isize, axes: [2]isize) ArrayError!Array(T) {
