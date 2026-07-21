@@ -7624,9 +7624,33 @@ pub fn ArrayView(comptime T: type) type {
 
         pub fn maskedSelect(self: Self, mask: Array(bool)) ArrayError!Array(T) {
             if (try self.maskedSelectSameShapeFast(mask)) |out| return out;
-            var owned = try self.toArray();
-            defer owned.deinit();
-            return owned.maskedSelect(mask);
+            const out_shape = try computeBroadcastShape(self.allocator, self.shape, mask.shape);
+            defer self.allocator.free(out_shape);
+            const out_len = try numelFrom(out_shape);
+            const out_multi = try self.allocator.alloc(usize, out_shape.len);
+            defer self.allocator.free(out_multi);
+
+            var selected_count: usize = 0;
+            for (0..out_len) |flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const mask_index = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                if (mask.data[mask_index]) selected_count += 1;
+            }
+
+            var out = try Array(T).empty(self.allocator, &.{selected_count});
+            errdefer out.deinit();
+            var write: usize = 0;
+            for (0..out_len) |flat| {
+                unravelIndexInto(flat, out_shape, out_multi);
+                const mask_index = broadcastOffset(out_multi, out_shape.len, mask.shape, mask.strides);
+                if (mask.data[mask_index]) {
+                    const source_offset = self.broadcastOffsetOf(out_multi, out_shape.len);
+                    if (source_offset >= self.data.len) return error.IndexOutOfBounds;
+                    out.data[write] = self.data[source_offset];
+                    write += 1;
+                }
+            }
+            return out;
         }
 
         fn maskedSelectSameShapeFast(self: Self, mask: Array(bool)) ArrayError!?Array(T) {
