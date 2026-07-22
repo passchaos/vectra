@@ -1608,6 +1608,10 @@ pub fn ArrayView(comptime T: type) type {
             return self.shape.len == 1;
         }
 
+        fn isTwoDimensionalColumnMajor(self: Self) bool {
+            return self.shape.len == 2 and self.strides[0] == 1 and self.strides[1] == self.shape[0];
+        }
+
         fn oneDimensionalEndOffset(self: Self) ArrayError!usize {
             if (!self.isOneDimensionalStrided()) return error.InvalidShape;
             if (self.numel() == 0) return self.offset;
@@ -1710,6 +1714,22 @@ pub fn ArrayView(comptime T: type) type {
                 }
                 return;
             }
+            if (self.isTwoDimensionalColumnMajor()) {
+                const rows = self.shape[0];
+                const cols = self.shape[1];
+                const span = std.math.mul(usize, rows, cols) catch return error.InvalidShape;
+                const end = std.math.add(usize, self.offset, span) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                var row: usize = 0;
+                while (row < rows) : (row += 1) {
+                    const dst_row = out[row * cols .. row * cols + cols];
+                    var col: usize = 0;
+                    while (col < cols) : (col += 1) {
+                        dst_row[col] = self.data[self.offset + col * rows + row];
+                    }
+                }
+                return;
+            }
             const multi = try self.allocator.alloc(usize, self.shape.len);
             defer self.allocator.free(multi);
             for (out, 0..) |*slot, flat| {
@@ -1742,6 +1762,22 @@ pub fn ArrayView(comptime T: type) type {
                 for (out.data) |*slot| {
                     slot.* = self.data[source_offset];
                     source_offset += self.strides[0];
+                }
+                return out;
+            }
+            if (self.isTwoDimensionalColumnMajor()) {
+                const rows = self.shape[0];
+                const cols = self.shape[1];
+                const span = std.math.mul(usize, rows, cols) catch return error.InvalidShape;
+                const end = std.math.add(usize, self.offset, span) catch return error.InvalidShape;
+                if (end > self.data.len) return error.IndexOutOfBounds;
+                var row: usize = 0;
+                while (row < rows) : (row += 1) {
+                    const dst_row = out.data[row * cols .. row * cols + cols];
+                    var col: usize = 0;
+                    while (col < cols) : (col += 1) {
+                        dst_row[col] = self.data[self.offset + col * rows + row];
+                    }
                 }
                 return out;
             }

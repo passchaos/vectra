@@ -5796,6 +5796,27 @@ test "CPU column-major matmul result preserves logical array order" {
     try std.testing.expectEqualSlices(f32, &.{ 58, 64, 139, 154 }, cloned.data);
 }
 
+test "CPU column-major matmul result materializes efficiently" {
+    const gpa = std.testing.allocator;
+    var lhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
+    defer rhs.deinit();
+
+    var out = (try cpuMatmulColumnMajorResult(f64, lhs, rhs)) orelse return error.BackendFailure;
+    defer out.deinit();
+    var materialized: [4]f64 = undefined;
+    try out.copyToSlice(&materialized);
+    try std.testing.expectEqualSlices(f64, &.{ 58, 64, 139, 154 }, &materialized);
+
+    var view = try out.asView();
+    defer view.deinit();
+    var contiguous = try view.toArray();
+    defer contiguous.deinit();
+    try std.testing.expect(contiguous.isContiguous());
+    try std.testing.expectEqualSlices(f64, &.{ 58, 64, 139, 154 }, contiguous.data);
+}
+
 test "Axiom backend policy reports elementwise route" {
     const gpa = std.testing.allocator;
     var lhs32 = try array_mod.Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{4});
