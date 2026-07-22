@@ -12083,6 +12083,12 @@ pub fn Array(comptime T: type) type {
             if (self.pending_matmul != null) return self.materializePendingMatmul();
             var out = try Self.emptyOn(self.allocator, self.shape, self.device);
             errdefer out.deinit();
+            if (self.device.isCpu() and !self.isContiguous()) {
+                var logical_view = try self.asView();
+                defer logical_view.deinit();
+                try out.copyFromView(logical_view);
+                return out;
+            }
             try axiom_backend.transferStorage(
                 .{ .device = out.device, .host_bytes = std.mem.sliceAsBytes(out.data), .storage = out.device_storage },
                 .{ .device = self.device, .host_bytes = std.mem.sliceAsBytes(self.data), .storage = self.device_storage },
@@ -13875,6 +13881,11 @@ pub fn Array(comptime T: type) type {
                 var materialized = try self.materializePendingMatmul();
                 defer materialized.deinit();
                 return materialized.copyToSlice(out);
+            }
+            if (self.device.isCpu() and !self.isContiguous()) {
+                var logical_view = try self.asView();
+                defer logical_view.deinit();
+                return logical_view.copyToSlice(out);
             }
             try axiom_backend.transferStorage(
                 .{ .device = .cpu, .host_bytes = std.mem.sliceAsBytes(out) },
@@ -25095,7 +25106,6 @@ test "array reductions and matmul" {
     try std.testing.expectEqualSlices(f64, &.{ 14, 32, 32, 77 }, matrix_product.data);
     try std.testing.expect(!matrix_product.hasPendingWork());
     var matrix_product_done = try matrix_product.materializeAndSynchronize();
-    defer matrix_product_done.deinit();
     try std.testing.expect(!matrix_product_done.hasPendingWork());
     try std.testing.expectEqualSlices(f64, matrix_product.data, matrix_product_done.data);
 }
@@ -25544,7 +25554,6 @@ test "array synchronize waits without cloning materialized arrays" {
 
     try cpu.synchronize();
     var done = try cpu.materializeAndSynchronize();
-    defer done.deinit();
     try std.testing.expect(!done.hasPendingWork());
     try std.testing.expectEqualSlices(f32, cpu.data, done.data);
 
@@ -26620,8 +26629,7 @@ test "array pytorch numpy shape indexing and layout helpers" {
     try std.testing.expectEqual(@intFromPtr(a.data.ptr), @intFromPtr(a.storageDataPtr()));
     try std.testing.expect(a.isContiguous());
     try a.synchronize();
-    var sync_materialized = try a.materializeAndSynchronize();
-    defer sync_materialized.deinit();
+    const sync_materialized = try a.materializeAndSynchronize();
     try std.testing.expectEqualSlices(f64, a.data, sync_materialized.data);
     try std.testing.expect(Device.cpu.isCpu());
     try std.testing.expect(Device.cpu.isCpu());

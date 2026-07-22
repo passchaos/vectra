@@ -218,6 +218,7 @@ pub const CpuViewElementwiseReportSnapshot = struct {
 threadlocal var last_cpu_view_elementwise_report: CpuViewElementwiseReportSnapshot = .{};
 threadlocal var cached_f32_gemm_workspace: ?*veyra.GemmF32Workspace = null;
 threadlocal var cached_f64_mt_gemm_workspace: ?*veyra.GemmF64MtWorkspace = null;
+threadlocal var cached_f32_mt_gemm_workspace: ?*veyra.GemmF32MtWorkspace = null;
 
 pub const cpu = struct {
     pub const ScalarElementwiseReportSnapshot = CpuScalarElementwiseReportSnapshot;
@@ -1625,6 +1626,16 @@ fn getCachedF64MtGemmWorkspace() !*veyra.GemmF64MtWorkspace {
     return workspace;
 }
 
+fn getCachedF32MtGemmWorkspace() !*veyra.GemmF32MtWorkspace {
+    if (cached_f32_mt_gemm_workspace) |workspace| return workspace;
+
+    const workspace = try std.heap.smp_allocator.create(veyra.GemmF32MtWorkspace);
+    errdefer std.heap.smp_allocator.destroy(workspace);
+    workspace.* = try veyra.GemmF32MtWorkspace.init(std.heap.smp_allocator, veyra.recommendedGemmF32ThreadCount());
+    cached_f32_mt_gemm_workspace = workspace;
+    return workspace;
+}
+
 fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: ?array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
     const m = lhs.shape[0];
@@ -1691,6 +1702,55 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
                 return null;
             };
         }
+    }
+    return out;
+}
+
+pub fn cpuMatmulColumnMajorResult(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (T != f32 and T != f64) return null;
+    if (!lhs.device.isCpu() or !rhs.device.isCpu()) return null;
+    if (lhs.shape.len != 2 or rhs.shape.len != 2) return null;
+    if (lhs.shape[1] != rhs.shape[0]) return error.ShapeMismatch;
+    if (!lhs.isContiguous() or !rhs.isContiguous()) return null;
+
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    const element_count = std.math.mul(usize, m, n) catch return error.InvalidShape;
+    const values = try lhs.allocator.alloc(T, element_count);
+    errdefer lhs.allocator.free(values);
+    const shape = try lhs.allocator.dupe(usize, &.{ m, n });
+    errdefer lhs.allocator.free(shape);
+    const strides = try lhs.allocator.dupe(usize, &.{ @as(usize, 1), m });
+    errdefer lhs.allocator.free(strides);
+
+    var out = array_mod.Array(T){
+        .allocator = lhs.allocator,
+        .data = values,
+        .shape = shape,
+        .strides = strides,
+        .device = .cpu,
+    };
+    errdefer out.deinit();
+
+    const lhs_view = veyra.MatrixView(T).fromSlice(lhs.data, m, k, .row_major) catch return null;
+    const rhs_view = veyra.MatrixView(T).fromSlice(rhs.data, k, n, .row_major) catch return null;
+    const out_view = veyra.MatrixMut(T).fromSlice(out.data, m, n, .column_major) catch return null;
+
+    if (T == f32) {
+        const mt_workspace = getCachedF32MtGemmWorkspace() catch {
+            const workspace = getCachedF32GemmWorkspace() catch return null;
+            veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{}, workspace) catch return null;
+            return out;
+        };
+        veyra.gemmThreadedWithWorkspace(f32, lhs_view, rhs_view, out_view, .{}, mt_workspace) catch {
+            const workspace = getCachedF32GemmWorkspace() catch return null;
+            veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{}, workspace) catch return null;
+        };
+    } else {
+        const mt_workspace = getCachedF64MtGemmWorkspace() catch return null;
+        veyra.ensureGemmF64MtAppleAmxWorkspace(mt_workspace, m, n, k) catch {};
+        veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, .{}, mt_workspace) catch return null;
     }
     return out;
 }
@@ -5708,6 +5768,32 @@ test "Axiom backend policy reports matmul route" {
     var out = try matmul(f32, .prefer_axiom_cpu, a, b);
     defer out.deinit();
     try std.testing.expectEqualSlices(f32, &.{ 58, 64, 139, 154 }, out.data);
+}
+
+test "CPU column-major matmul result preserves logical array order" {
+    const gpa = std.testing.allocator;
+    var lhs = try array_mod.Array(f32).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 2, 3 });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f32).fromSlice(gpa, &.{ 7, 8, 9, 10, 11, 12 }, &.{ 3, 2 });
+    defer rhs.deinit();
+
+    var out = (try cpuMatmulColumnMajorResult(f32, lhs, rhs)) orelse return error.BackendFailure;
+    defer out.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, out.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, out.strides);
+    try std.testing.expect(!out.isContiguous());
+    try std.testing.expectEqual(@as(f32, 58), try out.get(&.{ 0, 0 }));
+    try std.testing.expectEqual(@as(f32, 64), try out.get(&.{ 0, 1 }));
+    try std.testing.expectEqual(@as(f32, 139), try out.get(&.{ 1, 0 }));
+    try std.testing.expectEqual(@as(f32, 154), try out.get(&.{ 1, 1 }));
+
+    var logical: [4]f32 = undefined;
+    try out.copyToSlice(&logical);
+    try std.testing.expectEqualSlices(f32, &.{ 58, 64, 139, 154 }, &logical);
+    var cloned = try out.clone();
+    defer cloned.deinit();
+    try std.testing.expect(cloned.isContiguous());
+    try std.testing.expectEqualSlices(f32, &.{ 58, 64, 139, 154 }, cloned.data);
 }
 
 test "Axiom backend policy reports elementwise route" {

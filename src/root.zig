@@ -58,6 +58,7 @@ pub const defaultDialectBackend = axiom_backend.defaultDialectBackend;
 pub const defaultExecutionTarget = axiom_backend.defaultExecutionTarget;
 pub const executionTargetForDevice = axiom_backend.executionTargetForDevice;
 pub const resetDefaultDialectBackend = axiom_backend.resetDefaultDialectBackend;
+pub const cpuMatmulColumnMajorResult = axiom_backend.cpuMatmulColumnMajorResult;
 pub const Series = series_mod.Series;
 pub const DataFrame = dataframe_mod.DataFrame;
 pub const Column = dataframe_mod.Column;
