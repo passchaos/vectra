@@ -216,6 +216,8 @@ pub const CpuViewElementwiseReportSnapshot = struct {
 };
 
 threadlocal var last_cpu_view_elementwise_report: CpuViewElementwiseReportSnapshot = .{};
+threadlocal var cached_f32_gemm_workspace: ?*veyra.GemmF32Workspace = null;
+threadlocal var cached_f64_mt_gemm_workspace: ?*veyra.GemmF64MtWorkspace = null;
 
 pub const cpu = struct {
     pub const ScalarElementwiseReportSnapshot = CpuScalarElementwiseReportSnapshot;
@@ -1603,6 +1605,26 @@ fn largeCpuGemm(m: usize, n: usize, k: usize) bool {
     return work >= cpu_matmul_like_fast_path_min_ops;
 }
 
+fn getCachedF32GemmWorkspace() !*veyra.GemmF32Workspace {
+    if (cached_f32_gemm_workspace) |workspace| return workspace;
+
+    const workspace = try std.heap.smp_allocator.create(veyra.GemmF32Workspace);
+    errdefer std.heap.smp_allocator.destroy(workspace);
+    workspace.* = try veyra.GemmF32Workspace.init(std.heap.smp_allocator, 1);
+    cached_f32_gemm_workspace = workspace;
+    return workspace;
+}
+
+fn getCachedF64MtGemmWorkspace() !*veyra.GemmF64MtWorkspace {
+    if (cached_f64_mt_gemm_workspace) |workspace| return workspace;
+
+    const workspace = try std.heap.smp_allocator.create(veyra.GemmF64MtWorkspace);
+    errdefer std.heap.smp_allocator.destroy(workspace);
+    workspace.* = try veyra.GemmF64MtWorkspace.init(std.heap.smp_allocator, veyra.recommendedGemmF64ThreadCount());
+    cached_f64_mt_gemm_workspace = workspace;
+    return workspace;
+}
+
 fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: ?array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
     const m = lhs.shape[0];
@@ -1638,21 +1660,19 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     };
     if (T == f32) {
         const options: veyra.GemmOptions(f32) = .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) };
-        var workspace = veyra.GemmF32Workspace.init(std.heap.smp_allocator, 1) catch {
+        const workspace = getCachedF32GemmWorkspace() catch {
             out.deinit();
             return null;
         };
-        defer workspace.deinit();
-        veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, options, &workspace) catch {
+        veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, options, workspace) catch {
             out.deinit();
             return null;
         };
     } else {
         const options: veyra.GemmOptions(f64) = .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) };
         var threaded_ran = false;
-        var mt_workspace = veyra.GemmF64MtWorkspace.init(std.heap.smp_allocator, veyra.recommendedGemmF64ThreadCount()) catch null;
-        if (mt_workspace) |*workspace| {
-            defer workspace.deinit();
+        const mt_workspace = getCachedF64MtGemmWorkspace() catch null;
+        if (mt_workspace) |workspace| {
             veyra.ensureGemmF64MtAppleAmxWorkspace(workspace, m, n, k) catch {};
             threaded_ran = blk: {
                 veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, options, workspace) catch break :blk false;
