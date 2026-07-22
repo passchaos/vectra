@@ -217,6 +217,7 @@ pub const CpuViewElementwiseReportSnapshot = struct {
 
 threadlocal var last_cpu_view_elementwise_report: CpuViewElementwiseReportSnapshot = .{};
 threadlocal var cached_f32_gemm_workspace: ?*veyra.GemmF32Workspace = null;
+threadlocal var cached_f64_amx_gemm_workspace: ?*veyra.GemmF64AppleAmxWorkspace = null;
 threadlocal var cached_f64_mt_gemm_workspace: ?*veyra.GemmF64MtWorkspace = null;
 threadlocal var cached_f32_mt_gemm_workspace: ?*veyra.GemmF32MtWorkspace = null;
 
@@ -1626,6 +1627,26 @@ fn getCachedF64MtGemmWorkspace() !*veyra.GemmF64MtWorkspace {
     return workspace;
 }
 
+fn getCachedF64AmxGemmWorkspace(rows: usize, cols: usize, depth: usize) !*veyra.GemmF64AppleAmxWorkspace {
+    const thread_count = veyra.recommendedGemmF64ThreadCount();
+    if (cached_f64_amx_gemm_workspace) |workspace| {
+        if (workspace.a_panels.len >= rows * depth and
+            workspace.b_panels.len >= cols * depth)
+        {
+            return workspace;
+        }
+        workspace.deinit();
+        std.heap.smp_allocator.destroy(workspace);
+        cached_f64_amx_gemm_workspace = null;
+    }
+
+    const workspace = try std.heap.smp_allocator.create(veyra.GemmF64AppleAmxWorkspace);
+    errdefer std.heap.smp_allocator.destroy(workspace);
+    workspace.* = try veyra.GemmF64AppleAmxWorkspace.init(std.heap.smp_allocator, rows, cols, depth, thread_count);
+    cached_f64_amx_gemm_workspace = workspace;
+    return workspace;
+}
+
 fn getCachedF32MtGemmWorkspace() !*veyra.GemmF32MtWorkspace {
     if (cached_f32_mt_gemm_workspace) |workspace| return workspace;
 
@@ -1738,16 +1759,24 @@ pub fn cpuMatmulColumnMajorResult(comptime T: type, lhs: array_mod.Array(T), rhs
     const out_view = veyra.MatrixMut(T).fromSlice(out.data, m, n, .column_major) catch return null;
 
     if (T == f32) {
+        const workspace = getCachedF32GemmWorkspace() catch return null;
+        if (veyra.gemmF32AppleAmxFullPrepackedColumnMajorCandidateWithWorkspace(lhs_view, rhs_view, out_view, .{}, workspace)) {
+            return out;
+        } else |_| {}
         const mt_workspace = getCachedF32MtGemmWorkspace() catch {
-            const workspace = getCachedF32GemmWorkspace() catch return null;
             veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{}, workspace) catch return null;
             return out;
         };
         veyra.gemmThreadedWithWorkspace(f32, lhs_view, rhs_view, out_view, .{}, mt_workspace) catch {
-            const workspace = getCachedF32GemmWorkspace() catch return null;
             veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{}, workspace) catch return null;
         };
     } else {
+        const amx_workspace = getCachedF64AmxGemmWorkspace(m, n, k) catch null;
+        if (amx_workspace) |workspace| {
+            if (veyra.gemmF64AppleAmxFullPrepackedColumnMajorCandidateWithWorkspace(lhs_view, rhs_view, out_view, .{}, workspace)) {
+                return out;
+            } else |_| {}
+        }
         const mt_workspace = getCachedF64MtGemmWorkspace() catch return null;
         veyra.ensureGemmF64MtAppleAmxWorkspace(mt_workspace, m, n, k) catch {};
         veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, .{}, mt_workspace) catch return null;
