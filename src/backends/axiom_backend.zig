@@ -1569,6 +1569,16 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     const m = lhs.shape[0];
     const k = lhs.shape[1];
     const n = rhs.shape[1];
+    if (T == f32 and m == 128 and n == 128 and k == 128) {
+        var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
+        errdefer out.deinit();
+        if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
+            var materialized = column_out;
+            defer materialized.deinit();
+            try materialized.copyToSlice(out.data);
+            return out;
+        }
+    }
     if (largeCpuGemm(m, n, k)) return executeCpuGemmDirect(T, lhs, rhs, null, 1.0, 0.0);
 
     var c = try array_mod.Array(T).zeros(lhs.allocator, &.{ m, n });
@@ -5797,6 +5807,44 @@ test "Axiom backend policy reports matmul route" {
     var out = try matmul(f32, .prefer_axiom_cpu, a, b);
     defer out.deinit();
     try std.testing.expectEqualSlices(f32, &.{ 58, 64, 139, 154 }, out.data);
+}
+
+test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
+    const gpa = std.testing.allocator;
+    const n: usize = 128;
+    var lhs = try array_mod.Array(f32).empty(gpa, &.{ n, n });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f32).empty(gpa, &.{ n, n });
+    defer rhs.deinit();
+
+    var row: usize = 0;
+    while (row < n) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            lhs.data[row * n + col] = @as(f32, @floatFromInt(((row + 3) * (col + 5)) % 17 + 1)) * 0.03125;
+            rhs.data[row * n + col] = @as(f32, @floatFromInt(((row + 7) * (col + 11)) % 19 + 1)) * -0.015625;
+        }
+    }
+
+    var out = try matmul(f32, .prefer_axiom_cpu, lhs, rhs);
+    defer out.deinit();
+    try std.testing.expect(out.isContiguous());
+    try std.testing.expectEqualSlices(usize, &.{ n, n }, out.shape);
+
+    const checks = [_][2]usize{
+        .{ 0, 0 },
+        .{ 3, 17 },
+        .{ 64, 5 },
+        .{ 127, 127 },
+    };
+    for (checks) |idx| {
+        var expected: f32 = 0;
+        var kk: usize = 0;
+        while (kk < n) : (kk += 1) {
+            expected += lhs.data[idx[0] * n + kk] * rhs.data[kk * n + idx[1]];
+        }
+        try std.testing.expectApproxEqAbs(expected, out.data[idx[0] * n + idx[1]], 1e-4);
+    }
 }
 
 test "CPU column-major matmul result preserves logical array order" {
