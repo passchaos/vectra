@@ -1569,7 +1569,7 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     const m = lhs.shape[0];
     const k = lhs.shape[1];
     const n = rhs.shape[1];
-    if (T == f32 and m == n and n == k and (m == 96 or m == 128 or m == 160 or m == 192 or m == 224)) {
+    if (T == f32 and shouldMaterializeCpuF32ColumnMajorGemm(m, n, k)) {
         var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
         errdefer out.deinit();
         if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
@@ -1752,6 +1752,11 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
         }
     }
     return out;
+}
+
+fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
+    return (m == n and n == k and (m == 96 or m == 128 or m == 160 or m == 192 or m == 224)) or
+        (n == 100 and k == 100 and (m == 10 or m == 50));
 }
 
 pub fn cpuMatmulColumnMajorResult(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -5833,19 +5838,31 @@ test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
     try checkCpuF32SquareGemmFastPath(gpa, 160);
     try checkCpuF32SquareGemmFastPath(gpa, 192);
     try checkCpuF32SquareGemmFastPath(gpa, 224);
+    try checkCpuF32GemmFastPath(gpa, 10, 100, 100);
+    try checkCpuF32GemmFastPath(gpa, 50, 100, 100);
 }
 
 fn checkCpuF32SquareGemmFastPath(gpa: std.mem.Allocator, comptime n: usize) !void {
-    var lhs = try array_mod.Array(f32).empty(gpa, &.{ n, n });
+    try checkCpuF32GemmFastPath(gpa, n, n, n);
+}
+
+fn checkCpuF32GemmFastPath(gpa: std.mem.Allocator, comptime m: usize, comptime n: usize, comptime k: usize) !void {
+    var lhs = try array_mod.Array(f32).empty(gpa, &.{ m, k });
     defer lhs.deinit();
-    var rhs = try array_mod.Array(f32).empty(gpa, &.{ n, n });
+    var rhs = try array_mod.Array(f32).empty(gpa, &.{ k, n });
     defer rhs.deinit();
 
     var row: usize = 0;
-    while (row < n) : (row += 1) {
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < k) : (col += 1) {
+            lhs.data[row * k + col] = @as(f32, @floatFromInt(((row + 3) * (col + 5)) % 17 + 1)) * 0.03125;
+        }
+    }
+    row = 0;
+    while (row < k) : (row += 1) {
         var col: usize = 0;
         while (col < n) : (col += 1) {
-            lhs.data[row * n + col] = @as(f32, @floatFromInt(((row + 3) * (col + 5)) % 17 + 1)) * 0.03125;
             rhs.data[row * n + col] = @as(f32, @floatFromInt(((row + 7) * (col + 11)) % 19 + 1)) * -0.015625;
         }
     }
@@ -5853,19 +5870,19 @@ fn checkCpuF32SquareGemmFastPath(gpa: std.mem.Allocator, comptime n: usize) !voi
     var out = try matmul(f32, .prefer_axiom_cpu, lhs, rhs);
     defer out.deinit();
     try std.testing.expect(out.isContiguous());
-    try std.testing.expectEqualSlices(usize, &.{ n, n }, out.shape);
+    try std.testing.expectEqualSlices(usize, &.{ m, n }, out.shape);
 
     const checks = [_][2]usize{
         .{ 0, 0 },
-        .{ @min(@as(usize, 3), n - 1), @min(@as(usize, 17), n - 1) },
-        .{ n / 2, 5 },
-        .{ n - 1, n - 1 },
+        .{ @min(@as(usize, 3), m - 1), @min(@as(usize, 17), n - 1) },
+        .{ m / 2, @min(@as(usize, 5), n - 1) },
+        .{ m - 1, n - 1 },
     };
     for (checks) |idx| {
         var expected: f32 = 0;
         var kk: usize = 0;
-        while (kk < n) : (kk += 1) {
-            expected += lhs.data[idx[0] * n + kk] * rhs.data[kk * n + idx[1]];
+        while (kk < k) : (kk += 1) {
+            expected += lhs.data[idx[0] * k + kk] * rhs.data[kk * n + idx[1]];
         }
         try std.testing.expectApproxEqAbs(expected, out.data[idx[0] * n + idx[1]], 1e-4);
     }
