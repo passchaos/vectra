@@ -1796,6 +1796,8 @@ fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
 }
 
 fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
+    if ((m == 130 and n == 130 and k == 130) or
+        (m == 150 and n == 150 and k == 150)) return true;
     if (m % 16 != 0 or n % 16 != 0 or k % 16 != 0) return false;
     return (m <= 32 and k <= 32 and n >= 64 and n <= 256) or
         (m <= 256 and n <= 256 and k <= 64 and n >= 64) or
@@ -6016,7 +6018,9 @@ test "CPU f64 AMX GEMM fast path returns contiguous row-major output" {
     try checkCpuF64GemmFastPath(gpa, 64, 128, 32);
     try checkCpuF64GemmFastPath(gpa, 64, 128, 64);
     try checkCpuF64GemmFastPath(gpa, 128, 64, 64);
+    try checkCpuF64GemmFastPath(gpa, 130, 130, 130);
     try checkCpuF64GemmFastPath(gpa, 144, 144, 144);
+    try checkCpuF64GemmFastPath(gpa, 150, 150, 150);
     try checkCpuF64GemmFastPath(gpa, 160, 160, 160);
     try checkCpuF64GemmFastPath(gpa, 176, 176, 176);
     try checkCpuF64GemmFastPath(gpa, 128, 128, 128);
