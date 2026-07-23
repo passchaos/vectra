@@ -56,6 +56,11 @@ pub fn build(b: *std.Build) void {
     _ = b.option(bool, "axiom-cuda", "Compatibility flag: Axiom CUDA wrapping is enabled on non-macOS targets") orelse !is_macos_target;
     _ = b.option(bool, "axiom-cuda-dispatch", "Compatibility flag: supported CUDA dispatch uses Axiom on non-macOS targets") orelse !is_macos_target;
     _ = b.option(bool, "axiom-cpu-dispatch", "Compatibility flag: supported CPU dispatch always uses Axiom CPU lowering") orelse true;
+    const veyra_accelerate = b.option(
+        bool,
+        "veyra-accelerate",
+        "Enable Accelerate-backed dense kernels in Veyra",
+    ) orelse is_macos_target;
     const enable_axiom_cuda = !is_macos_target;
     const enable_axiom_cuda_dispatch = enable_axiom_cuda;
     const enable_axiom_cpu_dispatch = true;
@@ -77,6 +82,7 @@ pub fn build(b: *std.Build) void {
     const veyra_dep = b.dependency("veyra", .{
         .target = target,
         .optimize = optimize,
+        .accelerate = veyra_accelerate,
     });
     const veyra_mod = veyra_dep.module("veyra");
     const alea_dep = b.dependency("alea", .{
@@ -87,6 +93,7 @@ pub fn build(b: *std.Build) void {
     const axiom_dep = b.dependency("axiom", .{
         .target = target,
         .optimize = optimize,
+        .@"veyra-accelerate" = veyra_accelerate,
     });
     const build_options = b.addOptions();
     build_options.addOption(bool, "enable_axiom_cuda", enable_axiom_cuda);
