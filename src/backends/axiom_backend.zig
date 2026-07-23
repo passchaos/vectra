@@ -1877,7 +1877,11 @@ fn isCpuF32ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
 }
 
 fn isCpuF32ColumnMajorPanelRuleGemm(m: usize, n: usize, k: usize) bool {
-    return (m <= 256 and n <= 256 and k == 64 and n >= 128) or
+    const aligned_medium = m % 16 == 0 and n % 16 == 0 and k % 16 == 0 and
+        m >= 128 and n >= 128 and k >= 128 and
+        m <= 512 and n <= 512 and k <= 256;
+    return aligned_medium or
+        (m <= 256 and n <= 256 and k == 64 and n >= 128) or
         (k == 128 and ((m == 128 and n == 256) or
             (n == 128 and (m == 192 or m == 256)) or
             (m >= 192 and n >= 192 and m <= 256 and n <= 256))) or
