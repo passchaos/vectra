@@ -1779,6 +1779,7 @@ fn shouldDirectCpuF32NativeGemm(m: usize, n: usize, k: usize) bool {
 
 fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
     return (m == n and n == k and (m == 96 or m == 128 or m == 144 or m == 160 or m == 176 or m == 192 or m == 224)) or
+        (m == 130 and n == 130 and k == 130) or
         (n == 100 and k == 100 and (m == 10 or m == 50)) or
         (m == 64 and n == 128 and k == 128) or
         (m == 128 and n == 64 and k == 128) or
@@ -5882,6 +5883,7 @@ test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
     const gpa = std.testing.allocator;
     try checkCpuF32SquareGemmFastPath(gpa, 96);
     try checkCpuF32SquareGemmFastPath(gpa, 128);
+    try checkCpuF32SquareGemmFastPath(gpa, 130);
     try checkCpuF32SquareGemmFastPath(gpa, 144);
     try checkCpuF32SquareGemmFastPath(gpa, 160);
     try checkCpuF32SquareGemmFastPath(gpa, 176);
