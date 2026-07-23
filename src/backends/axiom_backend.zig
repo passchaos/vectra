@@ -1582,6 +1582,16 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
             return out;
         }
     }
+    if (T == f64 and shouldMaterializeCpuF64ColumnMajorGemm(m, n, k)) {
+        var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
+        errdefer out.deinit();
+        if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
+            var materialized = column_out;
+            defer materialized.deinit();
+            try materialized.copyToSlice(out.data);
+            return out;
+        }
+    }
     if (T == f64 and m == 100 and n == 100 and k == 100) {
         var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
         errdefer out.deinit();
@@ -1771,6 +1781,12 @@ fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
         (m == 192 and n == 64 and k == 192) or
         (m == 192 and n == 192 and k == 64) or
         (m == 64 and n == 64 and k == 192);
+}
+
+fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
+    if (m % 16 != 0 or n % 16 != 0 or k % 16 != 0) return false;
+    return (m <= 32 and k <= 32 and n >= 64 and n <= 256) or
+        (m <= 128 and n <= 128 and k <= 64);
 }
 
 pub fn cpuMatmulColumnMajorResult(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -5953,6 +5969,61 @@ test "CPU f64 100 GEMM fast path returns contiguous row-major output" {
             expected += lhs.data[idx[0] * n + kk] * rhs.data[kk * n + idx[1]];
         }
         try std.testing.expectApproxEqAbs(expected, out.data[idx[0] * n + idx[1]], 1e-10);
+    }
+}
+
+test "CPU f64 AMX GEMM fast path returns contiguous row-major output" {
+    const gpa = std.testing.allocator;
+    try checkCpuF64GemmFastPath(gpa, 16, 64, 16);
+    try checkCpuF64GemmFastPath(gpa, 16, 128, 16);
+    try checkCpuF64GemmFastPath(gpa, 32, 64, 32);
+    try checkCpuF64GemmFastPath(gpa, 32, 128, 32);
+    try checkCpuF64GemmFastPath(gpa, 32, 256, 32);
+    try checkCpuF64GemmFastPath(gpa, 64, 64, 64);
+    try checkCpuF64GemmFastPath(gpa, 64, 128, 32);
+    try checkCpuF64GemmFastPath(gpa, 64, 128, 64);
+    try checkCpuF64GemmFastPath(gpa, 128, 64, 64);
+}
+
+fn checkCpuF64GemmFastPath(gpa: std.mem.Allocator, comptime m: usize, comptime n: usize, comptime k: usize) !void {
+    var lhs = try array_mod.Array(f64).empty(gpa, &.{ m, k });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f64).empty(gpa, &.{ k, n });
+    defer rhs.deinit();
+
+    var row: usize = 0;
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < k) : (col += 1) {
+            lhs.data[row * k + col] = @as(f64, @floatFromInt(((row + 5) * (col + 7)) % 23 + 1)) * 0.015625;
+        }
+    }
+    row = 0;
+    while (row < k) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            rhs.data[row * n + col] = @as(f64, @floatFromInt(((row + 11) * (col + 13)) % 29 + 1)) * -0.01171875;
+        }
+    }
+
+    var out = try matmul(f64, .prefer_axiom_cpu, lhs, rhs);
+    defer out.deinit();
+    try std.testing.expect(out.isContiguous());
+    try std.testing.expectEqualSlices(usize, &.{ m, n }, out.shape);
+
+    const checks = [_][2]usize{
+        .{ 0, 0 },
+        .{ @min(@as(usize, 3), m - 1), @min(@as(usize, 17), n - 1) },
+        .{ m / 2, @min(@as(usize, 5), n - 1) },
+        .{ m - 1, n - 1 },
+    };
+    for (checks) |idx| {
+        var expected: f64 = 0;
+        var kk: usize = 0;
+        while (kk < k) : (kk += 1) {
+            expected += lhs.data[idx[0] * k + kk] * rhs.data[kk * n + idx[1]];
+        }
+        try std.testing.expectApproxEqAbs(expected, out.data[idx[0] * n + idx[1]], 1e-9);
     }
 }
 
