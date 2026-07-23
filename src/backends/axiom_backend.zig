@@ -3937,6 +3937,11 @@ fn executeCpuTransposeFastPath(comptime T: type, input: array_mod.Array(T)) arra
 }
 
 fn cpuTransposeBlocked(comptime T: type, out: []T, input: []const T, rows: usize, cols: usize) void {
+    if (comptime T == f32 or T == f64) {
+        cpuTransposeBlocked4x4(T, out, input, rows, cols);
+        return;
+    }
+
     const block: usize = 32;
     var row0: usize = 0;
     while (row0 < rows) : (row0 += block) {
@@ -3945,6 +3950,44 @@ fn cpuTransposeBlocked(comptime T: type, out: []T, input: []const T, rows: usize
         while (col0 < cols) : (col0 += block) {
             const col_end = @min(col0 + block, cols);
             var row = row0;
+            while (row < row_end) : (row += 1) {
+                var col = col0;
+                while (col < col_end) : (col += 1) {
+                    out[col * rows + row] = input[row * cols + col];
+                }
+            }
+        }
+    }
+}
+
+fn cpuTransposeBlocked4x4(comptime T: type, out: []T, input: []const T, rows: usize, cols: usize) void {
+    const block: usize = 32;
+    var row0: usize = 0;
+    while (row0 < rows) : (row0 += block) {
+        const row_end = @min(row0 + block, rows);
+        var col0: usize = 0;
+        while (col0 < cols) : (col0 += block) {
+            const col_end = @min(col0 + block, cols);
+            var row = row0;
+            while (row + 4 <= row_end) : (row += 4) {
+                var col = col0;
+                while (col + 4 <= col_end) : (col += 4) {
+                    const r0: @Vector(4, T) = input[(row + 0) * cols + col ..][0..4].*;
+                    const r1: @Vector(4, T) = input[(row + 1) * cols + col ..][0..4].*;
+                    const r2: @Vector(4, T) = input[(row + 2) * cols + col ..][0..4].*;
+                    const r3: @Vector(4, T) = input[(row + 3) * cols + col ..][0..4].*;
+                    out[(col + 0) * rows + row ..][0..4].* = .{ r0[0], r1[0], r2[0], r3[0] };
+                    out[(col + 1) * rows + row ..][0..4].* = .{ r0[1], r1[1], r2[1], r3[1] };
+                    out[(col + 2) * rows + row ..][0..4].* = .{ r0[2], r1[2], r2[2], r3[2] };
+                    out[(col + 3) * rows + row ..][0..4].* = .{ r0[3], r1[3], r2[3], r3[3] };
+                }
+                while (col < col_end) : (col += 1) {
+                    out[col * rows + row + 0] = input[(row + 0) * cols + col];
+                    out[col * rows + row + 1] = input[(row + 1) * cols + col];
+                    out[col * rows + row + 2] = input[(row + 2) * cols + col];
+                    out[col * rows + row + 3] = input[(row + 3) * cols + col];
+                }
+            }
             while (row < row_end) : (row += 1) {
                 var col = col0;
                 while (col < col_end) : (col += 1) {
