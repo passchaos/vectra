@@ -1788,7 +1788,9 @@ fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
         (m == 192 and n == 192 and k == 64) or
         (m == 64 and n == 64 and k == 192) or
         (m <= 256 and n <= 256 and k == 64 and n >= 128) or
-        (k == 128 and ((m == 128 and n == 256) or (n == 128 and (m == 192 or m == 256))));
+        (k == 128 and ((m == 128 and n == 256) or
+            (n == 128 and (m == 192 or m == 256)) or
+            (m >= 192 and n >= 192 and m <= 256 and n <= 256)));
 }
 
 fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
@@ -5902,6 +5904,9 @@ test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
     try checkCpuF32GemmFastPath(gpa, 128, 256, 128);
     try checkCpuF32GemmFastPath(gpa, 192, 128, 128);
     try checkCpuF32GemmFastPath(gpa, 256, 128, 128);
+    try checkCpuF32GemmFastPath(gpa, 192, 256, 128);
+    try checkCpuF32GemmFastPath(gpa, 256, 192, 128);
+    try checkCpuF32GemmFastPath(gpa, 256, 256, 128);
 }
 
 fn checkCpuF32SquareGemmFastPath(gpa: std.mem.Allocator, comptime n: usize) !void {
