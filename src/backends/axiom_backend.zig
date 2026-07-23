@@ -1653,6 +1653,69 @@ fn copyColumnMajorMatrixToRowMajor(comptime T: type, out: []T, column_major: []c
     cpuTransposeBlocked(T, out[0 .. rows * cols], column_major[0 .. rows * cols], cols, rows);
 }
 
+fn materializeColumnMajorGemmAdd(
+    comptime T: type,
+    out: []T,
+    column_major: []const T,
+    addend: array_mod.Array(T),
+    rows: usize,
+    cols: usize,
+    alpha: f32,
+    beta: f32,
+) bool {
+    if (addend.shape.len != 2 or addend.shape[0] != rows or addend.shape[1] != cols or !addend.isContiguous()) return false;
+    std.debug.assert(out.len >= rows * cols);
+    std.debug.assert(column_major.len >= rows * cols);
+
+    const alpha_t: T = @floatCast(alpha);
+    const beta_t: T = @floatCast(beta);
+    const alpha_vec: @Vector(4, T) = @splat(alpha_t);
+    const beta_vec: @Vector(4, T) = @splat(beta_t);
+
+    const block: usize = 32;
+    var row0: usize = 0;
+    while (row0 < rows) : (row0 += block) {
+        const row_end = @min(row0 + block, rows);
+        var col0: usize = 0;
+        while (col0 < cols) : (col0 += block) {
+            const col_end = @min(col0 + block, cols);
+            var row = row0;
+            while (row + 4 <= row_end) : (row += 4) {
+                var col = col0;
+                while (col + 4 <= col_end) : (col += 4) {
+                    const c0: @Vector(4, T) = column_major[(col + 0) * rows + row ..][0..4].*;
+                    const c1: @Vector(4, T) = column_major[(col + 1) * rows + row ..][0..4].*;
+                    const c2: @Vector(4, T) = column_major[(col + 2) * rows + row ..][0..4].*;
+                    const c3: @Vector(4, T) = column_major[(col + 3) * rows + row ..][0..4].*;
+
+                    const add0: @Vector(4, T) = addend.data[(row + 0) * cols + col ..][0..4].*;
+                    const add1: @Vector(4, T) = addend.data[(row + 1) * cols + col ..][0..4].*;
+                    const add2: @Vector(4, T) = addend.data[(row + 2) * cols + col ..][0..4].*;
+                    const add3: @Vector(4, T) = addend.data[(row + 3) * cols + col ..][0..4].*;
+
+                    out[(row + 0) * cols + col ..][0..4].* = alpha_vec * @as(@Vector(4, T), .{ c0[0], c1[0], c2[0], c3[0] }) + beta_vec * add0;
+                    out[(row + 1) * cols + col ..][0..4].* = alpha_vec * @as(@Vector(4, T), .{ c0[1], c1[1], c2[1], c3[1] }) + beta_vec * add1;
+                    out[(row + 2) * cols + col ..][0..4].* = alpha_vec * @as(@Vector(4, T), .{ c0[2], c1[2], c2[2], c3[2] }) + beta_vec * add2;
+                    out[(row + 3) * cols + col ..][0..4].* = alpha_vec * @as(@Vector(4, T), .{ c0[3], c1[3], c2[3], c3[3] }) + beta_vec * add3;
+                }
+                while (col < col_end) : (col += 1) {
+                    out[(row + 0) * cols + col] = alpha_t * column_major[col * rows + row + 0] + beta_t * addend.data[(row + 0) * cols + col];
+                    out[(row + 1) * cols + col] = alpha_t * column_major[col * rows + row + 1] + beta_t * addend.data[(row + 1) * cols + col];
+                    out[(row + 2) * cols + col] = alpha_t * column_major[col * rows + row + 2] + beta_t * addend.data[(row + 2) * cols + col];
+                    out[(row + 3) * cols + col] = alpha_t * column_major[col * rows + row + 3] + beta_t * addend.data[(row + 3) * cols + col];
+                }
+            }
+            while (row < row_end) : (row += 1) {
+                var col = col0;
+                while (col < col_end) : (col += 1) {
+                    out[row * cols + col] = alpha_t * column_major[col * rows + row] + beta_t * addend.data[row * cols + col];
+                }
+            }
+        }
+    }
+    return true;
+}
+
 fn getCachedF32GemmWorkspace() !*veyra.GemmF32Workspace {
     if (cached_f32_gemm_workspace) |workspace| return workspace;
 
@@ -1742,6 +1805,7 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
             out.deinit();
             return null;
         };
+        restoreCpuGemmDestination(T, out.data, addend, beta);
         veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, options, workspace) catch {
             out.deinit();
             return null;
@@ -1804,6 +1868,8 @@ fn isCpuF32ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
         (m == 256 and n == 192 and k == 256) or
         (m == 128 and n == 512 and k == 128) or
         (m == 512 and n == 128 and k == 512) or
+        (m == 128 and n == 384 and k == 128) or
+        (m == 384 and n == 128 and k == 128) or
         (n == 64 and m == 128 and k == 256) or
         (n == 64 and m == 256 and (k == 128 or k == 192 or k == 256));
 }
@@ -1932,6 +1998,24 @@ fn executeCpuGemmScaledTarget(comptime T: type, lhs: array_mod.Array(T), rhs: ar
     const m = lhs.shape[0];
     const k = lhs.shape[1];
     const n = rhs.shape[1];
+    if (T == f32 and shouldMaterializeCpuF32ColumnMajorGemm(m, n, k)) {
+        var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
+        errdefer out.deinit();
+        if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
+            var materialized = column_out;
+            defer materialized.deinit();
+            if (materializeColumnMajorGemmAdd(T, out.data, materialized.data, addend, m, n, alpha, beta)) return out;
+        }
+    }
+    if (T == f64 and shouldMaterializeCpuF64ColumnMajorGemm(m, n, k)) {
+        var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
+        errdefer out.deinit();
+        if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
+            var materialized = column_out;
+            defer materialized.deinit();
+            if (materializeColumnMajorGemmAdd(T, out.data, materialized.data, addend, m, n, alpha, beta)) return out;
+        }
+    }
     if (largeCpuGemm(m, n, k)) return executeCpuGemmDirect(T, lhs, rhs, addend, alpha, beta);
 
     var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
@@ -6267,6 +6351,59 @@ test "CPU column-major matmul result materializes efficiently" {
     defer contiguous.deinit();
     try std.testing.expect(contiguous.isContiguous());
     try std.testing.expectEqualSlices(f64, &.{ 58, 64, 139, 154 }, contiguous.data);
+}
+
+test "CPU f32 matmulAdd uses column-major materialization shapes" {
+    const gpa = std.testing.allocator;
+    const m: usize = 128;
+    const n: usize = 384;
+    const k: usize = 128;
+    var lhs = try array_mod.Array(f32).empty(gpa, &.{ m, k });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f32).empty(gpa, &.{ k, n });
+    defer rhs.deinit();
+    var addend = try array_mod.Array(f32).empty(gpa, &.{ m, n });
+    defer addend.deinit();
+
+    var row: usize = 0;
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < k) : (col += 1) {
+            lhs.data[row * k + col] = @as(f32, @floatFromInt(((row + 3) * (col + 5)) % 17 + 1)) * 0.03125;
+        }
+    }
+    row = 0;
+    while (row < k) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            rhs.data[row * n + col] = @as(f32, @floatFromInt(((row + 7) * (col + 11)) % 19 + 1)) * -0.015625;
+        }
+    }
+    row = 0;
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            addend.data[row * n + col] = @as(f32, @floatFromInt(((row + 13) * (col + 17)) % 23 + 1)) * 0.0078125;
+        }
+    }
+
+    var product = try matmul(f32, .prefer_axiom_cpu, lhs, rhs);
+    defer product.deinit();
+    var fused = (try executeCpuGemmScaledTarget(f32, lhs, rhs, addend, 1.0, 1.0)) orelse return error.BackendFailure;
+    defer fused.deinit();
+    try std.testing.expect(fused.isContiguous());
+    try std.testing.expectEqualSlices(usize, &.{ m, n }, fused.shape);
+
+    const checks = [_][2]usize{
+        .{ 0, 0 },
+        .{ 3, 17 },
+        .{ m / 2, 5 },
+        .{ m - 1, n - 1 },
+    };
+    for (checks) |idx| {
+        const index = idx[0] * n + idx[1];
+        try std.testing.expectApproxEqAbs(product.data[index] + addend.data[index], fused.data[index], 1e-4);
+    }
 }
 
 test "Axiom backend policy reports elementwise route" {
