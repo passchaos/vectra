@@ -921,6 +921,26 @@ fn ravelIndex(indices: []const usize, strides: []const usize) usize {
     return offset;
 }
 
+fn copyColumnMajor2dToRowMajorSlice(comptime T: type, out: []T, input: []const T, offset: usize, rows: usize, cols: usize) void {
+    const block: usize = 32;
+    var row0: usize = 0;
+    while (row0 < rows) : (row0 += block) {
+        const row_end = @min(row0 + block, rows);
+        var col0: usize = 0;
+        while (col0 < cols) : (col0 += block) {
+            const col_end = @min(col0 + block, cols);
+            var row = row0;
+            while (row < row_end) : (row += 1) {
+                const dst_row = out[row * cols .. row * cols + cols];
+                var col = col0;
+                while (col < col_end) : (col += 1) {
+                    dst_row[col] = input[offset + col * rows + row];
+                }
+            }
+        }
+    }
+}
+
 fn computeBroadcastShape(allocator: std.mem.Allocator, a: []const usize, b: []const usize) ArrayError![]usize {
     const rank = @max(a.len, b.len);
     const out = try allocator.alloc(usize, rank);
@@ -1720,14 +1740,7 @@ pub fn ArrayView(comptime T: type) type {
                 const span = std.math.mul(usize, rows, cols) catch return error.InvalidShape;
                 const end = std.math.add(usize, self.offset, span) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
-                var row: usize = 0;
-                while (row < rows) : (row += 1) {
-                    const dst_row = out[row * cols .. row * cols + cols];
-                    var col: usize = 0;
-                    while (col < cols) : (col += 1) {
-                        dst_row[col] = self.data[self.offset + col * rows + row];
-                    }
-                }
+                copyColumnMajor2dToRowMajorSlice(T, out, self.data, self.offset, rows, cols);
                 return;
             }
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -24870,6 +24883,18 @@ test "array comparison and logical wrappers" {
     var copied: [4]f64 = undefined;
     try contiguous_view.copyToSlice(&copied);
     try std.testing.expectEqualSlices(f64, a.data, &copied);
+    var column_major_copy_source = try Array(f64).fromSlice(gpa, &.{
+        1,  2,  3,
+        4,  5,  6,
+        7,  8,  9,
+        10, 11, 12,
+    }, &.{ 3, 4 });
+    defer column_major_copy_source.deinit();
+    var column_major_copy_view = try column_major_copy_source.asStrided(&.{ 3, 4 }, &.{ 1, 3 }, 0);
+    defer column_major_copy_view.deinit();
+    var column_major_copied: [12]f64 = undefined;
+    try column_major_copy_view.copyToSlice(&column_major_copied);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 4, 7, 10, 2, 5, 8, 11, 3, 6, 9, 12 }, &column_major_copied);
     var materialized = try contiguous_view.toArray();
     defer materialized.deinit();
     try std.testing.expectEqualSlices(f64, a.data, materialized.data);
