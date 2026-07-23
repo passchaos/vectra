@@ -1569,7 +1569,7 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     const m = lhs.shape[0];
     const k = lhs.shape[1];
     const n = rhs.shape[1];
-    if (T == f32 and m == n and n == k and (m == 128 or m == 160 or m == 192)) {
+    if (T == f32 and m == n and n == k and (m == 96 or m == 128 or m == 160 or m == 192 or m == 224)) {
         var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
         errdefer out.deinit();
         if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
@@ -5828,9 +5828,11 @@ test "Axiom backend policy reports matmul route" {
 
 test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
     const gpa = std.testing.allocator;
+    try checkCpuF32SquareGemmFastPath(gpa, 96);
     try checkCpuF32SquareGemmFastPath(gpa, 128);
     try checkCpuF32SquareGemmFastPath(gpa, 160);
     try checkCpuF32SquareGemmFastPath(gpa, 192);
+    try checkCpuF32SquareGemmFastPath(gpa, 224);
 }
 
 fn checkCpuF32SquareGemmFastPath(gpa: std.mem.Allocator, comptime n: usize) !void {
@@ -5855,9 +5857,9 @@ fn checkCpuF32SquareGemmFastPath(gpa: std.mem.Allocator, comptime n: usize) !voi
 
     const checks = [_][2]usize{
         .{ 0, 0 },
-        .{ 3, 17 },
-        .{ 64, 5 },
-        .{ 127, 127 },
+        .{ @min(@as(usize, 3), n - 1), @min(@as(usize, 17), n - 1) },
+        .{ n / 2, 5 },
+        .{ n - 1, n - 1 },
     };
     for (checks) |idx| {
         var expected: f32 = 0;
