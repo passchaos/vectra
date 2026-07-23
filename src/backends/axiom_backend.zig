@@ -1578,7 +1578,7 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
         if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
             var materialized = column_out;
             defer materialized.deinit();
-            try materialized.copyToSlice(out.data);
+            copyColumnMajorMatrixToRowMajor(T, out.data, materialized.data, m, n);
             return out;
         }
     }
@@ -1588,7 +1588,7 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
         if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
             var materialized = column_out;
             defer materialized.deinit();
-            try materialized.copyToSlice(out.data);
+            copyColumnMajorMatrixToRowMajor(T, out.data, materialized.data, m, n);
             return out;
         }
     }
@@ -1645,6 +1645,12 @@ fn largeCpuGemm(m: usize, n: usize, k: usize) bool {
     const mn = std.math.mul(usize, m, n) catch return true;
     const work = std.math.mul(usize, mn, k) catch return true;
     return work >= cpu_matmul_like_fast_path_min_ops;
+}
+
+fn copyColumnMajorMatrixToRowMajor(comptime T: type, out: []T, column_major: []const T, rows: usize, cols: usize) void {
+    std.debug.assert(out.len >= rows * cols);
+    std.debug.assert(column_major.len >= rows * cols);
+    cpuTransposeBlocked(T, out[0 .. rows * cols], column_major[0 .. rows * cols], cols, rows);
 }
 
 fn getCachedF32GemmWorkspace() !*veyra.GemmF32Workspace {
