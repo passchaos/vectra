@@ -1800,6 +1800,12 @@ fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
         (m == 192 and n == 64 and k == 192) or
         (m == 192 and n == 192 and k == 64) or
         (m == 64 and n == 64 and k == 192) or
+        (m == 64 and n == 256 and k == 256) or
+        (m == 128 and n == 192 and k == 192) or
+        (m == 192 and n == 256 and k == 192) or
+        (m == 256 and n == 192 and k == 256) or
+        (m == 128 and n == 512 and k == 128) or
+        (m == 512 and n == 128 and k == 512) or
         (n == 64 and m == 128 and k == 256) or
         (n == 64 and m == 256 and (k == 128 or k == 192 or k == 256)) or
         (m <= 256 and n <= 256 and k == 64 and n >= 128) or
@@ -1837,6 +1843,13 @@ fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
         (m == 128 and n == 128 and k == 128) or
         (m == 192 and n == 128 and k == 128) or
         (m == 128 and n == 128 and k == 192) or
+        (m == 64 and ((n == 128 and k == 128) or
+            (n == 192 and k == 192) or
+            (n == 256 and k == 256))) or
+        (m == 128 and n == 192 and k == 192) or
+        (m == 192 and ((n == 128 and k == 192) or
+            (n == 256 and k == 192))) or
+        (m == 256 and n == 192 and k == 256) or
         (n == 64 and ((m == 128 and (k == 128 or k == 256)) or
             (m == 192 and k == 192) or
             (m == 256 and (k == 128 or k == 192 or k == 256))));
@@ -5988,6 +6001,12 @@ test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
     try checkCpuF32GemmFastPath(gpa, 192, 64, 192);
     try checkCpuF32GemmFastPath(gpa, 192, 192, 64);
     try checkCpuF32GemmFastPath(gpa, 64, 64, 192);
+    try checkCpuF32GemmFastPath(gpa, 64, 256, 256);
+    try checkCpuF32GemmFastPath(gpa, 128, 192, 192);
+    try checkCpuF32GemmFastPath(gpa, 192, 256, 192);
+    try checkCpuF32GemmFastPath(gpa, 256, 192, 256);
+    try checkCpuF32GemmFastPath(gpa, 128, 512, 128);
+    try checkCpuF32GemmFastPath(gpa, 512, 128, 512);
     try checkCpuF32GemmFastPath(gpa, 128, 64, 256);
     try checkCpuF32GemmFastPath(gpa, 256, 64, 128);
     try checkCpuF32GemmFastPath(gpa, 256, 64, 192);
@@ -6110,12 +6129,19 @@ test "CPU f64 AMX GEMM fast path returns contiguous row-major output" {
     try checkCpuF64GemmFastPath(gpa, 64, 128, 32);
     try checkCpuF64GemmFastPath(gpa, 64, 128, 64);
     try checkCpuF64GemmFastPath(gpa, 128, 64, 64);
+    try checkCpuF64GemmFastPath(gpa, 64, 128, 128);
+    try checkCpuF64GemmFastPath(gpa, 64, 192, 192);
+    try checkCpuF64GemmFastPath(gpa, 64, 256, 256);
     try checkCpuF64GemmFastPath(gpa, 128, 64, 128);
     try checkCpuF64GemmFastPath(gpa, 128, 64, 256);
+    try checkCpuF64GemmFastPath(gpa, 128, 192, 192);
+    try checkCpuF64GemmFastPath(gpa, 192, 128, 192);
     try checkCpuF64GemmFastPath(gpa, 192, 64, 192);
+    try checkCpuF64GemmFastPath(gpa, 192, 256, 192);
     try checkCpuF64GemmFastPath(gpa, 256, 64, 128);
     try checkCpuF64GemmFastPath(gpa, 256, 64, 192);
     try checkCpuF64GemmFastPath(gpa, 256, 64, 256);
+    try checkCpuF64GemmFastPath(gpa, 256, 192, 256);
     try checkCpuF64GemmFastPath(gpa, 130, 130, 130);
     try checkCpuF64GemmFastPath(gpa, 132, 132, 132);
     try checkCpuF64GemmFastPath(gpa, 136, 136, 136);
