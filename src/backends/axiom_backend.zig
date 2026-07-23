@@ -1777,22 +1777,20 @@ fn shouldDirectCpuF32NativeGemm(m: usize, n: usize, k: usize) bool {
     return m <= 32 and k <= 32 and n >= 64;
 }
 
-fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
-    return (m == n and n == k and (m == 96 or m == 128 or m == 144 or m == 160 or m == 176 or m == 192 or m == 224)) or
-        (m == 130 and n == 130 and k == 130) or
-        (m == 132 and n == 132 and k == 132) or
-        (m == 136 and n == 136 and k == 136) or
-        (m == 140 and n == 140 and k == 140) or
-        (m == 148 and n == 148 and k == 148) or
-        (m == 152 and n == 152 and k == 152) or
-        (m == 156 and n == 156 and k == 156) or
-        (m == 164 and n == 164 and k == 164) or
-        (m == 168 and n == 168 and k == 168) or
-        (m == 172 and n == 172 and k == 172) or
-        (m == 180 and n == 180 and k == 180) or
-        (m == 184 and n == 184 and k == 184) or
-        (m == 188 and n == 188 and k == 188) or
-        (n == 100 and k == 100 and (m == 10 or m == 50)) or
+fn isSquareGemm(m: usize, n: usize, k: usize) bool {
+    return m == n and n == k;
+}
+
+fn isCpuF32ColumnMajorSquareGemm(m: usize, n: usize, k: usize) bool {
+    if (!isSquareGemm(m, n, k)) return false;
+    return switch (m) {
+        96, 128, 130, 132, 136, 140, 144, 148, 152, 156, 160, 164, 168, 172, 176, 180, 184, 188, 192, 224 => true,
+        else => false,
+    };
+}
+
+fn isCpuF32ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
+    return (n == 100 and k == 100 and (m == 10 or m == 50)) or
         (m == 64 and n == 128 and k == 128) or
         (m == 128 and n == 64 and k == 128) or
         (m == 128 and n == 128 and k == 64) or
@@ -1807,29 +1805,32 @@ fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
         (m == 128 and n == 512 and k == 128) or
         (m == 512 and n == 128 and k == 512) or
         (n == 64 and m == 128 and k == 256) or
-        (n == 64 and m == 256 and (k == 128 or k == 192 or k == 256)) or
-        (m <= 256 and n <= 256 and k == 64 and n >= 128) or
+        (n == 64 and m == 256 and (k == 128 or k == 192 or k == 256));
+}
+
+fn isCpuF32ColumnMajorPanelRuleGemm(m: usize, n: usize, k: usize) bool {
+    return (m <= 256 and n <= 256 and k == 64 and n >= 128) or
         (k == 128 and ((m == 128 and n == 256) or
             (n == 128 and (m == 192 or m == 256)) or
             (m >= 192 and n >= 192 and m <= 256 and n <= 256))) or
         (k == 192 and ((m == 128 and n == 256) or (n == 128 and (m == 192 or m == 256))));
 }
 
-fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
-    if ((m == 130 and n == 130 and k == 130) or
-        (m == 132 and n == 132 and k == 132) or
-        (m == 136 and n == 136 and k == 136) or
-        (m == 140 and n == 140 and k == 140) or
-        (m == 148 and n == 148 and k == 148) or
-        (m == 152 and n == 152 and k == 152) or
-        (m == 156 and n == 156 and k == 156) or
-        (m == 164 and n == 164 and k == 164) or
-        (m == 168 and n == 168 and k == 168) or
-        (m == 172 and n == 172 and k == 172) or
-        (m == 180 and n == 180 and k == 180) or
-        (m == 184 and n == 184 and k == 184) or
-        (m == 188 and n == 188 and k == 188) or
-        (m == 150 and n == 150 and k == 150)) return true;
+fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
+    return isCpuF32ColumnMajorSquareGemm(m, n, k) or
+        isCpuF32ColumnMajorMeasuredRectGemm(m, n, k) or
+        isCpuF32ColumnMajorPanelRuleGemm(m, n, k);
+}
+
+fn isCpuF64ColumnMajorSquareGemm(m: usize, n: usize, k: usize) bool {
+    if (!isSquareGemm(m, n, k)) return false;
+    return switch (m) {
+        130, 132, 136, 140, 148, 150, 152, 156, 164, 168, 172, 180, 184, 188 => true,
+        else => false,
+    };
+}
+
+fn isCpuF64ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
     if (m % 16 != 0 or n % 16 != 0 or k % 16 != 0) return false;
     return (m <= 32 and k <= 32 and n >= 64 and n <= 256) or
         (m <= 256 and n <= 256 and k <= 64 and n >= 64) or
@@ -1853,6 +1854,11 @@ fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
         (n == 64 and ((m == 128 and (k == 128 or k == 256)) or
             (m == 192 and k == 192) or
             (m == 256 and (k == 128 or k == 192 or k == 256))));
+}
+
+fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
+    return isCpuF64ColumnMajorSquareGemm(m, n, k) or
+        isCpuF64ColumnMajorMeasuredRectGemm(m, n, k);
 }
 
 pub fn cpuMatmulColumnMajorResult(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
