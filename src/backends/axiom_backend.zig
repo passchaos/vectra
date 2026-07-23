@@ -1579,6 +1579,23 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
             return out;
         }
     }
+    if (T == f64 and m == 100 and n == 100 and k == 100) {
+        var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
+        errdefer out.deinit();
+        const lhs_view = veyra.MatrixView(f64).fromSlice(@as(array_mod.Array(f64), lhs).data, m, k, .row_major) catch return null;
+        const rhs_view = veyra.MatrixView(f64).fromSlice(@as(array_mod.Array(f64), rhs).data, k, n, .row_major) catch return null;
+        const out_view = veyra.MatrixMut(f64).fromSlice(@as(array_mod.Array(f64), out).data, m, n, .row_major) catch return null;
+        var workspace = veyra.GemmF64Workspace.init(std.heap.smp_allocator, @max(n, 1)) catch {
+            out.deinit();
+            return null;
+        };
+        defer workspace.deinit();
+        veyra.gemmF64WithWorkspace(lhs_view, rhs_view, out_view, .{}, &workspace) catch {
+            out.deinit();
+            return null;
+        };
+        return out;
+    }
     if (largeCpuGemm(m, n, k)) return executeCpuGemmDirect(T, lhs, rhs, null, 1.0, 0.0);
 
     var c = try array_mod.Array(T).zeros(lhs.allocator, &.{ m, n });
@@ -5844,6 +5861,44 @@ test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
             expected += lhs.data[idx[0] * n + kk] * rhs.data[kk * n + idx[1]];
         }
         try std.testing.expectApproxEqAbs(expected, out.data[idx[0] * n + idx[1]], 1e-4);
+    }
+}
+
+test "CPU f64 100 GEMM fast path returns contiguous row-major output" {
+    const gpa = std.testing.allocator;
+    const n: usize = 100;
+    var lhs = try array_mod.Array(f64).empty(gpa, &.{ n, n });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f64).empty(gpa, &.{ n, n });
+    defer rhs.deinit();
+
+    var row: usize = 0;
+    while (row < n) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            lhs.data[row * n + col] = @as(f64, @floatFromInt(((row + 5) * (col + 7)) % 23 + 1)) * 0.015625;
+            rhs.data[row * n + col] = @as(f64, @floatFromInt(((row + 11) * (col + 13)) % 29 + 1)) * -0.01171875;
+        }
+    }
+
+    var out = try matmul(f64, .prefer_axiom_cpu, lhs, rhs);
+    defer out.deinit();
+    try std.testing.expect(out.isContiguous());
+    try std.testing.expectEqualSlices(usize, &.{ n, n }, out.shape);
+
+    const checks = [_][2]usize{
+        .{ 0, 0 },
+        .{ 3, 17 },
+        .{ 64, 5 },
+        .{ 99, 99 },
+    };
+    for (checks) |idx| {
+        var expected: f64 = 0;
+        var kk: usize = 0;
+        while (kk < n) : (kk += 1) {
+            expected += lhs.data[idx[0] * n + kk] * rhs.data[kk * n + idx[1]];
+        }
+        try std.testing.expectApproxEqAbs(expected, out.data[idx[0] * n + idx[1]], 1e-10);
     }
 }
 
