@@ -1790,7 +1790,8 @@ fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
         (m <= 256 and n <= 256 and k == 64 and n >= 128) or
         (k == 128 and ((m == 128 and n == 256) or
             (n == 128 and (m == 192 or m == 256)) or
-            (m >= 192 and n >= 192 and m <= 256 and n <= 256)));
+            (m >= 192 and n >= 192 and m <= 256 and n <= 256))) or
+        (k == 192 and ((m == 128 and n == 256) or (n == 128 and (m == 192 or m == 256))));
 }
 
 fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
@@ -1798,7 +1799,8 @@ fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
     return (m <= 32 and k <= 32 and n >= 64 and n <= 256) or
         (m <= 256 and n <= 256 and k <= 64 and n >= 64) or
         (m == 128 and n == 128 and k == 128) or
-        (m == 192 and n == 128 and k == 128);
+        (m == 192 and n == 128 and k == 128) or
+        (m == 128 and n == 128 and k == 192);
 }
 
 pub fn cpuMatmulColumnMajorResult(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -5907,6 +5909,9 @@ test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
     try checkCpuF32GemmFastPath(gpa, 192, 256, 128);
     try checkCpuF32GemmFastPath(gpa, 256, 192, 128);
     try checkCpuF32GemmFastPath(gpa, 256, 256, 128);
+    try checkCpuF32GemmFastPath(gpa, 128, 256, 192);
+    try checkCpuF32GemmFastPath(gpa, 192, 128, 192);
+    try checkCpuF32GemmFastPath(gpa, 256, 128, 192);
 }
 
 fn checkCpuF32SquareGemmFastPath(gpa: std.mem.Allocator, comptime n: usize) !void {
@@ -6005,6 +6010,7 @@ test "CPU f64 AMX GEMM fast path returns contiguous row-major output" {
     try checkCpuF64GemmFastPath(gpa, 64, 128, 64);
     try checkCpuF64GemmFastPath(gpa, 128, 64, 64);
     try checkCpuF64GemmFastPath(gpa, 128, 128, 128);
+    try checkCpuF64GemmFastPath(gpa, 128, 128, 192);
     try checkCpuF64GemmFastPath(gpa, 192, 128, 128);
     try checkCpuF64GemmFastPath(gpa, 128, 256, 64);
     try checkCpuF64GemmFastPath(gpa, 192, 192, 64);
