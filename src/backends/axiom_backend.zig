@@ -1569,6 +1569,9 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     const m = lhs.shape[0];
     const k = lhs.shape[1];
     const n = rhs.shape[1];
+    if (T == f32 and shouldDirectCpuF32NativeGemm(m, n, k)) {
+        return executeCpuGemmDirect(T, lhs, rhs, null, 1.0, 0.0);
+    }
     if (T == f32 and shouldMaterializeCpuF32ColumnMajorGemm(m, n, k)) {
         var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
         errdefer out.deinit();
@@ -1754,6 +1757,10 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     return out;
 }
 
+fn shouldDirectCpuF32NativeGemm(m: usize, n: usize, k: usize) bool {
+    return m <= 32 and k <= 32 and n >= 64;
+}
+
 fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
     return (m == n and n == k and (m == 96 or m == 128 or m == 160 or m == 192 or m == 224)) or
         (n == 100 and k == 100 and (m == 10 or m == 50)) or
@@ -1763,8 +1770,7 @@ fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
         (m == 64 and n == 192 and k == 192) or
         (m == 192 and n == 64 and k == 192) or
         (m == 192 and n == 192 and k == 64) or
-        (m == 64 and n == 64 and k == 192) or
-        (m == 16 and k == 16 and (n == 128 or n == 256));
+        (m == 64 and n == 64 and k == 192);
 }
 
 pub fn cpuMatmulColumnMajorResult(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -5857,6 +5863,13 @@ test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
     try checkCpuF32GemmFastPath(gpa, 64, 64, 192);
     try checkCpuF32GemmFastPath(gpa, 16, 128, 16);
     try checkCpuF32GemmFastPath(gpa, 16, 256, 16);
+    try checkCpuF32GemmFastPath(gpa, 16, 64, 16);
+    try checkCpuF32GemmFastPath(gpa, 16, 128, 32);
+    try checkCpuF32GemmFastPath(gpa, 16, 256, 32);
+    try checkCpuF32GemmFastPath(gpa, 32, 128, 16);
+    try checkCpuF32GemmFastPath(gpa, 32, 128, 32);
+    try checkCpuF32GemmFastPath(gpa, 32, 256, 16);
+    try checkCpuF32GemmFastPath(gpa, 32, 256, 32);
 }
 
 fn checkCpuF32SquareGemmFastPath(gpa: std.mem.Allocator, comptime n: usize) !void {
