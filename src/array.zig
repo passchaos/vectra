@@ -10074,6 +10074,14 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.matmulAdd(rhs, addend_array);
         }
 
+        pub fn matmulOut(self: Self, other: Self, out: Array(T)) ArrayError!void {
+            var lhs = try self.toArray();
+            defer lhs.deinit();
+            var rhs = try other.toArray();
+            defer rhs.deinit();
+            return lhs.matmulOut(rhs, out);
+        }
+
         pub fn matmulAddSqrt(self: Self, other: Self, addend: Self) ArrayError!Array(T) {
             var lhs = try self.toArray();
             defer lhs.deinit();
@@ -22854,6 +22862,17 @@ pub fn Array(comptime T: type) type {
                 }
             }
             return out;
+        }
+
+        pub fn matmulOut(self: Self, other: Self, out: Self) ArrayError!void {
+            ensureNumeric(T);
+            if (!self.device.sameDevice(other.device) or !self.device.sameDevice(out.device)) return error.InvalidDevice;
+            if (comptime T == f32 or T == f64) {
+                if (try axiom_backend.executeMatmulOutDefault(T, self, other, out)) return;
+            }
+            var product_value = try self.matmul(other);
+            defer product_value.deinit();
+            try out.copyFrom(product_value);
         }
 
         pub fn matmulAdd(self: Self, other: Self, addend: Self) ArrayError!Self {

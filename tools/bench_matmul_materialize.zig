@@ -122,6 +122,9 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     }
     var warm_matmul = try lhs.matmul(rhs);
     warm_matmul.deinit();
+    var warm_matmul_out = try vx.Array(T).empty(allocator, &.{ shape.m, shape.n });
+    try lhs.matmulOut(rhs, warm_matmul_out);
+    warm_matmul_out.deinit();
     var warm_add = try lhs.matmulAdd(rhs, addend);
     warm_add.deinit();
     var warm_add_base = try lhs.matmulAdd(rhs, addend);
@@ -137,12 +140,15 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     var column_copy_add_sqrt_ns: i128 = 0;
     var veyra_prealloc_ns: i128 = 0;
     var matmul_ns: i128 = 0;
+    var matmul_out_ns: i128 = 0;
     var matmul_add_ns: i128 = 0;
     var matmul_add_sqrt_ns: i128 = 0;
     var fused_matmul_add_sqrt_ns: i128 = 0;
     var sink: T = 0;
     const scratch = try allocator.alloc(T, shape.m * shape.n);
     defer allocator.free(scratch);
+    var matmul_out = try vx.Array(T).empty(allocator, &.{ shape.m, shape.n });
+    defer matmul_out.deinit();
 
     for (0..options.iters) |_| {
         var start = nowNs(init.io);
@@ -199,6 +205,11 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
         matmul.deinit();
 
         start = nowNs(init.io);
+        try lhs.matmulOut(rhs, matmul_out);
+        matmul_out_ns += nowNs(init.io) - start;
+        sink += matmul_out.data[0];
+
+        start = nowNs(init.io);
         var matmul_add = try lhs.matmulAdd(rhs, addend);
         matmul_add_ns += nowNs(init.io) - start;
         sink += matmul_add.data[0];
@@ -223,7 +234,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     const stdout = std.debug;
     const denom: i128 = @intCast(options.iters);
     stdout.print(
-        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} align64 lhs/rhs/addend/scratch {d}/{d}/{d}/{d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} copy_add_ns={} copy_add_sqrt_ns={} column_copy_add_sqrt_ns={} veyra_prealloc_ns={} matmul_ns={} matmul_add_ns={} matmul_add_sqrt_ns={} fused_matmul_add_sqrt_ns={}\n",
+        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} align64 lhs/rhs/addend/scratch {d}/{d}/{d}/{d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} copy_add_ns={} copy_add_sqrt_ns={} column_copy_add_sqrt_ns={} veyra_prealloc_ns={} matmul_ns={} matmul_out_ns={} matmul_add_ns={} matmul_add_sqrt_ns={} fused_matmul_add_sqrt_ns={}\n",
         .{
             @typeName(T),
             shape.m,
@@ -243,6 +254,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
             @divTrunc(column_copy_add_sqrt_ns, denom),
             @divTrunc(veyra_prealloc_ns, denom),
             @divTrunc(matmul_ns, denom),
+            @divTrunc(matmul_out_ns, denom),
             @divTrunc(matmul_add_ns, denom),
             @divTrunc(matmul_add_sqrt_ns, denom),
             @divTrunc(fused_matmul_add_sqrt_ns, denom),

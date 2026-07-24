@@ -157,6 +157,12 @@ pub fn matmul(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     return lhs.matmul(rhs);
 }
 
+pub fn matmulOut(lhs: anytype, rhs: @TypeOf(lhs), out: @TypeOf(lhs)) ArrayError!void {
+    try requireSameDevice(lhs, rhs);
+    try requireSameDevice(lhs, out);
+    return lhs.matmulOut(rhs, out);
+}
+
 pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     try requireSameDevice(lhs, addend);

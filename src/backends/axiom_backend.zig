@@ -1311,6 +1311,17 @@ pub fn executeMatmulDefault(comptime T: type, lhs: array_mod.Array(T), rhs: arra
     return executeMatmul(T, defaultTargetForDevice(lhs.device), lhs, rhs);
 }
 
+pub fn executeMatmulOutDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), out: array_mod.Array(T)) array_mod.ArrayError!bool {
+    const target = defaultTargetForDevice(lhs.device);
+    if (!targetCanAccessDevice(target, lhs.device)) return false;
+    if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(out.device)) return error.InvalidDevice;
+    if (!supportedMatmulExecution(T, lhs, rhs)) return false;
+    return switch (target) {
+        .cpu => executeCpuGemmOutDirect(T, lhs, rhs, out),
+        .cuda, .mps => false,
+    };
+}
+
 pub fn executeBmm(
     comptime T: type,
     target: DialectBackend,
@@ -1622,6 +1633,32 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
         return null;
     }
     return out;
+}
+
+fn executeCpuGemmOutDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), out: array_mod.Array(T)) array_mod.ArrayError!bool {
+    if (T != f32 and T != f64) return false;
+    if (lhs.shape.len != 2 or rhs.shape.len != 2 or out.shape.len != 2) return false;
+    if (!lhs.device.isCpu() or !rhs.device.isCpu() or !out.device.isCpu()) return false;
+    if (!lhs.isContiguous() or !rhs.isContiguous() or !out.isContiguous()) return false;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    if (rhs.shape[0] != k or out.shape[0] != m or out.shape[1] != n) return error.ShapeMismatch;
+    if (T == f32 and !shouldDirectCpuF32NativeGemm(m, n, k)) return false;
+    if (T == f64 and !shouldDirectCpuF64NativeGemm(m, n, k)) return false;
+
+    const lhs_view = veyra.MatrixView(T).fromSlice(lhs.data, m, k, .row_major) catch return false;
+    const rhs_view = veyra.MatrixView(T).fromSlice(rhs.data, k, n, .row_major) catch return false;
+    const out_view = veyra.MatrixMut(T).fromSlice(out.data, m, n, .row_major) catch return false;
+    if (T == f32) {
+        const workspace = getCachedF32GemmWorkspace() catch return false;
+        veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{}, workspace) catch return false;
+    } else {
+        const mt_workspace = getCachedF64MtGemmWorkspace() catch return false;
+        veyra.ensureGemmF64MtAppleAmxWorkspace(mt_workspace, m, n, k) catch {};
+        veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, .{}, mt_workspace) catch return false;
+    }
+    return true;
 }
 
 fn executeCpuGemmAddTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
