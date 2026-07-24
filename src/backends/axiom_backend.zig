@@ -1913,7 +1913,7 @@ fn isSquareGemm(m: usize, n: usize, k: usize) bool {
 fn isCpuF32ColumnMajorSquareGemm(m: usize, n: usize, k: usize) bool {
     if (!isSquareGemm(m, n, k)) return false;
     return switch (m) {
-        64, 96, 128, 130, 132, 136, 140, 144, 148, 152, 156, 160, 164, 168, 172, 176, 180, 184, 188, 192, 224 => true,
+        64, 96, 100, 128, 130, 132, 136, 140, 144, 148, 152, 156, 160, 164, 168, 172, 176, 180, 184, 188, 192, 224 => true,
         else => false,
     };
 }
@@ -6631,6 +6631,7 @@ test "CPU f64 direct native GEMM predicate covers narrow packed-B shapes" {
 
 test "CPU f32 materialization predicate covers low-K large square AMX shape" {
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 64, 64));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(100, 100, 100));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(768, 768, 128));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(96, 192, 128));
