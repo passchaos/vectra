@@ -163,6 +163,12 @@ pub fn matmulAdd(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayErr
     return lhs.matmulAdd(rhs, addend);
 }
 
+pub fn matmulAddSqrt(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
+    try requireSameDevice(lhs, rhs);
+    try requireSameDevice(lhs, addend);
+    return lhs.matmulAddSqrt(rhs, addend);
+}
+
 pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     // Bounded NumPy/PyTorch-style front-end syntax over existing Array

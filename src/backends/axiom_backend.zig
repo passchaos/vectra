@@ -1792,6 +1792,78 @@ fn materializeColumnMajorGemmAdd(
     return true;
 }
 
+fn materializeColumnMajorGemmAddSqrt(
+    comptime T: type,
+    out: []T,
+    column_major: []const T,
+    addend: array_mod.Array(T),
+    rows: usize,
+    cols: usize,
+    alpha: f32,
+    beta: f32,
+) bool {
+    if (T != f32 and T != f64) return false;
+    if (addend.shape.len != 2 or addend.shape[0] != rows or addend.shape[1] != cols or !addend.isContiguous()) return false;
+    std.debug.assert(out.len >= rows * cols);
+    std.debug.assert(column_major.len >= rows * cols);
+
+    const alpha_t: T = @floatCast(alpha);
+    const beta_t: T = @floatCast(beta);
+    const alpha_vec: @Vector(4, T) = @splat(alpha_t);
+    const beta_vec: @Vector(4, T) = @splat(beta_t);
+
+    const block: usize = 32;
+    var row0: usize = 0;
+    while (row0 < rows) : (row0 += block) {
+        const row_end = @min(row0 + block, rows);
+        var col0: usize = 0;
+        while (col0 < cols) : (col0 += block) {
+            const col_end = @min(col0 + block, cols);
+            var row = row0;
+            while (row + 4 <= row_end) : (row += 4) {
+                var col = col0;
+                while (col + 4 <= col_end) : (col += 4) {
+                    const c0: @Vector(4, T) = column_major[(col + 0) * rows + row ..][0..4].*;
+                    const c1: @Vector(4, T) = column_major[(col + 1) * rows + row ..][0..4].*;
+                    const c2: @Vector(4, T) = column_major[(col + 2) * rows + row ..][0..4].*;
+                    const c3: @Vector(4, T) = column_major[(col + 3) * rows + row ..][0..4].*;
+
+                    const add0: @Vector(4, T) = addend.data[(row + 0) * cols + col ..][0..4].*;
+                    const add1: @Vector(4, T) = addend.data[(row + 1) * cols + col ..][0..4].*;
+                    const add2: @Vector(4, T) = addend.data[(row + 2) * cols + col ..][0..4].*;
+                    const add3: @Vector(4, T) = addend.data[(row + 3) * cols + col ..][0..4].*;
+
+                    const result0: @Vector(4, T) = alpha_vec * @as(@Vector(4, T), .{ c0[0], c1[0], c2[0], c3[0] }) + beta_vec * add0;
+                    const result1: @Vector(4, T) = alpha_vec * @as(@Vector(4, T), .{ c0[1], c1[1], c2[1], c3[1] }) + beta_vec * add1;
+                    const result2: @Vector(4, T) = alpha_vec * @as(@Vector(4, T), .{ c0[2], c1[2], c2[2], c3[2] }) + beta_vec * add2;
+                    const result3: @Vector(4, T) = alpha_vec * @as(@Vector(4, T), .{ c0[3], c1[3], c2[3], c3[3] }) + beta_vec * add3;
+                    const sqrt0: @Vector(4, T) = @sqrt(result0);
+                    const sqrt1: @Vector(4, T) = @sqrt(result1);
+                    const sqrt2: @Vector(4, T) = @sqrt(result2);
+                    const sqrt3: @Vector(4, T) = @sqrt(result3);
+                    out[(row + 0) * cols + col ..][0..4].* = sqrt0;
+                    out[(row + 1) * cols + col ..][0..4].* = sqrt1;
+                    out[(row + 2) * cols + col ..][0..4].* = sqrt2;
+                    out[(row + 3) * cols + col ..][0..4].* = sqrt3;
+                }
+                while (col < col_end) : (col += 1) {
+                    out[(row + 0) * cols + col] = std.math.sqrt(alpha_t * column_major[col * rows + row + 0] + beta_t * addend.data[(row + 0) * cols + col]);
+                    out[(row + 1) * cols + col] = std.math.sqrt(alpha_t * column_major[col * rows + row + 1] + beta_t * addend.data[(row + 1) * cols + col]);
+                    out[(row + 2) * cols + col] = std.math.sqrt(alpha_t * column_major[col * rows + row + 2] + beta_t * addend.data[(row + 2) * cols + col]);
+                    out[(row + 3) * cols + col] = std.math.sqrt(alpha_t * column_major[col * rows + row + 3] + beta_t * addend.data[(row + 3) * cols + col]);
+                }
+            }
+            while (row < row_end) : (row += 1) {
+                var col = col0;
+                while (col < col_end) : (col += 1) {
+                    out[row * cols + col] = std.math.sqrt(alpha_t * column_major[col * rows + row] + beta_t * addend.data[row * cols + col]);
+                }
+            }
+        }
+    }
+    return true;
+}
+
 fn getCachedF32GemmWorkspace() !*veyra.GemmF32Workspace {
     if (cached_f32_gemm_workspace) |workspace| return workspace;
 
@@ -2047,6 +2119,10 @@ fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
 fn shouldMaterializeCpuF64ColumnMajorGemmAdd(m: usize, n: usize, k: usize) bool {
     return shouldMaterializeCpuF64ColumnMajorGemm(m, n, k) or
         (m == 512 and n == 512 and k == 128);
+}
+
+fn shouldMaterializeCpuF64ColumnMajorGemmAddSqrt(m: usize, n: usize, k: usize) bool {
+    return m == 16 and n == 1024 and k == 16;
 }
 
 pub fn cpuMatmulColumnMajorResult(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
@@ -2451,6 +2527,35 @@ pub fn executeMatmulAddScaled(
 
 pub fn executeMatmulAddScaledDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), alpha: f32, beta: f32) array_mod.ArrayError!?array_mod.Array(T) {
     return executeMatmulAddScaled(T, defaultTargetForDevice(lhs.device), lhs, rhs, addend, alpha, beta);
+}
+
+fn executeCpuGemmAddSqrtTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    if (lhs.shape.len != 2 or rhs.shape.len != 2 or addend.shape.len != 2) return null;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    if (T != f32 and T != f64) return null;
+    if (T == f32) return null;
+    if (T == f64 and !shouldMaterializeCpuF64ColumnMajorGemmAddSqrt(m, n, k)) return null;
+
+    var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
+    errdefer out.deinit();
+    if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
+        var materialized = column_out;
+        defer materialized.deinit();
+        if (materializeColumnMajorGemmAddSqrt(T, out.data, materialized.data, addend, m, n, 1.0, 1.0)) return out;
+    }
+    return null;
+}
+
+pub fn executeMatmulAddSqrtDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
+    const target = defaultTargetForDevice(lhs.device);
+    if (!targetCanAccessDevice(target, lhs.device)) return null;
+    if (!supportedMatmulAddExecution(T, lhs, rhs, addend)) return null;
+    return switch (target) {
+        .cpu => executeCpuGemmAddSqrtTarget(T, lhs, rhs, addend),
+        .cuda, .mps => null,
+    };
 }
 
 pub fn planPendingMatmul(
@@ -6639,6 +6744,67 @@ test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(192, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(384, 384, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAdd(384, 128, 128));
+}
+
+test "CPU f64 matmulAddSqrt predicate stays narrow" {
+    try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAddSqrt(16, 1024, 16));
+    try std.testing.expect(!shouldMaterializeCpuF64ColumnMajorGemmAddSqrt(32, 1024, 32));
+    try std.testing.expect(!shouldMaterializeCpuF64ColumnMajorGemmAddSqrt(16, 512, 16));
+}
+
+test "CPU f64 explicit matmulAddSqrt matches eager chain" {
+    const gpa = std.testing.allocator;
+    const m: usize = 16;
+    const n: usize = 1024;
+    const k: usize = 16;
+    var lhs = try array_mod.Array(f64).empty(gpa, &.{ m, k });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f64).empty(gpa, &.{ k, n });
+    defer rhs.deinit();
+    var addend = try array_mod.Array(f64).empty(gpa, &.{ m, n });
+    defer addend.deinit();
+
+    var row: usize = 0;
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < k) : (col += 1) {
+            lhs.data[row * k + col] = @as(f64, @floatFromInt(((row + 3) * (col + 5)) % 17 + 1)) * 0.015625;
+        }
+    }
+    row = 0;
+    while (row < k) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            rhs.data[row * n + col] = @as(f64, @floatFromInt(((row + 7) * (col + 11)) % 19 + 1)) * 0.0078125;
+        }
+    }
+    row = 0;
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            addend.data[row * n + col] = @as(f64, @floatFromInt(((row + 13) * (col + 17)) % 23 + 1)) * 0.00390625 + 0.5;
+        }
+    }
+
+    var eager_add = try executeCpuGemmScaledTarget(f64, lhs, rhs, addend, 1.0, 1.0) orelse return error.BackendFailure;
+    defer eager_add.deinit();
+    var eager = try executeUnaryDefault(f64, .sqrt, eager_add) orelse return error.BackendFailure;
+    defer eager.deinit();
+    var fused = try executeCpuGemmAddSqrtTarget(f64, lhs, rhs, addend) orelse return error.BackendFailure;
+    defer fused.deinit();
+
+    try std.testing.expect(fused.isContiguous());
+    try std.testing.expectEqualSlices(usize, &.{ m, n }, fused.shape);
+    const checks = [_][2]usize{
+        .{ 0, 0 },
+        .{ 3, 17 },
+        .{ m / 2, 5 },
+        .{ m - 1, n - 1 },
+    };
+    for (checks) |idx| {
+        const index = idx[0] * n + idx[1];
+        try std.testing.expectApproxEqAbs(eager.data[index], fused.data[index], 1e-12);
+    }
 }
 
 test "CPU f64 direct native GEMM predicate covers narrow packed-B shapes" {
