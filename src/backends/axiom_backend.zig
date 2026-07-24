@@ -1856,6 +1856,9 @@ fn isCpuF32ColumnMajorSquareGemm(m: usize, n: usize, k: usize) bool {
 
 fn isCpuF32ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
     return (n == 100 and k == 100 and (m == 10 or m == 50)) or
+        (m == 128 and n == 128 and (k == 16 or k == 32)) or
+        (m == 192 and n == 96 and (k == 16 or k == 32)) or
+        (m == 64 and n == 192 and (k == 16 or k == 32)) or
         (m == 64 and n == 128 and k == 128) or
         (m == 128 and n == 64 and k == 128) or
         (m == 128 and n == 128 and k == 64) or
@@ -6543,6 +6546,12 @@ test "CPU f32 materialization predicate covers low-K large square AMX shape" {
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(96, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(192, 96, 128));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(128, 128, 16));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(128, 128, 32));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(192, 96, 16));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(192, 96, 32));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 192, 16));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 192, 32));
 }
 
 test "Axiom backend policy reports elementwise route" {
