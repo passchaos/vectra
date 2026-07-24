@@ -1901,7 +1901,8 @@ fn shouldDirectCpuF32NativeGemm(m: usize, n: usize, k: usize) bool {
 }
 
 fn shouldDirectCpuF64NativeGemm(m: usize, n: usize, k: usize) bool {
-    return (m == 16 and n == 1024 and k == 16) or
+    return (m == 16 and n == 512 and k == 16) or
+        (m == 16 and n == 1024 and k == 16) or
         (m == 32 and n == 1024 and k == 32);
 }
 
@@ -6620,9 +6621,9 @@ test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
 }
 
 test "CPU f64 direct native GEMM predicate covers narrow packed-B shapes" {
+    try std.testing.expect(shouldDirectCpuF64NativeGemm(16, 512, 16));
     try std.testing.expect(shouldDirectCpuF64NativeGemm(16, 1024, 16));
     try std.testing.expect(shouldDirectCpuF64NativeGemm(32, 1024, 32));
-    try std.testing.expect(!shouldDirectCpuF64NativeGemm(16, 512, 16));
     try std.testing.expect(!shouldDirectCpuF64NativeGemm(32, 512, 32));
 }
 
