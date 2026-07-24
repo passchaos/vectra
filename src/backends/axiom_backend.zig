@@ -203,9 +203,8 @@ pub const PreparedF32TransposedMatmul = struct {
     allocator: std.mem.Allocator,
     lhs_shape: [2]usize,
     rhs_shape: [2]usize,
-    lhs_transposed: array_mod.Array(f32),
-    rhs_transposed: array_mod.Array(f32),
-    prepared: PreparedF32Matmul,
+    prepared: axiom.accelerator.cpu_veyra.CpuVeyraPreparedGemmF32Transposed,
+    out_token: *f32,
 
     pub fn init(allocator: std.mem.Allocator, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!PreparedF32TransposedMatmul {
         if (!lhs.device.isCpu() or !rhs.device.isCpu()) return error.InvalidDevice;
@@ -216,33 +215,31 @@ pub const PreparedF32TransposedMatmul = struct {
         const n = rhs.shape[1];
         if (rhs.shape[0] != k) return error.ShapeMismatch;
 
-        var lhs_transposed = try array_mod.Array(f32).empty(allocator, &.{ k, m });
-        errdefer lhs_transposed.deinit();
-        var rhs_transposed = try array_mod.Array(f32).empty(allocator, &.{ n, k });
-        errdefer rhs_transposed.deinit();
-        transposeRowMajorForPrepared(f32, lhs.data, lhs_transposed.data, m, k);
-        transposeRowMajorForPrepared(f32, rhs.data, rhs_transposed.data, k, n);
-
-        const prepared = try PreparedF32Matmul.init(allocator, rhs_transposed, lhs_transposed);
-        errdefer {
-            var prepared_mut = prepared;
-            prepared_mut.deinit();
-        }
+        const out_token = try allocator.create(f32);
+        errdefer allocator.destroy(out_token);
+        const spec = axiom.accelerator.TensorGemmSpec.rowMajor(
+            .rowMajor("lhs", @intCast(@intFromPtr(lhs.data.ptr)), m, k),
+            .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
+            .rowMajor("out", @intCast(@intFromPtr(out_token)), m, n),
+        );
+        const prepared = axiom.accelerator.cpu_veyra.CpuVeyraPreparedGemmF32Transposed.init(allocator, spec, lhs.data, rhs.data) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.InvalidTensorView, error.ShapeMismatch => return error.InvalidShape,
+            error.BackendFailure, error.SingularMatrix => return error.BackendFailure,
+        };
 
         return .{
             .allocator = allocator,
             .lhs_shape = .{ m, k },
             .rhs_shape = .{ k, n },
-            .lhs_transposed = lhs_transposed,
-            .rhs_transposed = rhs_transposed,
             .prepared = prepared,
+            .out_token = out_token,
         };
     }
 
     pub fn deinit(self: *PreparedF32TransposedMatmul) void {
         self.prepared.deinit();
-        self.rhs_transposed.deinit();
-        self.lhs_transposed.deinit();
+        self.allocator.destroy(self.out_token);
         self.* = undefined;
     }
 
@@ -251,7 +248,7 @@ pub const PreparedF32TransposedMatmul = struct {
         if (out.shape.len != 2 or out.shape[0] != self.lhs_shape[0] or out.shape[1] != self.rhs_shape[1]) return error.ShapeMismatch;
         if (!out.isContiguous()) return error.InvalidShape;
 
-        self.prepared.prepared.runColumnMajor(out.data) catch |err| switch (err) {
+        self.prepared.run(out.data) catch |err| switch (err) {
             error.OutOfMemory => return error.OutOfMemory,
             error.ShapeMismatch => return error.ShapeMismatch,
             error.InvalidTensorView => return error.InvalidShape,
@@ -259,17 +256,6 @@ pub const PreparedF32TransposedMatmul = struct {
         };
     }
 };
-
-fn transposeRowMajorForPrepared(comptime T: type, src: []const T, dst: []T, rows: usize, cols: usize) void {
-    std.debug.assert(src.len == rows * cols and dst.len == rows * cols);
-    var row: usize = 0;
-    while (row < rows) : (row += 1) {
-        var col: usize = 0;
-        while (col < cols) : (col += 1) {
-            dst[col * rows + row] = src[row * cols + col];
-        }
-    }
-}
 
 pub const PreparedF64Matmul = struct {
     allocator: std.mem.Allocator,
@@ -371,6 +357,64 @@ pub const PreparedF64Matmul = struct {
         if (out.shape.len != 2 or out.shape[0] != self.lhs_shape[0] or out.shape[1] != self.rhs_shape[1]) return error.ShapeMismatch;
         if (out.strides.len != 2 or out.strides[0] != 1 or out.strides[1] != self.lhs_shape[0]) return error.InvalidShape;
         self.prepared.runColumnMajor32x8Diagnostic(out.data) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.ShapeMismatch => return error.ShapeMismatch,
+            error.InvalidTensorView => return error.InvalidShape,
+            error.BackendFailure, error.SingularMatrix => return error.BackendFailure,
+        };
+    }
+};
+
+pub const PreparedF64TransposedMatmul = struct {
+    allocator: std.mem.Allocator,
+    lhs_shape: [2]usize,
+    rhs_shape: [2]usize,
+    prepared: axiom.accelerator.cpu_veyra.CpuVeyraPreparedGemmF64Transposed,
+    out_token: *f64,
+
+    pub fn init(allocator: std.mem.Allocator, lhs: array_mod.Array(f64), rhs: array_mod.Array(f64)) array_mod.ArrayError!PreparedF64TransposedMatmul {
+        if (!lhs.device.isCpu() or !rhs.device.isCpu()) return error.InvalidDevice;
+        if (lhs.shape.len != 2 or rhs.shape.len != 2) return error.InvalidShape;
+        if (!lhs.isContiguous() or !rhs.isContiguous()) return error.InvalidShape;
+        const m = lhs.shape[0];
+        const k = lhs.shape[1];
+        const n = rhs.shape[1];
+        if (rhs.shape[0] != k) return error.ShapeMismatch;
+
+        const out_token = try allocator.create(f64);
+        errdefer allocator.destroy(out_token);
+        const spec = axiom.accelerator.TensorGemmSpec.rowMajor(
+            .rowMajor("lhs", @intCast(@intFromPtr(lhs.data.ptr)), m, k),
+            .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
+            .rowMajor("out", @intCast(@intFromPtr(out_token)), m, n),
+        );
+        const prepared = axiom.accelerator.cpu_veyra.CpuVeyraPreparedGemmF64Transposed.init(allocator, spec, lhs.data, rhs.data) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.InvalidTensorView, error.ShapeMismatch => return error.InvalidShape,
+            error.BackendFailure, error.SingularMatrix => return error.BackendFailure,
+        };
+
+        return .{
+            .allocator = allocator,
+            .lhs_shape = .{ m, k },
+            .rhs_shape = .{ k, n },
+            .prepared = prepared,
+            .out_token = out_token,
+        };
+    }
+
+    pub fn deinit(self: *PreparedF64TransposedMatmul) void {
+        self.prepared.deinit();
+        self.allocator.destroy(self.out_token);
+        self.* = undefined;
+    }
+
+    pub fn matmulOut(self: *PreparedF64TransposedMatmul, out: array_mod.Array(f64)) array_mod.ArrayError!void {
+        if (!out.device.isCpu()) return error.InvalidDevice;
+        if (out.shape.len != 2 or out.shape[0] != self.lhs_shape[0] or out.shape[1] != self.rhs_shape[1]) return error.ShapeMismatch;
+        if (!out.isContiguous()) return error.InvalidShape;
+
+        self.prepared.run(out.data) catch |err| switch (err) {
             error.OutOfMemory => return error.OutOfMemory,
             error.ShapeMismatch => return error.ShapeMismatch,
             error.InvalidTensorView => return error.InvalidShape,
@@ -6821,9 +6865,9 @@ test "PreparedF32Matmul matches normal matmulOut when available" {
 
 test "PreparedF32TransposedMatmul matches normal matmulOut when available" {
     const gpa = std.testing.allocator;
-    const m: usize = 32;
-    const n: usize = 32;
-    const k: usize = 32;
+    const m: usize = 17;
+    const n: usize = 19;
+    const k: usize = 21;
     var lhs = try array_mod.Array(f32).empty(gpa, &.{ m, k });
     defer lhs.deinit();
     var rhs = try array_mod.Array(f32).empty(gpa, &.{ k, n });
@@ -6850,6 +6894,40 @@ test "PreparedF32TransposedMatmul matches normal matmulOut when available" {
 
     for (prepared_out.data, normal_out.data) |prepared_value, normal_value| {
         try std.testing.expectApproxEqAbs(normal_value, prepared_value, 1e-3);
+    }
+}
+
+test "PreparedF64TransposedMatmul matches normal rectangular matmulOut when available" {
+    const gpa = std.testing.allocator;
+    const m: usize = 17;
+    const n: usize = 19;
+    const k: usize = 21;
+    var lhs = try array_mod.Array(f64).empty(gpa, &.{ m, k });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f64).empty(gpa, &.{ k, n });
+    defer rhs.deinit();
+    var prepared_out = try array_mod.Array(f64).empty(gpa, &.{ m, n });
+    defer prepared_out.deinit();
+    var normal_out = try array_mod.Array(f64).empty(gpa, &.{ m, n });
+    defer normal_out.deinit();
+
+    for (lhs.data, 0..) |*value, index| {
+        value.* = @as(f64, @floatFromInt((index * 17 + 11) % 97)) * 0.015625 + 0.125;
+    }
+    for (rhs.data, 0..) |*value, index| {
+        value.* = @as(f64, @floatFromInt((index * 19 + 13) % 89)) * -0.01171875 + 0.25;
+    }
+
+    var prepared = PreparedF64TransposedMatmul.init(gpa, lhs, rhs) catch |err| switch (err) {
+        error.BackendFailure, error.InvalidShape => return error.SkipZigTest,
+        else => return err,
+    };
+    defer prepared.deinit();
+    try prepared.matmulOut(prepared_out);
+    try lhs.matmulOut(rhs, normal_out);
+
+    for (prepared_out.data, normal_out.data) |prepared_value, normal_value| {
+        try std.testing.expectApproxEqAbs(normal_value, prepared_value, 1e-9);
     }
 }
 

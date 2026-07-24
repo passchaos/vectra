@@ -197,6 +197,11 @@ fn runF64(init: std.process.Init, options: Options) !void {
 
     var prepared = try vx.PreparedF64Matmul.init(allocator, lhs, rhs);
     defer prepared.deinit();
+    var prepared_transposed = if (options.transposed_prepared)
+        try vx.PreparedF64TransposedMatmul.init(allocator, lhs, rhs)
+    else
+        null;
+    defer if (prepared_transposed) |*value| value.deinit();
     var prepared_column_out = try prepared.matmulColumnMajor();
     defer prepared_column_out.deinit();
     var prepared_32x8_out = try prepared.matmulColumnMajor();
@@ -204,6 +209,7 @@ fn runF64(init: std.process.Init, options: Options) !void {
     try prepared.matmulOut(prepared_out);
     try prepared.matmulColumnMajorOut(prepared_column_out);
     try prepared.matmulColumnMajor32x8DiagnosticOut(prepared_32x8_out);
+    if (prepared_transposed) |*value| try value.matmulOut(prepared_out);
     try lhs.matmulOut(rhs, normal_out);
 
     var prepared_ns: i128 = 0;
@@ -213,7 +219,11 @@ fn runF64(init: std.process.Init, options: Options) !void {
     var sink: f64 = 0;
     for (0..options.iters) |_| {
         var start = nowNs(init.io);
-        try prepared.matmulOut(prepared_out);
+        if (prepared_transposed) |*value| {
+            try value.matmulOut(prepared_out);
+        } else {
+            try prepared.matmulOut(prepared_out);
+        }
         prepared_ns += nowNs(init.io) - start;
         sink += prepared_out.data[0];
 
@@ -239,17 +249,18 @@ fn runF64(init: std.process.Init, options: Options) !void {
     const prepared_column_avg = @divTrunc(prepared_column_ns, denom);
     const prepared_32x8_avg = @divTrunc(prepared_32x8_ns, denom);
     const normal_avg = @divTrunc(normal_ns, denom);
-    try prepared_column_out.copyToSlice(prepared_out.data);
+    if (prepared_transposed == null) try prepared_column_out.copyToSlice(prepared_out.data);
     var row_major_32x8 = try vx.Array(f64).empty(allocator, &.{ shape.m, shape.n });
     defer row_major_32x8.deinit();
     try prepared_32x8_out.copyToSlice(row_major_32x8.data);
     std.debug.print(
-        "vectra_prepared_matmul dtype=f64 shape={d}x{d}x{d} iters={d} prepared_ns={} prepared_gflops={d:.3} prepared_column_ns={} prepared_column_gflops={d:.3} prepared_32x8_ns={} prepared_32x8_gflops={d:.3} normal_ns={} normal_gflops={d:.3} ratio={d:.3} column_ratio={d:.3} prepared_32x8_ratio={d:.3} max_diff={d:.6} prepared_32x8_diff={d:.6}\n",
+        "vectra_prepared_matmul dtype=f64 shape={d}x{d}x{d} iters={d} transposed_prepared={} prepared_ns={} prepared_gflops={d:.3} prepared_column_ns={} prepared_column_gflops={d:.3} prepared_32x8_ns={} prepared_32x8_gflops={d:.3} normal_ns={} normal_gflops={d:.3} ratio={d:.3} column_ratio={d:.3} prepared_32x8_ratio={d:.3} max_diff={d:.6} prepared_32x8_diff={d:.6}\n",
         .{
             shape.m,
             shape.n,
             shape.k,
             options.iters,
+            options.transposed_prepared,
             prepared_avg,
             gflops(shape, prepared_avg),
             prepared_column_avg,

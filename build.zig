@@ -258,7 +258,7 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| {
         prepared_matmul_bench_cmd.addArgs(args);
     }
-    const prepared_matmul_bench_step = b.step("bench-prepared-matmul", "Run explicit prepared f32 CPU matmul benchmark");
+    const prepared_matmul_bench_step = b.step("bench-prepared-matmul", "Run explicit prepared f32/f64 CPU matmul benchmark");
     prepared_matmul_bench_step.dependOn(&prepared_matmul_bench_cmd.step);
 
     const api_boundary_audit_cmd = b.addSystemCommand(&.{ "python3", "tools/api_boundary_audit.py" });
