@@ -1573,6 +1573,9 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     if (T == f32 and shouldDirectCpuF32NativeGemm(m, n, k)) {
         return executeCpuGemmDirect(T, lhs, rhs, null, 1.0, 0.0);
     }
+    if (T == f64 and shouldDirectCpuF64NativeGemm(m, n, k)) {
+        return executeCpuGemmDirect(T, lhs, rhs, null, 1.0, 0.0);
+    }
     if (T == f32 and shouldMaterializeCpuF32ColumnMajorGemm(m, n, k)) {
         var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
         errdefer out.deinit();
@@ -1895,6 +1898,11 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
 
 fn shouldDirectCpuF32NativeGemm(m: usize, n: usize, k: usize) bool {
     return m <= 32 and k <= 32 and n >= 64;
+}
+
+fn shouldDirectCpuF64NativeGemm(m: usize, n: usize, k: usize) bool {
+    return (m == 16 and n == 1024 and k == 16) or
+        (m == 32 and n == 1024 and k == 32);
 }
 
 fn isSquareGemm(m: usize, n: usize, k: usize) bool {
@@ -6609,6 +6617,13 @@ test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(192, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(384, 384, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAdd(384, 128, 128));
+}
+
+test "CPU f64 direct native GEMM predicate covers narrow packed-B shapes" {
+    try std.testing.expect(shouldDirectCpuF64NativeGemm(16, 1024, 16));
+    try std.testing.expect(shouldDirectCpuF64NativeGemm(32, 1024, 32));
+    try std.testing.expect(!shouldDirectCpuF64NativeGemm(16, 512, 16));
+    try std.testing.expect(!shouldDirectCpuF64NativeGemm(32, 512, 32));
 }
 
 test "CPU f32 materialization predicate covers low-K large square AMX shape" {
