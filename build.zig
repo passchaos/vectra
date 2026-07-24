@@ -216,6 +216,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "vectra", .module = mod },
+                .{ .name = "veyra", .module = veyra_mod },
             },
         }),
     });
@@ -234,6 +235,7 @@ pub fn build(b: *std.Build) void {
             },
         }),
     });
+    matmul_materialize_bench_exe.root_module.addImport("veyra", veyra_mod);
     const matmul_materialize_bench_cmd = b.addRunArtifact(matmul_materialize_bench_exe);
     if (b.args) |args| {
         matmul_materialize_bench_cmd.addArgs(args);

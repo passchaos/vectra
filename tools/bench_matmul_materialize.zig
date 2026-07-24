@@ -1,5 +1,6 @@
 const std = @import("std");
 const vx = @import("vectra");
+const veyra = @import("veyra");
 
 const Shape = struct {
     m: usize = 16,
@@ -80,6 +81,22 @@ fn alignOffset(ptr: anytype, comptime alignment: usize) usize {
     return @intFromPtr(ptr) % alignment;
 }
 
+fn runVeyraPreallocated(comptime T: type, lhs: vx.Array(T), rhs: vx.Array(T), out: []T, workspace: anytype) !void {
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    const lhs_view = try veyra.MatrixView(T).fromSlice(lhs.data, m, k, .row_major);
+    const rhs_view = try veyra.MatrixView(T).fromSlice(rhs.data, k, n, .row_major);
+    const out_view = try veyra.MatrixMut(T).fromSlice(out, m, n, .row_major);
+    if (comptime T == f32) {
+        try veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{}, workspace);
+    } else if (comptime T == f64) {
+        try veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, .{}, workspace);
+    } else {
+        @compileError("unsupported dtype");
+    }
+}
+
 fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     const shape = options.shape;
     const allocator = std.heap.smp_allocator;
@@ -95,6 +112,14 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
 
     var warm_column = (try vx.cpuMatmulColumnMajorResult(T, lhs, rhs)) orelse return error.Unsupported;
     warm_column.deinit();
+    var veyra_workspace = if (comptime T == f32)
+        try veyra.GemmF32Workspace.init(allocator, 1)
+    else
+        try veyra.GemmF64MtWorkspace.init(allocator, veyra.recommendedGemmF64ThreadCount());
+    defer veyra_workspace.deinit();
+    if (comptime T == f64) {
+        veyra.ensureGemmF64MtAppleAmxWorkspace(&veyra_workspace, shape.m, shape.n, shape.k) catch {};
+    }
     var warm_matmul = try lhs.matmul(rhs);
     warm_matmul.deinit();
     var warm_add = try lhs.matmulAdd(rhs, addend);
@@ -110,6 +135,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     var copy_add_ns: i128 = 0;
     var copy_add_sqrt_ns: i128 = 0;
     var column_copy_add_sqrt_ns: i128 = 0;
+    var veyra_prealloc_ns: i128 = 0;
     var matmul_ns: i128 = 0;
     var matmul_add_ns: i128 = 0;
     var matmul_add_sqrt_ns: i128 = 0;
@@ -162,6 +188,11 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
         fused_column.deinit();
 
         start = nowNs(init.io);
+        try runVeyraPreallocated(T, lhs, rhs, scratch, &veyra_workspace);
+        veyra_prealloc_ns += nowNs(init.io) - start;
+        sink += scratch[0];
+
+        start = nowNs(init.io);
         var matmul = try lhs.matmul(rhs);
         matmul_ns += nowNs(init.io) - start;
         sink += matmul.data[0];
@@ -192,7 +223,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     const stdout = std.debug;
     const denom: i128 = @intCast(options.iters);
     stdout.print(
-        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} align64 lhs/rhs/addend/scratch {d}/{d}/{d}/{d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} copy_add_ns={} copy_add_sqrt_ns={} column_copy_add_sqrt_ns={} matmul_ns={} matmul_add_ns={} matmul_add_sqrt_ns={} fused_matmul_add_sqrt_ns={}\n",
+        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} align64 lhs/rhs/addend/scratch {d}/{d}/{d}/{d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} copy_add_ns={} copy_add_sqrt_ns={} column_copy_add_sqrt_ns={} veyra_prealloc_ns={} matmul_ns={} matmul_add_ns={} matmul_add_sqrt_ns={} fused_matmul_add_sqrt_ns={}\n",
         .{
             @typeName(T),
             shape.m,
@@ -210,6 +241,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
             @divTrunc(copy_add_ns, denom),
             @divTrunc(copy_add_sqrt_ns, denom),
             @divTrunc(column_copy_add_sqrt_ns, denom),
+            @divTrunc(veyra_prealloc_ns, denom),
             @divTrunc(matmul_ns, denom),
             @divTrunc(matmul_add_ns, denom),
             @divTrunc(matmul_add_sqrt_ns, denom),
