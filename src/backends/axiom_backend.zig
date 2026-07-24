@@ -1921,7 +1921,7 @@ fn isSquareGemm(m: usize, n: usize, k: usize) bool {
 fn isCpuF32ColumnMajorSquareGemm(m: usize, n: usize, k: usize) bool {
     if (!isSquareGemm(m, n, k)) return false;
     return switch (m) {
-        96, 128, 130, 132, 136, 140, 144, 148, 152, 156, 160, 164, 168, 172, 176, 180, 184, 188, 192, 224 => true,
+        64, 96, 128, 130, 132, 136, 140, 144, 148, 152, 156, 160, 164, 168, 172, 176, 180, 184, 188, 192, 224 => true,
         else => false,
     };
 }
@@ -6204,6 +6204,7 @@ test "Axiom backend policy reports matmul route" {
 
 test "CPU f32 128 GEMM fast path returns contiguous row-major output" {
     const gpa = std.testing.allocator;
+    try checkCpuF32SquareGemmFastPath(gpa, 64);
     try checkCpuF32SquareGemmFastPath(gpa, 96);
     try checkCpuF32SquareGemmFastPath(gpa, 128);
     try checkCpuF32SquareGemmFastPath(gpa, 130);
@@ -6614,6 +6615,7 @@ test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
 }
 
 test "CPU f32 materialization predicate covers low-K large square AMX shape" {
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 64, 64));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(768, 768, 128));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(96, 192, 128));
