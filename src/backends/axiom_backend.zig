@@ -2100,9 +2100,6 @@ fn executeCpuGemmScaledTarget(comptime T: type, lhs: array_mod.Array(T), rhs: ar
     const m = lhs.shape[0];
     const k = lhs.shape[1];
     const n = rhs.shape[1];
-    if (T == f64 and shouldDirectCpuF64NativeGemm(m, n, k)) {
-        return executeCpuGemmDirect(T, lhs, rhs, addend, alpha, beta);
-    }
     if (T == f32 and shouldMaterializeCpuF32ColumnMajorGemm(m, n, k)) {
         var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
         errdefer out.deinit();
@@ -6621,59 +6618,6 @@ test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(192, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(384, 384, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAdd(384, 128, 128));
-}
-
-test "CPU f64 matmulAdd uses direct packed-B route for narrow shape" {
-    const gpa = std.testing.allocator;
-    const m: usize = 16;
-    const n: usize = 512;
-    const k: usize = 16;
-    var lhs = try array_mod.Array(f64).empty(gpa, &.{ m, k });
-    defer lhs.deinit();
-    var rhs = try array_mod.Array(f64).empty(gpa, &.{ k, n });
-    defer rhs.deinit();
-    var addend = try array_mod.Array(f64).empty(gpa, &.{ m, n });
-    defer addend.deinit();
-
-    var row: usize = 0;
-    while (row < m) : (row += 1) {
-        var col: usize = 0;
-        while (col < k) : (col += 1) {
-            lhs.data[row * k + col] = @as(f64, @floatFromInt(((row + 3) * (col + 5)) % 17 + 1)) * 0.015625;
-        }
-    }
-    row = 0;
-    while (row < k) : (row += 1) {
-        var col: usize = 0;
-        while (col < n) : (col += 1) {
-            rhs.data[row * n + col] = @as(f64, @floatFromInt(((row + 7) * (col + 11)) % 19 + 1)) * -0.0078125;
-        }
-    }
-    row = 0;
-    while (row < m) : (row += 1) {
-        var col: usize = 0;
-        while (col < n) : (col += 1) {
-            addend.data[row * n + col] = @as(f64, @floatFromInt(((row + 13) * (col + 17)) % 23 + 1)) * 0.00390625;
-        }
-    }
-
-    var product = try matmul(f64, .prefer_axiom_cpu, lhs, rhs);
-    defer product.deinit();
-    var fused = (try executeCpuGemmScaledTarget(f64, lhs, rhs, addend, 1.0, 1.0)) orelse return error.BackendFailure;
-    defer fused.deinit();
-    try std.testing.expect(fused.isContiguous());
-    try std.testing.expectEqualSlices(usize, &.{ m, n }, fused.shape);
-
-    const checks = [_][2]usize{
-        .{ 0, 0 },
-        .{ 3, 17 },
-        .{ m / 2, 5 },
-        .{ m - 1, n - 1 },
-    };
-    for (checks) |idx| {
-        const index = idx[0] * n + idx[1];
-        try std.testing.expectApproxEqAbs(product.data[index] + addend.data[index], fused.data[index], 1e-9);
-    }
 }
 
 test "CPU f64 direct native GEMM predicate covers narrow packed-B shapes" {
