@@ -87,6 +87,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     var column_ns: i128 = 0;
     var clone_materialize_ns: i128 = 0;
     var copy_to_slice_ns: i128 = 0;
+    var copy_add_ns: i128 = 0;
     var matmul_ns: i128 = 0;
     var matmul_add_ns: i128 = 0;
     var matmul_add_sqrt_ns: i128 = 0;
@@ -108,6 +109,14 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
         start = nowNs(init.io);
         try column.copyToSlice(scratch);
         copy_to_slice_ns += nowNs(init.io) - start;
+        sink += scratch[0];
+
+        start = nowNs(init.io);
+        try column.copyToSlice(scratch);
+        for (scratch, addend.data) |*slot, add_value| {
+            slot.* += add_value;
+        }
+        copy_add_ns += nowNs(init.io) - start;
         sink += scratch[0];
         column.deinit();
 
@@ -136,7 +145,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     const stdout = std.debug;
     const denom: i128 = @intCast(options.iters);
     stdout.print(
-        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} matmul_ns={} matmul_add_ns={} matmul_add_sqrt_ns={}\n",
+        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} copy_add_ns={} matmul_ns={} matmul_add_ns={} matmul_add_sqrt_ns={}\n",
         .{
             @typeName(T),
             shape.m,
@@ -147,6 +156,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
             gflops(shape, @divTrunc(column_ns, denom)),
             @divTrunc(clone_materialize_ns, denom),
             @divTrunc(copy_to_slice_ns, denom),
+            @divTrunc(copy_add_ns, denom),
             @divTrunc(matmul_ns, denom),
             @divTrunc(matmul_add_ns, denom),
             @divTrunc(matmul_add_sqrt_ns, denom),

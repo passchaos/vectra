@@ -1731,6 +1731,23 @@ fn materializeColumnMajorGemmAdd(
     const alpha_vec: @Vector(4, T) = @splat(alpha_t);
     const beta_vec: @Vector(4, T) = @splat(beta_t);
 
+    if (comptime T == f64) {
+        if ((rows == 16 or rows == 32) and cols == 1024 and alpha_t == 1.0 and beta_t == 1.0) {
+            copyColumnMajorMatrixToRowMajor(T, out, column_major, rows, cols);
+            var index: usize = 0;
+            const len = rows * cols;
+            while (index + 4 <= len) : (index += 4) {
+                const out_vec: @Vector(4, T) = out[index..][0..4].*;
+                const add_vec: @Vector(4, T) = addend.data[index..][0..4].*;
+                out[index..][0..4].* = out_vec + add_vec;
+            }
+            while (index < len) : (index += 1) {
+                out[index] += addend.data[index];
+            }
+            return true;
+        }
+    }
+
     const block: usize = 32;
     var row0: usize = 0;
     while (row0 < rows) : (row0 += block) {
