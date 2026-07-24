@@ -1860,6 +1860,8 @@ fn isCpuF32ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
         (m == 128 and n == 64 and k == 128) or
         (m == 128 and n == 128 and k == 64) or
         (m == 64 and n == 192 and k == 192) or
+        (m == 64 and n == 192 and k == 128) or
+        (m == 96 and n == 192 and k == 128) or
         (m == 192 and n == 64 and k == 192) or
         (m == 192 and n == 192 and k == 64) or
         (m == 64 and n == 64 and k == 192) or
@@ -6531,6 +6533,8 @@ test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
 
 test "CPU f32 materialization predicate covers low-K large square AMX shape" {
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(768, 768, 128));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 192, 128));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(96, 192, 128));
 }
 
 test "Axiom backend policy reports elementwise route" {
