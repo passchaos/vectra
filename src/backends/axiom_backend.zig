@@ -1969,6 +1969,8 @@ fn isCpuF64ColumnMajorSquareGemm(m: usize, n: usize, k: usize) bool {
 fn isCpuF64ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
     if (m % 16 != 0 or n % 16 != 0 or k % 16 != 0) return false;
     return (m == 96 and n == 96 and k == 96) or
+        (m == 16 and n == 512 and k == 16) or
+        (m == 32 and n == 512 and k == 32) or
         (m <= 32 and k <= 32 and n >= 64 and n <= 256) or
         (m <= 256 and n <= 256 and k <= 64 and n >= 64) or
         (m == 128 and n == 256 and k == 128) or
@@ -6338,9 +6340,11 @@ test "CPU f64 AMX GEMM fast path returns contiguous row-major output" {
     const gpa = std.testing.allocator;
     try checkCpuF64GemmFastPath(gpa, 16, 64, 16);
     try checkCpuF64GemmFastPath(gpa, 16, 128, 16);
+    try checkCpuF64GemmFastPath(gpa, 16, 512, 16);
     try checkCpuF64GemmFastPath(gpa, 32, 64, 32);
     try checkCpuF64GemmFastPath(gpa, 32, 128, 32);
     try checkCpuF64GemmFastPath(gpa, 32, 256, 32);
+    try checkCpuF64GemmFastPath(gpa, 32, 512, 32);
     try checkCpuF64GemmFastPath(gpa, 64, 64, 64);
     try checkCpuF64GemmFastPath(gpa, 64, 128, 32);
     try checkCpuF64GemmFastPath(gpa, 64, 128, 64);
@@ -6590,6 +6594,8 @@ test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
     try std.testing.expect(!shouldMaterializeCpuF64ColumnMajorGemm(512, 512, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAdd(512, 512, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(100, 100, 100));
+    try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(16, 512, 16));
+    try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(32, 512, 32));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(96, 96, 96));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(64, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(96, 192, 128));
