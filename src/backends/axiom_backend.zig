@@ -1593,23 +1593,6 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
             return out;
         }
     }
-    if (T == f64 and m == 100 and n == 100 and k == 100) {
-        var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
-        errdefer out.deinit();
-        const lhs_view = veyra.MatrixView(f64).fromSlice(@as(array_mod.Array(f64), lhs).data, m, k, .row_major) catch return null;
-        const rhs_view = veyra.MatrixView(f64).fromSlice(@as(array_mod.Array(f64), rhs).data, k, n, .row_major) catch return null;
-        const out_view = veyra.MatrixMut(f64).fromSlice(@as(array_mod.Array(f64), out).data, m, n, .row_major) catch return null;
-        var workspace = veyra.GemmF64Workspace.init(std.heap.smp_allocator, @max(n, 1)) catch {
-            out.deinit();
-            return null;
-        };
-        defer workspace.deinit();
-        veyra.gemmF64WithWorkspace(lhs_view, rhs_view, out_view, .{}, &workspace) catch {
-            out.deinit();
-            return null;
-        };
-        return out;
-    }
     if (largeCpuGemm(m, n, k)) return executeCpuGemmDirect(T, lhs, rhs, null, 1.0, 0.0);
 
     var c = try array_mod.Array(T).zeros(lhs.allocator, &.{ m, n });
@@ -1978,7 +1961,7 @@ fn shouldMaterializeCpuF32ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
 fn isCpuF64ColumnMajorSquareGemm(m: usize, n: usize, k: usize) bool {
     if (!isSquareGemm(m, n, k)) return false;
     return switch (m) {
-        130, 132, 136, 140, 148, 150, 152, 156, 164, 168, 172, 180, 184, 188 => true,
+        100, 130, 132, 136, 140, 148, 150, 152, 156, 164, 168, 172, 180, 184, 188 => true,
         else => false,
     };
 }
@@ -6375,6 +6358,7 @@ test "CPU f64 AMX GEMM fast path returns contiguous row-major output" {
     try checkCpuF64GemmFastPath(gpa, 256, 64, 192);
     try checkCpuF64GemmFastPath(gpa, 256, 64, 256);
     try checkCpuF64GemmFastPath(gpa, 256, 192, 256);
+    try checkCpuF64GemmFastPath(gpa, 100, 100, 100);
     try checkCpuF64GemmFastPath(gpa, 130, 130, 130);
     try checkCpuF64GemmFastPath(gpa, 132, 132, 132);
     try checkCpuF64GemmFastPath(gpa, 136, 136, 136);
@@ -6605,6 +6589,7 @@ test "CPU f64 matmulAdd uses low-K column-major materialization shapes" {
 test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
     try std.testing.expect(!shouldMaterializeCpuF64ColumnMajorGemm(512, 512, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAdd(512, 512, 128));
+    try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(100, 100, 100));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(96, 96, 96));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(64, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(96, 192, 128));
