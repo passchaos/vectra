@@ -4066,7 +4066,7 @@ fn executeCpuTransposeFastPath(comptime T: type, input: array_mod.Array(T)) arra
 
 fn cpuTransposeBlocked(comptime T: type, out: []T, input: []const T, rows: usize, cols: usize) void {
     if (comptime T == f32 or T == f64) {
-        cpuTransposeBlocked4x4(T, out, input, rows, cols);
+        cpuTransposeBlocked8x4(T, out, input, rows, cols);
         return;
     }
 
@@ -4088,7 +4088,7 @@ fn cpuTransposeBlocked(comptime T: type, out: []T, input: []const T, rows: usize
     }
 }
 
-fn cpuTransposeBlocked4x4(comptime T: type, out: []T, input: []const T, rows: usize, cols: usize) void {
+fn cpuTransposeBlocked8x4(comptime T: type, out: []T, input: []const T, rows: usize, cols: usize) void {
     const block: usize = 32;
     var row0: usize = 0;
     while (row0 < rows) : (row0 += block) {
@@ -4097,23 +4097,35 @@ fn cpuTransposeBlocked4x4(comptime T: type, out: []T, input: []const T, rows: us
         while (col0 < cols) : (col0 += block) {
             const col_end = @min(col0 + block, cols);
             var row = row0;
-            while (row + 4 <= row_end) : (row += 4) {
+            while (row + 8 <= row_end) : (row += 8) {
                 var col = col0;
                 while (col + 4 <= col_end) : (col += 4) {
-                    const r0: @Vector(4, T) = input[(row + 0) * cols + col ..][0..4].*;
-                    const r1: @Vector(4, T) = input[(row + 1) * cols + col ..][0..4].*;
-                    const r2: @Vector(4, T) = input[(row + 2) * cols + col ..][0..4].*;
-                    const r3: @Vector(4, T) = input[(row + 3) * cols + col ..][0..4].*;
-                    out[(col + 0) * rows + row ..][0..4].* = .{ r0[0], r1[0], r2[0], r3[0] };
-                    out[(col + 1) * rows + row ..][0..4].* = .{ r0[1], r1[1], r2[1], r3[1] };
-                    out[(col + 2) * rows + row ..][0..4].* = .{ r0[2], r1[2], r2[2], r3[2] };
-                    out[(col + 3) * rows + row ..][0..4].* = .{ r0[3], r1[3], r2[3], r3[3] };
+                    const r0a: @Vector(4, T) = input[(row + 0) * cols + col ..][0..4].*;
+                    const r1a: @Vector(4, T) = input[(row + 1) * cols + col ..][0..4].*;
+                    const r2a: @Vector(4, T) = input[(row + 2) * cols + col ..][0..4].*;
+                    const r3a: @Vector(4, T) = input[(row + 3) * cols + col ..][0..4].*;
+                    const r4a: @Vector(4, T) = input[(row + 4) * cols + col ..][0..4].*;
+                    const r5a: @Vector(4, T) = input[(row + 5) * cols + col ..][0..4].*;
+                    const r6a: @Vector(4, T) = input[(row + 6) * cols + col ..][0..4].*;
+                    const r7a: @Vector(4, T) = input[(row + 7) * cols + col ..][0..4].*;
+                    out[(col + 0) * rows + row ..][0..4].* = .{ r0a[0], r1a[0], r2a[0], r3a[0] };
+                    out[(col + 0) * rows + row + 4 ..][0..4].* = .{ r4a[0], r5a[0], r6a[0], r7a[0] };
+                    out[(col + 1) * rows + row ..][0..4].* = .{ r0a[1], r1a[1], r2a[1], r3a[1] };
+                    out[(col + 1) * rows + row + 4 ..][0..4].* = .{ r4a[1], r5a[1], r6a[1], r7a[1] };
+                    out[(col + 2) * rows + row ..][0..4].* = .{ r0a[2], r1a[2], r2a[2], r3a[2] };
+                    out[(col + 2) * rows + row + 4 ..][0..4].* = .{ r4a[2], r5a[2], r6a[2], r7a[2] };
+                    out[(col + 3) * rows + row ..][0..4].* = .{ r0a[3], r1a[3], r2a[3], r3a[3] };
+                    out[(col + 3) * rows + row + 4 ..][0..4].* = .{ r4a[3], r5a[3], r6a[3], r7a[3] };
                 }
                 while (col < col_end) : (col += 1) {
                     out[col * rows + row + 0] = input[(row + 0) * cols + col];
                     out[col * rows + row + 1] = input[(row + 1) * cols + col];
                     out[col * rows + row + 2] = input[(row + 2) * cols + col];
                     out[col * rows + row + 3] = input[(row + 3) * cols + col];
+                    out[col * rows + row + 4] = input[(row + 4) * cols + col];
+                    out[col * rows + row + 5] = input[(row + 5) * cols + col];
+                    out[col * rows + row + 6] = input[(row + 6) * cols + col];
+                    out[col * rows + row + 7] = input[(row + 7) * cols + col];
                 }
             }
             while (row < row_end) : (row += 1) {
@@ -5783,6 +5795,30 @@ test "CPU blocked transpose helper handles non-square tails" {
         3, 7,
         4, 8,
     }, &out64);
+}
+
+test "CPU blocked transpose helper covers 8x4 unroll and tails" {
+    const rows: usize = 9;
+    const cols: usize = 7;
+    var input: [rows * cols]f64 = undefined;
+    var row: usize = 0;
+    while (row < rows) : (row += 1) {
+        var col: usize = 0;
+        while (col < cols) : (col += 1) {
+            input[row * cols + col] = @floatFromInt(row * 100 + col);
+        }
+    }
+
+    var out: [rows * cols]f64 = undefined;
+    cpuTransposeBlocked(f64, &out, &input, rows, cols);
+
+    row = 0;
+    while (row < rows) : (row += 1) {
+        var col: usize = 0;
+        while (col < cols) : (col += 1) {
+            try std.testing.expectEqual(input[row * cols + col], out[col * rows + row]);
+        }
+    }
 }
 
 test "CPU vector matmul SIMD helpers cover dot matvec and vecmat tails" {
