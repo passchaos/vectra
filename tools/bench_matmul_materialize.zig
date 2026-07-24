@@ -10,6 +10,13 @@ const Shape = struct {
 const Options = struct {
     shape: Shape = .{},
     iters: usize = 16,
+    types: TypeSelection = .f64,
+};
+
+const TypeSelection = enum {
+    f32,
+    f64,
+    all,
 };
 
 fn nowNs(io: std.Io) i128 {
@@ -42,6 +49,15 @@ fn parseOptions(init: std.process.Init) Options {
         } else if (std.mem.startsWith(u8, arg, "--iters=")) {
             const value = std.fmt.parseUnsigned(usize, arg["--iters=".len..], 10) catch continue;
             if (value != 0) options.iters = value;
+        } else if (std.mem.startsWith(u8, arg, "--types=")) {
+            const text = arg["--types=".len..];
+            if (std.mem.eql(u8, text, "f32")) {
+                options.types = .f32;
+            } else if (std.mem.eql(u8, text, "f64")) {
+                options.types = .f64;
+            } else if (std.mem.eql(u8, text, "all")) {
+                options.types = .all;
+            }
         }
     }
     return options;
@@ -196,5 +212,12 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
 
 pub fn main(init: std.process.Init) !void {
     const options = parseOptions(init);
-    try benchType(f64, init, options);
+    switch (options.types) {
+        .f32 => try benchType(f32, init, options),
+        .f64 => try benchType(f64, init, options),
+        .all => {
+            try benchType(f32, init, options);
+            try benchType(f64, init, options);
+        },
+    }
 }
