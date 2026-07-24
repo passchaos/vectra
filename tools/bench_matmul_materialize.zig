@@ -76,6 +76,10 @@ fn gflops(shape: Shape, elapsed_ns: i128) f64 {
     return ops / @as(f64, @floatFromInt(elapsed_ns));
 }
 
+fn alignOffset(ptr: anytype, comptime alignment: usize) usize {
+    return @intFromPtr(ptr) % alignment;
+}
+
 fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     const shape = options.shape;
     const allocator = std.heap.smp_allocator;
@@ -188,13 +192,17 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     const stdout = std.debug;
     const denom: i128 = @intCast(options.iters);
     stdout.print(
-        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} copy_add_ns={} copy_add_sqrt_ns={} column_copy_add_sqrt_ns={} matmul_ns={} matmul_add_ns={} matmul_add_sqrt_ns={} fused_matmul_add_sqrt_ns={}\n",
+        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} align64 lhs/rhs/addend/scratch {d}/{d}/{d}/{d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} copy_add_ns={} copy_add_sqrt_ns={} column_copy_add_sqrt_ns={} matmul_ns={} matmul_add_ns={} matmul_add_sqrt_ns={} fused_matmul_add_sqrt_ns={}\n",
         .{
             @typeName(T),
             shape.m,
             shape.n,
             shape.k,
             options.iters,
+            alignOffset(lhs.data.ptr, 64),
+            alignOffset(rhs.data.ptr, 64),
+            alignOffset(addend.data.ptr, 64),
+            alignOffset(scratch.ptr, 64),
             @divTrunc(column_ns, denom),
             gflops(shape, @divTrunc(column_ns, denom)),
             @divTrunc(clone_materialize_ns, denom),
