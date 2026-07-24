@@ -89,6 +89,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     var copy_to_slice_ns: i128 = 0;
     var copy_add_ns: i128 = 0;
     var copy_add_sqrt_ns: i128 = 0;
+    var column_copy_add_sqrt_ns: i128 = 0;
     var matmul_ns: i128 = 0;
     var matmul_add_ns: i128 = 0;
     var matmul_add_sqrt_ns: i128 = 0;
@@ -130,6 +131,16 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
         column.deinit();
 
         start = nowNs(init.io);
+        var fused_column = (try vx.cpuMatmulColumnMajorResult(T, lhs, rhs)) orelse return error.Unsupported;
+        try fused_column.copyToSlice(scratch);
+        for (scratch, addend.data) |*slot, add_value| {
+            slot.* = @sqrt(slot.* + add_value);
+        }
+        column_copy_add_sqrt_ns += nowNs(init.io) - start;
+        sink += scratch[0];
+        fused_column.deinit();
+
+        start = nowNs(init.io);
         var matmul = try lhs.matmul(rhs);
         matmul_ns += nowNs(init.io) - start;
         sink += matmul.data[0];
@@ -154,7 +165,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
     const stdout = std.debug;
     const denom: i128 = @intCast(options.iters);
     stdout.print(
-        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} copy_add_ns={} copy_add_sqrt_ns={} matmul_ns={} matmul_add_ns={} matmul_add_sqrt_ns={}\n",
+        "vectra_matmul_materialize dtype={s} shape={d}x{d}x{d} iters={d} column_ns={} column_gflops={d:.3} clone_materialize_ns={} copy_to_slice_ns={} copy_add_ns={} copy_add_sqrt_ns={} column_copy_add_sqrt_ns={} matmul_ns={} matmul_add_ns={} matmul_add_sqrt_ns={}\n",
         .{
             @typeName(T),
             shape.m,
@@ -167,6 +178,7 @@ fn benchType(comptime T: type, init: std.process.Init, options: Options) !void {
             @divTrunc(copy_to_slice_ns, denom),
             @divTrunc(copy_add_ns, denom),
             @divTrunc(copy_add_sqrt_ns, denom),
+            @divTrunc(column_copy_add_sqrt_ns, denom),
             @divTrunc(matmul_ns, denom),
             @divTrunc(matmul_add_ns, denom),
             @divTrunc(matmul_add_sqrt_ns, denom),
