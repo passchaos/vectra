@@ -251,18 +251,12 @@ pub const PreparedF32TransposedMatmul = struct {
         if (out.shape.len != 2 or out.shape[0] != self.lhs_shape[0] or out.shape[1] != self.rhs_shape[1]) return error.ShapeMismatch;
         if (!out.isContiguous()) return error.InvalidShape;
 
-        const m = self.lhs_shape[0];
-        const n = self.rhs_shape[1];
-        var shape = [_]usize{ n, m };
-        var strides = [_]usize{ @as(usize, 1), n };
-        const column_out = array_mod.Array(f32){
-            .allocator = self.allocator,
-            .data = out.data,
-            .shape = shape[0..],
-            .strides = strides[0..],
-            .device = .cpu,
+        self.prepared.prepared.runColumnMajor(out.data) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.ShapeMismatch => return error.ShapeMismatch,
+            error.InvalidTensorView => return error.InvalidShape,
+            error.BackendFailure, error.SingularMatrix => return error.BackendFailure,
         };
-        try self.prepared.matmulColumnMajorOut(column_out);
     }
 };
 
