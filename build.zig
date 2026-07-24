@@ -243,6 +243,24 @@ pub fn build(b: *std.Build) void {
     const matmul_materialize_bench_step = b.step("bench-matmul-materialize", "Run focused CPU matmul materialization benchmark");
     matmul_materialize_bench_step.dependOn(&matmul_materialize_bench_cmd.step);
 
+    const prepared_matmul_bench_exe = b.addExecutable(.{
+        .name = "vectra-prepared-matmul-bench",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/bench_prepared_matmul.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vectra", .module = mod },
+            },
+        }),
+    });
+    const prepared_matmul_bench_cmd = b.addRunArtifact(prepared_matmul_bench_exe);
+    if (b.args) |args| {
+        prepared_matmul_bench_cmd.addArgs(args);
+    }
+    const prepared_matmul_bench_step = b.step("bench-prepared-matmul", "Run explicit prepared f32 CPU matmul benchmark");
+    prepared_matmul_bench_step.dependOn(&prepared_matmul_bench_cmd.step);
+
     const api_boundary_audit_cmd = b.addSystemCommand(&.{ "python3", "tools/api_boundary_audit.py" });
     const api_boundary_audit_step = b.step("api-boundary-audit", "Check that Vectra keeps Array API boundaries and leaves Tensor/autograd to Forge");
     api_boundary_audit_step.dependOn(&api_boundary_audit_cmd.step);

@@ -103,6 +103,69 @@ pub const TensorGemmMemRefDeviceBufferizationStatus = axiom.accelerator.TensorGe
 pub const TensorBatchedGemmMemRefLoweringPlan = axiom.accelerator.TensorBatchedGemmMemRefLoweringPlan;
 pub const TensorBatchedGemmMemRefLoweringStatus = axiom.accelerator.TensorBatchedGemmMemRefLoweringStatus;
 
+pub const PreparedF32Matmul = struct {
+    allocator: std.mem.Allocator,
+    lhs_shape: [2]usize,
+    rhs_shape: [2]usize,
+    prepared: axiom.accelerator.cpu_veyra.CpuVeyraPreparedGemmF32,
+    out_token: *f32,
+
+    pub fn init(allocator: std.mem.Allocator, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!PreparedF32Matmul {
+        if (!lhs.device.isCpu() or !rhs.device.isCpu()) return error.InvalidDevice;
+        if (lhs.shape.len != 2 or rhs.shape.len != 2) return error.InvalidShape;
+        if (!lhs.isContiguous() or !rhs.isContiguous()) return error.InvalidShape;
+        const m = lhs.shape[0];
+        const k = lhs.shape[1];
+        const n = rhs.shape[1];
+        if (rhs.shape[0] != k) return error.ShapeMismatch;
+
+        const out_token = try allocator.create(f32);
+        errdefer allocator.destroy(out_token);
+        const spec = axiom.accelerator.TensorGemmSpec.rowMajor(
+            .rowMajor("lhs", @intCast(@intFromPtr(lhs.data.ptr)), m, k),
+            .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
+            .rowMajor("out", @intCast(@intFromPtr(out_token)), m, n),
+        );
+        const prepared = axiom.accelerator.cpu_veyra.CpuVeyraPreparedGemmF32.init(allocator, spec, lhs.data, rhs.data) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.InvalidTensorView, error.ShapeMismatch => return error.InvalidShape,
+            error.BackendFailure, error.SingularMatrix => return error.BackendFailure,
+        };
+        return .{
+            .allocator = allocator,
+            .lhs_shape = .{ m, k },
+            .rhs_shape = .{ k, n },
+            .prepared = prepared,
+            .out_token = out_token,
+        };
+    }
+
+    pub fn deinit(self: *PreparedF32Matmul) void {
+        self.prepared.deinit();
+        self.allocator.destroy(self.out_token);
+        self.* = undefined;
+    }
+
+    pub fn matmul(self: *PreparedF32Matmul) array_mod.ArrayError!array_mod.Array(f32) {
+        var out = try array_mod.Array(f32).empty(self.allocator, &.{ self.lhs_shape[0], self.rhs_shape[1] });
+        errdefer out.deinit();
+        try self.matmulOut(out);
+        return out;
+    }
+
+    pub fn matmulOut(self: *PreparedF32Matmul, out: array_mod.Array(f32)) array_mod.ArrayError!void {
+        if (!out.device.isCpu()) return error.InvalidDevice;
+        if (out.shape.len != 2 or out.shape[0] != self.lhs_shape[0] or out.shape[1] != self.rhs_shape[1]) return error.ShapeMismatch;
+        if (!out.isContiguous()) return error.InvalidShape;
+        self.prepared.run(out.data) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.ShapeMismatch => return error.ShapeMismatch,
+            error.InvalidTensorView => return error.InvalidShape,
+            error.BackendFailure, error.SingularMatrix => return error.BackendFailure,
+        };
+    }
+};
+
 pub fn QrResult(comptime T: type) type {
     return struct {
         q: array_mod.Array(T),
@@ -6506,6 +6569,40 @@ fn checkCpuF32GemmFastPath(gpa: std.mem.Allocator, comptime m: usize, comptime n
             expected += lhs.data[idx[0] * k + kk] * rhs.data[kk * n + idx[1]];
         }
         try std.testing.expectApproxEqAbs(expected, out.data[idx[0] * n + idx[1]], 1e-4);
+    }
+}
+
+test "PreparedF32Matmul matches normal matmulOut when available" {
+    const gpa = std.testing.allocator;
+    const m: usize = 64;
+    const n: usize = 64;
+    const k: usize = 64;
+    var lhs = try array_mod.Array(f32).empty(gpa, &.{ m, k });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f32).empty(gpa, &.{ k, n });
+    defer rhs.deinit();
+    var prepared_out = try array_mod.Array(f32).empty(gpa, &.{ m, n });
+    defer prepared_out.deinit();
+    var normal_out = try array_mod.Array(f32).empty(gpa, &.{ m, n });
+    defer normal_out.deinit();
+
+    for (lhs.data, 0..) |*value, index| {
+        value.* = @as(f32, @floatFromInt((index * 17 + 11) % 97)) * 0.015625 + 0.125;
+    }
+    for (rhs.data, 0..) |*value, index| {
+        value.* = @as(f32, @floatFromInt((index * 19 + 13) % 89)) * -0.01171875 + 0.25;
+    }
+
+    var prepared = PreparedF32Matmul.init(gpa, lhs, rhs) catch |err| switch (err) {
+        error.BackendFailure, error.InvalidShape => return error.SkipZigTest,
+        else => return err,
+    };
+    defer prepared.deinit();
+    try prepared.matmulOut(prepared_out);
+    try lhs.matmulOut(rhs, normal_out);
+
+    for (prepared_out.data, normal_out.data) |prepared_value, normal_value| {
+        try std.testing.expectApproxEqAbs(normal_value, prepared_value, 1e-3);
     }
 }
 
