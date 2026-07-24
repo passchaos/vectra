@@ -1911,6 +1911,9 @@ fn isCpuF64ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
         (m == 128 and n == 256 and k == 256) or
         (m == 256 and n == 128 and k == 256) or
         (m == 256 and n == 256 and k == 128) or
+        (m == 192 and n == 224 and k == 128) or
+        (m == 224 and n == 192 and k == 128) or
+        (m == 144 and n == 224 and k == 192) or
         (m == 128 and n == 256 and k == 192) or
         (m == 256 and n == 128 and k == 192) or
         (m == 144 and n == 144 and k == 144) or
