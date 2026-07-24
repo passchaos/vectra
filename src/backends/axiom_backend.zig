@@ -23,6 +23,7 @@ const axiom_mps = @import("axiom_mps.zig");
 // Unit tests use a much smaller streaming threshold so they exercise the same
 // dispatch branches without allocating production-sized buffers.
 const cpu_streaming_fast_path_min_elements: usize = if (builtin.is_test) 64 else 1 << 20;
+const cpu_unary_fast_path_min_elements: usize = if (builtin.is_test) 64 else 32 * 1024;
 const cpu_matmul_like_fast_path_min_ops: usize = 4 * 1024 * 1024;
 
 pub fn cpuStreamingFastPathMinElements() usize {
@@ -3337,7 +3338,7 @@ fn executeCpuUnary(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Arra
 
 fn executeCpuUnaryFastPath(comptime T: type, op: ExecutionUnaryOp, input: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
-    if (!input.device.isCpu() or input.data.len < cpu_streaming_fast_path_min_elements or !input.isContiguous()) return null;
+    if (!input.device.isCpu() or input.data.len < cpu_unary_fast_path_min_elements or !input.isContiguous()) return null;
 
     // Axiom CPU unary reports intentionally hash and verify outputs for smoke
     // evidence.  That is useful for small diagnostic runs, but on production
