@@ -153,11 +153,44 @@ pub const PreparedF32Matmul = struct {
         return out;
     }
 
+    pub fn matmulColumnMajor(self: *PreparedF32Matmul) array_mod.ArrayError!array_mod.Array(f32) {
+        const m = self.lhs_shape[0];
+        const n = self.rhs_shape[1];
+        const values = try self.allocator.alloc(f32, m * n);
+        errdefer self.allocator.free(values);
+        const shape = try self.allocator.dupe(usize, &.{ m, n });
+        errdefer self.allocator.free(shape);
+        const strides = try self.allocator.dupe(usize, &.{ @as(usize, 1), m });
+        errdefer self.allocator.free(strides);
+        var out = array_mod.Array(f32){
+            .allocator = self.allocator,
+            .data = values,
+            .shape = shape,
+            .strides = strides,
+            .device = .cpu,
+        };
+        errdefer out.deinit();
+        try self.matmulColumnMajorOut(out);
+        return out;
+    }
+
     pub fn matmulOut(self: *PreparedF32Matmul, out: array_mod.Array(f32)) array_mod.ArrayError!void {
         if (!out.device.isCpu()) return error.InvalidDevice;
         if (out.shape.len != 2 or out.shape[0] != self.lhs_shape[0] or out.shape[1] != self.rhs_shape[1]) return error.ShapeMismatch;
         if (!out.isContiguous()) return error.InvalidShape;
         self.prepared.run(out.data) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.ShapeMismatch => return error.ShapeMismatch,
+            error.InvalidTensorView => return error.InvalidShape,
+            error.BackendFailure, error.SingularMatrix => return error.BackendFailure,
+        };
+    }
+
+    pub fn matmulColumnMajorOut(self: *PreparedF32Matmul, out: array_mod.Array(f32)) array_mod.ArrayError!void {
+        if (!out.device.isCpu()) return error.InvalidDevice;
+        if (out.shape.len != 2 or out.shape[0] != self.lhs_shape[0] or out.shape[1] != self.rhs_shape[1]) return error.ShapeMismatch;
+        if (out.strides.len != 2 or out.strides[0] != 1 or out.strides[1] != self.lhs_shape[0]) return error.InvalidShape;
+        self.prepared.runColumnMajor(out.data) catch |err| switch (err) {
             error.OutOfMemory => return error.OutOfMemory,
             error.ShapeMismatch => return error.ShapeMismatch,
             error.InvalidTensorView => return error.InvalidShape,

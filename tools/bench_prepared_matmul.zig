@@ -81,10 +81,14 @@ pub fn main(init: std.process.Init) !void {
 
     var prepared = try vx.PreparedF32Matmul.init(allocator, lhs, rhs);
     defer prepared.deinit();
+    var prepared_column_out = try prepared.matmulColumnMajor();
+    defer prepared_column_out.deinit();
     try prepared.matmulOut(prepared_out);
+    try prepared.matmulColumnMajorOut(prepared_column_out);
     try lhs.matmulOut(rhs, normal_out);
 
     var prepared_ns: i128 = 0;
+    var prepared_column_ns: i128 = 0;
     var normal_ns: i128 = 0;
     var sink: f32 = 0;
     for (0..options.iters) |_| {
@@ -92,6 +96,11 @@ pub fn main(init: std.process.Init) !void {
         try prepared.matmulOut(prepared_out);
         prepared_ns += nowNs(init.io) - start;
         sink += prepared_out.data[0];
+
+        start = nowNs(init.io);
+        try prepared.matmulColumnMajorOut(prepared_column_out);
+        prepared_column_ns += nowNs(init.io) - start;
+        sink += prepared_column_out.data[0];
 
         start = nowNs(init.io);
         try lhs.matmulOut(rhs, normal_out);
@@ -102,9 +111,11 @@ pub fn main(init: std.process.Init) !void {
 
     const denom: i128 = @intCast(options.iters);
     const prepared_avg = @divTrunc(prepared_ns, denom);
+    const prepared_column_avg = @divTrunc(prepared_column_ns, denom);
     const normal_avg = @divTrunc(normal_ns, denom);
+    try prepared_column_out.copyToSlice(prepared_out.data);
     std.debug.print(
-        "vectra_prepared_matmul_f32 shape={d}x{d}x{d} iters={d} prepared_ns={} prepared_gflops={d:.3} normal_ns={} normal_gflops={d:.3} ratio={d:.3} max_diff={d:.6}\n",
+        "vectra_prepared_matmul_f32 shape={d}x{d}x{d} iters={d} prepared_ns={} prepared_gflops={d:.3} prepared_column_ns={} prepared_column_gflops={d:.3} normal_ns={} normal_gflops={d:.3} ratio={d:.3} column_ratio={d:.3} max_diff={d:.6}\n",
         .{
             shape.m,
             shape.n,
@@ -112,9 +123,12 @@ pub fn main(init: std.process.Init) !void {
             options.iters,
             prepared_avg,
             gflops(shape, prepared_avg),
+            prepared_column_avg,
+            gflops(shape, prepared_column_avg),
             normal_avg,
             gflops(shape, normal_avg),
             gflops(shape, prepared_avg) / gflops(shape, normal_avg),
+            gflops(shape, prepared_column_avg) / gflops(shape, normal_avg),
             maxAbsDiff(prepared_out.data, normal_out.data),
         },
     );
