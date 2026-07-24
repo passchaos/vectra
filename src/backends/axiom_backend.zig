@@ -1913,6 +1913,8 @@ fn isCpuF64ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
         (m == 256 and n == 256 and k == 128) or
         (m == 192 and n == 224 and k == 128) or
         (m == 224 and n == 192 and k == 128) or
+        (m == 128 and n == 384 and k == 128) or
+        (m == 384 and n == 128 and k == 128) or
         (m == 144 and n == 224 and k == 192) or
         (m == 128 and n == 256 and k == 192) or
         (m == 256 and n == 128 and k == 192) or
@@ -6415,6 +6417,59 @@ test "CPU f32 matmulAdd uses column-major materialization shapes" {
     for (checks) |idx| {
         const index = idx[0] * n + idx[1];
         try std.testing.expectApproxEqAbs(product.data[index] + addend.data[index], fused.data[index], 1e-4);
+    }
+}
+
+test "CPU f64 matmulAdd uses low-K column-major materialization shapes" {
+    const gpa = std.testing.allocator;
+    const m: usize = 384;
+    const n: usize = 128;
+    const k: usize = 128;
+    var lhs = try array_mod.Array(f64).empty(gpa, &.{ m, k });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f64).empty(gpa, &.{ k, n });
+    defer rhs.deinit();
+    var addend = try array_mod.Array(f64).empty(gpa, &.{ m, n });
+    defer addend.deinit();
+
+    var row: usize = 0;
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < k) : (col += 1) {
+            lhs.data[row * k + col] = @as(f64, @floatFromInt(((row + 3) * (col + 5)) % 17 + 1)) * 0.015625;
+        }
+    }
+    row = 0;
+    while (row < k) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            rhs.data[row * n + col] = @as(f64, @floatFromInt(((row + 7) * (col + 11)) % 19 + 1)) * -0.0078125;
+        }
+    }
+    row = 0;
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            addend.data[row * n + col] = @as(f64, @floatFromInt(((row + 13) * (col + 17)) % 23 + 1)) * 0.00390625;
+        }
+    }
+
+    var product = try matmul(f64, .prefer_axiom_cpu, lhs, rhs);
+    defer product.deinit();
+    var fused = (try executeCpuGemmScaledTarget(f64, lhs, rhs, addend, 1.0, 1.0)) orelse return error.BackendFailure;
+    defer fused.deinit();
+    try std.testing.expect(fused.isContiguous());
+    try std.testing.expectEqualSlices(usize, &.{ m, n }, fused.shape);
+
+    const checks = [_][2]usize{
+        .{ 0, 0 },
+        .{ 3, 17 },
+        .{ m / 2, 5 },
+        .{ m - 1, n - 1 },
+    };
+    for (checks) |idx| {
+        const index = idx[0] * n + idx[1];
+        try std.testing.expectApproxEqAbs(product.data[index] + addend.data[index], fused.data[index], 1e-9);
     }
 }
 
