@@ -1651,7 +1651,79 @@ fn largeCpuGemm(m: usize, n: usize, k: usize) bool {
 fn copyColumnMajorMatrixToRowMajor(comptime T: type, out: []T, column_major: []const T, rows: usize, cols: usize) void {
     std.debug.assert(out.len >= rows * cols);
     std.debug.assert(column_major.len >= rows * cols);
-    cpuTransposeBlocked(T, out[0 .. rows * cols], column_major[0 .. rows * cols], cols, rows);
+    if (comptime T == f32 or T == f64) {
+        copyColumnMajorMatrixToRowMajor8x4(T, out[0 .. rows * cols], column_major[0 .. rows * cols], rows, cols);
+        return;
+    }
+
+    const block: usize = 32;
+    var row0: usize = 0;
+    while (row0 < rows) : (row0 += block) {
+        const row_end = @min(row0 + block, rows);
+        var col0: usize = 0;
+        while (col0 < cols) : (col0 += block) {
+            const col_end = @min(col0 + block, cols);
+            var row = row0;
+            while (row < row_end) : (row += 1) {
+                const dst_row = out[row * cols .. row * cols + cols];
+                var col = col0;
+                while (col < col_end) : (col += 1) {
+                    dst_row[col] = column_major[col * rows + row];
+                }
+            }
+        }
+    }
+}
+
+fn copyColumnMajorMatrixToRowMajor8x4(comptime T: type, out: []T, column_major: []const T, rows: usize, cols: usize) void {
+    const block: usize = 32;
+    var row0: usize = 0;
+    while (row0 < rows) : (row0 += block) {
+        const row_end = @min(row0 + block, rows);
+        var col0: usize = 0;
+        while (col0 < cols) : (col0 += block) {
+            const col_end = @min(col0 + block, cols);
+            var row = row0;
+            while (row + 8 <= row_end) : (row += 8) {
+                var col = col0;
+                while (col + 4 <= col_end) : (col += 4) {
+                    const c0a: @Vector(4, T) = column_major[(col + 0) * rows + row ..][0..4].*;
+                    const c0b: @Vector(4, T) = column_major[(col + 0) * rows + row + 4 ..][0..4].*;
+                    const c1a: @Vector(4, T) = column_major[(col + 1) * rows + row ..][0..4].*;
+                    const c1b: @Vector(4, T) = column_major[(col + 1) * rows + row + 4 ..][0..4].*;
+                    const c2a: @Vector(4, T) = column_major[(col + 2) * rows + row ..][0..4].*;
+                    const c2b: @Vector(4, T) = column_major[(col + 2) * rows + row + 4 ..][0..4].*;
+                    const c3a: @Vector(4, T) = column_major[(col + 3) * rows + row ..][0..4].*;
+                    const c3b: @Vector(4, T) = column_major[(col + 3) * rows + row + 4 ..][0..4].*;
+                    out[(row + 0) * cols + col ..][0..4].* = .{ c0a[0], c1a[0], c2a[0], c3a[0] };
+                    out[(row + 1) * cols + col ..][0..4].* = .{ c0a[1], c1a[1], c2a[1], c3a[1] };
+                    out[(row + 2) * cols + col ..][0..4].* = .{ c0a[2], c1a[2], c2a[2], c3a[2] };
+                    out[(row + 3) * cols + col ..][0..4].* = .{ c0a[3], c1a[3], c2a[3], c3a[3] };
+                    out[(row + 4) * cols + col ..][0..4].* = .{ c0b[0], c1b[0], c2b[0], c3b[0] };
+                    out[(row + 5) * cols + col ..][0..4].* = .{ c0b[1], c1b[1], c2b[1], c3b[1] };
+                    out[(row + 6) * cols + col ..][0..4].* = .{ c0b[2], c1b[2], c2b[2], c3b[2] };
+                    out[(row + 7) * cols + col ..][0..4].* = .{ c0b[3], c1b[3], c2b[3], c3b[3] };
+                }
+                while (col < col_end) : (col += 1) {
+                    out[(row + 0) * cols + col] = column_major[col * rows + row + 0];
+                    out[(row + 1) * cols + col] = column_major[col * rows + row + 1];
+                    out[(row + 2) * cols + col] = column_major[col * rows + row + 2];
+                    out[(row + 3) * cols + col] = column_major[col * rows + row + 3];
+                    out[(row + 4) * cols + col] = column_major[col * rows + row + 4];
+                    out[(row + 5) * cols + col] = column_major[col * rows + row + 5];
+                    out[(row + 6) * cols + col] = column_major[col * rows + row + 6];
+                    out[(row + 7) * cols + col] = column_major[col * rows + row + 7];
+                }
+            }
+            while (row < row_end) : (row += 1) {
+                const dst_row = out[row * cols .. row * cols + cols];
+                var col = col0;
+                while (col < col_end) : (col += 1) {
+                    dst_row[col] = column_major[col * rows + row];
+                }
+            }
+        }
+    }
 }
 
 fn materializeColumnMajorGemmAdd(
