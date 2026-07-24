@@ -922,6 +922,11 @@ fn ravelIndex(indices: []const usize, strides: []const usize) usize {
 }
 
 fn copyColumnMajor2dToRowMajorSlice(comptime T: type, out: []T, input: []const T, offset: usize, rows: usize, cols: usize) void {
+    if (comptime T == f32 or T == f64) {
+        copyColumnMajor2dToRowMajorSlice8x4(T, out, input, offset, rows, cols);
+        return;
+    }
+
     const block: usize = 32;
     var row0: usize = 0;
     while (row0 < rows) : (row0 += block) {
@@ -930,6 +935,57 @@ fn copyColumnMajor2dToRowMajorSlice(comptime T: type, out: []T, input: []const T
         while (col0 < cols) : (col0 += block) {
             const col_end = @min(col0 + block, cols);
             var row = row0;
+            while (row < row_end) : (row += 1) {
+                const dst_row = out[row * cols .. row * cols + cols];
+                var col = col0;
+                while (col < col_end) : (col += 1) {
+                    dst_row[col] = input[offset + col * rows + row];
+                }
+            }
+        }
+    }
+}
+
+fn copyColumnMajor2dToRowMajorSlice8x4(comptime T: type, out: []T, input: []const T, offset: usize, rows: usize, cols: usize) void {
+    const block: usize = 32;
+    var row0: usize = 0;
+    while (row0 < rows) : (row0 += block) {
+        const row_end = @min(row0 + block, rows);
+        var col0: usize = 0;
+        while (col0 < cols) : (col0 += block) {
+            const col_end = @min(col0 + block, cols);
+            var row = row0;
+            while (row + 8 <= row_end) : (row += 8) {
+                var col = col0;
+                while (col + 4 <= col_end) : (col += 4) {
+                    const c0a: @Vector(4, T) = input[offset + (col + 0) * rows + row ..][0..4].*;
+                    const c0b: @Vector(4, T) = input[offset + (col + 0) * rows + row + 4 ..][0..4].*;
+                    const c1a: @Vector(4, T) = input[offset + (col + 1) * rows + row ..][0..4].*;
+                    const c1b: @Vector(4, T) = input[offset + (col + 1) * rows + row + 4 ..][0..4].*;
+                    const c2a: @Vector(4, T) = input[offset + (col + 2) * rows + row ..][0..4].*;
+                    const c2b: @Vector(4, T) = input[offset + (col + 2) * rows + row + 4 ..][0..4].*;
+                    const c3a: @Vector(4, T) = input[offset + (col + 3) * rows + row ..][0..4].*;
+                    const c3b: @Vector(4, T) = input[offset + (col + 3) * rows + row + 4 ..][0..4].*;
+                    out[(row + 0) * cols + col ..][0..4].* = .{ c0a[0], c1a[0], c2a[0], c3a[0] };
+                    out[(row + 1) * cols + col ..][0..4].* = .{ c0a[1], c1a[1], c2a[1], c3a[1] };
+                    out[(row + 2) * cols + col ..][0..4].* = .{ c0a[2], c1a[2], c2a[2], c3a[2] };
+                    out[(row + 3) * cols + col ..][0..4].* = .{ c0a[3], c1a[3], c2a[3], c3a[3] };
+                    out[(row + 4) * cols + col ..][0..4].* = .{ c0b[0], c1b[0], c2b[0], c3b[0] };
+                    out[(row + 5) * cols + col ..][0..4].* = .{ c0b[1], c1b[1], c2b[1], c3b[1] };
+                    out[(row + 6) * cols + col ..][0..4].* = .{ c0b[2], c1b[2], c2b[2], c3b[2] };
+                    out[(row + 7) * cols + col ..][0..4].* = .{ c0b[3], c1b[3], c2b[3], c3b[3] };
+                }
+                while (col < col_end) : (col += 1) {
+                    out[(row + 0) * cols + col] = input[offset + col * rows + row + 0];
+                    out[(row + 1) * cols + col] = input[offset + col * rows + row + 1];
+                    out[(row + 2) * cols + col] = input[offset + col * rows + row + 2];
+                    out[(row + 3) * cols + col] = input[offset + col * rows + row + 3];
+                    out[(row + 4) * cols + col] = input[offset + col * rows + row + 4];
+                    out[(row + 5) * cols + col] = input[offset + col * rows + row + 5];
+                    out[(row + 6) * cols + col] = input[offset + col * rows + row + 6];
+                    out[(row + 7) * cols + col] = input[offset + col * rows + row + 7];
+                }
+            }
             while (row < row_end) : (row += 1) {
                 const dst_row = out[row * cols .. row * cols + cols];
                 var col = col0;
@@ -1784,14 +1840,7 @@ pub fn ArrayView(comptime T: type) type {
                 const span = std.math.mul(usize, rows, cols) catch return error.InvalidShape;
                 const end = std.math.add(usize, self.offset, span) catch return error.InvalidShape;
                 if (end > self.data.len) return error.IndexOutOfBounds;
-                var row: usize = 0;
-                while (row < rows) : (row += 1) {
-                    const dst_row = out.data[row * cols .. row * cols + cols];
-                    var col: usize = 0;
-                    while (col < cols) : (col += 1) {
-                        dst_row[col] = self.data[self.offset + col * rows + row];
-                    }
-                }
+                copyColumnMajor2dToRowMajorSlice(T, out.data, self.data, self.offset, rows, cols);
                 return out;
             }
             const multi = try self.allocator.alloc(usize, self.shape.len);
@@ -24895,6 +24944,44 @@ test "array comparison and logical wrappers" {
     var column_major_copied: [12]f64 = undefined;
     try column_major_copy_view.copyToSlice(&column_major_copied);
     try std.testing.expectEqualSlices(f64, &.{ 1, 4, 7, 10, 2, 5, 8, 11, 3, 6, 9, 12 }, &column_major_copied);
+    var column_major_large_f32_data: [72]f32 = undefined;
+    for (&column_major_large_f32_data, 0..) |*slot, index| slot.* = @floatFromInt(index + 1);
+    var column_major_large_f32 = try Array(f32).fromSlice(gpa, &column_major_large_f32_data, &.{ 8, 9 });
+    defer column_major_large_f32.deinit();
+    var column_major_large_f32_view = try column_major_large_f32.asStrided(&.{ 8, 9 }, &.{ 1, 8 }, 0);
+    defer column_major_large_f32_view.deinit();
+    var column_major_large_f32_copied: [72]f32 = undefined;
+    try column_major_large_f32_view.copyToSlice(&column_major_large_f32_copied);
+    var column_major_large_f32_owned = try column_major_large_f32_view.toArray();
+    defer column_major_large_f32_owned.deinit();
+    var row_index: usize = 0;
+    while (row_index < 8) : (row_index += 1) {
+        var col_index: usize = 0;
+        while (col_index < 9) : (col_index += 1) {
+            const expected: f32 = @floatFromInt(col_index * 8 + row_index + 1);
+            try std.testing.expectEqual(expected, column_major_large_f32_copied[row_index * 9 + col_index]);
+            try std.testing.expectEqual(expected, column_major_large_f32_owned.data[row_index * 9 + col_index]);
+        }
+    }
+    var column_major_large_f64_data: [77]f64 = undefined;
+    for (&column_major_large_f64_data, 0..) |*slot, index| slot.* = @floatFromInt(index + 1);
+    var column_major_large_f64 = try Array(f64).fromSlice(gpa, &column_major_large_f64_data, &.{ 11, 7 });
+    defer column_major_large_f64.deinit();
+    var column_major_large_f64_view = try column_major_large_f64.asStrided(&.{ 11, 7 }, &.{ 1, 11 }, 0);
+    defer column_major_large_f64_view.deinit();
+    var column_major_large_f64_copied: [77]f64 = undefined;
+    try column_major_large_f64_view.copyToSlice(&column_major_large_f64_copied);
+    var column_major_large_f64_owned = try column_major_large_f64_view.toArray();
+    defer column_major_large_f64_owned.deinit();
+    row_index = 0;
+    while (row_index < 11) : (row_index += 1) {
+        var col_index: usize = 0;
+        while (col_index < 7) : (col_index += 1) {
+            const expected: f64 = @floatFromInt(col_index * 11 + row_index + 1);
+            try std.testing.expectEqual(expected, column_major_large_f64_copied[row_index * 7 + col_index]);
+            try std.testing.expectEqual(expected, column_major_large_f64_owned.data[row_index * 7 + col_index]);
+        }
+    }
     var materialized = try contiguous_view.toArray();
     defer materialized.deinit();
     try std.testing.expectEqualSlices(f64, a.data, materialized.data);
