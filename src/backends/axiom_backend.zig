@@ -1915,6 +1915,7 @@ fn isCpuF64ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
         (m == 128 and n == 256 and k == 256) or
         (m == 256 and n == 128 and k == 256) or
         (m == 256 and n == 256 and k == 128) or
+        (m == 192 and n == 192 and k == 128) or
         (m == 192 and n == 224 and k == 128) or
         (m == 224 and n == 192 and k == 128) or
         (m == 128 and n == 384 and k == 128) or
@@ -6523,6 +6524,7 @@ test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
     try std.testing.expect(!shouldMaterializeCpuF64ColumnMajorGemm(512, 512, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAdd(512, 512, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(96, 96, 96));
+    try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(192, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemm(384, 384, 128));
     try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAdd(384, 128, 128));
 }
