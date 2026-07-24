@@ -1942,6 +1942,11 @@ fn shouldMaterializeCpuF64ColumnMajorGemm(m: usize, n: usize, k: usize) bool {
         isCpuF64ColumnMajorMeasuredRectGemm(m, n, k);
 }
 
+fn shouldMaterializeCpuF64ColumnMajorGemmAdd(m: usize, n: usize, k: usize) bool {
+    return shouldMaterializeCpuF64ColumnMajorGemm(m, n, k) or
+        (m == 512 and n == 512 and k == 128);
+}
+
 pub fn cpuMatmulColumnMajorResult(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!?array_mod.Array(T) {
     if (T != f32 and T != f64) return null;
     if (!lhs.device.isCpu() or !rhs.device.isCpu()) return null;
@@ -2022,7 +2027,7 @@ fn executeCpuGemmScaledTarget(comptime T: type, lhs: array_mod.Array(T), rhs: ar
             if (materializeColumnMajorGemmAdd(T, out.data, materialized.data, addend, m, n, alpha, beta)) return out;
         }
     }
-    if (T == f64 and shouldMaterializeCpuF64ColumnMajorGemm(m, n, k)) {
+    if (T == f64 and shouldMaterializeCpuF64ColumnMajorGemmAdd(m, n, k)) {
         var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
         errdefer out.deinit();
         if (try cpuMatmulColumnMajorResult(T, lhs, rhs)) |column_out| {
@@ -6472,6 +6477,12 @@ test "CPU f64 matmulAdd uses low-K column-major materialization shapes" {
         const index = idx[0] * n + idx[1];
         try std.testing.expectApproxEqAbs(product.data[index] + addend.data[index], fused.data[index], 1e-9);
     }
+}
+
+test "CPU f64 matmulAdd has separate full-prepack materialization predicate" {
+    try std.testing.expect(!shouldMaterializeCpuF64ColumnMajorGemm(512, 512, 128));
+    try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAdd(512, 512, 128));
+    try std.testing.expect(shouldMaterializeCpuF64ColumnMajorGemmAdd(384, 128, 128));
 }
 
 test "Axiom backend policy reports elementwise route" {
