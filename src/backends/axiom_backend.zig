@@ -1920,6 +1920,7 @@ fn isCpuF32ColumnMajorSquareGemm(m: usize, n: usize, k: usize) bool {
 
 fn isCpuF32ColumnMajorMeasuredRectGemm(m: usize, n: usize, k: usize) bool {
     return (n == 100 and k == 100 and (m == 10 or m == 50)) or
+        (m == 16 and (n == 512 or n == 1024) and k == 16) or
         (m == 128 and n == 128 and (k == 16 or k == 32)) or
         (m == 32 and n == 512 and k == 32) or
         (m == 32 and n == 1024 and k == 32) or
@@ -6633,6 +6634,8 @@ test "CPU f32 materialization predicate covers low-K large square AMX shape" {
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 64, 64));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(100, 100, 100));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(768, 768, 128));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(16, 512, 16));
+    try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(16, 1024, 16));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(96, 192, 128));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(192, 96, 128));
