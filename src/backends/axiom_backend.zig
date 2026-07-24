@@ -199,6 +199,84 @@ pub const PreparedF32Matmul = struct {
     }
 };
 
+pub const PreparedF32TransposedMatmul = struct {
+    allocator: std.mem.Allocator,
+    lhs_shape: [2]usize,
+    rhs_shape: [2]usize,
+    lhs_transposed: array_mod.Array(f32),
+    rhs_transposed: array_mod.Array(f32),
+    prepared: PreparedF32Matmul,
+
+    pub fn init(allocator: std.mem.Allocator, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!PreparedF32TransposedMatmul {
+        if (!lhs.device.isCpu() or !rhs.device.isCpu()) return error.InvalidDevice;
+        if (lhs.shape.len != 2 or rhs.shape.len != 2) return error.InvalidShape;
+        if (!lhs.isContiguous() or !rhs.isContiguous()) return error.InvalidShape;
+        const m = lhs.shape[0];
+        const k = lhs.shape[1];
+        const n = rhs.shape[1];
+        if (rhs.shape[0] != k) return error.ShapeMismatch;
+
+        var lhs_transposed = try array_mod.Array(f32).empty(allocator, &.{ k, m });
+        errdefer lhs_transposed.deinit();
+        var rhs_transposed = try array_mod.Array(f32).empty(allocator, &.{ n, k });
+        errdefer rhs_transposed.deinit();
+        transposeRowMajorForPrepared(f32, lhs.data, lhs_transposed.data, m, k);
+        transposeRowMajorForPrepared(f32, rhs.data, rhs_transposed.data, k, n);
+
+        const prepared = try PreparedF32Matmul.init(allocator, rhs_transposed, lhs_transposed);
+        errdefer {
+            var prepared_mut = prepared;
+            prepared_mut.deinit();
+        }
+
+        return .{
+            .allocator = allocator,
+            .lhs_shape = .{ m, k },
+            .rhs_shape = .{ k, n },
+            .lhs_transposed = lhs_transposed,
+            .rhs_transposed = rhs_transposed,
+            .prepared = prepared,
+        };
+    }
+
+    pub fn deinit(self: *PreparedF32TransposedMatmul) void {
+        self.prepared.deinit();
+        self.rhs_transposed.deinit();
+        self.lhs_transposed.deinit();
+        self.* = undefined;
+    }
+
+    pub fn matmulOut(self: *PreparedF32TransposedMatmul, out: array_mod.Array(f32)) array_mod.ArrayError!void {
+        if (!out.device.isCpu()) return error.InvalidDevice;
+        if (out.shape.len != 2 or out.shape[0] != self.lhs_shape[0] or out.shape[1] != self.rhs_shape[1]) return error.ShapeMismatch;
+        if (!out.isContiguous()) return error.InvalidShape;
+
+        const m = self.lhs_shape[0];
+        const n = self.rhs_shape[1];
+        var shape = [_]usize{ n, m };
+        var strides = [_]usize{ @as(usize, 1), n };
+        const column_out = array_mod.Array(f32){
+            .allocator = self.allocator,
+            .data = out.data,
+            .shape = shape[0..],
+            .strides = strides[0..],
+            .device = .cpu,
+        };
+        try self.prepared.matmulColumnMajorOut(column_out);
+    }
+};
+
+fn transposeRowMajorForPrepared(comptime T: type, src: []const T, dst: []T, rows: usize, cols: usize) void {
+    std.debug.assert(src.len == rows * cols and dst.len == rows * cols);
+    var row: usize = 0;
+    while (row < rows) : (row += 1) {
+        var col: usize = 0;
+        while (col < cols) : (col += 1) {
+            dst[col * rows + row] = src[row * cols + col];
+        }
+    }
+}
+
 pub const PreparedF64Matmul = struct {
     allocator: std.mem.Allocator,
     lhs_shape: [2]usize,
@@ -6735,6 +6813,40 @@ test "PreparedF32Matmul matches normal matmulOut when available" {
     }
 
     var prepared = PreparedF32Matmul.init(gpa, lhs, rhs) catch |err| switch (err) {
+        error.BackendFailure, error.InvalidShape => return error.SkipZigTest,
+        else => return err,
+    };
+    defer prepared.deinit();
+    try prepared.matmulOut(prepared_out);
+    try lhs.matmulOut(rhs, normal_out);
+
+    for (prepared_out.data, normal_out.data) |prepared_value, normal_value| {
+        try std.testing.expectApproxEqAbs(normal_value, prepared_value, 1e-3);
+    }
+}
+
+test "PreparedF32TransposedMatmul matches normal matmulOut when available" {
+    const gpa = std.testing.allocator;
+    const m: usize = 32;
+    const n: usize = 32;
+    const k: usize = 32;
+    var lhs = try array_mod.Array(f32).empty(gpa, &.{ m, k });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f32).empty(gpa, &.{ k, n });
+    defer rhs.deinit();
+    var prepared_out = try array_mod.Array(f32).empty(gpa, &.{ m, n });
+    defer prepared_out.deinit();
+    var normal_out = try array_mod.Array(f32).empty(gpa, &.{ m, n });
+    defer normal_out.deinit();
+
+    for (lhs.data, 0..) |*value, index| {
+        value.* = @as(f32, @floatFromInt((index * 17 + 11) % 97)) * 0.015625 + 0.125;
+    }
+    for (rhs.data, 0..) |*value, index| {
+        value.* = @as(f32, @floatFromInt((index * 19 + 13) % 89)) * -0.01171875 + 0.25;
+    }
+
+    var prepared = PreparedF32TransposedMatmul.init(gpa, lhs, rhs) catch |err| switch (err) {
         error.BackendFailure, error.InvalidShape => return error.SkipZigTest,
         else => return err,
     };

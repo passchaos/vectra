@@ -54,6 +54,7 @@ pub const ArrayError = array_mod.ArrayError;
 pub const axiom_backend = @import("backends/axiom_backend.zig");
 pub const DialectBackend = axiom_backend.DialectBackend;
 pub const PreparedF32Matmul = axiom_backend.PreparedF32Matmul;
+pub const PreparedF32TransposedMatmul = axiom_backend.PreparedF32TransposedMatmul;
 pub const PreparedF64Matmul = axiom_backend.PreparedF64Matmul;
 pub const setDefaultDialectBackend = axiom_backend.setDefaultDialectBackend;
 pub const defaultDialectBackend = axiom_backend.defaultDialectBackend;
