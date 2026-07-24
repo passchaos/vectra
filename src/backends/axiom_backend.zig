@@ -1322,6 +1322,17 @@ pub fn executeMatmulOutDefault(comptime T: type, lhs: array_mod.Array(T), rhs: a
     };
 }
 
+pub fn executeMatmulAddOutDefault(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), out: array_mod.Array(T)) array_mod.ArrayError!bool {
+    const target = defaultTargetForDevice(lhs.device);
+    if (!targetCanAccessDevice(target, lhs.device)) return false;
+    if (!lhs.device.sameDevice(rhs.device) or !lhs.device.sameDevice(addend.device) or !lhs.device.sameDevice(out.device)) return error.InvalidDevice;
+    if (!supportedMatmulAddExecution(T, lhs, rhs, addend)) return false;
+    return switch (target) {
+        .cpu => executeCpuGemmAddOutDirect(T, lhs, rhs, addend, out),
+        .cuda, .mps => false,
+    };
+}
+
 pub fn executeBmm(
     comptime T: type,
     target: DialectBackend,
@@ -1657,6 +1668,33 @@ fn executeCpuGemmOutDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array
         const mt_workspace = getCachedF64MtGemmWorkspace() catch return false;
         veyra.ensureGemmF64MtAppleAmxWorkspace(mt_workspace, m, n, k) catch {};
         veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, .{}, mt_workspace) catch return false;
+    }
+    return true;
+}
+
+fn executeCpuGemmAddOutDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T), addend: array_mod.Array(T), out: array_mod.Array(T)) array_mod.ArrayError!bool {
+    if (T != f32 and T != f64) return false;
+    if (lhs.shape.len != 2 or rhs.shape.len != 2 or addend.shape.len != 2 or out.shape.len != 2) return false;
+    if (!lhs.device.isCpu() or !rhs.device.isCpu() or !addend.device.isCpu() or !out.device.isCpu()) return false;
+    if (!lhs.isContiguous() or !rhs.isContiguous() or !addend.isContiguous() or !out.isContiguous()) return false;
+    const m = lhs.shape[0];
+    const k = lhs.shape[1];
+    const n = rhs.shape[1];
+    if (rhs.shape[0] != k or addend.shape[0] != m or addend.shape[1] != n or out.shape[0] != m or out.shape[1] != n) return error.ShapeMismatch;
+    if (T == f32 and !shouldDirectCpuF32NativeGemm(m, n, k)) return false;
+    if (T == f64 and !shouldDirectCpuF64NativeGemm(m, n, k)) return false;
+
+    @memcpy(out.data, addend.data);
+    const lhs_view = veyra.MatrixView(T).fromSlice(lhs.data, m, k, .row_major) catch return false;
+    const rhs_view = veyra.MatrixView(T).fromSlice(rhs.data, k, n, .row_major) catch return false;
+    const out_view = veyra.MatrixMut(T).fromSlice(out.data, m, n, .row_major) catch return false;
+    if (T == f32) {
+        const workspace = getCachedF32GemmWorkspace() catch return false;
+        veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{ .beta = 1.0 }, workspace) catch return false;
+    } else {
+        const mt_workspace = getCachedF64MtGemmWorkspace() catch return false;
+        veyra.ensureGemmF64MtAppleAmxWorkspace(mt_workspace, m, n, k) catch {};
+        veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, .{ .beta = 1.0 }, mt_workspace) catch return false;
     }
     return true;
 }
@@ -6841,6 +6879,58 @@ test "CPU f64 explicit matmulAddSqrt matches eager chain" {
     for (checks) |idx| {
         const index = idx[0] * n + idx[1];
         try std.testing.expectApproxEqAbs(eager.data[index], fused.data[index], 1e-12);
+    }
+}
+
+test "CPU matmulAddOut direct path matches allocated matmulAdd" {
+    const gpa = std.testing.allocator;
+    const m: usize = 16;
+    const n: usize = 1024;
+    const k: usize = 16;
+    var lhs = try array_mod.Array(f32).empty(gpa, &.{ m, k });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f32).empty(gpa, &.{ k, n });
+    defer rhs.deinit();
+    var addend = try array_mod.Array(f32).empty(gpa, &.{ m, n });
+    defer addend.deinit();
+    var out = try array_mod.Array(f32).empty(gpa, &.{ m, n });
+    defer out.deinit();
+
+    var row: usize = 0;
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < k) : (col += 1) {
+            lhs.data[row * k + col] = @as(f32, @floatFromInt(((row + 3) * (col + 5)) % 17 + 1)) * 0.015625;
+        }
+    }
+    row = 0;
+    while (row < k) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            rhs.data[row * n + col] = @as(f32, @floatFromInt(((row + 7) * (col + 11)) % 19 + 1)) * 0.0078125;
+        }
+    }
+    row = 0;
+    while (row < m) : (row += 1) {
+        var col: usize = 0;
+        while (col < n) : (col += 1) {
+            addend.data[row * n + col] = @as(f32, @floatFromInt(((row + 13) * (col + 17)) % 23 + 1)) * 0.00390625 + 0.5;
+        }
+    }
+
+    var allocated = try executeCpuGemmScaledTarget(f32, lhs, rhs, addend, 1.0, 1.0) orelse return error.BackendFailure;
+    defer allocated.deinit();
+    try std.testing.expect(try executeMatmulAddOutDefault(f32, lhs, rhs, addend, out));
+
+    const checks = [_][2]usize{
+        .{ 0, 0 },
+        .{ 3, 17 },
+        .{ m / 2, 5 },
+        .{ m - 1, n - 1 },
+    };
+    for (checks) |idx| {
+        const index = idx[0] * n + idx[1];
+        try std.testing.expectApproxEqAbs(allocated.data[index], out.data[index], 1e-4);
     }
 }
 
