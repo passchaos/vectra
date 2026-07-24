@@ -23,7 +23,7 @@ const axiom_mps = @import("axiom_mps.zig");
 // Unit tests use a much smaller streaming threshold so they exercise the same
 // dispatch branches without allocating production-sized buffers.
 const cpu_streaming_fast_path_min_elements: usize = if (builtin.is_test) 64 else 1 << 20;
-const cpu_unary_fast_path_min_elements: usize = if (builtin.is_test) 64 else 16 * 1024;
+const cpu_unary_fast_path_min_elements: usize = if (builtin.is_test) 64 else 8 * 1024;
 const cpu_matmul_like_fast_path_min_ops: usize = 4 * 1024 * 1024;
 
 pub fn cpuStreamingFastPathMinElements() usize {
