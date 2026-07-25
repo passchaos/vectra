@@ -1975,8 +1975,8 @@ fn executeCpuGemmOutDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array
     const k = lhs.shape[1];
     const n = rhs.shape[1];
     if (rhs.shape[0] != k or out.shape[0] != m or out.shape[1] != n) return error.ShapeMismatch;
-    if (T == f32 and !shouldDirectCpuF32NativeGemm(m, n, k)) return false;
-    if (T == f64 and !shouldDirectCpuF64NativeGemm(m, n, k)) return false;
+    if (T == f32 and !shouldDirectCpuF32NativeGemm(m, n, k) and !largeCpuGemm(m, n, k)) return false;
+    if (T == f64 and !shouldDirectCpuF64NativeGemm(m, n, k) and !largeCpuGemm(m, n, k)) return false;
 
     const lhs_view = veyra.MatrixView(T).fromSlice(lhs.data, m, k, .row_major) catch return false;
     const rhs_view = veyra.MatrixView(T).fromSlice(rhs.data, k, n, .row_major) catch return false;
@@ -1986,7 +1986,6 @@ fn executeCpuGemmOutDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array
         veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{}, workspace) catch return false;
     } else {
         const mt_workspace = getCachedF64MtGemmWorkspace() catch return false;
-        veyra.ensureGemmF64MtAppleAmxWorkspace(mt_workspace, m, n, k) catch {};
         veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, .{}, mt_workspace) catch return false;
     }
     return true;
@@ -2001,8 +2000,8 @@ fn executeCpuGemmAddOutDirect(comptime T: type, lhs: array_mod.Array(T), rhs: ar
     const k = lhs.shape[1];
     const n = rhs.shape[1];
     if (rhs.shape[0] != k or addend.shape[0] != m or addend.shape[1] != n or out.shape[0] != m or out.shape[1] != n) return error.ShapeMismatch;
-    if (T == f32 and !shouldDirectCpuF32NativeGemm(m, n, k)) return false;
-    if (T == f64 and !shouldDirectCpuF64NativeGemm(m, n, k)) return false;
+    if (T == f32 and !shouldDirectCpuF32NativeGemm(m, n, k) and !largeCpuGemm(m, n, k)) return false;
+    if (T == f64 and !shouldDirectCpuF64NativeGemm(m, n, k) and !largeCpuGemm(m, n, k)) return false;
 
     @memcpy(out.data, addend.data);
     const lhs_view = veyra.MatrixView(T).fromSlice(lhs.data, m, k, .row_major) catch return false;
@@ -2013,7 +2012,6 @@ fn executeCpuGemmAddOutDirect(comptime T: type, lhs: array_mod.Array(T), rhs: ar
         veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{ .beta = 1.0 }, workspace) catch return false;
     } else {
         const mt_workspace = getCachedF64MtGemmWorkspace() catch return false;
-        veyra.ensureGemmF64MtAppleAmxWorkspace(mt_workspace, m, n, k) catch {};
         veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, .{ .beta = 1.0 }, mt_workspace) catch return false;
     }
     return true;
@@ -2358,7 +2356,6 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
         var threaded_ran = false;
         const mt_workspace = getCachedF64MtGemmWorkspace() catch null;
         if (mt_workspace) |workspace| {
-            veyra.ensureGemmF64MtAppleAmxWorkspace(workspace, m, n, k) catch {};
             threaded_ran = blk: {
                 veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, options, workspace) catch break :blk false;
                 break :blk true;
@@ -7436,6 +7433,42 @@ test "CPU f64 direct native GEMM predicate covers narrow packed-B shapes" {
     try std.testing.expect(shouldDirectCpuF64NativeGemm(16, 1024, 16));
     try std.testing.expect(shouldDirectCpuF64NativeGemm(32, 1024, 32));
     try std.testing.expect(!shouldDirectCpuF64NativeGemm(32, 512, 32));
+}
+
+test "CPU large matmulOut uses preallocated Veyra path" {
+    const gpa = std.testing.allocator;
+    const size: usize = 192;
+    inline for (.{ f32, f64 }) |T| {
+        var lhs = try array_mod.Array(T).empty(gpa, &.{ size, size });
+        defer lhs.deinit();
+        var rhs = try array_mod.Array(T).empty(gpa, &.{ size, size });
+        defer rhs.deinit();
+        var out = try array_mod.Array(T).empty(gpa, &.{ size, size });
+        defer out.deinit();
+
+        for (lhs.data, 0..) |*value, index| {
+            value.* = @as(T, @floatFromInt((index * 17 + 11) % 97)) * @as(T, 0.015625) + @as(T, 0.125);
+        }
+        for (rhs.data, 0..) |*value, index| {
+            value.* = @as(T, @floatFromInt((index * 19 + 13) % 89)) * @as(T, -0.01171875) + @as(T, 0.25);
+        }
+
+        var reference = try executeCpuGemmDirect(T, lhs, rhs, null, 1.0, 0.0) orelse return error.BackendFailure;
+        defer reference.deinit();
+        try std.testing.expect(try executeMatmulOutDefault(T, lhs, rhs, out));
+
+        const checks = [_][2]usize{
+            .{ 0, 0 },
+            .{ 17, 31 },
+            .{ size / 2, size / 3 },
+            .{ size - 1, size - 1 },
+        };
+        for (checks) |index| {
+            const linear = index[0] * size + index[1];
+            const tolerance: T = if (T == f32) 1e-3 else 1e-9;
+            try std.testing.expectApproxEqAbs(reference.data[linear], out.data[linear], tolerance);
+        }
+    }
 }
 
 test "CPU f32 materialization predicate covers low-K large square AMX shape" {
