@@ -1940,8 +1940,6 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
     }
     if (largeCpuGemm(m, n, k)) return executeCpuGemmDirect(T, lhs, rhs, null, 1.0, 0.0);
 
-    var c = try array_mod.Array(T).zeros(lhs.allocator, &.{ m, n });
-    defer c.deinit();
     var out = try array_mod.Array(T).empty(lhs.allocator, &.{ m, n });
     errdefer out.deinit();
     const spec = axiom.accelerator.TensorGemmSpec.rowMajor(
@@ -1949,20 +1947,16 @@ fn executeCpuGemmTarget(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
         .rowMajor("rhs", @intCast(@intFromPtr(rhs.data.ptr)), k, n),
         .rowMajor("out", @intCast(@intFromPtr(out.data.ptr)), m, n),
     );
-    const report = if (T == f32)
-        axiom.accelerator.cpu_veyra.runTargetGemmF32(.cpu, spec, @as(array_mod.Array(f32), lhs).data, @as(array_mod.Array(f32), rhs).data, @as(array_mod.Array(f32), c).data, @as(array_mod.Array(f32), out).data) catch {
+    _ = if (T == f32)
+        axiom.accelerator.cpu_veyra.executeGemmF32(spec, @as(array_mod.Array(f32), lhs).data, @as(array_mod.Array(f32), rhs).data, @as(array_mod.Array(f32), out).data, @as(array_mod.Array(f32), out).data) catch {
             out.deinit();
             return null;
         }
     else
-        axiom.accelerator.cpu_veyra.runTargetGemmF64(.cpu, spec, @as(array_mod.Array(f64), lhs).data, @as(array_mod.Array(f64), rhs).data, @as(array_mod.Array(f64), c).data, @as(array_mod.Array(f64), out).data) catch {
+        axiom.accelerator.cpu_veyra.executeGemmF64(spec, @as(array_mod.Array(f64), lhs).data, @as(array_mod.Array(f64), rhs).data, @as(array_mod.Array(f64), out).data, @as(array_mod.Array(f64), out).data) catch {
             out.deinit();
             return null;
         };
-    if (!report.ok()) {
-        out.deinit();
-        return null;
-    }
     return out;
 }
 
