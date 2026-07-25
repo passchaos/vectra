@@ -19,8 +19,43 @@ const DType = enum {
     f64,
 };
 
+const TimingStats = struct {
+    min_ns: i128,
+    median_ns: i128,
+    avg_ns: i128,
+};
+
 fn nowNs(io: std.Io) i128 {
     return @intCast(std.Io.Timestamp.now(io, .awake).nanoseconds);
+}
+
+fn timingStats(allocator: std.mem.Allocator, timings: []const i128) !TimingStats {
+    const sorted = try allocator.dupe(i128, timings);
+    defer allocator.free(sorted);
+    std.mem.sort(i128, sorted, {}, std.sort.asc(i128));
+    var total: i128 = 0;
+    for (timings) |timing| total += timing;
+    return .{
+        .min_ns = sorted[0],
+        .median_ns = sorted[sorted.len / 2],
+        .avg_ns = @divTrunc(total, @as(i128, @intCast(timings.len))),
+    };
+}
+
+fn printStatsFields(comptime label: []const u8, shape: Shape, stats: TimingStats) void {
+    std.debug.print(
+        " {s}_ns={}/{}/{} {s}_gflops={d:.3}/{d:.3}/{d:.3}",
+        .{
+            label,
+            stats.min_ns,
+            stats.median_ns,
+            stats.avg_ns,
+            label,
+            gflops(shape, stats.min_ns),
+            gflops(shape, stats.median_ns),
+            gflops(shape, stats.avg_ns),
+        },
+    );
 }
 
 fn fill(comptime T: type, data: []T) void {
@@ -121,41 +156,43 @@ fn run(comptime T: type, init: std.process.Init, options: Options) !void {
     if (prepared_transposed) |*value| try value.matmulOut(prepared_out);
     try lhs.matmulOut(rhs, normal_out);
 
-    var prepared_ns: i128 = 0;
-    var prepared_column_ns: i128 = 0;
-    var normal_ns: i128 = 0;
+    const prepared_timings = try allocator.alloc(i128, options.iters);
+    defer allocator.free(prepared_timings);
+    const prepared_column_timings = try allocator.alloc(i128, options.iters);
+    defer allocator.free(prepared_column_timings);
+    const normal_timings = try allocator.alloc(i128, options.iters);
+    defer allocator.free(normal_timings);
     var sink: T = 0;
-    for (0..options.iters) |_| {
+    for (0..options.iters) |iteration| {
         var start = nowNs(init.io);
         if (prepared_transposed) |*value| {
             try value.matmulOut(prepared_out);
-            prepared_ns += nowNs(init.io) - start;
+            prepared_timings[iteration] = nowNs(init.io) - start;
             sink += prepared_out.data[0];
         } else {
             try prepared.matmulOut(prepared_out);
-            prepared_ns += nowNs(init.io) - start;
+            prepared_timings[iteration] = nowNs(init.io) - start;
             sink += prepared_out.data[0];
         }
 
         start = nowNs(init.io);
         try prepared.matmulColumnMajorOut(prepared_column_out);
-        prepared_column_ns += nowNs(init.io) - start;
+        prepared_column_timings[iteration] = nowNs(init.io) - start;
         sink += prepared_column_out.data[0];
 
         start = nowNs(init.io);
         try lhs.matmulOut(rhs, normal_out);
-        normal_ns += nowNs(init.io) - start;
+        normal_timings[iteration] = nowNs(init.io) - start;
         sink += normal_out.data[0];
     }
     std.mem.doNotOptimizeAway(sink);
 
-    const denom: i128 = @intCast(options.iters);
-    const prepared_avg = @divTrunc(prepared_ns, denom);
-    const prepared_column_avg = @divTrunc(prepared_column_ns, denom);
-    const normal_avg = @divTrunc(normal_ns, denom);
+    const prepared_stats = try timingStats(allocator, prepared_timings);
+    const prepared_column_stats = try timingStats(allocator, prepared_column_timings);
+    const normal_stats = try timingStats(allocator, normal_timings);
     if (prepared_transposed == null) try prepared_column_out.copyToSlice(prepared_out.data);
     std.debug.print(
-        "vectra_prepared_matmul dtype={s} shape={d}x{d}x{d} iters={d} transposed_prepared={} prepared_ns={} prepared_gflops={d:.3} prepared_column_ns={} prepared_column_gflops={d:.3} prepared_32x8_ns={} prepared_32x8_gflops={d:.3} normal_ns={} normal_gflops={d:.3} ratio={d:.3} column_ratio={d:.3} prepared_32x8_ratio={d:.3} max_diff={d:.6} prepared_32x8_diff={d:.6}\n",
+        "vectra_prepared_matmul dtype={s} shape={d}x{d}x{d} iters={d} transposed_prepared={}",
         .{
             if (T == f32) "f32" else "f64",
             shape.m,
@@ -163,19 +200,18 @@ fn run(comptime T: type, init: std.process.Init, options: Options) !void {
             shape.k,
             options.iters,
             options.transposed_prepared and T == f32,
-            prepared_avg,
-            gflops(shape, prepared_avg),
-            prepared_column_avg,
-            gflops(shape, prepared_column_avg),
-            0,
-            0.0,
-            normal_avg,
-            gflops(shape, normal_avg),
-            gflops(shape, prepared_avg) / gflops(shape, normal_avg),
-            gflops(shape, prepared_column_avg) / gflops(shape, normal_avg),
-            0.0,
+        },
+    );
+    printStatsFields("prepared", shape, prepared_stats);
+    printStatsFields("prepared_column", shape, prepared_column_stats);
+    std.debug.print(" prepared_32x8_ns=0 prepared_32x8_gflops=0.000", .{});
+    printStatsFields("normal", shape, normal_stats);
+    std.debug.print(
+        " ratio={d:.3} column_ratio={d:.3} prepared_32x8_ratio=0.000 max_diff={d:.6} prepared_32x8_diff=0.000000\n",
+        .{
+            gflops(shape, prepared_stats.median_ns) / gflops(shape, normal_stats.median_ns),
+            gflops(shape, prepared_column_stats.median_ns) / gflops(shape, normal_stats.median_ns),
             maxAbsDiff(T, prepared_out.data, normal_out.data),
-            0.0,
         },
     );
 }
@@ -212,66 +248,70 @@ fn runF64(init: std.process.Init, options: Options) !void {
     if (prepared_transposed) |*value| try value.matmulOut(prepared_out);
     try lhs.matmulOut(rhs, normal_out);
 
-    var prepared_ns: i128 = 0;
-    var prepared_column_ns: i128 = 0;
-    var prepared_32x8_ns: i128 = 0;
-    var normal_ns: i128 = 0;
+    const prepared_timings = try allocator.alloc(i128, options.iters);
+    defer allocator.free(prepared_timings);
+    const prepared_column_timings = try allocator.alloc(i128, options.iters);
+    defer allocator.free(prepared_column_timings);
+    const prepared_32x8_timings = try allocator.alloc(i128, options.iters);
+    defer allocator.free(prepared_32x8_timings);
+    const normal_timings = try allocator.alloc(i128, options.iters);
+    defer allocator.free(normal_timings);
     var sink: f64 = 0;
-    for (0..options.iters) |_| {
+    for (0..options.iters) |iteration| {
         var start = nowNs(init.io);
         if (prepared_transposed) |*value| {
             try value.matmulOut(prepared_out);
         } else {
             try prepared.matmulOut(prepared_out);
         }
-        prepared_ns += nowNs(init.io) - start;
+        prepared_timings[iteration] = nowNs(init.io) - start;
         sink += prepared_out.data[0];
 
         start = nowNs(init.io);
         try prepared.matmulColumnMajorOut(prepared_column_out);
-        prepared_column_ns += nowNs(init.io) - start;
+        prepared_column_timings[iteration] = nowNs(init.io) - start;
         sink += prepared_column_out.data[0];
 
         start = nowNs(init.io);
         try prepared.matmulColumnMajor32x8DiagnosticOut(prepared_32x8_out);
-        prepared_32x8_ns += nowNs(init.io) - start;
+        prepared_32x8_timings[iteration] = nowNs(init.io) - start;
         sink += prepared_32x8_out.data[0];
 
         start = nowNs(init.io);
         try lhs.matmulOut(rhs, normal_out);
-        normal_ns += nowNs(init.io) - start;
+        normal_timings[iteration] = nowNs(init.io) - start;
         sink += normal_out.data[0];
     }
     std.mem.doNotOptimizeAway(sink);
 
-    const denom: i128 = @intCast(options.iters);
-    const prepared_avg = @divTrunc(prepared_ns, denom);
-    const prepared_column_avg = @divTrunc(prepared_column_ns, denom);
-    const prepared_32x8_avg = @divTrunc(prepared_32x8_ns, denom);
-    const normal_avg = @divTrunc(normal_ns, denom);
+    const prepared_stats = try timingStats(allocator, prepared_timings);
+    const prepared_column_stats = try timingStats(allocator, prepared_column_timings);
+    const prepared_32x8_stats = try timingStats(allocator, prepared_32x8_timings);
+    const normal_stats = try timingStats(allocator, normal_timings);
     if (prepared_transposed == null) try prepared_column_out.copyToSlice(prepared_out.data);
     var row_major_32x8 = try vx.Array(f64).empty(allocator, &.{ shape.m, shape.n });
     defer row_major_32x8.deinit();
     try prepared_32x8_out.copyToSlice(row_major_32x8.data);
     std.debug.print(
-        "vectra_prepared_matmul dtype=f64 shape={d}x{d}x{d} iters={d} transposed_prepared={} prepared_ns={} prepared_gflops={d:.3} prepared_column_ns={} prepared_column_gflops={d:.3} prepared_32x8_ns={} prepared_32x8_gflops={d:.3} normal_ns={} normal_gflops={d:.3} ratio={d:.3} column_ratio={d:.3} prepared_32x8_ratio={d:.3} max_diff={d:.6} prepared_32x8_diff={d:.6}\n",
+        "vectra_prepared_matmul dtype=f64 shape={d}x{d}x{d} iters={d} transposed_prepared={}",
         .{
             shape.m,
             shape.n,
             shape.k,
             options.iters,
             options.transposed_prepared,
-            prepared_avg,
-            gflops(shape, prepared_avg),
-            prepared_column_avg,
-            gflops(shape, prepared_column_avg),
-            prepared_32x8_avg,
-            gflops(shape, prepared_32x8_avg),
-            normal_avg,
-            gflops(shape, normal_avg),
-            gflops(shape, prepared_avg) / gflops(shape, normal_avg),
-            gflops(shape, prepared_column_avg) / gflops(shape, normal_avg),
-            gflops(shape, prepared_32x8_avg) / gflops(shape, normal_avg),
+        },
+    );
+    printStatsFields("prepared", shape, prepared_stats);
+    printStatsFields("prepared_column", shape, prepared_column_stats);
+    printStatsFields("prepared_32x8", shape, prepared_32x8_stats);
+    printStatsFields("normal", shape, normal_stats);
+    std.debug.print(
+        " ratio={d:.3} column_ratio={d:.3} prepared_32x8_ratio={d:.3} max_diff={d:.6} prepared_32x8_diff={d:.6}\n",
+        .{
+            gflops(shape, prepared_stats.median_ns) / gflops(shape, normal_stats.median_ns),
+            gflops(shape, prepared_column_stats.median_ns) / gflops(shape, normal_stats.median_ns),
+            gflops(shape, prepared_32x8_stats.median_ns) / gflops(shape, normal_stats.median_ns),
             maxAbsDiff(f64, prepared_out.data, normal_out.data),
             maxAbsDiff(f64, row_major_32x8.data, normal_out.data),
         },
