@@ -12,6 +12,7 @@ const Options = struct {
     iters: usize = 3,
     dtype: DType = .f32,
     transposed_prepared: bool = false,
+    normal_only: bool = false,
 };
 
 const DType = enum {
@@ -92,6 +93,8 @@ fn parseOptions(init: std.process.Init) Options {
             options.dtype = .f64;
         } else if (std.mem.eql(u8, arg, "--transposed-prepared")) {
             options.transposed_prepared = true;
+        } else if (std.mem.eql(u8, arg, "--normal-only")) {
+            options.normal_only = true;
         }
     }
     return options;
@@ -141,6 +144,8 @@ fn run(comptime T: type, init: std.process.Init, options: Options) !void {
     defer normal_out.deinit();
     fill(T, lhs.data);
     fill(T, rhs.data);
+
+    if (options.normal_only) return runNormalOnly(T, init, options, lhs, rhs, normal_out);
 
     var prepared = try PreparedMatmul(T).init(allocator, lhs, rhs);
     defer prepared.deinit();
@@ -216,6 +221,35 @@ fn run(comptime T: type, init: std.process.Init, options: Options) !void {
     );
 }
 
+fn runNormalOnly(
+    comptime T: type,
+    init: std.process.Init,
+    options: Options,
+    lhs: vx.Array(T),
+    rhs: vx.Array(T),
+    normal_out: vx.Array(T),
+) !void {
+    const allocator = std.heap.smp_allocator;
+    try lhs.matmulOut(rhs, normal_out);
+    const normal_timings = try allocator.alloc(i128, options.iters);
+    defer allocator.free(normal_timings);
+    var sink: T = 0;
+    for (0..options.iters) |iteration| {
+        const start = nowNs(init.io);
+        try lhs.matmulOut(rhs, normal_out);
+        normal_timings[iteration] = nowNs(init.io) - start;
+        sink += normal_out.data[0];
+    }
+    std.mem.doNotOptimizeAway(sink);
+    const normal_stats = try timingStats(allocator, normal_timings);
+    std.debug.print(
+        "vectra_prepared_matmul dtype={s} shape={d}x{d}x{d} iters={d} normal_only=true",
+        .{ if (T == f32) "f32" else "f64", options.shape.m, options.shape.n, options.shape.k, options.iters },
+    );
+    printStatsFields("normal", options.shape, normal_stats);
+    std.debug.print("\n", .{});
+}
+
 fn runF64(init: std.process.Init, options: Options) !void {
     const shape = options.shape;
     const allocator = std.heap.smp_allocator;
@@ -230,6 +264,8 @@ fn runF64(init: std.process.Init, options: Options) !void {
     defer normal_out.deinit();
     fill(f64, lhs.data);
     fill(f64, rhs.data);
+
+    if (options.normal_only) return runNormalOnly(f64, init, options, lhs, rhs, normal_out);
 
     var prepared = try vx.PreparedF64Matmul.init(allocator, lhs, rhs);
     defer prepared.deinit();
