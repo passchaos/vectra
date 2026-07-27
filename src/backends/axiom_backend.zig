@@ -2335,9 +2335,6 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
             out.deinit();
             return null;
         }
-        if (beta != 0) {
-            @memcpy(out.data, c.data);
-        }
     }
     // For beta == 0 the GEMM contract overwrites `out` without reading the
     // previous destination values.  Avoid a full pre-zero of huge production
@@ -2384,6 +2381,7 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
         var threaded_ran = false;
         const mt_workspace = getCachedF64MtGemmWorkspace() catch null;
         if (mt_workspace) |workspace| {
+            restoreCpuGemmDestination(T, out.data, addend, beta);
             threaded_ran = blk: {
                 veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, options, workspace) catch break :blk false;
                 break :blk true;
