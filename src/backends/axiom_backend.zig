@@ -7499,6 +7499,51 @@ test "CPU arbitrary contiguous matmulOut uses preallocated Veyra path" {
     }
 }
 
+test "CPU large f32 matmulOut and addOut use threaded direct path" {
+    const gpa = std.testing.allocator;
+    const m: usize = 128;
+    const n: usize = 128;
+    const k: usize = 257;
+    try std.testing.expect(largeCpuGemm(m, n, k));
+
+    var lhs = try array_mod.Array(f32).empty(gpa, &.{ m, k });
+    defer lhs.deinit();
+    var rhs = try array_mod.Array(f32).empty(gpa, &.{ k, n });
+    defer rhs.deinit();
+    var addend = try array_mod.Array(f32).empty(gpa, &.{ m, n });
+    defer addend.deinit();
+    var out = try array_mod.Array(f32).empty(gpa, &.{ m, n });
+    defer out.deinit();
+
+    for (lhs.data, 0..) |*value, index| {
+        value.* = @as(f32, @floatFromInt((index * 17 + 11) % 97)) * 0.015625 + 0.125;
+    }
+    for (rhs.data, 0..) |*value, index| {
+        value.* = @as(f32, @floatFromInt((index * 19 + 13) % 89)) * -0.01171875 + 0.25;
+    }
+    for (addend.data, 0..) |*value, index| {
+        value.* = @as(f32, @floatFromInt((index * 23 + 7) % 83)) * 0.00390625 + 0.5;
+    }
+
+    var allocated = try executeCpuGemmTarget(f32, lhs, rhs) orelse return error.BackendFailure;
+    defer allocated.deinit();
+    try std.testing.expect(try executeMatmulOutDefault(f32, lhs, rhs, out));
+
+    const checks = [_][2]usize{ .{ 0, 0 }, .{ 17, 31 }, .{ m / 2, n / 3 }, .{ m - 1, n - 1 } };
+    for (checks) |idx| {
+        const linear = idx[0] * n + idx[1];
+        try std.testing.expectApproxEqAbs(allocated.data[linear], out.data[linear], 1e-3);
+    }
+
+    var allocated_add = try executeCpuGemmScaledTarget(f32, lhs, rhs, addend, 1.0, 1.0) orelse return error.BackendFailure;
+    defer allocated_add.deinit();
+    try std.testing.expect(try executeMatmulAddOutDefault(f32, lhs, rhs, addend, out));
+    for (checks) |idx| {
+        const linear = idx[0] * n + idx[1];
+        try std.testing.expectApproxEqAbs(allocated_add.data[linear], out.data[linear], 1e-3);
+    }
+}
+
 test "CPU f32 materialization predicate covers low-K large square AMX shape" {
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(64, 64, 64));
     try std.testing.expect(shouldMaterializeCpuF32ColumnMajorGemm(100, 100, 100));
