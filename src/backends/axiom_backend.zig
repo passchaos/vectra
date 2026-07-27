@@ -2339,10 +2339,22 @@ fn executeCpuGemmDirect(comptime T: type, lhs: array_mod.Array(T), rhs: array_mo
             return null;
         };
         restoreCpuGemmDestination(T, out.data, addend, beta);
-        veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, options, workspace) catch {
-            out.deinit();
-            return null;
-        };
+        var threaded_ran = false;
+        if (largeCpuGemm(m, n, k)) {
+            const mt_workspace = getCachedF32MtGemmWorkspace() catch null;
+            if (mt_workspace) |threaded_workspace| {
+                threaded_ran = blk: {
+                    veyra.gemmThreadedWithWorkspace(f32, lhs_view, rhs_view, out_view, options, threaded_workspace) catch break :blk false;
+                    break :blk true;
+                };
+            }
+        }
+        if (!threaded_ran) {
+            veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, options, workspace) catch {
+                out.deinit();
+                return null;
+            };
+        }
     } else {
         const options: veyra.GemmOptions(f64) = .{ .alpha = @floatCast(alpha), .beta = @floatCast(beta) };
         var threaded_ran = false;
