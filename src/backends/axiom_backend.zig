@@ -2013,7 +2013,19 @@ fn executeCpuGemmAddOutDirect(comptime T: type, lhs: array_mod.Array(T), rhs: ar
     const out_view = veyra.MatrixMut(T).fromSlice(out.data, m, n, .row_major) catch return false;
     if (T == f32) {
         const workspace = getCachedF32GemmWorkspace() catch return false;
-        veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{ .beta = 1.0 }, workspace) catch return false;
+        var threaded_ran = false;
+        if (largeCpuGemm(m, n, k)) {
+            const mt_workspace = getCachedF32MtGemmWorkspace() catch null;
+            if (mt_workspace) |threaded_workspace| {
+                threaded_ran = blk: {
+                    veyra.gemmThreadedWithWorkspace(f32, lhs_view, rhs_view, out_view, .{ .beta = 1.0 }, threaded_workspace) catch break :blk false;
+                    break :blk true;
+                };
+            }
+        }
+        if (!threaded_ran) {
+            veyra.gemmF32WithWorkspace(lhs_view, rhs_view, out_view, .{ .beta = 1.0 }, workspace) catch return false;
+        }
     } else {
         const mt_workspace = getCachedF64MtGemmWorkspace() catch return false;
         veyra.gemmThreadedWithWorkspace(f64, lhs_view, rhs_view, out_view, .{ .beta = 1.0 }, mt_workspace) catch return false;
