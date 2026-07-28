@@ -204,6 +204,7 @@ const expandingNormalizeProfileOutputNames = normalize_mod.expandingNormalizePro
 const range_mod = @import("dataframe_range.zig");
 const RollingRangeProfileColumnCount = range_mod.RollingRangeProfileColumnCount;
 const rollingRangeProfileOutputNames = range_mod.rollingRangeProfileOutputNames;
+const rollingRangeProfileColumnsByValue = range_mod.rollingRangeProfileColumnsByValue;
 const group_profile_mod = @import("dataframe_group_profile.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const names_mod = @import("dataframe_names.zig");
@@ -6689,69 +6690,6 @@ pub const DeviceDataFrame = struct {
 
 const compareSortValues = numeric_mod.compareSortValues;
 const compareFloatSortValues = numeric_mod.compareFloatSortValues;
-
-fn rollingRangeProfileColumnsByValue(
-    allocator: std.mem.Allocator,
-    value: DeviceColumn,
-    options_value: DeviceRollingOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![RollingRangeProfileColumnCount]DeviceColumn {
-    if (value.len() != rows) return error.LengthMismatch;
-    return switch (value) {
-        .i8 => |typed| rollingRangeProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
-        .i16 => |typed| rollingRangeProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
-        .i32 => |typed| rollingRangeProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
-        .i64 => |typed| rollingRangeProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
-        .u8 => |typed| rollingRangeProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
-        .u16 => |typed| rollingRangeProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
-        .u32 => |typed| rollingRangeProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
-        .u64 => |typed| rollingRangeProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
-        .usize => |typed| rollingRangeProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
-        .isize => |typed| rollingRangeProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
-        .f16 => |typed| rollingRangeProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
-        .f32 => |typed| rollingRangeProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
-        .f64 => |typed| rollingRangeProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
-        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn rollingRangeProfileColumnsTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    column: DeviceTypedColumn(T),
-    options_value: DeviceRollingOptions,
-    device_value: array_mod.Device,
-) DeviceDataError![RollingRangeProfileColumnCount]DeviceColumn {
-    const min_periods = options_value.min_periods orelse options_value.window;
-    const values_typed = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values_typed);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const rows = values_typed.len;
-    const values = try allocator.alloc(f64, rows);
-    defer allocator.free(values);
-    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
-
-    var metrics = try range_mod.rollingRangeProfile(allocator, values, maybe_validity, options_value.window, min_periods);
-    defer metrics.deinit();
-
-    var columns: [RollingRangeProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.lows, metrics.validity, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.highs, metrics.validity, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ranges, metrics.validity, device_value);
-    initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.positions, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
 
 fn rollingNormalizeProfileColumnsByValue(
     allocator: std.mem.Allocator,
