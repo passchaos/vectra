@@ -107,6 +107,7 @@ pub const DeviceBucketOptions = dataframe_mod.DeviceBucketOptions;
 pub const DeviceEmaOptions = dataframe_mod.DeviceEmaOptions;
 pub const DeviceLinearFitOptions = dataframe_mod.DeviceLinearFitOptions;
 pub const DeviceRollingCorrelationOptions = dataframe_mod.DeviceRollingCorrelationOptions;
+pub const DeviceRollingRankOptions = dataframe_mod.DeviceRollingRankOptions;
 pub const NullPlacement = dataframe_mod.NullPlacement;
 pub const DeviceJoinOptions = dataframe_mod.DeviceJoinOptions;
 pub const AsofStrategy = dataframe_mod.AsofStrategy;
