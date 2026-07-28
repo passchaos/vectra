@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -379,4 +381,98 @@ fn expandingCorrelationProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.betas, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const CorrelationFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendCorrelationColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    corr_columns: anytype,
+) CorrelationFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + corr_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&corr_columns) |*corr_col| {
+        columns[initialized] = corr_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn correlationFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    corr_columns_value: anytype,
+    comptime namesFn: anytype,
+) CorrelationFrameError!DeviceDataFrame {
+    var corr_columns = corr_columns_value;
+    var corr_columns_transferred: usize = 0;
+    errdefer {
+        for (corr_columns[corr_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + corr_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var corr_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, corr_names[0..]);
+    for (corr_names, 0..) |corr_name, i| source_names[frame.columns.len + i] = corr_name;
+
+    const out = try appendCorrelationColumns(DeviceDataFrame, frame, source_names, corr_columns);
+    corr_columns_transferred = corr_columns.len;
+    return out;
+}
+
+fn validateCorrelationInputs(frame: anytype, x_name: []const u8, y_name: []const u8) CorrelationFrameError!struct { x: @TypeOf(frame.column(x_name) catch unreachable), y: @TypeOf(frame.column(y_name) catch unreachable) } {
+    const x = try frame.column(x_name);
+    const y = try frame.column(y_name);
+    if (x.dtype() != y.dtype()) return error.TypeMismatch;
+    return .{ .x = x, .y = y };
+}
+
+pub fn rollingCorrelationProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    x_name: []const u8,
+    y_name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRollingCorrelationOptions,
+) CorrelationFrameError!DeviceDataFrame {
+    const inputs = try validateCorrelationInputs(frame, x_name, y_name);
+    const corr_columns = try rollingCorrelationProfileColumnsByValue(frame.allocator, inputs.x.*, inputs.y.*, options_value, frame.device, frame.rows);
+    return correlationFrameFromColumns(DeviceDataFrame, frame, output_prefix, corr_columns, rollingCorrelationProfileOutputNames);
+}
+
+pub fn expandingCorrelationProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    x_name: []const u8,
+    y_name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceExpandingOptions,
+) CorrelationFrameError!DeviceDataFrame {
+    const inputs = try validateCorrelationInputs(frame, x_name, y_name);
+    const corr_columns = try expandingCorrelationProfileColumnsByValue(frame.allocator, inputs.x.*, inputs.y.*, options_value, frame.device, frame.rows);
+    return correlationFrameFromColumns(DeviceDataFrame, frame, output_prefix, corr_columns, expandingCorrelationProfileOutputNames);
 }

@@ -20,12 +20,6 @@ const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const classification_mod = @import("dataframe_classification.zig");
 const error_mod = @import("dataframe_error.zig");
 const correlation_mod = @import("dataframe_correlation.zig");
-const RollingCorrelationProfileColumnCount = correlation_mod.RollingCorrelationProfileColumnCount;
-const rollingCorrelationProfileOutputNames = correlation_mod.rollingCorrelationProfileOutputNames;
-const ExpandingCorrelationProfileColumnCount = correlation_mod.ExpandingCorrelationProfileColumnCount;
-const expandingCorrelationProfileOutputNames = correlation_mod.expandingCorrelationProfileOutputNames;
-const rollingCorrelationProfileColumnsByValue = correlation_mod.rollingCorrelationProfileColumnsByValue;
-const expandingCorrelationProfileColumnsByValue = correlation_mod.expandingCorrelationProfileColumnsByValue;
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
 const crossover_mod = @import("dataframe_crossover.zig");
 const threshold_mod = @import("dataframe_threshold.zig");
@@ -1473,40 +1467,7 @@ pub const DeviceDataFrame = struct {
         output_prefix: []const u8,
         options_value: DeviceRollingCorrelationOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const x = try self.column(x_name);
-        const y = try self.column(y_name);
-        if (x.dtype() != y.dtype()) return error.TypeMismatch;
-        var corr_columns = try rollingCorrelationProfileColumnsByValue(self.allocator, x.*, y.*, options_value, self.device, self.rows);
-        var corr_columns_transferred: usize = 0;
-        errdefer {
-            for (corr_columns[corr_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + corr_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var corr_names = try rollingCorrelationProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, corr_names[0..]);
-        for (corr_names, 0..) |corr_name, i| source_names[self.columns.len + i] = corr_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + corr_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&corr_columns) |*corr_col| {
-            columns[initialized] = corr_col.*;
-            initialized += 1;
-            corr_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return correlation_mod.rollingCorrelationProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
     }
 
     pub fn expandingCorrelationProfile(
@@ -1516,40 +1477,7 @@ pub const DeviceDataFrame = struct {
         output_prefix: []const u8,
         options_value: DeviceExpandingOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const x = try self.column(x_name);
-        const y = try self.column(y_name);
-        if (x.dtype() != y.dtype()) return error.TypeMismatch;
-        var corr_columns = try expandingCorrelationProfileColumnsByValue(self.allocator, x.*, y.*, options_value, self.device, self.rows);
-        var corr_columns_transferred: usize = 0;
-        errdefer {
-            for (corr_columns[corr_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + corr_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var corr_names = try expandingCorrelationProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, corr_names[0..]);
-        for (corr_names, 0..) |corr_name, i| source_names[self.columns.len + i] = corr_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + corr_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&corr_columns) |*corr_col| {
-            columns[initialized] = corr_col.*;
-            initialized += 1;
-            corr_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return correlation_mod.expandingCorrelationProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
     }
 
     pub fn expandingLinearFitProfile(
