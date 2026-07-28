@@ -243,3 +243,22 @@ pub fn concatDeviceDataFramesRows(
     }
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, first.allocator, first.names, columns, first.rows + second.rows, first.device);
 }
+
+pub fn takeOptionalRows(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    row_indices: []const ?usize,
+) (std.mem.Allocator.Error || array_mod.ArrayError || error{ LengthMismatch, InvalidDevice })!DeviceDataFrame {
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var columns = try input.allocator.alloc(DeviceColumn, input.columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        input.allocator.free(columns);
+    }
+    for (input.columns, 0..) |col, i| {
+        columns[i] = try col.takeOptional(row_indices);
+        initialized += 1;
+    }
+    return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, row_indices.len, input.device);
+}

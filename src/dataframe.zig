@@ -13501,17 +13501,7 @@ fn fullJoinRowIndicesTyped(
 }
 
 fn takeOptionalRows(input: DeviceDataFrame, row_indices: []const ?usize) DeviceDataError!DeviceDataFrame {
-    var columns = try input.allocator.alloc(DeviceColumn, input.columns.len);
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-        input.allocator.free(columns);
-    }
-    for (input.columns, 0..) |col, i| {
-        columns[i] = try col.takeOptional(row_indices);
-        initialized += 1;
-    }
-    return initDeviceDataFrameFromOwnedColumns(input.allocator, input.names, columns, row_indices.len, input.device);
+    return dataframe_array_mod.takeOptionalRows(DeviceDataFrame, input, row_indices);
 }
 
 fn concatJoinedTables(
