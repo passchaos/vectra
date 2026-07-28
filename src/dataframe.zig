@@ -189,6 +189,11 @@ pub const DeviceLinearFitOptions = struct {
     min_periods: usize = 2,
 };
 
+pub const DeviceClipOptions = struct {
+    lower: f64,
+    upper: f64,
+};
+
 pub const DeviceRollingCorrelationOptions = struct {
     /// Trailing, row-count based window width including the current row.
     window: usize,
@@ -1011,6 +1016,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceLagOptions,
     },
+    clip_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceClipOptions,
+    },
     expanding_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1165,6 +1175,10 @@ pub const DeviceLazyOp = union(enum) {
             .lead_profile => |lead| {
                 allocator.free(lead.name);
                 allocator.free(lead.output_prefix);
+            },
+            .clip_profile => |clip| {
+                allocator.free(clip.name);
+                allocator.free(clip.output_prefix);
             },
             .expanding_profile => |expanding| {
                 allocator.free(expanding.name);
@@ -1479,6 +1493,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = lead.options,
+                } };
+            },
+            .clip_profile => |clip| blk: {
+                const name = try allocator.dupe(u8, clip.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, clip.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .clip_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = clip.options,
                 } };
             },
             .expanding_profile => |expanding| blk: {
@@ -2067,6 +2092,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn clipProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceClipOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .clip_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn expandingProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -2297,6 +2334,7 @@ pub const DeviceLazyFrame = struct {
                 .rolling_normalize_profile => |rolling| try current.rollingNormalizeProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .lag_profile => |lag| try current.lagProfile(lag.name, lag.output_prefix, lag.options),
                 .lead_profile => |lead| try current.leadProfile(lead.name, lead.output_prefix, lead.options),
+                .clip_profile => |clip| try current.clipProfile(clip.name, clip.output_prefix, clip.options),
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
@@ -2740,6 +2778,14 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(lead.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, lead.name);
                 break :op_loop;
             },
+            .clip_profile => |clip| {
+                // Clip profiles append cleaning diagnostics and preserve the
+                // source column, so projection pushdown must wait for generated
+                // field schema awareness.
+                projection_blocked = true;
+                if (!nameInBorrowedList(clip.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, clip.name);
+                break :op_loop;
+            },
             .expanding_profile => |expanding| {
                 // Expanding profiles append cumulative derived columns while
                 // preserving source columns.  Keep the source dependency for
@@ -3025,6 +3071,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .rolling_normalize_profile => |rolling| try writer.print("rolling_normalize_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .lag_profile => |lag| try writer.print("lag_profile({s}, prefix={s}, periods={d})", .{ lag.name, lag.output_prefix, lag.options.periods }),
         .lead_profile => |lead| try writer.print("lead_profile({s}, prefix={s}, periods={d})", .{ lead.name, lead.output_prefix, lead.options.periods }),
+        .clip_profile => |clip| try writer.print("clip_profile({s}, prefix={s}, [{d},{d}])", .{ clip.name, clip.output_prefix, clip.options.lower, clip.options.upper }),
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
@@ -3804,6 +3851,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = lead_col.*;
             initialized += 1;
             lead_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn clipProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceClipOptions) DeviceDataError!DeviceDataFrame {
+        const clip_value = try self.column(name);
+        var clip_columns = try clipProfileColumnsByValue(self.allocator, clip_value.*, options_value, self.device, self.rows);
+        var clip_columns_transferred: usize = 0;
+        errdefer {
+            for (clip_columns[clip_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + clip_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var clip_names = try clipProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, clip_names[0..]);
+        for (clip_names, 0..) |clip_name, i| source_names[self.columns.len + i] = clip_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + clip_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&clip_columns) |*clip_col| {
+            columns[initialized] = clip_col.*;
+            initialized += 1;
+            clip_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -5400,6 +5482,107 @@ fn leadProfileColumnsTyped(
     columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, diff_values, change_validity, device_value);
     initialized += 1;
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, pct_values, change_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ClipProfileColumnCount = 4;
+
+fn clipProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ClipProfileColumnCount][]const u8 {
+    var names: [ClipProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "clipped", "below", "above", "in_range" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn clipProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceClipOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ClipProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| clipProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| clipProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| clipProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| clipProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| clipProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| clipProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| clipProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| clipProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| clipProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| clipProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| clipProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| clipProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| clipProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn clipProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceClipOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![ClipProfileColumnCount]DeviceColumn {
+    if (options_value.lower > options_value.upper) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const clipped = try allocator.alloc(f64, rows);
+    defer allocator.free(clipped);
+    const below = try allocator.alloc(bool, rows);
+    defer allocator.free(below);
+    const above = try allocator.alloc(bool, rows);
+    defer allocator.free(above);
+    const in_range = try allocator.alloc(bool, rows);
+    defer allocator.free(in_range);
+    const validity = try allocator.alloc(bool, rows);
+    defer allocator.free(validity);
+
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        validity[row] = valid;
+        if (valid) {
+            const x = castToF64(T, value_item);
+            below[row] = x < options_value.lower;
+            above[row] = x > options_value.upper;
+            in_range[row] = !below[row] and !above[row];
+            clipped[row] = @min(@max(x, options_value.lower), options_value.upper);
+        } else {
+            below[row] = false;
+            above[row] = false;
+            in_range[row] = false;
+            clipped[row] = 0;
+        }
+    }
+
+    var columns: [ClipProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, clipped, validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, below, validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, above, validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, in_range, validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10220,6 +10403,28 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 10.0), expanding_max[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 20.0), expanding_max[4], 1e-12);
 
+    var clipped = try lag_table.clipProfile("sales", "sales", .{ .lower = 5.0, .upper = 15.0 });
+    defer clipped.deinit();
+    try std.testing.expectEqual(@as(usize, 6), clipped.width());
+    const clipped_values = try (try clipped.column("sales_clipped")).f64.toOwnedSlice(gpa);
+    defer gpa.free(clipped_values);
+    const below_values = try (try clipped.column("sales_below")).bool.toOwnedSlice(gpa);
+    defer gpa.free(below_values);
+    const above_values = try (try clipped.column("sales_above")).bool.toOwnedSlice(gpa);
+    defer gpa.free(above_values);
+    const in_range_values = try (try clipped.column("sales_in_range")).bool.toOwnedSlice(gpa);
+    defer gpa.free(in_range_values);
+    const clip_validity = try (try clipped.column("sales_clipped")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(clip_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, clip_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0), clipped_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), clipped_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15.0), clipped_values[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15.0), clipped_values[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, below_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false }, above_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false, false }, in_range_values);
+
     var scaled = try lag_table.standardizeProfile("sales", "sales", .{ .min_periods = 3 });
     defer scaled.deinit();
     try std.testing.expectEqual(@as(usize, 5), scaled.width());
@@ -11480,6 +11685,30 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_forward_pct[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), lazy_forward_pct[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.4), lazy_forward_pct[2], 1e-12);
+
+    var clip_plan = try DeviceLazyFrame.init(gpa, table);
+    defer clip_plan.deinit();
+    try clip_plan.clipProfile("sales", "sales", .{ .lower = 3.0, .upper = 5.0 });
+    try clip_plan.select(&.{ "sales", "sales_clipped", "sales_below", "sales_above", "sales_in_range" });
+    const clip_explain = try clip_plan.explain(gpa);
+    defer gpa.free(clip_explain);
+    try std.testing.expect(std.mem.indexOf(u8, clip_explain, "clip_profile(sales") != null);
+    var lazy_clip = try clip_plan.collect();
+    defer lazy_clip.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_clip.height());
+    try std.testing.expectEqual(@as(usize, 5), lazy_clip.width());
+    const lazy_clipped = try (try lazy_clip.column("sales_clipped")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_clipped);
+    const lazy_below = try (try lazy_clip.column("sales_below")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_below);
+    const lazy_above = try (try lazy_clip.column("sales_above")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_above);
+    const lazy_in_range = try (try lazy_clip.column("sales_in_range")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_in_range);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 3.0, 5.0, 5.0 }, lazy_clipped);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, lazy_below);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, lazy_above);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, lazy_in_range);
 
     var expanding_plan = try DeviceLazyFrame.init(gpa, table);
     defer expanding_plan.deinit();
