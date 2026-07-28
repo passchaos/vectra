@@ -60,6 +60,8 @@ const ExpandingClipProfileColumnCount = clip_mod.ExpandingClipProfileColumnCount
 const expandingClipProfileOutputNames = clip_mod.expandingClipProfileOutputNames;
 const risk_mod = @import("dataframe_risk.zig");
 const standardize_mod = @import("dataframe_standardize.zig");
+const StandardizeProfileColumnCount = standardize_mod.StandardizeProfileColumnCount;
+const standardizeProfileOutputNames = standardize_mod.standardizeProfileOutputNames;
 const robust_mod = @import("dataframe_robust.zig");
 const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
@@ -9958,22 +9960,6 @@ fn expandingMomentProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.kurtoses, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const StandardizeProfileColumnCount = 3;
-
-fn standardizeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![StandardizeProfileColumnCount][]const u8 {
-    var names: [StandardizeProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "centered", "zscore", "minmax" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn standardizeProfileColumnsByValue(
