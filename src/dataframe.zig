@@ -1060,6 +1060,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceExpandingOptions,
     },
+    expanding_moment_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceExpandingOptions,
+    },
     standardize_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1266,6 +1271,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(threshold.output_prefix);
             },
             .expanding_profile => |expanding| {
+                allocator.free(expanding.name);
+                allocator.free(expanding.output_prefix);
+            },
+            .expanding_moment_profile => |expanding| {
                 allocator.free(expanding.name);
                 allocator.free(expanding.output_prefix);
             },
@@ -1679,6 +1688,17 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, expanding.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .expanding_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = expanding.options,
+                } };
+            },
+            .expanding_moment_profile => |expanding| blk: {
+                const name = try allocator.dupe(u8, expanding.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, expanding.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .expanding_moment_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = expanding.options,
@@ -2416,6 +2436,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn expandingMomentProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .expanding_moment_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn standardizeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceStandardizeOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -2736,6 +2768,7 @@ pub const DeviceLazyFrame = struct {
                 .clip_profile => |clip| try current.clipProfile(clip.name, clip.output_prefix, clip.options),
                 .threshold_profile => |threshold| try current.thresholdProfile(threshold.name, threshold.output_prefix, threshold.options),
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
+                .expanding_moment_profile => |expanding| try current.expandingMomentProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
                 .drawdown_profile => |drawdown| try current.drawdownProfile(drawdown.name, drawdown.output_prefix, drawdown.options),
@@ -3239,6 +3272,13 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(expanding.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, expanding.name);
                 break :op_loop;
             },
+            .expanding_moment_profile => |expanding| {
+                // Expanding moment profiles append higher-order cumulative
+                // distribution diagnostics while preserving source columns.
+                projection_blocked = true;
+                if (!nameInBorrowedList(expanding.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, expanding.name);
+                break :op_loop;
+            },
             .standardize_profile => |standardize| {
                 // Standardization adds derived scale columns while retaining the
                 // input schema. It depends on the whole source column, so keep
@@ -3559,6 +3599,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .clip_profile => |clip| try writer.print("clip_profile({s}, prefix={s}, [{d},{d}])", .{ clip.name, clip.output_prefix, clip.options.lower, clip.options.upper }),
         .threshold_profile => |threshold| try writer.print("threshold_profile({s}, prefix={s}, threshold={d})", .{ threshold.name, threshold.output_prefix, threshold.options.threshold }),
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
+        .expanding_moment_profile => |expanding| try writer.print("expanding_moment_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
         .drawdown_profile => |drawdown| try writer.print("drawdown_profile({s}, prefix={s}, min_periods={d})", .{ drawdown.name, drawdown.output_prefix, drawdown.options.min_periods }),
@@ -4572,6 +4613,41 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var expanding_names = try expandingProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, expanding_names[0..]);
+        for (expanding_names, 0..) |expanding_name, i| source_names[self.columns.len + i] = expanding_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + expanding_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&expanding_columns) |*expanding_col| {
+            columns[initialized] = expanding_col.*;
+            initialized += 1;
+            expanding_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn expandingMomentProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
+        const expanding_value = try self.column(name);
+        var expanding_columns = try expandingMomentProfileColumnsByValue(self.allocator, expanding_value.*, options_value, self.device, self.rows);
+        var expanding_columns_transferred: usize = 0;
+        errdefer {
+            for (expanding_columns[expanding_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + expanding_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var expanding_names = try expandingMomentProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, expanding_names[0..]);
         for (expanding_names, 0..) |expanding_name, i| source_names[self.columns.len + i] = expanding_name;
 
@@ -7211,6 +7287,116 @@ fn expandingProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mins, metric_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, maxes, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ExpandingMomentProfileColumnCount = 5;
+
+fn expandingMomentProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingMomentProfileColumnCount][]const u8 {
+    var names: [ExpandingMomentProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_moment_count", "expanding_m3", "expanding_m4", "expanding_skewness", "expanding_kurtosis" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn expandingMomentProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ExpandingMomentProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| expandingMomentProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| expandingMomentProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| expandingMomentProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| expandingMomentProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| expandingMomentProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| expandingMomentProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| expandingMomentProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| expandingMomentProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| expandingMomentProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| expandingMomentProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| expandingMomentProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| expandingMomentProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| expandingMomentProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn expandingMomentProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![ExpandingMomentProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const m3_values = try allocator.alloc(f64, rows);
+    defer allocator.free(m3_values);
+    const m4_values = try allocator.alloc(f64, rows);
+    defer allocator.free(m4_values);
+    const skewnesses = try allocator.alloc(f64, rows);
+    defer allocator.free(skewnesses);
+    const kurtoses = try allocator.alloc(f64, rows);
+    defer allocator.free(kurtoses);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var profile: GroupedMomentProfile = .{};
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (valid) profile.update(castToF64(T, value_item));
+
+        counts[row] = profile.count;
+        const has_enough = profile.count >= @as(i64, @intCast(options_value.min_periods));
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(profile.count);
+            m3_values[row] = profile.m3 / n;
+            m4_values[row] = profile.m4 / n;
+            skewnesses[row] = profile.skewness();
+            kurtoses[row] = profile.kurtosis();
+        } else {
+            m3_values[row] = 0;
+            m4_values[row] = 0;
+            skewnesses[row] = 0;
+            kurtoses[row] = 0;
+        }
+    }
+
+    var columns: [ExpandingMomentProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, m3_values, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, m4_values, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, skewnesses, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, kurtoses, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -12720,6 +12906,36 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 10.0), expanding_max[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 20.0), expanding_max[4], 1e-12);
 
+    var expanding_moments = try lag_table.expandingMomentProfile("sales", "sales", .{ .min_periods = 2 });
+    defer expanding_moments.deinit();
+    try std.testing.expectEqual(@as(usize, 7), expanding_moments.width());
+    const expanding_moment_count = try (try expanding_moments.column("sales_expanding_moment_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_moment_count);
+    const expanding_m3 = try (try expanding_moments.column("sales_expanding_m3")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_m3);
+    const expanding_m4 = try (try expanding_moments.column("sales_expanding_m4")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_m4);
+    const expanding_skewness = try (try expanding_moments.column("sales_expanding_skewness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_skewness);
+    const expanding_kurtosis = try (try expanding_moments.column("sales_expanding_kurtosis")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_kurtosis);
+    const expanding_moment_validity = try (try expanding_moments.column("sales_expanding_skewness")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(expanding_moment_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4, 4 }, expanding_moment_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true }, expanding_moment_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), expanding_m3[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -92.59259259259267), expanding_m3[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -175.78125), expanding_m3[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 625.0), expanding_m4[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2268.5185185185187), expanding_m4[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5520.01953125), expanding_m4[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), expanding_skewness[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.3818017741606065), expanding_skewness[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.43465075957466565), expanding_skewness[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), expanding_kurtosis[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.5), expanding_kurtosis[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.1542857142857144), expanding_kurtosis[3], 1e-12);
+
     var clipped = try lag_table.clipProfile("sales", "sales", .{ .lower = 5.0, .upper = 15.0 });
     defer clipped.deinit();
     try std.testing.expectEqual(@as(usize, 6), clipped.width());
@@ -14457,6 +14673,44 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 3.0), expanding_max[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0), expanding_max[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 7.0), expanding_max[3], 1e-12);
+
+    var expanding_moment_plan = try DeviceLazyFrame.init(gpa, table);
+    defer expanding_moment_plan.deinit();
+    try expanding_moment_plan.expandingMomentProfile("sales", "sales", .{ .min_periods = 2 });
+    try expanding_moment_plan.select(&.{ "sales", "sales_expanding_moment_count", "sales_expanding_m3", "sales_expanding_m4", "sales_expanding_skewness", "sales_expanding_kurtosis" });
+    const expanding_moment_explain = try expanding_moment_plan.explain(gpa);
+    defer gpa.free(expanding_moment_explain);
+    try std.testing.expect(std.mem.indexOf(u8, expanding_moment_explain, "expanding_moment_profile(sales") != null);
+    var expanding_moments = try expanding_moment_plan.collect();
+    defer expanding_moments.deinit();
+    try std.testing.expectEqual(@as(usize, 4), expanding_moments.height());
+    try std.testing.expectEqual(@as(usize, 6), expanding_moments.width());
+    const lazy_expanding_moment_count = try (try expanding_moments.column("sales_expanding_moment_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_moment_count);
+    const lazy_expanding_m3 = try (try expanding_moments.column("sales_expanding_m3")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_m3);
+    const lazy_expanding_m4 = try (try expanding_moments.column("sales_expanding_m4")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_m4);
+    const lazy_expanding_skewness = try (try expanding_moments.column("sales_expanding_skewness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_skewness);
+    const lazy_expanding_kurtosis = try (try expanding_moments.column("sales_expanding_kurtosis")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_kurtosis);
+    const lazy_expanding_moment_validity = try (try expanding_moments.column("sales_expanding_skewness")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_moment_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4 }, lazy_expanding_moment_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_expanding_moment_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_m3[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.7407407407407399), lazy_expanding_m3[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.96875), lazy_expanding_m3[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0625), lazy_expanding_m4[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.6296296296296293), lazy_expanding_m4[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 21.39453125), lazy_expanding_m4[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_skewness[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.3818017741606058), lazy_expanding_skewness[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.27803055565396284), lazy_expanding_skewness[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), lazy_expanding_kurtosis[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.5), lazy_expanding_kurtosis[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.4266015512783683), lazy_expanding_kurtosis[3], 1e-12);
 
     var standardize_plan = try DeviceLazyFrame.init(gpa, table);
     defer standardize_plan.deinit();
