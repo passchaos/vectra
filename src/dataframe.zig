@@ -5,6 +5,7 @@ const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const classification_mod = @import("dataframe_classification.zig");
 const error_mod = @import("dataframe_error.zig");
+const correlation_mod = @import("dataframe_correlation.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -14824,91 +14825,52 @@ fn rollingCorrelationProfileColumnsTyped(
     options_value: DeviceRollingCorrelationOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingCorrelationProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
     if (x_column.len() != y_column.len()) return error.LengthMismatch;
     if (!x_column.device().sameDevice(y_column.device())) return error.InvalidDevice;
 
-    const xs = try x_column.values.toOwnedSlice(allocator);
-    defer allocator.free(xs);
-    const ys = try y_column.values.toOwnedSlice(allocator);
-    defer allocator.free(ys);
+    const xs_typed = try x_column.values.toOwnedSlice(allocator);
+    defer allocator.free(xs_typed);
+    const ys_typed = try y_column.values.toOwnedSlice(allocator);
+    defer allocator.free(ys_typed);
     const maybe_x_validity = try validityValues(x_column, allocator);
     defer if (maybe_x_validity) |validity| allocator.free(validity);
     const maybe_y_validity = try validityValues(y_column, allocator);
     defer if (maybe_y_validity) |validity| allocator.free(validity);
 
-    const rows = xs.len;
-    const pair_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(pair_counts);
-    const covariances = try allocator.alloc(f64, rows);
-    defer allocator.free(covariances);
-    const correlations = try allocator.alloc(f64, rows);
-    defer allocator.free(correlations);
-    const betas = try allocator.alloc(f64, rows);
-    defer allocator.free(betas);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    // Recompute each trailing window in host memory, mirroring the existing
-    // dataframe rolling profile APIs while exposing a stable seam for future
-    // device-side rolling covariance/correlation kernels.
-    for (xs, 0..) |_, row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var sum_x: f64 = 0;
-        var sum_y: f64 = 0;
-        var sum_xx: f64 = 0;
-        var sum_yy: f64 = 0;
-        var sum_xy: f64 = 0;
-        for (start..row + 1) |window_row| {
-            const valid = (if (maybe_x_validity) |mask| mask[window_row] else true) and (if (maybe_y_validity) |mask| mask[window_row] else true);
-            if (!valid) continue;
-            const x = castToF64(T, xs[window_row]);
-            const y = castToF64(T, ys[window_row]);
-            sum_x += x;
-            sum_y += y;
-            sum_xx += x * x;
-            sum_yy += y * y;
-            sum_xy += x * y;
-            count += 1;
-        }
-
-        pair_counts[row] = @intCast(count);
-        const has_enough = count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            const mean_x = sum_x / n;
-            const mean_y = sum_y / n;
-            const cov = sum_xy / n - mean_x * mean_y;
-            const var_x_raw = sum_xx / n - mean_x * mean_x;
-            const var_y_raw = sum_yy / n - mean_y * mean_y;
-            const var_x = if (var_x_raw < 0) 0 else var_x_raw;
-            const var_y = if (var_y_raw < 0) 0 else var_y_raw;
-            covariances[row] = cov;
-            correlations[row] = if (var_x == 0 or var_y == 0) std.math.nan(f64) else cov / std.math.sqrt(var_x * var_y);
-            betas[row] = if (var_x == 0) std.math.nan(f64) else cov / var_x;
-        } else {
-            covariances[row] = 0;
-            correlations[row] = 0;
-            betas[row] = 0;
-        }
+    const rows = xs_typed.len;
+    const xs = try allocator.alloc(f64, rows);
+    defer allocator.free(xs);
+    const ys = try allocator.alloc(f64, rows);
+    defer allocator.free(ys);
+    for (xs_typed, ys_typed, 0..) |x_value, y_value, row| {
+        xs[row] = castToF64(T, x_value);
+        ys[row] = castToF64(T, y_value);
     }
+
+    var metrics = try correlation_mod.rollingCorrelationProfile(
+        allocator,
+        xs,
+        ys,
+        maybe_x_validity,
+        maybe_y_validity,
+        options_value.window,
+        min_periods,
+    );
+    defer metrics.deinit();
 
     var columns: [RollingCorrelationProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, pair_counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.pair_counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, covariances, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.covariances, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, correlations, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.correlations, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, betas, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.betas, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -14965,84 +14927,50 @@ fn expandingCorrelationProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingCorrelationProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
     if (x_column.len() != y_column.len()) return error.LengthMismatch;
     if (!x_column.device().sameDevice(y_column.device())) return error.InvalidDevice;
 
-    const xs = try x_column.values.toOwnedSlice(allocator);
-    defer allocator.free(xs);
-    const ys = try y_column.values.toOwnedSlice(allocator);
-    defer allocator.free(ys);
+    const xs_typed = try x_column.values.toOwnedSlice(allocator);
+    defer allocator.free(xs_typed);
+    const ys_typed = try y_column.values.toOwnedSlice(allocator);
+    defer allocator.free(ys_typed);
     const maybe_x_validity = try validityValues(x_column, allocator);
     defer if (maybe_x_validity) |validity| allocator.free(validity);
     const maybe_y_validity = try validityValues(y_column, allocator);
     defer if (maybe_y_validity) |validity| allocator.free(validity);
 
-    const rows = xs.len;
-    const pair_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(pair_counts);
-    const covariances = try allocator.alloc(f64, rows);
-    defer allocator.free(covariances);
-    const correlations = try allocator.alloc(f64, rows);
-    defer allocator.free(correlations);
-    const betas = try allocator.alloc(f64, rows);
-    defer allocator.free(betas);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var count: usize = 0;
-    var sum_x: f64 = 0;
-    var sum_y: f64 = 0;
-    var sum_xx: f64 = 0;
-    var sum_yy: f64 = 0;
-    var sum_xy: f64 = 0;
-    for (xs, ys, 0..) |x_value, y_value, row| {
-        const valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
-        if (valid) {
-            const x = castToF64(T, x_value);
-            const y = castToF64(T, y_value);
-            sum_x += x;
-            sum_y += y;
-            sum_xx += x * x;
-            sum_yy += y * y;
-            sum_xy += x * y;
-            count += 1;
-        }
-
-        pair_counts[row] = @intCast(count);
-        const has_enough = count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            const mean_x = sum_x / n;
-            const mean_y = sum_y / n;
-            const cov = sum_xy / n - mean_x * mean_y;
-            const var_x_raw = sum_xx / n - mean_x * mean_x;
-            const var_y_raw = sum_yy / n - mean_y * mean_y;
-            const var_x = if (var_x_raw < 0) 0 else var_x_raw;
-            const var_y = if (var_y_raw < 0) 0 else var_y_raw;
-            covariances[row] = cov;
-            correlations[row] = if (var_x == 0 or var_y == 0) std.math.nan(f64) else cov / std.math.sqrt(var_x * var_y);
-            betas[row] = if (var_x == 0) std.math.nan(f64) else cov / var_x;
-        } else {
-            covariances[row] = 0;
-            correlations[row] = 0;
-            betas[row] = 0;
-        }
+    const rows = xs_typed.len;
+    const xs = try allocator.alloc(f64, rows);
+    defer allocator.free(xs);
+    const ys = try allocator.alloc(f64, rows);
+    defer allocator.free(ys);
+    for (xs_typed, ys_typed, 0..) |x_value, y_value, row| {
+        xs[row] = castToF64(T, x_value);
+        ys[row] = castToF64(T, y_value);
     }
+
+    var metrics = try correlation_mod.expandingCorrelationProfile(
+        allocator,
+        xs,
+        ys,
+        maybe_x_validity,
+        maybe_y_validity,
+        options_value.min_periods,
+    );
+    defer metrics.deinit();
 
     var columns: [ExpandingCorrelationProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, pair_counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.pair_counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, covariances, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.covariances, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, correlations, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.correlations, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, betas, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.betas, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
