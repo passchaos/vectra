@@ -327,6 +327,31 @@ pub fn fullJoinRowIndicesTyped(
     };
 }
 
+pub fn semiAntiJoinRowIndicesMulti(
+    allocator: std.mem.Allocator,
+    left: anytype,
+    right: anytype,
+    left_key_names: []const []const u8,
+    right_key_names: []const []const u8,
+    keep_matches: bool,
+) KeyMatchError![]usize {
+    var indices: std.ArrayList(usize) = .empty;
+    errdefer indices.deinit(allocator);
+
+    for (0..left.rows) |left_i| {
+        var matched = false;
+        for (0..right.rows) |right_i| {
+            if (try rowsMatchAllKeys(allocator, left, right, left_key_names, right_key_names, left_i, right_i)) {
+                matched = true;
+                break;
+            }
+        }
+        if (matched == keep_matches) try indices.append(allocator, left_i);
+    }
+
+    return indices.toOwnedSlice(allocator);
+}
+
 pub fn semiAntiJoinRowIndicesTyped(
     comptime T: type,
     allocator: std.mem.Allocator,
