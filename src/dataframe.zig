@@ -144,6 +144,13 @@ pub const DeviceStandardizeOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceRobustOptions = struct {
+    /// Minimum valid observations required to compute median/MAD/IQR metrics.
+    min_periods: usize = 1,
+    /// Tukey fence multiplier used for outlier flags and winsorization bounds.
+    iqr_multiplier: f64 = 1.5,
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -953,6 +960,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceStandardizeOptions,
     },
+    robust_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceRobustOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1046,6 +1058,10 @@ pub const DeviceLazyOp = union(enum) {
             .standardize_profile => |standardize| {
                 allocator.free(standardize.name);
                 allocator.free(standardize.output_prefix);
+            },
+            .robust_profile => |robust| {
+                allocator.free(robust.name);
+                allocator.free(robust.output_prefix);
             },
             .distinct_rows, .head, .tail => {},
         }
@@ -1302,6 +1318,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = standardize.options,
+                } };
+            },
+            .robust_profile => |robust| blk: {
+                const name = try allocator.dupe(u8, robust.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, robust.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .robust_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = robust.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -1749,6 +1776,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn robustProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .robust_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -1820,6 +1859,7 @@ pub const DeviceLazyFrame = struct {
                 .lag_profile => |lag| try current.lagProfile(lag.name, lag.output_prefix, lag.options),
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
+                .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2246,6 +2286,15 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(standardize.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, standardize.name);
                 break :op_loop;
             },
+            .robust_profile => |robust| {
+                // Robust profiles append median/MAD/IQR-derived columns while
+                // preserving the input table. Keep predicate pruning but avoid
+                // projection pushdown until derived-field schema tracking can
+                // distinguish source and generated columns.
+                projection_blocked = true;
+                if (!nameInBorrowedList(robust.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, robust.name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2431,6 +2480,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .lag_profile => |lag| try writer.print("lag_profile({s}, prefix={s}, periods={d})", .{ lag.name, lag.output_prefix, lag.options.periods }),
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
+        .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -3164,6 +3214,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = standardize_col.*;
             initialized += 1;
             standardize_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn robustProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!DeviceDataFrame {
+        const robust_value = try self.column(name);
+        var robust_columns = try robustProfileColumnsByValue(self.allocator, robust_value.*, options_value, self.device, self.rows);
+        var robust_columns_transferred: usize = 0;
+        errdefer {
+            for (robust_columns[robust_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + robust_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var robust_names = try robustProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, robust_names[0..]);
+        for (robust_names, 0..) |robust_name, i| source_names[self.columns.len + i] = robust_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + robust_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&robust_columns) |*robust_col| {
+            columns[initialized] = robust_col.*;
+            initialized += 1;
+            robust_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -4240,6 +4325,160 @@ fn standardizeProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, minmax, validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const RobustProfileColumnCount = 4;
+
+fn robustProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RobustProfileColumnCount][]const u8 {
+    var names: [RobustProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "median_centered", "mad_zscore", "iqr_outlier", "winsorized" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn robustProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceRobustOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RobustProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| robustProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| robustProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| robustProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| robustProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| robustProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| robustProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| robustProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| robustProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| robustProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| robustProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| robustProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| robustProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| robustProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn robustProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceRobustOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RobustProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    var valid_count: usize = 0;
+    for (values, 0..) |_, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (valid) valid_count += 1;
+    }
+
+    const valid_values = try allocator.alloc(f64, valid_count);
+    defer allocator.free(valid_values);
+    var write: usize = 0;
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (!valid) continue;
+        valid_values[write] = castToF64(T, value_item);
+        write += 1;
+    }
+    std.sort.insertion(f64, valid_values, {}, struct {
+        fn lessThan(_: void, lhs: f64, rhs: f64) bool {
+            return compareFloatSortValues(f64, lhs, rhs) < 0;
+        }
+    }.lessThan);
+
+    const has_enough = valid_count >= options_value.min_periods;
+    const median = if (valid_count == 0) 0 else quantileSorted(valid_values, 0.5);
+    const q1 = if (valid_count == 0) 0 else quantileSorted(valid_values, 0.25);
+    const q3 = if (valid_count == 0) 0 else quantileSorted(valid_values, 0.75);
+    const iqr = q3 - q1;
+    const lower_fence = q1 - options_value.iqr_multiplier * iqr;
+    const upper_fence = q3 + options_value.iqr_multiplier * iqr;
+
+    const deviations = try allocator.alloc(f64, valid_count);
+    defer allocator.free(deviations);
+    for (valid_values, deviations) |value, *slot| slot.* = @abs(value - median);
+    std.sort.insertion(f64, deviations, {}, struct {
+        fn lessThan(_: void, lhs: f64, rhs: f64) bool {
+            return compareFloatSortValues(f64, lhs, rhs) < 0;
+        }
+    }.lessThan);
+    const mad = if (valid_count == 0) 0 else quantileSorted(deviations, 0.5);
+
+    const rows = values.len;
+    const centered = try allocator.alloc(f64, rows);
+    defer allocator.free(centered);
+    const mad_zscore = try allocator.alloc(f64, rows);
+    defer allocator.free(mad_zscore);
+    const outlier = try allocator.alloc(bool, rows);
+    defer allocator.free(outlier);
+    const winsorized = try allocator.alloc(f64, rows);
+    defer allocator.free(winsorized);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    // Robust profiles use order statistics instead of mean/stddev, giving
+    // feature-engineering pipelines less outlier-sensitive columns while keeping
+    // null propagation and a future device quantile/winsorization lowering seam.
+    for (values, 0..) |value_item, row| {
+        const row_valid = if (maybe_validity) |mask| mask[row] else true;
+        const valid = row_valid and has_enough;
+        metric_validity[row] = valid;
+        if (valid) {
+            const value = castToF64(T, value_item);
+            centered[row] = value - median;
+            mad_zscore[row] = if (mad == 0) std.math.nan(f64) else 0.6744897501960817 * centered[row] / mad;
+            outlier[row] = value < lower_fence or value > upper_fence;
+            winsorized[row] = @min(@max(value, lower_fence), upper_fence);
+        } else {
+            centered[row] = 0;
+            mad_zscore[row] = 0;
+            outlier[row] = false;
+            winsorized[row] = 0;
+        }
+    }
+
+    var columns: [RobustProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, centered, metric_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mad_zscore, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, outlier, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, winsorized, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+fn quantileSorted(values: []const f64, probability: f64) f64 {
+    if (values.len == 0) return std.math.nan(f64);
+    if (values.len == 1) return values[0];
+    const position = probability * @as(f64, @floatFromInt(values.len - 1));
+    const lower: usize = @intFromFloat(@floor(position));
+    const upper: usize = if (lower + 1 < values.len and position > @as(f64, @floatFromInt(lower))) lower + 1 else lower;
+    const fraction = position - @as(f64, @floatFromInt(lower));
+    return values[lower] * (1.0 - fraction) + values[upper] * fraction;
 }
 
 fn groupByCountTyped(
@@ -7556,6 +7795,44 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), minmax[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.75), minmax[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), minmax[3], 1e-12);
+
+    var robust_source = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 100.0, 0.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer robust_source.deinit();
+    var robust_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4, 5 }, .cpu);
+    defer robust_id.deinit();
+    var robust_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "value", .data = robust_source },
+        .{ .name = "id", .data = robust_id },
+    });
+    defer robust_table.deinit();
+
+    var robust = try robust_table.robustProfile("value", "value", .{ .min_periods = 4 });
+    defer robust.deinit();
+    try std.testing.expectEqual(@as(usize, 6), robust.width());
+    const median_centered = try (try robust.column("value_median_centered")).f64.toOwnedSlice(gpa);
+    defer gpa.free(median_centered);
+    const mad_zscore = try (try robust.column("value_mad_zscore")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mad_zscore);
+    const iqr_outlier = try (try robust.column("value_iqr_outlier")).bool.toOwnedSlice(gpa);
+    defer gpa.free(iqr_outlier);
+    const winsorized = try (try robust.column("value_winsorized")).f64.toOwnedSlice(gpa);
+    defer gpa.free(winsorized);
+    const robust_validity = try (try robust.column("value_mad_zscore")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(robust_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, robust_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.5), median_centered[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.5), median_centered[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), median_centered[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 97.5), median_centered[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0117346252941226), mad_zscore[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.33724487509804085), mad_zscore[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.33724487509804085), mad_zscore[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 65.76275064411797), mad_zscore[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false }, iqr_outlier);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), winsorized[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), winsorized[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), winsorized[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 65.5), winsorized[3], 1e-12);
 }
 
 test "device dataframe groupby aggregations on fixed-width columns" {
@@ -8474,6 +8751,36 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.2), lazy_minmax[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.6), lazy_minmax[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_minmax[3], 1e-12);
+
+    var robust_plan = try DeviceLazyFrame.init(gpa, table);
+    defer robust_plan.deinit();
+    try robust_plan.robustProfile("sales", "sales", .{});
+    try robust_plan.select(&.{ "sales", "sales_median_centered", "sales_mad_zscore", "sales_iqr_outlier", "sales_winsorized" });
+    const robust_explain = try robust_plan.explain(gpa);
+    defer gpa.free(robust_explain);
+    try std.testing.expect(std.mem.indexOf(u8, robust_explain, "robust_profile(sales") != null);
+    var robust = try robust_plan.collect();
+    defer robust.deinit();
+    try std.testing.expectEqual(@as(usize, 4), robust.height());
+    try std.testing.expectEqual(@as(usize, 5), robust.width());
+    const lazy_median_centered = try (try robust.column("sales_median_centered")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_median_centered);
+    const lazy_mad_zscore = try (try robust.column("sales_mad_zscore")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_mad_zscore);
+    const lazy_iqr_outlier = try (try robust.column("sales_iqr_outlier")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_iqr_outlier);
+    const lazy_winsorized = try (try robust.column("sales_winsorized")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_winsorized);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), lazy_median_centered[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0), lazy_median_centered[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_median_centered[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_median_centered[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.8993196669281089), lazy_mad_zscore[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.44965983346405447), lazy_mad_zscore[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.44965983346405447), lazy_mad_zscore[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.3489795003921634), lazy_mad_zscore[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_iqr_outlier);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, 7.0 }, lazy_winsorized);
 }
 
 test "device lazy frame collects groupby aggregations" {

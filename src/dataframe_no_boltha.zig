@@ -110,6 +110,11 @@ pub const DeviceStandardizeOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceRobustOptions = struct {
+    min_periods: usize = 1,
+    iqr_multiplier: f64 = 1.5,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };
