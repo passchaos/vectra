@@ -113,15 +113,12 @@ const drawdownProfileColumnsByValue = risk_mod.drawdownProfileColumnsByValue;
 const extremaProfileColumnsByValue = risk_mod.extremaProfileColumnsByValue;
 const standardize_mod = @import("dataframe_standardize.zig");
 const robust_mod = @import("dataframe_robust.zig");
-const RobustProfileColumnCount = robust_mod.RobustProfileColumnCount;
-const robustProfileOutputNames = robust_mod.robustProfileOutputNames;
 const RollingRobustProfileColumnCount = robust_mod.RollingRobustProfileColumnCount;
 const rollingRobustProfileOutputNames = robust_mod.rollingRobustProfileOutputNames;
 const ExpandingRobustProfileColumnCount = robust_mod.ExpandingRobustProfileColumnCount;
 const expandingRobustProfileOutputNames = robust_mod.expandingRobustProfileOutputNames;
 const rollingRobustProfileColumnsByValue = robust_mod.rollingRobustProfileColumnsByValue;
 const expandingRobustProfileColumnsByValue = robust_mod.expandingRobustProfileColumnsByValue;
-const robustProfileColumnsByValue = robust_mod.robustProfileColumnsByValue;
 const trend_mod = @import("dataframe_trend.zig");
 const TrendProfileColumnCount = trend_mod.TrendProfileColumnCount;
 const trendProfileOutputNames = trend_mod.trendProfileOutputNames;
@@ -1386,38 +1383,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn robustProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!DeviceDataFrame {
-        const robust_value = try self.column(name);
-        var robust_columns = try robustProfileColumnsByValue(self.allocator, robust_value.*, options_value, self.device, self.rows);
-        var robust_columns_transferred: usize = 0;
-        errdefer {
-            for (robust_columns[robust_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + robust_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var robust_names = try robustProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, robust_names[0..]);
-        for (robust_names, 0..) |robust_name, i| source_names[self.columns.len + i] = robust_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + robust_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&robust_columns) |*robust_col| {
-            columns[initialized] = robust_col.*;
-            initialized += 1;
-            robust_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return robust_mod.robustProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn drawdownProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceDrawdownOptions) DeviceDataError!DeviceDataFrame {
