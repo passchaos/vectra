@@ -1213,6 +1213,12 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceTrendOptions,
     },
+    rolling_sign_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        sign_options: DeviceTrendOptions,
+        options: DeviceRollingOptions,
+    },
     crossover_profile: struct {
         lhs_name: []const u8,
         rhs_name: []const u8,
@@ -1515,6 +1521,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(change.output_prefix);
             },
             .sign_profile => |sign| {
+                allocator.free(sign.name);
+                allocator.free(sign.output_prefix);
+            },
+            .rolling_sign_profile => |sign| {
                 allocator.free(sign.name);
                 allocator.free(sign.output_prefix);
             },
@@ -2198,6 +2208,18 @@ pub const DeviceLazyOp = union(enum) {
                 break :blk .{ .sign_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
+                    .options = sign.options,
+                } };
+            },
+            .rolling_sign_profile => |sign| blk: {
+                const name = try allocator.dupe(u8, sign.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, sign.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_sign_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .sign_options = sign.sign_options,
                     .options = sign.options,
                 } };
             },
@@ -3232,6 +3254,19 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingSignProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_sign_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .sign_options = sign_options,
+            .options = options_value,
+        } });
+    }
+
     pub fn crossoverProfile(
         self: *DeviceLazyFrame,
         lhs_name: []const u8,
@@ -3611,6 +3646,7 @@ pub const DeviceLazyFrame = struct {
                 .rolling_change_point_profile => |change| try current.rollingChangePointProfile(change.name, change.output_prefix, change.threshold, change.change_options, change.options),
                 .expanding_change_point_profile => |change| try current.expandingChangePointProfile(change.name, change.output_prefix, change.threshold, change.change_options, change.options),
                 .sign_profile => |sign| try current.signProfile(sign.name, sign.output_prefix, sign.options),
+                .rolling_sign_profile => |sign| try current.rollingSignProfile(sign.name, sign.output_prefix, sign.sign_options, sign.options),
                 .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
                 .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
                 .ema_profile => |ema| try current.emaProfile(ema.name, ema.output_prefix, ema.options),
@@ -4268,6 +4304,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(sign.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, sign.name);
                 break :op_loop;
             },
+            .rolling_sign_profile => |sign| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(sign.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, sign.name);
+                break :op_loop;
+            },
             .crossover_profile => |cross| {
                 // Crossover profiles depend on two source columns and append
                 // several signal columns. Keep scan predicates but block
@@ -4605,6 +4646,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .rolling_change_point_profile => |change| try writer.print("rolling_change_point_profile({s}, prefix={s}, threshold={d}, periods={d}, window={d})", .{ change.name, change.output_prefix, change.threshold, change.change_options.periods, change.options.window }),
         .expanding_change_point_profile => |change| try writer.print("expanding_change_point_profile({s}, prefix={s}, threshold={d}, periods={d}, min_periods={d})", .{ change.name, change.output_prefix, change.threshold, change.change_options.periods, change.options.min_periods }),
         .sign_profile => |sign| try writer.print("sign_profile({s}, prefix={s}, periods={d})", .{ sign.name, sign.output_prefix, sign.options.periods }),
+        .rolling_sign_profile => |sign| try writer.print("rolling_sign_profile({s}, prefix={s}, periods={d}, window={d})", .{ sign.name, sign.output_prefix, sign.sign_options.periods, sign.options.window }),
         .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
         .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
         .ema_profile => |ema| try writer.print("ema_profile({s}, prefix={s}, alpha={d})", .{ ema.name, ema.output_prefix, ema.options.alpha }),
@@ -6424,6 +6466,41 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var sign_names = try signProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, sign_names[0..]);
+        for (sign_names, 0..) |sign_name, i| source_names[self.columns.len + i] = sign_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + sign_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&sign_columns) |*sign_col| {
+            columns[initialized] = sign_col.*;
+            initialized += 1;
+            sign_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingSignProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
+        const sign_value = try self.column(name);
+        var sign_columns = try rollingSignProfileColumnsByValue(self.allocator, sign_value.*, sign_options, options_value, self.device, self.rows);
+        var sign_columns_transferred: usize = 0;
+        errdefer {
+            for (sign_columns[sign_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + sign_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var sign_names = try rollingSignProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, sign_names[0..]);
         for (sign_names, 0..) |sign_name, i| source_names[self.columns.len + i] = sign_name;
 
@@ -12207,6 +12284,171 @@ fn signProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, negative_streak, sign_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(i64, allocator, zero_streak, sign_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const RollingSignProfileColumnCount = 5;
+
+fn rollingSignProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingSignProfileColumnCount][]const u8 {
+    var names: [RollingSignProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_sign_count", "rolling_positive_rate", "rolling_negative_rate", "rolling_zero_rate", "rolling_sign_flip_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingSignProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    sign_options: DeviceTrendOptions,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingSignProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| rollingSignProfileColumnsTyped(i8, allocator, typed, sign_options, options_value, device_value),
+        .i16 => |typed| rollingSignProfileColumnsTyped(i16, allocator, typed, sign_options, options_value, device_value),
+        .i32 => |typed| rollingSignProfileColumnsTyped(i32, allocator, typed, sign_options, options_value, device_value),
+        .i64 => |typed| rollingSignProfileColumnsTyped(i64, allocator, typed, sign_options, options_value, device_value),
+        .u8 => |typed| rollingSignProfileColumnsTyped(u8, allocator, typed, sign_options, options_value, device_value),
+        .u16 => |typed| rollingSignProfileColumnsTyped(u16, allocator, typed, sign_options, options_value, device_value),
+        .u32 => |typed| rollingSignProfileColumnsTyped(u32, allocator, typed, sign_options, options_value, device_value),
+        .u64 => |typed| rollingSignProfileColumnsTyped(u64, allocator, typed, sign_options, options_value, device_value),
+        .usize => |typed| rollingSignProfileColumnsTyped(usize, allocator, typed, sign_options, options_value, device_value),
+        .isize => |typed| rollingSignProfileColumnsTyped(isize, allocator, typed, sign_options, options_value, device_value),
+        .f16 => |typed| rollingSignProfileColumnsTyped(f16, allocator, typed, sign_options, options_value, device_value),
+        .f32 => |typed| rollingSignProfileColumnsTyped(f32, allocator, typed, sign_options, options_value, device_value),
+        .f64 => |typed| rollingSignProfileColumnsTyped(f64, allocator, typed, sign_options, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rollingSignProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    sign_options: DeviceTrendOptions,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingSignProfileColumnCount]DeviceColumn {
+    if (sign_options.periods == 0 or options_value.window == 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const sign_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(sign_validity);
+    const flip_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(flip_validity);
+    const signs = try allocator.alloc(i64, rows);
+    defer allocator.free(signs);
+    const flips = try allocator.alloc(bool, rows);
+    defer allocator.free(flips);
+
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        sign_validity[row] = valid;
+        if (!valid) {
+            signs[row] = 0;
+            flips[row] = false;
+            flip_validity[row] = false;
+            continue;
+        }
+
+        const x = castToF64(T, value_item);
+        signs[row] = if (x > 0) 1 else if (x < 0) -1 else 0;
+        if (row < sign_options.periods) {
+            flips[row] = false;
+            flip_validity[row] = false;
+        } else {
+            const previous_row = row - sign_options.periods;
+            const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
+            flip_validity[row] = previous_valid;
+            if (previous_valid) {
+                const previous = castToF64(T, values[previous_row]);
+                const previous_sign: i64 = if (previous > 0) 1 else if (previous < 0) -1 else 0;
+                flips[row] = signs[row] != previous_sign;
+            } else {
+                flips[row] = false;
+            }
+        }
+    }
+
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const positive_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(positive_rates);
+    const negative_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(negative_rates);
+    const zero_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(zero_rates);
+    const flip_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(flip_rates);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    for (0..rows) |row| {
+        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
+        var count: usize = 0;
+        var positive_count: usize = 0;
+        var negative_count: usize = 0;
+        var zero_count: usize = 0;
+        var flip_count: usize = 0;
+        for (start..row + 1) |window_row| {
+            if (!sign_validity[window_row]) continue;
+            switch (signs[window_row]) {
+                1 => positive_count += 1,
+                -1 => negative_count += 1,
+                else => zero_count += 1,
+            }
+            if (flip_validity[window_row] and flips[window_row]) flip_count += 1;
+            count += 1;
+        }
+
+        counts[row] = @intCast(count);
+        const has_enough = count >= min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(count);
+            positive_rates[row] = @as(f64, @floatFromInt(positive_count)) / n;
+            negative_rates[row] = @as(f64, @floatFromInt(negative_count)) / n;
+            zero_rates[row] = @as(f64, @floatFromInt(zero_count)) / n;
+            flip_rates[row] = @as(f64, @floatFromInt(flip_count)) / n;
+        } else {
+            positive_rates[row] = 0;
+            negative_rates[row] = 0;
+            zero_rates[row] = 0;
+            flip_rates[row] = 0;
+        }
+    }
+
+    var columns: [RollingSignProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, positive_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, negative_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, zero_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, flip_rates, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -18412,6 +18654,35 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 2, 0, 0, 1, 0, 0 }, negative_streak);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 0, 0 }, zero_streak);
 
+    var rolling_sign = try signed_table.rollingSignProfile("signal", "signal", .{ .periods = 1 }, .{ .window = 3, .min_periods = 2 });
+    defer rolling_sign.deinit();
+    try std.testing.expectEqual(@as(usize, 6), rolling_sign.width());
+    const rolling_sign_count = try (try rolling_sign.column("signal_rolling_sign_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_sign_count);
+    const rolling_positive_rate = try (try rolling_sign.column("signal_rolling_positive_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_positive_rate);
+    const rolling_negative_rate = try (try rolling_sign.column("signal_rolling_negative_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_negative_rate);
+    const rolling_zero_rate = try (try rolling_sign.column("signal_rolling_zero_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_zero_rate);
+    const rolling_flip_rate = try (try rolling_sign.column("signal_rolling_sign_flip_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_flip_rate);
+    const rolling_sign_rate_validity = try (try rolling_sign.column("signal_rolling_positive_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_sign_rate_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 3, 3, 2, 2 }, rolling_sign_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, true, true }, rolling_sign_rate_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_positive_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_positive_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_positive_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_positive_rate[6], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_negative_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_negative_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_zero_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_zero_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), rolling_flip_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_flip_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_flip_rate[6], 1e-12);
+
     var validity = try trend_table.validityProfile("price", "price");
     defer validity.deinit();
     try std.testing.expectEqual(@as(usize, 6), validity.width());
@@ -20880,6 +21151,45 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, lazy_sign_flip);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 2 }, lazy_positive_streak);
     try std.testing.expectEqualSlices(i64, &.{ 1, 2, 0, 0 }, lazy_negative_streak);
+
+    var rolling_sign_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_sign_plan.deinit();
+    try rolling_sign_plan.withColumnScalar("sales_minus4", "sales", f64, 4.0, .sub);
+    try rolling_sign_plan.rollingSignProfile("sales_minus4", "sales", .{ .periods = 1 }, .{ .window = 2, .min_periods = 1 });
+    try rolling_sign_plan.select(&.{ "sales_minus4", "sales_rolling_sign_count", "sales_rolling_positive_rate", "sales_rolling_negative_rate", "sales_rolling_zero_rate", "sales_rolling_sign_flip_rate" });
+    const rolling_sign_explain = try rolling_sign_plan.explain(gpa);
+    defer gpa.free(rolling_sign_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_sign_explain, "rolling_sign_profile(sales_minus4") != null);
+    var lazy_rolling_sign = try rolling_sign_plan.collect();
+    defer lazy_rolling_sign.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_rolling_sign.height());
+    try std.testing.expectEqual(@as(usize, 6), lazy_rolling_sign.width());
+    const lazy_rolling_sign_count = try (try lazy_rolling_sign.column("sales_rolling_sign_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_sign_count);
+    const lazy_rolling_positive_rate = try (try lazy_rolling_sign.column("sales_rolling_positive_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_positive_rate);
+    const lazy_rolling_negative_rate = try (try lazy_rolling_sign.column("sales_rolling_negative_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_negative_rate);
+    const lazy_rolling_zero_rate = try (try lazy_rolling_sign.column("sales_rolling_zero_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_zero_rate);
+    const lazy_rolling_sign_flip_rate = try (try lazy_rolling_sign.column("sales_rolling_sign_flip_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_sign_flip_rate);
+    const lazy_rolling_sign_validity = try (try lazy_rolling_sign.column("sales_rolling_positive_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_sign_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 2 }, lazy_rolling_sign_count);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_rolling_sign_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_positive_rate[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_positive_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_positive_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_positive_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_negative_rate[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_negative_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_negative_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_negative_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_zero_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_sign_flip_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_sign_flip_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_sign_flip_rate[3], 1e-12);
 
     var validity_plan = try DeviceLazyFrame.init(gpa, table);
     defer validity_plan.deinit();
