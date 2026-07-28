@@ -51,6 +51,10 @@ const ExpandingThresholdProfileColumnCount = threshold_mod.ExpandingThresholdPro
 const expandingThresholdProfileOutputNames = threshold_mod.expandingThresholdProfileOutputNames;
 const validity_mod = @import("dataframe_validity.zig");
 const bool_profile_mod = @import("dataframe_bool_profile.zig");
+const RollingBoolProfileColumnCount = bool_profile_mod.RollingBoolProfileColumnCount;
+const rollingBoolProfileOutputNames = bool_profile_mod.rollingBoolProfileOutputNames;
+const ExpandingBoolProfileColumnCount = bool_profile_mod.ExpandingBoolProfileColumnCount;
+const expandingBoolProfileOutputNames = bool_profile_mod.expandingBoolProfileOutputNames;
 const clip_mod = @import("dataframe_clip.zig");
 const ClipProfileColumnCount = clip_mod.ClipProfileColumnCount;
 const clipProfileOutputNames = clip_mod.clipProfileOutputNames;
@@ -8830,22 +8834,6 @@ fn expandingQuantileProfileColumnsTyped(
     return columns;
 }
 
-const RollingBoolProfileColumnCount = 5;
-
-fn rollingBoolProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingBoolProfileColumnCount][]const u8 {
-    var names: [RollingBoolProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_true_count", "rolling_false_count", "rolling_true_rate", "rolling_any", "rolling_all" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn rollingBoolProfileColumns(
     allocator: std.mem.Allocator,
     source: DeviceTypedColumn(bool),
@@ -9660,22 +9648,6 @@ fn expandingProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.maxes, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingBoolProfileColumnCount = 5;
-
-fn expandingBoolProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingBoolProfileColumnCount][]const u8 {
-    var names: [ExpandingBoolProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_true_count", "expanding_false_count", "expanding_true_rate", "expanding_any", "expanding_all" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingBoolProfileColumns(

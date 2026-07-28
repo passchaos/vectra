@@ -20,6 +20,38 @@ pub const BoolProfileMetrics = struct {
     }
 };
 
+pub const RollingBoolProfileColumnCount = 5;
+
+pub fn rollingBoolProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingBoolProfileColumnCount][]const u8 {
+    var names: [RollingBoolProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_true_count", "rolling_false_count", "rolling_true_rate", "rolling_any", "rolling_all" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingBoolProfileColumnCount = 5;
+
+pub fn expandingBoolProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingBoolProfileColumnCount][]const u8 {
+    var names: [ExpandingBoolProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_true_count", "expanding_false_count", "expanding_true_rate", "expanding_any", "expanding_all" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validateLength(values: []const bool, maybe_validity: ?[]const bool) error{LengthMismatch}!void {
     if (maybe_validity) |validity| {
         if (validity.len != values.len) return error.LengthMismatch;
