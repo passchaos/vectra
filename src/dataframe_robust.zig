@@ -20,6 +20,54 @@ pub const RobustMetrics = struct {
     }
 };
 
+pub const RobustProfileColumnCount = 4;
+
+pub fn robustProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RobustProfileColumnCount][]const u8 {
+    var names: [RobustProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "median_centered", "mad_zscore", "iqr_outlier", "winsorized" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingRobustProfileColumnCount = 4;
+
+pub fn rollingRobustProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingRobustProfileColumnCount][]const u8 {
+    var names: [RollingRobustProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_median_centered", "rolling_mad_zscore", "rolling_iqr_outlier", "rolling_winsorized" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingRobustProfileColumnCount = 4;
+
+pub fn expandingRobustProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingRobustProfileColumnCount][]const u8 {
+    var names: [ExpandingRobustProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_median_centered", "expanding_mad_zscore", "expanding_iqr_outlier", "expanding_winsorized" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validate(values: []const f64, maybe_validity: ?[]const bool, min_periods: usize) error{ InvalidShape, LengthMismatch }!void {
     if (min_periods == 0) return error.InvalidShape;
     if (maybe_validity) |validity| {

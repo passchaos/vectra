@@ -63,6 +63,12 @@ const standardize_mod = @import("dataframe_standardize.zig");
 const StandardizeProfileColumnCount = standardize_mod.StandardizeProfileColumnCount;
 const standardizeProfileOutputNames = standardize_mod.standardizeProfileOutputNames;
 const robust_mod = @import("dataframe_robust.zig");
+const RobustProfileColumnCount = robust_mod.RobustProfileColumnCount;
+const robustProfileOutputNames = robust_mod.robustProfileOutputNames;
+const RollingRobustProfileColumnCount = robust_mod.RollingRobustProfileColumnCount;
+const rollingRobustProfileOutputNames = robust_mod.rollingRobustProfileOutputNames;
+const ExpandingRobustProfileColumnCount = robust_mod.ExpandingRobustProfileColumnCount;
+const expandingRobustProfileOutputNames = robust_mod.expandingRobustProfileOutputNames;
 const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
@@ -8965,22 +8971,6 @@ fn rollingDrawdownProfileColumnsTyped(
     return columns;
 }
 
-const RollingRobustProfileColumnCount = 4;
-
-fn rollingRobustProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingRobustProfileColumnCount][]const u8 {
-    var names: [RollingRobustProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_median_centered", "rolling_mad_zscore", "rolling_iqr_outlier", "rolling_winsorized" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn rollingRobustProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -9822,22 +9812,6 @@ fn expandingRankProfileColumnsTyped(
     return columns;
 }
 
-const ExpandingRobustProfileColumnCount = 4;
-
-fn expandingRobustProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingRobustProfileColumnCount][]const u8 {
-    var names: [ExpandingRobustProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_median_centered", "expanding_mad_zscore", "expanding_iqr_outlier", "expanding_winsorized" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn expandingRobustProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -10020,22 +9994,6 @@ fn standardizeProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.minmax, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RobustProfileColumnCount = 4;
-
-fn robustProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RobustProfileColumnCount][]const u8 {
-    var names: [RobustProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "median_centered", "mad_zscore", "iqr_outlier", "winsorized" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn robustProfileColumnsByValue(
