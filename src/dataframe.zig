@@ -18,6 +18,7 @@ const robust_mod = @import("dataframe_robust.zig");
 const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
+const shift_mod = @import("dataframe_shift.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -9659,69 +9660,28 @@ fn lagProfileColumnsTyped(
     options_value: DeviceLagOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![LagProfileColumnCount]DeviceColumn {
-    if (options_value.periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const lag_values = try allocator.alloc(f64, rows);
-    defer allocator.free(lag_values);
-    const diff_values = try allocator.alloc(f64, rows);
-    defer allocator.free(diff_values);
-    const pct_values = try allocator.alloc(f64, rows);
-    defer allocator.free(pct_values);
-    const lag_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(lag_validity);
-    const change_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(change_validity);
-
-    // This deliberately emits lag, absolute difference, and percent change in
-    // one pass because feature-engineering pipelines commonly request all three
-    // together.  The shape mirrors dataframe engines such as Polars/Pandas while
-    // keeping a single future lowering seam for device-side shift kernels.
-    for (values, 0..) |value_item, row| {
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        if (row < options_value.periods) {
-            lag_values[row] = 0;
-            diff_values[row] = 0;
-            pct_values[row] = 0;
-            lag_validity[row] = false;
-            change_validity[row] = false;
-            continue;
-        }
-
-        const lag_row = row - options_value.periods;
-        const lag_row_valid = if (maybe_validity) |mask| mask[lag_row] else true;
-        const previous = castToF64(T, values[lag_row]);
-        const current = castToF64(T, value_item);
-        lag_values[row] = previous;
-        lag_validity[row] = lag_row_valid;
-
-        const can_change = row_valid and lag_row_valid;
-        change_validity[row] = can_change;
-        if (can_change) {
-            const diff = current - previous;
-            diff_values[row] = diff;
-            pct_values[row] = if (previous == 0) std.math.nan(f64) else diff / previous;
-        } else {
-            diff_values[row] = 0;
-            pct_values[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try shift_mod.lagProfile(allocator, values, maybe_validity, options_value.periods);
+    defer metrics.deinit();
 
     var columns: [LagProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, lag_values, lag_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.shifted, metrics.shift_validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, diff_values, change_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.diff, metrics.change_validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, pct_values, change_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.pct_change, metrics.change_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -9775,65 +9735,28 @@ fn leadProfileColumnsTyped(
     options_value: DeviceLagOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![LeadProfileColumnCount]DeviceColumn {
-    if (options_value.periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const lead_values = try allocator.alloc(f64, rows);
-    defer allocator.free(lead_values);
-    const diff_values = try allocator.alloc(f64, rows);
-    defer allocator.free(diff_values);
-    const pct_values = try allocator.alloc(f64, rows);
-    defer allocator.free(pct_values);
-    const lead_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(lead_validity);
-    const change_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(change_validity);
-
-    for (values, 0..) |value_item, row| {
-        const lead_row = row + options_value.periods;
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        if (lead_row >= rows) {
-            lead_values[row] = 0;
-            diff_values[row] = 0;
-            pct_values[row] = 0;
-            lead_validity[row] = false;
-            change_validity[row] = false;
-            continue;
-        }
-
-        const lead_row_valid = if (maybe_validity) |mask| mask[lead_row] else true;
-        const current = castToF64(T, value_item);
-        const future = castToF64(T, values[lead_row]);
-        lead_values[row] = future;
-        lead_validity[row] = lead_row_valid;
-
-        const can_change = row_valid and lead_row_valid;
-        change_validity[row] = can_change;
-        if (can_change) {
-            const diff = future - current;
-            diff_values[row] = diff;
-            pct_values[row] = if (current == 0) std.math.nan(f64) else diff / current;
-        } else {
-            diff_values[row] = 0;
-            pct_values[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try shift_mod.leadProfile(allocator, values, maybe_validity, options_value.periods);
+    defer metrics.deinit();
 
     var columns: [LeadProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, lead_values, lead_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.shifted, metrics.shift_validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, diff_values, change_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.diff, metrics.change_validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, pct_values, change_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.pct_change, metrics.change_validity, device_value);
     initialized += 1;
     return columns;
 }
