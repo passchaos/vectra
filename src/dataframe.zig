@@ -11,6 +11,7 @@ const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const keys_mod = @import("dataframe_keys.zig");
 const join_mod = @import("dataframe_join.zig");
 const lazy_mod = @import("dataframe_lazy.zig");
+const parquet_scan_mod = @import("dataframe_parquet_scan.zig");
 const csv_mod = @import("dataframe_csv.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
@@ -223,7 +224,6 @@ const argsortTypedColumn = dataframe_device_column_mod.argsortTypedColumn;
 const distinctRowIndices = keys_mod.distinctRowIndices;
 const rowsMatchAllKeys = keys_mod.rowsMatchAllKeys;
 const asofRightRowIndices = keys_mod.asofRightRowIndices;
-const readBolthaTableWithRangePruning = dataframe_arrow_mod.readBolthaTableWithRangePruning;
 const ValidityProfileColumnCount = validity_mod.ValidityProfileColumnCount;
 const validityProfileOutputNames = validity_mod.validityProfileOutputNames;
 const RollingValidityProfileColumnCount = validity_mod.RollingValidityProfileColumnCount;
@@ -3451,83 +3451,7 @@ pub const DeviceLazyFrame = struct {
     }
 };
 
-pub const DeviceParquetScan = struct {
-    allocator: std.mem.Allocator,
-    bytes: []u8,
-    device: array_mod.Device,
-    projection: ?[][]const u8 = null,
-    range_predicate: ?DeviceParquetRangeFilter = null,
-
-    pub fn init(allocator: std.mem.Allocator, bytes: []const u8, device_value: array_mod.Device) std.mem.Allocator.Error!DeviceParquetScan {
-        return .{
-            .allocator = allocator,
-            .bytes = try allocator.dupe(u8, bytes),
-            .device = device_value,
-        };
-    }
-
-    pub fn deinit(self: *DeviceParquetScan) void {
-        self.allocator.free(self.bytes);
-        if (self.projection) |names| freeNameList(self.allocator, names);
-        if (self.range_predicate) |predicate| self.allocator.free(predicate.column);
-        self.* = undefined;
-    }
-
-    pub fn clone(self: DeviceParquetScan) std.mem.Allocator.Error!DeviceParquetScan {
-        var cloned = try DeviceParquetScan.init(self.allocator, self.bytes, self.device);
-        errdefer cloned.deinit();
-        if (self.projection) |names| try cloned.select(names);
-        if (self.range_predicate) |predicate| try cloned.whereRange(predicate.column, predicate.predicate);
-        return cloned;
-    }
-
-    pub fn lazy(self: DeviceParquetScan) DeviceDataError!DeviceLazyFrame {
-        return DeviceLazyFrame.initParquetScan(self.allocator, self);
-    }
-
-    pub fn select(self: *DeviceParquetScan, names: []const []const u8) std.mem.Allocator.Error!void {
-        if (self.projection) |old| freeNameList(self.allocator, old);
-        self.projection = try cloneNameList(self.allocator, names);
-    }
-
-    pub fn whereRange(self: *DeviceParquetScan, column: []const u8, predicate: ParquetRangePredicate) std.mem.Allocator.Error!void {
-        if (self.range_predicate) |old| self.allocator.free(old.column);
-        self.range_predicate = .{
-            .column = try self.allocator.dupe(u8, column),
-            .predicate = predicate,
-        };
-    }
-
-    pub fn collect(self: DeviceParquetScan) ParquetInteropError!DeviceDataFrame {
-        var table = if (self.range_predicate) |predicate|
-            try readBolthaTableWithRangePruning(self.allocator, self.bytes, predicate.column, predicate.predicate)
-        else
-            try boltha.parquet.readTable(self.allocator, self.bytes);
-        defer table.deinit(self.allocator);
-
-        if (self.projection) |names| {
-            return DeviceDataFrame.fromArrowTableProjection(self.allocator, table, names, self.device);
-        }
-        return DeviceDataFrame.fromArrowTable(self.allocator, table, self.device);
-    }
-
-    pub fn explain(self: DeviceParquetScan, allocator: std.mem.Allocator) (std.mem.Allocator.Error || std.Io.Writer.Error)![]u8 {
-        var aw: std.Io.Writer.Allocating = .init(allocator);
-        errdefer aw.deinit();
-        try aw.writer.print("DeviceParquetScan(bytes={d}, device={s}", .{ self.bytes.len, self.device.backendName() });
-        if (self.range_predicate) |predicate| try aw.writer.print(", range={s}", .{predicate.column});
-        if (self.projection) |names| {
-            try aw.writer.print(", projection=[", .{});
-            for (names, 0..) |name, i| {
-                if (i != 0) try aw.writer.print(",", .{});
-                try aw.writer.print("{s}", .{name});
-            }
-            try aw.writer.print("]", .{});
-        }
-        try aw.writer.print(")\n", .{});
-        return aw.toOwnedSlice();
-    }
-};
+pub const DeviceParquetScan = parquet_scan_mod.DeviceParquetScan(DeviceDataFrame, DeviceLazyFrame, DeviceColumnDef, DeviceColumn);
 
 fn deinitLazyOps(allocator: std.mem.Allocator, ops: *std.ArrayList(DeviceLazyOp)) void {
     for (ops.items) |*op| op.deinit(allocator);
