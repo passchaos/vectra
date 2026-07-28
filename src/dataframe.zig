@@ -168,6 +168,8 @@ const RollingQuantileProfileColumnCount = quantile_mod.RollingQuantileProfileCol
 const rollingQuantileProfileOutputNames = quantile_mod.rollingQuantileProfileOutputNames;
 const ExpandingQuantileProfileColumnCount = quantile_mod.ExpandingQuantileProfileColumnCount;
 const expandingQuantileProfileOutputNames = quantile_mod.expandingQuantileProfileOutputNames;
+const rollingQuantileProfileColumnsByValue = quantile_mod.rollingQuantileProfileColumnsByValue;
+const expandingQuantileProfileColumnsByValue = quantile_mod.expandingQuantileProfileColumnsByValue;
 const bucket_mod = @import("dataframe_bucket.zig");
 const BucketProfileColumnCount = bucket_mod.BucketProfileColumnCount;
 const bucketProfileOutputNames = bucket_mod.bucketProfileOutputNames;
@@ -6692,129 +6694,6 @@ pub const DeviceDataFrame = struct {
 
 const compareSortValues = numeric_mod.compareSortValues;
 const compareFloatSortValues = numeric_mod.compareFloatSortValues;
-
-fn rollingQuantileProfileColumnsByValue(
-    allocator: std.mem.Allocator,
-    value: DeviceColumn,
-    options_value: DeviceRollingOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![RollingQuantileProfileColumnCount]DeviceColumn {
-    if (value.len() != rows) return error.LengthMismatch;
-    return switch (value) {
-        .i8 => |typed| rollingQuantileProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
-        .i16 => |typed| rollingQuantileProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
-        .i32 => |typed| rollingQuantileProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
-        .i64 => |typed| rollingQuantileProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
-        .u8 => |typed| rollingQuantileProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
-        .u16 => |typed| rollingQuantileProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
-        .u32 => |typed| rollingQuantileProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
-        .u64 => |typed| rollingQuantileProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
-        .usize => |typed| rollingQuantileProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
-        .isize => |typed| rollingQuantileProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
-        .f16 => |typed| rollingQuantileProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
-        .f32 => |typed| rollingQuantileProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
-        .f64 => |typed| rollingQuantileProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
-        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn rollingQuantileProfileColumnsTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    column: DeviceTypedColumn(T),
-    options_value: DeviceRollingOptions,
-    device_value: array_mod.Device,
-) DeviceDataError![RollingQuantileProfileColumnCount]DeviceColumn {
-    const min_periods = options_value.min_periods orelse options_value.window;
-    const values_typed = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values_typed);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const rows = values_typed.len;
-    const values = try allocator.alloc(f64, rows);
-    defer allocator.free(values);
-    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
-    var metrics = try quantile_mod.rollingQuantileProfile(allocator, values, maybe_validity, options_value.window, min_periods);
-    defer metrics.deinit();
-
-    var columns: [RollingQuantileProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.q1, metrics.validity, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.medians, metrics.validity, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.q3, metrics.validity, device_value);
-    initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.iqrs, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
-
-fn expandingQuantileProfileColumnsByValue(
-    allocator: std.mem.Allocator,
-    value: DeviceColumn,
-    options_value: DeviceExpandingOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![ExpandingQuantileProfileColumnCount]DeviceColumn {
-    if (value.len() != rows) return error.LengthMismatch;
-    return switch (value) {
-        .i8 => |typed| expandingQuantileProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
-        .i16 => |typed| expandingQuantileProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
-        .i32 => |typed| expandingQuantileProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
-        .i64 => |typed| expandingQuantileProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
-        .u8 => |typed| expandingQuantileProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
-        .u16 => |typed| expandingQuantileProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
-        .u32 => |typed| expandingQuantileProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
-        .u64 => |typed| expandingQuantileProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
-        .usize => |typed| expandingQuantileProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
-        .isize => |typed| expandingQuantileProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
-        .f16 => |typed| expandingQuantileProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
-        .f32 => |typed| expandingQuantileProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
-        .f64 => |typed| expandingQuantileProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
-        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn expandingQuantileProfileColumnsTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    column: DeviceTypedColumn(T),
-    options_value: DeviceExpandingOptions,
-    device_value: array_mod.Device,
-) DeviceDataError![ExpandingQuantileProfileColumnCount]DeviceColumn {
-    const values_typed = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values_typed);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const rows = values_typed.len;
-    const values = try allocator.alloc(f64, rows);
-    defer allocator.free(values);
-    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
-    var metrics = try quantile_mod.expandingQuantileProfile(allocator, values, maybe_validity, options_value.min_periods);
-    defer metrics.deinit();
-
-    var columns: [ExpandingQuantileProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.q1, metrics.validity, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.medians, metrics.validity, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.q3, metrics.validity, device_value);
-    initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.iqrs, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
 
 fn groupByCountTyped(
     comptime K: type,
