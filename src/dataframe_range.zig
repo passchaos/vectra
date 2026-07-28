@@ -18,6 +18,22 @@ pub const RangeMetrics = struct {
     }
 };
 
+pub const RollingRangeProfileColumnCount = 4;
+
+pub fn rollingRangeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingRangeProfileColumnCount][]const u8 {
+    var names: [RollingRangeProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_low", "rolling_high", "rolling_range", "rolling_position" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validate(values: []const f64, maybe_validity: ?[]const bool) error{LengthMismatch}!void {
     if (maybe_validity) |validity| {
         if (validity.len != values.len) return error.LengthMismatch;

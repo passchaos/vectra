@@ -101,6 +101,8 @@ const rollingNormalizeProfileOutputNames = normalize_mod.rollingNormalizeProfile
 const ExpandingNormalizeProfileColumnCount = normalize_mod.ExpandingNormalizeProfileColumnCount;
 const expandingNormalizeProfileOutputNames = normalize_mod.expandingNormalizeProfileOutputNames;
 const range_mod = @import("dataframe_range.zig");
+const RollingRangeProfileColumnCount = range_mod.RollingRangeProfileColumnCount;
+const rollingRangeProfileOutputNames = range_mod.rollingRangeProfileOutputNames;
 const group_profile_mod = @import("dataframe_group_profile.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const names_mod = @import("dataframe_names.zig");
@@ -8487,22 +8489,6 @@ fn rollingMomentProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.kurtoses, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingRangeProfileColumnCount = 4;
-
-fn rollingRangeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingRangeProfileColumnCount][]const u8 {
-    var names: [RollingRangeProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_low", "rolling_high", "rolling_range", "rolling_position" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingRangeProfileColumnsByValue(
