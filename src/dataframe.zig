@@ -114,15 +114,6 @@ const expandingRobustProfileOutputNames = robust_mod.expandingRobustProfileOutpu
 const rollingRobustProfileColumnsByValue = robust_mod.rollingRobustProfileColumnsByValue;
 const expandingRobustProfileColumnsByValue = robust_mod.expandingRobustProfileColumnsByValue;
 const trend_mod = @import("dataframe_trend.zig");
-const TrendProfileColumnCount = trend_mod.TrendProfileColumnCount;
-const trendProfileOutputNames = trend_mod.trendProfileOutputNames;
-const RollingTrendProfileColumnCount = trend_mod.RollingTrendProfileColumnCount;
-const rollingTrendProfileOutputNames = trend_mod.rollingTrendProfileOutputNames;
-const ExpandingTrendProfileColumnCount = trend_mod.ExpandingTrendProfileColumnCount;
-const expandingTrendProfileOutputNames = trend_mod.expandingTrendProfileOutputNames;
-const trendProfileColumnsByValue = trend_mod.trendProfileColumnsByValue;
-const rollingTrendProfileColumnsByValue = trend_mod.rollingTrendProfileColumnsByValue;
-const expandingTrendProfileColumnsByValue = trend_mod.expandingTrendProfileColumnsByValue;
 const change_mod = @import("dataframe_change.zig");
 const ChangePointProfileColumnCount = change_mod.ChangePointProfileColumnCount;
 const changePointProfileOutputNames = change_mod.changePointProfileOutputNames;
@@ -1389,38 +1380,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn trendProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
-        const trend_value = try self.column(name);
-        var trend_columns = try trendProfileColumnsByValue(self.allocator, trend_value.*, options_value, self.device, self.rows);
-        var trend_columns_transferred: usize = 0;
-        errdefer {
-            for (trend_columns[trend_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + trend_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var trend_names = try trendProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, trend_names[0..]);
-        for (trend_names, 0..) |trend_name, i| source_names[self.columns.len + i] = trend_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + trend_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&trend_columns) |*trend_col| {
-            columns[initialized] = trend_col.*;
-            initialized += 1;
-            trend_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return trend_mod.trendProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn changePointProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
@@ -1529,73 +1489,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn rollingTrendProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        const trend_value = try self.column(name);
-        var trend_columns = try rollingTrendProfileColumnsByValue(self.allocator, trend_value.*, trend_options, options_value, self.device, self.rows);
-        var trend_columns_transferred: usize = 0;
-        errdefer {
-            for (trend_columns[trend_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + trend_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var trend_names = try rollingTrendProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, trend_names[0..]);
-        for (trend_names, 0..) |trend_name, i| source_names[self.columns.len + i] = trend_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + trend_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&trend_columns) |*trend_col| {
-            columns[initialized] = trend_col.*;
-            initialized += 1;
-            trend_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return trend_mod.rollingTrendProfileFrame(DeviceDataFrame, self, name, output_prefix, trend_options, options_value);
     }
 
     pub fn expandingTrendProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        const trend_value = try self.column(name);
-        var trend_columns = try expandingTrendProfileColumnsByValue(self.allocator, trend_value.*, trend_options, options_value, self.device, self.rows);
-        var trend_columns_transferred: usize = 0;
-        errdefer {
-            for (trend_columns[trend_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + trend_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var trend_names = try expandingTrendProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, trend_names[0..]);
-        for (trend_names, 0..) |trend_name, i| source_names[self.columns.len + i] = trend_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + trend_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&trend_columns) |*trend_col| {
-            columns[initialized] = trend_col.*;
-            initialized += 1;
-            trend_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return trend_mod.expandingTrendProfileFrame(DeviceDataFrame, self, name, output_prefix, trend_options, options_value);
     }
 
     pub fn signProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {

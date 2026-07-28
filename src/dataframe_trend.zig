@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -527,4 +529,103 @@ fn expandingTrendProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.reversal_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const TrendFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendTrendColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    trend_columns: anytype,
+) TrendFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + trend_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&trend_columns) |*trend_col| {
+        columns[initialized] = trend_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn trendProfileFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    trend_columns_value: anytype,
+    comptime namesFn: anytype,
+) TrendFrameError!DeviceDataFrame {
+    var trend_columns = trend_columns_value;
+    var trend_columns_transferred: usize = 0;
+    errdefer {
+        for (trend_columns[trend_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + trend_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var trend_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, trend_names[0..]);
+    for (trend_names, 0..) |trend_name, i| source_names[frame.columns.len + i] = trend_name;
+
+    const out = try appendTrendColumns(DeviceDataFrame, frame, source_names, trend_columns);
+    trend_columns_transferred = trend_columns.len;
+    return out;
+}
+
+pub fn trendProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceTrendOptions,
+) TrendFrameError!DeviceDataFrame {
+    const trend_value = try frame.column(name);
+    const trend_columns = try trendProfileColumnsByValue(frame.allocator, trend_value.*, options_value, frame.device, frame.rows);
+    return trendProfileFrameFromColumns(DeviceDataFrame, frame, output_prefix, trend_columns, trendProfileOutputNames);
+}
+
+pub fn rollingTrendProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    trend_options: DeviceTrendOptions,
+    options_value: DeviceRollingOptions,
+) TrendFrameError!DeviceDataFrame {
+    const trend_value = try frame.column(name);
+    const trend_columns = try rollingTrendProfileColumnsByValue(frame.allocator, trend_value.*, trend_options, options_value, frame.device, frame.rows);
+    return trendProfileFrameFromColumns(DeviceDataFrame, frame, output_prefix, trend_columns, rollingTrendProfileOutputNames);
+}
+
+pub fn expandingTrendProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    trend_options: DeviceTrendOptions,
+    options_value: DeviceExpandingOptions,
+) TrendFrameError!DeviceDataFrame {
+    const trend_value = try frame.column(name);
+    const trend_columns = try expandingTrendProfileColumnsByValue(frame.allocator, trend_value.*, trend_options, options_value, frame.device, frame.rows);
+    return trendProfileFrameFromColumns(DeviceDataFrame, frame, output_prefix, trend_columns, expandingTrendProfileOutputNames);
 }
