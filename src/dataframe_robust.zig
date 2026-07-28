@@ -527,3 +527,68 @@ pub fn robustProfileFrame(
 
     return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
 }
+
+fn robustFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    robust_columns_value: anytype,
+    comptime namesFn: anytype,
+) RobustFrameError!DeviceDataFrame {
+    var robust_columns = robust_columns_value;
+    var robust_columns_transferred: usize = 0;
+    errdefer {
+        for (robust_columns[robust_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + robust_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var robust_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, robust_names[0..]);
+    for (robust_names, 0..) |robust_name, i| source_names[frame.columns.len + i] = robust_name;
+
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + robust_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&robust_columns) |*robust_col| {
+        columns[initialized] = robust_col.*;
+        initialized += 1;
+        robust_columns_transferred += 1;
+    }
+
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+pub fn rollingRobustProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRollingRobustOptions,
+) RobustFrameError!DeviceDataFrame {
+    const rolling_value = try frame.column(name);
+    const rolling_columns = try rollingRobustProfileColumnsByValue(frame.allocator, rolling_value.*, options_value, frame.device, frame.rows);
+    return robustFrameFromColumns(DeviceDataFrame, frame, output_prefix, rolling_columns, rollingRobustProfileOutputNames);
+}
+
+pub fn expandingRobustProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRobustOptions,
+) RobustFrameError!DeviceDataFrame {
+    const expanding_value = try frame.column(name);
+    const expanding_columns = try expandingRobustProfileColumnsByValue(frame.allocator, expanding_value.*, options_value, frame.device, frame.rows);
+    return robustFrameFromColumns(DeviceDataFrame, frame, output_prefix, expanding_columns, expandingRobustProfileOutputNames);
+}

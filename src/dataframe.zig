@@ -29,12 +29,6 @@ const clip_mod = @import("dataframe_clip.zig");
 const risk_mod = @import("dataframe_risk.zig");
 const standardize_mod = @import("dataframe_standardize.zig");
 const robust_mod = @import("dataframe_robust.zig");
-const RollingRobustProfileColumnCount = robust_mod.RollingRobustProfileColumnCount;
-const rollingRobustProfileOutputNames = robust_mod.rollingRobustProfileOutputNames;
-const ExpandingRobustProfileColumnCount = robust_mod.ExpandingRobustProfileColumnCount;
-const expandingRobustProfileOutputNames = robust_mod.expandingRobustProfileOutputNames;
-const rollingRobustProfileColumnsByValue = robust_mod.rollingRobustProfileColumnsByValue;
-const expandingRobustProfileColumnsByValue = robust_mod.expandingRobustProfileColumnsByValue;
 const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
@@ -408,38 +402,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn rollingRobustProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingRobustOptions) DeviceDataError!DeviceDataFrame {
-        const rolling_value = try self.column(name);
-        var rolling_columns = try rollingRobustProfileColumnsByValue(self.allocator, rolling_value.*, options_value, self.device, self.rows);
-        var rolling_columns_transferred: usize = 0;
-        errdefer {
-            for (rolling_columns[rolling_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + rolling_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var rolling_names = try rollingRobustProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, rolling_names[0..]);
-        for (rolling_names, 0..) |rolling_name, i| source_names[self.columns.len + i] = rolling_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + rolling_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&rolling_columns) |*rolling_col| {
-            columns[initialized] = rolling_col.*;
-            initialized += 1;
-            rolling_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return robust_mod.rollingRobustProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn rollingRankProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingRankOptions) DeviceDataError!DeviceDataFrame {
@@ -491,38 +454,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn expandingRobustProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!DeviceDataFrame {
-        const expanding_value = try self.column(name);
-        var expanding_columns = try expandingRobustProfileColumnsByValue(self.allocator, expanding_value.*, options_value, self.device, self.rows);
-        var expanding_columns_transferred: usize = 0;
-        errdefer {
-            for (expanding_columns[expanding_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + expanding_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var expanding_names = try expandingRobustProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, expanding_names[0..]);
-        for (expanding_names, 0..) |expanding_name, i| source_names[self.columns.len + i] = expanding_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + expanding_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&expanding_columns) |*expanding_col| {
-            columns[initialized] = expanding_col.*;
-            initialized += 1;
-            expanding_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return robust_mod.expandingRobustProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn expandingMomentProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
