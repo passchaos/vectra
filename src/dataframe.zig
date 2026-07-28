@@ -10003,16 +10003,6 @@ fn robustProfileColumnsTyped(
     return columns;
 }
 
-fn quantileSorted(values: []const f64, probability: f64) f64 {
-    if (values.len == 0) return std.math.nan(f64);
-    if (values.len == 1) return values[0];
-    const position = probability * @as(f64, @floatFromInt(values.len - 1));
-    const lower: usize = @intFromFloat(@floor(position));
-    const upper: usize = if (lower + 1 < values.len and position > @as(f64, @floatFromInt(lower))) lower + 1 else lower;
-    const fraction = position - @as(f64, @floatFromInt(lower));
-    return values[lower] * (1.0 - fraction) + values[upper] * fraction;
-}
-
 fn drawdownProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
