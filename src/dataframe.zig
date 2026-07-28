@@ -184,6 +184,11 @@ pub const DeviceEmaOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceLinearFitOptions = struct {
+    /// Minimum valid observation pairs required to compute fit diagnostics.
+    min_periods: usize = 2,
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -1029,6 +1034,12 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceEmaOptions,
     },
+    linear_fit_profile: struct {
+        x_name: []const u8,
+        y_name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceLinearFitOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1151,6 +1162,11 @@ pub const DeviceLazyOp = union(enum) {
             .ema_profile => |ema| {
                 allocator.free(ema.name);
                 allocator.free(ema.output_prefix);
+            },
+            .linear_fit_profile => |fit| {
+                allocator.free(fit.x_name);
+                allocator.free(fit.y_name);
+                allocator.free(fit.output_prefix);
             },
             .distinct_rows, .head, .tail => {},
         }
@@ -1487,6 +1503,20 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = ema.options,
+                } };
+            },
+            .linear_fit_profile => |fit| blk: {
+                const x_name = try allocator.dupe(u8, fit.x_name);
+                errdefer allocator.free(x_name);
+                const y_name = try allocator.dupe(u8, fit.y_name);
+                errdefer allocator.free(y_name);
+                const output_prefix = try allocator.dupe(u8, fit.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .linear_fit_profile = .{
+                    .x_name = x_name,
+                    .y_name = y_name,
+                    .output_prefix = output_prefix,
+                    .options = fit.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -2027,6 +2057,27 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn linearFitProfile(
+        self: *DeviceLazyFrame,
+        x_name: []const u8,
+        y_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceLinearFitOptions,
+    ) DeviceDataError!void {
+        const owned_x = try self.allocator.dupe(u8, x_name);
+        errdefer self.allocator.free(owned_x);
+        const owned_y = try self.allocator.dupe(u8, y_name);
+        errdefer self.allocator.free(owned_y);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .linear_fit_profile = .{
+            .x_name = owned_x,
+            .y_name = owned_y,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -2105,6 +2156,7 @@ pub const DeviceLazyFrame = struct {
                 .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
                 .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
                 .ema_profile => |ema| try current.emaProfile(ema.name, ema.output_prefix, ema.options),
+                .linear_fit_profile => |fit| try current.linearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2593,6 +2645,15 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(ema.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, ema.name);
                 break :op_loop;
             },
+            .linear_fit_profile => |fit| {
+                // Linear-fit profiles depend on two source columns and append
+                // model diagnostics. Keep predicate pruning but block projection
+                // pushdown until generated-field schema metadata is explicit.
+                projection_blocked = true;
+                if (!nameInBorrowedList(fit.x_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, fit.x_name);
+                if (!nameInBorrowedList(fit.y_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, fit.y_name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2785,6 +2846,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
         .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
         .ema_profile => |ema| try writer.print("ema_profile({s}, prefix={s}, alpha={d})", .{ ema.name, ema.output_prefix, ema.options.alpha }),
+        .linear_fit_profile => |fit| try writer.print("linear_fit_profile({s}->{s}, prefix={s})", .{ fit.x_name, fit.y_name, fit.output_prefix }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -3771,6 +3833,49 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = ema_col.*;
             initialized += 1;
             ema_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn linearFitProfile(
+        self: DeviceDataFrame,
+        x_name: []const u8,
+        y_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceLinearFitOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        const x = try self.column(x_name);
+        const y = try self.column(y_name);
+        if (x.dtype() != y.dtype()) return error.TypeMismatch;
+        var fit_columns = try linearFitProfileColumnsByValue(self.allocator, x.*, y.*, options_value, self.device, self.rows);
+        var fit_columns_transferred: usize = 0;
+        errdefer {
+            for (fit_columns[fit_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + fit_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var fit_names = try linearFitProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, fit_names[0..]);
+        for (fit_names, 0..) |fit_name, i| source_names[self.columns.len + i] = fit_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + fit_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&fit_columns) |*fit_col| {
+            columns[initialized] = fit_col.*;
+            initialized += 1;
+            fit_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -5784,6 +5889,155 @@ fn emaProfileColumnsTyped(
     columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residuals, metric_validity, device_value);
     initialized += 1;
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ratios, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const LinearFitProfileColumnCount = 4;
+
+fn linearFitProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![LinearFitProfileColumnCount][]const u8 {
+    var names: [LinearFitProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "fitted", "residual", "residual_zscore", "slope" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn linearFitProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    x: DeviceColumn,
+    y: DeviceColumn,
+    options_value: DeviceLinearFitOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![LinearFitProfileColumnCount]DeviceColumn {
+    if (x.len() != rows or y.len() != rows) return error.LengthMismatch;
+    if (x.dtype() != y.dtype()) return error.TypeMismatch;
+    return switch (x) {
+        .i8 => |typed| linearFitProfileColumnsTyped(i8, allocator, typed, y.i8, options_value, device_value),
+        .i16 => |typed| linearFitProfileColumnsTyped(i16, allocator, typed, y.i16, options_value, device_value),
+        .i32 => |typed| linearFitProfileColumnsTyped(i32, allocator, typed, y.i32, options_value, device_value),
+        .i64 => |typed| linearFitProfileColumnsTyped(i64, allocator, typed, y.i64, options_value, device_value),
+        .u8 => |typed| linearFitProfileColumnsTyped(u8, allocator, typed, y.u8, options_value, device_value),
+        .u16 => |typed| linearFitProfileColumnsTyped(u16, allocator, typed, y.u16, options_value, device_value),
+        .u32 => |typed| linearFitProfileColumnsTyped(u32, allocator, typed, y.u32, options_value, device_value),
+        .u64 => |typed| linearFitProfileColumnsTyped(u64, allocator, typed, y.u64, options_value, device_value),
+        .usize => |typed| linearFitProfileColumnsTyped(usize, allocator, typed, y.usize, options_value, device_value),
+        .isize => |typed| linearFitProfileColumnsTyped(isize, allocator, typed, y.isize, options_value, device_value),
+        .f16 => |typed| linearFitProfileColumnsTyped(f16, allocator, typed, y.f16, options_value, device_value),
+        .f32 => |typed| linearFitProfileColumnsTyped(f32, allocator, typed, y.f32, options_value, device_value),
+        .f64 => |typed| linearFitProfileColumnsTyped(f64, allocator, typed, y.f64, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn linearFitProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    x_column: DeviceTypedColumn(T),
+    y_column: DeviceTypedColumn(T),
+    options_value: DeviceLinearFitOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![LinearFitProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+    if (x_column.len() != y_column.len()) return error.LengthMismatch;
+    if (!x_column.device().sameDevice(y_column.device())) return error.InvalidDevice;
+
+    const xs = try x_column.values.toOwnedSlice(allocator);
+    defer allocator.free(xs);
+    const ys = try y_column.values.toOwnedSlice(allocator);
+    defer allocator.free(ys);
+    const maybe_x_validity = try validityValues(x_column, allocator);
+    defer if (maybe_x_validity) |validity| allocator.free(validity);
+    const maybe_y_validity = try validityValues(y_column, allocator);
+    defer if (maybe_y_validity) |validity| allocator.free(validity);
+
+    var count: usize = 0;
+    var sum_x: f64 = 0;
+    var sum_y: f64 = 0;
+    var sum_xx: f64 = 0;
+    var sum_xy: f64 = 0;
+    for (xs, ys, 0..) |x_value, y_value, row| {
+        const valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
+        if (!valid) continue;
+        const x = castToF64(T, x_value);
+        const y = castToF64(T, y_value);
+        sum_x += x;
+        sum_y += y;
+        sum_xx += x * x;
+        sum_xy += x * y;
+        count += 1;
+    }
+
+    const rows = xs.len;
+    const fitted = try allocator.alloc(f64, rows);
+    defer allocator.free(fitted);
+    const residuals = try allocator.alloc(f64, rows);
+    defer allocator.free(residuals);
+    const residual_z = try allocator.alloc(f64, rows);
+    defer allocator.free(residual_z);
+    const slopes = try allocator.alloc(f64, rows);
+    defer allocator.free(slopes);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    const has_fit = count >= options_value.min_periods;
+    const denom = @as(f64, @floatFromInt(count)) * sum_xx - sum_x * sum_x;
+    const slope = if (has_fit and denom != 0) (@as(f64, @floatFromInt(count)) * sum_xy - sum_x * sum_y) / denom else std.math.nan(f64);
+    const intercept = if (has_fit and !std.math.isNan(slope)) (sum_y - slope * sum_x) / @as(f64, @floatFromInt(count)) else std.math.nan(f64);
+
+    var residual_sum_sq: f64 = 0;
+    if (has_fit and !std.math.isNan(slope)) {
+        for (xs, ys, 0..) |x_value, y_value, row| {
+            const valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
+            if (!valid) continue;
+            const fit = intercept + slope * castToF64(T, x_value);
+            const residual = castToF64(T, y_value) - fit;
+            residual_sum_sq += residual * residual;
+        }
+    }
+    const residual_std = if (count == 0 or std.math.isNan(slope)) std.math.nan(f64) else std.math.sqrt(residual_sum_sq / @as(f64, @floatFromInt(count)));
+
+    // Fit one global y = intercept + slope*x model and emit row-aligned
+    // diagnostics. This keeps model diagnostics in the dataframe API while
+    // leaving a future backend seam for regression kernels.
+    for (xs, ys, 0..) |x_value, y_value, row| {
+        const row_valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
+        const valid = row_valid and has_fit;
+        metric_validity[row] = valid;
+        if (valid) {
+            const fit = intercept + slope * castToF64(T, x_value);
+            const residual = castToF64(T, y_value) - fit;
+            fitted[row] = fit;
+            residuals[row] = residual;
+            residual_z[row] = if (residual_std == 0 or std.math.isNan(residual_std)) std.math.nan(f64) else residual / residual_std;
+            slopes[row] = slope;
+        } else {
+            fitted[row] = 0;
+            residuals[row] = 0;
+            residual_z[row] = 0;
+            slopes[row] = 0;
+        }
+    }
+
+    var columns: [LinearFitProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, fitted, metric_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residuals, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residual_z, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, slopes, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -9297,6 +9551,45 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, false, false }, cross_above);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false }, cross_below);
 
+    var fit_x = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0, 5.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer fit_x.deinit();
+    var fit_y = try DeviceColumn.fromSlice(f64, gpa, &.{ 3.0, 5.0, 8.0, 9.0, 0.0 }, .cpu);
+    defer fit_y.deinit();
+    var fit_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "x", .data = fit_x },
+        .{ .name = "y", .data = fit_y },
+    });
+    defer fit_table.deinit();
+
+    var fitted_table = try fit_table.linearFitProfile("x", "y", "xy", .{ .min_periods = 3 });
+    defer fitted_table.deinit();
+    try std.testing.expectEqual(@as(usize, 6), fitted_table.width());
+    const fitted = try (try fitted_table.column("xy_fitted")).f64.toOwnedSlice(gpa);
+    defer gpa.free(fitted);
+    const residual = try (try fitted_table.column("xy_residual")).f64.toOwnedSlice(gpa);
+    defer gpa.free(residual);
+    const residual_z = try (try fitted_table.column("xy_residual_zscore")).f64.toOwnedSlice(gpa);
+    defer gpa.free(residual_z);
+    const slope_values = try (try fitted_table.column("xy_slope")).f64.toOwnedSlice(gpa);
+    defer gpa.free(slope_values);
+    const fit_validity = try (try fitted_table.column("xy_fitted")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(fit_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, fit_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.1), fitted[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.2), fitted[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.3), fitted[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.4), fitted[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.1), residual[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.2), residual[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.7), residual[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.4), residual[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.23904572186687895), residual_z[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.4780914437337579), residual_z[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.6733200530681511), residual_z[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.9561828874675167), residual_z[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.1), slope_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.1), slope_values[3], 1e-12);
+
     var bucketed = try signal_table.bucketProfile("fast", "fast", .{ .buckets = 3, .lower_quantile = 0.34, .upper_quantile = 0.84 });
     defer bucketed.deinit();
     try std.testing.expectEqual(@as(usize, 6), bucketed.width());
@@ -10421,6 +10714,37 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 6.0), lazy_ratio[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_cross_above);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_cross_below);
+
+    var fit_plan = try DeviceLazyFrame.init(gpa, table);
+    defer fit_plan.deinit();
+    try fit_plan.withColumnScalar("sales_minus1", "sales", f64, 1.0, .sub);
+    try fit_plan.linearFitProfile("sales_minus1", "sales", "sales_fit", .{});
+    try fit_plan.select(&.{ "sales", "sales_minus1", "sales_fit_fitted", "sales_fit_residual", "sales_fit_residual_zscore", "sales_fit_slope" });
+    const fit_explain = try fit_plan.explain(gpa);
+    defer gpa.free(fit_explain);
+    try std.testing.expect(std.mem.indexOf(u8, fit_explain, "linear_fit_profile(sales_minus1->sales") != null);
+    var fit = try fit_plan.collect();
+    defer fit.deinit();
+    try std.testing.expectEqual(@as(usize, 4), fit.height());
+    try std.testing.expectEqual(@as(usize, 6), fit.width());
+    const lazy_fitted = try (try fit.column("sales_fit_fitted")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_fitted);
+    const lazy_fit_residual = try (try fit.column("sales_fit_residual")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_fit_residual);
+    const lazy_fit_residual_z = try (try fit.column("sales_fit_residual_zscore")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_fit_residual_z);
+    const lazy_fit_slope = try (try fit.column("sales_fit_slope")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_fit_slope);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_fitted[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_fitted[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_fitted[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), lazy_fitted[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_fit_residual[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_fit_residual[3], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_fit_residual_z[0]));
+    try std.testing.expect(std.math.isNan(lazy_fit_residual_z[3]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_fit_slope[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_fit_slope[3], 1e-12);
 
     var bucket_plan = try DeviceLazyFrame.init(gpa, table);
     defer bucket_plan.deinit();

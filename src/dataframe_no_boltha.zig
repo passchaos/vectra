@@ -139,6 +139,10 @@ pub const DeviceEmaOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceLinearFitOptions = struct {
+    min_periods: usize = 2,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };
