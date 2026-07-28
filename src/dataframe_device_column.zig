@@ -10,6 +10,7 @@ const DeviceDType = array_mod.DType;
 const DeviceColumnView = dataframe_view_mod.DeviceColumnView;
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+const DeviceSortOptions = options_mod.DeviceSortOptions;
 const countNulls = validity_mod.countNulls;
 const countNullsInArray = validity_mod.countNullsInArray;
 const validityValues = validity_mod.validityValues;
@@ -21,6 +22,7 @@ const sliceArray1d = dataframe_array_mod.sliceArray1d;
 const takeArray1d = dataframe_array_mod.takeArray1d;
 const isIntegerColumnType = numeric_mod.isIntegerColumnType;
 const isOrderedColumnType = numeric_mod.isOrderedColumnType;
+const compareSortValues = numeric_mod.compareSortValues;
 
 pub fn DeviceTypedColumn(comptime T: type) type {
     return struct {
@@ -294,4 +296,47 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.values.toOwnedSlice(allocator);
         }
     };
+}
+
+pub fn argsortTypedColumn(comptime T: type, column: DeviceTypedColumn(T), allocator: std.mem.Allocator, options_value: DeviceSortOptions) array_mod.ArrayError![]usize {
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const order = try allocator.alloc(usize, values.len);
+    for (order, 0..) |*slot, i| slot.* = i;
+
+    const Ctx = struct {
+        values: []const T,
+        validity: ?[]const bool,
+        options: DeviceSortOptions,
+
+        fn isValid(ctx: @This(), index: usize) bool {
+            return if (ctx.validity) |validity| validity[index] else true;
+        }
+
+        fn lessThan(ctx: @This(), a: usize, b: usize) bool {
+            const a_valid = ctx.isValid(a);
+            const b_valid = ctx.isValid(b);
+            if (a_valid != b_valid) {
+                return switch (ctx.options.nulls) {
+                    .first => !a_valid,
+                    .last => a_valid,
+                };
+            }
+            if (!a_valid and !b_valid) return a < b;
+
+            const cmp = compareSortValues(T, ctx.values[a], ctx.values[b]);
+            if (cmp == 0) return a < b;
+            return if (ctx.options.descending) cmp > 0 else cmp < 0;
+        }
+    };
+
+    std.sort.insertion(usize, order, Ctx{
+        .values = values,
+        .validity = maybe_validity,
+        .options = options_value,
+    }, Ctx.lessThan);
+    return order;
 }

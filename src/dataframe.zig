@@ -162,6 +162,7 @@ const takeColumn = dataframe_column_mod.takeColumn;
 const validityValues = validity_mod.validityValues;
 const rowIndicesFromMask = dataframe_array_mod.rowIndicesFromMask;
 const concatDeviceColumns = dataframe_array_mod.concatDeviceColumns;
+const argsortTypedColumn = dataframe_device_column_mod.argsortTypedColumn;
 const distinctRowIndices = keys_mod.distinctRowIndices;
 const rowHasValidKeys = keys_mod.rowHasValidKeys;
 const findMultiKeyGroupIndex = keys_mod.findMultiKeyGroupIndex;
@@ -7631,49 +7632,6 @@ pub const DeviceDataFrame = struct {
         return DataFrame.init(self.allocator, defs);
     }
 };
-
-fn argsortTypedColumn(comptime T: type, column: DeviceTypedColumn(T), allocator: std.mem.Allocator, options_value: DeviceSortOptions) DeviceDataError![]usize {
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const order = try allocator.alloc(usize, values.len);
-    for (order, 0..) |*slot, i| slot.* = i;
-
-    const Ctx = struct {
-        values: []const T,
-        validity: ?[]const bool,
-        options: DeviceSortOptions,
-
-        fn isValid(ctx: @This(), index: usize) bool {
-            return if (ctx.validity) |validity| validity[index] else true;
-        }
-
-        fn lessThan(ctx: @This(), a: usize, b: usize) bool {
-            const a_valid = ctx.isValid(a);
-            const b_valid = ctx.isValid(b);
-            if (a_valid != b_valid) {
-                return switch (ctx.options.nulls) {
-                    .first => !a_valid,
-                    .last => a_valid,
-                };
-            }
-            if (!a_valid and !b_valid) return a < b;
-
-            const cmp = compareSortValues(T, ctx.values[a], ctx.values[b]);
-            if (cmp == 0) return a < b;
-            return if (ctx.options.descending) cmp > 0 else cmp < 0;
-        }
-    };
-
-    std.sort.insertion(usize, order, Ctx{
-        .values = values,
-        .validity = maybe_validity,
-        .options = options_value,
-    }, Ctx.lessThan);
-    return order;
-}
 
 const compareSortValues = numeric_mod.compareSortValues;
 const compareFloatSortValues = numeric_mod.compareFloatSortValues;
