@@ -4945,6 +4945,7 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
 const appendOwnedNameUnique = names_mod.appendOwnedNameUnique;
 const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
 const nameInBorrowedList = names_mod.nameInBorrowedList;
+const suffixedNameTemp = names_mod.suffixedNameTemp;
 const freeOwnedNameItems = names_mod.freeOwnedNameItems;
 const statsOutputNames = names_mod.statsOutputNames;
 const freeStatsOutputNames = names_mod.freeStatsOutputNames;
@@ -13685,7 +13686,7 @@ fn concatJoinedTablesExcludingKeys(
     }
 
     for (right.names, right.columns) |name, col| {
-        if (nameInList(name, right_key_names)) continue;
+        if (nameInBorrowedList(name, right_key_names)) continue;
         if (nameNeedsSuffix(left, name)) {
             const suffixed = try suffixedNameTemp(allocator, name, options_value.right_suffix);
             errdefer allocator.free(suffixed);
@@ -13704,16 +13705,9 @@ fn concatJoinedTablesExcludingKeys(
 fn rightExcludedKeyCount(right: DeviceDataFrame, names: []const []const u8) usize {
     var count: usize = 0;
     for (right.names) |name| {
-        if (nameInList(name, names)) count += 1;
+        if (nameInBorrowedList(name, names)) count += 1;
     }
     return count;
-}
-
-fn nameInList(name: []const u8, names: []const []const u8) bool {
-    for (names) |candidate| {
-        if (std.mem.eql(u8, name, candidate)) return true;
-    }
-    return false;
 }
 
 fn concatFullJoinedTables(
@@ -13867,14 +13861,6 @@ fn coalesceTypedJoinKeys(comptime T: type, left: DeviceTypedColumn(T), right: De
 
 fn nameNeedsSuffix(left: DeviceDataFrame, name: []const u8) bool {
     return left.columnIndex(name) != null;
-}
-
-fn suffixedNameTemp(allocator: std.mem.Allocator, name: []const u8, suffix: []const u8) std.mem.Allocator.Error![]const u8 {
-    var buffer: std.ArrayList(u8) = .empty;
-    errdefer buffer.deinit(allocator);
-    try buffer.appendSlice(allocator, name);
-    try buffer.appendSlice(allocator, suffix);
-    return buffer.toOwnedSlice(allocator);
 }
 
 fn deviceDTypeToArrowDataType(dtype: DeviceDType) ArrowInteropError!boltha.arrow.DataType {

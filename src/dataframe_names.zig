@@ -40,6 +40,14 @@ pub fn nameInBorrowedList(name: []const u8, names: []const []const u8) bool {
     return false;
 }
 
+pub fn suffixedNameTemp(allocator: std.mem.Allocator, name: []const u8, suffix: []const u8) std.mem.Allocator.Error![]const u8 {
+    var buffer: std.ArrayList(u8) = .empty;
+    errdefer buffer.deinit(allocator);
+    try buffer.appendSlice(allocator, name);
+    try buffer.appendSlice(allocator, suffix);
+    return buffer.toOwnedSlice(allocator);
+}
+
 pub fn freeOwnedNameItems(allocator: std.mem.Allocator, names: []const []const u8) void {
     for (names) |name| allocator.free(name);
 }
