@@ -3,6 +3,7 @@ const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 const dataframe_arrow_mod = @import("dataframe_arrow.zig");
+const keys_mod = @import("dataframe_keys.zig");
 const lazy_mod = @import("dataframe_lazy.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
@@ -158,7 +159,10 @@ const sliceArray1d = dataframe_array_mod.sliceArray1d;
 const takeArray1d = dataframe_array_mod.takeArray1d;
 const concatDeviceColumns = dataframe_array_mod.concatDeviceColumns;
 const coalesceJoinKeys = dataframe_array_mod.coalesceJoinKeys;
-const columnsRowsEqual = dataframe_array_mod.columnsRowsEqual;
+const distinctRowIndices = keys_mod.distinctRowIndices;
+const rowHasValidKeys = keys_mod.rowHasValidKeys;
+const findMultiKeyGroupIndex = keys_mod.findMultiKeyGroupIndex;
+const rowsMatchAllKeys = keys_mod.rowsMatchAllKeys;
 const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
 const readBolthaTableWithRangePruning = dataframe_arrow_mod.readBolthaTableWithRangePruning;
 const primitiveColumnToArrow = dataframe_arrow_mod.primitiveColumnToArrow;
@@ -12834,53 +12838,6 @@ fn initProfileDataFrame(
     return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, rows, device_value);
 }
 
-fn distinctRowIndices(allocator: std.mem.Allocator, frame: DeviceDataFrame, key_names: []const []const u8) DeviceDataError![]usize {
-    if (key_names.len == 0) return error.LengthMismatch;
-    for (key_names) |name| _ = try frame.column(name);
-
-    var representatives: std.ArrayList(usize) = .empty;
-    errdefer representatives.deinit(allocator);
-
-    // Preserve first-seen row order, matching the common stable
-    // `drop_duplicates(keep=first)` dataframe behavior.  The current
-    // implementation deliberately routes through the same row-comparison helper
-    // used by multi-key joins/grouping so null-key rows are skipped and future
-    // Axiom hash-distinct lowering has a single API seam to replace.
-    for (0..frame.rows) |row| {
-        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
-        const maybe_seen = try findMultiKeyGroupIndex(allocator, frame, key_names, representatives.items, row);
-        if (maybe_seen == null) try representatives.append(allocator, row);
-    }
-
-    return representatives.toOwnedSlice(allocator);
-}
-
-fn rowHasValidKeys(allocator: std.mem.Allocator, frame: DeviceDataFrame, key_names: []const []const u8, row: usize) DeviceDataError!bool {
-    for (key_names) |key_name| {
-        const key = try frame.column(key_name);
-        if (!try columnRowValid(allocator, key.*, row)) return false;
-    }
-    return true;
-}
-
-fn columnRowValid(allocator: std.mem.Allocator, column: DeviceColumn, row: usize) DeviceDataError!bool {
-    return switch (column) {
-        inline else => |typed| blk: {
-            if (row >= typed.len()) return error.IndexOutOfBounds;
-            const maybe_validity = try validityValues(typed, allocator);
-            defer if (maybe_validity) |validity| allocator.free(validity);
-            break :blk if (maybe_validity) |validity| validity[row] else true;
-        },
-    };
-}
-
-fn findMultiKeyGroupIndex(allocator: std.mem.Allocator, frame: DeviceDataFrame, key_names: []const []const u8, representatives: []const usize, row: usize) DeviceDataError!?usize {
-    for (representatives, 0..) |representative, i| {
-        if (try rowsMatchAllKeys(allocator, frame, frame, key_names, key_names, representative, row)) return i;
-    }
-    return null;
-}
-
 fn initAggregatedDataFrame(
     allocator: std.mem.Allocator,
     key_name: []const u8,
@@ -13064,23 +13021,6 @@ fn fullJoinRowIndicesMulti(
         .left = owned_left,
         .right = owned_right,
     };
-}
-
-fn rowsMatchAllKeys(
-    allocator: std.mem.Allocator,
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    left_key_names: []const []const u8,
-    right_key_names: []const []const u8,
-    left_i: usize,
-    right_i: usize,
-) DeviceDataError!bool {
-    for (left_key_names, right_key_names) |left_name, right_name| {
-        const left_key = try left.column(left_name);
-        const right_key = try right.column(right_name);
-        if (!try columnsRowsEqual(allocator, left_key.*, right_key.*, left_i, right_i)) return false;
-    }
-    return true;
 }
 
 fn asofRightRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn, strategy: AsofStrategy) DeviceDataError![]?usize {
