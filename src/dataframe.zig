@@ -64,15 +64,6 @@ const linearFitProfileColumnsByValue = linear_fit_mod.linearFitProfileColumnsByV
 const expandingLinearFitProfileColumnsByValue = linear_fit_mod.expandingLinearFitProfileColumnsByValue;
 const rollingLinearFitProfileColumnsByValue = linear_fit_mod.rollingLinearFitProfileColumnsByValue;
 const crossover_mod = @import("dataframe_crossover.zig");
-const CrossoverProfileColumnCount = crossover_mod.CrossoverProfileColumnCount;
-const crossoverProfileOutputNames = crossover_mod.crossoverProfileOutputNames;
-const RollingCrossoverProfileColumnCount = crossover_mod.RollingCrossoverProfileColumnCount;
-const rollingCrossoverProfileOutputNames = crossover_mod.rollingCrossoverProfileOutputNames;
-const ExpandingCrossoverProfileColumnCount = crossover_mod.ExpandingCrossoverProfileColumnCount;
-const expandingCrossoverProfileOutputNames = crossover_mod.expandingCrossoverProfileOutputNames;
-const crossoverProfileColumnsByValue = crossover_mod.crossoverProfileColumnsByValue;
-const rollingCrossoverProfileColumnsByValue = crossover_mod.rollingCrossoverProfileColumnsByValue;
-const expandingCrossoverProfileColumnsByValue = crossover_mod.expandingCrossoverProfileColumnsByValue;
 const threshold_mod = @import("dataframe_threshold.zig");
 const ThresholdProfileColumnCount = threshold_mod.ThresholdProfileColumnCount;
 const thresholdProfileOutputNames = threshold_mod.thresholdProfileOutputNames;
@@ -1404,40 +1395,7 @@ pub const DeviceDataFrame = struct {
         output_prefix: []const u8,
         options_value: DeviceCrossoverOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const lhs = try self.column(lhs_name);
-        const rhs = try self.column(rhs_name);
-        if (lhs.dtype() != rhs.dtype()) return error.TypeMismatch;
-        var cross_columns = try crossoverProfileColumnsByValue(self.allocator, lhs.*, rhs.*, options_value, self.device, self.rows);
-        var cross_columns_transferred: usize = 0;
-        errdefer {
-            for (cross_columns[cross_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + cross_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var cross_names = try crossoverProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, cross_names[0..]);
-        for (cross_names, 0..) |cross_name, i| source_names[self.columns.len + i] = cross_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + cross_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&cross_columns) |*cross_col| {
-            columns[initialized] = cross_col.*;
-            initialized += 1;
-            cross_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return crossover_mod.crossoverProfileFrame(DeviceDataFrame, self, lhs_name, rhs_name, output_prefix, options_value);
     }
 
     pub fn rollingCrossoverProfile(
@@ -1448,40 +1406,7 @@ pub const DeviceDataFrame = struct {
         cross_options: DeviceCrossoverOptions,
         options_value: DeviceRollingOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const lhs = try self.column(lhs_name);
-        const rhs = try self.column(rhs_name);
-        if (lhs.dtype() != rhs.dtype()) return error.TypeMismatch;
-        var cross_columns = try rollingCrossoverProfileColumnsByValue(self.allocator, lhs.*, rhs.*, cross_options, options_value, self.device, self.rows);
-        var cross_columns_transferred: usize = 0;
-        errdefer {
-            for (cross_columns[cross_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + cross_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var cross_names = try rollingCrossoverProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, cross_names[0..]);
-        for (cross_names, 0..) |cross_name, i| source_names[self.columns.len + i] = cross_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + cross_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&cross_columns) |*cross_col| {
-            columns[initialized] = cross_col.*;
-            initialized += 1;
-            cross_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return crossover_mod.rollingCrossoverProfileFrame(DeviceDataFrame, self, lhs_name, rhs_name, output_prefix, cross_options, options_value);
     }
 
     pub fn expandingCrossoverProfile(
@@ -1492,40 +1417,7 @@ pub const DeviceDataFrame = struct {
         cross_options: DeviceCrossoverOptions,
         options_value: DeviceExpandingOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const lhs = try self.column(lhs_name);
-        const rhs = try self.column(rhs_name);
-        if (lhs.dtype() != rhs.dtype()) return error.TypeMismatch;
-        var cross_columns = try expandingCrossoverProfileColumnsByValue(self.allocator, lhs.*, rhs.*, cross_options, options_value, self.device, self.rows);
-        var cross_columns_transferred: usize = 0;
-        errdefer {
-            for (cross_columns[cross_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + cross_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var cross_names = try expandingCrossoverProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, cross_names[0..]);
-        for (cross_names, 0..) |cross_name, i| source_names[self.columns.len + i] = cross_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + cross_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&cross_columns) |*cross_col| {
-            columns[initialized] = cross_col.*;
-            initialized += 1;
-            cross_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return crossover_mod.expandingCrossoverProfileFrame(DeviceDataFrame, self, lhs_name, rhs_name, output_prefix, cross_options, options_value);
     }
 
     pub fn bucketProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceBucketOptions) DeviceDataError!DeviceDataFrame {
