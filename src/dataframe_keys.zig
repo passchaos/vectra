@@ -6,6 +6,7 @@ const validity_mod = @import("dataframe_validity.zig");
 
 const validityValues = validity_mod.validityValues;
 const columnsRowsEqual = dataframe_array_mod.columnsRowsEqual;
+const groupKeyEqual = numeric_mod.groupKeyEqual;
 const compareSortValues = numeric_mod.compareSortValues;
 const asofDistance = numeric_mod.asofDistance;
 
@@ -147,4 +148,42 @@ pub fn asofRightRowIndicesTyped(
         slot.* = best;
     }
     return indices;
+}
+
+pub fn semiAntiJoinRowIndicesTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    left: anytype,
+    right: anytype,
+    keep_matches: bool,
+) (std.mem.Allocator.Error || array_mod.ArrayError || error{InvalidDevice})![]usize {
+    if (!left.device().sameDevice(right.device())) return error.InvalidDevice;
+    const left_values = try left.values.toOwnedSlice(allocator);
+    defer allocator.free(left_values);
+    const right_values = try right.values.toOwnedSlice(allocator);
+    defer allocator.free(right_values);
+    const maybe_left_validity = try validityValues(left, allocator);
+    defer if (maybe_left_validity) |validity| allocator.free(validity);
+    const maybe_right_validity = try validityValues(right, allocator);
+    defer if (maybe_right_validity) |validity| allocator.free(validity);
+
+    var indices: std.ArrayList(usize) = .empty;
+    errdefer indices.deinit(allocator);
+    for (left_values, 0..) |left_value, left_i| {
+        const left_valid = if (maybe_left_validity) |validity| validity[left_i] else true;
+        var matched = false;
+        if (left_valid) {
+            for (right_values, 0..) |right_value, right_i| {
+                if (maybe_right_validity) |validity| {
+                    if (!validity[right_i]) continue;
+                }
+                if (groupKeyEqual(T, left_value, right_value)) {
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if (matched == keep_matches) try indices.append(allocator, left_i);
+    }
+    return indices.toOwnedSlice(allocator);
 }

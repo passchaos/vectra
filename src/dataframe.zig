@@ -164,6 +164,7 @@ const rowHasValidKeys = keys_mod.rowHasValidKeys;
 const findMultiKeyGroupIndex = keys_mod.findMultiKeyGroupIndex;
 const rowsMatchAllKeys = keys_mod.rowsMatchAllKeys;
 const asofRightRowIndices = keys_mod.asofRightRowIndices;
+const semiAntiJoinRowIndicesTyped = keys_mod.semiAntiJoinRowIndicesTyped;
 const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
 const readBolthaTableWithRangePruning = dataframe_arrow_mod.readBolthaTableWithRangePruning;
 const primitiveColumnToArrow = dataframe_arrow_mod.primitiveColumnToArrow;
@@ -13154,44 +13155,6 @@ fn innerJoinRowIndicesTyped(
         .left = owned_left,
         .right = owned_right,
     };
-}
-
-fn semiAntiJoinRowIndicesTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    left: DeviceTypedColumn(T),
-    right: DeviceTypedColumn(T),
-    keep_matches: bool,
-) DeviceDataError![]usize {
-    if (!left.device().sameDevice(right.device())) return error.InvalidDevice;
-    const left_values = try left.values.toOwnedSlice(allocator);
-    defer allocator.free(left_values);
-    const right_values = try right.values.toOwnedSlice(allocator);
-    defer allocator.free(right_values);
-    const maybe_left_validity = try validityValues(left, allocator);
-    defer if (maybe_left_validity) |validity| allocator.free(validity);
-    const maybe_right_validity = try validityValues(right, allocator);
-    defer if (maybe_right_validity) |validity| allocator.free(validity);
-
-    var indices: std.ArrayList(usize) = .empty;
-    errdefer indices.deinit(allocator);
-    for (left_values, 0..) |left_value, left_i| {
-        const left_valid = if (maybe_left_validity) |validity| validity[left_i] else true;
-        var matched = false;
-        if (left_valid) {
-            for (right_values, 0..) |right_value, right_i| {
-                if (maybe_right_validity) |validity| {
-                    if (!validity[right_i]) continue;
-                }
-                if (groupKeyEqual(T, left_value, right_value)) {
-                    matched = true;
-                    break;
-                }
-            }
-        }
-        if (matched == keep_matches) try indices.append(allocator, left_i);
-    }
-    return indices.toOwnedSlice(allocator);
 }
 
 fn leftJoinRowIndicesTyped(
