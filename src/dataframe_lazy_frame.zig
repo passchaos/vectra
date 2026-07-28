@@ -10,6 +10,7 @@ const array_mod = @import("array.zig");
 const lazy_exec_mod = @import("dataframe_lazy_frame_exec.zig");
 const lazy_expr_mod = @import("dataframe_lazy_expr_plan.zig");
 const lazy_group_mod = @import("dataframe_lazy_group_plan.zig");
+const lazy_join_mod = @import("dataframe_lazy_join_plan.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const names_mod = @import("dataframe_names.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -215,22 +216,7 @@ pub fn DeviceLazyTypes(
                 kind: DeviceLazyJoinKind,
                 options_value: DeviceJoinOptions,
             ) DeviceDataError!void {
-                if (left_key_names.len == 0 or left_key_names.len != right_key_names.len) return error.LengthMismatch;
-                var owned_right = try right.clone();
-                errdefer owned_right.deinit();
-                const owned_left_keys = try cloneNameList(self.allocator, left_key_names);
-                errdefer freeNameList(self.allocator, owned_left_keys);
-                const owned_right_keys = try cloneNameList(self.allocator, right_key_names);
-                errdefer freeNameList(self.allocator, owned_right_keys);
-                const owned_suffix = try self.allocator.dupe(u8, options_value.right_suffix);
-                errdefer self.allocator.free(owned_suffix);
-                try self.ops.append(self.allocator, .{ .join_on = .{
-                    .kind = kind,
-                    .right = owned_right,
-                    .left_key_names = owned_left_keys,
-                    .right_key_names = owned_right_keys,
-                    .options = .{ .right_suffix = owned_suffix },
-                } });
+                return lazy_join_mod.joinOn(self, right, left_key_names, right_key_names, kind, options_value);
             }
 
             pub fn innerJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8, options_value: DeviceJoinOptions) DeviceDataError!void {
@@ -260,29 +246,11 @@ pub fn DeviceLazyTypes(
                 right_key_name: []const u8,
                 options_value: DeviceAsofOptions,
             ) DeviceDataError!void {
-                var owned_right = try right.clone();
-                errdefer owned_right.deinit();
-                const owned_left_key = try self.allocator.dupe(u8, left_key_name);
-                errdefer self.allocator.free(owned_left_key);
-                const owned_right_key = try self.allocator.dupe(u8, right_key_name);
-                errdefer self.allocator.free(owned_right_key);
-                const owned_suffix = try self.allocator.dupe(u8, options_value.right_suffix);
-                errdefer self.allocator.free(owned_suffix);
-                try self.ops.append(self.allocator, .{ .asof_join = .{
-                    .right = owned_right,
-                    .left_key_name = owned_left_key,
-                    .right_key_name = owned_right_key,
-                    .options = .{
-                        .strategy = options_value.strategy,
-                        .right_suffix = owned_suffix,
-                    },
-                } });
+                return lazy_join_mod.asofJoin(self, right, left_key_name, right_key_name, options_value);
             }
 
             pub fn concatRows(self: *DeviceLazyFrame, right: DeviceDataFrame) DeviceDataError!void {
-                var owned_right = try right.clone();
-                errdefer owned_right.deinit();
-                try self.ops.append(self.allocator, .{ .concat_rows = owned_right });
+                return lazy_join_mod.concatRows(self, right);
             }
 
             pub fn appendRows(self: *DeviceLazyFrame, right: DeviceDataFrame) DeviceDataError!void {
@@ -298,8 +266,7 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn distinctOn(self: *DeviceLazyFrame, key_names: []const []const u8) DeviceDataError!void {
-                if (key_names.len == 0) return error.LengthMismatch;
-                try self.ops.append(self.allocator, .{ .distinct_on = try cloneNameList(self.allocator, key_names) });
+                return lazy_join_mod.distinctOn(self, key_names);
             }
 
             pub fn dropDuplicates(self: *DeviceLazyFrame) DeviceDataError!void {
