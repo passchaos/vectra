@@ -11,6 +11,7 @@ const crossover_mod = @import("dataframe_crossover.zig");
 const threshold_mod = @import("dataframe_threshold.zig");
 const validity_mod = @import("dataframe_validity.zig");
 const bool_profile_mod = @import("dataframe_bool_profile.zig");
+const clip_mod = @import("dataframe_clip.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -9984,54 +9985,31 @@ fn clipProfileColumnsTyped(
     options_value: DeviceClipOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ClipProfileColumnCount]DeviceColumn {
-    if (options_value.lower > options_value.upper) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const clipped = try allocator.alloc(f64, rows);
-    defer allocator.free(clipped);
-    const below = try allocator.alloc(bool, rows);
-    defer allocator.free(below);
-    const above = try allocator.alloc(bool, rows);
-    defer allocator.free(above);
-    const in_range = try allocator.alloc(bool, rows);
-    defer allocator.free(in_range);
-    const validity = try allocator.alloc(bool, rows);
-    defer allocator.free(validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        validity[row] = valid;
-        if (valid) {
-            const x = castToF64(T, value_item);
-            below[row] = x < options_value.lower;
-            above[row] = x > options_value.upper;
-            in_range[row] = !below[row] and !above[row];
-            clipped[row] = @min(@max(x, options_value.lower), options_value.upper);
-        } else {
-            below[row] = false;
-            above[row] = false;
-            in_range[row] = false;
-            clipped[row] = 0;
-        }
-    }
+    var metrics = try clip_mod.clipProfile(allocator, values, maybe_validity, options_value.lower, options_value.upper);
+    defer metrics.deinit();
 
     var columns: [ClipProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, clipped, validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.clipped, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, below, validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.below, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, above, validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.above, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, in_range, validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.in_range, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10094,114 +10072,36 @@ fn rollingClipProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingClipProfileColumnCount]DeviceColumn {
-    if (clip_options.lower > clip_options.upper) return error.InvalidShape;
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const mean_clipped = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_clipped);
-    const clipped_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(clipped_rates);
-    const below_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(below_rates);
-    const above_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(above_rates);
-    const in_range_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(in_range_rates);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    var running_count: usize = 0;
-    var running_clipped_sum: f64 = 0;
-    var running_below_count: usize = 0;
-    var running_above_count: usize = 0;
-    var running_in_range_count: usize = 0;
-
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) {
-            const x = castToF64(T, value_item);
-            const below = x < clip_options.lower;
-            const above = x > clip_options.upper;
-            const clipped = @min(@max(x, clip_options.lower), clip_options.upper);
-            running_clipped_sum += clipped;
-            if (below) {
-                running_below_count += 1;
-            } else if (above) {
-                running_above_count += 1;
-            } else {
-                running_in_range_count += 1;
-            }
-            running_count += 1;
-        }
-
-        if (row >= options_value.window) {
-            const evict_row = row - options_value.window;
-            const evict_valid = if (maybe_validity) |mask| mask[evict_row] else true;
-            if (evict_valid) {
-                const x = castToF64(T, values[evict_row]);
-                const below = x < clip_options.lower;
-                const above = x > clip_options.upper;
-                const clipped = @min(@max(x, clip_options.lower), clip_options.upper);
-                running_clipped_sum -= clipped;
-                if (below) {
-                    running_below_count -= 1;
-                } else if (above) {
-                    running_above_count -= 1;
-                } else {
-                    running_in_range_count -= 1;
-                }
-                running_count -= 1;
-            }
-        }
-
-        counts[row] = @intCast(running_count);
-        const has_enough = running_count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(running_count);
-            const clipped_count = running_below_count + running_above_count;
-            mean_clipped[row] = running_clipped_sum / n;
-            clipped_rates[row] = @as(f64, @floatFromInt(clipped_count)) / n;
-            below_rates[row] = @as(f64, @floatFromInt(running_below_count)) / n;
-            above_rates[row] = @as(f64, @floatFromInt(running_above_count)) / n;
-            in_range_rates[row] = @as(f64, @floatFromInt(running_in_range_count)) / n;
-        } else {
-            mean_clipped[row] = 0;
-            clipped_rates[row] = 0;
-            below_rates[row] = 0;
-            above_rates[row] = 0;
-            in_range_rates[row] = 0;
-        }
-    }
+    var metrics = try clip_mod.rollingClipProfile(allocator, values, maybe_validity, clip_options.lower, clip_options.upper, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingClipProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    // Keep the valid-count non-null so downstream monitoring can distinguish
-    // "not enough history yet" from "there were no valid observations".
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_clipped, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_clipped, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, clipped_rates, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.clipped_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, below_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.below_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, above_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.above_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, in_range_rates, metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.in_range_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10264,92 +10164,35 @@ fn expandingClipProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingClipProfileColumnCount]DeviceColumn {
-    if (clip_options.lower > clip_options.upper) return error.InvalidShape;
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const mean_clipped = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_clipped);
-    const clipped_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(clipped_rates);
-    const below_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(below_rates);
-    const above_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(above_rates);
-    const in_range_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(in_range_rates);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    var running_count: usize = 0;
-    var running_clipped_sum: f64 = 0;
-    var running_below_count: usize = 0;
-    var running_above_count: usize = 0;
-    var running_in_range_count: usize = 0;
-
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) {
-            const x = castToF64(T, value_item);
-            const below = x < clip_options.lower;
-            const above = x > clip_options.upper;
-            const clipped = @min(@max(x, clip_options.lower), clip_options.upper);
-            running_clipped_sum += clipped;
-            if (below) {
-                running_below_count += 1;
-            } else if (above) {
-                running_above_count += 1;
-            } else {
-                running_in_range_count += 1;
-            }
-            running_count += 1;
-        }
-
-        counts[row] = @intCast(running_count);
-        const has_enough = running_count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(running_count);
-            const clipped_count = running_below_count + running_above_count;
-            mean_clipped[row] = running_clipped_sum / n;
-            clipped_rates[row] = @as(f64, @floatFromInt(clipped_count)) / n;
-            below_rates[row] = @as(f64, @floatFromInt(running_below_count)) / n;
-            above_rates[row] = @as(f64, @floatFromInt(running_above_count)) / n;
-            in_range_rates[row] = @as(f64, @floatFromInt(running_in_range_count)) / n;
-        } else {
-            mean_clipped[row] = 0;
-            clipped_rates[row] = 0;
-            below_rates[row] = 0;
-            above_rates[row] = 0;
-            in_range_rates[row] = 0;
-        }
-    }
+    var metrics = try clip_mod.expandingClipProfile(allocator, values, maybe_validity, clip_options.lower, clip_options.upper, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExpandingClipProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    // Cumulative clip summaries skip null observations and keep previously
-    // accumulated state visible once `min_periods` valid rows have appeared.
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_clipped, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_clipped, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, clipped_rates, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.clipped_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, below_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.below_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, above_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.above_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, in_range_rates, metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.in_range_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
