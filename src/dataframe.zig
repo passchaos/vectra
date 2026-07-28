@@ -28,6 +28,7 @@ const moment_mod = @import("dataframe_moment.zig");
 const normalize_mod = @import("dataframe_normalize.zig");
 const range_mod = @import("dataframe_range.zig");
 const group_profile_mod = @import("dataframe_group_profile.zig");
+const numeric_mod = @import("dataframe_numeric.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -14036,13 +14037,7 @@ fn groupKeyEqual(comptime T: type, lhs: T, rhs: T) bool {
     return lhs == rhs;
 }
 
-fn castToF64(comptime T: type, value: T) f64 {
-    return switch (@typeInfo(T)) {
-        .float, .comptime_float => @floatCast(value),
-        .int, .comptime_int => @floatFromInt(value),
-        else => @compileError("mean requires numeric values"),
-    };
-}
+const castToF64 = numeric_mod.castToF64;
 
 const JoinRowIndexPair = struct {
     allocator: std.mem.Allocator,
