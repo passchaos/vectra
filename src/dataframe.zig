@@ -164,7 +164,6 @@ const rowHasValidKeys = keys_mod.rowHasValidKeys;
 const findMultiKeyGroupIndex = keys_mod.findMultiKeyGroupIndex;
 const rowsMatchAllKeys = keys_mod.rowsMatchAllKeys;
 const asofRightRowIndices = keys_mod.asofRightRowIndices;
-const semiAntiJoinRowIndicesTyped = keys_mod.semiAntiJoinRowIndicesTyped;
 const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
 const readBolthaTableWithRangePruning = dataframe_arrow_mod.readBolthaTableWithRangePruning;
 const primitiveColumnToArrow = dataframe_arrow_mod.primitiveColumnToArrow;
@@ -12878,23 +12877,7 @@ const JoinRowIndexPair = struct {
 };
 
 fn innerJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
-    return switch (left) {
-        .bool => |typed| innerJoinRowIndicesTyped(bool, allocator, typed, right.bool),
-        .i8 => |typed| innerJoinRowIndicesTyped(i8, allocator, typed, right.i8),
-        .i16 => |typed| innerJoinRowIndicesTyped(i16, allocator, typed, right.i16),
-        .i32 => |typed| innerJoinRowIndicesTyped(i32, allocator, typed, right.i32),
-        .i64 => |typed| innerJoinRowIndicesTyped(i64, allocator, typed, right.i64),
-        .u8 => |typed| innerJoinRowIndicesTyped(u8, allocator, typed, right.u8),
-        .u16 => |typed| innerJoinRowIndicesTyped(u16, allocator, typed, right.u16),
-        .u32 => |typed| innerJoinRowIndicesTyped(u32, allocator, typed, right.u32),
-        .u64 => |typed| innerJoinRowIndicesTyped(u64, allocator, typed, right.u64),
-        .usize => |typed| innerJoinRowIndicesTyped(usize, allocator, typed, right.usize),
-        .isize => |typed| innerJoinRowIndicesTyped(isize, allocator, typed, right.isize),
-        .f16 => |typed| innerJoinRowIndicesTyped(f16, allocator, typed, right.f16),
-        .f32 => |typed| innerJoinRowIndicesTyped(f32, allocator, typed, right.f32),
-        .f64 => |typed| innerJoinRowIndicesTyped(f64, allocator, typed, right.f64),
-        .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
+    return keys_mod.innerJoinRowIndices(JoinRowIndexPair, allocator, left, right);
 }
 
 fn innerJoinRowIndicesMulti(
@@ -12928,63 +12911,15 @@ fn fullJoinRowIndicesMulti(
 }
 
 fn leftJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
-    return switch (left) {
-        .bool => |typed| leftJoinRowIndicesTyped(bool, allocator, typed, right.bool),
-        .i8 => |typed| leftJoinRowIndicesTyped(i8, allocator, typed, right.i8),
-        .i16 => |typed| leftJoinRowIndicesTyped(i16, allocator, typed, right.i16),
-        .i32 => |typed| leftJoinRowIndicesTyped(i32, allocator, typed, right.i32),
-        .i64 => |typed| leftJoinRowIndicesTyped(i64, allocator, typed, right.i64),
-        .u8 => |typed| leftJoinRowIndicesTyped(u8, allocator, typed, right.u8),
-        .u16 => |typed| leftJoinRowIndicesTyped(u16, allocator, typed, right.u16),
-        .u32 => |typed| leftJoinRowIndicesTyped(u32, allocator, typed, right.u32),
-        .u64 => |typed| leftJoinRowIndicesTyped(u64, allocator, typed, right.u64),
-        .usize => |typed| leftJoinRowIndicesTyped(usize, allocator, typed, right.usize),
-        .isize => |typed| leftJoinRowIndicesTyped(isize, allocator, typed, right.isize),
-        .f16 => |typed| leftJoinRowIndicesTyped(f16, allocator, typed, right.f16),
-        .f32 => |typed| leftJoinRowIndicesTyped(f32, allocator, typed, right.f32),
-        .f64 => |typed| leftJoinRowIndicesTyped(f64, allocator, typed, right.f64),
-        .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
+    return keys_mod.leftJoinRowIndices(JoinRowIndexPair, allocator, left, right);
 }
 
 fn fullJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
-    return switch (left) {
-        .bool => |typed| fullJoinRowIndicesTyped(bool, allocator, typed, right.bool),
-        .i8 => |typed| fullJoinRowIndicesTyped(i8, allocator, typed, right.i8),
-        .i16 => |typed| fullJoinRowIndicesTyped(i16, allocator, typed, right.i16),
-        .i32 => |typed| fullJoinRowIndicesTyped(i32, allocator, typed, right.i32),
-        .i64 => |typed| fullJoinRowIndicesTyped(i64, allocator, typed, right.i64),
-        .u8 => |typed| fullJoinRowIndicesTyped(u8, allocator, typed, right.u8),
-        .u16 => |typed| fullJoinRowIndicesTyped(u16, allocator, typed, right.u16),
-        .u32 => |typed| fullJoinRowIndicesTyped(u32, allocator, typed, right.u32),
-        .u64 => |typed| fullJoinRowIndicesTyped(u64, allocator, typed, right.u64),
-        .usize => |typed| fullJoinRowIndicesTyped(usize, allocator, typed, right.usize),
-        .isize => |typed| fullJoinRowIndicesTyped(isize, allocator, typed, right.isize),
-        .f16 => |typed| fullJoinRowIndicesTyped(f16, allocator, typed, right.f16),
-        .f32 => |typed| fullJoinRowIndicesTyped(f32, allocator, typed, right.f32),
-        .f64 => |typed| fullJoinRowIndicesTyped(f64, allocator, typed, right.f64),
-        .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
+    return keys_mod.fullJoinRowIndices(JoinRowIndexPair, allocator, left, right);
 }
 
 fn semiAntiJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn, keep_matches: bool) DeviceDataError![]usize {
-    return switch (left) {
-        .bool => |typed| semiAntiJoinRowIndicesTyped(bool, allocator, typed, right.bool, keep_matches),
-        .i8 => |typed| semiAntiJoinRowIndicesTyped(i8, allocator, typed, right.i8, keep_matches),
-        .i16 => |typed| semiAntiJoinRowIndicesTyped(i16, allocator, typed, right.i16, keep_matches),
-        .i32 => |typed| semiAntiJoinRowIndicesTyped(i32, allocator, typed, right.i32, keep_matches),
-        .i64 => |typed| semiAntiJoinRowIndicesTyped(i64, allocator, typed, right.i64, keep_matches),
-        .u8 => |typed| semiAntiJoinRowIndicesTyped(u8, allocator, typed, right.u8, keep_matches),
-        .u16 => |typed| semiAntiJoinRowIndicesTyped(u16, allocator, typed, right.u16, keep_matches),
-        .u32 => |typed| semiAntiJoinRowIndicesTyped(u32, allocator, typed, right.u32, keep_matches),
-        .u64 => |typed| semiAntiJoinRowIndicesTyped(u64, allocator, typed, right.u64, keep_matches),
-        .usize => |typed| semiAntiJoinRowIndicesTyped(usize, allocator, typed, right.usize, keep_matches),
-        .isize => |typed| semiAntiJoinRowIndicesTyped(isize, allocator, typed, right.isize, keep_matches),
-        .f16 => |typed| semiAntiJoinRowIndicesTyped(f16, allocator, typed, right.f16, keep_matches),
-        .f32 => |typed| semiAntiJoinRowIndicesTyped(f32, allocator, typed, right.f32, keep_matches),
-        .f64 => |typed| semiAntiJoinRowIndicesTyped(f64, allocator, typed, right.f64, keep_matches),
-        .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
+    return keys_mod.semiAntiJoinRowIndices(allocator, left, right, keep_matches);
 }
 
 fn semiAntiJoinRowIndicesMulti(
@@ -12996,33 +12931,6 @@ fn semiAntiJoinRowIndicesMulti(
     keep_matches: bool,
 ) DeviceDataError![]usize {
     return keys_mod.semiAntiJoinRowIndicesMulti(allocator, left, right, left_key_names, right_key_names, keep_matches);
-}
-
-fn innerJoinRowIndicesTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    left: DeviceTypedColumn(T),
-    right: DeviceTypedColumn(T),
-) DeviceDataError!JoinRowIndexPair {
-    return keys_mod.innerJoinRowIndicesTyped(T, JoinRowIndexPair, allocator, left, right);
-}
-
-fn leftJoinRowIndicesTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    left: DeviceTypedColumn(T),
-    right: DeviceTypedColumn(T),
-) DeviceDataError!JoinRowIndexPair {
-    return keys_mod.leftJoinRowIndicesTyped(T, JoinRowIndexPair, allocator, left, right);
-}
-
-fn fullJoinRowIndicesTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    left: DeviceTypedColumn(T),
-    right: DeviceTypedColumn(T),
-) DeviceDataError!JoinRowIndexPair {
-    return keys_mod.fullJoinRowIndicesTyped(T, JoinRowIndexPair, allocator, left, right);
 }
 
 fn takeOptionalRows(input: DeviceDataFrame, row_indices: []const ?usize) DeviceDataError!DeviceDataFrame {
