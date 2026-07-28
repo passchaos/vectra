@@ -1061,6 +1061,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceTrendOptions,
     },
+    sign_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceTrendOptions,
+    },
     crossover_profile: struct {
         lhs_name: []const u8,
         rhs_name: []const u8,
@@ -1232,6 +1237,10 @@ pub const DeviceLazyOp = union(enum) {
             .trend_profile => |trend| {
                 allocator.free(trend.name);
                 allocator.free(trend.output_prefix);
+            },
+            .sign_profile => |sign| {
+                allocator.free(sign.name);
+                allocator.free(sign.output_prefix);
             },
             .crossover_profile => |cross| {
                 allocator.free(cross.lhs_name);
@@ -1624,6 +1633,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = trend.options,
+                } };
+            },
+            .sign_profile => |sign| blk: {
+                const name = try allocator.dupe(u8, sign.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, sign.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .sign_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = sign.options,
                 } };
             },
             .crossover_profile => |cross| blk: {
@@ -2279,6 +2299,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn signProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .sign_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn crossoverProfile(
         self: *DeviceLazyFrame,
         lhs_name: []const u8,
@@ -2495,6 +2527,7 @@ pub const DeviceLazyFrame = struct {
                 .drawdown_profile => |drawdown| try current.drawdownProfile(drawdown.name, drawdown.output_prefix, drawdown.options),
                 .extrema_profile => |extrema| try current.extremaProfile(extrema.name, extrema.output_prefix, extrema.options),
                 .trend_profile => |trend| try current.trendProfile(trend.name, trend.output_prefix, trend.options),
+                .sign_profile => |sign| try current.signProfile(sign.name, sign.output_prefix, sign.options),
                 .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
                 .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
                 .ema_profile => |ema| try current.emaProfile(ema.name, ema.output_prefix, ema.options),
@@ -3001,6 +3034,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(trend.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, trend.name);
                 break :op_loop;
             },
+            .sign_profile => |sign| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(sign.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, sign.name);
+                break :op_loop;
+            },
             .crossover_profile => |cross| {
                 // Crossover profiles depend on two source columns and append
                 // several signal columns. Keep scan predicates but block
@@ -3261,6 +3299,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .drawdown_profile => |drawdown| try writer.print("drawdown_profile({s}, prefix={s}, min_periods={d})", .{ drawdown.name, drawdown.output_prefix, drawdown.options.min_periods }),
         .extrema_profile => |extrema| try writer.print("extrema_profile({s}, prefix={s}, min_periods={d})", .{ extrema.name, extrema.output_prefix, extrema.options.min_periods }),
         .trend_profile => |trend| try writer.print("trend_profile({s}, prefix={s}, periods={d})", .{ trend.name, trend.output_prefix, trend.options.periods }),
+        .sign_profile => |sign| try writer.print("sign_profile({s}, prefix={s}, periods={d})", .{ sign.name, sign.output_prefix, sign.options.periods }),
         .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
         .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
         .ema_profile => |ema| try writer.print("ema_profile({s}, prefix={s}, alpha={d})", .{ ema.name, ema.output_prefix, ema.options.alpha }),
@@ -4317,6 +4356,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = trend_col.*;
             initialized += 1;
             trend_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn signProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
+        const sign_value = try self.column(name);
+        var sign_columns = try signProfileColumnsByValue(self.allocator, sign_value.*, options_value, self.device, self.rows);
+        var sign_columns_transferred: usize = 0;
+        errdefer {
+            for (sign_columns[sign_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + sign_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var sign_names = try signProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, sign_names[0..]);
+        for (sign_names, 0..) |sign_name, i| source_names[self.columns.len + i] = sign_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + sign_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&sign_columns) |*sign_col| {
+            columns[initialized] = sign_col.*;
+            initialized += 1;
+            sign_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -6846,6 +6920,155 @@ fn trendProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, flat_streak, metric_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, reversal, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const SignProfileColumnCount = 5;
+
+fn signProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![SignProfileColumnCount][]const u8 {
+    var names: [SignProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "sign", "sign_flip", "positive_streak", "negative_streak", "zero_streak" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn signProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceTrendOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![SignProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| signProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| signProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| signProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| signProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| signProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| signProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| signProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| signProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| signProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| signProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| signProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| signProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| signProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn signProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceTrendOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![SignProfileColumnCount]DeviceColumn {
+    if (options_value.periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const signs = try allocator.alloc(i64, rows);
+    defer allocator.free(signs);
+    const flips = try allocator.alloc(bool, rows);
+    defer allocator.free(flips);
+    const positive_streak = try allocator.alloc(i64, rows);
+    defer allocator.free(positive_streak);
+    const negative_streak = try allocator.alloc(i64, rows);
+    defer allocator.free(negative_streak);
+    const zero_streak = try allocator.alloc(i64, rows);
+    defer allocator.free(zero_streak);
+    const sign_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(sign_validity);
+    const flip_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(flip_validity);
+
+    var pos: i64 = 0;
+    var neg: i64 = 0;
+    var zero: i64 = 0;
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        sign_validity[row] = valid;
+        if (!valid) {
+            signs[row] = 0;
+            flips[row] = false;
+            positive_streak[row] = 0;
+            negative_streak[row] = 0;
+            zero_streak[row] = 0;
+            flip_validity[row] = false;
+            pos = 0;
+            neg = 0;
+            zero = 0;
+            continue;
+        }
+
+        const x = castToF64(T, value_item);
+        const sign: i64 = if (x > 0) 1 else if (x < 0) -1 else 0;
+        signs[row] = sign;
+        switch (sign) {
+            1 => {
+                pos += 1;
+                neg = 0;
+                zero = 0;
+            },
+            -1 => {
+                neg += 1;
+                pos = 0;
+                zero = 0;
+            },
+            else => {
+                zero += 1;
+                pos = 0;
+                neg = 0;
+            },
+        }
+        positive_streak[row] = pos;
+        negative_streak[row] = neg;
+        zero_streak[row] = zero;
+
+        if (row < options_value.periods) {
+            flips[row] = false;
+            flip_validity[row] = false;
+        } else {
+            const previous_row = row - options_value.periods;
+            const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
+            flip_validity[row] = previous_valid;
+            if (previous_valid) {
+                const previous_sign: i64 = if (castToF64(T, values[previous_row]) > 0) 1 else if (castToF64(T, values[previous_row]) < 0) -1 else 0;
+                flips[row] = sign != previous_sign;
+            } else {
+                flips[row] = false;
+            }
+        }
+    }
+
+    var columns: [SignProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(i64, allocator, signs, sign_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, flips, flip_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(i64, allocator, positive_streak, sign_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, negative_streak, sign_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(i64, allocator, zero_streak, sign_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11395,6 +11618,37 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1, 0, 0, 0 }, flat_streak);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false, false }, reversal);
 
+    var signed_values_col = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ -1.0, -2.0, 0.0, 3.0, -4.0, 0.0, 5.0 }, &.{ true, true, true, true, true, false, true }, .cpu);
+    defer signed_values_col.deinit();
+    var signed_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "signal", .data = signed_values_col },
+    });
+    defer signed_table.deinit();
+    var sign = try signed_table.signProfile("signal", "signal", .{ .periods = 1 });
+    defer sign.deinit();
+    try std.testing.expectEqual(@as(usize, 6), sign.width());
+    const sign_values = try (try sign.column("signal_sign")).i64.toOwnedSlice(gpa);
+    defer gpa.free(sign_values);
+    const sign_flip = try (try sign.column("signal_sign_flip")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sign_flip);
+    const positive_streak = try (try sign.column("signal_positive_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(positive_streak);
+    const negative_streak = try (try sign.column("signal_negative_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(negative_streak);
+    const zero_streak = try (try sign.column("signal_zero_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(zero_streak);
+    const sign_validity = try (try sign.column("signal_sign")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(sign_validity);
+    const flip_validity = try (try sign.column("signal_sign_flip")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(flip_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, false, true }, sign_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, false, false }, flip_validity);
+    try std.testing.expectEqualSlices(i64, &.{ -1, -1, 0, 1, -1, 0, 1 }, sign_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, true, false, false }, sign_flip);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1, 0, 0, 1 }, positive_streak);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 0, 0, 1, 0, 0 }, negative_streak);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 0, 0 }, zero_streak);
+
     var validity = try trend_table.validityProfile("price", "price");
     defer validity.deinit();
     try std.testing.expectEqual(@as(usize, 6), validity.width());
@@ -12813,6 +13067,31 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, lazy_trend);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 3 }, lazy_up_streak);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_reversal);
+
+    var sign_plan = try DeviceLazyFrame.init(gpa, table);
+    defer sign_plan.deinit();
+    try sign_plan.withColumnScalar("sales_minus4", "sales", f64, 4.0, .sub);
+    try sign_plan.signProfile("sales_minus4", "sales", .{ .periods = 1 });
+    try sign_plan.select(&.{ "sales_minus4", "sales_sign", "sales_sign_flip", "sales_positive_streak", "sales_negative_streak" });
+    const sign_explain = try sign_plan.explain(gpa);
+    defer gpa.free(sign_explain);
+    try std.testing.expect(std.mem.indexOf(u8, sign_explain, "sign_profile(sales_minus4") != null);
+    var lazy_sign = try sign_plan.collect();
+    defer lazy_sign.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_sign.height());
+    try std.testing.expectEqual(@as(usize, 5), lazy_sign.width());
+    const lazy_sign_values = try (try lazy_sign.column("sales_sign")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_sign_values);
+    const lazy_sign_flip = try (try lazy_sign.column("sales_sign_flip")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_sign_flip);
+    const lazy_positive_streak = try (try lazy_sign.column("sales_positive_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_positive_streak);
+    const lazy_negative_streak = try (try lazy_sign.column("sales_negative_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_negative_streak);
+    try std.testing.expectEqualSlices(i64, &.{ -1, -1, 1, 1 }, lazy_sign_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, lazy_sign_flip);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 2 }, lazy_positive_streak);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 0, 0 }, lazy_negative_streak);
 
     var validity_plan = try DeviceLazyFrame.init(gpa, table);
     defer validity_plan.deinit();
