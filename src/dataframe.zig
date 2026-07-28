@@ -6,6 +6,7 @@ const dataframe_arrow_mod = @import("dataframe_arrow.zig");
 const keys_mod = @import("dataframe_keys.zig");
 const join_mod = @import("dataframe_join.zig");
 const lazy_mod = @import("dataframe_lazy.zig");
+const csv_mod = @import("dataframe_csv.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const BoolTransitionProfileColumnCount = bool_transition_mod.BoolTransitionProfileColumnCount;
@@ -5009,6 +5010,8 @@ fn rangeFromScalarPredicate(comptime T: type, value: T, op: DeviceColumnCompareO
 const allNamesIn = names_mod.allNamesIn;
 const formatLazyScanPushdown = lazy_mod.formatLazyScanPushdown;
 const formatLazyOp = lazy_mod.formatLazyOp;
+const splitCsvLineOwned = csv_mod.splitCsvLineOwned;
+const printCell = csv_mod.printCell;
 const isIntegerColumnType = numeric_mod.isIntegerColumnType;
 const isOrderedColumnType = numeric_mod.isOrderedColumnType;
 const describeF64 = numeric_mod.describeF64;
@@ -13459,13 +13462,6 @@ fn takeColumn(allocator: std.mem.Allocator, col: Column, indices: []const usize)
     };
 }
 
-fn splitCsvLineOwned(allocator: std.mem.Allocator, line: []const u8, out: *std.ArrayList([]const u8)) DataError!void {
-    var it = std.mem.splitScalar(u8, line, ',');
-    while (it.next()) |cell| {
-        try out.append(allocator, try allocator.dupe(u8, std.mem.trim(u8, cell, " \t\r\"")));
-    }
-}
-
 fn inferColumn(allocator: std.mem.Allocator, cells: []const []const u8) DataError!Column {
     const i64_values = try allocator.alloc(i64, cells.len);
     var all_i64 = true;
@@ -13515,15 +13511,6 @@ fn inferColumn(allocator: std.mem.Allocator, cells: []const []const u8) DataErro
         initialized += 1;
     }
     return .{ .string = strings };
-}
-
-fn printCell(writer: *std.Io.Writer, col: Column, row: usize) std.Io.Writer.Error!void {
-    switch (col) {
-        .f64 => |v| try writer.print("{}", .{v[row]}),
-        .i64 => |v| try writer.print("{}", .{v[row]}),
-        .bool => |v| try writer.print("{}", .{v[row]}),
-        .string => |v| try writer.print("{s}", .{v[row]}),
-    }
 }
 
 pub fn dataframe(allocator: std.mem.Allocator, defs: []const ColumnDef) DataError!DataFrame {
