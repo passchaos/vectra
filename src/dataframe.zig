@@ -6,6 +6,7 @@ const dataframe_arrow_mod = @import("dataframe_arrow.zig");
 const dataframe_column_mod = @import("dataframe_column.zig");
 const options_mod = @import("dataframe_options.zig");
 const dataframe_view_mod = @import("dataframe_view.zig");
+const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const keys_mod = @import("dataframe_keys.zig");
 const join_mod = @import("dataframe_join.zig");
 const lazy_mod = @import("dataframe_lazy.zig");
@@ -158,15 +159,8 @@ const freeColumn = dataframe_column_mod.freeColumn;
 const filterColumn = dataframe_column_mod.filterColumn;
 const sliceColumn = dataframe_column_mod.sliceColumn;
 const takeColumn = dataframe_column_mod.takeColumn;
-const countNulls = validity_mod.countNulls;
-const countNullsInArray = validity_mod.countNullsInArray;
 const validityValues = validity_mod.validityValues;
-const requireCompatibleColumnArrays = dataframe_array_mod.requireCompatibleColumnArrays;
-const combineValidityMasks = dataframe_array_mod.combineValidityMasks;
-const zeroValue = dataframe_array_mod.zeroValue;
 const rowIndicesFromMask = dataframe_array_mod.rowIndicesFromMask;
-const sliceArray1d = dataframe_array_mod.sliceArray1d;
-const takeArray1d = dataframe_array_mod.takeArray1d;
 const concatDeviceColumns = dataframe_array_mod.concatDeviceColumns;
 const distinctRowIndices = keys_mod.distinctRowIndices;
 const rowHasValidKeys = keys_mod.rowHasValidKeys;
@@ -260,279 +254,7 @@ pub const Range = options_mod.Range;
 pub const DeviceColumnView = dataframe_view_mod.DeviceColumnView;
 pub const DeviceDataFrameView = dataframe_view_mod.DeviceDataFrameView;
 
-pub fn DeviceTypedColumn(comptime T: type) type {
-    return struct {
-        const Self = @This();
-        pub const Scalar = T;
-
-        values: array_mod.Array(T),
-        validity: ?array_mod.Array(bool) = null,
-        null_count: usize = 0,
-
-        pub fn init(values: array_mod.Array(T), validity: ?array_mod.Array(bool), null_count: usize) array_mod.ArrayError!Self {
-            if (values.shape.len != 1) return error.InvalidShape;
-            if (validity) |mask| {
-                if (mask.shape.len != 1 or mask.shape[0] != values.shape[0]) return error.ShapeMismatch;
-                if (!mask.device.sameDevice(values.device)) return error.InvalidDevice;
-            }
-            return .{ .values = values, .validity = validity, .null_count = null_count };
-        }
-
-        pub fn fromSlice(allocator: std.mem.Allocator, values: []const T, device_value: array_mod.Device) array_mod.ArrayError!Self {
-            const value_array = try array_mod.Array(T).fromSliceOn(allocator, values, &.{values.len}, device_value);
-            errdefer {
-                var cleanup = value_array;
-                cleanup.deinit();
-            }
-            return Self.init(value_array, null, 0);
-        }
-
-        pub fn fromSliceWithValidity(
-            allocator: std.mem.Allocator,
-            values: []const T,
-            validity_values: []const bool,
-            device_value: array_mod.Device,
-        ) array_mod.ArrayError!Self {
-            if (validity_values.len != values.len) return error.ShapeMismatch;
-            const value_array = try array_mod.Array(T).fromSliceOn(allocator, values, &.{values.len}, device_value);
-            errdefer {
-                var cleanup = value_array;
-                cleanup.deinit();
-            }
-            const validity_array = try array_mod.Array(bool).fromSliceOn(allocator, validity_values, &.{validity_values.len}, device_value);
-            errdefer {
-                var cleanup = validity_array;
-                cleanup.deinit();
-            }
-            return Self.init(value_array, validity_array, countNulls(validity_values));
-        }
-
-        pub fn deinit(self: *Self) void {
-            self.values.deinit();
-            if (self.validity) |*mask| mask.deinit();
-            self.* = undefined;
-        }
-
-        pub fn len(self: Self) usize {
-            return self.values.shape[0];
-        }
-
-        pub fn dtype(self: Self) DeviceDType {
-            _ = self;
-            return DeviceDType.of(T);
-        }
-
-        pub fn device(self: Self) array_mod.Device {
-            return self.values.device;
-        }
-
-        pub fn nullable(self: Self) bool {
-            return self.validity != null;
-        }
-
-        pub fn hasNulls(self: Self) bool {
-            return self.null_count != 0;
-        }
-
-        pub fn dataNbytes(self: Self) usize {
-            return self.values.nbytes();
-        }
-
-        pub fn view(self: Self) DeviceColumnView {
-            const validity_ptr: ?u64 = if (self.validity) |mask| @intFromPtr(mask.dataPtr()) else null;
-            return .{
-                .dtype = DeviceDType.of(T),
-                .rows = self.len(),
-                .device = self.device(),
-                .data_ptr = @intFromPtr(self.values.dataPtr()),
-                .data_nbytes = self.values.nbytes(),
-                .validity_ptr = validity_ptr,
-                .validity_nbytes = if (self.validity) |mask| mask.nbytes() else 0,
-                .null_count = self.null_count,
-                .validity_encoding = if (validity_ptr != null) .bool_mask else .none,
-            };
-        }
-
-        pub fn clone(self: Self) array_mod.ArrayError!Self {
-            var values = try self.values.clone();
-            errdefer values.deinit();
-            var validity: ?array_mod.Array(bool) = null;
-            errdefer if (validity) |*mask| mask.deinit();
-            if (self.validity) |mask| validity = try mask.clone();
-            return .{ .values = values, .validity = validity, .null_count = self.null_count };
-        }
-
-        pub fn to(self: Self, device_value: array_mod.Device) array_mod.ArrayError!Self {
-            var values = try self.values.to(device_value);
-            errdefer values.deinit();
-            var validity: ?array_mod.Array(bool) = null;
-            errdefer if (validity) |*mask| mask.deinit();
-            if (self.validity) |mask| validity = try mask.to(device_value);
-            return .{ .values = values, .validity = validity, .null_count = self.null_count };
-        }
-
-        pub fn cpu(self: Self) array_mod.ArrayError!Self {
-            return self.to(.cpu);
-        }
-
-        pub fn cuda(self: Self, index: usize) array_mod.ArrayError!Self {
-            return self.to(array_mod.Device.cuda(index));
-        }
-
-        pub fn mps(self: Self, index: usize) array_mod.ArrayError!Self {
-            return self.to(array_mod.Device.mps(index));
-        }
-
-        pub fn sliceRows(self: Self, start: usize, stop: usize) array_mod.ArrayError!Self {
-            const end = @min(stop, self.len());
-            const begin = @min(start, end);
-            var values = try sliceArray1d(T, self.values, begin, end);
-            errdefer values.deinit();
-            var validity: ?array_mod.Array(bool) = null;
-            errdefer if (validity) |*mask| mask.deinit();
-            if (self.validity) |mask| validity = try sliceArray1d(bool, mask, begin, end);
-            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
-            return .{ .values = values, .validity = validity, .null_count = nulls };
-        }
-
-        pub fn take(self: Self, row_indices: []const usize) array_mod.ArrayError!Self {
-            var values = try takeArray1d(T, self.values, row_indices);
-            errdefer values.deinit();
-            var validity: ?array_mod.Array(bool) = null;
-            errdefer if (validity) |*mask| mask.deinit();
-            if (self.validity) |mask| validity = try takeArray1d(bool, mask, row_indices);
-            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
-            return .{ .values = values, .validity = validity, .null_count = nulls };
-        }
-
-        pub fn takeOptional(self: Self, row_indices: []const ?usize) array_mod.ArrayError!Self {
-            const host_values = try self.values.toOwnedSlice(self.values.allocator);
-            defer self.values.allocator.free(host_values);
-            const maybe_validity = try validityValues(self, self.values.allocator);
-            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
-
-            const values = try self.values.allocator.alloc(T, row_indices.len);
-            defer self.values.allocator.free(values);
-            const validity_values = try self.values.allocator.alloc(bool, row_indices.len);
-            defer self.values.allocator.free(validity_values);
-            for (row_indices, values, validity_values) |maybe_idx, *value_slot, *valid_slot| {
-                if (maybe_idx) |idx| {
-                    if (idx >= host_values.len) return error.IndexOutOfBounds;
-                    value_slot.* = host_values[idx];
-                    valid_slot.* = if (maybe_validity) |validity| validity[idx] else true;
-                } else {
-                    value_slot.* = zeroValue(T);
-                    valid_slot.* = false;
-                }
-            }
-            var value_array = try array_mod.Array(T).fromSliceOn(self.values.allocator, values, &.{row_indices.len}, self.device());
-            errdefer value_array.deinit();
-            if (countNulls(validity_values) == 0) return .{ .values = value_array, .validity = null, .null_count = 0 };
-            var validity_array = try array_mod.Array(bool).fromSliceOn(self.values.allocator, validity_values, &.{row_indices.len}, self.device());
-            errdefer validity_array.deinit();
-            return .{ .values = value_array, .validity = validity_array, .null_count = countNulls(validity_values) };
-        }
-
-        pub fn filter(self: Self, mask: []const bool) array_mod.ArrayError!Self {
-            if (mask.len != self.len()) return error.ShapeMismatch;
-            const row_indices = try rowIndicesFromMask(self.values.allocator, mask);
-            defer self.values.allocator.free(row_indices);
-            return self.take(row_indices);
-        }
-
-        pub fn binary(self: Self, other: Self, op: DeviceColumnBinaryOp) array_mod.ArrayError!Self {
-            if (comptime T == bool) return error.TypeUnsupported;
-            try requireCompatibleColumnArrays(T, self.values, other.values);
-            var values = switch (op) {
-                .add => try self.values.add(other.values),
-                .sub => try self.values.sub(other.values),
-                .mul => try self.values.mul(other.values),
-                .div => if (comptime isIntegerColumnType(T)) return error.TypeUnsupported else try self.values.div(other.values),
-            };
-            errdefer values.deinit();
-            var validity = try combineValidityMasks(self.values.allocator, self.validity, other.validity, self.len(), self.device());
-            errdefer if (validity) |*mask| mask.deinit();
-            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
-            return .{ .values = values, .validity = validity, .null_count = nulls };
-        }
-
-        pub fn binaryScalar(self: Self, scalar: T, op: DeviceColumnBinaryOp) array_mod.ArrayError!Self {
-            if (comptime T == bool) return error.TypeUnsupported;
-            var values = switch (op) {
-                .add => try self.values.addScalar(scalar),
-                .sub => try self.values.subScalar(scalar),
-                .mul => try self.values.mulScalar(scalar),
-                .div => if (comptime isIntegerColumnType(T)) return error.TypeUnsupported else try self.values.divScalar(scalar),
-            };
-            errdefer values.deinit();
-            var validity: ?array_mod.Array(bool) = null;
-            errdefer if (validity) |*mask| mask.deinit();
-            if (self.validity) |mask| validity = try mask.clone();
-            return .{ .values = values, .validity = validity, .null_count = self.null_count };
-        }
-
-        pub fn compare(self: Self, other: Self, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceTypedColumn(bool) {
-            try requireCompatibleColumnArrays(T, self.values, other.values);
-            if (comptime !isOrderedColumnType(T)) {
-                var values = switch (op) {
-                    .eq => try self.values.equal(other.values),
-                    .ne => try self.values.notEqual(other.values),
-                    .gt, .ge, .lt, .le => return error.TypeUnsupported,
-                };
-                errdefer values.deinit();
-                var validity = try combineValidityMasks(self.values.allocator, self.validity, other.validity, self.len(), self.device());
-                errdefer if (validity) |*mask| mask.deinit();
-                const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
-                return .{ .values = values, .validity = validity, .null_count = nulls };
-            }
-            var values = switch (op) {
-                .eq => try self.values.equal(other.values),
-                .ne => try self.values.notEqual(other.values),
-                .gt => try self.values.greater(other.values),
-                .ge => try self.values.greaterEqual(other.values),
-                .lt => try self.values.less(other.values),
-                .le => try self.values.lessEqual(other.values),
-            };
-            errdefer values.deinit();
-            var validity = try combineValidityMasks(self.values.allocator, self.validity, other.validity, self.len(), self.device());
-            errdefer if (validity) |*mask| mask.deinit();
-            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
-            return .{ .values = values, .validity = validity, .null_count = nulls };
-        }
-
-        pub fn compareScalar(self: Self, scalar: T, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceTypedColumn(bool) {
-            if (comptime !isOrderedColumnType(T)) {
-                var values = switch (op) {
-                    .eq => try self.values.equalScalar(scalar),
-                    .ne => try self.values.notEqualScalar(scalar),
-                    .gt, .ge, .lt, .le => return error.TypeUnsupported,
-                };
-                errdefer values.deinit();
-                var validity: ?array_mod.Array(bool) = null;
-                errdefer if (validity) |*mask| mask.deinit();
-                if (self.validity) |mask| validity = try mask.clone();
-                return .{ .values = values, .validity = validity, .null_count = self.null_count };
-            }
-            var values = switch (op) {
-                .eq => try self.values.equalScalar(scalar),
-                .ne => try self.values.notEqualScalar(scalar),
-                .gt => try self.values.greaterScalar(scalar),
-                .ge => try self.values.greaterEqualScalar(scalar),
-                .lt => try self.values.lessScalar(scalar),
-                .le => try self.values.lessEqualScalar(scalar),
-            };
-            errdefer values.deinit();
-            var validity: ?array_mod.Array(bool) = null;
-            errdefer if (validity) |*mask| mask.deinit();
-            if (self.validity) |mask| validity = try mask.clone();
-            return .{ .values = values, .validity = validity, .null_count = self.null_count };
-        }
-
-        pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) array_mod.ArrayError![]T {
-            return self.values.toOwnedSlice(allocator);
-        }
-    };
-}
+pub const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;
 
 pub const DeviceColumn = union(DeviceDType) {
     f32: DeviceTypedColumn(f32),
@@ -4762,8 +4484,6 @@ const formatLazyScanPushdown = lazy_mod.formatLazyScanPushdown;
 const formatLazyOp = lazy_mod.formatLazyOp;
 const splitCsvLineOwned = csv_mod.splitCsvLineOwned;
 const printCell = csv_mod.printCell;
-const isIntegerColumnType = numeric_mod.isIntegerColumnType;
-const isOrderedColumnType = numeric_mod.isOrderedColumnType;
 const describeF64 = numeric_mod.describeF64;
 const describeI64 = numeric_mod.describeI64;
 
