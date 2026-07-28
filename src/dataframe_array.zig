@@ -190,3 +190,30 @@ pub fn coalesceJoinKeys(left: anytype, right: anytype) (array_mod.ArrayError || 
         .c128 => |typed| .{ .c128 = try coalesceTypedJoinKeys(array_mod.Complex128, typed, right.c128) },
     };
 }
+
+pub fn initDeviceDataFrameFromOwnedColumns(
+    comptime DeviceDataFrame: type,
+    allocator: std.mem.Allocator,
+    source_names: []const []const u8,
+    columns: anytype,
+    rows: usize,
+    device_value: array_mod.Device,
+) (std.mem.Allocator.Error || array_mod.ArrayError || error{ LengthMismatch, InvalidDevice })!DeviceDataFrame {
+    if (source_names.len != columns.len) return error.LengthMismatch;
+    for (columns) |col| {
+        if (col.len() != rows) return error.LengthMismatch;
+        if (!col.device().sameDevice(device_value)) return error.InvalidDevice;
+    }
+
+    var names = try allocator.alloc([]const u8, source_names.len);
+    errdefer allocator.free(names);
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    for (source_names, names) |source, *slot| {
+        slot.* = try allocator.dupe(u8, source);
+        initialized += 1;
+    }
+    return .{ .allocator = allocator, .names = names, .columns = columns, .rows = rows, .device = device_value };
+}
