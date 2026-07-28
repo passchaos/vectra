@@ -98,6 +98,10 @@ pub const DeviceClipOptions = struct {
     upper: f64,
 };
 
+pub const DeviceThresholdOptions = struct {
+    threshold: f64,
+};
+
 pub const DeviceRollingOptions = struct {
     window: usize,
     min_periods: ?usize = null,

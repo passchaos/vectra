@@ -93,6 +93,7 @@ pub const DeviceColumnCompareOp = dataframe_mod.DeviceColumnCompareOp;
 pub const DeviceGroupByAggregation = dataframe_mod.DeviceGroupByAggregation;
 pub const DeviceSortOptions = dataframe_mod.DeviceSortOptions;
 pub const DeviceClipOptions = dataframe_mod.DeviceClipOptions;
+pub const DeviceThresholdOptions = dataframe_mod.DeviceThresholdOptions;
 pub const DeviceRollingOptions = dataframe_mod.DeviceRollingOptions;
 pub const DeviceLagOptions = dataframe_mod.DeviceLagOptions;
 pub const DeviceExpandingOptions = dataframe_mod.DeviceExpandingOptions;

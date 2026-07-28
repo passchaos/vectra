@@ -199,6 +199,10 @@ pub const DeviceClipOptions = struct {
     upper: f64,
 };
 
+pub const DeviceThresholdOptions = struct {
+    threshold: f64,
+};
+
 pub const DeviceRollingCorrelationOptions = struct {
     /// Trailing, row-count based window width including the current row.
     window: usize,
@@ -1031,6 +1035,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceClipOptions,
     },
+    threshold_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceThresholdOptions,
+    },
     expanding_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1213,6 +1222,10 @@ pub const DeviceLazyOp = union(enum) {
             .clip_profile => |clip| {
                 allocator.free(clip.name);
                 allocator.free(clip.output_prefix);
+            },
+            .threshold_profile => |threshold| {
+                allocator.free(threshold.name);
+                allocator.free(threshold.output_prefix);
             },
             .expanding_profile => |expanding| {
                 allocator.free(expanding.name);
@@ -1567,6 +1580,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = clip.options,
+                } };
+            },
+            .threshold_profile => |threshold| blk: {
+                const name = try allocator.dupe(u8, threshold.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, threshold.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .threshold_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = threshold.options,
                 } };
             },
             .expanding_profile => |expanding| blk: {
@@ -2227,6 +2251,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn thresholdProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceThresholdOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .threshold_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn expandingProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -2521,6 +2557,7 @@ pub const DeviceLazyFrame = struct {
                 .lag_profile => |lag| try current.lagProfile(lag.name, lag.output_prefix, lag.options),
                 .lead_profile => |lead| try current.leadProfile(lead.name, lead.output_prefix, lead.options),
                 .clip_profile => |clip| try current.clipProfile(clip.name, clip.output_prefix, clip.options),
+                .threshold_profile => |threshold| try current.thresholdProfile(threshold.name, threshold.output_prefix, threshold.options),
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
@@ -2984,6 +3021,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(clip.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, clip.name);
                 break :op_loop;
             },
+            .threshold_profile => |threshold| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(threshold.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, threshold.name);
+                break :op_loop;
+            },
             .expanding_profile => |expanding| {
                 // Expanding profiles append cumulative derived columns while
                 // preserving source columns.  Keep the source dependency for
@@ -3293,6 +3335,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .lag_profile => |lag| try writer.print("lag_profile({s}, prefix={s}, periods={d})", .{ lag.name, lag.output_prefix, lag.options.periods }),
         .lead_profile => |lead| try writer.print("lead_profile({s}, prefix={s}, periods={d})", .{ lead.name, lead.output_prefix, lead.options.periods }),
         .clip_profile => |clip| try writer.print("clip_profile({s}, prefix={s}, [{d},{d}])", .{ clip.name, clip.output_prefix, clip.options.lower, clip.options.upper }),
+        .threshold_profile => |threshold| try writer.print("threshold_profile({s}, prefix={s}, threshold={d})", .{ threshold.name, threshold.output_prefix, threshold.options.threshold }),
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
@@ -4146,6 +4189,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = clip_col.*;
             initialized += 1;
             clip_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn thresholdProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceThresholdOptions) DeviceDataError!DeviceDataFrame {
+        const threshold_value = try self.column(name);
+        var threshold_columns = try thresholdProfileColumnsByValue(self.allocator, threshold_value.*, options_value, self.device, self.rows);
+        var threshold_columns_transferred: usize = 0;
+        errdefer {
+            for (threshold_columns[threshold_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + threshold_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var threshold_names = try thresholdProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, threshold_names[0..]);
+        for (threshold_names, 0..) |threshold_name, i| source_names[self.columns.len + i] = threshold_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + threshold_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&threshold_columns) |*threshold_col| {
+            columns[initialized] = threshold_col.*;
+            initialized += 1;
+            threshold_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -6120,6 +6198,111 @@ fn clipProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, above, validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, in_range, validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ThresholdProfileColumnCount = 5;
+
+fn thresholdProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ThresholdProfileColumnCount][]const u8 {
+    var names: [ThresholdProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "distance", "abs_distance", "above", "below", "at" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn thresholdProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceThresholdOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ThresholdProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| thresholdProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| thresholdProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| thresholdProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| thresholdProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| thresholdProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| thresholdProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| thresholdProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| thresholdProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| thresholdProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| thresholdProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| thresholdProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| thresholdProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| thresholdProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn thresholdProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceThresholdOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![ThresholdProfileColumnCount]DeviceColumn {
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const distances = try allocator.alloc(f64, rows);
+    defer allocator.free(distances);
+    const abs_distances = try allocator.alloc(f64, rows);
+    defer allocator.free(abs_distances);
+    const above = try allocator.alloc(bool, rows);
+    defer allocator.free(above);
+    const below = try allocator.alloc(bool, rows);
+    defer allocator.free(below);
+    const at = try allocator.alloc(bool, rows);
+    defer allocator.free(at);
+    const validity = try allocator.alloc(bool, rows);
+    defer allocator.free(validity);
+
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        validity[row] = valid;
+        if (valid) {
+            const distance = castToF64(T, value_item) - options_value.threshold;
+            distances[row] = distance;
+            abs_distances[row] = @abs(distance);
+            above[row] = distance > 0;
+            below[row] = distance < 0;
+            at[row] = distance == 0;
+        } else {
+            distances[row] = 0;
+            abs_distances[row] = 0;
+            above[row] = false;
+            below[row] = false;
+            at[row] = false;
+        }
+    }
+
+    var columns: [ThresholdProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, distances, validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, abs_distances, validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, above, validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, below, validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, at, validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11463,6 +11646,28 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false }, above_values);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, false, false }, in_range_values);
 
+    var thresholded = try lag_table.thresholdProfile("sales", "sales", .{ .threshold = 10.0 });
+    defer thresholded.deinit();
+    try std.testing.expectEqual(@as(usize, 7), thresholded.width());
+    const threshold_distance = try (try thresholded.column("sales_distance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(threshold_distance);
+    const threshold_abs_distance = try (try thresholded.column("sales_abs_distance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(threshold_abs_distance);
+    const threshold_above = try (try thresholded.column("sales_above")).bool.toOwnedSlice(gpa);
+    defer gpa.free(threshold_above);
+    const threshold_below = try (try thresholded.column("sales_below")).bool.toOwnedSlice(gpa);
+    defer gpa.free(threshold_below);
+    const threshold_at = try (try thresholded.column("sales_at")).bool.toOwnedSlice(gpa);
+    defer gpa.free(threshold_at);
+    const threshold_validity = try (try thresholded.column("sales_distance")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(threshold_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, threshold_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, -10.0, 5.0, 10.0, 0.0 }, threshold_distance);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 10.0, 5.0, 10.0, 0.0 }, threshold_abs_distance);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, false }, threshold_above);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, threshold_below);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false }, threshold_at);
+
     var scaled = try lag_table.standardizeProfile("sales", "sales", .{ .min_periods = 3 });
     defer scaled.deinit();
     try std.testing.expectEqual(@as(usize, 5), scaled.width());
@@ -12898,6 +13103,33 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, lazy_below);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, lazy_above);
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, lazy_in_range);
+
+    var threshold_plan = try DeviceLazyFrame.init(gpa, table);
+    defer threshold_plan.deinit();
+    try threshold_plan.thresholdProfile("sales", "sales", .{ .threshold = 5.0 });
+    try threshold_plan.select(&.{ "sales", "sales_distance", "sales_abs_distance", "sales_above", "sales_below", "sales_at" });
+    const threshold_explain = try threshold_plan.explain(gpa);
+    defer gpa.free(threshold_explain);
+    try std.testing.expect(std.mem.indexOf(u8, threshold_explain, "threshold_profile(sales") != null);
+    var lazy_threshold = try threshold_plan.collect();
+    defer lazy_threshold.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_threshold.height());
+    try std.testing.expectEqual(@as(usize, 6), lazy_threshold.width());
+    const lazy_distance = try (try lazy_threshold.column("sales_distance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_distance);
+    const lazy_abs_distance = try (try lazy_threshold.column("sales_abs_distance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_abs_distance);
+    const lazy_above_threshold = try (try lazy_threshold.column("sales_above")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_above_threshold);
+    const lazy_below_threshold = try (try lazy_threshold.column("sales_below")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_below_threshold);
+    const lazy_at_threshold = try (try lazy_threshold.column("sales_at")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_at_threshold);
+    try std.testing.expectEqualSlices(f64, &.{ -3.0, -2.0, 0.0, 2.0 }, lazy_distance);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 2.0, 0.0, 2.0 }, lazy_abs_distance);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, lazy_above_threshold);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false }, lazy_below_threshold);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, lazy_at_threshold);
 
     var expanding_plan = try DeviceLazyFrame.init(gpa, table);
     defer expanding_plan.deinit();
