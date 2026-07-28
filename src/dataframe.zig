@@ -151,6 +151,11 @@ pub const DeviceRobustOptions = struct {
     iqr_multiplier: f64 = 1.5,
 };
 
+pub const DeviceDrawdownOptions = struct {
+    /// Minimum valid observations required to mark drawdown metrics as valid.
+    min_periods: usize = 1,
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -965,6 +970,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceRobustOptions,
     },
+    drawdown_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceDrawdownOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1062,6 +1072,10 @@ pub const DeviceLazyOp = union(enum) {
             .robust_profile => |robust| {
                 allocator.free(robust.name);
                 allocator.free(robust.output_prefix);
+            },
+            .drawdown_profile => |drawdown| {
+                allocator.free(drawdown.name);
+                allocator.free(drawdown.output_prefix);
             },
             .distinct_rows, .head, .tail => {},
         }
@@ -1329,6 +1343,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = robust.options,
+                } };
+            },
+            .drawdown_profile => |drawdown| blk: {
+                const name = try allocator.dupe(u8, drawdown.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, drawdown.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .drawdown_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = drawdown.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -1788,6 +1813,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn drawdownProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceDrawdownOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .drawdown_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -1860,6 +1897,7 @@ pub const DeviceLazyFrame = struct {
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
+                .drawdown_profile => |drawdown| try current.drawdownProfile(drawdown.name, drawdown.output_prefix, drawdown.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2295,6 +2333,15 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(robust.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, robust.name);
                 break :op_loop;
             },
+            .drawdown_profile => |drawdown| {
+                // Drawdown profiles append sequence-derived columns while
+                // preserving source fields. Keep scan predicates, but avoid
+                // projection pushdown until source-vs-derived schema tracking is
+                // rich enough to safely split later selects.
+                projection_blocked = true;
+                if (!nameInBorrowedList(drawdown.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, drawdown.name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2481,6 +2528,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
+        .drawdown_profile => |drawdown| try writer.print("drawdown_profile({s}, prefix={s}, min_periods={d})", .{ drawdown.name, drawdown.output_prefix, drawdown.options.min_periods }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -3249,6 +3297,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = robust_col.*;
             initialized += 1;
             robust_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn drawdownProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceDrawdownOptions) DeviceDataError!DeviceDataFrame {
+        const drawdown_value = try self.column(name);
+        var drawdown_columns = try drawdownProfileColumnsByValue(self.allocator, drawdown_value.*, options_value, self.device, self.rows);
+        var drawdown_columns_transferred: usize = 0;
+        errdefer {
+            for (drawdown_columns[drawdown_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + drawdown_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var drawdown_names = try drawdownProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, drawdown_names[0..]);
+        for (drawdown_names, 0..) |drawdown_name, i| source_names[self.columns.len + i] = drawdown_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + drawdown_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&drawdown_columns) |*drawdown_col| {
+            columns[initialized] = drawdown_col.*;
+            initialized += 1;
+            drawdown_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -4479,6 +4562,119 @@ fn quantileSorted(values: []const f64, probability: f64) f64 {
     const upper: usize = if (lower + 1 < values.len and position > @as(f64, @floatFromInt(lower))) lower + 1 else lower;
     const fraction = position - @as(f64, @floatFromInt(lower));
     return values[lower] * (1.0 - fraction) + values[upper] * fraction;
+}
+
+const DrawdownProfileColumnCount = 3;
+
+fn drawdownProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![DrawdownProfileColumnCount][]const u8 {
+    var names: [DrawdownProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "running_peak", "drawdown", "drawdown_pct" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn drawdownProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceDrawdownOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![DrawdownProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| drawdownProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| drawdownProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| drawdownProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| drawdownProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| drawdownProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| drawdownProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| drawdownProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| drawdownProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| drawdownProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| drawdownProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| drawdownProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| drawdownProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| drawdownProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn drawdownProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceDrawdownOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![DrawdownProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const running_peak = try allocator.alloc(f64, rows);
+    defer allocator.free(running_peak);
+    const drawdown = try allocator.alloc(f64, rows);
+    defer allocator.free(drawdown);
+    const drawdown_pct = try allocator.alloc(f64, rows);
+    defer allocator.free(drawdown_pct);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var valid_count: usize = 0;
+    var peak: f64 = 0;
+    // Drawdown is inherently order-sensitive, so null rows do not advance the
+    // running peak and their derived metrics are null. The output remains in the
+    // original row order and gives risk/time-series pipelines a compact seam for
+    // later device-side prefix-max lowering.
+    for (values, 0..) |value_item, row| {
+        const row_valid = if (maybe_validity) |mask| mask[row] else true;
+        if (row_valid) {
+            const current = castToF64(T, value_item);
+            if (valid_count == 0 or current > peak) peak = current;
+            valid_count += 1;
+
+            const has_enough = valid_count >= options_value.min_periods;
+            metric_validity[row] = has_enough;
+            if (has_enough) {
+                const dd = current - peak;
+                running_peak[row] = peak;
+                drawdown[row] = dd;
+                drawdown_pct[row] = if (peak == 0) std.math.nan(f64) else dd / peak;
+            } else {
+                running_peak[row] = 0;
+                drawdown[row] = 0;
+                drawdown_pct[row] = 0;
+            }
+        } else {
+            metric_validity[row] = false;
+            running_peak[row] = 0;
+            drawdown[row] = 0;
+            drawdown_pct[row] = 0;
+        }
+    }
+
+    var columns: [DrawdownProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, running_peak, metric_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdown, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdown_pct, metric_validity, device_value);
+    initialized += 1;
+    return columns;
 }
 
 fn groupByCountTyped(
@@ -7833,6 +8029,41 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 2.0), winsorized[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3.0), winsorized[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 65.5), winsorized[3], 1e-12);
+
+    var equity = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 100.0, 120.0, 90.0, 130.0, 80.0, 0.0 }, &.{ true, true, true, true, true, false }, .cpu);
+    defer equity.deinit();
+    var equity_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4, 5, 6 }, .cpu);
+    defer equity_id.deinit();
+    var equity_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "equity", .data = equity },
+        .{ .name = "id", .data = equity_id },
+    });
+    defer equity_table.deinit();
+
+    var drawdown = try equity_table.drawdownProfile("equity", "equity", .{ .min_periods = 2 });
+    defer drawdown.deinit();
+    try std.testing.expectEqual(@as(usize, 5), drawdown.width());
+    const running_peak = try (try drawdown.column("equity_running_peak")).f64.toOwnedSlice(gpa);
+    defer gpa.free(running_peak);
+    const drawdown_values = try (try drawdown.column("equity_drawdown")).f64.toOwnedSlice(gpa);
+    defer gpa.free(drawdown_values);
+    const drawdown_pct = try (try drawdown.column("equity_drawdown_pct")).f64.toOwnedSlice(gpa);
+    defer gpa.free(drawdown_pct);
+    const drawdown_validity = try (try drawdown.column("equity_drawdown")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(drawdown_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, false }, drawdown_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 120.0), running_peak[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 120.0), running_peak[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 130.0), running_peak[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 130.0), running_peak[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), drawdown_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -30.0), drawdown_values[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), drawdown_values[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -50.0), drawdown_values[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), drawdown_pct[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.25), drawdown_pct[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), drawdown_pct[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -50.0 / 130.0), drawdown_pct[4], 1e-12);
 }
 
 test "device dataframe groupby aggregations on fixed-width columns" {
@@ -8781,6 +9012,36 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 1.3489795003921634), lazy_mad_zscore[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_iqr_outlier);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, 7.0 }, lazy_winsorized);
+
+    var drawdown_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drawdown_plan.deinit();
+    try drawdown_plan.drawdownProfile("sales", "sales", .{ .min_periods = 2 });
+    try drawdown_plan.select(&.{ "sales", "sales_running_peak", "sales_drawdown", "sales_drawdown_pct" });
+    const drawdown_explain = try drawdown_plan.explain(gpa);
+    defer gpa.free(drawdown_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drawdown_explain, "drawdown_profile(sales") != null);
+    var drawdown = try drawdown_plan.collect();
+    defer drawdown.deinit();
+    try std.testing.expectEqual(@as(usize, 4), drawdown.height());
+    try std.testing.expectEqual(@as(usize, 4), drawdown.width());
+    const lazy_peak = try (try drawdown.column("sales_running_peak")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_peak);
+    const lazy_drawdown = try (try drawdown.column("sales_drawdown")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_drawdown);
+    const lazy_drawdown_pct = try (try drawdown.column("sales_drawdown_pct")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_drawdown_pct);
+    const lazy_drawdown_validity = try (try drawdown.column("sales_drawdown")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_drawdown_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_drawdown_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_peak[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_peak[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), lazy_peak[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[3], 1e-12);
 }
 
 test "device lazy frame collects groupby aggregations" {
