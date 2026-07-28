@@ -127,6 +127,13 @@ pub const DeviceCrossoverOptions = struct {
     periods: usize = 1,
 };
 
+pub const DeviceBucketOptions = struct {
+    buckets: usize = 10,
+    lower_quantile: f64 = 0.05,
+    upper_quantile: f64 = 0.95,
+    min_periods: usize = 1,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };

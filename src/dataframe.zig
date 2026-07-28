@@ -166,6 +166,17 @@ pub const DeviceCrossoverOptions = struct {
     periods: usize = 1,
 };
 
+pub const DeviceBucketOptions = struct {
+    /// Number of equal-frequency buckets to assign, zero-based.
+    buckets: usize = 10,
+    /// Lower-tail quantile threshold for the tail flag.
+    lower_quantile: f64 = 0.05,
+    /// Upper-tail quantile threshold for the tail flag.
+    upper_quantile: f64 = 0.95,
+    /// Minimum valid observations required to compute distribution features.
+    min_periods: usize = 1,
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -1001,6 +1012,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceCrossoverOptions,
     },
+    bucket_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceBucketOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1115,6 +1131,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(cross.lhs_name);
                 allocator.free(cross.rhs_name);
                 allocator.free(cross.output_prefix);
+            },
+            .bucket_profile => |bucket| {
+                allocator.free(bucket.name);
+                allocator.free(bucket.output_prefix);
             },
             .distinct_rows, .head, .tail => {},
         }
@@ -1429,6 +1449,17 @@ pub const DeviceLazyOp = union(enum) {
                     .rhs_name = rhs_name,
                     .output_prefix = output_prefix,
                     .options = cross.options,
+                } };
+            },
+            .bucket_profile => |bucket| blk: {
+                const name = try allocator.dupe(u8, bucket.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, bucket.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .bucket_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = bucket.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -1945,6 +1976,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn bucketProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceBucketOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .bucket_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -2021,6 +2064,7 @@ pub const DeviceLazyFrame = struct {
                 .drawdown_profile => |drawdown| try current.drawdownProfile(drawdown.name, drawdown.output_prefix, drawdown.options),
                 .trend_profile => |trend| try current.trendProfile(trend.name, trend.output_prefix, trend.options),
                 .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
+                .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2492,6 +2536,15 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(cross.rhs_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, cross.rhs_name);
                 break :op_loop;
             },
+            .bucket_profile => |bucket| {
+                // Bucket profiles depend on the whole source distribution and
+                // append several derived fields, so keep predicates but block
+                // projection pushdown until generated-field schema metadata is
+                // tracked explicitly.
+                projection_blocked = true;
+                if (!nameInBorrowedList(bucket.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, bucket.name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2682,6 +2735,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .drawdown_profile => |drawdown| try writer.print("drawdown_profile({s}, prefix={s}, min_periods={d})", .{ drawdown.name, drawdown.output_prefix, drawdown.options.min_periods }),
         .trend_profile => |trend| try writer.print("trend_profile({s}, prefix={s}, periods={d})", .{ trend.name, trend.output_prefix, trend.options.periods }),
         .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
+        .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -3598,6 +3652,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = cross_col.*;
             initialized += 1;
             cross_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn bucketProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceBucketOptions) DeviceDataError!DeviceDataFrame {
+        const bucket_value = try self.column(name);
+        var bucket_columns = try bucketProfileColumnsByValue(self.allocator, bucket_value.*, options_value, self.device, self.rows);
+        var bucket_columns_transferred: usize = 0;
+        errdefer {
+            for (bucket_columns[bucket_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + bucket_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var bucket_names = try bucketProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, bucket_names[0..]);
+        for (bucket_names, 0..) |bucket_name, i| source_names[self.columns.len + i] = bucket_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + bucket_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&bucket_columns) |*bucket_col| {
+            columns[initialized] = bucket_col.*;
+            initialized += 1;
+            bucket_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -5363,6 +5452,140 @@ fn crossoverProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, cross_below, cross_validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const BucketProfileColumnCount = 4;
+
+fn bucketProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![BucketProfileColumnCount][]const u8 {
+    var names: [BucketProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "ecdf", "bucket", "lower_tail", "upper_tail" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn bucketProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceBucketOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![BucketProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .bool => |typed| bucketProfileColumnsTyped(bool, allocator, typed, options_value, device_value),
+        .i8 => |typed| bucketProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| bucketProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| bucketProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| bucketProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| bucketProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| bucketProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| bucketProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| bucketProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| bucketProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| bucketProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| bucketProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| bucketProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| bucketProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn bucketProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceBucketOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![BucketProfileColumnCount]DeviceColumn {
+    if (options_value.buckets == 0 or options_value.min_periods == 0) return error.InvalidShape;
+    if (options_value.lower_quantile < 0 or options_value.lower_quantile > 1) return error.InvalidShape;
+    if (options_value.upper_quantile < 0 or options_value.upper_quantile > 1) return error.InvalidShape;
+    if (options_value.lower_quantile > options_value.upper_quantile) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const order = try argsortTypedColumn(T, column, allocator, .{ .descending = false, .nulls = .last });
+    defer allocator.free(order);
+
+    var valid_count: usize = 0;
+    for (values, 0..) |_, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (valid) valid_count += 1;
+    }
+
+    const rows = values.len;
+    const ecdf = try allocator.alloc(f64, rows);
+    defer allocator.free(ecdf);
+    const buckets = try allocator.alloc(i64, rows);
+    defer allocator.free(buckets);
+    const lower_tail = try allocator.alloc(bool, rows);
+    defer allocator.free(lower_tail);
+    const upper_tail = try allocator.alloc(bool, rows);
+    defer allocator.free(upper_tail);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    @memset(ecdf, 0);
+    @memset(buckets, 0);
+    @memset(lower_tail, false);
+    @memset(upper_tail, false);
+    @memset(metric_validity, false);
+
+    if (valid_count >= options_value.min_periods and valid_count != 0) {
+        var group_start: usize = 0;
+        while (group_start < valid_count) {
+            var group_end = group_start + 1;
+            while (group_end < valid_count and bucketKeysTie(T, values, order[group_start], order[group_end])) {
+                group_end += 1;
+            }
+
+            const rank_position = group_end; // right-continuous ECDF, 1-based.
+            const ecdf_value = @as(f64, @floatFromInt(rank_position)) / @as(f64, @floatFromInt(valid_count));
+            var bucket_index = @divFloor((rank_position - 1) * options_value.buckets, valid_count);
+            if (bucket_index >= options_value.buckets) bucket_index = options_value.buckets - 1;
+            const is_lower = ecdf_value <= options_value.lower_quantile;
+            const is_upper = ecdf_value >= options_value.upper_quantile;
+
+            for (order[group_start..group_end]) |row| {
+                ecdf[row] = ecdf_value;
+                buckets[row] = @intCast(bucket_index);
+                lower_tail[row] = is_lower;
+                upper_tail[row] = is_upper;
+                metric_validity[row] = true;
+            }
+            group_start = group_end;
+        }
+    }
+
+    var columns: [BucketProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ecdf, metric_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, buckets, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, lower_tail, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, upper_tail, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+fn bucketKeysTie(comptime T: type, values: []const T, lhs: usize, rhs: usize) bool {
+    if (comptime T == bool) return values[lhs] == values[rhs];
+    return compareSortValues(T, values[lhs], values[rhs]) == 0;
 }
 
 fn groupByCountTyped(
@@ -8851,6 +9074,29 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expect(std.math.isNan(ratio[5]));
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, false, false }, cross_above);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false }, cross_below);
+
+    var bucketed = try signal_table.bucketProfile("fast", "fast", .{ .buckets = 3, .lower_quantile = 0.34, .upper_quantile = 0.84 });
+    defer bucketed.deinit();
+    try std.testing.expectEqual(@as(usize, 6), bucketed.width());
+    const ecdf = try (try bucketed.column("fast_ecdf")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ecdf);
+    const bucket = try (try bucketed.column("fast_bucket")).i64.toOwnedSlice(gpa);
+    defer gpa.free(bucket);
+    const lower_tail = try (try bucketed.column("fast_lower_tail")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lower_tail);
+    const upper_tail = try (try bucketed.column("fast_upper_tail")).bool.toOwnedSlice(gpa);
+    defer gpa.free(upper_tail);
+    const bucket_validity = try (try bucketed.column("fast_bucket")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(bucket_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false, true }, bucket_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.2), ecdf[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), ecdf[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.4), ecdf[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.8), ecdf[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), ecdf[5], 1e-12);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1, 0, 2 }, bucket);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false }, lower_tail);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, true }, upper_tail);
 }
 
 test "device dataframe groupby aggregations on fixed-width columns" {
@@ -9920,6 +10166,33 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 6.0), lazy_ratio[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_cross_above);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_cross_below);
+
+    var bucket_plan = try DeviceLazyFrame.init(gpa, table);
+    defer bucket_plan.deinit();
+    try bucket_plan.bucketProfile("sales", "sales", .{ .buckets = 2, .lower_quantile = 0.25, .upper_quantile = 0.75 });
+    try bucket_plan.select(&.{ "sales", "sales_ecdf", "sales_bucket", "sales_lower_tail", "sales_upper_tail" });
+    const bucket_explain = try bucket_plan.explain(gpa);
+    defer gpa.free(bucket_explain);
+    try std.testing.expect(std.mem.indexOf(u8, bucket_explain, "bucket_profile(sales") != null);
+    var bucketed = try bucket_plan.collect();
+    defer bucketed.deinit();
+    try std.testing.expectEqual(@as(usize, 4), bucketed.height());
+    try std.testing.expectEqual(@as(usize, 5), bucketed.width());
+    const lazy_ecdf = try (try bucketed.column("sales_ecdf")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ecdf);
+    const lazy_bucket = try (try bucketed.column("sales_bucket")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_bucket);
+    const lazy_lower_tail = try (try bucketed.column("sales_lower_tail")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_lower_tail);
+    const lazy_upper_tail = try (try bucketed.column("sales_upper_tail")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_upper_tail);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), lazy_ecdf[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_ecdf[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), lazy_ecdf[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_ecdf[3], 1e-12);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 1 }, lazy_bucket);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, lazy_lower_tail);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, lazy_upper_tail);
 }
 
 test "device lazy frame collects groupby aggregations" {
