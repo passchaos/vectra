@@ -216,6 +216,8 @@ const names_mod = @import("dataframe_names.zig");
 const freeColumn = dataframe_column_mod.freeColumn;
 const validityValues = validity_mod.validityValues;
 const rowIndicesFromMask = dataframe_array_mod.rowIndicesFromMask;
+const takeOptionalRows = dataframe_array_mod.takeOptionalRows;
+const concatDeviceDataFramesRows = dataframe_array_mod.concatDeviceDataFramesRows;
 const concatDeviceColumns = dataframe_array_mod.concatDeviceColumns;
 const argsortTypedColumn = dataframe_device_column_mod.argsortTypedColumn;
 const distinctRowIndices = keys_mod.distinctRowIndices;
@@ -3876,7 +3878,7 @@ pub const DeviceDataFrame = struct {
         for (table.batches[1..]) |batch| {
             var next = try DeviceDataFrame.fromArrowRecordBatch(allocator, batch, device_value);
             defer next.deinit();
-            const combined = try concatDeviceDataFramesRows(out, next);
+            const combined = try concatDeviceDataFramesRows(DeviceDataFrame, out, next);
             out.deinit();
             out = combined;
         }
@@ -3903,7 +3905,7 @@ pub const DeviceDataFrame = struct {
         for (table.batches[1..]) |batch| {
             var next = try DeviceDataFrame.fromArrowRecordBatchProjection(allocator, batch, wanted_names, device_value);
             defer next.deinit();
-            const combined = try concatDeviceDataFramesRows(out, next);
+            const combined = try concatDeviceDataFramesRows(DeviceDataFrame, out, next);
             out.deinit();
             out = combined;
         }
@@ -4046,7 +4048,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn concatRows(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return concatDeviceDataFramesRows(self, other);
+        return concatDeviceDataFramesRows(DeviceDataFrame, self, other);
     }
 
     pub fn appendRows(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
@@ -6403,12 +6405,12 @@ pub const DeviceDataFrame = struct {
         var pair = try innerJoinRowIndices(self.allocator, left_key.*, right_key.*);
         defer pair.deinit();
 
-        var left_rows = try takeOptionalRows(self, pair.left);
+        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
         defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(right, pair.right);
+        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
         defer right_rows.deinit();
 
-        return concatJoinedTables(self.allocator, left_rows, right_rows, right_key_name, options_value);
+        return concatJoinedTables(DeviceDataFrame, self.allocator, left_rows, right_rows, right_key_name, options_value);
     }
 
     pub fn innerJoinOn(
@@ -6429,12 +6431,12 @@ pub const DeviceDataFrame = struct {
         var pair = try innerJoinRowIndicesMulti(self.allocator, self, right, left_key_names, right_key_names);
         defer pair.deinit();
 
-        var left_rows = try takeOptionalRows(self, pair.left);
+        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
         defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(right, pair.right);
+        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
         defer right_rows.deinit();
 
-        return concatJoinedTablesExcludingKeys(self.allocator, left_rows, right_rows, right_key_names, options_value);
+        return concatJoinedTablesExcludingKeys(DeviceDataFrame, self.allocator, left_rows, right_rows, right_key_names, options_value);
     }
 
     pub fn leftJoin(
@@ -6452,12 +6454,12 @@ pub const DeviceDataFrame = struct {
         var pair = try leftJoinRowIndices(self.allocator, left_key.*, right_key.*);
         defer pair.deinit();
 
-        var left_rows = try takeOptionalRows(self, pair.left);
+        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
         defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(right, pair.right);
+        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
         defer right_rows.deinit();
 
-        return concatJoinedTables(self.allocator, left_rows, right_rows, right_key_name, options_value);
+        return concatJoinedTables(DeviceDataFrame, self.allocator, left_rows, right_rows, right_key_name, options_value);
     }
 
     pub fn leftJoinOn(
@@ -6478,12 +6480,12 @@ pub const DeviceDataFrame = struct {
         var pair = try leftJoinRowIndicesMulti(self.allocator, self, right, left_key_names, right_key_names);
         defer pair.deinit();
 
-        var left_rows = try takeOptionalRows(self, pair.left);
+        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
         defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(right, pair.right);
+        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
         defer right_rows.deinit();
 
-        return concatJoinedTablesExcludingKeys(self.allocator, left_rows, right_rows, right_key_names, options_value);
+        return concatJoinedTablesExcludingKeys(DeviceDataFrame, self.allocator, left_rows, right_rows, right_key_names, options_value);
     }
 
     pub fn fullJoin(
@@ -6501,12 +6503,12 @@ pub const DeviceDataFrame = struct {
         var pair = try fullJoinRowIndices(self.allocator, left_key.*, right_key.*);
         defer pair.deinit();
 
-        var left_rows = try takeOptionalRows(self, pair.left);
+        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
         defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(right, pair.right);
+        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
         defer right_rows.deinit();
 
-        return concatFullJoinedTables(self.allocator, left_rows, right_rows, left_key_name, right_key_name, options_value);
+        return concatFullJoinedTables(DeviceDataFrame, self.allocator, left_rows, right_rows, left_key_name, right_key_name, options_value);
     }
 
     pub fn fullJoinOn(
@@ -6527,12 +6529,12 @@ pub const DeviceDataFrame = struct {
         var pair = try fullJoinRowIndicesMulti(self.allocator, self, right, left_key_names, right_key_names);
         defer pair.deinit();
 
-        var left_rows = try takeOptionalRows(self, pair.left);
+        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
         defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(right, pair.right);
+        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
         defer right_rows.deinit();
 
-        return concatFullJoinedTablesOn(self.allocator, left_rows, right_rows, left_key_names, right_key_names, options_value);
+        return concatFullJoinedTablesOn(DeviceDataFrame, self.allocator, left_rows, right_rows, left_key_names, right_key_names, options_value);
     }
 
     pub fn semiJoin(
@@ -6593,10 +6595,10 @@ pub const DeviceDataFrame = struct {
 
         const right_indices = try asofRightRowIndices(self.allocator, left_key.*, right_key.*, options_value.strategy);
         defer self.allocator.free(right_indices);
-        var right_rows = try takeOptionalRows(right, right_indices);
+        var right_rows = try takeOptionalRows(DeviceDataFrame, right, right_indices);
         defer right_rows.deinit();
 
-        return concatJoinedTables(self.allocator, self, right_rows, right_key_name, .{ .right_suffix = options_value.right_suffix });
+        return concatJoinedTables(DeviceDataFrame, self.allocator, self, right_rows, right_key_name, .{ .right_suffix = options_value.right_suffix });
     }
 
     fn semiAntiJoinIndices(
@@ -6696,128 +6698,21 @@ const groupByNumericDispatchKey = group_profile_mod.groupByNumericDispatchKey;
 const groupByMeanDispatchKey = group_profile_mod.groupByMeanDispatchKey;
 const groupByStatsDispatchKey = group_profile_mod.groupByStatsDispatchKey;
 const groupByProfileDispatchKey = group_profile_mod.groupByProfileDispatchKey;
+const innerJoinRowIndices = join_mod.innerJoinRowIndices;
+const innerJoinRowIndicesMulti = join_mod.innerJoinRowIndicesMulti;
+const leftJoinRowIndices = join_mod.leftJoinRowIndices;
+const leftJoinRowIndicesMulti = join_mod.leftJoinRowIndicesMulti;
+const fullJoinRowIndices = join_mod.fullJoinRowIndices;
+const fullJoinRowIndicesMulti = join_mod.fullJoinRowIndicesMulti;
+const semiAntiJoinRowIndices = join_mod.semiAntiJoinRowIndices;
+const semiAntiJoinRowIndicesMulti = join_mod.semiAntiJoinRowIndicesMulti;
+const concatJoinedTables = join_mod.concatJoinedTables;
+const concatJoinedTablesExcludingKeys = join_mod.concatJoinedTablesExcludingKeys;
+const concatFullJoinedTables = join_mod.concatFullJoinedTables;
+const concatFullJoinedTablesOn = join_mod.concatFullJoinedTablesOn;
 const findGroupIndex = numeric_mod.findGroupIndex;
 const groupKeyEqual = numeric_mod.groupKeyEqual;
 const castToF64 = numeric_mod.castToF64;
-
-const JoinRowIndexPair = struct {
-    allocator: std.mem.Allocator,
-    left: []?usize,
-    right: []?usize,
-
-    fn deinit(self: *JoinRowIndexPair) void {
-        self.allocator.free(self.left);
-        self.allocator.free(self.right);
-        self.* = undefined;
-    }
-};
-
-fn innerJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
-    return keys_mod.innerJoinRowIndices(JoinRowIndexPair, allocator, left, right);
-}
-
-fn innerJoinRowIndicesMulti(
-    allocator: std.mem.Allocator,
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    left_key_names: []const []const u8,
-    right_key_names: []const []const u8,
-) DeviceDataError!JoinRowIndexPair {
-    return keys_mod.innerJoinRowIndicesMulti(JoinRowIndexPair, allocator, left, right, left_key_names, right_key_names);
-}
-
-fn leftJoinRowIndicesMulti(
-    allocator: std.mem.Allocator,
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    left_key_names: []const []const u8,
-    right_key_names: []const []const u8,
-) DeviceDataError!JoinRowIndexPair {
-    return keys_mod.leftJoinRowIndicesMulti(JoinRowIndexPair, allocator, left, right, left_key_names, right_key_names);
-}
-
-fn fullJoinRowIndicesMulti(
-    allocator: std.mem.Allocator,
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    left_key_names: []const []const u8,
-    right_key_names: []const []const u8,
-) DeviceDataError!JoinRowIndexPair {
-    return keys_mod.fullJoinRowIndicesMulti(JoinRowIndexPair, allocator, left, right, left_key_names, right_key_names);
-}
-
-fn leftJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
-    return keys_mod.leftJoinRowIndices(JoinRowIndexPair, allocator, left, right);
-}
-
-fn fullJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
-    return keys_mod.fullJoinRowIndices(JoinRowIndexPair, allocator, left, right);
-}
-
-fn semiAntiJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn, keep_matches: bool) DeviceDataError![]usize {
-    return keys_mod.semiAntiJoinRowIndices(allocator, left, right, keep_matches);
-}
-
-fn semiAntiJoinRowIndicesMulti(
-    allocator: std.mem.Allocator,
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    left_key_names: []const []const u8,
-    right_key_names: []const []const u8,
-    keep_matches: bool,
-) DeviceDataError![]usize {
-    return keys_mod.semiAntiJoinRowIndicesMulti(allocator, left, right, left_key_names, right_key_names, keep_matches);
-}
-
-fn takeOptionalRows(input: DeviceDataFrame, row_indices: []const ?usize) DeviceDataError!DeviceDataFrame {
-    return dataframe_array_mod.takeOptionalRows(DeviceDataFrame, input, row_indices);
-}
-
-fn concatJoinedTables(
-    allocator: std.mem.Allocator,
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    right_key_name: []const u8,
-    options_value: DeviceJoinOptions,
-) DeviceDataError!DeviceDataFrame {
-    return concatJoinedTablesExcludingKeys(allocator, left, right, &.{right_key_name}, options_value);
-}
-
-fn concatJoinedTablesExcludingKeys(
-    allocator: std.mem.Allocator,
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    right_key_names: []const []const u8,
-    options_value: DeviceJoinOptions,
-) DeviceDataError!DeviceDataFrame {
-    return join_mod.concatJoinedTablesExcludingKeys(DeviceDataFrame, allocator, left, right, right_key_names, options_value);
-}
-
-fn concatFullJoinedTables(
-    allocator: std.mem.Allocator,
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    left_key_name: []const u8,
-    right_key_name: []const u8,
-    options_value: DeviceJoinOptions,
-) DeviceDataError!DeviceDataFrame {
-    return concatFullJoinedTablesOn(allocator, left, right, &.{left_key_name}, &.{right_key_name}, options_value);
-}
-
-fn concatFullJoinedTablesOn(
-    allocator: std.mem.Allocator,
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    left_key_names: []const []const u8,
-    right_key_names: []const []const u8,
-    options_value: DeviceJoinOptions,
-) DeviceDataError!DeviceDataFrame {
-    return join_mod.concatFullJoinedTablesOn(DeviceDataFrame, allocator, left, right, left_key_names, right_key_names, options_value);
-}
-
-fn concatDeviceDataFramesRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-    return dataframe_array_mod.concatDeviceDataFramesRows(DeviceDataFrame, first, second);
-}
 
 fn initDeviceDataFrameFromOwnedColumns(
     allocator: std.mem.Allocator,
