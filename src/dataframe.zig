@@ -13,6 +13,7 @@ const validity_mod = @import("dataframe_validity.zig");
 const bool_profile_mod = @import("dataframe_bool_profile.zig");
 const clip_mod = @import("dataframe_clip.zig");
 const risk_mod = @import("dataframe_risk.zig");
+const standardize_mod = @import("dataframe_standardize.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -10998,82 +10999,29 @@ fn standardizeProfileColumnsTyped(
     options_value: DeviceStandardizeOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![StandardizeProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    var count: usize = 0;
-    var sum: f64 = 0;
-    var sum_sq: f64 = 0;
-    var min_value: f64 = 0;
-    var max_value: f64 = 0;
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (!valid) continue;
-        const x = castToF64(T, value_item);
-        if (count == 0) {
-            min_value = x;
-            max_value = x;
-        } else {
-            if (x < min_value) min_value = x;
-            if (x > max_value) max_value = x;
-        }
-        sum += x;
-        sum_sq += x * x;
-        count += 1;
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    const rows = values.len;
-    const centered = try allocator.alloc(f64, rows);
-    defer allocator.free(centered);
-    const zscores = try allocator.alloc(f64, rows);
-    defer allocator.free(zscores);
-    const minmax = try allocator.alloc(f64, rows);
-    defer allocator.free(minmax);
-    const validity = try allocator.alloc(bool, rows);
-    defer allocator.free(validity);
-
-    const has_enough = count >= options_value.min_periods;
-    const mean = if (count == 0) 0 else sum / @as(f64, @floatFromInt(count));
-    const raw_variance = if (count == 0) 0 else sum_sq / @as(f64, @floatFromInt(count)) - mean * mean;
-    const variance = if (raw_variance < 0) 0 else raw_variance;
-    const stddev = std.math.sqrt(variance);
-    const range = max_value - min_value;
-
-    // Generate common whole-column scaling features in a single pass over the
-    // materialized values. This mirrors dataframe feature-engineering pipelines
-    // that ask for centered, z-score, and min-max forms together while leaving a
-    // single future lowering seam for device-side normalization kernels.
-    for (values, 0..) |value_item, row| {
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        const valid = row_valid and has_enough;
-        validity[row] = valid;
-        if (valid) {
-            const x = castToF64(T, value_item);
-            const delta = x - mean;
-            centered[row] = delta;
-            zscores[row] = if (stddev == 0) std.math.nan(f64) else delta / stddev;
-            minmax[row] = if (range == 0) std.math.nan(f64) else (x - min_value) / range;
-        } else {
-            centered[row] = 0;
-            zscores[row] = 0;
-            minmax[row] = 0;
-        }
-    }
+    var metrics = try standardize_mod.standardizeProfile(allocator, values, maybe_validity, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [StandardizeProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, centered, validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.centered, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, zscores, validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.zscores, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, minmax, validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.minmax, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
