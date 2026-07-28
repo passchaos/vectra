@@ -1123,6 +1123,12 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceRollingCorrelationOptions,
     },
+    rolling_linear_fit_profile: struct {
+        x_name: []const u8,
+        y_name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceRollingCorrelationOptions,
+    },
     validity_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1305,6 +1311,11 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(corr.x_name);
                 allocator.free(corr.y_name);
                 allocator.free(corr.output_prefix);
+            },
+            .rolling_linear_fit_profile => |fit| {
+                allocator.free(fit.x_name);
+                allocator.free(fit.y_name);
+                allocator.free(fit.output_prefix);
             },
             .validity_profile => |validity| {
                 allocator.free(validity.name);
@@ -1798,6 +1809,20 @@ pub const DeviceLazyOp = union(enum) {
                     .y_name = y_name,
                     .output_prefix = output_prefix,
                     .options = corr.options,
+                } };
+            },
+            .rolling_linear_fit_profile => |fit| blk: {
+                const x_name = try allocator.dupe(u8, fit.x_name);
+                errdefer allocator.free(x_name);
+                const y_name = try allocator.dupe(u8, fit.y_name);
+                errdefer allocator.free(y_name);
+                const output_prefix = try allocator.dupe(u8, fit.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_linear_fit_profile = .{
+                    .x_name = x_name,
+                    .y_name = y_name,
+                    .output_prefix = output_prefix,
+                    .options = fit.options,
                 } };
             },
             .validity_profile => |validity| blk: {
@@ -2536,6 +2561,27 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingLinearFitProfile(
+        self: *DeviceLazyFrame,
+        x_name: []const u8,
+        y_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceRollingCorrelationOptions,
+    ) DeviceDataError!void {
+        const owned_x = try self.allocator.dupe(u8, x_name);
+        errdefer self.allocator.free(owned_x);
+        const owned_y = try self.allocator.dupe(u8, y_name);
+        errdefer self.allocator.free(owned_y);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_linear_fit_profile = .{
+            .x_name = owned_x,
+            .y_name = owned_y,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn validityProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -2638,6 +2684,7 @@ pub const DeviceLazyFrame = struct {
                 .classification_profile => |class| try current.classificationProfile(class.actual_name, class.predicted_name, class.output_prefix),
                 .bool_transition_profile => |transition| try current.boolTransitionProfile(transition.name, transition.output_prefix, transition.options),
                 .rolling_correlation_profile => |corr| try current.rollingCorrelationProfile(corr.x_name, corr.y_name, corr.output_prefix, corr.options),
+                .rolling_linear_fit_profile => |fit| try current.rollingLinearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
                 .validity_profile => |validity| try current.validityProfile(validity.name, validity.output_prefix),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
@@ -3219,6 +3266,16 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(corr.y_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, corr.y_name);
                 break :op_loop;
             },
+            .rolling_linear_fit_profile => |fit| {
+                // Rolling linear-fit profiles append window-local model fields
+                // from two source columns. Preserve scan predicates but do not
+                // push projection across generated regression diagnostics until
+                // the planner can distinguish source and derived schemas.
+                projection_blocked = true;
+                if (!nameInBorrowedList(fit.x_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, fit.x_name);
+                if (!nameInBorrowedList(fit.y_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, fit.y_name);
+                break :op_loop;
+            },
             .validity_profile => |validity| {
                 // Validity profiles are schema-changing data-quality diagnostics
                 // over one source column. Keep source dependency for scans and
@@ -3432,6 +3489,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .classification_profile => |class| try writer.print("classification_profile(actual={s}, predicted={s}, prefix={s})", .{ class.actual_name, class.predicted_name, class.output_prefix }),
         .bool_transition_profile => |transition| try writer.print("bool_transition_profile({s}, prefix={s}, periods={d})", .{ transition.name, transition.output_prefix, transition.options.periods }),
         .rolling_correlation_profile => |corr| try writer.print("rolling_correlation_profile({s},{s}, prefix={s}, window={d})", .{ corr.x_name, corr.y_name, corr.output_prefix, corr.options.window }),
+        .rolling_linear_fit_profile => |fit| try writer.print("rolling_linear_fit_profile({s}->{s}, prefix={s}, window={d})", .{ fit.x_name, fit.y_name, fit.output_prefix, fit.options.window }),
         .validity_profile => |validity| try writer.print("validity_profile({s}, prefix={s})", .{ validity.name, validity.output_prefix }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
@@ -4906,6 +4964,49 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = corr_col.*;
             initialized += 1;
             corr_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingLinearFitProfile(
+        self: DeviceDataFrame,
+        x_name: []const u8,
+        y_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceRollingCorrelationOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        const x = try self.column(x_name);
+        const y = try self.column(y_name);
+        if (x.dtype() != y.dtype()) return error.TypeMismatch;
+        var fit_columns = try rollingLinearFitProfileColumnsByValue(self.allocator, x.*, y.*, options_value, self.device, self.rows);
+        var fit_columns_transferred: usize = 0;
+        errdefer {
+            for (fit_columns[fit_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + fit_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var fit_names = try rollingLinearFitProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, fit_names[0..]);
+        for (fit_names, 0..) |fit_name, i| source_names[self.columns.len + i] = fit_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + fit_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&fit_columns) |*fit_col| {
+            columns[initialized] = fit_col.*;
+            initialized += 1;
+            fit_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -8504,6 +8605,183 @@ fn rollingCorrelationProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, correlations, metric_validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, betas, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const RollingLinearFitProfileColumnCount = 6;
+
+fn rollingLinearFitProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingLinearFitProfileColumnCount][]const u8 {
+    var names: [RollingLinearFitProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_pair_count", "rolling_slope", "rolling_intercept", "rolling_fitted", "rolling_residual", "rolling_residual_zscore" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingLinearFitProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    x: DeviceColumn,
+    y: DeviceColumn,
+    options_value: DeviceRollingCorrelationOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingLinearFitProfileColumnCount]DeviceColumn {
+    if (x.len() != rows or y.len() != rows) return error.LengthMismatch;
+    if (x.dtype() != y.dtype()) return error.TypeMismatch;
+    return switch (x) {
+        .i8 => |typed| rollingLinearFitProfileColumnsTyped(i8, allocator, typed, y.i8, options_value, device_value),
+        .i16 => |typed| rollingLinearFitProfileColumnsTyped(i16, allocator, typed, y.i16, options_value, device_value),
+        .i32 => |typed| rollingLinearFitProfileColumnsTyped(i32, allocator, typed, y.i32, options_value, device_value),
+        .i64 => |typed| rollingLinearFitProfileColumnsTyped(i64, allocator, typed, y.i64, options_value, device_value),
+        .u8 => |typed| rollingLinearFitProfileColumnsTyped(u8, allocator, typed, y.u8, options_value, device_value),
+        .u16 => |typed| rollingLinearFitProfileColumnsTyped(u16, allocator, typed, y.u16, options_value, device_value),
+        .u32 => |typed| rollingLinearFitProfileColumnsTyped(u32, allocator, typed, y.u32, options_value, device_value),
+        .u64 => |typed| rollingLinearFitProfileColumnsTyped(u64, allocator, typed, y.u64, options_value, device_value),
+        .usize => |typed| rollingLinearFitProfileColumnsTyped(usize, allocator, typed, y.usize, options_value, device_value),
+        .isize => |typed| rollingLinearFitProfileColumnsTyped(isize, allocator, typed, y.isize, options_value, device_value),
+        .f16 => |typed| rollingLinearFitProfileColumnsTyped(f16, allocator, typed, y.f16, options_value, device_value),
+        .f32 => |typed| rollingLinearFitProfileColumnsTyped(f32, allocator, typed, y.f32, options_value, device_value),
+        .f64 => |typed| rollingLinearFitProfileColumnsTyped(f64, allocator, typed, y.f64, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rollingLinearFitProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    x_column: DeviceTypedColumn(T),
+    y_column: DeviceTypedColumn(T),
+    options_value: DeviceRollingCorrelationOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingLinearFitProfileColumnCount]DeviceColumn {
+    if (options_value.window == 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+    if (x_column.len() != y_column.len()) return error.LengthMismatch;
+    if (!x_column.device().sameDevice(y_column.device())) return error.InvalidDevice;
+
+    const xs = try x_column.values.toOwnedSlice(allocator);
+    defer allocator.free(xs);
+    const ys = try y_column.values.toOwnedSlice(allocator);
+    defer allocator.free(ys);
+    const maybe_x_validity = try validityValues(x_column, allocator);
+    defer if (maybe_x_validity) |validity| allocator.free(validity);
+    const maybe_y_validity = try validityValues(y_column, allocator);
+    defer if (maybe_y_validity) |validity| allocator.free(validity);
+
+    const rows = xs.len;
+    const pair_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(pair_counts);
+    const slopes = try allocator.alloc(f64, rows);
+    defer allocator.free(slopes);
+    const intercepts = try allocator.alloc(f64, rows);
+    defer allocator.free(intercepts);
+    const fitted = try allocator.alloc(f64, rows);
+    defer allocator.free(fitted);
+    const residuals = try allocator.alloc(f64, rows);
+    defer allocator.free(residuals);
+    const residual_z = try allocator.alloc(f64, rows);
+    defer allocator.free(residual_z);
+    const fit_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(fit_validity);
+    const row_metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(row_metric_validity);
+
+    // Each row receives the ordinary least-squares line fitted over its trailing
+    // valid-pair window.  Recomputing windows on the host matches the current
+    // rolling correlation implementation and keeps a single public seam for
+    // future device-side rolling regression kernels.
+    for (xs, ys, 0..) |x_value, y_value, row| {
+        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
+        var count: usize = 0;
+        var sum_x: f64 = 0;
+        var sum_y: f64 = 0;
+        var sum_xx: f64 = 0;
+        var sum_xy: f64 = 0;
+        for (start..row + 1) |window_row| {
+            const valid = (if (maybe_x_validity) |mask| mask[window_row] else true) and (if (maybe_y_validity) |mask| mask[window_row] else true);
+            if (!valid) continue;
+            const x = castToF64(T, xs[window_row]);
+            const y = castToF64(T, ys[window_row]);
+            sum_x += x;
+            sum_y += y;
+            sum_xx += x * x;
+            sum_xy += x * y;
+            count += 1;
+        }
+
+        pair_counts[row] = @intCast(count);
+        const has_fit = count >= min_periods;
+        fit_validity[row] = has_fit;
+        if (!has_fit) {
+            slopes[row] = 0;
+            intercepts[row] = 0;
+            fitted[row] = 0;
+            residuals[row] = 0;
+            residual_z[row] = 0;
+            row_metric_validity[row] = false;
+            continue;
+        }
+
+        const n: f64 = @floatFromInt(count);
+        const denom = n * sum_xx - sum_x * sum_x;
+        const slope = if (denom == 0) std.math.nan(f64) else (n * sum_xy - sum_x * sum_y) / denom;
+        const intercept = if (std.math.isNan(slope)) std.math.nan(f64) else (sum_y - slope * sum_x) / n;
+        slopes[row] = slope;
+        intercepts[row] = intercept;
+
+        var residual_sum_sq: f64 = 0;
+        if (!std.math.isNan(slope)) {
+            for (start..row + 1) |window_row| {
+                const valid = (if (maybe_x_validity) |mask| mask[window_row] else true) and (if (maybe_y_validity) |mask| mask[window_row] else true);
+                if (!valid) continue;
+                const fit = intercept + slope * castToF64(T, xs[window_row]);
+                const residual = castToF64(T, ys[window_row]) - fit;
+                residual_sum_sq += residual * residual;
+            }
+        }
+        const residual_std = if (std.math.isNan(slope)) std.math.nan(f64) else std.math.sqrt(residual_sum_sq / n);
+
+        const current_valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
+        row_metric_validity[row] = current_valid;
+        if (current_valid) {
+            const x_current = castToF64(T, x_value);
+            const y_current = castToF64(T, y_value);
+            const fit = intercept + slope * x_current;
+            const residual = y_current - fit;
+            fitted[row] = fit;
+            residuals[row] = residual;
+            residual_z[row] = if (residual_std == 0 or std.math.isNan(residual_std)) std.math.nan(f64) else residual / residual_std;
+        } else {
+            fitted[row] = 0;
+            residuals[row] = 0;
+            residual_z[row] = 0;
+        }
+    }
+
+    var columns: [RollingLinearFitProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, pair_counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, slopes, fit_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, intercepts, fit_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, fitted, row_metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residuals, row_metric_validity, device_value);
+    initialized += 1;
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residual_z, row_metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -12406,6 +12684,46 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 2.1), slope_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.1), slope_values[3], 1e-12);
 
+    var rolling_fit = try fit_table.rollingLinearFitProfile("x", "y", "xy", .{ .window = 3, .min_periods = 2 });
+    defer rolling_fit.deinit();
+    try std.testing.expectEqual(@as(usize, 8), rolling_fit.width());
+    const rolling_fit_count = try (try rolling_fit.column("xy_rolling_pair_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_fit_count);
+    const rolling_slope = try (try rolling_fit.column("xy_rolling_slope")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_slope);
+    const rolling_intercept = try (try rolling_fit.column("xy_rolling_intercept")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_intercept);
+    const rolling_fitted = try (try rolling_fit.column("xy_rolling_fitted")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_fitted);
+    const rolling_residual = try (try rolling_fit.column("xy_rolling_residual")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_residual);
+    const rolling_residual_z = try (try rolling_fit.column("xy_rolling_residual_zscore")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_residual_z);
+    const rolling_slope_validity = try (try rolling_fit.column("xy_rolling_slope")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_slope_validity);
+    const rolling_fitted_validity = try (try rolling_fit.column("xy_rolling_fitted")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_fitted_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 3, 2 }, rolling_fit_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true }, rolling_slope_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, false }, rolling_fitted_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), rolling_slope[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), rolling_slope[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), rolling_slope[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_slope[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_intercept[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_intercept[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 3.0), rolling_intercept[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), rolling_intercept[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), rolling_fitted[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 47.0 / 6.0), rolling_fitted[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 28.0 / 3.0), rolling_fitted[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_residual[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 6.0), rolling_residual[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), rolling_residual[3], 1e-12);
+    try std.testing.expect(std.math.isNan(rolling_residual_z[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.7071067811865475), rolling_residual_z[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.7071067811865475), rolling_residual_z[3], 1e-12);
+
     var errors = try fit_table.errorProfile("y", "x", "yx");
     defer errors.deinit();
     try std.testing.expectEqual(@as(usize, 7), errors.width());
@@ -14005,6 +14323,45 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_correlation[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_beta[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_beta[3], 1e-12);
+
+    var rolling_fit_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_fit_plan.deinit();
+    try rolling_fit_plan.withColumnScalar("sales_minus1", "sales", f64, 1.0, .sub);
+    try rolling_fit_plan.rollingLinearFitProfile("sales_minus1", "sales", "sales_fit", .{ .window = 2, .min_periods = 2 });
+    try rolling_fit_plan.select(&.{ "sales", "sales_fit_rolling_pair_count", "sales_fit_rolling_slope", "sales_fit_rolling_intercept", "sales_fit_rolling_fitted", "sales_fit_rolling_residual" });
+    const rolling_fit_explain = try rolling_fit_plan.explain(gpa);
+    defer gpa.free(rolling_fit_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_fit_explain, "rolling_linear_fit_profile(sales_minus1->sales") != null);
+    var rolling_fit = try rolling_fit_plan.collect();
+    defer rolling_fit.deinit();
+    try std.testing.expectEqual(@as(usize, 4), rolling_fit.height());
+    try std.testing.expectEqual(@as(usize, 6), rolling_fit.width());
+    const lazy_fit_count = try (try rolling_fit.column("sales_fit_rolling_pair_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_fit_count);
+    const lazy_rolling_fit_slope = try (try rolling_fit.column("sales_fit_rolling_slope")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_fit_slope);
+    const lazy_rolling_fit_intercept = try (try rolling_fit.column("sales_fit_rolling_intercept")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_fit_intercept);
+    const lazy_rolling_fit_fitted = try (try rolling_fit.column("sales_fit_rolling_fitted")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_fit_fitted);
+    const lazy_rolling_fit_residual = try (try rolling_fit.column("sales_fit_rolling_residual")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_fit_residual);
+    const lazy_fit_validity = try (try rolling_fit.column("sales_fit_rolling_slope")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_fit_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 2 }, lazy_fit_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_fit_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_fit_slope[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_fit_slope[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_fit_slope[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_fit_intercept[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_fit_intercept[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_fit_intercept[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_rolling_fit_fitted[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_rolling_fit_fitted[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), lazy_rolling_fit_fitted[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_fit_residual[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_fit_residual[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_fit_residual[3], 1e-12);
 
     var bucket_plan = try DeviceLazyFrame.init(gpa, table);
     defer bucket_plan.deinit();
