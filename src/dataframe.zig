@@ -1307,6 +1307,12 @@ pub const DeviceLazyOp = union(enum) {
         transition_options: DeviceTrendOptions,
         options: DeviceRollingOptions,
     },
+    expanding_bool_transition_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        transition_options: DeviceTrendOptions,
+        options: DeviceExpandingOptions,
+    },
     rolling_correlation_profile: struct {
         x_name: []const u8,
         y_name: []const u8,
@@ -1634,6 +1640,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(transition.output_prefix);
             },
             .rolling_bool_transition_profile => |transition| {
+                allocator.free(transition.name);
+                allocator.free(transition.output_prefix);
+            },
+            .expanding_bool_transition_profile => |transition| {
                 allocator.free(transition.name);
                 allocator.free(transition.output_prefix);
             },
@@ -2481,6 +2491,18 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, transition.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .rolling_bool_transition_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .transition_options = transition.transition_options,
+                    .options = transition.options,
+                } };
+            },
+            .expanding_bool_transition_profile => |transition| blk: {
+                const name = try allocator.dupe(u8, transition.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, transition.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .expanding_bool_transition_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
                     .transition_options = transition.transition_options,
@@ -3688,6 +3710,19 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn expandingBoolTransitionProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .expanding_bool_transition_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .transition_options = transition_options,
+            .options = options_value,
+        } });
+    }
+
     pub fn rollingCorrelationProfile(
         self: *DeviceLazyFrame,
         x_name: []const u8,
@@ -3925,6 +3960,7 @@ pub const DeviceLazyFrame = struct {
                 .expanding_classification_profile => |class| try current.expandingClassificationProfile(class.actual_name, class.predicted_name, class.output_prefix, class.options),
                 .bool_transition_profile => |transition| try current.boolTransitionProfile(transition.name, transition.output_prefix, transition.options),
                 .rolling_bool_transition_profile => |transition| try current.rollingBoolTransitionProfile(transition.name, transition.output_prefix, transition.transition_options, transition.options),
+                .expanding_bool_transition_profile => |transition| try current.expandingBoolTransitionProfile(transition.name, transition.output_prefix, transition.transition_options, transition.options),
                 .rolling_correlation_profile => |corr| try current.rollingCorrelationProfile(corr.x_name, corr.y_name, corr.output_prefix, corr.options),
                 .expanding_correlation_profile => |corr| try current.expandingCorrelationProfile(corr.x_name, corr.y_name, corr.output_prefix, corr.options),
                 .expanding_linear_fit_profile => |fit| try current.expandingLinearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
@@ -4684,6 +4720,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(transition.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, transition.name);
                 break :op_loop;
             },
+            .expanding_bool_transition_profile => |transition| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(transition.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, transition.name);
+                break :op_loop;
+            },
             .rolling_correlation_profile => |corr| {
                 // Rolling correlation profiles depend on two source columns and
                 // append several window diagnostics. Keep predicate pruning but
@@ -4972,6 +5013,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .expanding_classification_profile => |class| try writer.print("expanding_classification_profile(actual={s}, predicted={s}, prefix={s}, min_periods={d})", .{ class.actual_name, class.predicted_name, class.output_prefix, class.options.min_periods }),
         .bool_transition_profile => |transition| try writer.print("bool_transition_profile({s}, prefix={s}, periods={d})", .{ transition.name, transition.output_prefix, transition.options.periods }),
         .rolling_bool_transition_profile => |transition| try writer.print("rolling_bool_transition_profile({s}, prefix={s}, periods={d}, window={d})", .{ transition.name, transition.output_prefix, transition.transition_options.periods, transition.options.window }),
+        .expanding_bool_transition_profile => |transition| try writer.print("expanding_bool_transition_profile({s}, prefix={s}, periods={d}, min_periods={d})", .{ transition.name, transition.output_prefix, transition.transition_options.periods, transition.options.min_periods }),
         .rolling_correlation_profile => |corr| try writer.print("rolling_correlation_profile({s},{s}, prefix={s}, window={d})", .{ corr.x_name, corr.y_name, corr.output_prefix, corr.options.window }),
         .expanding_correlation_profile => |corr| try writer.print("expanding_correlation_profile({s},{s}, prefix={s}, min_periods={d})", .{ corr.x_name, corr.y_name, corr.output_prefix, corr.options.min_periods }),
         .expanding_linear_fit_profile => |fit| try writer.print("expanding_linear_fit_profile({s}->{s}, prefix={s}, min_periods={d})", .{ fit.x_name, fit.y_name, fit.output_prefix, fit.options.min_periods }),
@@ -7424,6 +7466,42 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var transition_names = try rollingBoolTransitionProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, transition_names[0..]);
+        for (transition_names, 0..) |transition_name, i| source_names[self.columns.len + i] = transition_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + transition_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&transition_columns) |*transition_col| {
+            columns[initialized] = transition_col.*;
+            initialized += 1;
+            transition_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn expandingBoolTransitionProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
+        const source = try self.column(name);
+        if (source.dtype() != .bool) return error.TypeMismatch;
+        var transition_columns = try expandingBoolTransitionProfileColumns(self.allocator, source.bool, transition_options, options_value, self.device, self.rows);
+        var transition_columns_transferred: usize = 0;
+        errdefer {
+            for (transition_columns[transition_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + transition_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var transition_names = try expandingBoolTransitionProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, transition_names[0..]);
         for (transition_names, 0..) |transition_name, i| source_names[self.columns.len + i] = transition_name;
 
@@ -14923,6 +15001,68 @@ fn rollingBoolTransitionProfileColumns(
     return columns;
 }
 
+const ExpandingBoolTransitionProfileColumnCount = 7;
+
+fn expandingBoolTransitionProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingBoolTransitionProfileColumnCount][]const u8 {
+    var names: [ExpandingBoolTransitionProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_transition_count", "expanding_rising_count", "expanding_falling_count", "expanding_toggle_count", "expanding_rising_rate", "expanding_falling_rate", "expanding_toggle_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn expandingBoolTransitionProfileColumns(
+    allocator: std.mem.Allocator,
+    source: DeviceTypedColumn(bool),
+    transition_options: DeviceTrendOptions,
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ExpandingBoolTransitionProfileColumnCount]DeviceColumn {
+    if (source.len() != rows) return error.LengthMismatch;
+
+    const values = try source.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(source, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    var metrics = try bool_transition_mod.expandingBoolTransitionProfile(
+        allocator,
+        values,
+        maybe_validity,
+        transition_options.periods,
+        options_value.min_periods,
+    );
+    defer metrics.deinit();
+
+    var columns: [ExpandingBoolTransitionProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.rising_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, metrics.falling_counts, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSlice(i64, allocator, metrics.toggle_counts, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.rising_rates, metrics.metric_validity, device_value);
+    initialized += 1;
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.falling_rates, metrics.metric_validity, device_value);
+    initialized += 1;
+    columns[6] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.toggle_rates, metrics.metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
 const RollingCorrelationProfileColumnCount = 4;
 
 fn rollingCorrelationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingCorrelationProfileColumnCount][]const u8 {
@@ -20299,6 +20439,40 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_toggle_rate[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_toggle_rate[3], 1e-12);
 
+    var expanding_transitions = try label_table.expandingBoolTransitionProfile("actual", "actual", .{ .periods = 1 }, .{ .min_periods = 2 });
+    defer expanding_transitions.deinit();
+    try std.testing.expectEqual(@as(usize, 9), expanding_transitions.width());
+    const expanding_transition_count = try (try expanding_transitions.column("actual_expanding_transition_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_transition_count);
+    const expanding_rising_count = try (try expanding_transitions.column("actual_expanding_rising_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_rising_count);
+    const expanding_falling_count = try (try expanding_transitions.column("actual_expanding_falling_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_falling_count);
+    const expanding_toggle_count = try (try expanding_transitions.column("actual_expanding_toggle_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_toggle_count);
+    const expanding_rising_rate = try (try expanding_transitions.column("actual_expanding_rising_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_rising_rate);
+    const expanding_falling_rate = try (try expanding_transitions.column("actual_expanding_falling_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_falling_rate);
+    const expanding_toggle_rate = try (try expanding_transitions.column("actual_expanding_toggle_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_toggle_rate);
+    const expanding_transition_validity = try (try expanding_transitions.column("actual_expanding_toggle_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(expanding_transition_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 2, 2 }, expanding_transition_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 1, 1 }, expanding_rising_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1, 1 }, expanding_falling_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 2, 2 }, expanding_toggle_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, true }, expanding_transition_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_rising_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_rising_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_rising_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_falling_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_falling_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_falling_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), expanding_toggle_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), expanding_toggle_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), expanding_toggle_rate[4], 1e-12);
+
     var fast = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 3.0, 2.0, 5.0, 4.0, 6.0 }, &.{ true, true, true, true, false, true }, .cpu);
     defer fast.deinit();
     var slow = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 2.0, 2.0, 4.0, 5.0, 0.0 }, .cpu);
@@ -23072,6 +23246,45 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_toggle_rate[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_toggle_rate[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_toggle_rate[3], 1e-12);
+
+    var expanding_transition_plan = try DeviceLazyFrame.init(gpa, table);
+    defer expanding_transition_plan.deinit();
+    try expanding_transition_plan.expandingBoolTransitionProfile("active", "active", .{ .periods = 1 }, .{ .min_periods = 2 });
+    try expanding_transition_plan.select(&.{ "active", "active_expanding_transition_count", "active_expanding_rising_count", "active_expanding_falling_count", "active_expanding_toggle_count", "active_expanding_rising_rate", "active_expanding_falling_rate", "active_expanding_toggle_rate" });
+    const expanding_transition_explain = try expanding_transition_plan.explain(gpa);
+    defer gpa.free(expanding_transition_explain);
+    try std.testing.expect(std.mem.indexOf(u8, expanding_transition_explain, "expanding_bool_transition_profile(active") != null);
+    var lazy_expanding_transition = try expanding_transition_plan.collect();
+    defer lazy_expanding_transition.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_expanding_transition.height());
+    try std.testing.expectEqual(@as(usize, 8), lazy_expanding_transition.width());
+    const lazy_expanding_transition_count = try (try lazy_expanding_transition.column("active_expanding_transition_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_transition_count);
+    const lazy_expanding_rising_count = try (try lazy_expanding_transition.column("active_expanding_rising_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_rising_count);
+    const lazy_expanding_falling_count = try (try lazy_expanding_transition.column("active_expanding_falling_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_falling_count);
+    const lazy_expanding_toggle_count = try (try lazy_expanding_transition.column("active_expanding_toggle_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_toggle_count);
+    const lazy_expanding_rising_rate = try (try lazy_expanding_transition.column("active_expanding_rising_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_rising_rate);
+    const lazy_expanding_falling_rate = try (try lazy_expanding_transition.column("active_expanding_falling_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_falling_rate);
+    const lazy_expanding_toggle_rate = try (try lazy_expanding_transition.column("active_expanding_toggle_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_toggle_rate);
+    const lazy_expanding_transition_validity = try (try lazy_expanding_transition.column("active_expanding_toggle_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_transition_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 3 }, lazy_expanding_transition_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 1 }, lazy_expanding_rising_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, lazy_expanding_falling_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 2 }, lazy_expanding_toggle_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, lazy_expanding_transition_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_expanding_rising_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), lazy_expanding_rising_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_expanding_falling_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), lazy_expanding_falling_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_expanding_toggle_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), lazy_expanding_toggle_rate[3], 1e-12);
 
     var crossover_plan = try DeviceLazyFrame.init(gpa, table);
     defer crossover_plan.deinit();

@@ -139,3 +139,84 @@ pub fn rollingBoolTransitionProfile(
         .metric_validity = metric_validity,
     };
 }
+
+pub const ExpandingBoolTransitionMetrics = RollingBoolTransitionMetrics;
+
+pub fn expandingBoolTransitionProfile(
+    allocator: std.mem.Allocator,
+    values: []const bool,
+    maybe_validity: ?[]const bool,
+    periods: usize,
+    min_periods: usize,
+) (std.mem.Allocator.Error || error{ InvalidShape, LengthMismatch })!ExpandingBoolTransitionMetrics {
+    if (periods == 0 or min_periods == 0) return error.InvalidShape;
+    if (maybe_validity) |validity| {
+        if (validity.len != values.len) return error.LengthMismatch;
+    }
+
+    const rows = values.len;
+    const counts = try allocator.alloc(i64, rows);
+    errdefer allocator.free(counts);
+    const rising_counts = try allocator.alloc(i64, rows);
+    errdefer allocator.free(rising_counts);
+    const falling_counts = try allocator.alloc(i64, rows);
+    errdefer allocator.free(falling_counts);
+    const toggle_counts = try allocator.alloc(i64, rows);
+    errdefer allocator.free(toggle_counts);
+    const rising_rates = try allocator.alloc(f64, rows);
+    errdefer allocator.free(rising_rates);
+    const falling_rates = try allocator.alloc(f64, rows);
+    errdefer allocator.free(falling_rates);
+    const toggle_rates = try allocator.alloc(f64, rows);
+    errdefer allocator.free(toggle_rates);
+    const metric_validity = try allocator.alloc(bool, rows);
+    errdefer allocator.free(metric_validity);
+
+    var count: usize = 0;
+    var rising_count: usize = 0;
+    var falling_count: usize = 0;
+    var toggle_count: usize = 0;
+    for (values, 0..) |value, row| {
+        if (row >= periods) {
+            const previous_row = row - periods;
+            const current_valid = if (maybe_validity) |mask| mask[row] else true;
+            const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
+            if (current_valid and previous_valid) {
+                count += 1;
+                const previous = values[previous_row];
+                if (!previous and value) rising_count += 1;
+                if (previous and !value) falling_count += 1;
+                if (previous != value) toggle_count += 1;
+            }
+        }
+
+        counts[row] = @intCast(count);
+        rising_counts[row] = @intCast(rising_count);
+        falling_counts[row] = @intCast(falling_count);
+        toggle_counts[row] = @intCast(toggle_count);
+        const has_enough = count >= min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(count);
+            rising_rates[row] = @as(f64, @floatFromInt(rising_count)) / n;
+            falling_rates[row] = @as(f64, @floatFromInt(falling_count)) / n;
+            toggle_rates[row] = @as(f64, @floatFromInt(toggle_count)) / n;
+        } else {
+            rising_rates[row] = 0;
+            falling_rates[row] = 0;
+            toggle_rates[row] = 0;
+        }
+    }
+
+    return .{
+        .allocator = allocator,
+        .counts = counts,
+        .rising_counts = rising_counts,
+        .falling_counts = falling_counts,
+        .toggle_counts = toggle_counts,
+        .rising_rates = rising_rates,
+        .falling_rates = falling_rates,
+        .toggle_rates = toggle_rates,
+        .metric_validity = metric_validity,
+    };
+}
