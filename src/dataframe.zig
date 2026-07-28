@@ -23,15 +23,6 @@ const correlation_mod = @import("dataframe_correlation.zig");
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
 const crossover_mod = @import("dataframe_crossover.zig");
 const threshold_mod = @import("dataframe_threshold.zig");
-const ThresholdProfileColumnCount = threshold_mod.ThresholdProfileColumnCount;
-const thresholdProfileOutputNames = threshold_mod.thresholdProfileOutputNames;
-const RollingThresholdProfileColumnCount = threshold_mod.RollingThresholdProfileColumnCount;
-const rollingThresholdProfileOutputNames = threshold_mod.rollingThresholdProfileOutputNames;
-const ExpandingThresholdProfileColumnCount = threshold_mod.ExpandingThresholdProfileColumnCount;
-const expandingThresholdProfileOutputNames = threshold_mod.expandingThresholdProfileOutputNames;
-const thresholdProfileColumnsByValue = threshold_mod.thresholdProfileColumnsByValue;
-const rollingThresholdProfileColumnsByValue = threshold_mod.rollingThresholdProfileColumnsByValue;
-const expandingThresholdProfileColumnsByValue = threshold_mod.expandingThresholdProfileColumnsByValue;
 const validity_mod = @import("dataframe_validity.zig");
 const bool_profile_mod = @import("dataframe_bool_profile.zig");
 const RollingBoolProfileColumnCount = bool_profile_mod.RollingBoolProfileColumnCount;
@@ -792,108 +783,15 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn thresholdProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceThresholdOptions) DeviceDataError!DeviceDataFrame {
-        const threshold_value = try self.column(name);
-        var threshold_columns = try thresholdProfileColumnsByValue(self.allocator, threshold_value.*, options_value, self.device, self.rows);
-        var threshold_columns_transferred: usize = 0;
-        errdefer {
-            for (threshold_columns[threshold_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + threshold_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var threshold_names = try thresholdProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, threshold_names[0..]);
-        for (threshold_names, 0..) |threshold_name, i| source_names[self.columns.len + i] = threshold_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + threshold_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&threshold_columns) |*threshold_col| {
-            columns[initialized] = threshold_col.*;
-            initialized += 1;
-            threshold_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return threshold_mod.thresholdProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn rollingThresholdProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        const threshold_value = try self.column(name);
-        var threshold_columns = try rollingThresholdProfileColumnsByValue(self.allocator, threshold_value.*, threshold, options_value, self.device, self.rows);
-        var threshold_columns_transferred: usize = 0;
-        errdefer {
-            for (threshold_columns[threshold_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + threshold_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var threshold_names = try rollingThresholdProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, threshold_names[0..]);
-        for (threshold_names, 0..) |threshold_name, i| source_names[self.columns.len + i] = threshold_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + threshold_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&threshold_columns) |*threshold_col| {
-            columns[initialized] = threshold_col.*;
-            initialized += 1;
-            threshold_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return threshold_mod.rollingThresholdProfileFrame(DeviceDataFrame, self, name, output_prefix, threshold, options_value);
     }
 
     pub fn expandingThresholdProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        const threshold_value = try self.column(name);
-        var threshold_columns = try expandingThresholdProfileColumnsByValue(self.allocator, threshold_value.*, threshold, options_value, self.device, self.rows);
-        var threshold_columns_transferred: usize = 0;
-        errdefer {
-            for (threshold_columns[threshold_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + threshold_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var threshold_names = try expandingThresholdProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, threshold_names[0..]);
-        for (threshold_names, 0..) |threshold_name, i| source_names[self.columns.len + i] = threshold_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + threshold_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&threshold_columns) |*threshold_col| {
-            columns[initialized] = threshold_col.*;
-            initialized += 1;
-            threshold_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return threshold_mod.expandingThresholdProfileFrame(DeviceDataFrame, self, name, output_prefix, threshold, options_value);
     }
 
     pub fn expandingProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
