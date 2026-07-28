@@ -71,6 +71,10 @@ const rollingSignProfileOutputNames = sign_mod.rollingSignProfileOutputNames;
 const ExpandingSignProfileColumnCount = sign_mod.ExpandingSignProfileColumnCount;
 const expandingSignProfileOutputNames = sign_mod.expandingSignProfileOutputNames;
 const shift_mod = @import("dataframe_shift.zig");
+const LagProfileColumnCount = shift_mod.LagProfileColumnCount;
+const lagProfileOutputNames = shift_mod.lagProfileOutputNames;
+const LeadProfileColumnCount = shift_mod.LeadProfileColumnCount;
+const leadProfileOutputNames = shift_mod.leadProfileOutputNames;
 const ema_mod = @import("dataframe_ema.zig");
 const EmaProfileColumnCount = ema_mod.EmaProfileColumnCount;
 const emaProfileOutputNames = ema_mod.emaProfileOutputNames;
@@ -9111,22 +9115,6 @@ fn rollingRankProfileColumnsTyped(
     return columns;
 }
 
-const LagProfileColumnCount = 3;
-
-fn lagProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![LagProfileColumnCount][]const u8 {
-    var names: [LagProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "lag", "diff", "pct_change" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn lagProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -9184,22 +9172,6 @@ fn lagProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.pct_change, metrics.change_validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const LeadProfileColumnCount = 3;
-
-fn leadProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![LeadProfileColumnCount][]const u8 {
-    var names: [LeadProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "lead", "forward_diff", "forward_pct_change" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn leadProfileColumnsByValue(
