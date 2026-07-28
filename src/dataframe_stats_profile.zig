@@ -40,6 +40,38 @@ pub const ExpandingStatsMetrics = struct {
     }
 };
 
+pub const RollingProfileColumnCount = 5;
+
+pub fn rollingProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingProfileColumnCount][]const u8 {
+    var names: [RollingProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_count", "rolling_sum", "rolling_mean", "rolling_variance", "rolling_stddev" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingProfileColumnCount = 5;
+
+pub fn expandingProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingProfileColumnCount][]const u8 {
+    var names: [ExpandingProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_count", "expanding_sum", "expanding_mean", "expanding_min", "expanding_max" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validate(values: []const f64, maybe_validity: ?[]const bool) error{LengthMismatch}!void {
     if (maybe_validity) |validity| {
         if (validity.len != values.len) return error.LengthMismatch;

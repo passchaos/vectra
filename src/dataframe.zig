@@ -86,6 +86,10 @@ const rollingRankProfileOutputNames = rank_mod.rollingRankProfileOutputNames;
 const ExpandingRankProfileColumnCount = rank_mod.ExpandingRankProfileColumnCount;
 const expandingRankProfileOutputNames = rank_mod.expandingRankProfileOutputNames;
 const stats_profile_mod = @import("dataframe_stats_profile.zig");
+const RollingProfileColumnCount = stats_profile_mod.RollingProfileColumnCount;
+const rollingProfileOutputNames = stats_profile_mod.rollingProfileOutputNames;
+const ExpandingProfileColumnCount = stats_profile_mod.ExpandingProfileColumnCount;
+const expandingProfileOutputNames = stats_profile_mod.expandingProfileOutputNames;
 const moment_mod = @import("dataframe_moment.zig");
 const normalize_mod = @import("dataframe_normalize.zig");
 const range_mod = @import("dataframe_range.zig");
@@ -8349,22 +8353,6 @@ fn rankProfileColumnsTyped(
     return columns;
 }
 
-const RollingProfileColumnCount = 5;
-
-fn rollingProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingProfileColumnCount][]const u8 {
-    var names: [RollingProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_count", "rolling_sum", "rolling_mean", "rolling_variance", "rolling_stddev" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn rollingProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -9725,22 +9713,6 @@ fn expandingThresholdProfileColumnsTyped(
     columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.at_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingProfileColumnCount = 5;
-
-fn expandingProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingProfileColumnCount][]const u8 {
-    var names: [ExpandingProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_count", "expanding_sum", "expanding_mean", "expanding_min", "expanding_max" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingProfileColumnsByValue(
