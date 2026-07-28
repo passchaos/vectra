@@ -11,6 +11,7 @@ const lazy_exec_mod = @import("dataframe_lazy_frame_exec.zig");
 const lazy_expr_mod = @import("dataframe_lazy_expr_plan.zig");
 const lazy_group_mod = @import("dataframe_lazy_group_plan.zig");
 const lazy_join_mod = @import("dataframe_lazy_join_plan.zig");
+const lazy_sort_mod = @import("dataframe_lazy_sort_plan.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const names_mod = @import("dataframe_names.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -286,22 +287,11 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn sortBy(self: *DeviceLazyFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!void {
-                try self.ops.append(self.allocator, .{ .sort_by = .{
-                    .name = try self.allocator.dupe(u8, name),
-                    .options = options_value,
-                } });
+                return lazy_sort_mod.sortBy(self, name, options_value);
             }
 
             pub fn rankProfileBy(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceSortOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rank_profile_by = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_sort_mod.rankProfileBy(self, name, output_prefix, options_value);
             }
 
             pub fn rollingProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
@@ -425,15 +415,7 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn rollingRankProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingRankOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_rank_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_sort_mod.rollingRankProfile(self, name, output_prefix, options_value);
             }
 
             pub fn lagProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!void {
@@ -561,15 +543,7 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn expandingRankProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingRankOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .expanding_rank_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_sort_mod.expandingRankProfile(self, name, output_prefix, options_value);
             }
 
             pub fn expandingRobustProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!void {
