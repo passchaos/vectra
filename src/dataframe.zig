@@ -1219,6 +1219,12 @@ pub const DeviceLazyOp = union(enum) {
         sign_options: DeviceTrendOptions,
         options: DeviceRollingOptions,
     },
+    expanding_sign_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        sign_options: DeviceTrendOptions,
+        options: DeviceExpandingOptions,
+    },
     crossover_profile: struct {
         lhs_name: []const u8,
         rhs_name: []const u8,
@@ -1525,6 +1531,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(sign.output_prefix);
             },
             .rolling_sign_profile => |sign| {
+                allocator.free(sign.name);
+                allocator.free(sign.output_prefix);
+            },
+            .expanding_sign_profile => |sign| {
                 allocator.free(sign.name);
                 allocator.free(sign.output_prefix);
             },
@@ -2217,6 +2227,18 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, sign.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .rolling_sign_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .sign_options = sign.sign_options,
+                    .options = sign.options,
+                } };
+            },
+            .expanding_sign_profile => |sign| blk: {
+                const name = try allocator.dupe(u8, sign.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, sign.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .expanding_sign_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
                     .sign_options = sign.sign_options,
@@ -3267,6 +3289,19 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn expandingSignProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .expanding_sign_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .sign_options = sign_options,
+            .options = options_value,
+        } });
+    }
+
     pub fn crossoverProfile(
         self: *DeviceLazyFrame,
         lhs_name: []const u8,
@@ -3647,6 +3682,7 @@ pub const DeviceLazyFrame = struct {
                 .expanding_change_point_profile => |change| try current.expandingChangePointProfile(change.name, change.output_prefix, change.threshold, change.change_options, change.options),
                 .sign_profile => |sign| try current.signProfile(sign.name, sign.output_prefix, sign.options),
                 .rolling_sign_profile => |sign| try current.rollingSignProfile(sign.name, sign.output_prefix, sign.sign_options, sign.options),
+                .expanding_sign_profile => |sign| try current.expandingSignProfile(sign.name, sign.output_prefix, sign.sign_options, sign.options),
                 .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
                 .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
                 .ema_profile => |ema| try current.emaProfile(ema.name, ema.output_prefix, ema.options),
@@ -4309,6 +4345,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(sign.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, sign.name);
                 break :op_loop;
             },
+            .expanding_sign_profile => |sign| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(sign.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, sign.name);
+                break :op_loop;
+            },
             .crossover_profile => |cross| {
                 // Crossover profiles depend on two source columns and append
                 // several signal columns. Keep scan predicates but block
@@ -4647,6 +4688,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .expanding_change_point_profile => |change| try writer.print("expanding_change_point_profile({s}, prefix={s}, threshold={d}, periods={d}, min_periods={d})", .{ change.name, change.output_prefix, change.threshold, change.change_options.periods, change.options.min_periods }),
         .sign_profile => |sign| try writer.print("sign_profile({s}, prefix={s}, periods={d})", .{ sign.name, sign.output_prefix, sign.options.periods }),
         .rolling_sign_profile => |sign| try writer.print("rolling_sign_profile({s}, prefix={s}, periods={d}, window={d})", .{ sign.name, sign.output_prefix, sign.sign_options.periods, sign.options.window }),
+        .expanding_sign_profile => |sign| try writer.print("expanding_sign_profile({s}, prefix={s}, periods={d}, min_periods={d})", .{ sign.name, sign.output_prefix, sign.sign_options.periods, sign.options.min_periods }),
         .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
         .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
         .ema_profile => |ema| try writer.print("ema_profile({s}, prefix={s}, alpha={d})", .{ ema.name, ema.output_prefix, ema.options.alpha }),
@@ -6501,6 +6543,41 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var sign_names = try rollingSignProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, sign_names[0..]);
+        for (sign_names, 0..) |sign_name, i| source_names[self.columns.len + i] = sign_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + sign_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&sign_columns) |*sign_col| {
+            columns[initialized] = sign_col.*;
+            initialized += 1;
+            sign_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn expandingSignProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
+        const sign_value = try self.column(name);
+        var sign_columns = try expandingSignProfileColumnsByValue(self.allocator, sign_value.*, sign_options, options_value, self.device, self.rows);
+        var sign_columns_transferred: usize = 0;
+        errdefer {
+            for (sign_columns[sign_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + sign_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var sign_names = try expandingSignProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, sign_names[0..]);
         for (sign_names, 0..) |sign_name, i| source_names[self.columns.len + i] = sign_name;
 
@@ -12436,6 +12513,142 @@ fn rollingSignProfileColumnsTyped(
     }
 
     var columns: [RollingSignProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, positive_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, negative_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, zero_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, flip_rates, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ExpandingSignProfileColumnCount = 5;
+
+fn expandingSignProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingSignProfileColumnCount][]const u8 {
+    var names: [ExpandingSignProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_sign_count", "expanding_positive_rate", "expanding_negative_rate", "expanding_zero_rate", "expanding_sign_flip_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn expandingSignProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    sign_options: DeviceTrendOptions,
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ExpandingSignProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| expandingSignProfileColumnsTyped(i8, allocator, typed, sign_options, options_value, device_value),
+        .i16 => |typed| expandingSignProfileColumnsTyped(i16, allocator, typed, sign_options, options_value, device_value),
+        .i32 => |typed| expandingSignProfileColumnsTyped(i32, allocator, typed, sign_options, options_value, device_value),
+        .i64 => |typed| expandingSignProfileColumnsTyped(i64, allocator, typed, sign_options, options_value, device_value),
+        .u8 => |typed| expandingSignProfileColumnsTyped(u8, allocator, typed, sign_options, options_value, device_value),
+        .u16 => |typed| expandingSignProfileColumnsTyped(u16, allocator, typed, sign_options, options_value, device_value),
+        .u32 => |typed| expandingSignProfileColumnsTyped(u32, allocator, typed, sign_options, options_value, device_value),
+        .u64 => |typed| expandingSignProfileColumnsTyped(u64, allocator, typed, sign_options, options_value, device_value),
+        .usize => |typed| expandingSignProfileColumnsTyped(usize, allocator, typed, sign_options, options_value, device_value),
+        .isize => |typed| expandingSignProfileColumnsTyped(isize, allocator, typed, sign_options, options_value, device_value),
+        .f16 => |typed| expandingSignProfileColumnsTyped(f16, allocator, typed, sign_options, options_value, device_value),
+        .f32 => |typed| expandingSignProfileColumnsTyped(f32, allocator, typed, sign_options, options_value, device_value),
+        .f64 => |typed| expandingSignProfileColumnsTyped(f64, allocator, typed, sign_options, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn expandingSignProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    sign_options: DeviceTrendOptions,
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![ExpandingSignProfileColumnCount]DeviceColumn {
+    if (sign_options.periods == 0) return error.InvalidShape;
+    if (options_value.min_periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const positive_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(positive_rates);
+    const negative_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(negative_rates);
+    const zero_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(zero_rates);
+    const flip_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(flip_rates);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var count: usize = 0;
+    var positive_count: usize = 0;
+    var negative_count: usize = 0;
+    var zero_count: usize = 0;
+    var flip_count: usize = 0;
+
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (valid) {
+            const x = castToF64(T, value_item);
+            const sign: i64 = if (x > 0) 1 else if (x < 0) -1 else 0;
+            switch (sign) {
+                1 => positive_count += 1,
+                -1 => negative_count += 1,
+                else => zero_count += 1,
+            }
+            if (row >= sign_options.periods) {
+                const previous_row = row - sign_options.periods;
+                const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
+                if (previous_valid) {
+                    const previous = castToF64(T, values[previous_row]);
+                    const previous_sign: i64 = if (previous > 0) 1 else if (previous < 0) -1 else 0;
+                    if (sign != previous_sign) flip_count += 1;
+                }
+            }
+            count += 1;
+        }
+
+        counts[row] = @intCast(count);
+        const has_enough = count >= options_value.min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(count);
+            positive_rates[row] = @as(f64, @floatFromInt(positive_count)) / n;
+            negative_rates[row] = @as(f64, @floatFromInt(negative_count)) / n;
+            zero_rates[row] = @as(f64, @floatFromInt(zero_count)) / n;
+            flip_rates[row] = @as(f64, @floatFromInt(flip_count)) / n;
+        } else {
+            positive_rates[row] = 0;
+            negative_rates[row] = 0;
+            zero_rates[row] = 0;
+            flip_rates[row] = 0;
+        }
+    }
+
+    var columns: [ExpandingSignProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
@@ -18683,6 +18896,38 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_flip_rate[4], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_flip_rate[6], 1e-12);
 
+    var expanding_sign = try signed_table.expandingSignProfile("signal", "signal", .{ .periods = 1 }, .{ .min_periods = 2 });
+    defer expanding_sign.deinit();
+    try std.testing.expectEqual(@as(usize, 6), expanding_sign.width());
+    const expanding_sign_count = try (try expanding_sign.column("signal_expanding_sign_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_sign_count);
+    const expanding_positive_rate = try (try expanding_sign.column("signal_expanding_positive_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_positive_rate);
+    const expanding_negative_rate = try (try expanding_sign.column("signal_expanding_negative_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_negative_rate);
+    const expanding_zero_rate = try (try expanding_sign.column("signal_expanding_zero_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_zero_rate);
+    const expanding_flip_rate = try (try expanding_sign.column("signal_expanding_sign_flip_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_flip_rate);
+    const expanding_sign_rate_validity = try (try expanding_sign.column("signal_expanding_positive_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(expanding_sign_rate_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4, 5, 5, 6 }, expanding_sign_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, true, true }, expanding_sign_rate_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), expanding_positive_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), expanding_positive_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.2), expanding_positive_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), expanding_positive_rate[6], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), expanding_negative_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_negative_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), expanding_negative_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_negative_rate[6], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), expanding_zero_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.2), expanding_zero_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), expanding_flip_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_flip_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), expanding_flip_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_flip_rate[6], 1e-12);
+
     var validity = try trend_table.validityProfile("price", "price");
     defer validity.deinit();
     try std.testing.expectEqual(@as(usize, 6), validity.width());
@@ -21190,6 +21435,45 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_sign_flip_rate[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_sign_flip_rate[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_sign_flip_rate[3], 1e-12);
+
+    var expanding_sign_plan = try DeviceLazyFrame.init(gpa, table);
+    defer expanding_sign_plan.deinit();
+    try expanding_sign_plan.withColumnScalar("sales_minus4", "sales", f64, 4.0, .sub);
+    try expanding_sign_plan.expandingSignProfile("sales_minus4", "sales", .{ .periods = 1 }, .{ .min_periods = 1 });
+    try expanding_sign_plan.select(&.{ "sales_minus4", "sales_expanding_sign_count", "sales_expanding_positive_rate", "sales_expanding_negative_rate", "sales_expanding_zero_rate", "sales_expanding_sign_flip_rate" });
+    const expanding_sign_explain = try expanding_sign_plan.explain(gpa);
+    defer gpa.free(expanding_sign_explain);
+    try std.testing.expect(std.mem.indexOf(u8, expanding_sign_explain, "expanding_sign_profile(sales_minus4") != null);
+    var lazy_expanding_sign = try expanding_sign_plan.collect();
+    defer lazy_expanding_sign.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_expanding_sign.height());
+    try std.testing.expectEqual(@as(usize, 6), lazy_expanding_sign.width());
+    const lazy_expanding_sign_count = try (try lazy_expanding_sign.column("sales_expanding_sign_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_sign_count);
+    const lazy_expanding_positive_rate = try (try lazy_expanding_sign.column("sales_expanding_positive_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_positive_rate);
+    const lazy_expanding_negative_rate = try (try lazy_expanding_sign.column("sales_expanding_negative_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_negative_rate);
+    const lazy_expanding_zero_rate = try (try lazy_expanding_sign.column("sales_expanding_zero_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_zero_rate);
+    const lazy_expanding_sign_flip_rate = try (try lazy_expanding_sign.column("sales_expanding_sign_flip_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_sign_flip_rate);
+    const lazy_expanding_sign_validity = try (try lazy_expanding_sign.column("sales_expanding_positive_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_sign_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4 }, lazy_expanding_sign_count);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_expanding_sign_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_positive_rate[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_positive_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), lazy_expanding_positive_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_expanding_positive_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_expanding_negative_rate[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_expanding_negative_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), lazy_expanding_negative_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_expanding_negative_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_zero_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_sign_flip_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), lazy_expanding_sign_flip_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), lazy_expanding_sign_flip_rate[3], 1e-12);
 
     var validity_plan = try DeviceLazyFrame.init(gpa, table);
     defer validity_plan.deinit();
