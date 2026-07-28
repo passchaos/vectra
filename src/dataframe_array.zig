@@ -144,3 +144,49 @@ pub fn coalesceTypedJoinKeys(comptime T: type, left: anytype, right: anytype) (a
     if (countNulls(validity) == 0) return @TypeOf(left).fromSlice(allocator, values, left.device());
     return @TypeOf(left).fromSliceWithValidity(allocator, values, validity, left.device());
 }
+
+pub fn concatDeviceColumns(first: anytype, second: anytype) (array_mod.ArrayError || error{TypeMismatch})!@TypeOf(first) {
+    if (first.dtype() != second.dtype()) return error.TypeMismatch;
+    return switch (first) {
+        .bool => |typed| .{ .bool = try concatTypedColumns(bool, typed, second.bool) },
+        .i8 => |typed| .{ .i8 = try concatTypedColumns(i8, typed, second.i8) },
+        .i16 => |typed| .{ .i16 = try concatTypedColumns(i16, typed, second.i16) },
+        .i32 => |typed| .{ .i32 = try concatTypedColumns(i32, typed, second.i32) },
+        .i64 => |typed| .{ .i64 = try concatTypedColumns(i64, typed, second.i64) },
+        .u8 => |typed| .{ .u8 = try concatTypedColumns(u8, typed, second.u8) },
+        .u16 => |typed| .{ .u16 = try concatTypedColumns(u16, typed, second.u16) },
+        .u32 => |typed| .{ .u32 = try concatTypedColumns(u32, typed, second.u32) },
+        .u64 => |typed| .{ .u64 = try concatTypedColumns(u64, typed, second.u64) },
+        .usize => |typed| .{ .usize = try concatTypedColumns(usize, typed, second.usize) },
+        .isize => |typed| .{ .isize = try concatTypedColumns(isize, typed, second.isize) },
+        .f16 => |typed| .{ .f16 = try concatTypedColumns(f16, typed, second.f16) },
+        .f32 => |typed| .{ .f32 = try concatTypedColumns(f32, typed, second.f32) },
+        .f64 => |typed| .{ .f64 = try concatTypedColumns(f64, typed, second.f64) },
+        .bf16 => |typed| .{ .bf16 = try concatTypedColumns(array_mod.BFloat16, typed, second.bf16) },
+        .c64 => |typed| .{ .c64 = try concatTypedColumns(array_mod.Complex64, typed, second.c64) },
+        .c128 => |typed| .{ .c128 = try concatTypedColumns(array_mod.Complex128, typed, second.c128) },
+    };
+}
+
+pub fn coalesceJoinKeys(left: anytype, right: anytype) (array_mod.ArrayError || error{ LengthMismatch, TypeMismatch })!@TypeOf(left) {
+    if (left.dtype() != right.dtype()) return error.TypeMismatch;
+    return switch (left) {
+        .bool => |typed| .{ .bool = try coalesceTypedJoinKeys(bool, typed, right.bool) },
+        .i8 => |typed| .{ .i8 = try coalesceTypedJoinKeys(i8, typed, right.i8) },
+        .i16 => |typed| .{ .i16 = try coalesceTypedJoinKeys(i16, typed, right.i16) },
+        .i32 => |typed| .{ .i32 = try coalesceTypedJoinKeys(i32, typed, right.i32) },
+        .i64 => |typed| .{ .i64 = try coalesceTypedJoinKeys(i64, typed, right.i64) },
+        .u8 => |typed| .{ .u8 = try coalesceTypedJoinKeys(u8, typed, right.u8) },
+        .u16 => |typed| .{ .u16 = try coalesceTypedJoinKeys(u16, typed, right.u16) },
+        .u32 => |typed| .{ .u32 = try coalesceTypedJoinKeys(u32, typed, right.u32) },
+        .u64 => |typed| .{ .u64 = try coalesceTypedJoinKeys(u64, typed, right.u64) },
+        .usize => |typed| .{ .usize = try coalesceTypedJoinKeys(usize, typed, right.usize) },
+        .isize => |typed| .{ .isize = try coalesceTypedJoinKeys(isize, typed, right.isize) },
+        .f16 => |typed| .{ .f16 = try coalesceTypedJoinKeys(f16, typed, right.f16) },
+        .f32 => |typed| .{ .f32 = try coalesceTypedJoinKeys(f32, typed, right.f32) },
+        .f64 => |typed| .{ .f64 = try coalesceTypedJoinKeys(f64, typed, right.f64) },
+        .bf16 => |typed| .{ .bf16 = try coalesceTypedJoinKeys(array_mod.BFloat16, typed, right.bf16) },
+        .c64 => |typed| .{ .c64 = try coalesceTypedJoinKeys(array_mod.Complex64, typed, right.c64) },
+        .c128 => |typed| .{ .c128 = try coalesceTypedJoinKeys(array_mod.Complex128, typed, right.c128) },
+    };
+}
