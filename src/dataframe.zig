@@ -59,6 +59,12 @@ const rollingClipProfileOutputNames = clip_mod.rollingClipProfileOutputNames;
 const ExpandingClipProfileColumnCount = clip_mod.ExpandingClipProfileColumnCount;
 const expandingClipProfileOutputNames = clip_mod.expandingClipProfileOutputNames;
 const risk_mod = @import("dataframe_risk.zig");
+const DrawdownProfileColumnCount = risk_mod.DrawdownProfileColumnCount;
+const drawdownProfileOutputNames = risk_mod.drawdownProfileOutputNames;
+const RollingDrawdownProfileColumnCount = risk_mod.RollingDrawdownProfileColumnCount;
+const rollingDrawdownProfileOutputNames = risk_mod.rollingDrawdownProfileOutputNames;
+const ExtremaProfileColumnCount = risk_mod.ExtremaProfileColumnCount;
+const extremaProfileOutputNames = risk_mod.extremaProfileOutputNames;
 const standardize_mod = @import("dataframe_standardize.zig");
 const StandardizeProfileColumnCount = standardize_mod.StandardizeProfileColumnCount;
 const standardizeProfileOutputNames = standardize_mod.standardizeProfileOutputNames;
@@ -8892,22 +8898,6 @@ fn rollingBoolProfileColumns(
     return columns;
 }
 
-const RollingDrawdownProfileColumnCount = 4;
-
-fn rollingDrawdownProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingDrawdownProfileColumnCount][]const u8 {
-    var names: [RollingDrawdownProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_peak", "rolling_drawdown", "rolling_drawdown_pct", "rolling_peak_age" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn rollingDrawdownProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -10067,22 +10057,6 @@ fn quantileSorted(values: []const f64, probability: f64) f64 {
     return values[lower] * (1.0 - fraction) + values[upper] * fraction;
 }
 
-const DrawdownProfileColumnCount = 3;
-
-fn drawdownProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![DrawdownProfileColumnCount][]const u8 {
-    var names: [DrawdownProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "running_peak", "drawdown", "drawdown_pct" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn drawdownProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -10141,22 +10115,6 @@ fn drawdownProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.drawdown_pct, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExtremaProfileColumnCount = 4;
-
-fn extremaProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExtremaProfileColumnCount][]const u8 {
-    var names: [ExtremaProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "running_low", "running_high", "new_low", "new_high" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn extremaProfileColumnsByValue(
