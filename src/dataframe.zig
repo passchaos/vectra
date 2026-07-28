@@ -155,6 +155,8 @@ const zeroValue = dataframe_array_mod.zeroValue;
 const rowIndicesFromMask = dataframe_array_mod.rowIndicesFromMask;
 const sliceArray1d = dataframe_array_mod.sliceArray1d;
 const takeArray1d = dataframe_array_mod.takeArray1d;
+const concatTypedColumns = dataframe_array_mod.concatTypedColumns;
+const coalesceTypedJoinKeys = dataframe_array_mod.coalesceTypedJoinKeys;
 const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
 const readBolthaTableWithRangePruning = dataframe_arrow_mod.readBolthaTableWithRangePruning;
 const primitiveColumnToArrow = dataframe_arrow_mod.primitiveColumnToArrow;
@@ -13805,41 +13807,6 @@ fn coalesceJoinKeys(left: DeviceColumn, right: DeviceColumn) DeviceDataError!Dev
     };
 }
 
-fn coalesceTypedJoinKeys(comptime T: type, left: DeviceTypedColumn(T), right: DeviceTypedColumn(T)) DeviceDataError!DeviceTypedColumn(T) {
-    if (!left.device().sameDevice(right.device())) return error.InvalidDevice;
-    if (left.len() != right.len()) return error.LengthMismatch;
-    const allocator = left.values.allocator;
-    const left_values = try left.values.toOwnedSlice(allocator);
-    defer allocator.free(left_values);
-    const right_values = try right.values.toOwnedSlice(allocator);
-    defer allocator.free(right_values);
-    const maybe_left_validity = try validityValues(left, allocator);
-    defer if (maybe_left_validity) |validity| allocator.free(validity);
-    const maybe_right_validity = try validityValues(right, allocator);
-    defer if (maybe_right_validity) |validity| allocator.free(validity);
-
-    const values = try allocator.alloc(T, left_values.len);
-    defer allocator.free(values);
-    const validity = try allocator.alloc(bool, left_values.len);
-    defer allocator.free(validity);
-    for (values, validity, 0..) |*value_slot, *valid_slot, i| {
-        const left_valid = if (maybe_left_validity) |mask| mask[i] else true;
-        const right_valid = if (maybe_right_validity) |mask| mask[i] else true;
-        if (left_valid) {
-            value_slot.* = left_values[i];
-            valid_slot.* = true;
-        } else if (right_valid) {
-            value_slot.* = right_values[i];
-            valid_slot.* = true;
-        } else {
-            value_slot.* = zeroValue(T);
-            valid_slot.* = false;
-        }
-    }
-    if (countNulls(validity) == 0) return DeviceTypedColumn(T).fromSlice(allocator, values, left.device());
-    return DeviceTypedColumn(T).fromSliceWithValidity(allocator, values, validity, left.device());
-}
-
 fn deviceColumnFromArrowArray(allocator: std.mem.Allocator, column: boltha.arrow.AnyArray, device_value: array_mod.Device) ArrowInteropError!DeviceColumn {
     return switch (column) {
         .boolean => |array| boolDeviceColumnFromArrow(allocator, array, device_value),
@@ -13969,31 +13936,6 @@ fn concatDeviceColumns(first: DeviceColumn, second: DeviceColumn) DeviceDataErro
         .c64 => |typed| .{ .c64 = try concatTypedColumns(array_mod.Complex64, typed, second.c64) },
         .c128 => |typed| .{ .c128 = try concatTypedColumns(array_mod.Complex128, typed, second.c128) },
     };
-}
-
-fn concatTypedColumns(comptime T: type, first: DeviceTypedColumn(T), second: DeviceTypedColumn(T)) DeviceDataError!DeviceTypedColumn(T) {
-    if (!first.device().sameDevice(second.device())) return error.InvalidDevice;
-    const allocator = first.values.allocator;
-    const first_values = try first.values.toOwnedSlice(allocator);
-    defer allocator.free(first_values);
-    const second_values = try second.values.toOwnedSlice(allocator);
-    defer allocator.free(second_values);
-    const values = try allocator.alloc(T, first_values.len + second_values.len);
-    defer allocator.free(values);
-    @memcpy(values[0..first_values.len], first_values);
-    @memcpy(values[first_values.len..], second_values);
-
-    const first_validity = try validityValues(first, allocator);
-    defer if (first_validity) |validity| allocator.free(validity);
-    const second_validity = try validityValues(second, allocator);
-    defer if (second_validity) |validity| allocator.free(validity);
-
-    if (first_validity == null and second_validity == null) return DeviceTypedColumn(T).fromSlice(allocator, values, first.device());
-    const validity = try allocator.alloc(bool, values.len);
-    defer allocator.free(validity);
-    for (validity[0..first_values.len], 0..) |*slot, i| slot.* = if (first_validity) |mask| mask[i] else true;
-    for (validity[first_values.len..], 0..) |*slot, i| slot.* = if (second_validity) |mask| mask[i] else true;
-    return DeviceTypedColumn(T).fromSliceWithValidity(allocator, values, validity, first.device());
 }
 
 fn primitiveDeviceColumnFromArrow(
