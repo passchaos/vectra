@@ -3,7 +3,6 @@ const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 const dataframe_arrow_mod = @import("dataframe_arrow.zig");
-const dataframe_column_mod = @import("dataframe_column.zig");
 const dataframe_core_mod = @import("dataframe_core.zig");
 const dataframe_host_mod = @import("dataframe_host.zig");
 const expr_mod = @import("dataframe_expr.zig");
@@ -14,7 +13,6 @@ const keys_mod = @import("dataframe_keys.zig");
 const join_mod = @import("dataframe_join.zig");
 const lazy_frame_mod = @import("dataframe_lazy_frame.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
-const csv_mod = @import("dataframe_csv.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const classification_mod = @import("dataframe_classification.zig");
@@ -43,17 +41,6 @@ const normalize_mod = @import("dataframe_normalize.zig");
 const range_mod = @import("dataframe_range.zig");
 const group_profile_mod = @import("dataframe_group_profile.zig");
 const group_multi_mod = @import("dataframe_group_multi.zig");
-const numeric_mod = @import("dataframe_numeric.zig");
-const names_mod = @import("dataframe_names.zig");
-const validityValues = validity_mod.validityValues;
-const freeOwnedNameItems = names_mod.freeOwnedNameItems;
-const takeOptionalRows = dataframe_array_mod.takeOptionalRows;
-const concatDeviceDataFramesRows = dataframe_array_mod.concatDeviceDataFramesRows;
-const concatDeviceColumns = dataframe_array_mod.concatDeviceColumns;
-const argsortTypedColumn = dataframe_device_column_mod.argsortTypedColumn;
-const distinctRowIndices = keys_mod.distinctRowIndices;
-const rowsMatchAllKeys = keys_mod.rowsMatchAllKeys;
-const asofRightRowIndices = keys_mod.asofRightRowIndices;
 
 pub const DataError = series_mod.DataError;
 pub const DType = dataframe_host_mod.DType;
@@ -312,7 +299,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn concatRows(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return concatDeviceDataFramesRows(DeviceDataFrame, self, other);
+        return dataframe_array_mod.concatDeviceDataFramesRows(DeviceDataFrame, self, other);
     }
 
     pub fn appendRows(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
@@ -328,7 +315,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn distinctOn(self: DeviceDataFrame, key_names: []const []const u8) DeviceDataError!DeviceDataFrame {
-        const indices = try distinctRowIndices(self.allocator, self, key_names);
+        const indices = try keys_mod.distinctRowIndices(self.allocator, self, key_names);
         defer self.allocator.free(indices);
         return self.take(indices);
     }
@@ -851,21 +838,6 @@ pub const DeviceDataFrame = struct {
         return dataframe_host_mod.deviceDataFrameToDataFrame(self);
     }
 };
-
-const compareFloatSortValues = numeric_mod.compareFloatSortValues;
-const findGroupIndex = numeric_mod.findGroupIndex;
-const groupKeyEqual = numeric_mod.groupKeyEqual;
-const castToF64 = numeric_mod.castToF64;
-
-fn initDeviceDataFrameFromOwnedColumns(
-    allocator: std.mem.Allocator,
-    source_names: []const []const u8,
-    columns: []DeviceColumn,
-    rows: usize,
-    device_value: array_mod.Device,
-) DeviceDataError!DeviceDataFrame {
-    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, allocator, source_names, columns, rows, device_value);
-}
 
 pub fn deviceDataFrame(allocator: std.mem.Allocator, defs: []const DeviceColumnDef) DeviceDataError!DeviceDataFrame {
     return DeviceDataFrame.init(allocator, defs);
