@@ -116,15 +116,6 @@ const expandingRobustProfileColumnsByValue = robust_mod.expandingRobustProfileCo
 const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
-const SignProfileColumnCount = sign_mod.SignProfileColumnCount;
-const signProfileOutputNames = sign_mod.signProfileOutputNames;
-const RollingSignProfileColumnCount = sign_mod.RollingSignProfileColumnCount;
-const rollingSignProfileOutputNames = sign_mod.rollingSignProfileOutputNames;
-const ExpandingSignProfileColumnCount = sign_mod.ExpandingSignProfileColumnCount;
-const expandingSignProfileOutputNames = sign_mod.expandingSignProfileOutputNames;
-const signProfileColumnsByValue = sign_mod.signProfileColumnsByValue;
-const rollingSignProfileColumnsByValue = sign_mod.rollingSignProfileColumnsByValue;
-const expandingSignProfileColumnsByValue = sign_mod.expandingSignProfileColumnsByValue;
 const shift_mod = @import("dataframe_shift.zig");
 const LagProfileColumnCount = shift_mod.LagProfileColumnCount;
 const lagProfileOutputNames = shift_mod.lagProfileOutputNames;
@@ -1395,108 +1386,15 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn signProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
-        const sign_value = try self.column(name);
-        var sign_columns = try signProfileColumnsByValue(self.allocator, sign_value.*, options_value, self.device, self.rows);
-        var sign_columns_transferred: usize = 0;
-        errdefer {
-            for (sign_columns[sign_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + sign_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var sign_names = try signProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, sign_names[0..]);
-        for (sign_names, 0..) |sign_name, i| source_names[self.columns.len + i] = sign_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + sign_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&sign_columns) |*sign_col| {
-            columns[initialized] = sign_col.*;
-            initialized += 1;
-            sign_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return sign_mod.signProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn rollingSignProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        const sign_value = try self.column(name);
-        var sign_columns = try rollingSignProfileColumnsByValue(self.allocator, sign_value.*, sign_options, options_value, self.device, self.rows);
-        var sign_columns_transferred: usize = 0;
-        errdefer {
-            for (sign_columns[sign_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + sign_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var sign_names = try rollingSignProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, sign_names[0..]);
-        for (sign_names, 0..) |sign_name, i| source_names[self.columns.len + i] = sign_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + sign_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&sign_columns) |*sign_col| {
-            columns[initialized] = sign_col.*;
-            initialized += 1;
-            sign_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return sign_mod.rollingSignProfileFrame(DeviceDataFrame, self, name, output_prefix, sign_options, options_value);
     }
 
     pub fn expandingSignProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        const sign_value = try self.column(name);
-        var sign_columns = try expandingSignProfileColumnsByValue(self.allocator, sign_value.*, sign_options, options_value, self.device, self.rows);
-        var sign_columns_transferred: usize = 0;
-        errdefer {
-            for (sign_columns[sign_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + sign_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var sign_names = try expandingSignProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, sign_names[0..]);
-        for (sign_names, 0..) |sign_name, i| source_names[self.columns.len + i] = sign_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + sign_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&sign_columns) |*sign_col| {
-            columns[initialized] = sign_col.*;
-            initialized += 1;
-            sign_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return sign_mod.expandingSignProfileFrame(DeviceDataFrame, self, name, output_prefix, sign_options, options_value);
     }
 
     pub fn crossoverProfile(

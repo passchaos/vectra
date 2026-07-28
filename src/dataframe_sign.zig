@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -533,4 +535,103 @@ fn expandingSignProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.flip_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const SignFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendSignColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    sign_columns: anytype,
+) SignFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + sign_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&sign_columns) |*sign_col| {
+        columns[initialized] = sign_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn signFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    sign_columns_value: anytype,
+    comptime namesFn: anytype,
+) SignFrameError!DeviceDataFrame {
+    var sign_columns = sign_columns_value;
+    var sign_columns_transferred: usize = 0;
+    errdefer {
+        for (sign_columns[sign_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + sign_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var sign_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, sign_names[0..]);
+    for (sign_names, 0..) |sign_name, i| source_names[frame.columns.len + i] = sign_name;
+
+    const out = try appendSignColumns(DeviceDataFrame, frame, source_names, sign_columns);
+    sign_columns_transferred = sign_columns.len;
+    return out;
+}
+
+pub fn signProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceTrendOptions,
+) SignFrameError!DeviceDataFrame {
+    const sign_value = try frame.column(name);
+    const sign_columns = try signProfileColumnsByValue(frame.allocator, sign_value.*, options_value, frame.device, frame.rows);
+    return signFrameFromColumns(DeviceDataFrame, frame, output_prefix, sign_columns, signProfileOutputNames);
+}
+
+pub fn rollingSignProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    sign_options: DeviceTrendOptions,
+    options_value: DeviceRollingOptions,
+) SignFrameError!DeviceDataFrame {
+    const sign_value = try frame.column(name);
+    const sign_columns = try rollingSignProfileColumnsByValue(frame.allocator, sign_value.*, sign_options, options_value, frame.device, frame.rows);
+    return signFrameFromColumns(DeviceDataFrame, frame, output_prefix, sign_columns, rollingSignProfileOutputNames);
+}
+
+pub fn expandingSignProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    sign_options: DeviceTrendOptions,
+    options_value: DeviceExpandingOptions,
+) SignFrameError!DeviceDataFrame {
+    const sign_value = try frame.column(name);
+    const sign_columns = try expandingSignProfileColumnsByValue(frame.allocator, sign_value.*, sign_options, options_value, frame.device, frame.rows);
+    return signFrameFromColumns(DeviceDataFrame, frame, output_prefix, sign_columns, expandingSignProfileOutputNames);
 }
