@@ -327,6 +327,45 @@ pub fn fullJoinRowIndicesTyped(
     };
 }
 
+pub fn innerJoinRowIndicesMulti(
+    comptime JoinRowIndexPair: type,
+    allocator: std.mem.Allocator,
+    left: anytype,
+    right: anytype,
+    left_key_names: []const []const u8,
+    right_key_names: []const []const u8,
+) KeyMatchError!JoinRowIndexPair {
+    var left_indices: std.ArrayList(?usize) = .empty;
+    errdefer left_indices.deinit(allocator);
+    var right_indices: std.ArrayList(?usize) = .empty;
+    errdefer right_indices.deinit(allocator);
+
+    // This is intentionally expressed as a row-pair builder, mirroring the
+    // single-key join path and cuDF's hash-join output shape. The current
+    // implementation materializes key columns through `Array.toOwnedSlice()` in
+    // `columnsRowsEqual`; the API boundary is what future Axiom lowering will
+    // replace with a multi-key hash table/probe kernel.
+    for (0..left.rows) |left_i| {
+        for (0..right.rows) |right_i| {
+            if (try rowsMatchAllKeys(allocator, left, right, left_key_names, right_key_names, left_i, right_i)) {
+                try left_indices.append(allocator, left_i);
+                try right_indices.append(allocator, right_i);
+            }
+        }
+    }
+
+    const owned_left = try left_indices.toOwnedSlice(allocator);
+    left_indices = .empty;
+    errdefer allocator.free(owned_left);
+    const owned_right = try right_indices.toOwnedSlice(allocator);
+    right_indices = .empty;
+    return .{
+        .allocator = allocator,
+        .left = owned_left,
+        .right = owned_right,
+    };
+}
+
 pub fn semiAntiJoinRowIndicesMulti(
     allocator: std.mem.Allocator,
     left: anytype,
