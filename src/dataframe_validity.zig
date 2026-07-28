@@ -51,6 +51,11 @@ pub fn countNullsInArray(mask: array_mod.Array(bool)) array_mod.ArrayError!usize
     return countNulls(values);
 }
 
+pub fn validityValues(column: anytype, allocator: std.mem.Allocator) array_mod.ArrayError!?[]bool {
+    const mask = column.validity orelse return null;
+    return try mask.toOwnedSlice(allocator);
+}
+
 pub const ValidityProfileColumnCount = 4;
 
 pub fn validityProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ValidityProfileColumnCount][]const u8 {

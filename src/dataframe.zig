@@ -147,6 +147,7 @@ const numeric_mod = @import("dataframe_numeric.zig");
 const names_mod = @import("dataframe_names.zig");
 const countNulls = validity_mod.countNulls;
 const countNullsInArray = validity_mod.countNullsInArray;
+const validityValues = validity_mod.validityValues;
 const requireCompatibleColumnArrays = dataframe_array_mod.requireCompatibleColumnArrays;
 const combineValidityMasks = dataframe_array_mod.combineValidityMasks;
 const zeroValue = dataframe_array_mod.zeroValue;
@@ -13853,11 +13854,6 @@ fn deviceDTypeToArrowDataType(dtype: DeviceDType) ArrowInteropError!boltha.arrow
         // rejected rather than pretending they are plain fixed-size binaries.
         .bf16, .c64, .c128 => error.TypeUnsupported,
     };
-}
-
-fn validityValues(column: anytype, allocator: std.mem.Allocator) array_mod.ArrayError!?[]bool {
-    const mask = column.validity orelse return null;
-    return try mask.toOwnedSlice(allocator);
 }
 
 fn primitiveColumnToArrow(
