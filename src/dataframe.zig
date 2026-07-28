@@ -3,6 +3,7 @@ const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
+const classification_mod = @import("dataframe_classification.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -14520,51 +14521,23 @@ fn classificationProfileColumns(
     const maybe_predicted_validity = try validityValues(predicted, allocator);
     defer if (maybe_predicted_validity) |validity| allocator.free(validity);
 
-    const tp = try allocator.alloc(bool, rows);
-    defer allocator.free(tp);
-    const fp = try allocator.alloc(bool, rows);
-    defer allocator.free(fp);
-    const tn = try allocator.alloc(bool, rows);
-    defer allocator.free(tn);
-    const fn_values = try allocator.alloc(bool, rows);
-    defer allocator.free(fn_values);
-    const correct = try allocator.alloc(bool, rows);
-    defer allocator.free(correct);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    for (actual_values, predicted_values, 0..) |actual_value, predicted_value, row| {
-        const valid = (if (maybe_actual_validity) |mask| mask[row] else true) and (if (maybe_predicted_validity) |mask| mask[row] else true);
-        metric_validity[row] = valid;
-        if (valid) {
-            tp[row] = actual_value and predicted_value;
-            fp[row] = !actual_value and predicted_value;
-            tn[row] = !actual_value and !predicted_value;
-            fn_values[row] = actual_value and !predicted_value;
-            correct[row] = actual_value == predicted_value;
-        } else {
-            tp[row] = false;
-            fp[row] = false;
-            tn[row] = false;
-            fn_values[row] = false;
-            correct[row] = false;
-        }
-    }
+    var profile = try classification_mod.classificationProfile(allocator, actual_values, predicted_values, maybe_actual_validity, maybe_predicted_validity);
+    defer profile.deinit();
 
     var columns: [ClassificationProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(bool, allocator, tp, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.tp, profile.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, fp, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.fp, profile.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, tn, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.tn, profile.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, fn_values, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.fn_values, profile.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, correct, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.correct, profile.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -14593,9 +14566,7 @@ fn rollingClassificationProfileColumns(
     device_value: array_mod.Device,
     rows: usize,
 ) DeviceDataError![RollingClassificationProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
     if (actual.len() != rows or predicted.len() != rows) return error.LengthMismatch;
     if (!actual.device().sameDevice(predicted.device())) return error.InvalidDevice;
 
@@ -14608,103 +14579,37 @@ fn rollingClassificationProfileColumns(
     const maybe_predicted_validity = try validityValues(predicted, allocator);
     defer if (maybe_predicted_validity) |validity| allocator.free(validity);
 
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const tp_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(tp_counts);
-    const fp_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(fp_counts);
-    const tn_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(tn_counts);
-    const fn_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(fn_counts);
-    const accuracies = try allocator.alloc(f64, rows);
-    defer allocator.free(accuracies);
-    const precisions = try allocator.alloc(f64, rows);
-    defer allocator.free(precisions);
-    const recalls = try allocator.alloc(f64, rows);
-    defer allocator.free(recalls);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var running_tp: usize = 0;
-    var running_fp: usize = 0;
-    var running_tn: usize = 0;
-    var running_fn: usize = 0;
-    for (actual_values, predicted_values, 0..) |actual_value, predicted_value, row| {
-        const valid = (if (maybe_actual_validity) |mask| mask[row] else true) and (if (maybe_predicted_validity) |mask| mask[row] else true);
-        if (valid) {
-            if (actual_value and predicted_value) {
-                running_tp += 1;
-            } else if (!actual_value and predicted_value) {
-                running_fp += 1;
-            } else if (!actual_value and !predicted_value) {
-                running_tn += 1;
-            } else {
-                running_fn += 1;
-            }
-        }
-
-        if (row >= options_value.window) {
-            const evict_row = row - options_value.window;
-            const evict_valid = (if (maybe_actual_validity) |mask| mask[evict_row] else true) and (if (maybe_predicted_validity) |mask| mask[evict_row] else true);
-            if (evict_valid) {
-                const evict_actual = actual_values[evict_row];
-                const evict_predicted = predicted_values[evict_row];
-                if (evict_actual and evict_predicted) {
-                    running_tp -= 1;
-                } else if (!evict_actual and evict_predicted) {
-                    running_fp -= 1;
-                } else if (!evict_actual and !evict_predicted) {
-                    running_tn -= 1;
-                } else {
-                    running_fn -= 1;
-                }
-            }
-        }
-
-        const count = running_tp + running_fp + running_tn + running_fn;
-        counts[row] = @intCast(count);
-        tp_counts[row] = @intCast(running_tp);
-        fp_counts[row] = @intCast(running_fp);
-        tn_counts[row] = @intCast(running_tn);
-        fn_counts[row] = @intCast(running_fn);
-        const has_enough = count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            const predicted_positive = running_tp + running_fp;
-            const actual_positive = running_tp + running_fn;
-            accuracies[row] = @as(f64, @floatFromInt(running_tp + running_tn)) / n;
-            precisions[row] = if (predicted_positive == 0) std.math.nan(f64) else @as(f64, @floatFromInt(running_tp)) / @as(f64, @floatFromInt(predicted_positive));
-            recalls[row] = if (actual_positive == 0) std.math.nan(f64) else @as(f64, @floatFromInt(running_tp)) / @as(f64, @floatFromInt(actual_positive));
-        } else {
-            accuracies[row] = 0;
-            precisions[row] = 0;
-            recalls[row] = 0;
-        }
-    }
+    var profile = try classification_mod.rollingClassificationProfile(
+        allocator,
+        actual_values,
+        predicted_values,
+        maybe_actual_validity,
+        maybe_predicted_validity,
+        options_value.window,
+        min_periods,
+    );
+    defer profile.deinit();
 
     var columns: [RollingClassificationProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, profile.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSlice(i64, allocator, tp_counts, device_value);
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, profile.tp_counts, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSlice(i64, allocator, fp_counts, device_value);
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, profile.fp_counts, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSlice(i64, allocator, tn_counts, device_value);
+    columns[3] = try DeviceColumn.fromSlice(i64, allocator, profile.tn_counts, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSlice(i64, allocator, fn_counts, device_value);
+    columns[4] = try DeviceColumn.fromSlice(i64, allocator, profile.fn_counts, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, accuracies, metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.accuracies, profile.metric_validity, device_value);
     initialized += 1;
-    columns[6] = try DeviceColumn.fromSliceWithValidity(f64, allocator, precisions, metric_validity, device_value);
+    columns[6] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.precisions, profile.metric_validity, device_value);
     initialized += 1;
-    columns[7] = try DeviceColumn.fromSliceWithValidity(f64, allocator, recalls, metric_validity, device_value);
+    columns[7] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.recalls, profile.metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -14733,7 +14638,6 @@ fn expandingClassificationProfileColumns(
     device_value: array_mod.Device,
     rows: usize,
 ) DeviceDataError![ExpandingClassificationProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
     if (actual.len() != rows or predicted.len() != rows) return error.LengthMismatch;
     if (!actual.device().sameDevice(predicted.device())) return error.InvalidDevice;
 
@@ -14746,85 +14650,36 @@ fn expandingClassificationProfileColumns(
     const maybe_predicted_validity = try validityValues(predicted, allocator);
     defer if (maybe_predicted_validity) |validity| allocator.free(validity);
 
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const tp_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(tp_counts);
-    const fp_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(fp_counts);
-    const tn_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(tn_counts);
-    const fn_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(fn_counts);
-    const accuracies = try allocator.alloc(f64, rows);
-    defer allocator.free(accuracies);
-    const precisions = try allocator.alloc(f64, rows);
-    defer allocator.free(precisions);
-    const recalls = try allocator.alloc(f64, rows);
-    defer allocator.free(recalls);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var tp_count: usize = 0;
-    var fp_count: usize = 0;
-    var tn_count: usize = 0;
-    var fn_count: usize = 0;
-    for (actual_values, predicted_values, 0..) |actual_value, predicted_value, row| {
-        const valid = (if (maybe_actual_validity) |mask| mask[row] else true) and (if (maybe_predicted_validity) |mask| mask[row] else true);
-        if (valid) {
-            if (actual_value and predicted_value) {
-                tp_count += 1;
-            } else if (!actual_value and predicted_value) {
-                fp_count += 1;
-            } else if (!actual_value and !predicted_value) {
-                tn_count += 1;
-            } else {
-                fn_count += 1;
-            }
-        }
-
-        const count = tp_count + fp_count + tn_count + fn_count;
-        counts[row] = @intCast(count);
-        tp_counts[row] = @intCast(tp_count);
-        fp_counts[row] = @intCast(fp_count);
-        tn_counts[row] = @intCast(tn_count);
-        fn_counts[row] = @intCast(fn_count);
-        const has_enough = count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            const predicted_positive = tp_count + fp_count;
-            const actual_positive = tp_count + fn_count;
-            accuracies[row] = @as(f64, @floatFromInt(tp_count + tn_count)) / n;
-            precisions[row] = if (predicted_positive == 0) std.math.nan(f64) else @as(f64, @floatFromInt(tp_count)) / @as(f64, @floatFromInt(predicted_positive));
-            recalls[row] = if (actual_positive == 0) std.math.nan(f64) else @as(f64, @floatFromInt(tp_count)) / @as(f64, @floatFromInt(actual_positive));
-        } else {
-            accuracies[row] = 0;
-            precisions[row] = 0;
-            recalls[row] = 0;
-        }
-    }
+    var profile = try classification_mod.expandingClassificationProfile(
+        allocator,
+        actual_values,
+        predicted_values,
+        maybe_actual_validity,
+        maybe_predicted_validity,
+        options_value.min_periods,
+    );
+    defer profile.deinit();
 
     var columns: [ExpandingClassificationProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, profile.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSlice(i64, allocator, tp_counts, device_value);
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, profile.tp_counts, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSlice(i64, allocator, fp_counts, device_value);
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, profile.fp_counts, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSlice(i64, allocator, tn_counts, device_value);
+    columns[3] = try DeviceColumn.fromSlice(i64, allocator, profile.tn_counts, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSlice(i64, allocator, fn_counts, device_value);
+    columns[4] = try DeviceColumn.fromSlice(i64, allocator, profile.fn_counts, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, accuracies, metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.accuracies, profile.metric_validity, device_value);
     initialized += 1;
-    columns[6] = try DeviceColumn.fromSliceWithValidity(f64, allocator, precisions, metric_validity, device_value);
+    columns[6] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.precisions, profile.metric_validity, device_value);
     initialized += 1;
-    columns[7] = try DeviceColumn.fromSliceWithValidity(f64, allocator, recalls, metric_validity, device_value);
+    columns[7] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.recalls, profile.metric_validity, device_value);
     initialized += 1;
     return columns;
 }
