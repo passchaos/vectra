@@ -112,9 +112,6 @@ const rollingDrawdownProfileColumnsByValue = risk_mod.rollingDrawdownProfileColu
 const drawdownProfileColumnsByValue = risk_mod.drawdownProfileColumnsByValue;
 const extremaProfileColumnsByValue = risk_mod.extremaProfileColumnsByValue;
 const standardize_mod = @import("dataframe_standardize.zig");
-const StandardizeProfileColumnCount = standardize_mod.StandardizeProfileColumnCount;
-const standardizeProfileOutputNames = standardize_mod.standardizeProfileOutputNames;
-const standardizeProfileColumnsByValue = standardize_mod.standardizeProfileColumnsByValue;
 const robust_mod = @import("dataframe_robust.zig");
 const RobustProfileColumnCount = robust_mod.RobustProfileColumnCount;
 const robustProfileOutputNames = robust_mod.robustProfileOutputNames;
@@ -1385,38 +1382,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn standardizeProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceStandardizeOptions) DeviceDataError!DeviceDataFrame {
-        const standardize_value = try self.column(name);
-        var standardize_columns = try standardizeProfileColumnsByValue(self.allocator, standardize_value.*, options_value, self.device, self.rows);
-        var standardize_columns_transferred: usize = 0;
-        errdefer {
-            for (standardize_columns[standardize_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + standardize_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var standardize_names = try standardizeProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, standardize_names[0..]);
-        for (standardize_names, 0..) |standardize_name, i| source_names[self.columns.len + i] = standardize_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + standardize_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&standardize_columns) |*standardize_col| {
-            columns[initialized] = standardize_col.*;
-            initialized += 1;
-            standardize_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return standardize_mod.standardizeProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn robustProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!DeviceDataFrame {

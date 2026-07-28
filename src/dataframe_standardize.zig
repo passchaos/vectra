@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -10,6 +12,17 @@ const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;
 const DeviceStandardizeOptions = options_mod.DeviceStandardizeOptions;
 const castToF64 = numeric_mod.castToF64;
 const validityValues = validity_mod.validityValues;
+
+const StandardizeFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
 
 pub const StandardizeMetrics = struct {
     allocator: std.mem.Allocator,
@@ -182,4 +195,46 @@ fn standardizeProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.minmax, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+pub fn standardizeProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceStandardizeOptions,
+) StandardizeFrameError!DeviceDataFrame {
+    const standardize_value = try frame.column(name);
+    var standardize_columns = try standardizeProfileColumnsByValue(frame.allocator, standardize_value.*, options_value, frame.device, frame.rows);
+    var standardize_columns_transferred: usize = 0;
+    errdefer {
+        for (standardize_columns[standardize_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + standardize_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var standardize_names = try standardizeProfileOutputNames(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, standardize_names[0..]);
+    for (standardize_names, 0..) |standardize_name, i| source_names[frame.columns.len + i] = standardize_name;
+
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + standardize_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&standardize_columns) |*standardize_col| {
+        columns[initialized] = standardize_col.*;
+        initialized += 1;
+        standardize_columns_transferred += 1;
+    }
+
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
 }
