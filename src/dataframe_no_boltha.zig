@@ -98,6 +98,10 @@ pub const DeviceRollingOptions = struct {
     min_periods: ?usize = null,
 };
 
+pub const DeviceLagOptions = struct {
+    periods: usize = 1,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };

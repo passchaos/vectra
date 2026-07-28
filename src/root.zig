@@ -93,6 +93,7 @@ pub const DeviceColumnCompareOp = dataframe_mod.DeviceColumnCompareOp;
 pub const DeviceGroupByAggregation = dataframe_mod.DeviceGroupByAggregation;
 pub const DeviceSortOptions = dataframe_mod.DeviceSortOptions;
 pub const DeviceRollingOptions = dataframe_mod.DeviceRollingOptions;
+pub const DeviceLagOptions = dataframe_mod.DeviceLagOptions;
 pub const NullPlacement = dataframe_mod.NullPlacement;
 pub const DeviceJoinOptions = dataframe_mod.DeviceJoinOptions;
 pub const AsofStrategy = dataframe_mod.AsofStrategy;
