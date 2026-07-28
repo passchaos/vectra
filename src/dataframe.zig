@@ -148,6 +148,7 @@ const leadProfileColumnsByValue = shift_mod.leadProfileColumnsByValue;
 const ema_mod = @import("dataframe_ema.zig");
 const EmaProfileColumnCount = ema_mod.EmaProfileColumnCount;
 const emaProfileOutputNames = ema_mod.emaProfileOutputNames;
+const emaProfileColumnsByValue = ema_mod.emaProfileColumnsByValue;
 const quantile_mod = @import("dataframe_quantile.zig");
 const RollingQuantileProfileColumnCount = quantile_mod.RollingQuantileProfileColumnCount;
 const rollingQuantileProfileOutputNames = quantile_mod.rollingQuantileProfileOutputNames;
@@ -7226,66 +7227,6 @@ fn expandingMomentProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.skewnesses, metrics.validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.kurtoses, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
-
-fn emaProfileColumnsByValue(
-    allocator: std.mem.Allocator,
-    value: DeviceColumn,
-    options_value: DeviceEmaOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![EmaProfileColumnCount]DeviceColumn {
-    if (value.len() != rows) return error.LengthMismatch;
-    return switch (value) {
-        .i8 => |typed| emaProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
-        .i16 => |typed| emaProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
-        .i32 => |typed| emaProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
-        .i64 => |typed| emaProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
-        .u8 => |typed| emaProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
-        .u16 => |typed| emaProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
-        .u32 => |typed| emaProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
-        .u64 => |typed| emaProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
-        .usize => |typed| emaProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
-        .isize => |typed| emaProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
-        .f16 => |typed| emaProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
-        .f32 => |typed| emaProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
-        .f64 => |typed| emaProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
-        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn emaProfileColumnsTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    column: DeviceTypedColumn(T),
-    options_value: DeviceEmaOptions,
-    device_value: array_mod.Device,
-) DeviceDataError![EmaProfileColumnCount]DeviceColumn {
-    const values_typed = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values_typed);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const rows = values_typed.len;
-    const values = try allocator.alloc(f64, rows);
-    defer allocator.free(values);
-    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
-
-    var metrics = try ema_mod.emaProfile(allocator, values, maybe_validity, options_value.alpha, options_value.min_periods);
-    defer metrics.deinit();
-
-    var columns: [EmaProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ema_values, metrics.validity, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.residuals, metrics.validity, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ratios, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
