@@ -20,6 +20,7 @@ const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
 const shift_mod = @import("dataframe_shift.zig");
 const ema_mod = @import("dataframe_ema.zig");
+const quantile_mod = @import("dataframe_quantile.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -9087,76 +9088,31 @@ fn rollingQuantileProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingQuantileProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const q1_values = try allocator.alloc(f64, rows);
-    defer allocator.free(q1_values);
-    const medians = try allocator.alloc(f64, rows);
-    defer allocator.free(medians);
-    const q3_values = try allocator.alloc(f64, rows);
-    defer allocator.free(q3_values);
-    const iqrs = try allocator.alloc(f64, rows);
-    defer allocator.free(iqrs);
-    const validity = try allocator.alloc(bool, rows);
-    defer allocator.free(validity);
-    const scratch = try allocator.alloc(f64, options_value.window);
-    defer allocator.free(scratch);
-
-    for (0..rows) |row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        for (start..row + 1) |window_row| {
-            const row_valid = if (maybe_validity) |mask| mask[window_row] else true;
-            if (!row_valid) continue;
-            scratch[count] = castToF64(T, values[window_row]);
-            count += 1;
-        }
-
-        const current_valid = if (maybe_validity) |mask| mask[row] else true;
-        const has_enough = current_valid and count >= min_periods;
-        validity[row] = has_enough;
-        if (has_enough) {
-            const window_values = scratch[0..count];
-            std.sort.insertion(f64, window_values, {}, struct {
-                fn lessThan(_: void, lhs: f64, rhs: f64) bool {
-                    return compareFloatSortValues(f64, lhs, rhs) < 0;
-                }
-            }.lessThan);
-            const q1 = quantileSorted(window_values, 0.25);
-            const median = quantileSorted(window_values, 0.5);
-            const q3 = quantileSorted(window_values, 0.75);
-            q1_values[row] = q1;
-            medians[row] = median;
-            q3_values[row] = q3;
-            iqrs[row] = q3 - q1;
-        } else {
-            q1_values[row] = 0;
-            medians[row] = 0;
-            q3_values[row] = 0;
-            iqrs[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try quantile_mod.rollingQuantileProfile(allocator, values, maybe_validity, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingQuantileProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, q1_values, validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.q1, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, medians, validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.medians, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, q3_values, validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.q3, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, iqrs, validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.iqrs, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -9210,71 +9166,30 @@ fn expandingQuantileProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingQuantileProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const q1_values = try allocator.alloc(f64, rows);
-    defer allocator.free(q1_values);
-    const medians = try allocator.alloc(f64, rows);
-    defer allocator.free(medians);
-    const q3_values = try allocator.alloc(f64, rows);
-    defer allocator.free(q3_values);
-    const iqrs = try allocator.alloc(f64, rows);
-    defer allocator.free(iqrs);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-    const scratch = try allocator.alloc(f64, rows);
-    defer allocator.free(scratch);
-
-    var valid_count: usize = 0;
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) {
-            scratch[valid_count] = castToF64(T, value_item);
-            valid_count += 1;
-        }
-
-        const has_enough = valid_count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const prefix_values = scratch[0..valid_count];
-            std.sort.insertion(f64, prefix_values, {}, struct {
-                fn lessThan(_: void, lhs: f64, rhs: f64) bool {
-                    return compareFloatSortValues(f64, lhs, rhs) < 0;
-                }
-            }.lessThan);
-            const q1 = quantileSorted(prefix_values, 0.25);
-            const median = quantileSorted(prefix_values, 0.5);
-            const q3 = quantileSorted(prefix_values, 0.75);
-            q1_values[row] = q1;
-            medians[row] = median;
-            q3_values[row] = q3;
-            iqrs[row] = q3 - q1;
-        } else {
-            q1_values[row] = 0;
-            medians[row] = 0;
-            q3_values[row] = 0;
-            iqrs[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try quantile_mod.expandingQuantileProfile(allocator, values, maybe_validity, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExpandingQuantileProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, q1_values, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.q1, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, medians, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.medians, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, q3_values, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.q3, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, iqrs, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.iqrs, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
