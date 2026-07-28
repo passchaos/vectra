@@ -115,6 +115,11 @@ pub const DeviceExpandingOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceExpandingRankOptions = struct {
+    min_periods: usize = 1,
+    descending: bool = false,
+};
+
 pub const DeviceStandardizeOptions = struct {
     min_periods: usize = 1,
 };

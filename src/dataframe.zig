@@ -139,6 +139,13 @@ pub const DeviceExpandingOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceExpandingRankOptions = struct {
+    /// Minimum valid observations required to mark expanding rank metrics.
+    min_periods: usize = 1,
+    /// Rank descending instead of ascending within the expanding prefix.
+    descending: bool = false,
+};
+
 pub const DeviceStandardizeOptions = struct {
     /// Minimum valid observations required to compute global scaling metrics.
     min_periods: usize = 1,
@@ -1095,6 +1102,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceExpandingOptions,
     },
+    expanding_rank_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceExpandingRankOptions,
+    },
     expanding_moment_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1318,6 +1330,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(expanding.output_prefix);
             },
             .expanding_bool_profile => |expanding| {
+                allocator.free(expanding.name);
+                allocator.free(expanding.output_prefix);
+            },
+            .expanding_rank_profile => |expanding| {
                 allocator.free(expanding.name);
                 allocator.free(expanding.output_prefix);
             },
@@ -1768,6 +1784,17 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, expanding.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .expanding_bool_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = expanding.options,
+                } };
+            },
+            .expanding_rank_profile => |expanding| blk: {
+                const name = try allocator.dupe(u8, expanding.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, expanding.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .expanding_rank_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = expanding.options,
@@ -2552,6 +2579,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn expandingRankProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingRankOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .expanding_rank_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn expandingMomentProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -2887,6 +2926,7 @@ pub const DeviceLazyFrame = struct {
                 .threshold_profile => |threshold| try current.thresholdProfile(threshold.name, threshold.output_prefix, threshold.options),
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .expanding_bool_profile => |expanding| try current.expandingBoolProfile(expanding.name, expanding.output_prefix, expanding.options),
+                .expanding_rank_profile => |expanding| try current.expandingRankProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .expanding_moment_profile => |expanding| try current.expandingMomentProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
@@ -3406,6 +3446,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(expanding.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, expanding.name);
                 break :op_loop;
             },
+            .expanding_rank_profile => |expanding| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(expanding.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, expanding.name);
+                break :op_loop;
+            },
             .expanding_moment_profile => |expanding| {
                 // Expanding moment profiles append higher-order cumulative
                 // distribution diagnostics while preserving source columns.
@@ -3736,6 +3781,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .threshold_profile => |threshold| try writer.print("threshold_profile({s}, prefix={s}, threshold={d})", .{ threshold.name, threshold.output_prefix, threshold.options.threshold }),
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .expanding_bool_profile => |expanding| try writer.print("expanding_bool_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
+        .expanding_rank_profile => |expanding| try writer.print("expanding_rank_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .expanding_moment_profile => |expanding| try writer.print("expanding_moment_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
@@ -4873,6 +4919,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = bool_col.*;
             initialized += 1;
             bool_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn expandingRankProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingRankOptions) DeviceDataError!DeviceDataFrame {
+        const expanding_value = try self.column(name);
+        var expanding_columns = try expandingRankProfileColumnsByValue(self.allocator, expanding_value.*, options_value, self.device, self.rows);
+        var expanding_columns_transferred: usize = 0;
+        errdefer {
+            for (expanding_columns[expanding_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + expanding_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var expanding_names = try expandingRankProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, expanding_names[0..]);
+        for (expanding_names, 0..) |expanding_name, i| source_names[self.columns.len + i] = expanding_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + expanding_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&expanding_columns) |*expanding_col| {
+            columns[initialized] = expanding_col.*;
+            initialized += 1;
+            expanding_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -7882,6 +7963,123 @@ fn expandingBoolProfileColumns(
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, any_values, metric_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, all_values, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ExpandingRankProfileColumnCount = 4;
+
+fn expandingRankProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingRankProfileColumnCount][]const u8 {
+    var names: [ExpandingRankProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_rank_count", "expanding_rank", "expanding_percent_rank", "expanding_cume_dist" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn expandingRankProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceExpandingRankOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ExpandingRankProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .bool => |typed| expandingRankProfileColumnsTyped(bool, allocator, typed, options_value, device_value),
+        .i8 => |typed| expandingRankProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| expandingRankProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| expandingRankProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| expandingRankProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| expandingRankProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| expandingRankProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| expandingRankProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| expandingRankProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| expandingRankProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| expandingRankProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| expandingRankProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| expandingRankProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| expandingRankProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn expandingRankProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceExpandingRankOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![ExpandingRankProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const ranks = try allocator.alloc(i64, rows);
+    defer allocator.free(ranks);
+    const percent_ranks = try allocator.alloc(f64, rows);
+    defer allocator.free(percent_ranks);
+    const cume_dist = try allocator.alloc(f64, rows);
+    defer allocator.free(cume_dist);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var valid_count: usize = 0;
+    for (values, 0..) |value_item, row| {
+        const current_valid = if (maybe_validity) |mask| mask[row] else true;
+        if (current_valid) valid_count += 1;
+
+        var before_count: usize = 0;
+        var equal_count: usize = 0;
+        if (current_valid) {
+            for (0..row + 1) |prefix_row| {
+                const row_valid = if (maybe_validity) |mask| mask[prefix_row] else true;
+                if (!row_valid) continue;
+                const cmp = compareSortValues(T, values[prefix_row], value_item);
+                const before = if (options_value.descending) cmp > 0 else cmp < 0;
+                if (before) before_count += 1;
+                if (cmp == 0) equal_count += 1;
+            }
+        }
+
+        counts[row] = @intCast(valid_count);
+        const has_enough = current_valid and valid_count >= options_value.min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            ranks[row] = @intCast(before_count + 1);
+            percent_ranks[row] = if (valid_count <= 1) 0 else @as(f64, @floatFromInt(before_count)) / @as(f64, @floatFromInt(valid_count - 1));
+            cume_dist[row] = @as(f64, @floatFromInt(before_count + equal_count)) / @as(f64, @floatFromInt(valid_count));
+        } else {
+            ranks[row] = 0;
+            percent_ranks[row] = 0;
+            cume_dist[row] = 0;
+        }
+    }
+
+    var columns: [ExpandingRankProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, ranks, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, percent_ranks, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, cume_dist, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -13271,6 +13469,29 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_rank_cume[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_rank_cume[3], 1e-12);
 
+    var expanding_ranks = try tied_table.expandingRankProfile("score", "score_expand", .{ .min_periods = 2 });
+    defer expanding_ranks.deinit();
+    try std.testing.expectEqual(@as(usize, 6), expanding_ranks.width());
+    const expanding_rank_count = try (try expanding_ranks.column("score_expand_expanding_rank_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_rank_count);
+    const expanding_rank = try (try expanding_ranks.column("score_expand_expanding_rank")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_rank);
+    const expanding_percent_rank = try (try expanding_ranks.column("score_expand_expanding_percent_rank")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_percent_rank);
+    const expanding_rank_cume = try (try expanding_ranks.column("score_expand_expanding_cume_dist")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_rank_cume);
+    const expanding_rank_validity = try (try expanding_ranks.column("score_expand_expanding_rank")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(expanding_rank_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4, 4 }, expanding_rank_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, false }, expanding_rank_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 2, 2, 4, 0 }, expanding_rank);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), expanding_percent_rank[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_percent_rank[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), expanding_percent_rank[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), expanding_rank_cume[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), expanding_rank_cume[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), expanding_rank_cume[3], 1e-12);
+
     var rolling_sales = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 100.0, 4.0, 5.0 }, &.{ true, true, false, true, true }, .cpu);
     defer rolling_sales.deinit();
     var rolling_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4, 5 }, .cpu);
@@ -15003,6 +15224,37 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_cume_dist[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_cume_dist[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_cume_dist[3], 1e-12);
+
+    var expanding_rank_plan = try DeviceLazyFrame.init(gpa, table);
+    defer expanding_rank_plan.deinit();
+    try expanding_rank_plan.expandingRankProfile("sales", "sales_expand", .{ .min_periods = 2, .descending = true });
+    try expanding_rank_plan.select(&.{ "sales", "sales_expand_expanding_rank_count", "sales_expand_expanding_rank", "sales_expand_expanding_percent_rank", "sales_expand_expanding_cume_dist" });
+    const expanding_rank_explain = try expanding_rank_plan.explain(gpa);
+    defer gpa.free(expanding_rank_explain);
+    try std.testing.expect(std.mem.indexOf(u8, expanding_rank_explain, "expanding_rank_profile(sales") != null);
+    var expanding_ranked = try expanding_rank_plan.collect();
+    defer expanding_ranked.deinit();
+    try std.testing.expectEqual(@as(usize, 4), expanding_ranked.height());
+    try std.testing.expectEqual(@as(usize, 5), expanding_ranked.width());
+    const lazy_expanding_rank_count = try (try expanding_ranked.column("sales_expand_expanding_rank_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_rank_count);
+    const lazy_expanding_rank = try (try expanding_ranked.column("sales_expand_expanding_rank")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_rank);
+    const lazy_expanding_percent_rank = try (try expanding_ranked.column("sales_expand_expanding_percent_rank")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_percent_rank);
+    const lazy_expanding_cume_dist = try (try expanding_ranked.column("sales_expand_expanding_cume_dist")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_cume_dist);
+    const lazy_expanding_rank_validity = try (try expanding_ranked.column("sales_expand_expanding_rank")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_rank_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4 }, lazy_expanding_rank_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_expanding_rank_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, lazy_expanding_rank);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_percent_rank[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_percent_rank[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_percent_rank[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_expanding_cume_dist[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), lazy_expanding_cume_dist[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), lazy_expanding_cume_dist[3], 1e-12);
 
     var rolling_robust_plan = try DeviceLazyFrame.init(gpa, table);
     defer rolling_robust_plan.deinit();

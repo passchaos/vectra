@@ -97,6 +97,7 @@ pub const DeviceThresholdOptions = dataframe_mod.DeviceThresholdOptions;
 pub const DeviceRollingOptions = dataframe_mod.DeviceRollingOptions;
 pub const DeviceLagOptions = dataframe_mod.DeviceLagOptions;
 pub const DeviceExpandingOptions = dataframe_mod.DeviceExpandingOptions;
+pub const DeviceExpandingRankOptions = dataframe_mod.DeviceExpandingRankOptions;
 pub const DeviceStandardizeOptions = dataframe_mod.DeviceStandardizeOptions;
 pub const DeviceRobustOptions = dataframe_mod.DeviceRobustOptions;
 pub const DeviceDrawdownOptions = dataframe_mod.DeviceDrawdownOptions;
