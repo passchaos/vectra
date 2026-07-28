@@ -904,6 +904,11 @@ pub const DeviceLazyOp = union(enum) {
         options: DeviceSortOptions,
         k: usize,
     },
+    rank_profile_by: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceSortOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -978,6 +983,10 @@ pub const DeviceLazyOp = union(enum) {
             .distinct_on => |names| freeNameList(allocator, names),
             .sort_by => |sort| allocator.free(sort.name),
             .top_k => |top| allocator.free(top.name),
+            .rank_profile_by => |rank| {
+                allocator.free(rank.name);
+                allocator.free(rank.output_prefix);
+            },
             .distinct_rows, .head, .tail => {},
         }
         self.* = undefined;
@@ -1180,6 +1189,17 @@ pub const DeviceLazyOp = union(enum) {
                 .options = top.options,
                 .k = top.k,
             } },
+            .rank_profile_by => |rank| blk: {
+                const name = try allocator.dupe(u8, rank.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, rank.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rank_profile_by = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = rank.options,
+                } };
+            },
             .head => |n| .{ .head = n },
             .tail => |n| .{ .tail = n },
         };
@@ -1565,6 +1585,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rankProfileBy(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceSortOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rank_profile_by = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -1631,6 +1663,7 @@ pub const DeviceLazyFrame = struct {
                 .distinct_on => |names| try current.distinctOn(names),
                 .sort_by => |sort| try current.sortBy(sort.name, sort.options),
                 .top_k => |top| try current.topKBy(top.name, top.k, top.options),
+                .rank_profile_by => |rank| try current.rankProfileBy(rank.name, rank.output_prefix, rank.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2012,6 +2045,16 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
             .top_k => |top| {
                 if (!nameInBorrowedList(top.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, top.name);
             },
+            .rank_profile_by => |rank| {
+                // A rank profile appends derived rank/window columns while
+                // preserving the rest of the input table.  Without source schema
+                // metadata here, a later select cannot be split safely into
+                // source columns vs. rank-derived columns, so keep scalar
+                // predicate pruning but avoid Parquet projection pushdown.
+                projection_blocked = true;
+                if (!nameInBorrowedList(rank.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, rank.name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2192,6 +2235,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         },
         .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
+        .rank_profile_by => |rank| try writer.print("rank_profile_by({s}, prefix={s}, desc={})", .{ rank.name, rank.output_prefix, rank.options.descending }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -2755,6 +2799,41 @@ pub const DeviceDataFrame = struct {
         return sorted.head(k);
     }
 
+    pub fn rankProfileBy(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
+        const rank_key = try self.column(name);
+        var rank_columns = try rankProfileColumnsByKey(self.allocator, rank_key.*, options_value, self.device, self.rows);
+        var rank_columns_transferred: usize = 0;
+        errdefer {
+            for (rank_columns[rank_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + rank_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var rank_names = try rankProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, rank_names[0..]);
+        for (rank_names, 0..) |rank_name, i| source_names[self.columns.len + i] = rank_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + rank_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&rank_columns) |*rank_col| {
+            columns[initialized] = rank_col.*;
+            initialized += 1;
+            rank_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
     pub fn groupByCount(self: DeviceDataFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
         const key = try self.column(key_name);
         return switch (key.*) {
@@ -3202,6 +3281,130 @@ fn compareFloatSortValues(comptime T: type, lhs: T, rhs: T) i8 {
     if (lhs < rhs) return -1;
     if (rhs < lhs) return 1;
     return 0;
+}
+
+const RankProfileColumnCount = 5;
+
+fn rankProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RankProfileColumnCount][]const u8 {
+    var names: [RankProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{
+        "ordinal_rank",
+        "competition_rank",
+        "dense_rank",
+        "percent_rank",
+        "cume_dist",
+    };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rankProfileColumnsByKey(
+    allocator: std.mem.Allocator,
+    key: DeviceColumn,
+    options_value: DeviceSortOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RankProfileColumnCount]DeviceColumn {
+    if (key.len() != rows) return error.LengthMismatch;
+    return switch (key) {
+        .bool => |typed| rankProfileColumnsTyped(bool, allocator, typed, options_value, device_value),
+        .i8 => |typed| rankProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| rankProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| rankProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| rankProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| rankProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| rankProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| rankProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| rankProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| rankProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| rankProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| rankProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| rankProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| rankProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rankProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceSortOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RankProfileColumnCount]DeviceColumn {
+    const rows = column.len();
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+    const order = try argsortTypedColumn(T, column, allocator, options_value);
+    defer allocator.free(order);
+
+    const ordinal = try allocator.alloc(i64, rows);
+    defer allocator.free(ordinal);
+    const competition = try allocator.alloc(i64, rows);
+    defer allocator.free(competition);
+    const dense = try allocator.alloc(i64, rows);
+    defer allocator.free(dense);
+    const percent = try allocator.alloc(f64, rows);
+    defer allocator.free(percent);
+    const cume = try allocator.alloc(f64, rows);
+    defer allocator.free(cume);
+
+    var group_start: usize = 0;
+    var dense_rank: i64 = 0;
+    while (group_start < rows) {
+        var group_end = group_start + 1;
+        while (group_end < rows and rankKeysTie(T, values, maybe_validity, order[group_start], order[group_end])) {
+            group_end += 1;
+        }
+
+        dense_rank += 1;
+        const competition_rank: i64 = @intCast(group_start + 1);
+        const percent_rank: f64 = if (rows <= 1) 0 else @as(f64, @floatFromInt(group_start)) / @as(f64, @floatFromInt(rows - 1));
+        const cume_dist: f64 = if (rows == 0) std.math.nan(f64) else @as(f64, @floatFromInt(group_end)) / @as(f64, @floatFromInt(rows));
+
+        for (order[group_start..group_end], group_start..) |row, sorted_position| {
+            ordinal[row] = @intCast(sorted_position + 1);
+            competition[row] = competition_rank;
+            dense[row] = dense_rank;
+            percent[row] = percent_rank;
+            cume[row] = cume_dist;
+        }
+        group_start = group_end;
+    }
+
+    var columns: [RankProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, ordinal, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, competition, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, dense, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSlice(f64, allocator, percent, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSlice(f64, allocator, cume, device_value);
+    initialized += 1;
+    return columns;
+}
+
+fn rankKeysTie(comptime T: type, values: []const T, maybe_validity: ?[]const bool, lhs: usize, rhs: usize) bool {
+    const lhs_valid = if (maybe_validity) |validity| validity[lhs] else true;
+    const rhs_valid = if (maybe_validity) |validity| validity[rhs] else true;
+    if (lhs_valid != rhs_valid) return false;
+    if (!lhs_valid) return true;
+    return compareSortValues(T, values[lhs], values[rhs]) == 0;
 }
 
 fn groupByCountTyped(
@@ -6336,6 +6539,56 @@ test "device dataframe sorts by device column keys" {
     const bool_sorted_id_values = try bool_sorted_id.i64.toOwnedSlice(gpa);
     defer gpa.free(bool_sorted_id_values);
     try std.testing.expectEqualSlices(i64, &.{ 10, 40, 30, 20 }, bool_sorted_id_values);
+
+    var tied_score = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 10.0, 20.0, 20.0, 30.0, 0.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer tied_score.deinit();
+    var tied_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4, 5 }, .cpu);
+    defer tied_id.deinit();
+    var tied_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "score", .data = tied_score },
+        .{ .name = "id", .data = tied_id },
+    });
+    defer tied_table.deinit();
+
+    var ranks = try tied_table.rankProfileBy("score", "score", .{ .descending = false, .nulls = .last });
+    defer ranks.deinit();
+    try std.testing.expectEqual(@as(usize, 7), ranks.width());
+    const ordinal = try (try ranks.column("score_ordinal_rank")).i64.toOwnedSlice(gpa);
+    defer gpa.free(ordinal);
+    const competition = try (try ranks.column("score_competition_rank")).i64.toOwnedSlice(gpa);
+    defer gpa.free(competition);
+    const dense_rank = try (try ranks.column("score_dense_rank")).i64.toOwnedSlice(gpa);
+    defer gpa.free(dense_rank);
+    const percent_rank = try (try ranks.column("score_percent_rank")).f64.toOwnedSlice(gpa);
+    defer gpa.free(percent_rank);
+    const cume_dist = try (try ranks.column("score_cume_dist")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cume_dist);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4, 5 }, ordinal);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 4, 5 }, competition);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 3, 4 }, dense_rank);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), percent_rank[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), percent_rank[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), percent_rank[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), percent_rank[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), percent_rank[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.2), cume_dist[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), cume_dist[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), cume_dist[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.8), cume_dist[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), cume_dist[4], 1e-12);
+
+    var desc_ranks = try tied_table.rankProfileBy("score", "score_desc", .{ .descending = true, .nulls = .first });
+    defer desc_ranks.deinit();
+    const desc_competition = try (try desc_ranks.column("score_desc_competition_rank")).i64.toOwnedSlice(gpa);
+    defer gpa.free(desc_competition);
+    const desc_cume_dist = try (try desc_ranks.column("score_desc_cume_dist")).f64.toOwnedSlice(gpa);
+    defer gpa.free(desc_cume_dist);
+    try std.testing.expectEqualSlices(i64, &.{ 5, 3, 3, 2, 1 }, desc_competition);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), desc_cume_dist[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.8), desc_cume_dist[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.8), desc_cume_dist[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.4), desc_cume_dist[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.2), desc_cume_dist[4], 1e-12);
 }
 
 test "device dataframe groupby aggregations on fixed-width columns" {
@@ -7109,6 +7362,33 @@ test "device lazy frame collects staged select filter sort and limit operations"
     const topk_sales = try (try topk.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(topk_sales);
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, topk_sales);
+
+    var rank_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rank_plan.deinit();
+    try rank_plan.rankProfileBy("sales", "sales_rank", .{ .descending = true });
+    try rank_plan.select(&.{ "sales", "sales_rank_ordinal_rank", "sales_rank_percent_rank", "sales_rank_cume_dist" });
+    const rank_explain = try rank_plan.explain(gpa);
+    defer gpa.free(rank_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rank_explain, "rank_profile_by(sales") != null);
+    var ranked = try rank_plan.collect();
+    defer ranked.deinit();
+    try std.testing.expectEqual(@as(usize, 4), ranked.height());
+    try std.testing.expectEqual(@as(usize, 4), ranked.width());
+    const ranked_ordinal = try (try ranked.column("sales_rank_ordinal_rank")).i64.toOwnedSlice(gpa);
+    defer gpa.free(ranked_ordinal);
+    const ranked_percent = try (try ranked.column("sales_rank_percent_rank")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ranked_percent);
+    const ranked_cume = try (try ranked.column("sales_rank_cume_dist")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ranked_cume);
+    try std.testing.expectEqualSlices(i64, &.{ 4, 3, 2, 1 }, ranked_ordinal);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), ranked_percent[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), ranked_percent[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), ranked_percent[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ranked_percent[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), ranked_cume[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), ranked_cume[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ranked_cume[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), ranked_cume[3], 1e-12);
 }
 
 test "device lazy frame collects groupby aggregations" {
