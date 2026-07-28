@@ -1,8 +1,10 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
 const validity_mod = @import("dataframe_validity.zig");
+const numeric_mod = @import("dataframe_numeric.zig");
 const countNulls = validity_mod.countNulls;
 const validityValues = validity_mod.validityValues;
+const groupKeyEqual = numeric_mod.groupKeyEqual;
 
 pub fn requireCompatibleColumnArrays(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) array_mod.ArrayError!void {
     if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
@@ -261,4 +263,58 @@ pub fn takeOptionalRows(
         initialized += 1;
     }
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, row_indices.len, input.device);
+}
+
+pub fn columnsRowsEqual(
+    allocator: std.mem.Allocator,
+    left: anytype,
+    right: anytype,
+    left_i: usize,
+    right_i: usize,
+) (std.mem.Allocator.Error || array_mod.ArrayError || error{ TypeMismatch, TypeUnsupported })!bool {
+    if (left.dtype() != right.dtype()) return error.TypeMismatch;
+    return switch (left) {
+        .bool => |typed| columnsRowsEqualTyped(bool, allocator, typed, right.bool, left_i, right_i),
+        .i8 => |typed| columnsRowsEqualTyped(i8, allocator, typed, right.i8, left_i, right_i),
+        .i16 => |typed| columnsRowsEqualTyped(i16, allocator, typed, right.i16, left_i, right_i),
+        .i32 => |typed| columnsRowsEqualTyped(i32, allocator, typed, right.i32, left_i, right_i),
+        .i64 => |typed| columnsRowsEqualTyped(i64, allocator, typed, right.i64, left_i, right_i),
+        .u8 => |typed| columnsRowsEqualTyped(u8, allocator, typed, right.u8, left_i, right_i),
+        .u16 => |typed| columnsRowsEqualTyped(u16, allocator, typed, right.u16, left_i, right_i),
+        .u32 => |typed| columnsRowsEqualTyped(u32, allocator, typed, right.u32, left_i, right_i),
+        .u64 => |typed| columnsRowsEqualTyped(u64, allocator, typed, right.u64, left_i, right_i),
+        .usize => |typed| columnsRowsEqualTyped(usize, allocator, typed, right.usize, left_i, right_i),
+        .isize => |typed| columnsRowsEqualTyped(isize, allocator, typed, right.isize, left_i, right_i),
+        .f16 => |typed| columnsRowsEqualTyped(f16, allocator, typed, right.f16, left_i, right_i),
+        .f32 => |typed| columnsRowsEqualTyped(f32, allocator, typed, right.f32, left_i, right_i),
+        .f64 => |typed| columnsRowsEqualTyped(f64, allocator, typed, right.f64, left_i, right_i),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn columnsRowsEqualTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    left: anytype,
+    right: anytype,
+    left_i: usize,
+    right_i: usize,
+) (std.mem.Allocator.Error || array_mod.ArrayError)!bool {
+    if (!left.device().sameDevice(right.device())) return error.InvalidDevice;
+    if (left_i >= left.len() or right_i >= right.len()) return error.IndexOutOfBounds;
+    const left_validity = try validityValues(left, allocator);
+    defer if (left_validity) |validity| allocator.free(validity);
+    const right_validity = try validityValues(right, allocator);
+    defer if (right_validity) |validity| allocator.free(validity);
+    if (left_validity) |validity| {
+        if (!validity[left_i]) return false;
+    }
+    if (right_validity) |validity| {
+        if (!validity[right_i]) return false;
+    }
+    const left_values = try left.values.toOwnedSlice(allocator);
+    defer allocator.free(left_values);
+    const right_values = try right.values.toOwnedSlice(allocator);
+    defer allocator.free(right_values);
+    return groupKeyEqual(T, left_values[left_i], right_values[right_i]);
 }

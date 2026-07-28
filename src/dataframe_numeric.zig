@@ -27,6 +27,10 @@ pub fn optionalCast(comptime T: type, value: anytype) ?T {
     return std.math.cast(T, unwrapped) orelse unreachable;
 }
 
+pub fn asofDistance(comptime T: type, lhs: T, rhs: T) f64 {
+    return @abs(castToF64(T, lhs) - castToF64(T, rhs));
+}
+
 pub fn compareSortValues(comptime T: type, lhs: T, rhs: T) i8 {
     if (comptime T == bool) {
         if (lhs == rhs) return 0;

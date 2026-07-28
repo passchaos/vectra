@@ -158,6 +158,7 @@ const sliceArray1d = dataframe_array_mod.sliceArray1d;
 const takeArray1d = dataframe_array_mod.takeArray1d;
 const concatDeviceColumns = dataframe_array_mod.concatDeviceColumns;
 const coalesceJoinKeys = dataframe_array_mod.coalesceJoinKeys;
+const columnsRowsEqual = dataframe_array_mod.columnsRowsEqual;
 const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
 const readBolthaTableWithRangePruning = dataframe_arrow_mod.readBolthaTableWithRangePruning;
 const primitiveColumnToArrow = dataframe_arrow_mod.primitiveColumnToArrow;
@@ -5010,6 +5011,7 @@ const formatLazyScanPushdown = lazy_mod.formatLazyScanPushdown;
 const formatLazyOp = lazy_mod.formatLazyOp;
 const isIntegerColumnType = numeric_mod.isIntegerColumnType;
 const isOrderedColumnType = numeric_mod.isOrderedColumnType;
+const asofDistance = numeric_mod.asofDistance;
 
 /// Owning fixed-width dataframe that can keep every column on the same Vectra
 /// device.
@@ -13081,60 +13083,6 @@ fn rowsMatchAllKeys(
     return true;
 }
 
-fn columnsRowsEqual(
-    allocator: std.mem.Allocator,
-    left: DeviceColumn,
-    right: DeviceColumn,
-    left_i: usize,
-    right_i: usize,
-) DeviceDataError!bool {
-    if (left.dtype() != right.dtype()) return error.TypeMismatch;
-    return switch (left) {
-        .bool => |typed| columnsRowsEqualTyped(bool, allocator, typed, right.bool, left_i, right_i),
-        .i8 => |typed| columnsRowsEqualTyped(i8, allocator, typed, right.i8, left_i, right_i),
-        .i16 => |typed| columnsRowsEqualTyped(i16, allocator, typed, right.i16, left_i, right_i),
-        .i32 => |typed| columnsRowsEqualTyped(i32, allocator, typed, right.i32, left_i, right_i),
-        .i64 => |typed| columnsRowsEqualTyped(i64, allocator, typed, right.i64, left_i, right_i),
-        .u8 => |typed| columnsRowsEqualTyped(u8, allocator, typed, right.u8, left_i, right_i),
-        .u16 => |typed| columnsRowsEqualTyped(u16, allocator, typed, right.u16, left_i, right_i),
-        .u32 => |typed| columnsRowsEqualTyped(u32, allocator, typed, right.u32, left_i, right_i),
-        .u64 => |typed| columnsRowsEqualTyped(u64, allocator, typed, right.u64, left_i, right_i),
-        .usize => |typed| columnsRowsEqualTyped(usize, allocator, typed, right.usize, left_i, right_i),
-        .isize => |typed| columnsRowsEqualTyped(isize, allocator, typed, right.isize, left_i, right_i),
-        .f16 => |typed| columnsRowsEqualTyped(f16, allocator, typed, right.f16, left_i, right_i),
-        .f32 => |typed| columnsRowsEqualTyped(f32, allocator, typed, right.f32, left_i, right_i),
-        .f64 => |typed| columnsRowsEqualTyped(f64, allocator, typed, right.f64, left_i, right_i),
-        .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn columnsRowsEqualTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    left: DeviceTypedColumn(T),
-    right: DeviceTypedColumn(T),
-    left_i: usize,
-    right_i: usize,
-) DeviceDataError!bool {
-    if (!left.device().sameDevice(right.device())) return error.InvalidDevice;
-    if (left_i >= left.len() or right_i >= right.len()) return error.IndexOutOfBounds;
-    const left_validity = try validityValues(left, allocator);
-    defer if (left_validity) |validity| allocator.free(validity);
-    const right_validity = try validityValues(right, allocator);
-    defer if (right_validity) |validity| allocator.free(validity);
-    if (left_validity) |validity| {
-        if (!validity[left_i]) return false;
-    }
-    if (right_validity) |validity| {
-        if (!validity[right_i]) return false;
-    }
-    const left_values = try left.values.toOwnedSlice(allocator);
-    defer allocator.free(left_values);
-    const right_values = try right.values.toOwnedSlice(allocator);
-    defer allocator.free(right_values);
-    return groupKeyEqual(T, left_values[left_i], right_values[right_i]);
-}
-
 fn asofRightRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn, strategy: AsofStrategy) DeviceDataError![]?usize {
     return switch (left) {
         .i8 => |typed| asofRightRowIndicesTyped(i8, allocator, typed, right.i8, strategy),
@@ -13197,10 +13145,6 @@ fn asofRightRowIndicesTyped(
         slot.* = best;
     }
     return indices;
-}
-
-fn asofDistance(comptime T: type, lhs: T, rhs: T) f64 {
-    return @abs(castToF64(T, lhs) - castToF64(T, rhs));
 }
 
 fn leftJoinRowIndices(allocator: std.mem.Allocator, left: DeviceColumn, right: DeviceColumn) DeviceDataError!JoinRowIndexPair {
