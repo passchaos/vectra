@@ -1,4 +1,14 @@
 const std = @import("std");
+const array_mod = @import("array.zig");
+const dataframe_device_column_mod = @import("dataframe_device_column.zig");
+const options_mod = @import("dataframe_options.zig");
+const validity_mod = @import("dataframe_validity.zig");
+
+const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
+const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;
+const DeviceRollingOptions = options_mod.DeviceRollingOptions;
+const DeviceExpandingOptions = options_mod.DeviceExpandingOptions;
+const validityValues = validity_mod.validityValues;
 
 pub const ClassificationProfile = struct {
     allocator: std.mem.Allocator,
@@ -319,4 +329,152 @@ pub fn expandingClassificationProfile(
     }
 
     return out;
+}
+
+pub fn classificationProfileColumns(
+    allocator: std.mem.Allocator,
+    actual: DeviceTypedColumn(bool),
+    predicted: DeviceTypedColumn(bool),
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{ LengthMismatch, InvalidDevice })![ClassificationProfileColumnCount]DeviceColumn {
+    if (actual.len() != rows or predicted.len() != rows) return error.LengthMismatch;
+    if (!actual.device().sameDevice(predicted.device())) return error.InvalidDevice;
+
+    const actual_values = try actual.values.toOwnedSlice(allocator);
+    defer allocator.free(actual_values);
+    const predicted_values = try predicted.values.toOwnedSlice(allocator);
+    defer allocator.free(predicted_values);
+    const maybe_actual_validity = try validityValues(actual, allocator);
+    defer if (maybe_actual_validity) |validity| allocator.free(validity);
+    const maybe_predicted_validity = try validityValues(predicted, allocator);
+    defer if (maybe_predicted_validity) |validity| allocator.free(validity);
+
+    var profile = try classificationProfile(allocator, actual_values, predicted_values, maybe_actual_validity, maybe_predicted_validity);
+    defer profile.deinit();
+
+    var columns: [ClassificationProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.tp, profile.validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.fp, profile.validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.tn, profile.validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.fn_values, profile.validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.correct, profile.validity, device_value);
+    initialized += 1;
+    return columns;
+}
+pub fn rollingClassificationProfileColumns(
+    allocator: std.mem.Allocator,
+    actual: DeviceTypedColumn(bool),
+    predicted: DeviceTypedColumn(bool),
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{ LengthMismatch, InvalidDevice })![RollingClassificationProfileColumnCount]DeviceColumn {
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (actual.len() != rows or predicted.len() != rows) return error.LengthMismatch;
+    if (!actual.device().sameDevice(predicted.device())) return error.InvalidDevice;
+
+    const actual_values = try actual.values.toOwnedSlice(allocator);
+    defer allocator.free(actual_values);
+    const predicted_values = try predicted.values.toOwnedSlice(allocator);
+    defer allocator.free(predicted_values);
+    const maybe_actual_validity = try validityValues(actual, allocator);
+    defer if (maybe_actual_validity) |validity| allocator.free(validity);
+    const maybe_predicted_validity = try validityValues(predicted, allocator);
+    defer if (maybe_predicted_validity) |validity| allocator.free(validity);
+
+    var profile = try rollingClassificationProfile(
+        allocator,
+        actual_values,
+        predicted_values,
+        maybe_actual_validity,
+        maybe_predicted_validity,
+        options_value.window,
+        min_periods,
+    );
+    defer profile.deinit();
+
+    var columns: [RollingClassificationProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, profile.counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, profile.tp_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, profile.fp_counts, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSlice(i64, allocator, profile.tn_counts, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSlice(i64, allocator, profile.fn_counts, device_value);
+    initialized += 1;
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.accuracies, profile.metric_validity, device_value);
+    initialized += 1;
+    columns[6] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.precisions, profile.metric_validity, device_value);
+    initialized += 1;
+    columns[7] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.recalls, profile.metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+pub fn expandingClassificationProfileColumns(
+    allocator: std.mem.Allocator,
+    actual: DeviceTypedColumn(bool),
+    predicted: DeviceTypedColumn(bool),
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{ LengthMismatch, InvalidDevice })![ExpandingClassificationProfileColumnCount]DeviceColumn {
+    if (actual.len() != rows or predicted.len() != rows) return error.LengthMismatch;
+    if (!actual.device().sameDevice(predicted.device())) return error.InvalidDevice;
+
+    const actual_values = try actual.values.toOwnedSlice(allocator);
+    defer allocator.free(actual_values);
+    const predicted_values = try predicted.values.toOwnedSlice(allocator);
+    defer allocator.free(predicted_values);
+    const maybe_actual_validity = try validityValues(actual, allocator);
+    defer if (maybe_actual_validity) |validity| allocator.free(validity);
+    const maybe_predicted_validity = try validityValues(predicted, allocator);
+    defer if (maybe_predicted_validity) |validity| allocator.free(validity);
+
+    var profile = try expandingClassificationProfile(
+        allocator,
+        actual_values,
+        predicted_values,
+        maybe_actual_validity,
+        maybe_predicted_validity,
+        options_value.min_periods,
+    );
+    defer profile.deinit();
+
+    var columns: [ExpandingClassificationProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, profile.counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, profile.tp_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, profile.fp_counts, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSlice(i64, allocator, profile.tn_counts, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSlice(i64, allocator, profile.fn_counts, device_value);
+    initialized += 1;
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.accuracies, profile.metric_validity, device_value);
+    initialized += 1;
+    columns[6] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.precisions, profile.metric_validity, device_value);
+    initialized += 1;
+    columns[7] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.recalls, profile.metric_validity, device_value);
+    initialized += 1;
+    return columns;
 }
