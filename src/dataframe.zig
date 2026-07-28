@@ -217,7 +217,6 @@ const names_mod = @import("dataframe_names.zig");
 const freeColumn = dataframe_column_mod.freeColumn;
 const validityValues = validity_mod.validityValues;
 const freeOwnedNameItems = names_mod.freeOwnedNameItems;
-const rowIndicesFromMask = dataframe_array_mod.rowIndicesFromMask;
 const takeOptionalRows = dataframe_array_mod.takeOptionalRows;
 const concatDeviceDataFramesRows = dataframe_array_mod.concatDeviceDataFramesRows;
 const concatDeviceColumns = dataframe_array_mod.concatDeviceColumns;
@@ -589,55 +588,15 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn view(self: DeviceDataFrame) DeviceDataError!DeviceDataFrameView {
-        const columns = try self.allocator.alloc(DeviceColumnView, self.columns.len);
-        errdefer self.allocator.free(columns);
-        for (self.columns, columns) |col, *slot| slot.* = col.view();
-        return .{
-            .allocator = self.allocator,
-            .names = self.names,
-            .columns = columns,
-            .rows = self.rows,
-            .device = self.device,
-        };
+        return dataframe_array_mod.view(DeviceDataFrameView, DeviceColumnView, self);
     }
 
     pub fn select(self: DeviceDataFrame, wanted_names: []const []const u8) DeviceDataError!DeviceDataFrame {
-        if (wanted_names.len == 0) return DeviceDataFrame.initEmpty(self.allocator, self.rows, self.device);
-        var columns = try self.allocator.alloc(DeviceColumn, wanted_names.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (wanted_names, 0..) |name, i| {
-            const source = try self.column(name);
-            columns[i] = try source.clone();
-            initialized += 1;
-        }
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, wanted_names, columns, self.rows, self.device);
+        return dataframe_array_mod.select(DeviceDataFrame, self, wanted_names);
     }
 
     pub fn withColumn(self: DeviceDataFrame, name: []const u8, data: DeviceColumn) DeviceDataError!DeviceDataFrame {
-        if (data.len() != self.rows) return error.LengthMismatch;
-        if (!data.device().sameDevice(self.device)) return error.InvalidDevice;
-        var source_names = try self.allocator.alloc([]const u8, self.columns.len + 1);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |existing, i| source_names[i] = existing;
-        source_names[self.columns.len] = name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + 1);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        columns[self.columns.len] = try data.clone();
-        initialized += 1;
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return dataframe_array_mod.withColumn(DeviceDataFrame, self, name, data);
     }
 
     pub fn head(self: DeviceDataFrame, n: usize) DeviceDataError!DeviceDataFrame {
@@ -650,33 +609,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn sliceRows(self: DeviceDataFrame, start: usize, stop: usize) DeviceDataError!DeviceDataFrame {
-        const end = @min(stop, self.rows);
-        const begin = @min(start, end);
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.sliceRows(begin, end);
-            initialized += 1;
-        }
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, end - begin, self.device);
+        return dataframe_array_mod.sliceRows(DeviceDataFrame, self, start, stop);
     }
 
     pub fn take(self: DeviceDataFrame, row_indices: []const usize) DeviceDataError!DeviceDataFrame {
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.take(row_indices);
-            initialized += 1;
-        }
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, row_indices.len, self.device);
+        return dataframe_array_mod.takeRows(DeviceDataFrame, self, row_indices);
     }
 
     pub fn concatRows(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
@@ -3129,25 +3066,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn filter(self: DeviceDataFrame, mask: []const bool) DeviceDataError!DeviceDataFrame {
-        if (mask.len != self.rows) return error.LengthMismatch;
-        const row_indices = try rowIndicesFromMask(self.allocator, mask);
-        defer self.allocator.free(row_indices);
-        return self.take(row_indices);
+        return dataframe_array_mod.filterRows(DeviceDataFrame, self, mask);
     }
 
     pub fn to(self: DeviceDataFrame, device_value: array_mod.Device) DeviceDataError!DeviceDataFrame {
-        if (!device_value.isAvailable()) return error.InvalidDevice;
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.to(device_value);
-            initialized += 1;
-        }
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, self.rows, device_value);
+        return dataframe_array_mod.toDevice(DeviceDataFrame, self, device_value);
     }
 
     pub fn cpu(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
