@@ -1005,6 +1005,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceRollingOptions,
     },
+    rolling_moment_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceRollingOptions,
+    },
     rolling_range_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1217,6 +1222,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(rank.output_prefix);
             },
             .rolling_profile => |rolling| {
+                allocator.free(rolling.name);
+                allocator.free(rolling.output_prefix);
+            },
+            .rolling_moment_profile => |rolling| {
                 allocator.free(rolling.name);
                 allocator.free(rolling.output_prefix);
             },
@@ -1549,6 +1558,17 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, rolling.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .rolling_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = rolling.options,
+                } };
+            },
+            .rolling_moment_profile => |rolling| blk: {
+                const name = try allocator.dupe(u8, rolling.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, rolling.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_moment_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = rolling.options,
@@ -2264,6 +2284,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingMomentProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_moment_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn rollingRangeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -2693,6 +2725,7 @@ pub const DeviceLazyFrame = struct {
                 .top_k => |top| try current.topKBy(top.name, top.k, top.options),
                 .rank_profile_by => |rank| try current.rankProfileBy(rank.name, rank.output_prefix, rank.options),
                 .rolling_profile => |rolling| try current.rollingProfile(rolling.name, rolling.output_prefix, rolling.options),
+                .rolling_moment_profile => |rolling| try current.rollingMomentProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .rolling_range_profile => |rolling| try current.rollingRangeProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .rolling_normalize_profile => |rolling| try current.rollingNormalizeProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .rolling_quantile_profile => |rolling| try current.rollingQuantileProfile(rolling.name, rolling.output_prefix, rolling.options),
@@ -3118,6 +3151,14 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(rolling.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, rolling.name);
                 break :op_loop;
             },
+            .rolling_moment_profile => |rolling| {
+                // Rolling moment profiles append higher-order distribution
+                // diagnostics while preserving source columns. Keep predicates
+                // but block projection until generated-field schema is explicit.
+                projection_blocked = true;
+                if (!nameInBorrowedList(rolling.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, rolling.name);
+                break :op_loop;
+            },
             .rolling_range_profile => |rolling| {
                 // Rolling range profiles append low/high/range/position fields
                 // and preserve the input table, so projection pushdown needs
@@ -3507,6 +3548,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
         .rank_profile_by => |rank| try writer.print("rank_profile_by({s}, prefix={s}, desc={})", .{ rank.name, rank.output_prefix, rank.options.descending }),
         .rolling_profile => |rolling| try writer.print("rolling_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
+        .rolling_moment_profile => |rolling| try writer.print("rolling_moment_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .rolling_range_profile => |rolling| try writer.print("rolling_range_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .rolling_normalize_profile => |rolling| try writer.print("rolling_normalize_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .rolling_quantile_profile => |rolling| try writer.print("rolling_quantile_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
@@ -4144,6 +4186,41 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var rolling_names = try rollingProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, rolling_names[0..]);
+        for (rolling_names, 0..) |rolling_name, i| source_names[self.columns.len + i] = rolling_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + rolling_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&rolling_columns) |*rolling_col| {
+            columns[initialized] = rolling_col.*;
+            initialized += 1;
+            rolling_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingMomentProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
+        const rolling_value = try self.column(name);
+        var rolling_columns = try rollingMomentProfileColumnsByValue(self.allocator, rolling_value.*, options_value, self.device, self.rows);
+        var rolling_columns_transferred: usize = 0;
+        errdefer {
+            for (rolling_columns[rolling_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + rolling_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var rolling_names = try rollingMomentProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, rolling_names[0..]);
         for (rolling_names, 0..) |rolling_name, i| source_names[self.columns.len + i] = rolling_name;
 
@@ -5825,6 +5902,147 @@ fn rollingProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, variances, validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, stddevs, validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const RollingMomentProfileColumnCount = 5;
+
+fn rollingMomentProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingMomentProfileColumnCount][]const u8 {
+    var names: [RollingMomentProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_moment_count", "rolling_m3", "rolling_m4", "rolling_skewness", "rolling_kurtosis" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingMomentProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingMomentProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| rollingMomentProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| rollingMomentProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| rollingMomentProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| rollingMomentProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| rollingMomentProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| rollingMomentProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| rollingMomentProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| rollingMomentProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| rollingMomentProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| rollingMomentProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| rollingMomentProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| rollingMomentProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| rollingMomentProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rollingMomentProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingMomentProfileColumnCount]DeviceColumn {
+    if (options_value.window == 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const m3_values = try allocator.alloc(f64, rows);
+    defer allocator.free(m3_values);
+    const m4_values = try allocator.alloc(f64, rows);
+    defer allocator.free(m4_values);
+    const skewnesses = try allocator.alloc(f64, rows);
+    defer allocator.free(skewnesses);
+    const kurtoses = try allocator.alloc(f64, rows);
+    defer allocator.free(kurtoses);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    for (values, 0..) |_, row| {
+        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
+        var count: usize = 0;
+        var sum: f64 = 0;
+        for (start..row + 1) |window_row| {
+            const valid = if (maybe_validity) |mask| mask[window_row] else true;
+            if (!valid) continue;
+            sum += castToF64(T, values[window_row]);
+            count += 1;
+        }
+
+        counts[row] = @intCast(count);
+        const has_enough = count >= min_periods;
+        metric_validity[row] = has_enough;
+        if (!has_enough) {
+            m3_values[row] = 0;
+            m4_values[row] = 0;
+            skewnesses[row] = 0;
+            kurtoses[row] = 0;
+            continue;
+        }
+
+        const n: f64 = @floatFromInt(count);
+        const mean = sum / n;
+        var sum2: f64 = 0;
+        var sum3: f64 = 0;
+        var sum4: f64 = 0;
+        for (start..row + 1) |window_row| {
+            const valid = if (maybe_validity) |mask| mask[window_row] else true;
+            if (!valid) continue;
+            const centered = castToF64(T, values[window_row]) - mean;
+            const centered2 = centered * centered;
+            sum2 += centered2;
+            sum3 += centered2 * centered;
+            sum4 += centered2 * centered2;
+        }
+
+        const variance = sum2 / n;
+        const m3 = sum3 / n;
+        const m4 = sum4 / n;
+        m3_values[row] = m3;
+        m4_values[row] = m4;
+        if (count < 2 or variance == 0) {
+            skewnesses[row] = std.math.nan(f64);
+            kurtoses[row] = std.math.nan(f64);
+        } else {
+            skewnesses[row] = m3 / std.math.pow(f64, variance, 1.5);
+            kurtoses[row] = m4 / (variance * variance) - 3.0;
+        }
+    }
+
+    var columns: [RollingMomentProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, m3_values, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, m4_values, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, skewnesses, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, kurtoses, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -12293,6 +12511,32 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_stddev[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_stddev[4], 1e-12);
 
+    var rolling_moments = try rolling_table.rollingMomentProfile("sales", "sales", .{ .window = 3, .min_periods = 2 });
+    defer rolling_moments.deinit();
+    try std.testing.expectEqual(@as(usize, 7), rolling_moments.width());
+    const rolling_moment_count = try (try rolling_moments.column("sales_rolling_moment_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_moment_count);
+    const rolling_m3 = try (try rolling_moments.column("sales_rolling_m3")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_m3);
+    const rolling_m4 = try (try rolling_moments.column("sales_rolling_m4")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_m4);
+    const rolling_skewness = try (try rolling_moments.column("sales_rolling_skewness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_skewness);
+    const rolling_kurtosis = try (try rolling_moments.column("sales_rolling_kurtosis")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_kurtosis);
+    const rolling_moment_validity = try (try rolling_moments.column("sales_rolling_skewness")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_moment_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 2, 2 }, rolling_moment_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true }, rolling_moment_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_m3[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_m3[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0625), rolling_m4[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_m4[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_skewness[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_skewness[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), rolling_kurtosis[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), rolling_kurtosis[3], 1e-12);
+
     var ema = try rolling_table.emaProfile("sales", "sales", .{ .alpha = 0.5, .min_periods = 2 });
     defer ema.deinit();
     try std.testing.expectEqual(@as(usize, 5), ema.width());
@@ -13871,6 +14115,44 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_stddev[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_stddev[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_stddev[3], 1e-12);
+
+    var rolling_moment_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_moment_plan.deinit();
+    try rolling_moment_plan.rollingMomentProfile("sales", "sales", .{ .window = 2, .min_periods = 2 });
+    try rolling_moment_plan.select(&.{ "sales", "sales_rolling_moment_count", "sales_rolling_m3", "sales_rolling_m4", "sales_rolling_skewness", "sales_rolling_kurtosis" });
+    const rolling_moment_explain = try rolling_moment_plan.explain(gpa);
+    defer gpa.free(rolling_moment_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_moment_explain, "rolling_moment_profile(sales") != null);
+    var rolling_moments = try rolling_moment_plan.collect();
+    defer rolling_moments.deinit();
+    try std.testing.expectEqual(@as(usize, 4), rolling_moments.height());
+    try std.testing.expectEqual(@as(usize, 6), rolling_moments.width());
+    const lazy_moment_count = try (try rolling_moments.column("sales_rolling_moment_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_moment_count);
+    const lazy_m3 = try (try rolling_moments.column("sales_rolling_m3")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_m3);
+    const lazy_m4 = try (try rolling_moments.column("sales_rolling_m4")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_m4);
+    const lazy_skewness = try (try rolling_moments.column("sales_rolling_skewness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_skewness);
+    const lazy_kurtosis = try (try rolling_moments.column("sales_rolling_kurtosis")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_kurtosis);
+    const lazy_moment_validity = try (try rolling_moments.column("sales_rolling_skewness")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_moment_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 2 }, lazy_moment_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_moment_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_m3[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_m3[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_m3[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0625), lazy_m4[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_m4[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_m4[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_skewness[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_skewness[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_skewness[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), lazy_kurtosis[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), lazy_kurtosis[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), lazy_kurtosis[3], 1e-12);
 
     var ema_plan = try DeviceLazyFrame.init(gpa, table);
     defer ema_plan.deinit();
