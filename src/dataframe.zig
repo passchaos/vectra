@@ -19,6 +19,7 @@ const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
 const shift_mod = @import("dataframe_shift.zig");
+const ema_mod = @import("dataframe_ema.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -12302,69 +12303,29 @@ fn emaProfileColumnsTyped(
     options_value: DeviceEmaOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![EmaProfileColumnCount]DeviceColumn {
-    if (options_value.alpha <= 0 or options_value.alpha > 1 or options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const ema_values = try allocator.alloc(f64, rows);
-    defer allocator.free(ema_values);
-    const residuals = try allocator.alloc(f64, rows);
-    defer allocator.free(residuals);
-    const ratios = try allocator.alloc(f64, rows);
-    defer allocator.free(ratios);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    var seen: usize = 0;
-    var ema: f64 = 0;
-    // Null observations do not update EMA state. This keeps sequence gaps from
-    // biasing the exponential smoother while preserving row-aligned nullable
-    // outputs for downstream feature engineering.
-    for (values, 0..) |value_item, row| {
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        if (!row_valid) {
-            ema_values[row] = 0;
-            residuals[row] = 0;
-            ratios[row] = 0;
-            metric_validity[row] = false;
-            continue;
-        }
-
-        const x = castToF64(T, value_item);
-        if (seen == 0) {
-            ema = x;
-        } else {
-            ema = options_value.alpha * x + (1.0 - options_value.alpha) * ema;
-        }
-        seen += 1;
-
-        const has_enough = seen >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            ema_values[row] = ema;
-            residuals[row] = x - ema;
-            ratios[row] = if (ema == 0) std.math.nan(f64) else x / ema;
-        } else {
-            ema_values[row] = 0;
-            residuals[row] = 0;
-            ratios[row] = 0;
-        }
-    }
+    var metrics = try ema_mod.emaProfile(allocator, values, maybe_validity, options_value.alpha, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [EmaProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ema_values, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ema_values, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residuals, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.residuals, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ratios, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ratios, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
