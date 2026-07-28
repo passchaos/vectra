@@ -23,6 +23,22 @@ pub const BoolTransitionProfile = struct {
     }
 };
 
+pub const BoolTransitionProfileColumnCount = 5;
+
+pub fn boolTransitionProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![BoolTransitionProfileColumnCount][]const u8 {
+    var names: [BoolTransitionProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rising", "falling", "toggled", "true_streak", "false_streak" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 pub fn boolTransitionProfile(
     allocator: std.mem.Allocator,
     values: []const bool,
@@ -134,6 +150,22 @@ pub const RollingBoolTransitionMetrics = struct {
         self.* = undefined;
     }
 };
+
+pub const RollingBoolTransitionProfileColumnCount = 7;
+
+pub fn rollingBoolTransitionProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingBoolTransitionProfileColumnCount][]const u8 {
+    var names: [RollingBoolTransitionProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_transition_count", "rolling_rising_count", "rolling_falling_count", "rolling_toggle_count", "rolling_rising_rate", "rolling_falling_rate", "rolling_toggle_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
 
 pub fn rollingBoolTransitionProfile(
     allocator: std.mem.Allocator,
@@ -247,6 +279,21 @@ pub fn rollingBoolTransitionProfile(
 }
 
 pub const ExpandingBoolTransitionMetrics = RollingBoolTransitionMetrics;
+pub const ExpandingBoolTransitionProfileColumnCount = 7;
+
+pub fn expandingBoolTransitionProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingBoolTransitionProfileColumnCount][]const u8 {
+    var names: [ExpandingBoolTransitionProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_transition_count", "expanding_rising_count", "expanding_falling_count", "expanding_toggle_count", "expanding_rising_rate", "expanding_falling_rate", "expanding_toggle_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
 
 pub fn expandingBoolTransitionProfile(
     allocator: std.mem.Allocator,

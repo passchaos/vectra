@@ -3,6 +3,12 @@ const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
+const BoolTransitionProfileColumnCount = bool_transition_mod.BoolTransitionProfileColumnCount;
+const boolTransitionProfileOutputNames = bool_transition_mod.boolTransitionProfileOutputNames;
+const RollingBoolTransitionProfileColumnCount = bool_transition_mod.RollingBoolTransitionProfileColumnCount;
+const rollingBoolTransitionProfileOutputNames = bool_transition_mod.rollingBoolTransitionProfileOutputNames;
+const ExpandingBoolTransitionProfileColumnCount = bool_transition_mod.ExpandingBoolTransitionProfileColumnCount;
+const expandingBoolTransitionProfileOutputNames = bool_transition_mod.expandingBoolTransitionProfileOutputNames;
 const classification_mod = @import("dataframe_classification.zig");
 const ClassificationProfileColumnCount = classification_mod.ClassificationProfileColumnCount;
 const classificationProfileOutputNames = classification_mod.classificationProfileOutputNames;
@@ -12008,22 +12014,6 @@ fn expandingClassificationProfileColumns(
     return columns;
 }
 
-const BoolTransitionProfileColumnCount = 5;
-
-fn boolTransitionProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![BoolTransitionProfileColumnCount][]const u8 {
-    var names: [BoolTransitionProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rising", "falling", "toggled", "true_streak", "false_streak" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn boolTransitionProfileColumns(
     allocator: std.mem.Allocator,
     source: DeviceTypedColumn(bool),
@@ -12057,22 +12047,6 @@ fn boolTransitionProfileColumns(
     columns[4] = try DeviceColumn.fromSliceWithValidity(i64, allocator, profile.false_streak, profile.streak_validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingBoolTransitionProfileColumnCount = 7;
-
-fn rollingBoolTransitionProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingBoolTransitionProfileColumnCount][]const u8 {
-    var names: [RollingBoolTransitionProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_transition_count", "rolling_rising_count", "rolling_falling_count", "rolling_toggle_count", "rolling_rising_rate", "rolling_falling_rate", "rolling_toggle_rate" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingBoolTransitionProfileColumns(
@@ -12121,22 +12095,6 @@ fn rollingBoolTransitionProfileColumns(
     columns[6] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.toggle_rates, metrics.metric_validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingBoolTransitionProfileColumnCount = 7;
-
-fn expandingBoolTransitionProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingBoolTransitionProfileColumnCount][]const u8 {
-    var names: [ExpandingBoolTransitionProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_transition_count", "expanding_rising_count", "expanding_falling_count", "expanding_toggle_count", "expanding_rising_rate", "expanding_falling_rate", "expanding_toggle_rate" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingBoolTransitionProfileColumns(
