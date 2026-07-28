@@ -14,6 +14,7 @@ const bool_profile_mod = @import("dataframe_bool_profile.zig");
 const clip_mod = @import("dataframe_clip.zig");
 const risk_mod = @import("dataframe_risk.zig");
 const standardize_mod = @import("dataframe_standardize.zig");
+const robust_mod = @import("dataframe_robust.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -9453,90 +9454,31 @@ fn rollingRobustProfileColumnsTyped(
     options_value: DeviceRollingRobustOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingRobustProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const centered = try allocator.alloc(f64, rows);
-    defer allocator.free(centered);
-    const mad_zscore = try allocator.alloc(f64, rows);
-    defer allocator.free(mad_zscore);
-    const outlier = try allocator.alloc(bool, rows);
-    defer allocator.free(outlier);
-    const winsorized = try allocator.alloc(f64, rows);
-    defer allocator.free(winsorized);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-    const scratch = try allocator.alloc(f64, options_value.window);
-    defer allocator.free(scratch);
-    const deviations = try allocator.alloc(f64, options_value.window);
-    defer allocator.free(deviations);
-
-    for (values, 0..) |value_item, row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        for (start..row + 1) |window_row| {
-            const valid = if (maybe_validity) |mask| mask[window_row] else true;
-            if (!valid) continue;
-            scratch[count] = castToF64(T, values[window_row]);
-            count += 1;
-        }
-
-        const current_valid = if (maybe_validity) |mask| mask[row] else true;
-        const has_enough = current_valid and count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (!has_enough) {
-            centered[row] = 0;
-            mad_zscore[row] = 0;
-            outlier[row] = false;
-            winsorized[row] = 0;
-            continue;
-        }
-
-        const window_values = scratch[0..count];
-        std.sort.insertion(f64, window_values, {}, struct {
-            fn lessThan(_: void, lhs: f64, rhs: f64) bool {
-                return compareFloatSortValues(f64, lhs, rhs) < 0;
-            }
-        }.lessThan);
-        const median = quantileSorted(window_values, 0.5);
-        const q1 = quantileSorted(window_values, 0.25);
-        const q3 = quantileSorted(window_values, 0.75);
-        const iqr = q3 - q1;
-        const lower_fence = q1 - options_value.iqr_multiplier * iqr;
-        const upper_fence = q3 + options_value.iqr_multiplier * iqr;
-        for (window_values, deviations[0..count]) |value, *slot| slot.* = @abs(value - median);
-        std.sort.insertion(f64, deviations[0..count], {}, struct {
-            fn lessThan(_: void, lhs: f64, rhs: f64) bool {
-                return compareFloatSortValues(f64, lhs, rhs) < 0;
-            }
-        }.lessThan);
-        const mad = quantileSorted(deviations[0..count], 0.5);
-        const current = castToF64(T, value_item);
-        centered[row] = current - median;
-        mad_zscore[row] = if (mad == 0) std.math.nan(f64) else 0.6744897501960817 * centered[row] / mad;
-        outlier[row] = current < lower_fence or current > upper_fence;
-        winsorized[row] = @min(@max(current, lower_fence), upper_fence);
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try robust_mod.rollingRobustProfile(allocator, values, maybe_validity, options_value.window, min_periods, options_value.iqr_multiplier);
+    defer metrics.deinit();
 
     var columns: [RollingRobustProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, centered, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.centered, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mad_zscore, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mad_zscore, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, outlier, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.outlier, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, winsorized, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.winsorized, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10757,85 +10699,30 @@ fn expandingRobustProfileColumnsTyped(
     options_value: DeviceRobustOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingRobustProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const centered = try allocator.alloc(f64, rows);
-    defer allocator.free(centered);
-    const mad_zscore = try allocator.alloc(f64, rows);
-    defer allocator.free(mad_zscore);
-    const outlier = try allocator.alloc(bool, rows);
-    defer allocator.free(outlier);
-    const winsorized = try allocator.alloc(f64, rows);
-    defer allocator.free(winsorized);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-    const scratch = try allocator.alloc(f64, rows);
-    defer allocator.free(scratch);
-    const deviations = try allocator.alloc(f64, rows);
-    defer allocator.free(deviations);
-
-    var valid_count: usize = 0;
-    for (values, 0..) |value_item, row| {
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        if (row_valid) {
-            scratch[valid_count] = castToF64(T, value_item);
-            valid_count += 1;
-        }
-
-        const has_enough = row_valid and valid_count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (!has_enough) {
-            centered[row] = 0;
-            mad_zscore[row] = 0;
-            outlier[row] = false;
-            winsorized[row] = 0;
-            continue;
-        }
-
-        const prefix_values = scratch[0..valid_count];
-        std.sort.insertion(f64, prefix_values, {}, struct {
-            fn lessThan(_: void, lhs: f64, rhs: f64) bool {
-                return compareFloatSortValues(f64, lhs, rhs) < 0;
-            }
-        }.lessThan);
-        const median = quantileSorted(prefix_values, 0.5);
-        const q1 = quantileSorted(prefix_values, 0.25);
-        const q3 = quantileSorted(prefix_values, 0.75);
-        const iqr = q3 - q1;
-        const lower_fence = q1 - options_value.iqr_multiplier * iqr;
-        const upper_fence = q3 + options_value.iqr_multiplier * iqr;
-        for (prefix_values, deviations[0..valid_count]) |value, *slot| slot.* = @abs(value - median);
-        std.sort.insertion(f64, deviations[0..valid_count], {}, struct {
-            fn lessThan(_: void, lhs: f64, rhs: f64) bool {
-                return compareFloatSortValues(f64, lhs, rhs) < 0;
-            }
-        }.lessThan);
-        const mad = quantileSorted(deviations[0..valid_count], 0.5);
-        const current = castToF64(T, value_item);
-        centered[row] = current - median;
-        mad_zscore[row] = if (mad == 0) std.math.nan(f64) else 0.6744897501960817 * centered[row] / mad;
-        outlier[row] = current < lower_fence or current > upper_fence;
-        winsorized[row] = @min(@max(current, lower_fence), upper_fence);
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try robust_mod.expandingRobustProfile(allocator, values, maybe_validity, options_value.min_periods, options_value.iqr_multiplier);
+    defer metrics.deinit();
 
     var columns: [ExpandingRobustProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, centered, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.centered, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mad_zscore, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mad_zscore, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, outlier, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.outlier, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, winsorized, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.winsorized, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11075,97 +10962,30 @@ fn robustProfileColumnsTyped(
     options_value: DeviceRobustOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RobustProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    var valid_count: usize = 0;
-    for (values, 0..) |_, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) valid_count += 1;
-    }
-
-    const valid_values = try allocator.alloc(f64, valid_count);
-    defer allocator.free(valid_values);
-    var write: usize = 0;
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (!valid) continue;
-        valid_values[write] = castToF64(T, value_item);
-        write += 1;
-    }
-    std.sort.insertion(f64, valid_values, {}, struct {
-        fn lessThan(_: void, lhs: f64, rhs: f64) bool {
-            return compareFloatSortValues(f64, lhs, rhs) < 0;
-        }
-    }.lessThan);
-
-    const has_enough = valid_count >= options_value.min_periods;
-    const median = if (valid_count == 0) 0 else quantileSorted(valid_values, 0.5);
-    const q1 = if (valid_count == 0) 0 else quantileSorted(valid_values, 0.25);
-    const q3 = if (valid_count == 0) 0 else quantileSorted(valid_values, 0.75);
-    const iqr = q3 - q1;
-    const lower_fence = q1 - options_value.iqr_multiplier * iqr;
-    const upper_fence = q3 + options_value.iqr_multiplier * iqr;
-
-    const deviations = try allocator.alloc(f64, valid_count);
-    defer allocator.free(deviations);
-    for (valid_values, deviations) |value, *slot| slot.* = @abs(value - median);
-    std.sort.insertion(f64, deviations, {}, struct {
-        fn lessThan(_: void, lhs: f64, rhs: f64) bool {
-            return compareFloatSortValues(f64, lhs, rhs) < 0;
-        }
-    }.lessThan);
-    const mad = if (valid_count == 0) 0 else quantileSorted(deviations, 0.5);
-
-    const rows = values.len;
-    const centered = try allocator.alloc(f64, rows);
-    defer allocator.free(centered);
-    const mad_zscore = try allocator.alloc(f64, rows);
-    defer allocator.free(mad_zscore);
-    const outlier = try allocator.alloc(bool, rows);
-    defer allocator.free(outlier);
-    const winsorized = try allocator.alloc(f64, rows);
-    defer allocator.free(winsorized);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    // Robust profiles use order statistics instead of mean/stddev, giving
-    // feature-engineering pipelines less outlier-sensitive columns while keeping
-    // null propagation and a future device quantile/winsorization lowering seam.
-    for (values, 0..) |value_item, row| {
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        const valid = row_valid and has_enough;
-        metric_validity[row] = valid;
-        if (valid) {
-            const value = castToF64(T, value_item);
-            centered[row] = value - median;
-            mad_zscore[row] = if (mad == 0) std.math.nan(f64) else 0.6744897501960817 * centered[row] / mad;
-            outlier[row] = value < lower_fence or value > upper_fence;
-            winsorized[row] = @min(@max(value, lower_fence), upper_fence);
-        } else {
-            centered[row] = 0;
-            mad_zscore[row] = 0;
-            outlier[row] = false;
-            winsorized[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try robust_mod.robustProfile(allocator, values, maybe_validity, options_value.min_periods, options_value.iqr_multiplier);
+    defer metrics.deinit();
 
     var columns: [RobustProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, centered, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.centered, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mad_zscore, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mad_zscore, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, outlier, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.outlier, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, winsorized, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.winsorized, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
