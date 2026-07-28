@@ -18,6 +18,38 @@ pub const CorrelationMetrics = struct {
     }
 };
 
+pub const RollingCorrelationProfileColumnCount = 4;
+
+pub fn rollingCorrelationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingCorrelationProfileColumnCount][]const u8 {
+    var names: [RollingCorrelationProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_pair_count", "rolling_covariance", "rolling_correlation", "rolling_beta" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingCorrelationProfileColumnCount = 4;
+
+pub fn expandingCorrelationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingCorrelationProfileColumnCount][]const u8 {
+    var names: [ExpandingCorrelationProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_pair_count", "expanding_covariance", "expanding_correlation", "expanding_beta" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validatePairLengths(
     xs: []const f64,
     ys: []const f64,

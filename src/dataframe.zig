@@ -24,6 +24,10 @@ const rollingErrorProfileOutputNames = error_mod.rollingErrorProfileOutputNames;
 const ExpandingErrorProfileColumnCount = error_mod.ExpandingErrorProfileColumnCount;
 const expandingErrorProfileOutputNames = error_mod.expandingErrorProfileOutputNames;
 const correlation_mod = @import("dataframe_correlation.zig");
+const RollingCorrelationProfileColumnCount = correlation_mod.RollingCorrelationProfileColumnCount;
+const rollingCorrelationProfileOutputNames = correlation_mod.rollingCorrelationProfileOutputNames;
+const ExpandingCorrelationProfileColumnCount = correlation_mod.ExpandingCorrelationProfileColumnCount;
+const expandingCorrelationProfileOutputNames = correlation_mod.expandingCorrelationProfileOutputNames;
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
 const LinearFitProfileColumnCount = linear_fit_mod.LinearFitProfileColumnCount;
 const linearFitProfileOutputNames = linear_fit_mod.linearFitProfileOutputNames;
@@ -12143,22 +12147,6 @@ fn expandingBoolTransitionProfileColumns(
     return columns;
 }
 
-const RollingCorrelationProfileColumnCount = 4;
-
-fn rollingCorrelationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingCorrelationProfileColumnCount][]const u8 {
-    var names: [RollingCorrelationProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_pair_count", "rolling_covariance", "rolling_correlation", "rolling_beta" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn rollingCorrelationProfileColumnsByValue(
     allocator: std.mem.Allocator,
     x: DeviceColumn,
@@ -12243,22 +12231,6 @@ fn rollingCorrelationProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.betas, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingCorrelationProfileColumnCount = 4;
-
-fn expandingCorrelationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingCorrelationProfileColumnCount][]const u8 {
-    var names: [ExpandingCorrelationProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_pair_count", "expanding_covariance", "expanding_correlation", "expanding_beta" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingCorrelationProfileColumnsByValue(
