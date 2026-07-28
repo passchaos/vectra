@@ -99,6 +99,7 @@ pub const DeviceStandardizeOptions = dataframe_mod.DeviceStandardizeOptions;
 pub const DeviceRobustOptions = dataframe_mod.DeviceRobustOptions;
 pub const DeviceDrawdownOptions = dataframe_mod.DeviceDrawdownOptions;
 pub const DeviceTrendOptions = dataframe_mod.DeviceTrendOptions;
+pub const DeviceCrossoverOptions = dataframe_mod.DeviceCrossoverOptions;
 pub const NullPlacement = dataframe_mod.NullPlacement;
 pub const DeviceJoinOptions = dataframe_mod.DeviceJoinOptions;
 pub const AsofStrategy = dataframe_mod.AsofStrategy;

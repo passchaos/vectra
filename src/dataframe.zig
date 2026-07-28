@@ -161,6 +161,11 @@ pub const DeviceTrendOptions = struct {
     periods: usize = 1,
 };
 
+pub const DeviceCrossoverOptions = struct {
+    /// Number of rows to look backward when detecting spread sign crosses.
+    periods: usize = 1,
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -990,6 +995,12 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceTrendOptions,
     },
+    crossover_profile: struct {
+        lhs_name: []const u8,
+        rhs_name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceCrossoverOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1099,6 +1110,11 @@ pub const DeviceLazyOp = union(enum) {
             .trend_profile => |trend| {
                 allocator.free(trend.name);
                 allocator.free(trend.output_prefix);
+            },
+            .crossover_profile => |cross| {
+                allocator.free(cross.lhs_name);
+                allocator.free(cross.rhs_name);
+                allocator.free(cross.output_prefix);
             },
             .distinct_rows, .head, .tail => {},
         }
@@ -1399,6 +1415,20 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = trend.options,
+                } };
+            },
+            .crossover_profile => |cross| blk: {
+                const lhs_name = try allocator.dupe(u8, cross.lhs_name);
+                errdefer allocator.free(lhs_name);
+                const rhs_name = try allocator.dupe(u8, cross.rhs_name);
+                errdefer allocator.free(rhs_name);
+                const output_prefix = try allocator.dupe(u8, cross.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .crossover_profile = .{
+                    .lhs_name = lhs_name,
+                    .rhs_name = rhs_name,
+                    .output_prefix = output_prefix,
+                    .options = cross.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -1894,6 +1924,27 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn crossoverProfile(
+        self: *DeviceLazyFrame,
+        lhs_name: []const u8,
+        rhs_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceCrossoverOptions,
+    ) DeviceDataError!void {
+        const owned_lhs = try self.allocator.dupe(u8, lhs_name);
+        errdefer self.allocator.free(owned_lhs);
+        const owned_rhs = try self.allocator.dupe(u8, rhs_name);
+        errdefer self.allocator.free(owned_rhs);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .crossover_profile = .{
+            .lhs_name = owned_lhs,
+            .rhs_name = owned_rhs,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -1969,6 +2020,7 @@ pub const DeviceLazyFrame = struct {
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
                 .drawdown_profile => |drawdown| try current.drawdownProfile(drawdown.name, drawdown.output_prefix, drawdown.options),
                 .trend_profile => |trend| try current.trendProfile(trend.name, trend.output_prefix, trend.options),
+                .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2430,6 +2482,16 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(trend.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, trend.name);
                 break :op_loop;
             },
+            .crossover_profile => |cross| {
+                // Crossover profiles depend on two source columns and append
+                // several signal columns. Keep scan predicates but block
+                // projection pushdown until derived-field schema tracking can
+                // safely split source and generated columns.
+                projection_blocked = true;
+                if (!nameInBorrowedList(cross.lhs_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, cross.lhs_name);
+                if (!nameInBorrowedList(cross.rhs_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, cross.rhs_name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2619,6 +2681,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
         .drawdown_profile => |drawdown| try writer.print("drawdown_profile({s}, prefix={s}, min_periods={d})", .{ drawdown.name, drawdown.output_prefix, drawdown.options.min_periods }),
         .trend_profile => |trend| try writer.print("trend_profile({s}, prefix={s}, periods={d})", .{ trend.name, trend.output_prefix, trend.options.periods }),
+        .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -3492,6 +3555,49 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = trend_col.*;
             initialized += 1;
             trend_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn crossoverProfile(
+        self: DeviceDataFrame,
+        lhs_name: []const u8,
+        rhs_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceCrossoverOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        const lhs = try self.column(lhs_name);
+        const rhs = try self.column(rhs_name);
+        if (lhs.dtype() != rhs.dtype()) return error.TypeMismatch;
+        var cross_columns = try crossoverProfileColumnsByValue(self.allocator, lhs.*, rhs.*, options_value, self.device, self.rows);
+        var cross_columns_transferred: usize = 0;
+        errdefer {
+            for (cross_columns[cross_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + cross_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var cross_names = try crossoverProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, cross_names[0..]);
+        for (cross_names, 0..) |cross_name, i| source_names[self.columns.len + i] = cross_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + cross_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&cross_columns) |*cross_col| {
+            columns[initialized] = cross_col.*;
+            initialized += 1;
+            cross_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -5117,6 +5223,144 @@ fn trendProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, flat_streak, metric_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, reversal, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const CrossoverProfileColumnCount = 4;
+
+fn crossoverProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![CrossoverProfileColumnCount][]const u8 {
+    var names: [CrossoverProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "spread", "ratio", "cross_above", "cross_below" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn crossoverProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    lhs: DeviceColumn,
+    rhs: DeviceColumn,
+    options_value: DeviceCrossoverOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![CrossoverProfileColumnCount]DeviceColumn {
+    if (lhs.len() != rows or rhs.len() != rows) return error.LengthMismatch;
+    if (lhs.dtype() != rhs.dtype()) return error.TypeMismatch;
+    return switch (lhs) {
+        .i8 => |typed| crossoverProfileColumnsTyped(i8, allocator, typed, rhs.i8, options_value, device_value),
+        .i16 => |typed| crossoverProfileColumnsTyped(i16, allocator, typed, rhs.i16, options_value, device_value),
+        .i32 => |typed| crossoverProfileColumnsTyped(i32, allocator, typed, rhs.i32, options_value, device_value),
+        .i64 => |typed| crossoverProfileColumnsTyped(i64, allocator, typed, rhs.i64, options_value, device_value),
+        .u8 => |typed| crossoverProfileColumnsTyped(u8, allocator, typed, rhs.u8, options_value, device_value),
+        .u16 => |typed| crossoverProfileColumnsTyped(u16, allocator, typed, rhs.u16, options_value, device_value),
+        .u32 => |typed| crossoverProfileColumnsTyped(u32, allocator, typed, rhs.u32, options_value, device_value),
+        .u64 => |typed| crossoverProfileColumnsTyped(u64, allocator, typed, rhs.u64, options_value, device_value),
+        .usize => |typed| crossoverProfileColumnsTyped(usize, allocator, typed, rhs.usize, options_value, device_value),
+        .isize => |typed| crossoverProfileColumnsTyped(isize, allocator, typed, rhs.isize, options_value, device_value),
+        .f16 => |typed| crossoverProfileColumnsTyped(f16, allocator, typed, rhs.f16, options_value, device_value),
+        .f32 => |typed| crossoverProfileColumnsTyped(f32, allocator, typed, rhs.f32, options_value, device_value),
+        .f64 => |typed| crossoverProfileColumnsTyped(f64, allocator, typed, rhs.f64, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn crossoverProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    lhs: DeviceTypedColumn(T),
+    rhs: DeviceTypedColumn(T),
+    options_value: DeviceCrossoverOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![CrossoverProfileColumnCount]DeviceColumn {
+    if (options_value.periods == 0) return error.InvalidShape;
+    if (lhs.len() != rhs.len()) return error.LengthMismatch;
+    if (!lhs.device().sameDevice(rhs.device())) return error.InvalidDevice;
+
+    const lhs_values = try lhs.values.toOwnedSlice(allocator);
+    defer allocator.free(lhs_values);
+    const rhs_values = try rhs.values.toOwnedSlice(allocator);
+    defer allocator.free(rhs_values);
+    const maybe_lhs_validity = try validityValues(lhs, allocator);
+    defer if (maybe_lhs_validity) |validity| allocator.free(validity);
+    const maybe_rhs_validity = try validityValues(rhs, allocator);
+    defer if (maybe_rhs_validity) |validity| allocator.free(validity);
+
+    const rows = lhs_values.len;
+    const spreads = try allocator.alloc(f64, rows);
+    defer allocator.free(spreads);
+    const ratios = try allocator.alloc(f64, rows);
+    defer allocator.free(ratios);
+    const cross_above = try allocator.alloc(bool, rows);
+    defer allocator.free(cross_above);
+    const cross_below = try allocator.alloc(bool, rows);
+    defer allocator.free(cross_below);
+    const spread_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(spread_validity);
+    const cross_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(cross_validity);
+
+    // Crossover profiles combine pairwise spread/ratio features with
+    // sign-change events in a single pass.  The implementation materializes
+    // values today, but the API boundary matches the signal kernels that a
+    // future device backend can lower without changing user code.
+    for (lhs_values, rhs_values, 0..) |lhs_value, rhs_value, row| {
+        const lhs_valid = if (maybe_lhs_validity) |mask| mask[row] else true;
+        const rhs_valid = if (maybe_rhs_validity) |mask| mask[row] else true;
+        const current_valid = lhs_valid and rhs_valid;
+        spread_validity[row] = current_valid;
+        if (current_valid) {
+            const left = castToF64(T, lhs_value);
+            const right = castToF64(T, rhs_value);
+            const spread = left - right;
+            spreads[row] = spread;
+            ratios[row] = if (right == 0) std.math.nan(f64) else left / right;
+        } else {
+            spreads[row] = 0;
+            ratios[row] = 0;
+        }
+
+        if (row < options_value.periods) {
+            cross_above[row] = false;
+            cross_below[row] = false;
+            cross_validity[row] = false;
+            continue;
+        }
+
+        const previous_row = row - options_value.periods;
+        const previous_lhs_valid = if (maybe_lhs_validity) |mask| mask[previous_row] else true;
+        const previous_rhs_valid = if (maybe_rhs_validity) |mask| mask[previous_row] else true;
+        const event_valid = current_valid and previous_lhs_valid and previous_rhs_valid;
+        cross_validity[row] = event_valid;
+        if (event_valid) {
+            const current_spread = castToF64(T, lhs_value) - castToF64(T, rhs_value);
+            const previous_spread = castToF64(T, lhs_values[previous_row]) - castToF64(T, rhs_values[previous_row]);
+            cross_above[row] = previous_spread <= 0 and current_spread > 0;
+            cross_below[row] = previous_spread >= 0 and current_spread < 0;
+        } else {
+            cross_above[row] = false;
+            cross_below[row] = false;
+        }
+    }
+
+    var columns: [CrossoverProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, spreads, spread_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ratios, spread_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, cross_above, cross_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, cross_below, cross_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -8567,6 +8811,46 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 0, 0 }, down_streak);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1, 0, 0, 0 }, flat_streak);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false, false }, reversal);
+
+    var fast = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 3.0, 2.0, 5.0, 4.0, 6.0 }, &.{ true, true, true, true, false, true }, .cpu);
+    defer fast.deinit();
+    var slow = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 2.0, 2.0, 4.0, 5.0, 0.0 }, .cpu);
+    defer slow.deinit();
+    var signal_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "fast", .data = fast },
+        .{ .name = "slow", .data = slow },
+    });
+    defer signal_table.deinit();
+
+    var cross = try signal_table.crossoverProfile("fast", "slow", "fast_slow", .{ .periods = 1 });
+    defer cross.deinit();
+    try std.testing.expectEqual(@as(usize, 6), cross.width());
+    const spread = try (try cross.column("fast_slow_spread")).f64.toOwnedSlice(gpa);
+    defer gpa.free(spread);
+    const ratio = try (try cross.column("fast_slow_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio);
+    const cross_above = try (try cross.column("fast_slow_cross_above")).bool.toOwnedSlice(gpa);
+    defer gpa.free(cross_above);
+    const cross_below = try (try cross.column("fast_slow_cross_below")).bool.toOwnedSlice(gpa);
+    defer gpa.free(cross_below);
+    const spread_validity = try (try cross.column("fast_slow_spread")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(spread_validity);
+    const cross_validity = try (try cross.column("fast_slow_cross_above")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(cross_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false, true }, spread_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, false, false }, cross_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0), spread[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), spread[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), spread[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), spread[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 6.0), spread[5], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), ratio[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), ratio[3], 1e-12);
+    try std.testing.expect(std.math.isNan(ratio[5]));
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, false, false }, cross_above);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false }, cross_below);
 }
 
 test "device dataframe groupby aggregations on fixed-width columns" {
@@ -9602,6 +9886,40 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, lazy_trend);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 3 }, lazy_up_streak);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_reversal);
+
+    var crossover_plan = try DeviceLazyFrame.init(gpa, table);
+    defer crossover_plan.deinit();
+    try crossover_plan.withColumnScalar("units_f64", "sales", f64, 1.0, .sub);
+    try crossover_plan.crossoverProfile("sales", "units_f64", "sales_units", .{ .periods = 1 });
+    try crossover_plan.select(&.{ "sales", "units_f64", "sales_units_spread", "sales_units_ratio", "sales_units_cross_above", "sales_units_cross_below" });
+    const crossover_explain = try crossover_plan.explain(gpa);
+    defer gpa.free(crossover_explain);
+    try std.testing.expect(std.mem.indexOf(u8, crossover_explain, "crossover_profile(sales,units_f64") != null);
+    var crossover = try crossover_plan.collect();
+    defer crossover.deinit();
+    try std.testing.expectEqual(@as(usize, 4), crossover.height());
+    try std.testing.expectEqual(@as(usize, 6), crossover.width());
+    const lazy_spread = try (try crossover.column("sales_units_spread")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_spread);
+    const lazy_ratio = try (try crossover.column("sales_units_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ratio);
+    const lazy_cross_above = try (try crossover.column("sales_units_cross_above")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_cross_above);
+    const lazy_cross_below = try (try crossover.column("sales_units_cross_below")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_cross_below);
+    const lazy_cross_validity = try (try crossover.column("sales_units_cross_above")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_cross_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_cross_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_spread[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_spread[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_spread[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_spread[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), lazy_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), lazy_ratio[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 6.0), lazy_ratio[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_cross_above);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_cross_below);
 }
 
 test "device lazy frame collects groupby aggregations" {
