@@ -54,15 +54,6 @@ const expandingCorrelationProfileOutputNames = correlation_mod.expandingCorrelat
 const rollingCorrelationProfileColumnsByValue = correlation_mod.rollingCorrelationProfileColumnsByValue;
 const expandingCorrelationProfileColumnsByValue = correlation_mod.expandingCorrelationProfileColumnsByValue;
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
-const LinearFitProfileColumnCount = linear_fit_mod.LinearFitProfileColumnCount;
-const linearFitProfileOutputNames = linear_fit_mod.linearFitProfileOutputNames;
-const ExpandingLinearFitProfileColumnCount = linear_fit_mod.ExpandingLinearFitProfileColumnCount;
-const expandingLinearFitProfileOutputNames = linear_fit_mod.expandingLinearFitProfileOutputNames;
-const RollingLinearFitProfileColumnCount = linear_fit_mod.RollingLinearFitProfileColumnCount;
-const rollingLinearFitProfileOutputNames = linear_fit_mod.rollingLinearFitProfileOutputNames;
-const linearFitProfileColumnsByValue = linear_fit_mod.linearFitProfileColumnsByValue;
-const expandingLinearFitProfileColumnsByValue = linear_fit_mod.expandingLinearFitProfileColumnsByValue;
-const rollingLinearFitProfileColumnsByValue = linear_fit_mod.rollingLinearFitProfileColumnsByValue;
 const crossover_mod = @import("dataframe_crossover.zig");
 const threshold_mod = @import("dataframe_threshold.zig");
 const ThresholdProfileColumnCount = threshold_mod.ThresholdProfileColumnCount;
@@ -1429,40 +1420,7 @@ pub const DeviceDataFrame = struct {
         output_prefix: []const u8,
         options_value: DeviceLinearFitOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const x = try self.column(x_name);
-        const y = try self.column(y_name);
-        if (x.dtype() != y.dtype()) return error.TypeMismatch;
-        var fit_columns = try linearFitProfileColumnsByValue(self.allocator, x.*, y.*, options_value, self.device, self.rows);
-        var fit_columns_transferred: usize = 0;
-        errdefer {
-            for (fit_columns[fit_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + fit_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var fit_names = try linearFitProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, fit_names[0..]);
-        for (fit_names, 0..) |fit_name, i| source_names[self.columns.len + i] = fit_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + fit_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&fit_columns) |*fit_col| {
-            columns[initialized] = fit_col.*;
-            initialized += 1;
-            fit_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return linear_fit_mod.linearFitProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
     }
 
     pub fn errorProfile(
@@ -1922,40 +1880,7 @@ pub const DeviceDataFrame = struct {
         output_prefix: []const u8,
         options_value: DeviceExpandingOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const x = try self.column(x_name);
-        const y = try self.column(y_name);
-        if (x.dtype() != y.dtype()) return error.TypeMismatch;
-        var fit_columns = try expandingLinearFitProfileColumnsByValue(self.allocator, x.*, y.*, options_value, self.device, self.rows);
-        var fit_columns_transferred: usize = 0;
-        errdefer {
-            for (fit_columns[fit_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + fit_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var fit_names = try expandingLinearFitProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, fit_names[0..]);
-        for (fit_names, 0..) |fit_name, i| source_names[self.columns.len + i] = fit_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + fit_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&fit_columns) |*fit_col| {
-            columns[initialized] = fit_col.*;
-            initialized += 1;
-            fit_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return linear_fit_mod.expandingLinearFitProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
     }
 
     pub fn rollingLinearFitProfile(
@@ -1965,40 +1890,7 @@ pub const DeviceDataFrame = struct {
         output_prefix: []const u8,
         options_value: DeviceRollingCorrelationOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const x = try self.column(x_name);
-        const y = try self.column(y_name);
-        if (x.dtype() != y.dtype()) return error.TypeMismatch;
-        var fit_columns = try rollingLinearFitProfileColumnsByValue(self.allocator, x.*, y.*, options_value, self.device, self.rows);
-        var fit_columns_transferred: usize = 0;
-        errdefer {
-            for (fit_columns[fit_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + fit_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var fit_names = try rollingLinearFitProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, fit_names[0..]);
-        for (fit_names, 0..) |fit_name, i| source_names[self.columns.len + i] = fit_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + fit_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&fit_columns) |*fit_col| {
-            columns[initialized] = fit_col.*;
-            initialized += 1;
-            fit_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return linear_fit_mod.rollingLinearFitProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
     }
 
     pub fn validityProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
