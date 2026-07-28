@@ -555,3 +555,153 @@ fn groupByStatsTyped(
     columns[5] = mean_col;
     return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, allocator, names, columns, unique_keys.items.len, device_value);
 }
+
+pub fn groupByProfileDispatchKey(
+    comptime DeviceDataFrame: type,
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_prefix: []const u8,
+    key: DeviceColumn,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || std.mem.Allocator.Error || error{ LengthMismatch, TypeMismatch, TypeUnsupported, InvalidDevice })!DeviceDataFrame {
+    return switch (key) {
+        .bool => |typed| groupByProfileDispatchValue(DeviceDataFrame, bool, allocator, key_name, output_prefix, typed, value, device_value),
+        .i8 => |typed| groupByProfileDispatchValue(DeviceDataFrame, i8, allocator, key_name, output_prefix, typed, value, device_value),
+        .i16 => |typed| groupByProfileDispatchValue(DeviceDataFrame, i16, allocator, key_name, output_prefix, typed, value, device_value),
+        .i32 => |typed| groupByProfileDispatchValue(DeviceDataFrame, i32, allocator, key_name, output_prefix, typed, value, device_value),
+        .i64 => |typed| groupByProfileDispatchValue(DeviceDataFrame, i64, allocator, key_name, output_prefix, typed, value, device_value),
+        .u8 => |typed| groupByProfileDispatchValue(DeviceDataFrame, u8, allocator, key_name, output_prefix, typed, value, device_value),
+        .u16 => |typed| groupByProfileDispatchValue(DeviceDataFrame, u16, allocator, key_name, output_prefix, typed, value, device_value),
+        .u32 => |typed| groupByProfileDispatchValue(DeviceDataFrame, u32, allocator, key_name, output_prefix, typed, value, device_value),
+        .u64 => |typed| groupByProfileDispatchValue(DeviceDataFrame, u64, allocator, key_name, output_prefix, typed, value, device_value),
+        .usize => |typed| groupByProfileDispatchValue(DeviceDataFrame, usize, allocator, key_name, output_prefix, typed, value, device_value),
+        .isize => |typed| groupByProfileDispatchValue(DeviceDataFrame, isize, allocator, key_name, output_prefix, typed, value, device_value),
+        .f16 => |typed| groupByProfileDispatchValue(DeviceDataFrame, f16, allocator, key_name, output_prefix, typed, value, device_value),
+        .f32 => |typed| groupByProfileDispatchValue(DeviceDataFrame, f32, allocator, key_name, output_prefix, typed, value, device_value),
+        .f64 => |typed| groupByProfileDispatchValue(DeviceDataFrame, f64, allocator, key_name, output_prefix, typed, value, device_value),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+fn groupByProfileDispatchValue(
+    comptime DeviceDataFrame: type,
+    comptime K: type,
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_prefix: []const u8,
+    key: DeviceTypedColumn(K),
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || std.mem.Allocator.Error || error{ LengthMismatch, TypeMismatch, TypeUnsupported, InvalidDevice })!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByProfileTyped(DeviceDataFrame, K, i8, allocator, key_name, output_prefix, key, typed, device_value),
+        .i16 => |typed| groupByProfileTyped(DeviceDataFrame, K, i16, allocator, key_name, output_prefix, key, typed, device_value),
+        .i32 => |typed| groupByProfileTyped(DeviceDataFrame, K, i32, allocator, key_name, output_prefix, key, typed, device_value),
+        .i64 => |typed| groupByProfileTyped(DeviceDataFrame, K, i64, allocator, key_name, output_prefix, key, typed, device_value),
+        .u8 => |typed| groupByProfileTyped(DeviceDataFrame, K, u8, allocator, key_name, output_prefix, key, typed, device_value),
+        .u16 => |typed| groupByProfileTyped(DeviceDataFrame, K, u16, allocator, key_name, output_prefix, key, typed, device_value),
+        .u32 => |typed| groupByProfileTyped(DeviceDataFrame, K, u32, allocator, key_name, output_prefix, key, typed, device_value),
+        .u64 => |typed| groupByProfileTyped(DeviceDataFrame, K, u64, allocator, key_name, output_prefix, key, typed, device_value),
+        .usize => |typed| groupByProfileTyped(DeviceDataFrame, K, usize, allocator, key_name, output_prefix, key, typed, device_value),
+        .isize => |typed| groupByProfileTyped(DeviceDataFrame, K, isize, allocator, key_name, output_prefix, key, typed, device_value),
+        .f16 => |typed| groupByProfileTyped(DeviceDataFrame, K, f16, allocator, key_name, output_prefix, key, typed, device_value),
+        .f32 => |typed| groupByProfileTyped(DeviceDataFrame, K, f32, allocator, key_name, output_prefix, key, typed, device_value),
+        .f64 => |typed| groupByProfileTyped(DeviceDataFrame, K, f64, allocator, key_name, output_prefix, key, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+fn groupByProfileTyped(
+    comptime DeviceDataFrame: type,
+    comptime K: type,
+    comptime V: type,
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_prefix: []const u8,
+    key: DeviceTypedColumn(K),
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || std.mem.Allocator.Error || error{ LengthMismatch, TypeMismatch, TypeUnsupported, InvalidDevice })!DeviceDataFrame {
+    if (key.len() != value.len()) return error.LengthMismatch;
+    if (!key.device().sameDevice(value.device())) return error.InvalidDevice;
+
+    const keys = try key.values.toOwnedSlice(allocator);
+    defer allocator.free(keys);
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_key_validity = try validityValues(key, allocator);
+    defer if (maybe_key_validity) |validity| allocator.free(validity);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var unique_keys: std.ArrayList(K) = .empty;
+    defer unique_keys.deinit(allocator);
+    var profiles: std.ArrayList(MomentProfile) = .empty;
+    defer profiles.deinit(allocator);
+
+    // Keep all moment-derived metrics in one pass over each group.  Besides
+    // being cheaper than issuing many independent group-bys, this preserves one
+    // API seam for a future Axiom grouped-moment kernel on CPU/CUDA/MPS.
+    for (keys, values, 0..) |key_value, value_item, row| {
+        if (maybe_key_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        const group_index = findGroupIndex(K, unique_keys.items, key_value) orelse blk: {
+            try unique_keys.append(allocator, key_value);
+            try profiles.append(allocator, .{});
+            break :blk unique_keys.items.len - 1;
+        };
+        profiles.items[group_index].update(castToF64(V, value_item));
+    }
+
+    var metrics = try materializeMetrics(allocator, profiles.items);
+    defer metrics.deinit();
+    var key_col = try DeviceColumn.fromSlice(K, allocator, unique_keys.items, device_value);
+    defer key_col.deinit();
+    return initProfileDataFrame(DeviceDataFrame, allocator, &.{key_name}, output_prefix, &.{key_col}, metrics, device_value);
+}
+pub fn initProfileDataFrame(
+    comptime DeviceDataFrame: type,
+    allocator: std.mem.Allocator,
+    key_names: []const []const u8,
+    output_prefix: []const u8,
+    key_columns: []const DeviceColumn,
+    metrics: MetricSlices,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || std.mem.Allocator.Error || error{ LengthMismatch, TypeMismatch, TypeUnsupported, InvalidDevice })!DeviceDataFrame {
+    if (key_columns.len != key_names.len) return error.LengthMismatch;
+    const rows = metrics.counts.len;
+    const names = try names_mod.profileOutputNames(allocator, key_names, output_prefix);
+    defer names_mod.freeProfileOutputNames(allocator, names, key_names.len);
+
+    var columns = try allocator.alloc(DeviceColumn, key_names.len + 7);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        allocator.free(columns);
+    }
+
+    for (key_columns) |key_col| {
+        if (key_col.len() != rows) return error.LengthMismatch;
+        columns[initialized] = try key_col.clone();
+        initialized += 1;
+    }
+    columns[initialized] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.sums, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.means, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.variances, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.stddevs, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.skewnesses, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.kurtoses, device_value);
+    initialized += 1;
+
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, allocator, names, columns, rows, device_value);
+}
