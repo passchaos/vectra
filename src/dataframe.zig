@@ -46,6 +46,8 @@ const shift_mod = @import("dataframe_shift.zig");
 const ema_mod = @import("dataframe_ema.zig");
 const quantile_mod = @import("dataframe_quantile.zig");
 const bucket_mod = @import("dataframe_bucket.zig");
+const BucketProfileColumnCount = bucket_mod.BucketProfileColumnCount;
+const bucketProfileOutputNames = bucket_mod.bucketProfileOutputNames;
 const rank_mod = @import("dataframe_rank.zig");
 const stats_profile_mod = @import("dataframe_stats_profile.zig");
 const moment_mod = @import("dataframe_moment.zig");
@@ -11360,22 +11362,6 @@ fn expandingCrossoverProfileColumnsTyped(
     columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_abs_spreads, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const BucketProfileColumnCount = 4;
-
-fn bucketProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![BucketProfileColumnCount][]const u8 {
-    var names: [BucketProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "ecdf", "bucket", "lower_tail", "upper_tail" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn bucketProfileColumnsByValue(

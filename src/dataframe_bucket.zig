@@ -18,6 +18,22 @@ pub const BucketMetrics = struct {
     }
 };
 
+pub const BucketProfileColumnCount = 4;
+
+pub fn bucketProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![BucketProfileColumnCount][]const u8 {
+    var names: [BucketProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "ecdf", "bucket", "lower_tail", "upper_tail" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validate(values_len: usize, maybe_validity: ?[]const bool, buckets: usize, lower_quantile: f64, upper_quantile: f64, min_periods: usize) error{ InvalidShape, LengthMismatch }!void {
     if (buckets == 0 or min_periods == 0) return error.InvalidShape;
     if (lower_quantile < 0 or lower_quantile > 1) return error.InvalidShape;
