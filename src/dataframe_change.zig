@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -512,4 +514,106 @@ fn expandingChangePointProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.max_abs_delta, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const ChangeFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendChangeColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    change_columns: anytype,
+) ChangeFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + change_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&change_columns) |*change_col| {
+        columns[initialized] = change_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn changePointFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    change_columns_value: anytype,
+    comptime namesFn: anytype,
+) ChangeFrameError!DeviceDataFrame {
+    var change_columns = change_columns_value;
+    var change_columns_transferred: usize = 0;
+    errdefer {
+        for (change_columns[change_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + change_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var change_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, change_names[0..]);
+    for (change_names, 0..) |change_name, i| source_names[frame.columns.len + i] = change_name;
+
+    const out = try appendChangeColumns(DeviceDataFrame, frame, source_names, change_columns);
+    change_columns_transferred = change_columns.len;
+    return out;
+}
+
+pub fn changePointProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    threshold: f64,
+    options_value: DeviceTrendOptions,
+) ChangeFrameError!DeviceDataFrame {
+    const change_value = try frame.column(name);
+    const change_columns = try changePointProfileColumnsByValue(frame.allocator, change_value.*, threshold, options_value, frame.device, frame.rows);
+    return changePointFrameFromColumns(DeviceDataFrame, frame, output_prefix, change_columns, changePointProfileOutputNames);
+}
+
+pub fn rollingChangePointProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    threshold: f64,
+    change_options: DeviceTrendOptions,
+    options_value: DeviceRollingOptions,
+) ChangeFrameError!DeviceDataFrame {
+    const change_value = try frame.column(name);
+    const change_columns = try rollingChangePointProfileColumnsByValue(frame.allocator, change_value.*, threshold, change_options, options_value, frame.device, frame.rows);
+    return changePointFrameFromColumns(DeviceDataFrame, frame, output_prefix, change_columns, rollingChangePointProfileOutputNames);
+}
+
+pub fn expandingChangePointProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    threshold: f64,
+    change_options: DeviceTrendOptions,
+    options_value: DeviceExpandingOptions,
+) ChangeFrameError!DeviceDataFrame {
+    const change_value = try frame.column(name);
+    const change_columns = try expandingChangePointProfileColumnsByValue(frame.allocator, change_value.*, threshold, change_options, options_value, frame.device, frame.rows);
+    return changePointFrameFromColumns(DeviceDataFrame, frame, output_prefix, change_columns, expandingChangePointProfileOutputNames);
 }
