@@ -105,6 +105,10 @@ const ema_mod = @import("dataframe_ema.zig");
 const EmaProfileColumnCount = ema_mod.EmaProfileColumnCount;
 const emaProfileOutputNames = ema_mod.emaProfileOutputNames;
 const quantile_mod = @import("dataframe_quantile.zig");
+const RollingQuantileProfileColumnCount = quantile_mod.RollingQuantileProfileColumnCount;
+const rollingQuantileProfileOutputNames = quantile_mod.rollingQuantileProfileOutputNames;
+const ExpandingQuantileProfileColumnCount = quantile_mod.ExpandingQuantileProfileColumnCount;
+const expandingQuantileProfileOutputNames = quantile_mod.expandingQuantileProfileOutputNames;
 const bucket_mod = @import("dataframe_bucket.zig");
 const BucketProfileColumnCount = bucket_mod.BucketProfileColumnCount;
 const bucketProfileOutputNames = bucket_mod.bucketProfileOutputNames;
@@ -8703,22 +8707,6 @@ fn expandingNormalizeProfileColumnsTyped(
     return columns;
 }
 
-const RollingQuantileProfileColumnCount = 4;
-
-fn rollingQuantileProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingQuantileProfileColumnCount][]const u8 {
-    var names: [RollingQuantileProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_q1", "rolling_median", "rolling_q3", "rolling_iqr" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn rollingQuantileProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -8779,22 +8767,6 @@ fn rollingQuantileProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.iqrs, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingQuantileProfileColumnCount = 4;
-
-fn expandingQuantileProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingQuantileProfileColumnCount][]const u8 {
-    var names: [ExpandingQuantileProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_q1", "expanding_median", "expanding_q3", "expanding_iqr" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingQuantileProfileColumnsByValue(
