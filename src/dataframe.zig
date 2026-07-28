@@ -4991,6 +4991,8 @@ fn rangeFromScalarPredicate(comptime T: type, value: T, op: DeviceColumnCompareO
 }
 
 const allNamesIn = names_mod.allNamesIn;
+const isIntegerColumnType = numeric_mod.isIntegerColumnType;
+const isOrderedColumnType = numeric_mod.isOrderedColumnType;
 
 fn formatLazyScanPushdown(writer: *std.Io.Writer, pushdown: LazyScanPushdown) std.Io.Writer.Error!void {
     var printed = false;
@@ -13873,20 +13875,6 @@ fn suffixedNameTemp(allocator: std.mem.Allocator, name: []const u8, suffix: []co
     try buffer.appendSlice(allocator, name);
     try buffer.appendSlice(allocator, suffix);
     return buffer.toOwnedSlice(allocator);
-}
-
-fn isIntegerColumnType(comptime T: type) bool {
-    return switch (@typeInfo(T)) {
-        .int, .comptime_int => true,
-        else => false,
-    };
-}
-
-fn isOrderedColumnType(comptime T: type) bool {
-    return switch (@typeInfo(T)) {
-        .int, .float, .comptime_int, .comptime_float => true,
-        else => false,
-    };
 }
 
 fn deviceDTypeToArrowDataType(dtype: DeviceDType) ArrowInteropError!boltha.arrow.DataType {

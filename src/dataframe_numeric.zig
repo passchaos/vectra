@@ -8,6 +8,20 @@ pub fn castToF64(comptime T: type, value: T) f64 {
     };
 }
 
+pub fn isIntegerColumnType(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .int, .comptime_int => true,
+        else => false,
+    };
+}
+
+pub fn isOrderedColumnType(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .int, .float, .comptime_int, .comptime_float => true,
+        else => false,
+    };
+}
+
 pub fn compareSortValues(comptime T: type, lhs: T, rhs: T) i8 {
     if (comptime T == bool) {
         if (lhs == rhs) return 0;
