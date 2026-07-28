@@ -8334,64 +8334,45 @@ fn rankProfileColumnsTyped(
     const order = try argsortTypedColumn(T, column, allocator, options_value);
     defer allocator.free(order);
 
-    const ordinal = try allocator.alloc(i64, rows);
-    defer allocator.free(ordinal);
-    const competition = try allocator.alloc(i64, rows);
-    defer allocator.free(competition);
-    const dense = try allocator.alloc(i64, rows);
-    defer allocator.free(dense);
-    const percent = try allocator.alloc(f64, rows);
-    defer allocator.free(percent);
-    const cume = try allocator.alloc(f64, rows);
-    defer allocator.free(cume);
-
-    var group_start: usize = 0;
-    var dense_rank: i64 = 0;
-    while (group_start < rows) {
-        var group_end = group_start + 1;
-        while (group_end < rows and rankKeysTie(T, values, maybe_validity, order[group_start], order[group_end])) {
-            group_end += 1;
+    const TieCtx = struct {
+        values: []const T,
+        validity: ?[]const bool,
+        fn keysTie(ctx: @This(), lhs: usize, rhs: usize) bool {
+            const lhs_valid = if (ctx.validity) |validity| validity[lhs] else true;
+            const rhs_valid = if (ctx.validity) |validity| validity[rhs] else true;
+            if (lhs_valid != rhs_valid) return false;
+            if (!lhs_valid) return true;
+            return compareSortValues(T, ctx.values[lhs], ctx.values[rhs]) == 0;
         }
-
-        dense_rank += 1;
-        const competition_rank: i64 = @intCast(group_start + 1);
-        const percent_rank: f64 = if (rows <= 1) 0 else @as(f64, @floatFromInt(group_start)) / @as(f64, @floatFromInt(rows - 1));
-        const cume_dist: f64 = if (rows == 0) std.math.nan(f64) else @as(f64, @floatFromInt(group_end)) / @as(f64, @floatFromInt(rows));
-
-        for (order[group_start..group_end], group_start..) |row, sorted_position| {
-            ordinal[row] = @intCast(sorted_position + 1);
-            competition[row] = competition_rank;
-            dense[row] = dense_rank;
-            percent[row] = percent_rank;
-            cume[row] = cume_dist;
+    };
+    const tie_ctx = TieCtx{ .values = values, .validity = maybe_validity };
+    const tie = struct {
+        var context: TieCtx = undefined;
+        fn call(lhs: usize, rhs: usize) bool {
+            return context.keysTie(lhs, rhs);
         }
-        group_start = group_end;
-    }
+    };
+    tie.context = tie_ctx;
+
+    var metrics = try rank_mod.rankProfile(allocator, rows, order, tie.call);
+    defer metrics.deinit();
 
     var columns: [RankProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, ordinal, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.ordinal, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSlice(i64, allocator, competition, device_value);
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.competition, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSlice(i64, allocator, dense, device_value);
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, metrics.dense, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSlice(f64, allocator, percent, device_value);
+    columns[3] = try DeviceColumn.fromSlice(f64, allocator, metrics.percent, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSlice(f64, allocator, cume, device_value);
+    columns[4] = try DeviceColumn.fromSlice(f64, allocator, metrics.cume, device_value);
     initialized += 1;
     return columns;
-}
-
-fn rankKeysTie(comptime T: type, values: []const T, maybe_validity: ?[]const bool, lhs: usize, rhs: usize) bool {
-    const lhs_valid = if (maybe_validity) |validity| validity[lhs] else true;
-    const rhs_valid = if (maybe_validity) |validity| validity[rhs] else true;
-    if (lhs_valid != rhs_valid) return false;
-    if (!lhs_valid) return true;
-    return compareSortValues(T, values[lhs], values[rhs]) == 0;
 }
 
 const RollingProfileColumnCount = 5;

@@ -1,5 +1,73 @@
 const std = @import("std");
 
+pub const RankMetrics = struct {
+    allocator: std.mem.Allocator,
+    ordinal: []i64,
+    competition: []i64,
+    dense: []i64,
+    percent: []f64,
+    cume: []f64,
+
+    pub fn deinit(self: *RankMetrics) void {
+        self.allocator.free(self.ordinal);
+        self.allocator.free(self.competition);
+        self.allocator.free(self.dense);
+        self.allocator.free(self.percent);
+        self.allocator.free(self.cume);
+        self.* = undefined;
+    }
+};
+
+pub fn rankProfile(
+    allocator: std.mem.Allocator,
+    rows: usize,
+    order: []const usize,
+    keysTie: *const fn (usize, usize) bool,
+) std.mem.Allocator.Error!RankMetrics {
+    const ordinal = try allocator.alloc(i64, rows);
+    errdefer allocator.free(ordinal);
+    const competition = try allocator.alloc(i64, rows);
+    errdefer allocator.free(competition);
+    const dense = try allocator.alloc(i64, rows);
+    errdefer allocator.free(dense);
+    const percent = try allocator.alloc(f64, rows);
+    errdefer allocator.free(percent);
+    const cume = try allocator.alloc(f64, rows);
+    errdefer allocator.free(cume);
+
+    var group_start: usize = 0;
+    var dense_rank: i64 = 0;
+    while (group_start < rows) {
+        var group_end = group_start + 1;
+        while (group_end < rows and keysTie(order[group_start], order[group_end])) {
+            group_end += 1;
+        }
+
+        dense_rank += 1;
+        const competition_rank: i64 = @intCast(group_start + 1);
+        const percent_rank: f64 = if (rows <= 1) 0 else @as(f64, @floatFromInt(group_start)) / @as(f64, @floatFromInt(rows - 1));
+        const cume_dist: f64 = if (rows == 0) std.math.nan(f64) else @as(f64, @floatFromInt(group_end)) / @as(f64, @floatFromInt(rows));
+
+        for (order[group_start..group_end], group_start..) |row, sorted_position| {
+            ordinal[row] = @intCast(sorted_position + 1);
+            competition[row] = competition_rank;
+            dense[row] = dense_rank;
+            percent[row] = percent_rank;
+            cume[row] = cume_dist;
+        }
+        group_start = group_end;
+    }
+
+    return .{
+        .allocator = allocator,
+        .ordinal = ordinal,
+        .competition = competition,
+        .dense = dense,
+        .percent = percent,
+        .cume = cume,
+    };
+}
+
 pub const RankWindowMetrics = struct {
     allocator: std.mem.Allocator,
     counts: []i64,
