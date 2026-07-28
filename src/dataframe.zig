@@ -156,6 +156,8 @@ const rowIndicesFromMask = dataframe_array_mod.rowIndicesFromMask;
 const sliceArray1d = dataframe_array_mod.sliceArray1d;
 const takeArray1d = dataframe_array_mod.takeArray1d;
 const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
+const readBolthaTableWithBoolRangePruning = dataframe_arrow_mod.readBolthaTableWithBoolRangePruning;
+const emptyBolthaTableForParquetBytes = dataframe_arrow_mod.emptyBolthaTableForParquetBytes;
 const ValidityProfileColumnCount = validity_mod.ValidityProfileColumnCount;
 const validityProfileOutputNames = validity_mod.validityProfileOutputNames;
 const RollingValidityProfileColumnCount = validity_mod.RollingValidityProfileColumnCount;
@@ -13986,42 +13988,6 @@ fn readBolthaTableWithRangePruning(
         .f64 => |range| boltha.parquet.readTableWithDoublePruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
         .bf16, .c64, .c128 => error.TypeUnsupported,
     };
-}
-
-fn readBolthaTableWithBoolRangePruning(
-    allocator: std.mem.Allocator,
-    bytes: []const u8,
-    column_name: []const u8,
-    range: Range(bool),
-) ParquetInteropError!boltha.arrow.Table {
-    if (range.min) |min_value| {
-        if (range.max) |max_value| {
-            if (min_value == max_value) {
-                return boltha.parquet.readTableWithBooleanPruning(allocator, bytes, column_name, .{ .value = min_value });
-            }
-            if (!min_value and max_value) return boltha.parquet.readTable(allocator, bytes);
-            return emptyBolthaTableForParquetBytes(allocator, bytes);
-        }
-        return if (min_value)
-            boltha.parquet.readTableWithBooleanPruning(allocator, bytes, column_name, .{ .value = true })
-        else
-            boltha.parquet.readTable(allocator, bytes);
-    }
-    if (range.max) |max_value| {
-        return if (!max_value)
-            boltha.parquet.readTableWithBooleanPruning(allocator, bytes, column_name, .{ .value = false })
-        else
-            boltha.parquet.readTable(allocator, bytes);
-    }
-    return boltha.parquet.readTable(allocator, bytes);
-}
-
-fn emptyBolthaTableForParquetBytes(allocator: std.mem.Allocator, bytes: []const u8) ParquetInteropError!boltha.arrow.Table {
-    var schema = try boltha.parquet.readSchema(allocator, bytes);
-    errdefer schema.deinit(allocator);
-    const batches = try allocator.alloc(boltha.arrow.RecordBatch, 0);
-    errdefer allocator.free(batches);
-    return boltha.arrow.Table.initOwned(schema, batches);
 }
 
 fn concatDeviceDataFramesRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
