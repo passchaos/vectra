@@ -102,15 +102,9 @@ const clipProfileColumnsByValue = clip_mod.clipProfileColumnsByValue;
 const rollingClipProfileColumnsByValue = clip_mod.rollingClipProfileColumnsByValue;
 const expandingClipProfileColumnsByValue = clip_mod.expandingClipProfileColumnsByValue;
 const risk_mod = @import("dataframe_risk.zig");
-const DrawdownProfileColumnCount = risk_mod.DrawdownProfileColumnCount;
-const drawdownProfileOutputNames = risk_mod.drawdownProfileOutputNames;
 const RollingDrawdownProfileColumnCount = risk_mod.RollingDrawdownProfileColumnCount;
 const rollingDrawdownProfileOutputNames = risk_mod.rollingDrawdownProfileOutputNames;
-const ExtremaProfileColumnCount = risk_mod.ExtremaProfileColumnCount;
-const extremaProfileOutputNames = risk_mod.extremaProfileOutputNames;
 const rollingDrawdownProfileColumnsByValue = risk_mod.rollingDrawdownProfileColumnsByValue;
-const drawdownProfileColumnsByValue = risk_mod.drawdownProfileColumnsByValue;
-const extremaProfileColumnsByValue = risk_mod.extremaProfileColumnsByValue;
 const standardize_mod = @import("dataframe_standardize.zig");
 const robust_mod = @import("dataframe_robust.zig");
 const RollingRobustProfileColumnCount = robust_mod.RollingRobustProfileColumnCount;
@@ -1387,73 +1381,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn drawdownProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceDrawdownOptions) DeviceDataError!DeviceDataFrame {
-        const drawdown_value = try self.column(name);
-        var drawdown_columns = try drawdownProfileColumnsByValue(self.allocator, drawdown_value.*, options_value, self.device, self.rows);
-        var drawdown_columns_transferred: usize = 0;
-        errdefer {
-            for (drawdown_columns[drawdown_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + drawdown_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var drawdown_names = try drawdownProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, drawdown_names[0..]);
-        for (drawdown_names, 0..) |drawdown_name, i| source_names[self.columns.len + i] = drawdown_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + drawdown_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&drawdown_columns) |*drawdown_col| {
-            columns[initialized] = drawdown_col.*;
-            initialized += 1;
-            drawdown_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return risk_mod.drawdownProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn extremaProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExtremaOptions) DeviceDataError!DeviceDataFrame {
-        const extrema_value = try self.column(name);
-        var extrema_columns = try extremaProfileColumnsByValue(self.allocator, extrema_value.*, options_value, self.device, self.rows);
-        var extrema_columns_transferred: usize = 0;
-        errdefer {
-            for (extrema_columns[extrema_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + extrema_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var extrema_names = try extremaProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, extrema_names[0..]);
-        for (extrema_names, 0..) |extrema_name, i| source_names[self.columns.len + i] = extrema_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + extrema_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&extrema_columns) |*extrema_col| {
-            columns[initialized] = extrema_col.*;
-            initialized += 1;
-            extrema_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return risk_mod.extremaProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn trendProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
