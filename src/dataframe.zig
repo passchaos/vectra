@@ -4,6 +4,7 @@ const array_mod = @import("array.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const classification_mod = @import("dataframe_classification.zig");
+const error_mod = @import("dataframe_error.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -14150,66 +14151,42 @@ fn errorProfileColumnsTyped(
     if (actual_column.len() != predicted_column.len()) return error.LengthMismatch;
     if (!actual_column.device().sameDevice(predicted_column.device())) return error.InvalidDevice;
 
-    const actual_values = try actual_column.values.toOwnedSlice(allocator);
-    defer allocator.free(actual_values);
-    const predicted_values = try predicted_column.values.toOwnedSlice(allocator);
-    defer allocator.free(predicted_values);
+    const actual_values_typed = try actual_column.values.toOwnedSlice(allocator);
+    defer allocator.free(actual_values_typed);
+    const predicted_values_typed = try predicted_column.values.toOwnedSlice(allocator);
+    defer allocator.free(predicted_values_typed);
     const maybe_actual_validity = try validityValues(actual_column, allocator);
     defer if (maybe_actual_validity) |validity| allocator.free(validity);
     const maybe_predicted_validity = try validityValues(predicted_column, allocator);
     defer if (maybe_predicted_validity) |validity| allocator.free(validity);
 
-    const rows = actual_values.len;
-    const errors = try allocator.alloc(f64, rows);
-    defer allocator.free(errors);
-    const abs_errors = try allocator.alloc(f64, rows);
-    defer allocator.free(abs_errors);
-    const squared_errors = try allocator.alloc(f64, rows);
-    defer allocator.free(squared_errors);
-    const ape = try allocator.alloc(f64, rows);
-    defer allocator.free(ape);
-    const smape = try allocator.alloc(f64, rows);
-    defer allocator.free(smape);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    for (actual_values, predicted_values, 0..) |actual_value, predicted_value, row| {
-        const valid = (if (maybe_actual_validity) |mask| mask[row] else true) and (if (maybe_predicted_validity) |mask| mask[row] else true);
-        metric_validity[row] = valid;
-        if (valid) {
-            const actual = castToF64(T, actual_value);
-            const predicted = castToF64(T, predicted_value);
-            const err = actual - predicted;
-            const abs_err = @abs(err);
-            const denom = @abs(actual) + @abs(predicted);
-            errors[row] = err;
-            abs_errors[row] = abs_err;
-            squared_errors[row] = err * err;
-            ape[row] = if (actual == 0) std.math.nan(f64) else abs_err / @abs(actual);
-            smape[row] = if (denom == 0) std.math.nan(f64) else 2.0 * abs_err / denom;
-        } else {
-            errors[row] = 0;
-            abs_errors[row] = 0;
-            squared_errors[row] = 0;
-            ape[row] = 0;
-            smape[row] = 0;
-        }
+    const rows = actual_values_typed.len;
+    const actual_values = try allocator.alloc(f64, rows);
+    defer allocator.free(actual_values);
+    const predicted_values = try allocator.alloc(f64, rows);
+    defer allocator.free(predicted_values);
+    for (actual_values_typed, predicted_values_typed, 0..) |actual_value, predicted_value, row| {
+        actual_values[row] = castToF64(T, actual_value);
+        predicted_values[row] = castToF64(T, predicted_value);
     }
+
+    var metrics = try error_mod.errorProfile(allocator, actual_values, predicted_values, maybe_actual_validity, maybe_predicted_validity);
+    defer metrics.deinit();
 
     var columns: [ErrorProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, errors, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.errors, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, abs_errors, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.abs_errors, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, squared_errors, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.squared_errors, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ape, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ape, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, smape, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.smape, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -14266,88 +14243,54 @@ fn rollingErrorProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingErrorProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
     if (actual_column.len() != predicted_column.len()) return error.LengthMismatch;
     if (!actual_column.device().sameDevice(predicted_column.device())) return error.InvalidDevice;
 
-    const actual_values = try actual_column.values.toOwnedSlice(allocator);
-    defer allocator.free(actual_values);
-    const predicted_values = try predicted_column.values.toOwnedSlice(allocator);
-    defer allocator.free(predicted_values);
+    const actual_values_typed = try actual_column.values.toOwnedSlice(allocator);
+    defer allocator.free(actual_values_typed);
+    const predicted_values_typed = try predicted_column.values.toOwnedSlice(allocator);
+    defer allocator.free(predicted_values_typed);
     const maybe_actual_validity = try validityValues(actual_column, allocator);
     defer if (maybe_actual_validity) |validity| allocator.free(validity);
     const maybe_predicted_validity = try validityValues(predicted_column, allocator);
     defer if (maybe_predicted_validity) |validity| allocator.free(validity);
 
-    const rows = actual_values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const mae = try allocator.alloc(f64, rows);
-    defer allocator.free(mae);
-    const rmse = try allocator.alloc(f64, rows);
-    defer allocator.free(rmse);
-    const mape = try allocator.alloc(f64, rows);
-    defer allocator.free(mape);
-    const smape = try allocator.alloc(f64, rows);
-    defer allocator.free(smape);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    for (actual_values, predicted_values, 0..) |_, _, row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var abs_sum: f64 = 0;
-        var sq_sum: f64 = 0;
-        var ape_sum: f64 = 0;
-        var smape_sum: f64 = 0;
-        for (start..row + 1) |window_row| {
-            const valid = (if (maybe_actual_validity) |mask| mask[window_row] else true) and (if (maybe_predicted_validity) |mask| mask[window_row] else true);
-            if (!valid) continue;
-            const actual = castToF64(T, actual_values[window_row]);
-            const predicted = castToF64(T, predicted_values[window_row]);
-            const err = actual - predicted;
-            const abs_err = @abs(err);
-            const denom = @abs(actual) + @abs(predicted);
-            abs_sum += abs_err;
-            sq_sum += err * err;
-            ape_sum += if (actual == 0) std.math.nan(f64) else abs_err / @abs(actual);
-            smape_sum += if (denom == 0) std.math.nan(f64) else 2.0 * abs_err / denom;
-            count += 1;
-        }
-
-        counts[row] = @intCast(count);
-        const has_enough = count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            mae[row] = abs_sum / n;
-            rmse[row] = std.math.sqrt(sq_sum / n);
-            mape[row] = ape_sum / n;
-            smape[row] = smape_sum / n;
-        } else {
-            mae[row] = 0;
-            rmse[row] = 0;
-            mape[row] = 0;
-            smape[row] = 0;
-        }
+    const rows = actual_values_typed.len;
+    const actual_values = try allocator.alloc(f64, rows);
+    defer allocator.free(actual_values);
+    const predicted_values = try allocator.alloc(f64, rows);
+    defer allocator.free(predicted_values);
+    for (actual_values_typed, predicted_values_typed, 0..) |actual_value, predicted_value, row| {
+        actual_values[row] = castToF64(T, actual_value);
+        predicted_values[row] = castToF64(T, predicted_value);
     }
+
+    var metrics = try error_mod.rollingErrorProfile(
+        allocator,
+        actual_values,
+        predicted_values,
+        maybe_actual_validity,
+        maybe_predicted_validity,
+        options_value.window,
+        min_periods,
+    );
+    defer metrics.deinit();
 
     var columns: [RollingErrorProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mae, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mae, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, rmse, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.rmse, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mape, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mape, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, smape, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.smape, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -14404,84 +14347,52 @@ fn expandingErrorProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingErrorProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
     if (actual_column.len() != predicted_column.len()) return error.LengthMismatch;
     if (!actual_column.device().sameDevice(predicted_column.device())) return error.InvalidDevice;
 
-    const actual_values = try actual_column.values.toOwnedSlice(allocator);
-    defer allocator.free(actual_values);
-    const predicted_values = try predicted_column.values.toOwnedSlice(allocator);
-    defer allocator.free(predicted_values);
+    const actual_values_typed = try actual_column.values.toOwnedSlice(allocator);
+    defer allocator.free(actual_values_typed);
+    const predicted_values_typed = try predicted_column.values.toOwnedSlice(allocator);
+    defer allocator.free(predicted_values_typed);
     const maybe_actual_validity = try validityValues(actual_column, allocator);
     defer if (maybe_actual_validity) |validity| allocator.free(validity);
     const maybe_predicted_validity = try validityValues(predicted_column, allocator);
     defer if (maybe_predicted_validity) |validity| allocator.free(validity);
 
-    const rows = actual_values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const mae = try allocator.alloc(f64, rows);
-    defer allocator.free(mae);
-    const rmse = try allocator.alloc(f64, rows);
-    defer allocator.free(rmse);
-    const mape = try allocator.alloc(f64, rows);
-    defer allocator.free(mape);
-    const smape = try allocator.alloc(f64, rows);
-    defer allocator.free(smape);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var count: usize = 0;
-    var abs_sum: f64 = 0;
-    var sq_sum: f64 = 0;
-    var ape_sum: f64 = 0;
-    var smape_sum: f64 = 0;
-    for (actual_values, predicted_values, 0..) |actual_value, predicted_value, row| {
-        const valid = (if (maybe_actual_validity) |mask| mask[row] else true) and (if (maybe_predicted_validity) |mask| mask[row] else true);
-        if (valid) {
-            const actual = castToF64(T, actual_value);
-            const predicted = castToF64(T, predicted_value);
-            const err = actual - predicted;
-            const abs_err = @abs(err);
-            const denom = @abs(actual) + @abs(predicted);
-            abs_sum += abs_err;
-            sq_sum += err * err;
-            ape_sum += if (actual == 0) std.math.nan(f64) else abs_err / @abs(actual);
-            smape_sum += if (denom == 0) std.math.nan(f64) else 2.0 * abs_err / denom;
-            count += 1;
-        }
-
-        counts[row] = @intCast(count);
-        const has_enough = count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            mae[row] = abs_sum / n;
-            rmse[row] = std.math.sqrt(sq_sum / n);
-            mape[row] = ape_sum / n;
-            smape[row] = smape_sum / n;
-        } else {
-            mae[row] = 0;
-            rmse[row] = 0;
-            mape[row] = 0;
-            smape[row] = 0;
-        }
+    const rows = actual_values_typed.len;
+    const actual_values = try allocator.alloc(f64, rows);
+    defer allocator.free(actual_values);
+    const predicted_values = try allocator.alloc(f64, rows);
+    defer allocator.free(predicted_values);
+    for (actual_values_typed, predicted_values_typed, 0..) |actual_value, predicted_value, row| {
+        actual_values[row] = castToF64(T, actual_value);
+        predicted_values[row] = castToF64(T, predicted_value);
     }
+
+    var metrics = try error_mod.expandingErrorProfile(
+        allocator,
+        actual_values,
+        predicted_values,
+        maybe_actual_validity,
+        maybe_predicted_validity,
+        options_value.min_periods,
+    );
+    defer metrics.deinit();
 
     var columns: [ExpandingErrorProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mae, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mae, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, rmse, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.rmse, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mape, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mape, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, smape, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.smape, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
