@@ -7,6 +7,7 @@ const classification_mod = @import("dataframe_classification.zig");
 const error_mod = @import("dataframe_error.zig");
 const correlation_mod = @import("dataframe_correlation.zig");
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
+const crossover_mod = @import("dataframe_crossover.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -13284,88 +13285,43 @@ fn crossoverProfileColumnsTyped(
     options_value: DeviceCrossoverOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![CrossoverProfileColumnCount]DeviceColumn {
-    if (options_value.periods == 0) return error.InvalidShape;
     if (lhs.len() != rhs.len()) return error.LengthMismatch;
     if (!lhs.device().sameDevice(rhs.device())) return error.InvalidDevice;
 
-    const lhs_values = try lhs.values.toOwnedSlice(allocator);
-    defer allocator.free(lhs_values);
-    const rhs_values = try rhs.values.toOwnedSlice(allocator);
-    defer allocator.free(rhs_values);
+    const lhs_values_typed = try lhs.values.toOwnedSlice(allocator);
+    defer allocator.free(lhs_values_typed);
+    const rhs_values_typed = try rhs.values.toOwnedSlice(allocator);
+    defer allocator.free(rhs_values_typed);
     const maybe_lhs_validity = try validityValues(lhs, allocator);
     defer if (maybe_lhs_validity) |validity| allocator.free(validity);
     const maybe_rhs_validity = try validityValues(rhs, allocator);
     defer if (maybe_rhs_validity) |validity| allocator.free(validity);
 
-    const rows = lhs_values.len;
-    const spreads = try allocator.alloc(f64, rows);
-    defer allocator.free(spreads);
-    const ratios = try allocator.alloc(f64, rows);
-    defer allocator.free(ratios);
-    const cross_above = try allocator.alloc(bool, rows);
-    defer allocator.free(cross_above);
-    const cross_below = try allocator.alloc(bool, rows);
-    defer allocator.free(cross_below);
-    const spread_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(spread_validity);
-    const cross_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(cross_validity);
-
-    // Crossover profiles combine pairwise spread/ratio features with
-    // sign-change events in a single pass.  The implementation materializes
-    // values today, but the API boundary matches the signal kernels that a
-    // future device backend can lower without changing user code.
-    for (lhs_values, rhs_values, 0..) |lhs_value, rhs_value, row| {
-        const lhs_valid = if (maybe_lhs_validity) |mask| mask[row] else true;
-        const rhs_valid = if (maybe_rhs_validity) |mask| mask[row] else true;
-        const current_valid = lhs_valid and rhs_valid;
-        spread_validity[row] = current_valid;
-        if (current_valid) {
-            const left = castToF64(T, lhs_value);
-            const right = castToF64(T, rhs_value);
-            const spread = left - right;
-            spreads[row] = spread;
-            ratios[row] = if (right == 0) std.math.nan(f64) else left / right;
-        } else {
-            spreads[row] = 0;
-            ratios[row] = 0;
-        }
-
-        if (row < options_value.periods) {
-            cross_above[row] = false;
-            cross_below[row] = false;
-            cross_validity[row] = false;
-            continue;
-        }
-
-        const previous_row = row - options_value.periods;
-        const previous_lhs_valid = if (maybe_lhs_validity) |mask| mask[previous_row] else true;
-        const previous_rhs_valid = if (maybe_rhs_validity) |mask| mask[previous_row] else true;
-        const event_valid = current_valid and previous_lhs_valid and previous_rhs_valid;
-        cross_validity[row] = event_valid;
-        if (event_valid) {
-            const current_spread = castToF64(T, lhs_value) - castToF64(T, rhs_value);
-            const previous_spread = castToF64(T, lhs_values[previous_row]) - castToF64(T, rhs_values[previous_row]);
-            cross_above[row] = previous_spread <= 0 and current_spread > 0;
-            cross_below[row] = previous_spread >= 0 and current_spread < 0;
-        } else {
-            cross_above[row] = false;
-            cross_below[row] = false;
-        }
+    const rows = lhs_values_typed.len;
+    const lhs_values = try allocator.alloc(f64, rows);
+    defer allocator.free(lhs_values);
+    const rhs_values = try allocator.alloc(f64, rows);
+    defer allocator.free(rhs_values);
+    for (lhs_values_typed, rhs_values_typed, 0..) |lhs_value, rhs_value, row| {
+        lhs_values[row] = castToF64(T, lhs_value);
+        rhs_values[row] = castToF64(T, rhs_value);
     }
+
+    var metrics = try crossover_mod.crossoverProfile(allocator, lhs_values, rhs_values, maybe_lhs_validity, maybe_rhs_validity, options_value.periods);
+    defer metrics.deinit();
 
     var columns: [CrossoverProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, spreads, spread_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.spreads, metrics.spread_validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ratios, spread_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ratios, metrics.spread_validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, cross_above, cross_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.cross_above, metrics.cross_validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, cross_below, cross_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.cross_below, metrics.cross_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -13424,125 +13380,57 @@ fn rollingCrossoverProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingCrossoverProfileColumnCount]DeviceColumn {
-    if (cross_options.periods == 0 or options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
     if (lhs.len() != rhs.len()) return error.LengthMismatch;
     if (!lhs.device().sameDevice(rhs.device())) return error.InvalidDevice;
 
-    const lhs_values = try lhs.values.toOwnedSlice(allocator);
-    defer allocator.free(lhs_values);
-    const rhs_values = try rhs.values.toOwnedSlice(allocator);
-    defer allocator.free(rhs_values);
+    const lhs_values_typed = try lhs.values.toOwnedSlice(allocator);
+    defer allocator.free(lhs_values_typed);
+    const rhs_values_typed = try rhs.values.toOwnedSlice(allocator);
+    defer allocator.free(rhs_values_typed);
     const maybe_lhs_validity = try validityValues(lhs, allocator);
     defer if (maybe_lhs_validity) |validity| allocator.free(validity);
     const maybe_rhs_validity = try validityValues(rhs, allocator);
     defer if (maybe_rhs_validity) |validity| allocator.free(validity);
 
-    const rows = lhs_values.len;
-    const spreads = try allocator.alloc(f64, rows);
-    defer allocator.free(spreads);
-    const spread_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(spread_validity);
-    const cross_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(cross_validity);
-    const cross_above = try allocator.alloc(bool, rows);
-    defer allocator.free(cross_above);
-    const cross_below = try allocator.alloc(bool, rows);
-    defer allocator.free(cross_below);
-
-    for (lhs_values, rhs_values, 0..) |lhs_value, rhs_value, row| {
-        const lhs_valid = if (maybe_lhs_validity) |mask| mask[row] else true;
-        const rhs_valid = if (maybe_rhs_validity) |mask| mask[row] else true;
-        const current_valid = lhs_valid and rhs_valid;
-        spread_validity[row] = current_valid;
-        spreads[row] = if (current_valid) castToF64(T, lhs_value) - castToF64(T, rhs_value) else 0;
-        cross_above[row] = false;
-        cross_below[row] = false;
-
-        if (row < cross_options.periods) {
-            cross_validity[row] = false;
-            continue;
-        }
-
-        const previous_row = row - cross_options.periods;
-        const event_valid = current_valid and spread_validity[previous_row];
-        cross_validity[row] = event_valid;
-        if (event_valid) {
-            const previous_spread = spreads[previous_row];
-            const current_spread = spreads[row];
-            cross_above[row] = previous_spread <= 0 and current_spread > 0;
-            cross_below[row] = previous_spread >= 0 and current_spread < 0;
-        }
+    const rows = lhs_values_typed.len;
+    const lhs_values = try allocator.alloc(f64, rows);
+    defer allocator.free(lhs_values);
+    const rhs_values = try allocator.alloc(f64, rows);
+    defer allocator.free(rhs_values);
+    for (lhs_values_typed, rhs_values_typed, 0..) |lhs_value, rhs_value, row| {
+        lhs_values[row] = castToF64(T, lhs_value);
+        rhs_values[row] = castToF64(T, rhs_value);
     }
 
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const cross_above_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(cross_above_counts);
-    const cross_below_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(cross_below_counts);
-    const cross_above_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(cross_above_rates);
-    const cross_below_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(cross_below_rates);
-    const mean_abs_spreads = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_abs_spreads);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    for (0..rows) |row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var above_count: usize = 0;
-        var below_count: usize = 0;
-        var sum_abs_spread: f64 = 0;
-        for (start..row + 1) |window_row| {
-            if (!spread_validity[window_row]) continue;
-            count += 1;
-            sum_abs_spread += @abs(spreads[window_row]);
-            if (cross_validity[window_row] and cross_above[window_row]) above_count += 1;
-            if (cross_validity[window_row] and cross_below[window_row]) below_count += 1;
-        }
-
-        counts[row] = @intCast(count);
-        cross_above_counts[row] = @intCast(above_count);
-        cross_below_counts[row] = @intCast(below_count);
-        const has_enough = count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            // Rates intentionally use the same valid-spread denominator as the
-            // mean spread metric.  This keeps early windows and nullable gaps
-            // comparable to the rolling sign/profile APIs, where event counts
-            // are a composition of valid observations rather than a separate
-            // history-valid denominator.
-            const n: f64 = @floatFromInt(count);
-            cross_above_rates[row] = @as(f64, @floatFromInt(above_count)) / n;
-            cross_below_rates[row] = @as(f64, @floatFromInt(below_count)) / n;
-            mean_abs_spreads[row] = sum_abs_spread / n;
-        } else {
-            cross_above_rates[row] = 0;
-            cross_below_rates[row] = 0;
-            mean_abs_spreads[row] = 0;
-        }
-    }
+    var metrics = try crossover_mod.rollingCrossoverProfile(
+        allocator,
+        lhs_values,
+        rhs_values,
+        maybe_lhs_validity,
+        maybe_rhs_validity,
+        cross_options.periods,
+        options_value.window,
+        min_periods,
+    );
+    defer metrics.deinit();
 
     var columns: [RollingCrossoverProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSlice(i64, allocator, cross_above_counts, device_value);
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.cross_above_counts, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSlice(i64, allocator, cross_below_counts, device_value);
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, metrics.cross_below_counts, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, cross_above_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.cross_above_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, cross_below_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.cross_below_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_abs_spreads, metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_abs_spreads, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -13601,102 +13489,55 @@ fn expandingCrossoverProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingCrossoverProfileColumnCount]DeviceColumn {
-    if (cross_options.periods == 0) return error.InvalidShape;
-    if (options_value.min_periods == 0) return error.InvalidShape;
     if (lhs.len() != rhs.len()) return error.LengthMismatch;
     if (!lhs.device().sameDevice(rhs.device())) return error.InvalidDevice;
 
-    const lhs_values = try lhs.values.toOwnedSlice(allocator);
-    defer allocator.free(lhs_values);
-    const rhs_values = try rhs.values.toOwnedSlice(allocator);
-    defer allocator.free(rhs_values);
+    const lhs_values_typed = try lhs.values.toOwnedSlice(allocator);
+    defer allocator.free(lhs_values_typed);
+    const rhs_values_typed = try rhs.values.toOwnedSlice(allocator);
+    defer allocator.free(rhs_values_typed);
     const maybe_lhs_validity = try validityValues(lhs, allocator);
     defer if (maybe_lhs_validity) |validity| allocator.free(validity);
     const maybe_rhs_validity = try validityValues(rhs, allocator);
     defer if (maybe_rhs_validity) |validity| allocator.free(validity);
 
-    const rows = lhs_values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const cross_above_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(cross_above_counts);
-    const cross_below_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(cross_below_counts);
-    const cross_above_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(cross_above_rates);
-    const cross_below_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(cross_below_rates);
-    const mean_abs_spreads = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_abs_spreads);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-    const spreads = try allocator.alloc(f64, rows);
-    defer allocator.free(spreads);
-    const spread_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(spread_validity);
-
-    var count: usize = 0;
-    var above_count: usize = 0;
-    var below_count: usize = 0;
-    var sum_abs_spread: f64 = 0;
-
-    for (lhs_values, rhs_values, 0..) |lhs_value, rhs_value, row| {
-        const lhs_valid = if (maybe_lhs_validity) |mask| mask[row] else true;
-        const rhs_valid = if (maybe_rhs_validity) |mask| mask[row] else true;
-        const current_valid = lhs_valid and rhs_valid;
-        spread_validity[row] = current_valid;
-        spreads[row] = if (current_valid) castToF64(T, lhs_value) - castToF64(T, rhs_value) else 0;
-        if (current_valid) {
-            count += 1;
-            sum_abs_spread += @abs(spreads[row]);
-        }
-
-        if (current_valid and row >= cross_options.periods) {
-            const previous_row = row - cross_options.periods;
-            if (spread_validity[previous_row]) {
-                const previous_spread = spreads[previous_row];
-                const current_spread = spreads[row];
-                if (previous_spread <= 0 and current_spread > 0) above_count += 1;
-                if (previous_spread >= 0 and current_spread < 0) below_count += 1;
-            }
-        }
-
-        counts[row] = @intCast(count);
-        cross_above_counts[row] = @intCast(above_count);
-        cross_below_counts[row] = @intCast(below_count);
-        const has_enough = count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            // Use valid spread observations as the denominator so cumulative
-            // cross rates, rolling cross rates, and mean absolute spread all
-            // share the same null-aware population.
-            const n: f64 = @floatFromInt(count);
-            cross_above_rates[row] = @as(f64, @floatFromInt(above_count)) / n;
-            cross_below_rates[row] = @as(f64, @floatFromInt(below_count)) / n;
-            mean_abs_spreads[row] = sum_abs_spread / n;
-        } else {
-            cross_above_rates[row] = 0;
-            cross_below_rates[row] = 0;
-            mean_abs_spreads[row] = 0;
-        }
+    const rows = lhs_values_typed.len;
+    const lhs_values = try allocator.alloc(f64, rows);
+    defer allocator.free(lhs_values);
+    const rhs_values = try allocator.alloc(f64, rows);
+    defer allocator.free(rhs_values);
+    for (lhs_values_typed, rhs_values_typed, 0..) |lhs_value, rhs_value, row| {
+        lhs_values[row] = castToF64(T, lhs_value);
+        rhs_values[row] = castToF64(T, rhs_value);
     }
+
+    var metrics = try crossover_mod.expandingCrossoverProfile(
+        allocator,
+        lhs_values,
+        rhs_values,
+        maybe_lhs_validity,
+        maybe_rhs_validity,
+        cross_options.periods,
+        options_value.min_periods,
+    );
+    defer metrics.deinit();
 
     var columns: [ExpandingCrossoverProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSlice(i64, allocator, cross_above_counts, device_value);
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.cross_above_counts, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSlice(i64, allocator, cross_below_counts, device_value);
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, metrics.cross_below_counts, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, cross_above_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.cross_above_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, cross_below_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.cross_below_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_abs_spreads, metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_abs_spreads, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
