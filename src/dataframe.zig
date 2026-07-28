@@ -15,6 +15,7 @@ const clip_mod = @import("dataframe_clip.zig");
 const risk_mod = @import("dataframe_risk.zig");
 const standardize_mod = @import("dataframe_standardize.zig");
 const robust_mod = @import("dataframe_robust.zig");
+const trend_mod = @import("dataframe_trend.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -11203,110 +11204,32 @@ fn trendProfileColumnsTyped(
     options_value: DeviceTrendOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![TrendProfileColumnCount]DeviceColumn {
-    if (options_value.periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const trends = try allocator.alloc(i64, rows);
-    defer allocator.free(trends);
-    const up_streak = try allocator.alloc(i64, rows);
-    defer allocator.free(up_streak);
-    const down_streak = try allocator.alloc(i64, rows);
-    defer allocator.free(down_streak);
-    const flat_streak = try allocator.alloc(i64, rows);
-    defer allocator.free(flat_streak);
-    const reversal = try allocator.alloc(bool, rows);
-    defer allocator.free(reversal);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var current_up: i64 = 0;
-    var current_down: i64 = 0;
-    var current_flat: i64 = 0;
-    var previous_nonzero_trend: i64 = 0;
-
-    // Trend profile turns an ordered value series into direction and streak
-    // state.  Null or insufficient-history rows reset streak state so downstream
-    // models do not accidentally bridge over missing observations.
-    for (values, 0..) |value_item, row| {
-        if (row < options_value.periods) {
-            trends[row] = 0;
-            up_streak[row] = 0;
-            down_streak[row] = 0;
-            flat_streak[row] = 0;
-            reversal[row] = false;
-            metric_validity[row] = false;
-            current_up = 0;
-            current_down = 0;
-            current_flat = 0;
-            previous_nonzero_trend = 0;
-            continue;
-        }
-
-        const previous_row = row - options_value.periods;
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-        const valid = row_valid and previous_valid;
-        metric_validity[row] = valid;
-        if (!valid) {
-            trends[row] = 0;
-            up_streak[row] = 0;
-            down_streak[row] = 0;
-            flat_streak[row] = 0;
-            reversal[row] = false;
-            current_up = 0;
-            current_down = 0;
-            current_flat = 0;
-            previous_nonzero_trend = 0;
-            continue;
-        }
-
-        const current = castToF64(T, value_item);
-        const previous = castToF64(T, values[previous_row]);
-        const trend: i64 = if (current > previous) 1 else if (current < previous) -1 else 0;
-        trends[row] = trend;
-        switch (trend) {
-            1 => {
-                current_up += 1;
-                current_down = 0;
-                current_flat = 0;
-            },
-            -1 => {
-                current_down += 1;
-                current_up = 0;
-                current_flat = 0;
-            },
-            else => {
-                current_flat += 1;
-                current_up = 0;
-                current_down = 0;
-            },
-        }
-        up_streak[row] = current_up;
-        down_streak[row] = current_down;
-        flat_streak[row] = current_flat;
-        reversal[row] = trend != 0 and previous_nonzero_trend != 0 and trend != previous_nonzero_trend;
-        if (trend != 0) previous_nonzero_trend = trend;
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try trend_mod.trendProfile(allocator, values, maybe_validity, options_value.periods);
+    defer metrics.deinit();
 
     var columns: [TrendProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(i64, allocator, trends, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.trends, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, up_streak, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.up_streak, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(i64, allocator, down_streak, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.down_streak, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, flat_streak, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.flat_streak, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, reversal, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.reversal, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11362,115 +11285,33 @@ fn rollingTrendProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingTrendProfileColumnCount]DeviceColumn {
-    if (trend_options.periods == 0 or options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const trend_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(trend_validity);
-    const trend_values = try allocator.alloc(i64, rows);
-    defer allocator.free(trend_values);
-    const reversals = try allocator.alloc(bool, rows);
-    defer allocator.free(reversals);
-
-    var previous_nonzero_trend: i64 = 0;
-    for (values, 0..) |value_item, row| {
-        if (row < trend_options.periods) {
-            trend_validity[row] = false;
-            trend_values[row] = 0;
-            reversals[row] = false;
-            previous_nonzero_trend = 0;
-            continue;
-        }
-
-        const previous_row = row - trend_options.periods;
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-        const valid = row_valid and previous_valid;
-        trend_validity[row] = valid;
-        if (!valid) {
-            trend_values[row] = 0;
-            reversals[row] = false;
-            previous_nonzero_trend = 0;
-            continue;
-        }
-
-        const current = castToF64(T, value_item);
-        const previous = castToF64(T, values[previous_row]);
-        const trend: i64 = if (current > previous) 1 else if (current < previous) -1 else 0;
-        trend_values[row] = trend;
-        reversals[row] = trend != 0 and previous_nonzero_trend != 0 and trend != previous_nonzero_trend;
-        if (trend != 0) previous_nonzero_trend = trend;
-    }
-
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const up_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(up_rates);
-    const down_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(down_rates);
-    const flat_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(flat_rates);
-    const reversal_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(reversal_rates);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    for (0..rows) |row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var up_count: usize = 0;
-        var down_count: usize = 0;
-        var flat_count: usize = 0;
-        var reversal_count: usize = 0;
-        for (start..row + 1) |window_row| {
-            if (!trend_validity[window_row]) continue;
-            switch (trend_values[window_row]) {
-                1 => up_count += 1,
-                -1 => down_count += 1,
-                else => flat_count += 1,
-            }
-            if (reversals[window_row]) reversal_count += 1;
-            count += 1;
-        }
-
-        counts[row] = @intCast(count);
-        const has_enough = count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            up_rates[row] = @as(f64, @floatFromInt(up_count)) / n;
-            down_rates[row] = @as(f64, @floatFromInt(down_count)) / n;
-            flat_rates[row] = @as(f64, @floatFromInt(flat_count)) / n;
-            reversal_rates[row] = @as(f64, @floatFromInt(reversal_count)) / n;
-        } else {
-            up_rates[row] = 0;
-            down_rates[row] = 0;
-            flat_rates[row] = 0;
-            reversal_rates[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try trend_mod.rollingTrendProfile(allocator, values, maybe_validity, trend_options.periods, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingTrendProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, up_rates, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.up_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, down_rates, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.down_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, flat_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.flat_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, reversal_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.reversal_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11526,88 +11367,32 @@ fn expandingTrendProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingTrendProfileColumnCount]DeviceColumn {
-    if (trend_options.periods == 0) return error.InvalidShape;
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const up_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(up_rates);
-    const down_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(down_rates);
-    const flat_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(flat_rates);
-    const reversal_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(reversal_rates);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var count: usize = 0;
-    var up_count: usize = 0;
-    var down_count: usize = 0;
-    var flat_count: usize = 0;
-    var reversal_count: usize = 0;
-    var previous_nonzero_trend: i64 = 0;
-
-    for (values, 0..) |value_item, row| {
-        if (row >= trend_options.periods) {
-            const previous_row = row - trend_options.periods;
-            const row_valid = if (maybe_validity) |mask| mask[row] else true;
-            const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-            if (row_valid and previous_valid) {
-                const current = castToF64(T, value_item);
-                const previous = castToF64(T, values[previous_row]);
-                const trend: i64 = if (current > previous) 1 else if (current < previous) -1 else 0;
-                switch (trend) {
-                    1 => up_count += 1,
-                    -1 => down_count += 1,
-                    else => flat_count += 1,
-                }
-                if (trend != 0 and previous_nonzero_trend != 0 and trend != previous_nonzero_trend) reversal_count += 1;
-                if (trend != 0) previous_nonzero_trend = trend;
-                count += 1;
-            } else {
-                previous_nonzero_trend = 0;
-            }
-        }
-
-        counts[row] = @intCast(count);
-        const has_enough = count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            up_rates[row] = @as(f64, @floatFromInt(up_count)) / n;
-            down_rates[row] = @as(f64, @floatFromInt(down_count)) / n;
-            flat_rates[row] = @as(f64, @floatFromInt(flat_count)) / n;
-            reversal_rates[row] = @as(f64, @floatFromInt(reversal_count)) / n;
-        } else {
-            up_rates[row] = 0;
-            down_rates[row] = 0;
-            flat_rates[row] = 0;
-            reversal_rates[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try trend_mod.expandingTrendProfile(allocator, values, maybe_validity, trend_options.periods, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExpandingTrendProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, up_rates, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.up_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, down_rates, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.down_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, flat_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.flat_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, reversal_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.reversal_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
