@@ -2,6 +2,7 @@ const std = @import("std");
 const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
+const dataframe_arrow_mod = @import("dataframe_arrow.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const BoolTransitionProfileColumnCount = bool_transition_mod.BoolTransitionProfileColumnCount;
@@ -154,6 +155,7 @@ const zeroValue = dataframe_array_mod.zeroValue;
 const rowIndicesFromMask = dataframe_array_mod.rowIndicesFromMask;
 const sliceArray1d = dataframe_array_mod.sliceArray1d;
 const takeArray1d = dataframe_array_mod.takeArray1d;
+const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
 const ValidityProfileColumnCount = validity_mod.ValidityProfileColumnCount;
 const validityProfileOutputNames = validity_mod.validityProfileOutputNames;
 const RollingValidityProfileColumnCount = validity_mod.RollingValidityProfileColumnCount;
@@ -13833,28 +13835,6 @@ fn coalesceTypedJoinKeys(comptime T: type, left: DeviceTypedColumn(T), right: De
     }
     if (countNulls(validity) == 0) return DeviceTypedColumn(T).fromSlice(allocator, values, left.device());
     return DeviceTypedColumn(T).fromSliceWithValidity(allocator, values, validity, left.device());
-}
-
-fn deviceDTypeToArrowDataType(dtype: DeviceDType) ArrowInteropError!boltha.arrow.DataType {
-    return switch (dtype) {
-        .bool => .bool,
-        .i8 => .{ .int = .{ .bit_width = 8, .signed = true } },
-        .i16 => .{ .int = .{ .bit_width = 16, .signed = true } },
-        .i32 => .{ .int = .{ .bit_width = 32, .signed = true } },
-        .i64, .isize => .{ .int = .{ .bit_width = 64, .signed = true } },
-        .u8 => .{ .int = .{ .bit_width = 8, .signed = false } },
-        .u16 => .{ .int = .{ .bit_width = 16, .signed = false } },
-        .u32 => .{ .int = .{ .bit_width = 32, .signed = false } },
-        .u64, .usize => .{ .int = .{ .bit_width = 64, .signed = false } },
-        .f16 => .{ .floating_point = .half },
-        .f32 => .{ .floating_point = .single },
-        .f64 => .{ .floating_point = .double },
-        // Boltha already models Arrow primitive/fixed/nested types. Vectra's
-        // BFloat16 and complex values need explicit logical-extension metadata
-        // before they can be exported without losing semantics, so keep them
-        // rejected rather than pretending they are plain fixed-size binaries.
-        .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
 }
 
 fn primitiveColumnToArrow(
