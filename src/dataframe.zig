@@ -955,6 +955,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceRollingOptions,
     },
+    rolling_range_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceRollingOptions,
+    },
     lag_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1064,6 +1069,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(rank.output_prefix);
             },
             .rolling_profile => |rolling| {
+                allocator.free(rolling.name);
+                allocator.free(rolling.output_prefix);
+            },
+            .rolling_range_profile => |rolling| {
                 allocator.free(rolling.name);
                 allocator.free(rolling.output_prefix);
             },
@@ -1310,6 +1319,17 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, rolling.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .rolling_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = rolling.options,
+                } };
+            },
+            .rolling_range_profile => |rolling| blk: {
+                const name = try allocator.dupe(u8, rolling.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, rolling.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_range_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = rolling.options,
@@ -1790,6 +1810,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingRangeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_range_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn lagProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -1930,6 +1962,7 @@ pub const DeviceLazyFrame = struct {
                 .top_k => |top| try current.topKBy(top.name, top.k, top.options),
                 .rank_profile_by => |rank| try current.rankProfileBy(rank.name, rank.output_prefix, rank.options),
                 .rolling_profile => |rolling| try current.rollingProfile(rolling.name, rolling.output_prefix, rolling.options),
+                .rolling_range_profile => |rolling| try current.rollingRangeProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .lag_profile => |lag| try current.lagProfile(lag.name, lag.output_prefix, lag.options),
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
@@ -2335,6 +2368,14 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(rolling.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, rolling.name);
                 break :op_loop;
             },
+            .rolling_range_profile => |rolling| {
+                // Rolling range profiles append low/high/range/position fields
+                // and preserve the input table, so projection pushdown needs
+                // schema awareness before it can safely pass this operation.
+                projection_blocked = true;
+                if (!nameInBorrowedList(rolling.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, rolling.name);
+                break :op_loop;
+            },
             .lag_profile => |lag| {
                 // Lag profiles append multiple derived columns and preserve the
                 // input schema.  Like rank/rolling profiles, keep scan predicate
@@ -2571,6 +2612,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
         .rank_profile_by => |rank| try writer.print("rank_profile_by({s}, prefix={s}, desc={})", .{ rank.name, rank.output_prefix, rank.options.descending }),
         .rolling_profile => |rolling| try writer.print("rolling_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
+        .rolling_range_profile => |rolling| try writer.print("rolling_range_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .lag_profile => |lag| try writer.print("lag_profile({s}, prefix={s}, periods={d})", .{ lag.name, lag.output_prefix, lag.options.periods }),
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
@@ -3188,6 +3230,41 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var rolling_names = try rollingProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, rolling_names[0..]);
+        for (rolling_names, 0..) |rolling_name, i| source_names[self.columns.len + i] = rolling_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + rolling_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&rolling_columns) |*rolling_col| {
+            columns[initialized] = rolling_col.*;
+            initialized += 1;
+            rolling_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingRangeProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
+        const rolling_value = try self.column(name);
+        var rolling_columns = try rollingRangeProfileColumnsByValue(self.allocator, rolling_value.*, options_value, self.device, self.rows);
+        var rolling_columns_transferred: usize = 0;
+        errdefer {
+            for (rolling_columns[rolling_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + rolling_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var rolling_names = try rollingRangeProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, rolling_names[0..]);
         for (rolling_names, 0..) |rolling_name, i| source_names[self.columns.len + i] = rolling_name;
 
@@ -4121,6 +4198,133 @@ fn rollingProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, variances, validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, stddevs, validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const RollingRangeProfileColumnCount = 4;
+
+fn rollingRangeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingRangeProfileColumnCount][]const u8 {
+    var names: [RollingRangeProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_low", "rolling_high", "rolling_range", "rolling_position" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingRangeProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingRangeProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| rollingRangeProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| rollingRangeProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| rollingRangeProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| rollingRangeProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| rollingRangeProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| rollingRangeProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| rollingRangeProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| rollingRangeProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| rollingRangeProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| rollingRangeProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| rollingRangeProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| rollingRangeProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| rollingRangeProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rollingRangeProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingRangeProfileColumnCount]DeviceColumn {
+    if (options_value.window == 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const lows = try allocator.alloc(f64, rows);
+    defer allocator.free(lows);
+    const highs = try allocator.alloc(f64, rows);
+    defer allocator.free(highs);
+    const ranges = try allocator.alloc(f64, rows);
+    defer allocator.free(ranges);
+    const positions = try allocator.alloc(f64, rows);
+    defer allocator.free(positions);
+    const validity = try allocator.alloc(bool, rows);
+    defer allocator.free(validity);
+
+    // This intentionally recomputes each small trailing window in host memory,
+    // matching the other dataframe profile APIs' current gather/materialize
+    // strategy while preserving a single future lowering seam for device rolling
+    // min/max kernels.
+    for (values, 0..) |value_item, row| {
+        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
+        var count: usize = 0;
+        var low: f64 = 0;
+        var high: f64 = 0;
+        for (start..row + 1) |window_row| {
+            const row_valid = if (maybe_validity) |mask| mask[window_row] else true;
+            if (!row_valid) continue;
+            const x = castToF64(T, values[window_row]);
+            if (count == 0) {
+                low = x;
+                high = x;
+            } else {
+                if (x < low) low = x;
+                if (x > high) high = x;
+            }
+            count += 1;
+        }
+
+        const current_valid = if (maybe_validity) |mask| mask[row] else true;
+        const has_enough = current_valid and count >= min_periods;
+        validity[row] = has_enough;
+        if (has_enough) {
+            const current = castToF64(T, value_item);
+            const range = high - low;
+            lows[row] = low;
+            highs[row] = high;
+            ranges[row] = range;
+            positions[row] = if (range == 0) std.math.nan(f64) else (current - low) / range;
+        } else {
+            lows[row] = 0;
+            highs[row] = 0;
+            ranges[row] = 0;
+            positions[row] = 0;
+        }
+    }
+
+    var columns: [RollingRangeProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, lows, validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, highs, validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ranges, validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, positions, validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -8144,6 +8348,33 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_stddev[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_stddev[4], 1e-12);
 
+    var rolling_range = try rolling_table.rollingRangeProfile("sales", "sales", .{ .window = 3, .min_periods = 2 });
+    defer rolling_range.deinit();
+    try std.testing.expectEqual(@as(usize, 6), rolling_range.width());
+    const rolling_low = try (try rolling_range.column("sales_rolling_low")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_low);
+    const rolling_high = try (try rolling_range.column("sales_rolling_high")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_high);
+    const rolling_spread = try (try rolling_range.column("sales_rolling_range")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_spread);
+    const rolling_position = try (try rolling_range.column("sales_rolling_position")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_position);
+    const rolling_range_validity = try (try rolling_range.column("sales_rolling_range")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_range_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true }, rolling_range_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_low[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), rolling_low[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), rolling_low[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), rolling_high[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), rolling_high[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), rolling_high[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_spread[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), rolling_spread[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_spread[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_position[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_position[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_position[4], 1e-12);
+
     var lag_source = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 10.0, 0.0, 15.0, 20.0, 99.0 }, &.{ true, true, true, true, false }, .cpu);
     defer lag_source.deinit();
     var lag_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4, 5 }, .cpu);
@@ -9163,6 +9394,39 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_stddev[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_stddev[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_stddev[3], 1e-12);
+
+    var rolling_range_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_range_plan.deinit();
+    try rolling_range_plan.rollingRangeProfile("sales", "sales", .{ .window = 2, .min_periods = 1 });
+    try rolling_range_plan.select(&.{ "sales", "sales_rolling_low", "sales_rolling_high", "sales_rolling_position" });
+    const rolling_range_explain = try rolling_range_plan.explain(gpa);
+    defer gpa.free(rolling_range_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_range_explain, "rolling_range_profile(sales") != null);
+    var rolling_range = try rolling_range_plan.collect();
+    defer rolling_range.deinit();
+    try std.testing.expectEqual(@as(usize, 4), rolling_range.height());
+    try std.testing.expectEqual(@as(usize, 4), rolling_range.width());
+    const lazy_rolling_low = try (try rolling_range.column("sales_rolling_low")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_low);
+    const lazy_rolling_high = try (try rolling_range.column("sales_rolling_high")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_high);
+    const lazy_rolling_position = try (try rolling_range.column("sales_rolling_position")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_position);
+    const lazy_rolling_range_validity = try (try rolling_range.column("sales_rolling_position")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_range_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_rolling_range_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_rolling_low[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_rolling_low[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_rolling_low[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_rolling_low[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_rolling_high[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_rolling_high[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_rolling_high[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), lazy_rolling_high[3], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_rolling_position[0]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_position[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_position[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_position[3], 1e-12);
 
     var lag_plan = try DeviceLazyFrame.init(gpa, table);
     defer lag_plan.deinit();
