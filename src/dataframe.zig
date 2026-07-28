@@ -44,6 +44,8 @@ const ExpandingSignProfileColumnCount = sign_mod.ExpandingSignProfileColumnCount
 const expandingSignProfileOutputNames = sign_mod.expandingSignProfileOutputNames;
 const shift_mod = @import("dataframe_shift.zig");
 const ema_mod = @import("dataframe_ema.zig");
+const EmaProfileColumnCount = ema_mod.EmaProfileColumnCount;
+const emaProfileOutputNames = ema_mod.emaProfileOutputNames;
 const quantile_mod = @import("dataframe_quantile.zig");
 const bucket_mod = @import("dataframe_bucket.zig");
 const BucketProfileColumnCount = bucket_mod.BucketProfileColumnCount;
@@ -11448,22 +11450,6 @@ fn bucketProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.upper_tail, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const EmaProfileColumnCount = 3;
-
-fn emaProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![EmaProfileColumnCount][]const u8 {
-    var names: [EmaProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "ema", "ema_residual", "ema_ratio" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn emaProfileColumnsByValue(

@@ -16,6 +16,22 @@ pub const EmaMetrics = struct {
     }
 };
 
+pub const EmaProfileColumnCount = 3;
+
+pub fn emaProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![EmaProfileColumnCount][]const u8 {
+    var names: [EmaProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "ema", "ema_residual", "ema_ratio" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validate(values: []const f64, maybe_validity: ?[]const bool, alpha: f64, min_periods: usize) error{ InvalidShape, LengthMismatch }!void {
     if (alpha <= 0 or alpha > 1 or min_periods == 0) return error.InvalidShape;
     if (maybe_validity) |validity| {
