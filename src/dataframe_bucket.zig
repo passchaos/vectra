@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -213,4 +215,56 @@ fn bucketProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.upper_tail, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const BucketFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+pub fn bucketProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceBucketOptions,
+) BucketFrameError!DeviceDataFrame {
+    const bucket_value = try frame.column(name);
+    var bucket_columns = try bucketProfileColumnsByValue(frame.allocator, bucket_value.*, options_value, frame.device, frame.rows);
+    var bucket_columns_transferred: usize = 0;
+    errdefer {
+        for (bucket_columns[bucket_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + bucket_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var bucket_names = try bucketProfileOutputNames(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, bucket_names[0..]);
+    for (bucket_names, 0..) |bucket_name, i| source_names[frame.columns.len + i] = bucket_name;
+
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + bucket_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&bucket_columns) |*bucket_col| {
+        columns[initialized] = bucket_col.*;
+        initialized += 1;
+        bucket_columns_transferred += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
 }

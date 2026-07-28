@@ -115,9 +115,6 @@ const leadProfileOutputNames = shift_mod.leadProfileOutputNames;
 const lagProfileColumnsByValue = shift_mod.lagProfileColumnsByValue;
 const leadProfileColumnsByValue = shift_mod.leadProfileColumnsByValue;
 const ema_mod = @import("dataframe_ema.zig");
-const EmaProfileColumnCount = ema_mod.EmaProfileColumnCount;
-const emaProfileOutputNames = ema_mod.emaProfileOutputNames;
-const emaProfileColumnsByValue = ema_mod.emaProfileColumnsByValue;
 const quantile_mod = @import("dataframe_quantile.zig");
 const RollingQuantileProfileColumnCount = quantile_mod.RollingQuantileProfileColumnCount;
 const rollingQuantileProfileOutputNames = quantile_mod.rollingQuantileProfileOutputNames;
@@ -126,9 +123,6 @@ const expandingQuantileProfileOutputNames = quantile_mod.expandingQuantileProfil
 const rollingQuantileProfileColumnsByValue = quantile_mod.rollingQuantileProfileColumnsByValue;
 const expandingQuantileProfileColumnsByValue = quantile_mod.expandingQuantileProfileColumnsByValue;
 const bucket_mod = @import("dataframe_bucket.zig");
-const BucketProfileColumnCount = bucket_mod.BucketProfileColumnCount;
-const bucketProfileOutputNames = bucket_mod.bucketProfileOutputNames;
-const bucketProfileColumnsByValue = bucket_mod.bucketProfileColumnsByValue;
 const rank_mod = @import("dataframe_rank.zig");
 const RollingRankProfileColumnCount = rank_mod.RollingRankProfileColumnCount;
 const rollingRankProfileOutputNames = rank_mod.rollingRankProfileOutputNames;
@@ -1421,73 +1415,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn bucketProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceBucketOptions) DeviceDataError!DeviceDataFrame {
-        const bucket_value = try self.column(name);
-        var bucket_columns = try bucketProfileColumnsByValue(self.allocator, bucket_value.*, options_value, self.device, self.rows);
-        var bucket_columns_transferred: usize = 0;
-        errdefer {
-            for (bucket_columns[bucket_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + bucket_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var bucket_names = try bucketProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, bucket_names[0..]);
-        for (bucket_names, 0..) |bucket_name, i| source_names[self.columns.len + i] = bucket_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + bucket_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&bucket_columns) |*bucket_col| {
-            columns[initialized] = bucket_col.*;
-            initialized += 1;
-            bucket_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return bucket_mod.bucketProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn emaProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceEmaOptions) DeviceDataError!DeviceDataFrame {
-        const ema_value = try self.column(name);
-        var ema_columns = try emaProfileColumnsByValue(self.allocator, ema_value.*, options_value, self.device, self.rows);
-        var ema_columns_transferred: usize = 0;
-        errdefer {
-            for (ema_columns[ema_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + ema_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var ema_names = try emaProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, ema_names[0..]);
-        for (ema_names, 0..) |ema_name, i| source_names[self.columns.len + i] = ema_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + ema_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&ema_columns) |*ema_col| {
-            columns[initialized] = ema_col.*;
-            initialized += 1;
-            ema_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return ema_mod.emaProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn linearFitProfile(
