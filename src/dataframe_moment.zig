@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -363,4 +365,89 @@ fn expandingMomentProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.kurtoses, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const MomentFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendMomentColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    moment_columns: anytype,
+) MomentFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + moment_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&moment_columns) |*moment_col| {
+        columns[initialized] = moment_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn momentFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    moment_columns_value: anytype,
+    comptime namesFn: anytype,
+) MomentFrameError!DeviceDataFrame {
+    var moment_columns = moment_columns_value;
+    var moment_columns_transferred: usize = 0;
+    errdefer {
+        for (moment_columns[moment_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + moment_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var moment_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, moment_names[0..]);
+    for (moment_names, 0..) |moment_name, i| source_names[frame.columns.len + i] = moment_name;
+
+    const out = try appendMomentColumns(DeviceDataFrame, frame, source_names, moment_columns);
+    moment_columns_transferred = moment_columns.len;
+    return out;
+}
+
+pub fn rollingMomentProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRollingOptions,
+) MomentFrameError!DeviceDataFrame {
+    const rolling_value = try frame.column(name);
+    const rolling_columns = try rollingMomentProfileColumnsByValue(frame.allocator, rolling_value.*, options_value, frame.device, frame.rows);
+    return momentFrameFromColumns(DeviceDataFrame, frame, output_prefix, rolling_columns, rollingMomentProfileOutputNames);
+}
+
+pub fn expandingMomentProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceExpandingOptions,
+) MomentFrameError!DeviceDataFrame {
+    const expanding_value = try frame.column(name);
+    const expanding_columns = try expandingMomentProfileColumnsByValue(frame.allocator, expanding_value.*, options_value, frame.device, frame.rows);
+    return momentFrameFromColumns(DeviceDataFrame, frame, output_prefix, expanding_columns, expandingMomentProfileOutputNames);
 }
