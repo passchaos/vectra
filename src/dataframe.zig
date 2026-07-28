@@ -5482,7 +5482,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn fromArrowTable(allocator: std.mem.Allocator, table: boltha.arrow.Table, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
-        if (table.batches.len == 0) return emptyFromArrowSchema(allocator, table.schema, table.row_count, device_value);
+        if (table.batches.len == 0) return dataframe_arrow_mod.emptyFromArrowSchema(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table.schema, table.row_count, device_value);
         var out = try DeviceDataFrame.fromArrowRecordBatch(allocator, table.batches[0], device_value);
         errdefer out.deinit();
         for (table.batches[1..]) |batch| {
@@ -5502,7 +5502,7 @@ pub const DeviceDataFrame = struct {
         device_value: array_mod.Device,
     ) ArrowInteropError!DeviceDataFrame {
         if (wanted_names.len == 0) return DeviceDataFrame.initEmpty(allocator, table.row_count, device_value);
-        if (table.batches.len == 0) return emptyFromArrowSchemaProjection(allocator, table.schema, table.row_count, wanted_names, device_value);
+        if (table.batches.len == 0) return dataframe_arrow_mod.emptyFromArrowSchemaProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table.schema, table.row_count, wanted_names, device_value);
 
         // Projection is applied while crossing the Arrow -> DeviceDataFrame
         // boundary.  Boltha's current simple Parquet reader still decodes full
@@ -13805,50 +13805,6 @@ fn coalesceJoinKeys(left: DeviceColumn, right: DeviceColumn) DeviceDataError!Dev
         .c64 => |typed| .{ .c64 = try coalesceTypedJoinKeys(array_mod.Complex64, typed, right.c64) },
         .c128 => |typed| .{ .c128 = try coalesceTypedJoinKeys(array_mod.Complex128, typed, right.c128) },
     };
-}
-
-fn emptyFromArrowSchema(allocator: std.mem.Allocator, schema: boltha.arrow.Schema, rows: usize, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
-    if (rows != 0) return error.TypeUnsupported;
-    var defs = try allocator.alloc(DeviceColumnDef, schema.fields.len);
-    defer allocator.free(defs);
-    var initialized: usize = 0;
-    defer {
-        for (defs[0..initialized]) |*def| def.data.deinit();
-    }
-    for (schema.fields, 0..) |field, i| {
-        defs[i] = .{
-            .name = field.name,
-            .data = try dataframe_arrow_mod.emptyDeviceColumnFromArrowType(DeviceColumn, allocator, field.data_type, device_value),
-        };
-        initialized += 1;
-    }
-    return DeviceDataFrame.init(allocator, defs);
-}
-
-fn emptyFromArrowSchemaProjection(
-    allocator: std.mem.Allocator,
-    schema: boltha.arrow.Schema,
-    rows: usize,
-    wanted_names: []const []const u8,
-    device_value: array_mod.Device,
-) ArrowInteropError!DeviceDataFrame {
-    if (rows != 0) return error.TypeUnsupported;
-    var defs = try allocator.alloc(DeviceColumnDef, wanted_names.len);
-    defer allocator.free(defs);
-    var initialized: usize = 0;
-    defer {
-        for (defs[0..initialized]) |*def| def.data.deinit();
-    }
-    for (wanted_names, 0..) |name, i| {
-        const column_index = schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
-        const field = schema.fields[column_index];
-        defs[i] = .{
-            .name = field.name,
-            .data = try dataframe_arrow_mod.emptyDeviceColumnFromArrowType(DeviceColumn, allocator, field.data_type, device_value),
-        };
-        initialized += 1;
-    }
-    return DeviceDataFrame.init(allocator, defs);
 }
 
 fn concatDeviceDataFramesRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {

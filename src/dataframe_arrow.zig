@@ -5,7 +5,8 @@ const numeric_mod = @import("dataframe_numeric.zig");
 const validity_mod = @import("dataframe_validity.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 
-pub const ArrowInteropError = array_mod.ArrayError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;
+pub const DataFrameInitError = std.mem.Allocator.Error || std.Io.Writer.Error || error{ LengthMismatch, ColumnNotFound, TypeMismatch, InvalidCsv, EmptyDataFrame, UnsupportedType, InvalidDevice };
+pub const ArrowInteropError = DataFrameInitError || array_mod.ArrayError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;
 pub const ParquetInteropError = ArrowInteropError || boltha.parquet.SimpleError;
 const optionalCast = numeric_mod.optionalCast;
 const validityValues = validity_mod.validityValues;
@@ -265,4 +266,59 @@ pub fn emptyDeviceColumnFromArrowType(
         },
         else => error.TypeUnsupported,
     };
+}
+
+pub fn emptyFromArrowSchema(
+    comptime DeviceDataFrame: type,
+    comptime DeviceColumnDef: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    schema: boltha.arrow.Schema,
+    rows: usize,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceDataFrame {
+    if (rows != 0) return error.TypeUnsupported;
+    var defs = try allocator.alloc(DeviceColumnDef, schema.fields.len);
+    defer allocator.free(defs);
+    var initialized: usize = 0;
+    defer {
+        for (defs[0..initialized]) |*def| def.data.deinit();
+    }
+    for (schema.fields, 0..) |field, i| {
+        defs[i] = .{
+            .name = field.name,
+            .data = try emptyDeviceColumnFromArrowType(DeviceColumn, allocator, field.data_type, device_value),
+        };
+        initialized += 1;
+    }
+    return DeviceDataFrame.init(allocator, defs);
+}
+
+pub fn emptyFromArrowSchemaProjection(
+    comptime DeviceDataFrame: type,
+    comptime DeviceColumnDef: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    schema: boltha.arrow.Schema,
+    rows: usize,
+    wanted_names: []const []const u8,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceDataFrame {
+    if (rows != 0) return error.TypeUnsupported;
+    var defs = try allocator.alloc(DeviceColumnDef, wanted_names.len);
+    defer allocator.free(defs);
+    var initialized: usize = 0;
+    defer {
+        for (defs[0..initialized]) |*def| def.data.deinit();
+    }
+    for (wanted_names, 0..) |name, i| {
+        const column_index = schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
+        const field = schema.fields[column_index];
+        defs[i] = .{
+            .name = field.name,
+            .data = try emptyDeviceColumnFromArrowType(DeviceColumn, allocator, field.data_type, device_value),
+        };
+        initialized += 1;
+    }
+    return DeviceDataFrame.init(allocator, defs);
 }
