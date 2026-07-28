@@ -4,6 +4,12 @@ const array_mod = @import("array.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const classification_mod = @import("dataframe_classification.zig");
+const ClassificationProfileColumnCount = classification_mod.ClassificationProfileColumnCount;
+const classificationProfileOutputNames = classification_mod.classificationProfileOutputNames;
+const RollingClassificationProfileColumnCount = classification_mod.RollingClassificationProfileColumnCount;
+const rollingClassificationProfileOutputNames = classification_mod.rollingClassificationProfileOutputNames;
+const ExpandingClassificationProfileColumnCount = classification_mod.ExpandingClassificationProfileColumnCount;
+const expandingClassificationProfileOutputNames = classification_mod.expandingClassificationProfileOutputNames;
 const error_mod = @import("dataframe_error.zig");
 const ErrorProfileColumnCount = error_mod.ErrorProfileColumnCount;
 const errorProfileOutputNames = error_mod.errorProfileOutputNames;
@@ -11852,22 +11858,6 @@ fn expandingErrorProfileColumnsTyped(
     return columns;
 }
 
-const ClassificationProfileColumnCount = 5;
-
-fn classificationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ClassificationProfileColumnCount][]const u8 {
-    var names: [ClassificationProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "tp", "fp", "tn", "fn", "correct" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn classificationProfileColumns(
     allocator: std.mem.Allocator,
     actual: DeviceTypedColumn(bool),
@@ -11906,22 +11896,6 @@ fn classificationProfileColumns(
     columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.correct, profile.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingClassificationProfileColumnCount = 8;
-
-fn rollingClassificationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingClassificationProfileColumnCount][]const u8 {
-    var names: [RollingClassificationProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_class_count", "rolling_tp_count", "rolling_fp_count", "rolling_tn_count", "rolling_fn_count", "rolling_accuracy", "rolling_precision", "rolling_recall" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingClassificationProfileColumns(
@@ -11978,22 +11952,6 @@ fn rollingClassificationProfileColumns(
     columns[7] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.recalls, profile.metric_validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingClassificationProfileColumnCount = 8;
-
-fn expandingClassificationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingClassificationProfileColumnCount][]const u8 {
-    var names: [ExpandingClassificationProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_class_count", "expanding_tp_count", "expanding_fp_count", "expanding_tn_count", "expanding_fn_count", "expanding_accuracy", "expanding_precision", "expanding_recall" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingClassificationProfileColumns(

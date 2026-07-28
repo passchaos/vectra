@@ -46,6 +46,54 @@ pub const ClassificationSummaryProfile = struct {
     }
 };
 
+pub const ClassificationProfileColumnCount = 5;
+
+pub fn classificationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ClassificationProfileColumnCount][]const u8 {
+    var names: [ClassificationProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "tp", "fp", "tn", "fn", "correct" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingClassificationProfileColumnCount = 8;
+
+pub fn rollingClassificationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingClassificationProfileColumnCount][]const u8 {
+    var names: [RollingClassificationProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_class_count", "rolling_tp_count", "rolling_fp_count", "rolling_tn_count", "rolling_fn_count", "rolling_accuracy", "rolling_precision", "rolling_recall" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingClassificationProfileColumnCount = 8;
+
+pub fn expandingClassificationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingClassificationProfileColumnCount][]const u8 {
+    var names: [ExpandingClassificationProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_class_count", "expanding_tp_count", "expanding_fp_count", "expanding_tn_count", "expanding_fn_count", "expanding_accuracy", "expanding_precision", "expanding_recall" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validatePairLengths(
     actual: []const bool,
     predicted: []const bool,
