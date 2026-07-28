@@ -1,4 +1,15 @@
 const std = @import("std");
+const array_mod = @import("array.zig");
+const dataframe_device_column_mod = @import("dataframe_device_column.zig");
+const numeric_mod = @import("dataframe_numeric.zig");
+const options_mod = @import("dataframe_options.zig");
+const validity_mod = @import("dataframe_validity.zig");
+
+const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
+const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;
+const DeviceStandardizeOptions = options_mod.DeviceStandardizeOptions;
+const castToF64 = numeric_mod.castToF64;
+const validityValues = validity_mod.validityValues;
 
 pub const StandardizeMetrics = struct {
     allocator: std.mem.Allocator,
@@ -112,4 +123,63 @@ pub fn standardizeProfile(
         .minmax = minmax,
         .validity = validity,
     };
+}
+
+pub fn standardizeProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceStandardizeOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{LengthMismatch})![StandardizeProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| standardizeProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| standardizeProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| standardizeProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| standardizeProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| standardizeProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| standardizeProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| standardizeProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| standardizeProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| standardizeProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| standardizeProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| standardizeProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| standardizeProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| standardizeProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+fn standardizeProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceStandardizeOptions,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || error{LengthMismatch})![StandardizeProfileColumnCount]DeviceColumn {
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+
+    var metrics = try standardizeProfile(allocator, values, maybe_validity, options_value.min_periods);
+    defer metrics.deinit();
+
+    var columns: [StandardizeProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.centered, metrics.validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.zscores, metrics.validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.minmax, metrics.validity, device_value);
+    initialized += 1;
+    return columns;
 }
