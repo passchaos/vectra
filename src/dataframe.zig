@@ -156,8 +156,7 @@ const rowIndicesFromMask = dataframe_array_mod.rowIndicesFromMask;
 const sliceArray1d = dataframe_array_mod.sliceArray1d;
 const takeArray1d = dataframe_array_mod.takeArray1d;
 const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
-const readBolthaTableWithBoolRangePruning = dataframe_arrow_mod.readBolthaTableWithBoolRangePruning;
-const emptyBolthaTableForParquetBytes = dataframe_arrow_mod.emptyBolthaTableForParquetBytes;
+const readBolthaTableWithRangePruning = dataframe_arrow_mod.readBolthaTableWithRangePruning;
 const ValidityProfileColumnCount = validity_mod.ValidityProfileColumnCount;
 const validityProfileOutputNames = validity_mod.validityProfileOutputNames;
 const RollingValidityProfileColumnCount = validity_mod.RollingValidityProfileColumnCount;
@@ -5003,7 +5002,6 @@ fn rangeFromScalarPredicate(comptime T: type, value: T, op: DeviceColumnCompareO
 const allNamesIn = names_mod.allNamesIn;
 const isIntegerColumnType = numeric_mod.isIntegerColumnType;
 const isOrderedColumnType = numeric_mod.isOrderedColumnType;
-const optionalCast = numeric_mod.optionalCast;
 
 fn formatLazyScanPushdown(writer: *std.Io.Writer, pushdown: LazyScanPushdown) std.Io.Writer.Error!void {
     var printed = false;
@@ -13962,31 +13960,6 @@ fn emptyDeviceColumnFromArrowType(allocator: std.mem.Allocator, dtype: boltha.ar
             .double => DeviceColumn.fromSlice(f64, allocator, &.{}, device_value),
         },
         else => error.TypeUnsupported,
-    };
-}
-
-fn readBolthaTableWithRangePruning(
-    allocator: std.mem.Allocator,
-    bytes: []const u8,
-    column_name: []const u8,
-    predicate: ParquetRangePredicate,
-) ParquetInteropError!boltha.arrow.Table {
-    return switch (predicate) {
-        .bool => |range| readBolthaTableWithBoolRangePruning(allocator, bytes, column_name, range),
-        .i8 => |range| boltha.parquet.readTableWithInt8Pruning(allocator, bytes, column_name, .{ .min = optionalCast(i32, range.min), .max = optionalCast(i32, range.max) }),
-        .i16 => |range| boltha.parquet.readTableWithInt16Pruning(allocator, bytes, column_name, .{ .min = optionalCast(i32, range.min), .max = optionalCast(i32, range.max) }),
-        .i32 => |range| boltha.parquet.readTableWithInt32Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
-        .i64 => |range| boltha.parquet.readTableWithInt64Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
-        .isize => |range| boltha.parquet.readTableWithInt64Pruning(allocator, bytes, column_name, .{ .min = optionalCast(i64, range.min), .max = optionalCast(i64, range.max) }),
-        .u8 => |range| boltha.parquet.readTableWithUInt8Pruning(allocator, bytes, column_name, .{ .min = optionalCast(u32, range.min), .max = optionalCast(u32, range.max) }),
-        .u16 => |range| boltha.parquet.readTableWithUInt16Pruning(allocator, bytes, column_name, .{ .min = optionalCast(u32, range.min), .max = optionalCast(u32, range.max) }),
-        .u32 => |range| boltha.parquet.readTableWithUInt32Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
-        .u64 => |range| boltha.parquet.readTableWithUInt64Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
-        .usize => |range| boltha.parquet.readTableWithUInt64Pruning(allocator, bytes, column_name, .{ .min = optionalCast(u64, range.min), .max = optionalCast(u64, range.max) }),
-        .f16 => |range| boltha.parquet.readTableWithFloat16Pruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
-        .f32 => |range| boltha.parquet.readTableWithFloatPruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
-        .f64 => |range| boltha.parquet.readTableWithDoublePruning(allocator, bytes, column_name, .{ .min = range.min, .max = range.max }),
-        .bf16, .c64, .c128 => error.TypeUnsupported,
     };
 }
 
