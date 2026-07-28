@@ -322,3 +322,205 @@ pub fn emptyFromArrowSchemaProjection(
     }
     return DeviceDataFrame.init(allocator, defs);
 }
+
+/// Export a Boltha/Arrow schema for a fixed-width device dataframe.
+///
+/// The dataframe may own CPU, CUDA, or MPS columns; schema export only inspects
+/// column metadata, while array materialization remains in `toArrowRecordBatch`.
+pub fn toArrowSchema(frame: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
+    var fields = try allocator.alloc(boltha.arrow.Field, frame.columns.len);
+    defer allocator.free(fields);
+    var initialized: usize = 0;
+    defer {
+        for (fields[0..initialized]) |*field| field.deinit(allocator);
+    }
+
+    for (frame.names, frame.columns, 0..) |name, col, i| {
+        fields[i] = try boltha.arrow.Field.init(
+            allocator,
+            name,
+            try col.arrowDataType(),
+            col.nullable(),
+        );
+        initialized += 1;
+    }
+    return boltha.arrow.Schema.init(allocator, fields);
+}
+
+/// Materialize a device dataframe as a single Boltha/Arrow record batch.
+///
+/// This is the host-side interchange boundary used by Arrow IPC/Parquet and
+/// external consumers. Device-resident columns are downloaded through the column
+/// conversion APIs so one implementation serves CPU, CUDA, and MPS storage.
+pub fn toArrowRecordBatch(frame: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.RecordBatch {
+    if (frame.columns.len == 0 and frame.rows != 0) return error.TypeUnsupported;
+
+    var schema = try toArrowSchema(frame, allocator);
+    errdefer schema.deinit(allocator);
+
+    const columns = try allocator.alloc(boltha.arrow.AnyArray, frame.columns.len);
+    errdefer allocator.free(columns);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*column_value| column_value.deinit(allocator);
+    }
+
+    for (frame.columns, columns) |col, *slot| {
+        slot.* = try col.toArrowArray(allocator);
+        initialized += 1;
+    }
+    return boltha.arrow.RecordBatch.initOwned(schema, columns);
+}
+
+pub fn toArrowTable(frame: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Table {
+    var batch = try toArrowRecordBatch(frame, allocator);
+    errdefer batch.deinit(allocator);
+
+    var schema = try batch.schema.clone(allocator);
+    errdefer schema.deinit(allocator);
+
+    const batches = try allocator.alloc(boltha.arrow.RecordBatch, 1);
+    errdefer allocator.free(batches);
+    batches[0] = batch;
+    return boltha.arrow.Table.initOwned(schema, batches);
+}
+
+pub fn toParquetBytes(frame: anytype, allocator: std.mem.Allocator) ParquetInteropError![]u8 {
+    var batch = try toArrowRecordBatch(frame, allocator);
+    defer batch.deinit(allocator);
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(allocator);
+    try boltha.parquet.writeRecordBatch(allocator, &out, batch);
+    return out.toOwnedSlice(allocator);
+}
+
+pub fn fromParquetBytes(
+    comptime DeviceDataFrame: type,
+    comptime DeviceColumnDef: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    bytes: []const u8,
+    device_value: array_mod.Device,
+) ParquetInteropError!DeviceDataFrame {
+    var batch = try boltha.parquet.readRecordBatch(allocator, bytes);
+    defer batch.deinit(allocator);
+    return fromArrowRecordBatch(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, batch, device_value);
+}
+
+pub fn fromParquetBytesPruned(
+    comptime DeviceDataFrame: type,
+    comptime DeviceColumnDef: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    bytes: []const u8,
+    column_name: []const u8,
+    predicate: anytype,
+    device_value: array_mod.Device,
+) ParquetInteropError!DeviceDataFrame {
+    var table = try readBolthaTableWithRangePruning(allocator, bytes, column_name, predicate);
+    defer table.deinit(allocator);
+    return fromArrowTable(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table, device_value);
+}
+
+pub fn fromArrowTable(
+    comptime DeviceDataFrame: type,
+    comptime DeviceColumnDef: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    table: boltha.arrow.Table,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceDataFrame {
+    if (table.batches.len == 0) return emptyFromArrowSchema(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table.schema, table.row_count, device_value);
+    var out = try fromArrowRecordBatch(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table.batches[0], device_value);
+    errdefer out.deinit();
+    for (table.batches[1..]) |batch| {
+        var next = try fromArrowRecordBatch(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, batch, device_value);
+        defer next.deinit();
+        const combined = try dataframe_array_mod.concatDeviceDataFramesRows(DeviceDataFrame, out, next);
+        out.deinit();
+        out = combined;
+    }
+    return out;
+}
+
+pub fn fromArrowTableProjection(
+    comptime DeviceDataFrame: type,
+    comptime DeviceColumnDef: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    table: boltha.arrow.Table,
+    wanted_names: []const []const u8,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceDataFrame {
+    if (wanted_names.len == 0) return DeviceDataFrame.initEmpty(allocator, table.row_count, device_value);
+    if (table.batches.len == 0) return emptyFromArrowSchemaProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table.schema, table.row_count, wanted_names, device_value);
+
+    // Projection is applied while crossing the Arrow -> DeviceDataFrame
+    // boundary. Boltha's current simple Parquet reader still decodes full row
+    // groups, but dropped columns are not uploaded/materialized into Vectra
+    // arrays, preserving the public projection-pushdown contract.
+    var out = try fromArrowRecordBatchProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table.batches[0], wanted_names, device_value);
+    errdefer out.deinit();
+    for (table.batches[1..]) |batch| {
+        var next = try fromArrowRecordBatchProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, batch, wanted_names, device_value);
+        defer next.deinit();
+        const combined = try dataframe_array_mod.concatDeviceDataFramesRows(DeviceDataFrame, out, next);
+        out.deinit();
+        out = combined;
+    }
+    return out;
+}
+
+pub fn fromArrowRecordBatch(
+    comptime DeviceDataFrame: type,
+    comptime DeviceColumnDef: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    batch: boltha.arrow.RecordBatch,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceDataFrame {
+    if (!device_value.isAvailable()) return error.InvalidDevice;
+    var defs = try allocator.alloc(DeviceColumnDef, batch.columns.len);
+    defer allocator.free(defs);
+    var initialized: usize = 0;
+    defer {
+        for (defs[0..initialized]) |*def| def.data.deinit();
+    }
+    for (batch.schema.fields, batch.columns, 0..) |field, arrow_column, i| {
+        defs[i] = .{
+            .name = field.name,
+            .data = try deviceColumnFromArrowArray(DeviceColumn, allocator, arrow_column, device_value),
+        };
+        initialized += 1;
+    }
+    return DeviceDataFrame.init(allocator, defs);
+}
+
+pub fn fromArrowRecordBatchProjection(
+    comptime DeviceDataFrame: type,
+    comptime DeviceColumnDef: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    batch: boltha.arrow.RecordBatch,
+    wanted_names: []const []const u8,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceDataFrame {
+    if (!device_value.isAvailable()) return error.InvalidDevice;
+    if (wanted_names.len == 0) return DeviceDataFrame.initEmpty(allocator, batch.row_count, device_value);
+
+    var defs = try allocator.alloc(DeviceColumnDef, wanted_names.len);
+    defer allocator.free(defs);
+    var initialized: usize = 0;
+    defer {
+        for (defs[0..initialized]) |*def| def.data.deinit();
+    }
+    for (wanted_names, 0..) |name, i| {
+        const column_index = batch.schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
+        defs[i] = .{
+            .name = batch.schema.fields[column_index].name,
+            .data = try deviceColumnFromArrowArray(DeviceColumn, allocator, batch.columns[column_index], device_value),
+        };
+        initialized += 1;
+    }
+    return DeviceDataFrame.init(allocator, defs);
+}

@@ -3774,89 +3774,24 @@ pub const DeviceDataFrame = struct {
         return self.filter(host_values);
     }
 
-    /// Export a Boltha/Arrow schema for the fixed-width device dataframe.
-    ///
-    /// Polars keeps Arrow as the explicit columnar interchange boundary:
-    /// dataframe fields describe logical dtype and nullability, while each
-    /// column exports its Arrow array independently.  Vectra follows the same
-    /// split here, but the source columns may live on CPU, CUDA, or MPS; array
-    /// bytes are downloaded/materialized only when `toArrowRecordBatch()` is
-    /// called.
     pub fn toArrowSchema(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
-        var fields = try allocator.alloc(boltha.arrow.Field, self.columns.len);
-        defer allocator.free(fields);
-        var initialized: usize = 0;
-        defer {
-            for (fields[0..initialized]) |*field| field.deinit(allocator);
-        }
-
-        for (self.names, self.columns, 0..) |name, col, i| {
-            fields[i] = try boltha.arrow.Field.init(
-                allocator,
-                name,
-                try col.arrowDataType(),
-                col.nullable(),
-            );
-            initialized += 1;
-        }
-        return boltha.arrow.Schema.init(allocator, fields);
+        return dataframe_arrow_mod.toArrowSchema(self, allocator);
     }
 
-    /// Materialize the dataframe as a single Boltha/Arrow record batch.
-    ///
-    /// This is the host-side interoperability boundary for Arrow IPC/Parquet
-    /// and external consumers.  Device-resident columns remain authoritative in
-    /// `DeviceDataFrame`; export downloads through `Array.toOwnedSlice()` so the
-    /// same method works on CPU, CUDA, and MPS.  A zero-column table with a
-    /// non-zero row count is representable by `DeviceDataFrameView`, but Boltha's
-    /// current `RecordBatch` has no explicit row-count constructor for that
-    /// case, so export rejects it instead of silently dropping rows.
     pub fn toArrowRecordBatch(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.RecordBatch {
-        if (self.columns.len == 0 and self.rows != 0) return error.TypeUnsupported;
-
-        var schema = try self.toArrowSchema(allocator);
-        errdefer schema.deinit(allocator);
-
-        const columns = try allocator.alloc(boltha.arrow.AnyArray, self.columns.len);
-        errdefer allocator.free(columns);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*column_value| column_value.deinit(allocator);
-        }
-
-        for (self.columns, columns) |col, *slot| {
-            slot.* = try col.toArrowArray(allocator);
-            initialized += 1;
-        }
-        return boltha.arrow.RecordBatch.initOwned(schema, columns);
+        return dataframe_arrow_mod.toArrowRecordBatch(self, allocator);
     }
 
     pub fn toArrowTable(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Table {
-        var batch = try self.toArrowRecordBatch(allocator);
-        errdefer batch.deinit(allocator);
-
-        var schema = try batch.schema.clone(allocator);
-        errdefer schema.deinit(allocator);
-
-        const batches = try allocator.alloc(boltha.arrow.RecordBatch, 1);
-        errdefer allocator.free(batches);
-        batches[0] = batch;
-        return boltha.arrow.Table.initOwned(schema, batches);
+        return dataframe_arrow_mod.toArrowTable(self, allocator);
     }
 
     pub fn toParquetBytes(self: DeviceDataFrame, allocator: std.mem.Allocator) ParquetInteropError![]u8 {
-        var batch = try self.toArrowRecordBatch(allocator);
-        defer batch.deinit(allocator);
-        var out: std.ArrayList(u8) = .empty;
-        errdefer out.deinit(allocator);
-        try boltha.parquet.writeRecordBatch(allocator, &out, batch);
-        return out.toOwnedSlice(allocator);
+        return dataframe_arrow_mod.toParquetBytes(self, allocator);
     }
 
     pub fn fromParquetBytes(allocator: std.mem.Allocator, bytes: []const u8, device_value: array_mod.Device) ParquetInteropError!DeviceDataFrame {
-        var batch = try boltha.parquet.readRecordBatch(allocator, bytes);
-        defer batch.deinit(allocator);
-        return DeviceDataFrame.fromArrowRecordBatch(allocator, batch, device_value);
+        return dataframe_arrow_mod.fromParquetBytes(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, bytes, device_value);
     }
 
     pub fn fromParquetBytesPruned(
@@ -3866,23 +3801,11 @@ pub const DeviceDataFrame = struct {
         predicate: ParquetRangePredicate,
         device_value: array_mod.Device,
     ) ParquetInteropError!DeviceDataFrame {
-        var table = try readBolthaTableWithRangePruning(allocator, bytes, column_name, predicate);
-        defer table.deinit(allocator);
-        return DeviceDataFrame.fromArrowTable(allocator, table, device_value);
+        return dataframe_arrow_mod.fromParquetBytesPruned(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, bytes, column_name, predicate, device_value);
     }
 
     pub fn fromArrowTable(allocator: std.mem.Allocator, table: boltha.arrow.Table, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
-        if (table.batches.len == 0) return dataframe_arrow_mod.emptyFromArrowSchema(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table.schema, table.row_count, device_value);
-        var out = try DeviceDataFrame.fromArrowRecordBatch(allocator, table.batches[0], device_value);
-        errdefer out.deinit();
-        for (table.batches[1..]) |batch| {
-            var next = try DeviceDataFrame.fromArrowRecordBatch(allocator, batch, device_value);
-            defer next.deinit();
-            const combined = try concatDeviceDataFramesRows(DeviceDataFrame, out, next);
-            out.deinit();
-            out = combined;
-        }
-        return out;
+        return dataframe_arrow_mod.fromArrowTable(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table, device_value);
     }
 
     pub fn fromArrowTableProjection(
@@ -3891,43 +3814,11 @@ pub const DeviceDataFrame = struct {
         wanted_names: []const []const u8,
         device_value: array_mod.Device,
     ) ArrowInteropError!DeviceDataFrame {
-        if (wanted_names.len == 0) return DeviceDataFrame.initEmpty(allocator, table.row_count, device_value);
-        if (table.batches.len == 0) return dataframe_arrow_mod.emptyFromArrowSchemaProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table.schema, table.row_count, wanted_names, device_value);
-
-        // Projection is applied while crossing the Arrow -> DeviceDataFrame
-        // boundary.  Boltha's current simple Parquet reader still decodes full
-        // row groups, but dropped columns are not uploaded/materialized into
-        // Vectra CPU/CUDA/MPS arrays.  That keeps the public scan plan aligned
-        // with Polars-style projection pushdown while leaving a narrow seam for
-        // a future Boltha column-projection reader.
-        var out = try DeviceDataFrame.fromArrowRecordBatchProjection(allocator, table.batches[0], wanted_names, device_value);
-        errdefer out.deinit();
-        for (table.batches[1..]) |batch| {
-            var next = try DeviceDataFrame.fromArrowRecordBatchProjection(allocator, batch, wanted_names, device_value);
-            defer next.deinit();
-            const combined = try concatDeviceDataFramesRows(DeviceDataFrame, out, next);
-            out.deinit();
-            out = combined;
-        }
-        return out;
+        return dataframe_arrow_mod.fromArrowTableProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table, wanted_names, device_value);
     }
 
     pub fn fromArrowRecordBatch(allocator: std.mem.Allocator, batch: boltha.arrow.RecordBatch, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
-        if (!device_value.isAvailable()) return error.InvalidDevice;
-        var defs = try allocator.alloc(DeviceColumnDef, batch.columns.len);
-        defer allocator.free(defs);
-        var initialized: usize = 0;
-        defer {
-            for (defs[0..initialized]) |*def| def.data.deinit();
-        }
-        for (batch.schema.fields, batch.columns, 0..) |field, arrow_column, i| {
-            defs[i] = .{
-                .name = field.name,
-                .data = try dataframe_arrow_mod.deviceColumnFromArrowArray(DeviceColumn, allocator, arrow_column, device_value),
-            };
-            initialized += 1;
-        }
-        return DeviceDataFrame.init(allocator, defs);
+        return dataframe_arrow_mod.fromArrowRecordBatch(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, batch, device_value);
     }
 
     pub fn fromArrowRecordBatchProjection(
@@ -3936,24 +3827,7 @@ pub const DeviceDataFrame = struct {
         wanted_names: []const []const u8,
         device_value: array_mod.Device,
     ) ArrowInteropError!DeviceDataFrame {
-        if (!device_value.isAvailable()) return error.InvalidDevice;
-        if (wanted_names.len == 0) return DeviceDataFrame.initEmpty(allocator, batch.row_count, device_value);
-
-        var defs = try allocator.alloc(DeviceColumnDef, wanted_names.len);
-        defer allocator.free(defs);
-        var initialized: usize = 0;
-        defer {
-            for (defs[0..initialized]) |*def| def.data.deinit();
-        }
-        for (wanted_names, 0..) |name, i| {
-            const column_index = batch.schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
-            defs[i] = .{
-                .name = batch.schema.fields[column_index].name,
-                .data = try dataframe_arrow_mod.deviceColumnFromArrowArray(DeviceColumn, allocator, batch.columns[column_index], device_value),
-            };
-            initialized += 1;
-        }
-        return DeviceDataFrame.init(allocator, defs);
+        return dataframe_arrow_mod.fromArrowRecordBatchProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, batch, wanted_names, device_value);
     }
 
     pub fn view(self: DeviceDataFrame) DeviceDataError!DeviceDataFrameView {
