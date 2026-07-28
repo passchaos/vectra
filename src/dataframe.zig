@@ -4,6 +4,7 @@ const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 const dataframe_arrow_mod = @import("dataframe_arrow.zig");
 const dataframe_column_mod = @import("dataframe_column.zig");
+const dataframe_core_mod = @import("dataframe_core.zig");
 const dataframe_host_mod = @import("dataframe_host.zig");
 const expr_mod = @import("dataframe_expr.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -315,39 +316,11 @@ pub const DeviceDataFrame = struct {
     device: array_mod.Device,
 
     pub fn init(allocator: std.mem.Allocator, defs: []const DeviceColumnDef) DeviceDataError!DeviceDataFrame {
-        if (defs.len == 0) return DeviceDataFrame.initEmpty(allocator, 0, .cpu);
-        const rows = defs[0].data.len();
-        const device_value = defs[0].data.device();
-        for (defs) |def| {
-            if (def.data.len() != rows) return error.LengthMismatch;
-            if (!def.data.device().sameDevice(device_value)) return error.InvalidDevice;
-        }
-
-        var names = try allocator.alloc([]const u8, defs.len);
-        errdefer allocator.free(names);
-        var columns = try allocator.alloc(DeviceColumn, defs.len);
-        errdefer allocator.free(columns);
-
-        var initialized: usize = 0;
-        errdefer {
-            for (0..initialized) |i| {
-                allocator.free(names[i]);
-                columns[i].deinit();
-            }
-        }
-
-        for (defs, 0..) |def, i| {
-            names[i] = try allocator.dupe(u8, def.name);
-            columns[i] = try def.data.clone();
-            initialized += 1;
-        }
-
-        return .{ .allocator = allocator, .names = names, .columns = columns, .rows = rows, .device = device_value };
+        return dataframe_core_mod.init(DeviceDataFrame, allocator, defs);
     }
 
     pub fn initEmpty(allocator: std.mem.Allocator, rows: usize, device_value: array_mod.Device) DeviceDataError!DeviceDataFrame {
-        if (!device_value.isAvailable()) return error.InvalidDevice;
-        return .{ .allocator = allocator, .names = &.{}, .columns = &.{}, .rows = rows, .device = device_value };
+        return dataframe_core_mod.initEmpty(DeviceDataFrame, allocator, rows, device_value);
     }
 
     pub fn fromDataFrame(allocator: std.mem.Allocator, frame: DataFrame, device_value: array_mod.Device) DeviceDataError!DeviceDataFrame {
@@ -355,25 +328,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn deinit(self: *DeviceDataFrame) void {
-        for (self.names) |name| self.allocator.free(name);
-        for (self.columns) |*col| col.deinit();
-        if (self.names.len != 0) self.allocator.free(self.names);
-        if (self.columns.len != 0) self.allocator.free(self.columns);
-        self.* = undefined;
+        dataframe_core_mod.deinit(self);
     }
 
     pub fn clone(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, self.names, columns, self.rows, self.device);
+        return dataframe_core_mod.clone(DeviceDataFrame, self);
     }
 
     pub fn height(self: DeviceDataFrame) usize {
@@ -385,24 +344,19 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn shape(self: DeviceDataFrame) struct { rows: usize, cols: usize } {
-        return .{ .rows = self.rows, .cols = self.columns.len };
+        return dataframe_core_mod.shape(self);
     }
 
     pub fn columnIndex(self: DeviceDataFrame, name: []const u8) ?usize {
-        for (self.names, 0..) |existing, i| {
-            if (std.mem.eql(u8, existing, name)) return i;
-        }
-        return null;
+        return dataframe_core_mod.columnIndex(self, name);
     }
 
     pub fn column(self: *const DeviceDataFrame, name: []const u8) DataError!*const DeviceColumn {
-        const idx = self.columnIndex(name) orelse return error.ColumnNotFound;
-        return &self.columns[idx];
+        return dataframe_core_mod.column(self, name);
     }
 
     pub fn columnDType(self: DeviceDataFrame, name: []const u8) DataError!DeviceDType {
-        const idx = self.columnIndex(name) orelse return error.ColumnNotFound;
-        return self.columns[idx].dtype();
+        return dataframe_core_mod.columnDType(self, name);
     }
 
     pub fn binaryColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
