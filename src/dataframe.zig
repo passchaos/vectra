@@ -1258,6 +1258,11 @@ pub const DeviceLazyOp = union(enum) {
         name: []const u8,
         output_prefix: []const u8,
     },
+    rolling_validity_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceRollingOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1519,6 +1524,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(fit.output_prefix);
             },
             .validity_profile => |validity| {
+                allocator.free(validity.name);
+                allocator.free(validity.output_prefix);
+            },
+            .rolling_validity_profile => |validity| {
                 allocator.free(validity.name);
                 allocator.free(validity.output_prefix);
             },
@@ -2248,6 +2257,17 @@ pub const DeviceLazyOp = union(enum) {
                 break :blk .{ .validity_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
+                } };
+            },
+            .rolling_validity_profile => |validity| blk: {
+                const name = try allocator.dupe(u8, validity.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, validity.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_validity_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = validity.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -3264,6 +3284,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingValidityProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_validity_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -3375,6 +3407,7 @@ pub const DeviceLazyFrame = struct {
                 .expanding_linear_fit_profile => |fit| try current.expandingLinearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
                 .rolling_linear_fit_profile => |fit| try current.rollingLinearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
                 .validity_profile => |validity| try current.validityProfile(validity.name, validity.output_prefix),
+                .rolling_validity_profile => |validity| try current.rollingValidityProfile(validity.name, validity.output_prefix, validity.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -4089,6 +4122,14 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(validity.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, validity.name);
                 break :op_loop;
             },
+            .rolling_validity_profile => |validity| {
+                // Rolling validity profiles append data-quality window metrics
+                // and preserve source fields. Keep scan predicates but avoid
+                // unsafe projection across generated validity diagnostics.
+                projection_blocked = true;
+                if (!nameInBorrowedList(validity.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, validity.name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -4314,6 +4355,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .expanding_linear_fit_profile => |fit| try writer.print("expanding_linear_fit_profile({s}->{s}, prefix={s}, min_periods={d})", .{ fit.x_name, fit.y_name, fit.output_prefix, fit.options.min_periods }),
         .rolling_linear_fit_profile => |fit| try writer.print("rolling_linear_fit_profile({s}->{s}, prefix={s}, window={d})", .{ fit.x_name, fit.y_name, fit.output_prefix, fit.options.window }),
         .validity_profile => |validity| try writer.print("validity_profile({s}, prefix={s})", .{ validity.name, validity.output_prefix }),
+        .rolling_validity_profile => |validity| try writer.print("rolling_validity_profile({s}, prefix={s}, window={d})", .{ validity.name, validity.output_prefix, validity.options.window }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -6511,6 +6553,41 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var validity_names = try validityProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, validity_names[0..]);
+        for (validity_names, 0..) |validity_name, i| source_names[self.columns.len + i] = validity_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + validity_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&validity_columns) |*validity_col| {
+            columns[initialized] = validity_col.*;
+            initialized += 1;
+            validity_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingValidityProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
+        const source = try self.column(name);
+        var validity_columns = try rollingValidityProfileColumnsByValue(self.allocator, source.*, options_value, self.device, self.rows);
+        var validity_columns_transferred: usize = 0;
+        errdefer {
+            for (validity_columns[validity_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + validity_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var validity_names = try rollingValidityProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, validity_names[0..]);
         for (validity_names, 0..) |validity_name, i| source_names[self.columns.len + i] = validity_name;
 
@@ -12770,6 +12847,116 @@ fn validityProfileColumnsTyped(
     return columns;
 }
 
+const RollingValidityProfileColumnCount = 5;
+
+fn rollingValidityProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingValidityProfileColumnCount][]const u8 {
+    var names: [RollingValidityProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_validity_count", "rolling_valid_count", "rolling_null_count", "rolling_valid_rate", "rolling_null_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingValidityProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingValidityProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        inline else => |typed| rollingValidityProfileColumnsTyped(allocator, typed, options_value, device_value),
+    };
+}
+
+fn rollingValidityProfileColumnsTyped(
+    allocator: std.mem.Allocator,
+    column: anytype,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingValidityProfileColumnCount]DeviceColumn {
+    if (options_value.window == 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+
+    const rows = column.len();
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const total_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(total_counts);
+    const valid_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(valid_counts);
+    const null_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(null_counts);
+    const valid_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(valid_rates);
+    const null_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(null_rates);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var running_valid: usize = 0;
+    var running_null: usize = 0;
+    for (0..rows) |row| {
+        const row_valid = if (maybe_validity) |validity| validity[row] else true;
+        if (row_valid) {
+            running_valid += 1;
+        } else {
+            running_null += 1;
+        }
+
+        if (row >= options_value.window) {
+            const evict_row = row - options_value.window;
+            const evict_valid = if (maybe_validity) |validity| validity[evict_row] else true;
+            if (evict_valid) {
+                running_valid -= 1;
+            } else {
+                running_null -= 1;
+            }
+        }
+
+        const total_count = running_valid + running_null;
+        total_counts[row] = @intCast(total_count);
+        valid_counts[row] = @intCast(running_valid);
+        null_counts[row] = @intCast(running_null);
+        const has_enough = total_count >= min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(total_count);
+            valid_rates[row] = @as(f64, @floatFromInt(running_valid)) / n;
+            null_rates[row] = @as(f64, @floatFromInt(running_null)) / n;
+        } else {
+            valid_rates[row] = 0;
+            null_rates[row] = 0;
+        }
+    }
+
+    var columns: [RollingValidityProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, total_counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, valid_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, null_counts, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, valid_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, null_rates, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
 fn groupByCountTyped(
     comptime K: type,
     allocator: std.mem.Allocator,
@@ -16819,6 +17006,33 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4, 5, 0, 1 }, valid_streak);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 0, 1, 0 }, null_streak);
 
+    var rolling_quality = try trend_table.rollingValidityProfile("price", "price", .{ .window = 3, .min_periods = 2 });
+    defer rolling_quality.deinit();
+    try std.testing.expectEqual(@as(usize, 7), rolling_quality.width());
+    const rolling_validity_count = try (try rolling_quality.column("price_rolling_validity_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_validity_count);
+    const rolling_valid_count = try (try rolling_quality.column("price_rolling_valid_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_valid_count);
+    const rolling_null_count = try (try rolling_quality.column("price_rolling_null_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_null_count);
+    const rolling_valid_rate = try (try rolling_quality.column("price_rolling_valid_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_valid_rate);
+    const rolling_null_rate = try (try rolling_quality.column("price_rolling_null_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_null_rate);
+    const rolling_validity_rate_validity = try (try rolling_quality.column("price_rolling_valid_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_validity_rate_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 3, 3, 3, 3 }, rolling_validity_count);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 3, 3, 2, 2 }, rolling_valid_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 0, 1, 1 }, rolling_null_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, true, true }, rolling_validity_rate_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_valid_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_valid_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), rolling_valid_rate[5], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), rolling_valid_rate[6], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_null_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_null_rate[5], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_null_rate[6], 1e-12);
+
     var actual_label = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ true, false, true, false, true }, &.{ true, true, true, false, true }, .cpu);
     defer actual_label.deinit();
     var predicted_label = try DeviceColumn.fromSlice(bool, gpa, &.{ true, true, false, false, true }, .cpu);
@@ -19072,6 +19286,44 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_is_valid);
     try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4 }, lazy_valid_streak);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, lazy_null_streak);
+
+    var nullable_quality = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, true, true }, .cpu);
+    defer nullable_quality.deinit();
+    var quality_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "quality", .data = nullable_quality }});
+    defer quality_table.deinit();
+    var rolling_validity_plan = try DeviceLazyFrame.init(gpa, quality_table);
+    defer rolling_validity_plan.deinit();
+    try rolling_validity_plan.rollingValidityProfile("quality", "quality", .{ .window = 2, .min_periods = 2 });
+    try rolling_validity_plan.select(&.{ "quality", "quality_rolling_validity_count", "quality_rolling_valid_count", "quality_rolling_null_count", "quality_rolling_valid_rate", "quality_rolling_null_rate" });
+    const rolling_validity_explain = try rolling_validity_plan.explain(gpa);
+    defer gpa.free(rolling_validity_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_validity_explain, "rolling_validity_profile(quality") != null);
+    var lazy_rolling_validity = try rolling_validity_plan.collect();
+    defer lazy_rolling_validity.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_rolling_validity.height());
+    try std.testing.expectEqual(@as(usize, 6), lazy_rolling_validity.width());
+    const lazy_rolling_validity_count = try (try lazy_rolling_validity.column("quality_rolling_validity_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_validity_count);
+    const lazy_rolling_valid_count = try (try lazy_rolling_validity.column("quality_rolling_valid_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_valid_count);
+    const lazy_rolling_null_count = try (try lazy_rolling_validity.column("quality_rolling_null_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_null_count);
+    const lazy_rolling_valid_rate = try (try lazy_rolling_validity.column("quality_rolling_valid_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_valid_rate);
+    const lazy_rolling_null_rate = try (try lazy_rolling_validity.column("quality_rolling_null_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_null_rate);
+    const lazy_rolling_validity_validity = try (try lazy_rolling_validity.column("quality_rolling_valid_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_validity_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 2 }, lazy_rolling_validity_count);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1, 2 }, lazy_rolling_valid_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 0 }, lazy_rolling_null_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_rolling_validity_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_valid_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_valid_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_valid_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_null_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_null_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_null_rate[3], 1e-12);
 
     var class_plan = try DeviceLazyFrame.init(gpa, table);
     defer class_plan.deinit();
