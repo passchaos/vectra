@@ -40,6 +40,68 @@ pub const ClipSummaryMetrics = struct {
     }
 };
 
+pub const ClipProfileColumnCount = 4;
+
+pub fn clipProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ClipProfileColumnCount][]const u8 {
+    var names: [ClipProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "clipped", "below", "above", "in_range" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingClipProfileColumnCount = 6;
+
+pub fn rollingClipProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingClipProfileColumnCount][]const u8 {
+    var names: [RollingClipProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{
+        "rolling_clip_count",
+        "rolling_mean_clipped",
+        "rolling_clipped_rate",
+        "rolling_clip_below_rate",
+        "rolling_clip_above_rate",
+        "rolling_clip_in_range_rate",
+    };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingClipProfileColumnCount = 6;
+
+pub fn expandingClipProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingClipProfileColumnCount][]const u8 {
+    var names: [ExpandingClipProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{
+        "expanding_clip_count",
+        "expanding_mean_clipped",
+        "expanding_clipped_rate",
+        "expanding_clip_below_rate",
+        "expanding_clip_above_rate",
+        "expanding_clip_in_range_rate",
+    };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validate(values: []const f64, maybe_validity: ?[]const bool, lower: f64, upper: f64) error{ InvalidShape, LengthMismatch }!void {
     if (lower > upper) return error.InvalidShape;
     if (maybe_validity) |validity| {
