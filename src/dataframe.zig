@@ -156,6 +156,11 @@ pub const DeviceDrawdownOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceTrendOptions = struct {
+    /// Number of rows to look backward for trend deltas.
+    periods: usize = 1,
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -975,6 +980,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceDrawdownOptions,
     },
+    trend_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceTrendOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1076,6 +1086,10 @@ pub const DeviceLazyOp = union(enum) {
             .drawdown_profile => |drawdown| {
                 allocator.free(drawdown.name);
                 allocator.free(drawdown.output_prefix);
+            },
+            .trend_profile => |trend| {
+                allocator.free(trend.name);
+                allocator.free(trend.output_prefix);
             },
             .distinct_rows, .head, .tail => {},
         }
@@ -1354,6 +1368,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = drawdown.options,
+                } };
+            },
+            .trend_profile => |trend| blk: {
+                const name = try allocator.dupe(u8, trend.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, trend.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .trend_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = trend.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -1825,6 +1850,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn trendProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .trend_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -1898,6 +1935,7 @@ pub const DeviceLazyFrame = struct {
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
                 .drawdown_profile => |drawdown| try current.drawdownProfile(drawdown.name, drawdown.output_prefix, drawdown.options),
+                .trend_profile => |trend| try current.trendProfile(trend.name, trend.output_prefix, trend.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2342,6 +2380,15 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(drawdown.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, drawdown.name);
                 break :op_loop;
             },
+            .trend_profile => |trend| {
+                // Trend profiles are row-order dependent and append several
+                // derived columns. Preserve scan predicates, but block Parquet
+                // projection pushdown until the planner can reason about
+                // generated fields separately from source fields.
+                projection_blocked = true;
+                if (!nameInBorrowedList(trend.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, trend.name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2529,6 +2576,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
         .drawdown_profile => |drawdown| try writer.print("drawdown_profile({s}, prefix={s}, min_periods={d})", .{ drawdown.name, drawdown.output_prefix, drawdown.options.min_periods }),
+        .trend_profile => |trend| try writer.print("trend_profile({s}, prefix={s}, periods={d})", .{ trend.name, trend.output_prefix, trend.options.periods }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -3332,6 +3380,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = drawdown_col.*;
             initialized += 1;
             drawdown_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn trendProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
+        const trend_value = try self.column(name);
+        var trend_columns = try trendProfileColumnsByValue(self.allocator, trend_value.*, options_value, self.device, self.rows);
+        var trend_columns_transferred: usize = 0;
+        errdefer {
+            for (trend_columns[trend_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + trend_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var trend_names = try trendProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, trend_names[0..]);
+        for (trend_names, 0..) |trend_name, i| source_names[self.columns.len + i] = trend_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + trend_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&trend_columns) |*trend_col| {
+            columns[initialized] = trend_col.*;
+            initialized += 1;
+            trend_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -4673,6 +4756,163 @@ fn drawdownProfileColumnsTyped(
     columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdown, metric_validity, device_value);
     initialized += 1;
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdown_pct, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const TrendProfileColumnCount = 5;
+
+fn trendProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![TrendProfileColumnCount][]const u8 {
+    var names: [TrendProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "trend", "up_streak", "down_streak", "flat_streak", "reversal" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn trendProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceTrendOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![TrendProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| trendProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| trendProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| trendProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| trendProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| trendProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| trendProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| trendProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| trendProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| trendProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| trendProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| trendProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| trendProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| trendProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn trendProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceTrendOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![TrendProfileColumnCount]DeviceColumn {
+    if (options_value.periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const trends = try allocator.alloc(i64, rows);
+    defer allocator.free(trends);
+    const up_streak = try allocator.alloc(i64, rows);
+    defer allocator.free(up_streak);
+    const down_streak = try allocator.alloc(i64, rows);
+    defer allocator.free(down_streak);
+    const flat_streak = try allocator.alloc(i64, rows);
+    defer allocator.free(flat_streak);
+    const reversal = try allocator.alloc(bool, rows);
+    defer allocator.free(reversal);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var current_up: i64 = 0;
+    var current_down: i64 = 0;
+    var current_flat: i64 = 0;
+    var previous_nonzero_trend: i64 = 0;
+
+    // Trend profile turns an ordered value series into direction and streak
+    // state.  Null or insufficient-history rows reset streak state so downstream
+    // models do not accidentally bridge over missing observations.
+    for (values, 0..) |value_item, row| {
+        if (row < options_value.periods) {
+            trends[row] = 0;
+            up_streak[row] = 0;
+            down_streak[row] = 0;
+            flat_streak[row] = 0;
+            reversal[row] = false;
+            metric_validity[row] = false;
+            current_up = 0;
+            current_down = 0;
+            current_flat = 0;
+            previous_nonzero_trend = 0;
+            continue;
+        }
+
+        const previous_row = row - options_value.periods;
+        const row_valid = if (maybe_validity) |mask| mask[row] else true;
+        const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
+        const valid = row_valid and previous_valid;
+        metric_validity[row] = valid;
+        if (!valid) {
+            trends[row] = 0;
+            up_streak[row] = 0;
+            down_streak[row] = 0;
+            flat_streak[row] = 0;
+            reversal[row] = false;
+            current_up = 0;
+            current_down = 0;
+            current_flat = 0;
+            previous_nonzero_trend = 0;
+            continue;
+        }
+
+        const current = castToF64(T, value_item);
+        const previous = castToF64(T, values[previous_row]);
+        const trend: i64 = if (current > previous) 1 else if (current < previous) -1 else 0;
+        trends[row] = trend;
+        switch (trend) {
+            1 => {
+                current_up += 1;
+                current_down = 0;
+                current_flat = 0;
+            },
+            -1 => {
+                current_down += 1;
+                current_up = 0;
+                current_flat = 0;
+            },
+            else => {
+                current_flat += 1;
+                current_up = 0;
+                current_down = 0;
+            },
+        }
+        up_streak[row] = current_up;
+        down_streak[row] = current_down;
+        flat_streak[row] = current_flat;
+        reversal[row] = trend != 0 and previous_nonzero_trend != 0 and trend != previous_nonzero_trend;
+        if (trend != 0) previous_nonzero_trend = trend;
+    }
+
+    var columns: [TrendProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(i64, allocator, trends, metric_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, up_streak, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(i64, allocator, down_streak, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, flat_streak, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, reversal, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -8064,6 +8304,38 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, -0.25), drawdown_pct[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), drawdown_pct[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -50.0 / 130.0), drawdown_pct[4], 1e-12);
+
+    var trend_source = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 3.0, 2.0, 2.0, 5.0, 0.0, 4.0 }, &.{ true, true, true, true, true, false, true }, .cpu);
+    defer trend_source.deinit();
+    var trend_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7 }, .cpu);
+    defer trend_id.deinit();
+    var trend_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "price", .data = trend_source },
+        .{ .name = "id", .data = trend_id },
+    });
+    defer trend_table.deinit();
+
+    var trend = try trend_table.trendProfile("price", "price", .{ .periods = 1 });
+    defer trend.deinit();
+    try std.testing.expectEqual(@as(usize, 7), trend.width());
+    const trend_values = try (try trend.column("price_trend")).i64.toOwnedSlice(gpa);
+    defer gpa.free(trend_values);
+    const up_streak = try (try trend.column("price_up_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(up_streak);
+    const down_streak = try (try trend.column("price_down_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(down_streak);
+    const flat_streak = try (try trend.column("price_flat_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flat_streak);
+    const reversal = try (try trend.column("price_reversal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(reversal);
+    const trend_validity = try (try trend.column("price_trend")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(trend_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, false, false }, trend_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, -1, 0, 1, 0, 0 }, trend_values);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 1, 0, 0 }, up_streak);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 0, 0 }, down_streak);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1, 0, 0, 0 }, flat_streak);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false, false }, reversal);
 }
 
 test "device dataframe groupby aggregations on fixed-width columns" {
@@ -9042,6 +9314,30 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[3], 1e-12);
+
+    var trend_plan = try DeviceLazyFrame.init(gpa, table);
+    defer trend_plan.deinit();
+    try trend_plan.trendProfile("sales", "sales", .{ .periods = 1 });
+    try trend_plan.select(&.{ "sales", "sales_trend", "sales_up_streak", "sales_reversal" });
+    const trend_explain = try trend_plan.explain(gpa);
+    defer gpa.free(trend_explain);
+    try std.testing.expect(std.mem.indexOf(u8, trend_explain, "trend_profile(sales") != null);
+    var trend = try trend_plan.collect();
+    defer trend.deinit();
+    try std.testing.expectEqual(@as(usize, 4), trend.height());
+    try std.testing.expectEqual(@as(usize, 4), trend.width());
+    const lazy_trend = try (try trend.column("sales_trend")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_trend);
+    const lazy_up_streak = try (try trend.column("sales_up_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_up_streak);
+    const lazy_reversal = try (try trend.column("sales_reversal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_reversal);
+    const lazy_trend_validity = try (try trend.column("sales_trend")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_trend_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_trend_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, lazy_trend);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 3 }, lazy_up_streak);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_reversal);
 }
 
 test "device lazy frame collects groupby aggregations" {

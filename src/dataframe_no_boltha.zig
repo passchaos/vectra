@@ -119,6 +119,10 @@ pub const DeviceDrawdownOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceTrendOptions = struct {
+    periods: usize = 1,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };
