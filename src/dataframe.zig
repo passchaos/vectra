@@ -96,6 +96,10 @@ const rollingMomentProfileOutputNames = moment_mod.rollingMomentProfileOutputNam
 const ExpandingMomentProfileColumnCount = moment_mod.ExpandingMomentProfileColumnCount;
 const expandingMomentProfileOutputNames = moment_mod.expandingMomentProfileOutputNames;
 const normalize_mod = @import("dataframe_normalize.zig");
+const RollingNormalizeProfileColumnCount = normalize_mod.RollingNormalizeProfileColumnCount;
+const rollingNormalizeProfileOutputNames = normalize_mod.rollingNormalizeProfileOutputNames;
+const ExpandingNormalizeProfileColumnCount = normalize_mod.ExpandingNormalizeProfileColumnCount;
+const expandingNormalizeProfileOutputNames = normalize_mod.expandingNormalizeProfileOutputNames;
 const range_mod = @import("dataframe_range.zig");
 const group_profile_mod = @import("dataframe_group_profile.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
@@ -8564,22 +8568,6 @@ fn rollingRangeProfileColumnsTyped(
     return columns;
 }
 
-const RollingNormalizeProfileColumnCount = 3;
-
-fn rollingNormalizeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingNormalizeProfileColumnCount][]const u8 {
-    var names: [RollingNormalizeProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_centered", "rolling_zscore", "rolling_minmax" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn rollingNormalizeProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -8638,22 +8626,6 @@ fn rollingNormalizeProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.minmax, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingNormalizeProfileColumnCount = 3;
-
-fn expandingNormalizeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingNormalizeProfileColumnCount][]const u8 {
-    var names: [ExpandingNormalizeProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_centered", "expanding_zscore", "expanding_minmax" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingNormalizeProfileColumnsByValue(

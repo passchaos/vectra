@@ -16,6 +16,38 @@ pub const NormalizeMetrics = struct {
     }
 };
 
+pub const RollingNormalizeProfileColumnCount = 3;
+
+pub fn rollingNormalizeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingNormalizeProfileColumnCount][]const u8 {
+    var names: [RollingNormalizeProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_centered", "rolling_zscore", "rolling_minmax" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingNormalizeProfileColumnCount = 3;
+
+pub fn expandingNormalizeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingNormalizeProfileColumnCount][]const u8 {
+    var names: [ExpandingNormalizeProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_centered", "expanding_zscore", "expanding_minmax" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validate(values: []const f64, maybe_validity: ?[]const bool) error{LengthMismatch}!void {
     if (maybe_validity) |validity| {
         if (validity.len != values.len) return error.LengthMismatch;
