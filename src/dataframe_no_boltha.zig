@@ -167,6 +167,12 @@ pub const DeviceRollingRankOptions = struct {
     descending: bool = false,
 };
 
+pub const DeviceRollingRobustOptions = struct {
+    window: usize,
+    min_periods: ?usize = null,
+    iqr_multiplier: f64 = 1.5,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };
