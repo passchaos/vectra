@@ -175,3 +175,94 @@ pub fn indexColumnToArrow(comptime T: type, column: anytype, allocator: std.mem.
 
     unreachable;
 }
+
+pub fn primitiveDeviceColumnFromArrow(
+    comptime T: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    arrow_array: boltha.arrow.PrimitiveArray(T),
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceColumn {
+    if (arrow_array.null_count == 0) return DeviceColumn.fromSlice(T, allocator, arrow_array.values, device_value);
+
+    const validity = try allocator.alloc(bool, arrow_array.values.len);
+    defer allocator.free(validity);
+    for (validity, 0..) |*slot, i| slot.* = !arrow_array.isNull(i);
+    return DeviceColumn.fromSliceWithValidity(T, allocator, arrow_array.values, validity, device_value);
+}
+
+pub fn boolDeviceColumnFromArrow(
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    arrow_array: boltha.arrow.BooleanArray,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceColumn {
+    const values = try allocator.alloc(bool, arrow_array.len());
+    defer allocator.free(values);
+    const validity = try allocator.alloc(bool, arrow_array.len());
+    defer allocator.free(validity);
+    for (values, validity, 0..) |*value_slot, *valid_slot, i| {
+        if (arrow_array.value(i)) |value| {
+            value_slot.* = value;
+            valid_slot.* = true;
+        } else {
+            value_slot.* = false;
+            valid_slot.* = false;
+        }
+    }
+    if (arrow_array.null_count == 0) return DeviceColumn.fromSlice(bool, allocator, values, device_value);
+    return DeviceColumn.fromSliceWithValidity(bool, allocator, values, validity, device_value);
+}
+
+pub fn deviceColumnFromArrowArray(
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    column: boltha.arrow.AnyArray,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceColumn {
+    return switch (column) {
+        .boolean => |array| boolDeviceColumnFromArrow(DeviceColumn, allocator, array, device_value),
+        .int8 => |array| primitiveDeviceColumnFromArrow(i8, DeviceColumn, allocator, array, device_value),
+        .uint8 => |array| primitiveDeviceColumnFromArrow(u8, DeviceColumn, allocator, array, device_value),
+        .int16 => |array| primitiveDeviceColumnFromArrow(i16, DeviceColumn, allocator, array, device_value),
+        .uint16 => |array| primitiveDeviceColumnFromArrow(u16, DeviceColumn, allocator, array, device_value),
+        .int32 => |array| primitiveDeviceColumnFromArrow(i32, DeviceColumn, allocator, array, device_value),
+        .uint32 => |array| primitiveDeviceColumnFromArrow(u32, DeviceColumn, allocator, array, device_value),
+        .int64 => |array| primitiveDeviceColumnFromArrow(i64, DeviceColumn, allocator, array, device_value),
+        .uint64 => |array| primitiveDeviceColumnFromArrow(u64, DeviceColumn, allocator, array, device_value),
+        .float16 => |array| primitiveDeviceColumnFromArrow(f16, DeviceColumn, allocator, array, device_value),
+        .float32 => |array| primitiveDeviceColumnFromArrow(f32, DeviceColumn, allocator, array, device_value),
+        .float64 => |array| primitiveDeviceColumnFromArrow(f64, DeviceColumn, allocator, array, device_value),
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn emptyDeviceColumnFromArrowType(
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    dtype: boltha.arrow.DataType,
+    device_value: array_mod.Device,
+) ArrowInteropError!DeviceColumn {
+    return switch (dtype) {
+        .bool => DeviceColumn.fromSlice(bool, allocator, &.{}, device_value),
+        .int => |info| if (info.signed) switch (info.bit_width) {
+            8 => DeviceColumn.fromSlice(i8, allocator, &.{}, device_value),
+            16 => DeviceColumn.fromSlice(i16, allocator, &.{}, device_value),
+            32 => DeviceColumn.fromSlice(i32, allocator, &.{}, device_value),
+            64 => DeviceColumn.fromSlice(i64, allocator, &.{}, device_value),
+            else => error.TypeUnsupported,
+        } else switch (info.bit_width) {
+            8 => DeviceColumn.fromSlice(u8, allocator, &.{}, device_value),
+            16 => DeviceColumn.fromSlice(u16, allocator, &.{}, device_value),
+            32 => DeviceColumn.fromSlice(u32, allocator, &.{}, device_value),
+            64 => DeviceColumn.fromSlice(u64, allocator, &.{}, device_value),
+            else => error.TypeUnsupported,
+        },
+        .floating_point => |fp| switch (fp) {
+            .half => DeviceColumn.fromSlice(f16, allocator, &.{}, device_value),
+            .single => DeviceColumn.fromSlice(f32, allocator, &.{}, device_value),
+            .double => DeviceColumn.fromSlice(f64, allocator, &.{}, device_value),
+        },
+        else => error.TypeUnsupported,
+    };
+}

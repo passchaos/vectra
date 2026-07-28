@@ -5533,7 +5533,7 @@ pub const DeviceDataFrame = struct {
         for (batch.schema.fields, batch.columns, 0..) |field, arrow_column, i| {
             defs[i] = .{
                 .name = field.name,
-                .data = try deviceColumnFromArrowArray(allocator, arrow_column, device_value),
+                .data = try dataframe_arrow_mod.deviceColumnFromArrowArray(DeviceColumn, allocator, arrow_column, device_value),
             };
             initialized += 1;
         }
@@ -5559,7 +5559,7 @@ pub const DeviceDataFrame = struct {
             const column_index = batch.schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
             defs[i] = .{
                 .name = batch.schema.fields[column_index].name,
-                .data = try deviceColumnFromArrowArray(allocator, batch.columns[column_index], device_value),
+                .data = try dataframe_arrow_mod.deviceColumnFromArrowArray(DeviceColumn, allocator, batch.columns[column_index], device_value),
             };
             initialized += 1;
         }
@@ -13807,24 +13807,6 @@ fn coalesceJoinKeys(left: DeviceColumn, right: DeviceColumn) DeviceDataError!Dev
     };
 }
 
-fn deviceColumnFromArrowArray(allocator: std.mem.Allocator, column: boltha.arrow.AnyArray, device_value: array_mod.Device) ArrowInteropError!DeviceColumn {
-    return switch (column) {
-        .boolean => |array| boolDeviceColumnFromArrow(allocator, array, device_value),
-        .int8 => |array| primitiveDeviceColumnFromArrow(i8, allocator, array, device_value),
-        .uint8 => |array| primitiveDeviceColumnFromArrow(u8, allocator, array, device_value),
-        .int16 => |array| primitiveDeviceColumnFromArrow(i16, allocator, array, device_value),
-        .uint16 => |array| primitiveDeviceColumnFromArrow(u16, allocator, array, device_value),
-        .int32 => |array| primitiveDeviceColumnFromArrow(i32, allocator, array, device_value),
-        .uint32 => |array| primitiveDeviceColumnFromArrow(u32, allocator, array, device_value),
-        .int64 => |array| primitiveDeviceColumnFromArrow(i64, allocator, array, device_value),
-        .uint64 => |array| primitiveDeviceColumnFromArrow(u64, allocator, array, device_value),
-        .float16 => |array| primitiveDeviceColumnFromArrow(f16, allocator, array, device_value),
-        .float32 => |array| primitiveDeviceColumnFromArrow(f32, allocator, array, device_value),
-        .float64 => |array| primitiveDeviceColumnFromArrow(f64, allocator, array, device_value),
-        else => error.TypeUnsupported,
-    };
-}
-
 fn emptyFromArrowSchema(allocator: std.mem.Allocator, schema: boltha.arrow.Schema, rows: usize, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
     if (rows != 0) return error.TypeUnsupported;
     var defs = try allocator.alloc(DeviceColumnDef, schema.fields.len);
@@ -13836,7 +13818,7 @@ fn emptyFromArrowSchema(allocator: std.mem.Allocator, schema: boltha.arrow.Schem
     for (schema.fields, 0..) |field, i| {
         defs[i] = .{
             .name = field.name,
-            .data = try emptyDeviceColumnFromArrowType(allocator, field.data_type, device_value),
+            .data = try dataframe_arrow_mod.emptyDeviceColumnFromArrowType(DeviceColumn, allocator, field.data_type, device_value),
         };
         initialized += 1;
     }
@@ -13862,36 +13844,11 @@ fn emptyFromArrowSchemaProjection(
         const field = schema.fields[column_index];
         defs[i] = .{
             .name = field.name,
-            .data = try emptyDeviceColumnFromArrowType(allocator, field.data_type, device_value),
+            .data = try dataframe_arrow_mod.emptyDeviceColumnFromArrowType(DeviceColumn, allocator, field.data_type, device_value),
         };
         initialized += 1;
     }
     return DeviceDataFrame.init(allocator, defs);
-}
-
-fn emptyDeviceColumnFromArrowType(allocator: std.mem.Allocator, dtype: boltha.arrow.DataType, device_value: array_mod.Device) ArrowInteropError!DeviceColumn {
-    return switch (dtype) {
-        .bool => DeviceColumn.fromSlice(bool, allocator, &.{}, device_value),
-        .int => |info| if (info.signed) switch (info.bit_width) {
-            8 => DeviceColumn.fromSlice(i8, allocator, &.{}, device_value),
-            16 => DeviceColumn.fromSlice(i16, allocator, &.{}, device_value),
-            32 => DeviceColumn.fromSlice(i32, allocator, &.{}, device_value),
-            64 => DeviceColumn.fromSlice(i64, allocator, &.{}, device_value),
-            else => error.TypeUnsupported,
-        } else switch (info.bit_width) {
-            8 => DeviceColumn.fromSlice(u8, allocator, &.{}, device_value),
-            16 => DeviceColumn.fromSlice(u16, allocator, &.{}, device_value),
-            32 => DeviceColumn.fromSlice(u32, allocator, &.{}, device_value),
-            64 => DeviceColumn.fromSlice(u64, allocator, &.{}, device_value),
-            else => error.TypeUnsupported,
-        },
-        .floating_point => |fp| switch (fp) {
-            .half => DeviceColumn.fromSlice(f16, allocator, &.{}, device_value),
-            .single => DeviceColumn.fromSlice(f32, allocator, &.{}, device_value),
-            .double => DeviceColumn.fromSlice(f64, allocator, &.{}, device_value),
-        },
-        else => error.TypeUnsupported,
-    };
 }
 
 fn concatDeviceDataFramesRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
@@ -13936,38 +13893,6 @@ fn concatDeviceColumns(first: DeviceColumn, second: DeviceColumn) DeviceDataErro
         .c64 => |typed| .{ .c64 = try concatTypedColumns(array_mod.Complex64, typed, second.c64) },
         .c128 => |typed| .{ .c128 = try concatTypedColumns(array_mod.Complex128, typed, second.c128) },
     };
-}
-
-fn primitiveDeviceColumnFromArrow(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    arrow_array: boltha.arrow.PrimitiveArray(T),
-    device_value: array_mod.Device,
-) ArrowInteropError!DeviceColumn {
-    if (arrow_array.null_count == 0) return DeviceColumn.fromSlice(T, allocator, arrow_array.values, device_value);
-
-    const validity = try allocator.alloc(bool, arrow_array.values.len);
-    defer allocator.free(validity);
-    for (validity, 0..) |*slot, i| slot.* = !arrow_array.isNull(i);
-    return DeviceColumn.fromSliceWithValidity(T, allocator, arrow_array.values, validity, device_value);
-}
-
-fn boolDeviceColumnFromArrow(allocator: std.mem.Allocator, arrow_array: boltha.arrow.BooleanArray, device_value: array_mod.Device) ArrowInteropError!DeviceColumn {
-    const values = try allocator.alloc(bool, arrow_array.len());
-    defer allocator.free(values);
-    const validity = try allocator.alloc(bool, arrow_array.len());
-    defer allocator.free(validity);
-    for (values, validity, 0..) |*value_slot, *valid_slot, i| {
-        if (arrow_array.value(i)) |value| {
-            value_slot.* = value;
-            valid_slot.* = true;
-        } else {
-            value_slot.* = false;
-            valid_slot.* = false;
-        }
-    }
-    if (arrow_array.null_count == 0) return DeviceColumn.fromSlice(bool, allocator, values, device_value);
-    return DeviceColumn.fromSliceWithValidity(bool, allocator, values, validity, device_value);
 }
 
 fn initDeviceDataFrameFromOwnedColumns(
