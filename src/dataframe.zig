@@ -4,6 +4,7 @@ const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 const dataframe_arrow_mod = @import("dataframe_arrow.zig");
 const dataframe_column_mod = @import("dataframe_column.zig");
+const options_mod = @import("dataframe_options.zig");
 const keys_mod = @import("dataframe_keys.zig");
 const join_mod = @import("dataframe_join.zig");
 const lazy_mod = @import("dataframe_lazy.zig");
@@ -223,232 +224,37 @@ pub const ParquetInteropError = ArrowInteropError || boltha.parquet.SimpleError;
 /// can work across CPU, CUDA, and MPS storage immediately.  A future Arrow ABI
 /// bridge can add a packed-bitmask view without changing the owning column/table
 /// shape introduced here.
-pub const DeviceValidityEncoding = enum {
-    none,
-    bool_mask,
-};
-
-pub const DeviceColumnBinaryOp = enum {
-    add,
-    sub,
-    mul,
-    div,
-};
-
-pub const DeviceColumnCompareOp = enum {
-    eq,
-    ne,
-    gt,
-    ge,
-    lt,
-    le,
-};
-
-pub const DeviceScalar = union(DeviceDType) {
-    f32: f32,
-    f64: f64,
-    i8: i8,
-    i16: i16,
-    i32: i32,
-    i64: i64,
-    u8: u8,
-    u16: u16,
-    u32: u32,
-    u64: u64,
-    usize: usize,
-    bool: bool,
-    bf16: array_mod.BFloat16,
-    f16: f16,
-    c64: array_mod.Complex64,
-    c128: array_mod.Complex128,
-    isize: isize,
-
-    pub fn init(comptime T: type, value: T) DeviceScalar {
-        const tag = comptime DeviceDType.of(T);
-        return @unionInit(DeviceScalar, @tagName(tag), value);
-    }
-};
-
-pub const DeviceGroupByAggregation = enum {
-    sum,
-    min,
-    max,
-};
-
-pub const NullPlacement = enum {
-    first,
-    last,
-};
-
-pub const DeviceSortOptions = struct {
-    descending: bool = false,
-    nulls: NullPlacement = .last,
-};
-
-pub const DeviceJoinOptions = struct {
-    right_suffix: []const u8 = "_right",
-};
-
-pub const AsofStrategy = enum {
-    previous,
-    next,
-    nearest,
-};
-
-pub const DeviceAsofOptions = struct {
-    strategy: AsofStrategy = .previous,
-    right_suffix: []const u8 = "_right",
-};
-
-pub const DeviceRollingOptions = struct {
-    /// Trailing, row-count based window width including the current row.
-    window: usize,
-    /// Minimum valid observations required to mark rolling metrics as valid.
-    /// When omitted, Vectra follows strict fixed-window semantics and requires
-    /// a full `window` of non-null observations.
-    min_periods: ?usize = null,
-};
-
-pub const DeviceLagOptions = struct {
-    /// Number of rows to look backward when deriving lag, diff, and pct-change.
-    periods: usize = 1,
-};
-
-pub const DeviceExpandingOptions = struct {
-    /// Minimum valid observations required to mark cumulative metrics as valid.
-    min_periods: usize = 1,
-};
-
-pub const DeviceExpandingRankOptions = struct {
-    /// Minimum valid observations required to mark expanding rank metrics.
-    min_periods: usize = 1,
-    /// Rank descending instead of ascending within the expanding prefix.
-    descending: bool = false,
-};
-
-pub const DeviceStandardizeOptions = struct {
-    /// Minimum valid observations required to compute global scaling metrics.
-    min_periods: usize = 1,
-};
-
-pub const DeviceRobustOptions = struct {
-    /// Minimum valid observations required to compute median/MAD/IQR metrics.
-    min_periods: usize = 1,
-    /// Tukey fence multiplier used for outlier flags and winsorization bounds.
-    iqr_multiplier: f64 = 1.5,
-};
-
-pub const DeviceDrawdownOptions = struct {
-    /// Minimum valid observations required to mark drawdown metrics as valid.
-    min_periods: usize = 1,
-};
-
-pub const DeviceExtremaOptions = struct {
-    /// Minimum valid observations required to mark extrema metrics as valid.
-    min_periods: usize = 1,
-};
-
-pub const DeviceTrendOptions = struct {
-    /// Number of rows to look backward for trend deltas.
-    periods: usize = 1,
-};
-
-pub const DeviceCrossoverOptions = struct {
-    /// Number of rows to look backward when detecting spread sign crosses.
-    periods: usize = 1,
-};
-
-pub const DeviceBucketOptions = struct {
-    /// Number of equal-frequency buckets to assign, zero-based.
-    buckets: usize = 10,
-    /// Lower-tail quantile threshold for the tail flag.
-    lower_quantile: f64 = 0.05,
-    /// Upper-tail quantile threshold for the tail flag.
-    upper_quantile: f64 = 0.95,
-    /// Minimum valid observations required to compute distribution features.
-    min_periods: usize = 1,
-};
-
-pub const DeviceEmaOptions = struct {
-    /// Exponential smoothing factor in (0, 1].
-    alpha: f64,
-    /// Minimum valid observations required before EMA-derived metrics are valid.
-    min_periods: usize = 1,
-};
-
-pub const DeviceLinearFitOptions = struct {
-    /// Minimum valid observation pairs required to compute fit diagnostics.
-    min_periods: usize = 2,
-};
-
-pub const DeviceClipOptions = struct {
-    lower: f64,
-    upper: f64,
-};
-
-pub const DeviceThresholdOptions = struct {
-    threshold: f64,
-};
-
-pub const DeviceRollingCorrelationOptions = struct {
-    /// Trailing, row-count based window width including the current row.
-    window: usize,
-    /// Minimum valid observation pairs required to mark correlation metrics.
-    /// When omitted, Vectra requires a full `window` of valid pairs.
-    min_periods: ?usize = null,
-};
-
-pub const DeviceRollingRankOptions = struct {
-    /// Trailing, row-count based window width including the current row.
-    window: usize,
-    /// Minimum valid observations required to mark rolling rank metrics.
-    /// When omitted, Vectra requires a full `window` of valid observations.
-    min_periods: ?usize = null,
-    /// Rank descending instead of ascending within each trailing window.
-    descending: bool = false,
-};
-
-pub const DeviceRollingRobustOptions = struct {
-    /// Trailing, row-count based window width including the current row.
-    window: usize,
-    /// Minimum valid observations required to mark robust metrics.
-    /// When omitted, Vectra requires a full `window` of valid observations.
-    min_periods: ?usize = null,
-    /// Tukey fence multiplier used for outlier flags and winsorization bounds.
-    iqr_multiplier: f64 = 1.5,
-};
-
-pub const ParquetRangePredicate = union(DeviceDType) {
-    f32: Range(f32),
-    f64: Range(f64),
-    i8: Range(i8),
-    i16: Range(i16),
-    i32: Range(i32),
-    i64: Range(i64),
-    u8: Range(u8),
-    u16: Range(u16),
-    u32: Range(u32),
-    u64: Range(u64),
-    usize: Range(usize),
-    bool: Range(bool),
-    bf16: Range(array_mod.BFloat16),
-    f16: Range(f16),
-    c64: Range(array_mod.Complex64),
-    c128: Range(array_mod.Complex128),
-    isize: Range(isize),
-};
-
-pub const DeviceParquetRangeFilter = struct {
-    column: []const u8,
-    predicate: ParquetRangePredicate,
-};
-
-pub fn Range(comptime T: type) type {
-    return struct {
-        min: ?T = null,
-        max: ?T = null,
-    };
-}
+pub const DeviceValidityEncoding = options_mod.DeviceValidityEncoding;
+pub const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
+pub const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+pub const DeviceScalar = options_mod.DeviceScalar;
+pub const DeviceGroupByAggregation = options_mod.DeviceGroupByAggregation;
+pub const NullPlacement = options_mod.NullPlacement;
+pub const DeviceSortOptions = options_mod.DeviceSortOptions;
+pub const DeviceJoinOptions = options_mod.DeviceJoinOptions;
+pub const AsofStrategy = options_mod.AsofStrategy;
+pub const DeviceAsofOptions = options_mod.DeviceAsofOptions;
+pub const DeviceRollingOptions = options_mod.DeviceRollingOptions;
+pub const DeviceLagOptions = options_mod.DeviceLagOptions;
+pub const DeviceExpandingOptions = options_mod.DeviceExpandingOptions;
+pub const DeviceExpandingRankOptions = options_mod.DeviceExpandingRankOptions;
+pub const DeviceStandardizeOptions = options_mod.DeviceStandardizeOptions;
+pub const DeviceRobustOptions = options_mod.DeviceRobustOptions;
+pub const DeviceDrawdownOptions = options_mod.DeviceDrawdownOptions;
+pub const DeviceExtremaOptions = options_mod.DeviceExtremaOptions;
+pub const DeviceTrendOptions = options_mod.DeviceTrendOptions;
+pub const DeviceCrossoverOptions = options_mod.DeviceCrossoverOptions;
+pub const DeviceBucketOptions = options_mod.DeviceBucketOptions;
+pub const DeviceEmaOptions = options_mod.DeviceEmaOptions;
+pub const DeviceLinearFitOptions = options_mod.DeviceLinearFitOptions;
+pub const DeviceClipOptions = options_mod.DeviceClipOptions;
+pub const DeviceThresholdOptions = options_mod.DeviceThresholdOptions;
+pub const DeviceRollingCorrelationOptions = options_mod.DeviceRollingCorrelationOptions;
+pub const DeviceRollingRankOptions = options_mod.DeviceRollingRankOptions;
+pub const DeviceRollingRobustOptions = options_mod.DeviceRollingRobustOptions;
+pub const ParquetRangePredicate = options_mod.ParquetRangePredicate;
+pub const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
+pub const Range = options_mod.Range;
 
 pub const DeviceColumnView = struct {
     dtype: DeviceDType,
