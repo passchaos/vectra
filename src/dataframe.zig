@@ -8,6 +8,7 @@ const error_mod = @import("dataframe_error.zig");
 const correlation_mod = @import("dataframe_correlation.zig");
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
 const crossover_mod = @import("dataframe_crossover.zig");
+const threshold_mod = @import("dataframe_threshold.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -10459,58 +10460,33 @@ fn thresholdProfileColumnsTyped(
     options_value: DeviceThresholdOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ThresholdProfileColumnCount]DeviceColumn {
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const distances = try allocator.alloc(f64, rows);
-    defer allocator.free(distances);
-    const abs_distances = try allocator.alloc(f64, rows);
-    defer allocator.free(abs_distances);
-    const above = try allocator.alloc(bool, rows);
-    defer allocator.free(above);
-    const below = try allocator.alloc(bool, rows);
-    defer allocator.free(below);
-    const at = try allocator.alloc(bool, rows);
-    defer allocator.free(at);
-    const validity = try allocator.alloc(bool, rows);
-    defer allocator.free(validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        validity[row] = valid;
-        if (valid) {
-            const distance = castToF64(T, value_item) - options_value.threshold;
-            distances[row] = distance;
-            abs_distances[row] = @abs(distance);
-            above[row] = distance > 0;
-            below[row] = distance < 0;
-            at[row] = distance == 0;
-        } else {
-            distances[row] = 0;
-            abs_distances[row] = 0;
-            above[row] = false;
-            below[row] = false;
-            at[row] = false;
-        }
-    }
+    var metrics = try threshold_mod.thresholdProfile(allocator, values, maybe_validity, options_value.threshold);
+    defer metrics.deinit();
 
     var columns: [ThresholdProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, distances, validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.distances, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, abs_distances, validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.abs_distances, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, above, validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.above, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, below, validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.below, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, at, validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.at, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10573,110 +10549,36 @@ fn rollingThresholdProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingThresholdProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const mean_distances = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_distances);
-    const mean_abs_distances = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_abs_distances);
-    const above_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(above_rates);
-    const below_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(below_rates);
-    const at_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(at_rates);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    var running_count: usize = 0;
-    var running_distance_sum: f64 = 0;
-    var running_abs_distance_sum: f64 = 0;
-    var running_above_count: usize = 0;
-    var running_below_count: usize = 0;
-    var running_at_count: usize = 0;
-
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) {
-            const distance = castToF64(T, value_item) - threshold;
-            running_distance_sum += distance;
-            running_abs_distance_sum += @abs(distance);
-            if (distance > 0) {
-                running_above_count += 1;
-            } else if (distance < 0) {
-                running_below_count += 1;
-            } else {
-                running_at_count += 1;
-            }
-            running_count += 1;
-        }
-
-        if (row >= options_value.window) {
-            const evict_row = row - options_value.window;
-            const evict_valid = if (maybe_validity) |mask| mask[evict_row] else true;
-            if (evict_valid) {
-                const evict_distance = castToF64(T, values[evict_row]) - threshold;
-                running_distance_sum -= evict_distance;
-                running_abs_distance_sum -= @abs(evict_distance);
-                if (evict_distance > 0) {
-                    running_above_count -= 1;
-                } else if (evict_distance < 0) {
-                    running_below_count -= 1;
-                } else {
-                    running_at_count -= 1;
-                }
-                running_count -= 1;
-            }
-        }
-
-        counts[row] = @intCast(running_count);
-        const has_enough = running_count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(running_count);
-            mean_distances[row] = running_distance_sum / n;
-            mean_abs_distances[row] = running_abs_distance_sum / n;
-            above_rates[row] = @as(f64, @floatFromInt(running_above_count)) / n;
-            below_rates[row] = @as(f64, @floatFromInt(running_below_count)) / n;
-            at_rates[row] = @as(f64, @floatFromInt(running_at_count)) / n;
-        } else {
-            mean_distances[row] = 0;
-            mean_abs_distances[row] = 0;
-            above_rates[row] = 0;
-            below_rates[row] = 0;
-            at_rates[row] = 0;
-        }
-    }
+    var metrics = try threshold_mod.rollingThresholdProfile(allocator, values, maybe_validity, threshold, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingThresholdProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    // The count column is intentionally non-nullable audit metadata; metric
-    // columns become valid only after the trailing window has enough non-null
-    // observations.
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_distances, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_distances, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_abs_distances, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_abs_distances, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, above_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.above_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, below_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.below_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, at_rates, metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.at_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10739,90 +10641,35 @@ fn expandingThresholdProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingThresholdProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const mean_distances = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_distances);
-    const mean_abs_distances = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_abs_distances);
-    const above_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(above_rates);
-    const below_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(below_rates);
-    const at_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(at_rates);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    var running_count: usize = 0;
-    var running_distance_sum: f64 = 0;
-    var running_abs_distance_sum: f64 = 0;
-    var running_above_count: usize = 0;
-    var running_below_count: usize = 0;
-    var running_at_count: usize = 0;
-
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) {
-            const distance = castToF64(T, value_item) - threshold;
-            running_distance_sum += distance;
-            running_abs_distance_sum += @abs(distance);
-            if (distance > 0) {
-                running_above_count += 1;
-            } else if (distance < 0) {
-                running_below_count += 1;
-            } else {
-                running_at_count += 1;
-            }
-            running_count += 1;
-        }
-
-        counts[row] = @intCast(running_count);
-        const has_enough = running_count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(running_count);
-            mean_distances[row] = running_distance_sum / n;
-            mean_abs_distances[row] = running_abs_distance_sum / n;
-            above_rates[row] = @as(f64, @floatFromInt(running_above_count)) / n;
-            below_rates[row] = @as(f64, @floatFromInt(running_below_count)) / n;
-            at_rates[row] = @as(f64, @floatFromInt(running_at_count)) / n;
-        } else {
-            mean_distances[row] = 0;
-            mean_abs_distances[row] = 0;
-            above_rates[row] = 0;
-            below_rates[row] = 0;
-            at_rates[row] = 0;
-        }
-    }
+    var metrics = try threshold_mod.expandingThresholdProfile(allocator, values, maybe_validity, threshold, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExpandingThresholdProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    // As with other cumulative profiles, null input rows do not erase the
-    // accumulated state: metrics remain valid once the cumulative valid-count
-    // reaches `min_periods`.
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_distances, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_distances, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_abs_distances, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_abs_distances, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, above_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.above_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, below_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.below_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, at_rates, metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.at_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
