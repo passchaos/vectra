@@ -23,6 +23,7 @@ const ema_mod = @import("dataframe_ema.zig");
 const quantile_mod = @import("dataframe_quantile.zig");
 const bucket_mod = @import("dataframe_bucket.zig");
 const rank_mod = @import("dataframe_rank.zig");
+const stats_profile_mod = @import("dataframe_stats_profile.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -8424,85 +8425,33 @@ fn rollingProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const sums = try allocator.alloc(f64, rows);
-    defer allocator.free(sums);
-    const means = try allocator.alloc(f64, rows);
-    defer allocator.free(means);
-    const variances = try allocator.alloc(f64, rows);
-    defer allocator.free(variances);
-    const stddevs = try allocator.alloc(f64, rows);
-    defer allocator.free(stddevs);
-    const validity = try allocator.alloc(bool, rows);
-    defer allocator.free(validity);
-
-    var running_sum: f64 = 0;
-    var running_sum_sq: f64 = 0;
-    var running_count: usize = 0;
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) {
-            const x = castToF64(T, value_item);
-            running_sum += x;
-            running_sum_sq += x * x;
-            running_count += 1;
-        }
-        if (row >= options_value.window) {
-            const evict_row = row - options_value.window;
-            const evict_valid = if (maybe_validity) |mask| mask[evict_row] else true;
-            if (evict_valid) {
-                const x = castToF64(T, values[evict_row]);
-                running_sum -= x;
-                running_sum_sq -= x * x;
-                running_count -= 1;
-            }
-        }
-
-        counts[row] = @intCast(running_count);
-        const has_enough = running_count >= min_periods;
-        validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(running_count);
-            const mean = running_sum / n;
-            const raw_variance = running_sum_sq / n - mean * mean;
-            const variance = if (raw_variance < 0) 0 else raw_variance;
-            sums[row] = running_sum;
-            means[row] = mean;
-            variances[row] = variance;
-            stddevs[row] = std.math.sqrt(variance);
-        } else {
-            sums[row] = 0;
-            means[row] = 0;
-            variances[row] = 0;
-            stddevs[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try stats_profile_mod.rollingProfile(allocator, values, maybe_validity, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, sums, validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.sums, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, means, validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.means, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, variances, validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.variances, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, stddevs, validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.stddevs, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10199,76 +10148,32 @@ fn expandingProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const sums = try allocator.alloc(f64, rows);
-    defer allocator.free(sums);
-    const means = try allocator.alloc(f64, rows);
-    defer allocator.free(means);
-    const mins = try allocator.alloc(f64, rows);
-    defer allocator.free(mins);
-    const maxes = try allocator.alloc(f64, rows);
-    defer allocator.free(maxes);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var running_count: usize = 0;
-    var running_sum: f64 = 0;
-    var running_min: f64 = 0;
-    var running_max: f64 = 0;
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) {
-            const x = castToF64(T, value_item);
-            if (running_count == 0) {
-                running_min = x;
-                running_max = x;
-            } else {
-                if (x < running_min) running_min = x;
-                if (x > running_max) running_max = x;
-            }
-            running_sum += x;
-            running_count += 1;
-        }
-
-        counts[row] = @intCast(running_count);
-        const has_enough = running_count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            sums[row] = running_sum;
-            means[row] = running_sum / @as(f64, @floatFromInt(running_count));
-            mins[row] = running_min;
-            maxes[row] = running_max;
-        } else {
-            sums[row] = 0;
-            means[row] = 0;
-            mins[row] = 0;
-            maxes[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try stats_profile_mod.expandingProfile(allocator, values, maybe_validity, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExpandingProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, sums, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.sums, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, means, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.means, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mins, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mins, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, maxes, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.maxes, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
