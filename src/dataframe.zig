@@ -121,6 +121,8 @@ const LagProfileColumnCount = shift_mod.LagProfileColumnCount;
 const lagProfileOutputNames = shift_mod.lagProfileOutputNames;
 const LeadProfileColumnCount = shift_mod.LeadProfileColumnCount;
 const leadProfileOutputNames = shift_mod.leadProfileOutputNames;
+const lagProfileColumnsByValue = shift_mod.lagProfileColumnsByValue;
+const leadProfileColumnsByValue = shift_mod.leadProfileColumnsByValue;
 const ema_mod = @import("dataframe_ema.zig");
 const EmaProfileColumnCount = ema_mod.EmaProfileColumnCount;
 const emaProfileOutputNames = ema_mod.emaProfileOutputNames;
@@ -7137,124 +7139,6 @@ fn rollingRobustProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.outlier, metrics.validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.winsorized, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
-
-fn lagProfileColumnsByValue(
-    allocator: std.mem.Allocator,
-    value: DeviceColumn,
-    options_value: DeviceLagOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![LagProfileColumnCount]DeviceColumn {
-    if (value.len() != rows) return error.LengthMismatch;
-    return switch (value) {
-        .i8 => |typed| lagProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
-        .i16 => |typed| lagProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
-        .i32 => |typed| lagProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
-        .i64 => |typed| lagProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
-        .u8 => |typed| lagProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
-        .u16 => |typed| lagProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
-        .u32 => |typed| lagProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
-        .u64 => |typed| lagProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
-        .usize => |typed| lagProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
-        .isize => |typed| lagProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
-        .f16 => |typed| lagProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
-        .f32 => |typed| lagProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
-        .f64 => |typed| lagProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
-        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn lagProfileColumnsTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    column: DeviceTypedColumn(T),
-    options_value: DeviceLagOptions,
-    device_value: array_mod.Device,
-) DeviceDataError![LagProfileColumnCount]DeviceColumn {
-    const values_typed = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values_typed);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const rows = values_typed.len;
-    const values = try allocator.alloc(f64, rows);
-    defer allocator.free(values);
-    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
-    var metrics = try shift_mod.lagProfile(allocator, values, maybe_validity, options_value.periods);
-    defer metrics.deinit();
-
-    var columns: [LagProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.shifted, metrics.shift_validity, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.diff, metrics.change_validity, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.pct_change, metrics.change_validity, device_value);
-    initialized += 1;
-    return columns;
-}
-
-fn leadProfileColumnsByValue(
-    allocator: std.mem.Allocator,
-    value: DeviceColumn,
-    options_value: DeviceLagOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![LeadProfileColumnCount]DeviceColumn {
-    if (value.len() != rows) return error.LengthMismatch;
-    return switch (value) {
-        .i8 => |typed| leadProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
-        .i16 => |typed| leadProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
-        .i32 => |typed| leadProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
-        .i64 => |typed| leadProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
-        .u8 => |typed| leadProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
-        .u16 => |typed| leadProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
-        .u32 => |typed| leadProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
-        .u64 => |typed| leadProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
-        .usize => |typed| leadProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
-        .isize => |typed| leadProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
-        .f16 => |typed| leadProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
-        .f32 => |typed| leadProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
-        .f64 => |typed| leadProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
-        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn leadProfileColumnsTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    column: DeviceTypedColumn(T),
-    options_value: DeviceLagOptions,
-    device_value: array_mod.Device,
-) DeviceDataError![LeadProfileColumnCount]DeviceColumn {
-    const values_typed = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values_typed);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const rows = values_typed.len;
-    const values = try allocator.alloc(f64, rows);
-    defer allocator.free(values);
-    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
-    var metrics = try shift_mod.leadProfile(allocator, values, maybe_validity, options_value.periods);
-    defer metrics.deinit();
-
-    var columns: [LeadProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.shifted, metrics.shift_validity, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.diff, metrics.change_validity, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.pct_change, metrics.change_validity, device_value);
     initialized += 1;
     return columns;
 }
