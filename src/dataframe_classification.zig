@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const options_mod = @import("dataframe_options.zig");
 const validity_mod = @import("dataframe_validity.zig");
@@ -477,4 +479,110 @@ pub fn expandingClassificationProfileColumns(
     columns[7] = try DeviceColumn.fromSliceWithValidity(f64, allocator, profile.recalls, profile.metric_validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const ClassificationFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendClassificationColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    class_columns: anytype,
+) ClassificationFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + class_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&class_columns) |*class_col| {
+        columns[initialized] = class_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn classificationFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    class_columns_value: anytype,
+    comptime namesFn: anytype,
+) ClassificationFrameError!DeviceDataFrame {
+    var class_columns = class_columns_value;
+    var class_columns_transferred: usize = 0;
+    errdefer {
+        for (class_columns[class_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + class_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var class_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, class_names[0..]);
+    for (class_names, 0..) |class_name, i| source_names[frame.columns.len + i] = class_name;
+
+    const out = try appendClassificationColumns(DeviceDataFrame, frame, source_names, class_columns);
+    class_columns_transferred = class_columns.len;
+    return out;
+}
+
+fn validateClassificationInputs(frame: anytype, actual_name: []const u8, predicted_name: []const u8) ClassificationFrameError!struct { actual: @TypeOf(frame.column(actual_name) catch unreachable), predicted: @TypeOf(frame.column(predicted_name) catch unreachable) } {
+    const actual = try frame.column(actual_name);
+    const predicted = try frame.column(predicted_name);
+    if (actual.dtype() != .bool or predicted.dtype() != .bool) return error.TypeMismatch;
+    return .{ .actual = actual, .predicted = predicted };
+}
+
+pub fn classificationProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    actual_name: []const u8,
+    predicted_name: []const u8,
+    output_prefix: []const u8,
+) ClassificationFrameError!DeviceDataFrame {
+    const inputs = try validateClassificationInputs(frame, actual_name, predicted_name);
+    const class_columns = try classificationProfileColumns(frame.allocator, inputs.actual.bool, inputs.predicted.bool, frame.device, frame.rows);
+    return classificationFrameFromColumns(DeviceDataFrame, frame, output_prefix, class_columns, classificationProfileOutputNames);
+}
+
+pub fn rollingClassificationProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    actual_name: []const u8,
+    predicted_name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRollingOptions,
+) ClassificationFrameError!DeviceDataFrame {
+    const inputs = try validateClassificationInputs(frame, actual_name, predicted_name);
+    const class_columns = try rollingClassificationProfileColumns(frame.allocator, inputs.actual.bool, inputs.predicted.bool, options_value, frame.device, frame.rows);
+    return classificationFrameFromColumns(DeviceDataFrame, frame, output_prefix, class_columns, rollingClassificationProfileOutputNames);
+}
+
+pub fn expandingClassificationProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    actual_name: []const u8,
+    predicted_name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceExpandingOptions,
+) ClassificationFrameError!DeviceDataFrame {
+    const inputs = try validateClassificationInputs(frame, actual_name, predicted_name);
+    const class_columns = try expandingClassificationProfileColumns(frame.allocator, inputs.actual.bool, inputs.predicted.bool, options_value, frame.device, frame.rows);
+    return classificationFrameFromColumns(DeviceDataFrame, frame, output_prefix, class_columns, expandingClassificationProfileOutputNames);
 }
