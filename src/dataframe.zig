@@ -311,13 +311,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn distinctRows(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return self.distinctOn(self.names);
+        return keys_mod.distinctRows(DeviceDataFrame, self);
     }
 
     pub fn distinctOn(self: DeviceDataFrame, key_names: []const []const u8) DeviceDataError!DeviceDataFrame {
-        const indices = try keys_mod.distinctRowIndices(self.allocator, self, key_names);
-        defer self.allocator.free(indices);
-        return self.take(indices);
+        return keys_mod.distinctOn(DeviceDataFrame, self, key_names);
     }
 
     pub fn dropDuplicates(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {

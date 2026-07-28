@@ -599,3 +599,17 @@ pub fn semiAntiJoinRowIndicesTyped(
     }
     return indices.toOwnedSlice(allocator);
 }
+
+pub fn distinctRows(comptime DeviceDataFrame: type, frame: DeviceDataFrame) KeyMatchError!DeviceDataFrame {
+    return distinctOn(DeviceDataFrame, frame, frame.names);
+}
+
+pub fn distinctOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+) KeyMatchError!DeviceDataFrame {
+    const indices = try distinctRowIndices(frame.allocator, frame, key_names);
+    defer frame.allocator.free(indices);
+    return frame.take(indices);
+}
