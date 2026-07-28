@@ -18,3 +18,9 @@ pub fn lazyCollectTable(gpa: std.mem.Allocator) !DeviceDataFrame {
         .{ .name = "active", .data = active },
     });
 }
+
+pub fn lazyQualityTable(gpa: std.mem.Allocator) !DeviceDataFrame {
+    var nullable_quality = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, true, true }, .cpu);
+    defer nullable_quality.deinit();
+    return DeviceDataFrame.init(gpa, &.{.{ .name = "quality", .data = nullable_quality }});
+}
