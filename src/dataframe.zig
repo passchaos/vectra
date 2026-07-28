@@ -17,6 +17,7 @@ const standardize_mod = @import("dataframe_standardize.zig");
 const robust_mod = @import("dataframe_robust.zig");
 const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
+const sign_mod = @import("dataframe_sign.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -11693,102 +11694,32 @@ fn signProfileColumnsTyped(
     options_value: DeviceTrendOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![SignProfileColumnCount]DeviceColumn {
-    if (options_value.periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const signs = try allocator.alloc(i64, rows);
-    defer allocator.free(signs);
-    const flips = try allocator.alloc(bool, rows);
-    defer allocator.free(flips);
-    const positive_streak = try allocator.alloc(i64, rows);
-    defer allocator.free(positive_streak);
-    const negative_streak = try allocator.alloc(i64, rows);
-    defer allocator.free(negative_streak);
-    const zero_streak = try allocator.alloc(i64, rows);
-    defer allocator.free(zero_streak);
-    const sign_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(sign_validity);
-    const flip_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(flip_validity);
-
-    var pos: i64 = 0;
-    var neg: i64 = 0;
-    var zero: i64 = 0;
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        sign_validity[row] = valid;
-        if (!valid) {
-            signs[row] = 0;
-            flips[row] = false;
-            positive_streak[row] = 0;
-            negative_streak[row] = 0;
-            zero_streak[row] = 0;
-            flip_validity[row] = false;
-            pos = 0;
-            neg = 0;
-            zero = 0;
-            continue;
-        }
-
-        const x = castToF64(T, value_item);
-        const sign: i64 = if (x > 0) 1 else if (x < 0) -1 else 0;
-        signs[row] = sign;
-        switch (sign) {
-            1 => {
-                pos += 1;
-                neg = 0;
-                zero = 0;
-            },
-            -1 => {
-                neg += 1;
-                pos = 0;
-                zero = 0;
-            },
-            else => {
-                zero += 1;
-                pos = 0;
-                neg = 0;
-            },
-        }
-        positive_streak[row] = pos;
-        negative_streak[row] = neg;
-        zero_streak[row] = zero;
-
-        if (row < options_value.periods) {
-            flips[row] = false;
-            flip_validity[row] = false;
-        } else {
-            const previous_row = row - options_value.periods;
-            const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-            flip_validity[row] = previous_valid;
-            if (previous_valid) {
-                const previous_sign: i64 = if (castToF64(T, values[previous_row]) > 0) 1 else if (castToF64(T, values[previous_row]) < 0) -1 else 0;
-                flips[row] = sign != previous_sign;
-            } else {
-                flips[row] = false;
-            }
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try sign_mod.signProfile(allocator, values, maybe_validity, options_value.periods);
+    defer metrics.deinit();
 
     var columns: [SignProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(i64, allocator, signs, sign_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.signs, metrics.sign_validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, flips, flip_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.flips, metrics.flip_validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(i64, allocator, positive_streak, sign_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.positive_streak, metrics.sign_validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, negative_streak, sign_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.negative_streak, metrics.sign_validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(i64, allocator, zero_streak, sign_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.zero_streak, metrics.sign_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11844,116 +11775,33 @@ fn rollingSignProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingSignProfileColumnCount]DeviceColumn {
-    if (sign_options.periods == 0 or options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const sign_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(sign_validity);
-    const flip_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(flip_validity);
-    const signs = try allocator.alloc(i64, rows);
-    defer allocator.free(signs);
-    const flips = try allocator.alloc(bool, rows);
-    defer allocator.free(flips);
-
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        sign_validity[row] = valid;
-        if (!valid) {
-            signs[row] = 0;
-            flips[row] = false;
-            flip_validity[row] = false;
-            continue;
-        }
-
-        const x = castToF64(T, value_item);
-        signs[row] = if (x > 0) 1 else if (x < 0) -1 else 0;
-        if (row < sign_options.periods) {
-            flips[row] = false;
-            flip_validity[row] = false;
-        } else {
-            const previous_row = row - sign_options.periods;
-            const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-            flip_validity[row] = previous_valid;
-            if (previous_valid) {
-                const previous = castToF64(T, values[previous_row]);
-                const previous_sign: i64 = if (previous > 0) 1 else if (previous < 0) -1 else 0;
-                flips[row] = signs[row] != previous_sign;
-            } else {
-                flips[row] = false;
-            }
-        }
-    }
-
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const positive_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(positive_rates);
-    const negative_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(negative_rates);
-    const zero_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(zero_rates);
-    const flip_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(flip_rates);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    for (0..rows) |row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var positive_count: usize = 0;
-        var negative_count: usize = 0;
-        var zero_count: usize = 0;
-        var flip_count: usize = 0;
-        for (start..row + 1) |window_row| {
-            if (!sign_validity[window_row]) continue;
-            switch (signs[window_row]) {
-                1 => positive_count += 1,
-                -1 => negative_count += 1,
-                else => zero_count += 1,
-            }
-            if (flip_validity[window_row] and flips[window_row]) flip_count += 1;
-            count += 1;
-        }
-
-        counts[row] = @intCast(count);
-        const has_enough = count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            positive_rates[row] = @as(f64, @floatFromInt(positive_count)) / n;
-            negative_rates[row] = @as(f64, @floatFromInt(negative_count)) / n;
-            zero_rates[row] = @as(f64, @floatFromInt(zero_count)) / n;
-            flip_rates[row] = @as(f64, @floatFromInt(flip_count)) / n;
-        } else {
-            positive_rates[row] = 0;
-            negative_rates[row] = 0;
-            zero_rates[row] = 0;
-            flip_rates[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try sign_mod.rollingSignProfile(allocator, values, maybe_validity, sign_options.periods, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingSignProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, positive_rates, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.positive_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, negative_rates, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.negative_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, zero_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.zero_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, flip_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.flip_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -12009,87 +11857,32 @@ fn expandingSignProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingSignProfileColumnCount]DeviceColumn {
-    if (sign_options.periods == 0) return error.InvalidShape;
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const positive_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(positive_rates);
-    const negative_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(negative_rates);
-    const zero_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(zero_rates);
-    const flip_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(flip_rates);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var count: usize = 0;
-    var positive_count: usize = 0;
-    var negative_count: usize = 0;
-    var zero_count: usize = 0;
-    var flip_count: usize = 0;
-
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) {
-            const x = castToF64(T, value_item);
-            const sign: i64 = if (x > 0) 1 else if (x < 0) -1 else 0;
-            switch (sign) {
-                1 => positive_count += 1,
-                -1 => negative_count += 1,
-                else => zero_count += 1,
-            }
-            if (row >= sign_options.periods) {
-                const previous_row = row - sign_options.periods;
-                const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-                if (previous_valid) {
-                    const previous = castToF64(T, values[previous_row]);
-                    const previous_sign: i64 = if (previous > 0) 1 else if (previous < 0) -1 else 0;
-                    if (sign != previous_sign) flip_count += 1;
-                }
-            }
-            count += 1;
-        }
-
-        counts[row] = @intCast(count);
-        const has_enough = count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            positive_rates[row] = @as(f64, @floatFromInt(positive_count)) / n;
-            negative_rates[row] = @as(f64, @floatFromInt(negative_count)) / n;
-            zero_rates[row] = @as(f64, @floatFromInt(zero_count)) / n;
-            flip_rates[row] = @as(f64, @floatFromInt(flip_count)) / n;
-        } else {
-            positive_rates[row] = 0;
-            negative_rates[row] = 0;
-            zero_rates[row] = 0;
-            flip_rates[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try sign_mod.expandingSignProfile(allocator, values, maybe_validity, sign_options.periods, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExpandingSignProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, positive_rates, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.positive_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, negative_rates, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.negative_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, zero_rates, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.zero_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, flip_rates, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.flip_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
