@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -340,4 +342,89 @@ fn expandingProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.maxes, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const StatsFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendStatsColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    stats_columns: anytype,
+) StatsFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + stats_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&stats_columns) |*stats_col| {
+        columns[initialized] = stats_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn statsFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    stats_columns_value: anytype,
+    comptime namesFn: anytype,
+) StatsFrameError!DeviceDataFrame {
+    var stats_columns = stats_columns_value;
+    var stats_columns_transferred: usize = 0;
+    errdefer {
+        for (stats_columns[stats_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + stats_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var stats_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, stats_names[0..]);
+    for (stats_names, 0..) |stats_name, i| source_names[frame.columns.len + i] = stats_name;
+
+    const out = try appendStatsColumns(DeviceDataFrame, frame, source_names, stats_columns);
+    stats_columns_transferred = stats_columns.len;
+    return out;
+}
+
+pub fn rollingProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRollingOptions,
+) StatsFrameError!DeviceDataFrame {
+    const rolling_value = try frame.column(name);
+    const rolling_columns = try rollingProfileColumnsByValue(frame.allocator, rolling_value.*, options_value, frame.device, frame.rows);
+    return statsFrameFromColumns(DeviceDataFrame, frame, output_prefix, rolling_columns, rollingProfileOutputNames);
+}
+
+pub fn expandingProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceExpandingOptions,
+) StatsFrameError!DeviceDataFrame {
+    const expanding_value = try frame.column(name);
+    const expanding_columns = try expandingProfileColumnsByValue(frame.allocator, expanding_value.*, options_value, frame.device, frame.rows);
+    return statsFrameFromColumns(DeviceDataFrame, frame, output_prefix, expanding_columns, expandingProfileOutputNames);
 }
