@@ -143,6 +143,11 @@ pub const DeviceLinearFitOptions = struct {
     min_periods: usize = 2,
 };
 
+pub const DeviceRollingCorrelationOptions = struct {
+    window: usize,
+    min_periods: ?usize = null,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };

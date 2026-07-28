@@ -189,6 +189,14 @@ pub const DeviceLinearFitOptions = struct {
     min_periods: usize = 2,
 };
 
+pub const DeviceRollingCorrelationOptions = struct {
+    /// Trailing, row-count based window width including the current row.
+    window: usize,
+    /// Minimum valid observation pairs required to mark correlation metrics.
+    /// When omitted, Vectra requires a full `window` of valid pairs.
+    min_periods: ?usize = null,
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -1040,6 +1048,12 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceLinearFitOptions,
     },
+    rolling_correlation_profile: struct {
+        x_name: []const u8,
+        y_name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceRollingCorrelationOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1167,6 +1181,11 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(fit.x_name);
                 allocator.free(fit.y_name);
                 allocator.free(fit.output_prefix);
+            },
+            .rolling_correlation_profile => |corr| {
+                allocator.free(corr.x_name);
+                allocator.free(corr.y_name);
+                allocator.free(corr.output_prefix);
             },
             .distinct_rows, .head, .tail => {},
         }
@@ -1517,6 +1536,20 @@ pub const DeviceLazyOp = union(enum) {
                     .y_name = y_name,
                     .output_prefix = output_prefix,
                     .options = fit.options,
+                } };
+            },
+            .rolling_correlation_profile => |corr| blk: {
+                const x_name = try allocator.dupe(u8, corr.x_name);
+                errdefer allocator.free(x_name);
+                const y_name = try allocator.dupe(u8, corr.y_name);
+                errdefer allocator.free(y_name);
+                const output_prefix = try allocator.dupe(u8, corr.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_correlation_profile = .{
+                    .x_name = x_name,
+                    .y_name = y_name,
+                    .output_prefix = output_prefix,
+                    .options = corr.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -2078,6 +2111,27 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingCorrelationProfile(
+        self: *DeviceLazyFrame,
+        x_name: []const u8,
+        y_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceRollingCorrelationOptions,
+    ) DeviceDataError!void {
+        const owned_x = try self.allocator.dupe(u8, x_name);
+        errdefer self.allocator.free(owned_x);
+        const owned_y = try self.allocator.dupe(u8, y_name);
+        errdefer self.allocator.free(owned_y);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_correlation_profile = .{
+            .x_name = owned_x,
+            .y_name = owned_y,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -2157,6 +2211,7 @@ pub const DeviceLazyFrame = struct {
                 .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
                 .ema_profile => |ema| try current.emaProfile(ema.name, ema.output_prefix, ema.options),
                 .linear_fit_profile => |fit| try current.linearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
+                .rolling_correlation_profile => |corr| try current.rollingCorrelationProfile(corr.x_name, corr.y_name, corr.output_prefix, corr.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2654,6 +2709,16 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(fit.y_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, fit.y_name);
                 break :op_loop;
             },
+            .rolling_correlation_profile => |corr| {
+                // Rolling correlation profiles depend on two source columns and
+                // append several window diagnostics. Keep predicate pruning but
+                // block projection pushdown until generated-field schema
+                // metadata is explicit.
+                projection_blocked = true;
+                if (!nameInBorrowedList(corr.x_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, corr.x_name);
+                if (!nameInBorrowedList(corr.y_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, corr.y_name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2847,6 +2912,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
         .ema_profile => |ema| try writer.print("ema_profile({s}, prefix={s}, alpha={d})", .{ ema.name, ema.output_prefix, ema.options.alpha }),
         .linear_fit_profile => |fit| try writer.print("linear_fit_profile({s}->{s}, prefix={s})", .{ fit.x_name, fit.y_name, fit.output_prefix }),
+        .rolling_correlation_profile => |corr| try writer.print("rolling_correlation_profile({s},{s}, prefix={s}, window={d})", .{ corr.x_name, corr.y_name, corr.output_prefix, corr.options.window }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -3876,6 +3942,49 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = fit_col.*;
             initialized += 1;
             fit_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingCorrelationProfile(
+        self: DeviceDataFrame,
+        x_name: []const u8,
+        y_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceRollingCorrelationOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        const x = try self.column(x_name);
+        const y = try self.column(y_name);
+        if (x.dtype() != y.dtype()) return error.TypeMismatch;
+        var corr_columns = try rollingCorrelationProfileColumnsByValue(self.allocator, x.*, y.*, options_value, self.device, self.rows);
+        var corr_columns_transferred: usize = 0;
+        errdefer {
+            for (corr_columns[corr_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + corr_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var corr_names = try rollingCorrelationProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, corr_names[0..]);
+        for (corr_names, 0..) |corr_name, i| source_names[self.columns.len + i] = corr_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + corr_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&corr_columns) |*corr_col| {
+            columns[initialized] = corr_col.*;
+            initialized += 1;
+            corr_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -6038,6 +6147,147 @@ fn linearFitProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residual_z, metric_validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, slopes, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const RollingCorrelationProfileColumnCount = 4;
+
+fn rollingCorrelationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingCorrelationProfileColumnCount][]const u8 {
+    var names: [RollingCorrelationProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_pair_count", "rolling_covariance", "rolling_correlation", "rolling_beta" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingCorrelationProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    x: DeviceColumn,
+    y: DeviceColumn,
+    options_value: DeviceRollingCorrelationOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingCorrelationProfileColumnCount]DeviceColumn {
+    if (x.len() != rows or y.len() != rows) return error.LengthMismatch;
+    if (x.dtype() != y.dtype()) return error.TypeMismatch;
+    return switch (x) {
+        .i8 => |typed| rollingCorrelationProfileColumnsTyped(i8, allocator, typed, y.i8, options_value, device_value),
+        .i16 => |typed| rollingCorrelationProfileColumnsTyped(i16, allocator, typed, y.i16, options_value, device_value),
+        .i32 => |typed| rollingCorrelationProfileColumnsTyped(i32, allocator, typed, y.i32, options_value, device_value),
+        .i64 => |typed| rollingCorrelationProfileColumnsTyped(i64, allocator, typed, y.i64, options_value, device_value),
+        .u8 => |typed| rollingCorrelationProfileColumnsTyped(u8, allocator, typed, y.u8, options_value, device_value),
+        .u16 => |typed| rollingCorrelationProfileColumnsTyped(u16, allocator, typed, y.u16, options_value, device_value),
+        .u32 => |typed| rollingCorrelationProfileColumnsTyped(u32, allocator, typed, y.u32, options_value, device_value),
+        .u64 => |typed| rollingCorrelationProfileColumnsTyped(u64, allocator, typed, y.u64, options_value, device_value),
+        .usize => |typed| rollingCorrelationProfileColumnsTyped(usize, allocator, typed, y.usize, options_value, device_value),
+        .isize => |typed| rollingCorrelationProfileColumnsTyped(isize, allocator, typed, y.isize, options_value, device_value),
+        .f16 => |typed| rollingCorrelationProfileColumnsTyped(f16, allocator, typed, y.f16, options_value, device_value),
+        .f32 => |typed| rollingCorrelationProfileColumnsTyped(f32, allocator, typed, y.f32, options_value, device_value),
+        .f64 => |typed| rollingCorrelationProfileColumnsTyped(f64, allocator, typed, y.f64, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rollingCorrelationProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    x_column: DeviceTypedColumn(T),
+    y_column: DeviceTypedColumn(T),
+    options_value: DeviceRollingCorrelationOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingCorrelationProfileColumnCount]DeviceColumn {
+    if (options_value.window == 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+    if (x_column.len() != y_column.len()) return error.LengthMismatch;
+    if (!x_column.device().sameDevice(y_column.device())) return error.InvalidDevice;
+
+    const xs = try x_column.values.toOwnedSlice(allocator);
+    defer allocator.free(xs);
+    const ys = try y_column.values.toOwnedSlice(allocator);
+    defer allocator.free(ys);
+    const maybe_x_validity = try validityValues(x_column, allocator);
+    defer if (maybe_x_validity) |validity| allocator.free(validity);
+    const maybe_y_validity = try validityValues(y_column, allocator);
+    defer if (maybe_y_validity) |validity| allocator.free(validity);
+
+    const rows = xs.len;
+    const pair_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(pair_counts);
+    const covariances = try allocator.alloc(f64, rows);
+    defer allocator.free(covariances);
+    const correlations = try allocator.alloc(f64, rows);
+    defer allocator.free(correlations);
+    const betas = try allocator.alloc(f64, rows);
+    defer allocator.free(betas);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    // Recompute each trailing window in host memory, mirroring the existing
+    // dataframe rolling profile APIs while exposing a stable seam for future
+    // device-side rolling covariance/correlation kernels.
+    for (xs, 0..) |_, row| {
+        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
+        var count: usize = 0;
+        var sum_x: f64 = 0;
+        var sum_y: f64 = 0;
+        var sum_xx: f64 = 0;
+        var sum_yy: f64 = 0;
+        var sum_xy: f64 = 0;
+        for (start..row + 1) |window_row| {
+            const valid = (if (maybe_x_validity) |mask| mask[window_row] else true) and (if (maybe_y_validity) |mask| mask[window_row] else true);
+            if (!valid) continue;
+            const x = castToF64(T, xs[window_row]);
+            const y = castToF64(T, ys[window_row]);
+            sum_x += x;
+            sum_y += y;
+            sum_xx += x * x;
+            sum_yy += y * y;
+            sum_xy += x * y;
+            count += 1;
+        }
+
+        pair_counts[row] = @intCast(count);
+        const has_enough = count >= min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(count);
+            const mean_x = sum_x / n;
+            const mean_y = sum_y / n;
+            const cov = sum_xy / n - mean_x * mean_y;
+            const var_x_raw = sum_xx / n - mean_x * mean_x;
+            const var_y_raw = sum_yy / n - mean_y * mean_y;
+            const var_x = if (var_x_raw < 0) 0 else var_x_raw;
+            const var_y = if (var_y_raw < 0) 0 else var_y_raw;
+            covariances[row] = cov;
+            correlations[row] = if (var_x == 0 or var_y == 0) std.math.nan(f64) else cov / std.math.sqrt(var_x * var_y);
+            betas[row] = if (var_x == 0) std.math.nan(f64) else cov / var_x;
+        } else {
+            covariances[row] = 0;
+            correlations[row] = 0;
+            betas[row] = 0;
+        }
+    }
+
+    var columns: [RollingCorrelationProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, pair_counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, covariances, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, correlations, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, betas, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -9551,6 +9801,36 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, false, false }, cross_above);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false }, cross_below);
 
+    var corr = try signal_table.rollingCorrelationProfile("fast", "slow", "fast_slow", .{ .window = 3, .min_periods = 2 });
+    defer corr.deinit();
+    try std.testing.expectEqual(@as(usize, 6), corr.width());
+    const pair_count = try (try corr.column("fast_slow_rolling_pair_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(pair_count);
+    const covariance = try (try corr.column("fast_slow_rolling_covariance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(covariance);
+    const correlation = try (try corr.column("fast_slow_rolling_correlation")).f64.toOwnedSlice(gpa);
+    defer gpa.free(correlation);
+    const beta = try (try corr.column("fast_slow_rolling_beta")).f64.toOwnedSlice(gpa);
+    defer gpa.free(beta);
+    const corr_validity = try (try corr.column("fast_slow_rolling_correlation")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(corr_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 3, 2, 2 }, pair_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, true }, corr_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), covariance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), covariance[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.1111111111111107), covariance[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), covariance[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0), covariance[5], 1e-12);
+    try std.testing.expect(std.math.isNan(correlation[1]));
+    try std.testing.expect(std.math.isNan(correlation[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.944911182523068), correlation[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), correlation[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0), correlation[5], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), beta[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.714285714285715), beta[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), beta[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -4.0), beta[5], 1e-12);
+
     var fit_x = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0, 5.0 }, &.{ true, true, true, true, false }, .cpu);
     defer fit_x.deinit();
     var fit_y = try DeviceColumn.fromSlice(f64, gpa, &.{ 3.0, 5.0, 8.0, 9.0, 0.0 }, .cpu);
@@ -10745,6 +11025,39 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expect(std.math.isNan(lazy_fit_residual_z[3]));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_fit_slope[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_fit_slope[3], 1e-12);
+
+    var corr_plan = try DeviceLazyFrame.init(gpa, table);
+    defer corr_plan.deinit();
+    try corr_plan.withColumnScalar("sales_minus1", "sales", f64, 1.0, .sub);
+    try corr_plan.rollingCorrelationProfile("sales_minus1", "sales", "sales_corr", .{ .window = 2, .min_periods = 2 });
+    try corr_plan.select(&.{ "sales", "sales_corr_rolling_pair_count", "sales_corr_rolling_covariance", "sales_corr_rolling_correlation", "sales_corr_rolling_beta" });
+    const corr_explain = try corr_plan.explain(gpa);
+    defer gpa.free(corr_explain);
+    try std.testing.expect(std.mem.indexOf(u8, corr_explain, "rolling_correlation_profile(sales_minus1,sales") != null);
+    var rolling_corr = try corr_plan.collect();
+    defer rolling_corr.deinit();
+    try std.testing.expectEqual(@as(usize, 4), rolling_corr.height());
+    try std.testing.expectEqual(@as(usize, 5), rolling_corr.width());
+    const lazy_pair_count = try (try rolling_corr.column("sales_corr_rolling_pair_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_pair_count);
+    const lazy_covariance = try (try rolling_corr.column("sales_corr_rolling_covariance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_covariance);
+    const lazy_correlation = try (try rolling_corr.column("sales_corr_rolling_correlation")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_correlation);
+    const lazy_beta = try (try rolling_corr.column("sales_corr_rolling_beta")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_beta);
+    const lazy_corr_validity = try (try rolling_corr.column("sales_corr_rolling_correlation")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_corr_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 2 }, lazy_pair_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_corr_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), lazy_covariance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_covariance[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_covariance[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_correlation[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_correlation[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_correlation[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_beta[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_beta[3], 1e-12);
 
     var bucket_plan = try DeviceLazyFrame.init(gpa, table);
     defer bucket_plan.deinit();
