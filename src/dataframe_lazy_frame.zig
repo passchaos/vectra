@@ -11,6 +11,7 @@ const lazy_exec_mod = @import("dataframe_lazy_frame_exec.zig");
 const lazy_expr_mod = @import("dataframe_lazy_expr_plan.zig");
 const lazy_group_mod = @import("dataframe_lazy_group_plan.zig");
 const lazy_join_mod = @import("dataframe_lazy_join_plan.zig");
+const lazy_profile_mod = @import("dataframe_lazy_profile_plan.zig");
 const lazy_sort_mod = @import("dataframe_lazy_sort_plan.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const names_mod = @import("dataframe_names.zig");
@@ -295,123 +296,43 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn rollingProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingMomentProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_moment_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_moment_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingRangeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_range_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_range_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingNormalizeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_normalize_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_normalize_profile", name, output_prefix, options_value);
             }
 
             pub fn expandingNormalizeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .expanding_normalize_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_normalize_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingQuantileProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_quantile_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_quantile_profile", name, output_prefix, options_value);
             }
 
             pub fn expandingQuantileProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .expanding_quantile_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_quantile_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingBoolProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_bool_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_bool_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingDrawdownProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_drawdown_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_drawdown_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingRobustProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingRobustOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_robust_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_robust_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingRankProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingRankOptions) DeviceDataError!void {
@@ -419,39 +340,15 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn lagProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .lag_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "lag_profile", name, output_prefix, options_value);
             }
 
             pub fn leadProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .lead_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "lead_profile", name, output_prefix, options_value);
             }
 
             pub fn clipProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceClipOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .clip_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "clip_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingClipProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, clip_options: DeviceClipOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
@@ -519,115 +416,43 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn expandingProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .expanding_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_profile", name, output_prefix, options_value);
             }
 
             pub fn expandingBoolProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .expanding_bool_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_bool_profile", name, output_prefix, options_value);
             }
 
             pub fn expandingRankProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingRankOptions) DeviceDataError!void {
-                return lazy_sort_mod.expandingRankProfile(self, name, output_prefix, options_value);
+                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_rank_profile", name, output_prefix, options_value);
             }
 
             pub fn expandingRobustProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .expanding_robust_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_robust_profile", name, output_prefix, options_value);
             }
 
             pub fn expandingMomentProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .expanding_moment_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_moment_profile", name, output_prefix, options_value);
             }
 
             pub fn standardizeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceStandardizeOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .standardize_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "standardize_profile", name, output_prefix, options_value);
             }
 
             pub fn robustProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .robust_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "robust_profile", name, output_prefix, options_value);
             }
 
             pub fn drawdownProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceDrawdownOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .drawdown_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "drawdown_profile", name, output_prefix, options_value);
             }
 
             pub fn extremaProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExtremaOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .extrema_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "extrema_profile", name, output_prefix, options_value);
             }
 
             pub fn trendProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .trend_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "trend_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingTrendProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
@@ -698,15 +523,7 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn signProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .sign_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "sign_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingSignProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
@@ -803,27 +620,11 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn bucketProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceBucketOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .bucket_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "bucket_profile", name, output_prefix, options_value);
             }
 
             pub fn emaProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceEmaOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .ema_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "ema_profile", name, output_prefix, options_value);
             }
 
             pub fn linearFitProfile(
@@ -970,15 +771,7 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn boolTransitionProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .bool_transition_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "bool_transition_profile", name, output_prefix, options_value);
             }
 
             pub fn rollingBoolTransitionProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
@@ -1092,38 +885,15 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn validityProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .validity_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                } });
+                return lazy_profile_mod.appendNameOutput(self, "validity_profile", name, output_prefix);
             }
 
             pub fn rollingValidityProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .rolling_validity_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_validity_profile", name, output_prefix, options_value);
             }
 
             pub fn expandingValidityProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .expanding_validity_profile = .{
-                    .name = owned_name,
-                    .output_prefix = owned_prefix,
-                    .options = options_value,
-                } });
+                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_validity_profile", name, output_prefix, options_value);
             }
 
             pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
