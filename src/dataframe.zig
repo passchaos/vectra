@@ -16,6 +16,7 @@ const risk_mod = @import("dataframe_risk.zig");
 const standardize_mod = @import("dataframe_standardize.zig");
 const robust_mod = @import("dataframe_robust.zig");
 const trend_mod = @import("dataframe_trend.zig");
+const change_mod = @import("dataframe_change.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -11448,71 +11449,30 @@ fn changePointProfileColumnsTyped(
     options_value: DeviceTrendOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ChangePointProfileColumnCount]DeviceColumn {
-    if (options_value.periods == 0) return error.InvalidShape;
-    if (threshold < 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const deltas = try allocator.alloc(f64, rows);
-    defer allocator.free(deltas);
-    const abs_deltas = try allocator.alloc(f64, rows);
-    defer allocator.free(abs_deltas);
-    const pct_changes = try allocator.alloc(f64, rows);
-    defer allocator.free(pct_changes);
-    const change_points = try allocator.alloc(bool, rows);
-    defer allocator.free(change_points);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    for (values, 0..) |value_item, row| {
-        if (row < options_value.periods) {
-            deltas[row] = 0;
-            abs_deltas[row] = 0;
-            pct_changes[row] = 0;
-            change_points[row] = false;
-            metric_validity[row] = false;
-            continue;
-        }
-
-        const previous_row = row - options_value.periods;
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-        const valid = row_valid and previous_valid;
-        metric_validity[row] = valid;
-        if (!valid) {
-            deltas[row] = 0;
-            abs_deltas[row] = 0;
-            pct_changes[row] = 0;
-            change_points[row] = false;
-            continue;
-        }
-
-        const current = castToF64(T, value_item);
-        const previous = castToF64(T, values[previous_row]);
-        const delta = current - previous;
-        const abs_delta = @abs(delta);
-        deltas[row] = delta;
-        abs_deltas[row] = abs_delta;
-        pct_changes[row] = if (previous == 0) std.math.nan(f64) else delta / previous;
-        change_points[row] = abs_delta >= threshold;
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try change_mod.changePointProfile(allocator, values, maybe_validity, threshold, options_value.periods);
+    defer metrics.deinit();
 
     var columns: [ChangePointProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, deltas, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.deltas, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, abs_deltas, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.abs_deltas, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, pct_changes, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.pct_changes, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, change_points, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.change_points, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11570,106 +11530,33 @@ fn rollingChangePointProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingChangePointProfileColumnCount]DeviceColumn {
-    if (change_options.periods == 0 or options_value.window == 0) return error.InvalidShape;
-    if (threshold < 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const per_row_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(per_row_validity);
-    const per_row_abs_delta = try allocator.alloc(f64, rows);
-    defer allocator.free(per_row_abs_delta);
-    const per_row_change = try allocator.alloc(bool, rows);
-    defer allocator.free(per_row_change);
-
-    for (values, 0..) |value_item, row| {
-        if (row < change_options.periods) {
-            per_row_validity[row] = false;
-            per_row_abs_delta[row] = 0;
-            per_row_change[row] = false;
-            continue;
-        }
-
-        const previous_row = row - change_options.periods;
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-        const valid = row_valid and previous_valid;
-        per_row_validity[row] = valid;
-        if (!valid) {
-            per_row_abs_delta[row] = 0;
-            per_row_change[row] = false;
-            continue;
-        }
-
-        const abs_delta = @abs(castToF64(T, value_item) - castToF64(T, values[previous_row]));
-        per_row_abs_delta[row] = abs_delta;
-        per_row_change[row] = abs_delta >= threshold;
-    }
-
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const change_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(change_counts);
-    const change_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(change_rates);
-    const mean_abs_delta = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_abs_delta);
-    const max_abs_delta = try allocator.alloc(f64, rows);
-    defer allocator.free(max_abs_delta);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    for (0..rows) |row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var change_count: usize = 0;
-        var sum_abs: f64 = 0;
-        var max_abs: f64 = 0;
-        for (start..row + 1) |window_row| {
-            if (!per_row_validity[window_row]) continue;
-            const abs_delta = per_row_abs_delta[window_row];
-            if (count == 0 or abs_delta > max_abs) max_abs = abs_delta;
-            sum_abs += abs_delta;
-            if (per_row_change[window_row]) change_count += 1;
-            count += 1;
-        }
-
-        counts[row] = @intCast(count);
-        change_counts[row] = @intCast(change_count);
-        const has_enough = count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            change_rates[row] = @as(f64, @floatFromInt(change_count)) / n;
-            mean_abs_delta[row] = sum_abs / n;
-            max_abs_delta[row] = max_abs;
-        } else {
-            change_rates[row] = 0;
-            mean_abs_delta[row] = 0;
-            max_abs_delta[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try change_mod.rollingChangePointProfile(allocator, values, maybe_validity, threshold, change_options.periods, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingChangePointProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSlice(i64, allocator, change_counts, device_value);
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.change_counts, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, change_rates, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.change_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_abs_delta, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_abs_delta, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, max_abs_delta, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.max_abs_delta, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11727,77 +11614,32 @@ fn expandingChangePointProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingChangePointProfileColumnCount]DeviceColumn {
-    if (change_options.periods == 0) return error.InvalidShape;
-    if (options_value.min_periods == 0) return error.InvalidShape;
-    if (threshold < 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const change_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(change_counts);
-    const change_rates = try allocator.alloc(f64, rows);
-    defer allocator.free(change_rates);
-    const mean_abs_delta = try allocator.alloc(f64, rows);
-    defer allocator.free(mean_abs_delta);
-    const max_abs_delta = try allocator.alloc(f64, rows);
-    defer allocator.free(max_abs_delta);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var count: usize = 0;
-    var change_count: usize = 0;
-    var sum_abs: f64 = 0;
-    var max_abs: f64 = 0;
-    for (values, 0..) |value_item, row| {
-        if (row >= change_options.periods) {
-            const previous_row = row - change_options.periods;
-            const row_valid = if (maybe_validity) |mask| mask[row] else true;
-            const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-            if (row_valid and previous_valid) {
-                const abs_delta = @abs(castToF64(T, value_item) - castToF64(T, values[previous_row]));
-                if (count == 0 or abs_delta > max_abs) max_abs = abs_delta;
-                sum_abs += abs_delta;
-                if (abs_delta >= threshold) change_count += 1;
-                count += 1;
-            }
-        }
-
-        counts[row] = @intCast(count);
-        change_counts[row] = @intCast(change_count);
-        const has_enough = count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(count);
-            change_rates[row] = @as(f64, @floatFromInt(change_count)) / n;
-            mean_abs_delta[row] = sum_abs / n;
-            max_abs_delta[row] = max_abs;
-        } else {
-            change_rates[row] = 0;
-            mean_abs_delta[row] = 0;
-            max_abs_delta[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try change_mod.expandingChangePointProfile(allocator, values, maybe_validity, threshold, change_options.periods, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExpandingChangePointProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSlice(i64, allocator, change_counts, device_value);
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.change_counts, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, change_rates, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.change_rates, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_abs_delta, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_abs_delta, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, max_abs_delta, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.max_abs_delta, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
