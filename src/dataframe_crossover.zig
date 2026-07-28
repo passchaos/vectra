@@ -42,6 +42,54 @@ pub const CrossoverSummaryMetrics = struct {
     }
 };
 
+pub const CrossoverProfileColumnCount = 4;
+
+pub fn crossoverProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![CrossoverProfileColumnCount][]const u8 {
+    var names: [CrossoverProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "spread", "ratio", "cross_above", "cross_below" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingCrossoverProfileColumnCount = 6;
+
+pub fn rollingCrossoverProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingCrossoverProfileColumnCount][]const u8 {
+    var names: [RollingCrossoverProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_cross_count", "rolling_cross_above_count", "rolling_cross_below_count", "rolling_cross_above_rate", "rolling_cross_below_rate", "rolling_mean_abs_spread" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingCrossoverProfileColumnCount = 6;
+
+pub fn expandingCrossoverProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingCrossoverProfileColumnCount][]const u8 {
+    var names: [ExpandingCrossoverProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_cross_count", "expanding_cross_above_count", "expanding_cross_below_count", "expanding_cross_above_rate", "expanding_cross_below_rate", "expanding_mean_abs_spread" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validatePairLengths(lhs: []const f64, rhs: []const f64, maybe_lhs_validity: ?[]const bool, maybe_rhs_validity: ?[]const bool) error{LengthMismatch}!void {
     if (lhs.len != rhs.len) return error.LengthMismatch;
     if (maybe_lhs_validity) |validity| {

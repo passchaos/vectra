@@ -8,6 +8,12 @@ const error_mod = @import("dataframe_error.zig");
 const correlation_mod = @import("dataframe_correlation.zig");
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
 const crossover_mod = @import("dataframe_crossover.zig");
+const CrossoverProfileColumnCount = crossover_mod.CrossoverProfileColumnCount;
+const crossoverProfileOutputNames = crossover_mod.crossoverProfileOutputNames;
+const RollingCrossoverProfileColumnCount = crossover_mod.RollingCrossoverProfileColumnCount;
+const rollingCrossoverProfileOutputNames = crossover_mod.rollingCrossoverProfileOutputNames;
+const ExpandingCrossoverProfileColumnCount = crossover_mod.ExpandingCrossoverProfileColumnCount;
+const expandingCrossoverProfileOutputNames = crossover_mod.expandingCrossoverProfileOutputNames;
 const threshold_mod = @import("dataframe_threshold.zig");
 const ThresholdProfileColumnCount = threshold_mod.ThresholdProfileColumnCount;
 const thresholdProfileOutputNames = threshold_mod.thresholdProfileOutputNames;
@@ -11095,22 +11101,6 @@ fn expandingSignProfileColumnsTyped(
     return columns;
 }
 
-const CrossoverProfileColumnCount = 4;
-
-fn crossoverProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![CrossoverProfileColumnCount][]const u8 {
-    var names: [CrossoverProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "spread", "ratio", "cross_above", "cross_below" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn crossoverProfileColumnsByValue(
     allocator: std.mem.Allocator,
     lhs: DeviceColumn,
@@ -11186,22 +11176,6 @@ fn crossoverProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.cross_below, metrics.cross_validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingCrossoverProfileColumnCount = 6;
-
-fn rollingCrossoverProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingCrossoverProfileColumnCount][]const u8 {
-    var names: [RollingCrossoverProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_cross_count", "rolling_cross_above_count", "rolling_cross_below_count", "rolling_cross_above_rate", "rolling_cross_below_rate", "rolling_mean_abs_spread" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingCrossoverProfileColumnsByValue(
@@ -11295,22 +11269,6 @@ fn rollingCrossoverProfileColumnsTyped(
     columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mean_abs_spreads, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingCrossoverProfileColumnCount = 6;
-
-fn expandingCrossoverProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingCrossoverProfileColumnCount][]const u8 {
-    var names: [ExpandingCrossoverProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_cross_count", "expanding_cross_above_count", "expanding_cross_below_count", "expanding_cross_above_rate", "expanding_cross_below_rate", "expanding_mean_abs_spread" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingCrossoverProfileColumnsByValue(
