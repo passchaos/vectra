@@ -9,6 +9,12 @@ const correlation_mod = @import("dataframe_correlation.zig");
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
 const crossover_mod = @import("dataframe_crossover.zig");
 const threshold_mod = @import("dataframe_threshold.zig");
+const ThresholdProfileColumnCount = threshold_mod.ThresholdProfileColumnCount;
+const thresholdProfileOutputNames = threshold_mod.thresholdProfileOutputNames;
+const RollingThresholdProfileColumnCount = threshold_mod.RollingThresholdProfileColumnCount;
+const rollingThresholdProfileOutputNames = threshold_mod.rollingThresholdProfileOutputNames;
+const ExpandingThresholdProfileColumnCount = threshold_mod.ExpandingThresholdProfileColumnCount;
+const expandingThresholdProfileOutputNames = threshold_mod.expandingThresholdProfileOutputNames;
 const validity_mod = @import("dataframe_validity.zig");
 const bool_profile_mod = @import("dataframe_bool_profile.zig");
 const clip_mod = @import("dataframe_clip.zig");
@@ -9564,22 +9570,6 @@ fn expandingClipProfileColumnsTyped(
     return columns;
 }
 
-const ThresholdProfileColumnCount = 5;
-
-fn thresholdProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ThresholdProfileColumnCount][]const u8 {
-    var names: [ThresholdProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "distance", "abs_distance", "above", "below", "at" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn thresholdProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -9642,29 +9632,6 @@ fn thresholdProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.at, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingThresholdProfileColumnCount = 6;
-
-fn rollingThresholdProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingThresholdProfileColumnCount][]const u8 {
-    var names: [RollingThresholdProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{
-        "rolling_threshold_count",
-        "rolling_mean_distance",
-        "rolling_mean_abs_distance",
-        "rolling_above_rate",
-        "rolling_below_rate",
-        "rolling_at_rate",
-    };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingThresholdProfileColumnsByValue(
@@ -9734,29 +9701,6 @@ fn rollingThresholdProfileColumnsTyped(
     columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.at_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingThresholdProfileColumnCount = 6;
-
-fn expandingThresholdProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingThresholdProfileColumnCount][]const u8 {
-    var names: [ExpandingThresholdProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{
-        "expanding_threshold_count",
-        "expanding_mean_distance",
-        "expanding_mean_abs_distance",
-        "expanding_above_rate",
-        "expanding_below_rate",
-        "expanding_at_rate",
-    };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingThresholdProfileColumnsByValue(

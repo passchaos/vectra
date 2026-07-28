@@ -42,6 +42,68 @@ pub const ThresholdSummaryMetrics = struct {
     }
 };
 
+pub const ThresholdProfileColumnCount = 5;
+
+pub fn thresholdProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ThresholdProfileColumnCount][]const u8 {
+    var names: [ThresholdProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "distance", "abs_distance", "above", "below", "at" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingThresholdProfileColumnCount = 6;
+
+pub fn rollingThresholdProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingThresholdProfileColumnCount][]const u8 {
+    var names: [RollingThresholdProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{
+        "rolling_threshold_count",
+        "rolling_mean_distance",
+        "rolling_mean_abs_distance",
+        "rolling_above_rate",
+        "rolling_below_rate",
+        "rolling_at_rate",
+    };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingThresholdProfileColumnCount = 6;
+
+pub fn expandingThresholdProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingThresholdProfileColumnCount][]const u8 {
+    var names: [ExpandingThresholdProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{
+        "expanding_threshold_count",
+        "expanding_mean_distance",
+        "expanding_mean_abs_distance",
+        "expanding_above_rate",
+        "expanding_below_rate",
+        "expanding_at_rate",
+    };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validateLengths(values: []const f64, maybe_validity: ?[]const bool) error{LengthMismatch}!void {
     if (maybe_validity) |validity| {
         if (validity.len != values.len) return error.LengthMismatch;
