@@ -14002,22 +14002,8 @@ fn initAggregatedDataFrame(
     return initDeviceDataFrameFromOwnedColumns(allocator, &names, columns, rows, device_value);
 }
 
-fn findGroupIndex(comptime T: type, keys: []const T, value: T) ?usize {
-    for (keys, 0..) |candidate, i| {
-        if (groupKeyEqual(T, candidate, value)) return i;
-    }
-    return null;
-}
-
-fn groupKeyEqual(comptime T: type, lhs: T, rhs: T) bool {
-    if (comptime @typeInfo(T) == .float) {
-        const lhs_nan = std.math.isNan(lhs);
-        const rhs_nan = std.math.isNan(rhs);
-        return if (lhs_nan or rhs_nan) lhs_nan and rhs_nan else lhs == rhs;
-    }
-    return lhs == rhs;
-}
-
+const findGroupIndex = numeric_mod.findGroupIndex;
+const groupKeyEqual = numeric_mod.groupKeyEqual;
 const castToF64 = numeric_mod.castToF64;
 
 const JoinRowIndexPair = struct {

@@ -29,3 +29,19 @@ pub fn compareFloatSortValues(comptime T: type, lhs: T, rhs: T) i8 {
     if (rhs < lhs) return 1;
     return 0;
 }
+
+pub fn groupKeyEqual(comptime T: type, lhs: T, rhs: T) bool {
+    if (comptime @typeInfo(T) == .float) {
+        const lhs_nan = std.math.isNan(lhs);
+        const rhs_nan = std.math.isNan(rhs);
+        return if (lhs_nan or rhs_nan) lhs_nan and rhs_nan else lhs == rhs;
+    }
+    return lhs == rhs;
+}
+
+pub fn findGroupIndex(comptime T: type, keys: []const T, value: T) ?usize {
+    for (keys, 0..) |candidate, i| {
+        if (groupKeyEqual(T, candidate, value)) return i;
+    }
+    return null;
+}
