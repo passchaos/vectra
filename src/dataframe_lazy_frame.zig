@@ -8,6 +8,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
 const lazy_exec_mod = @import("dataframe_lazy_frame_exec.zig");
+const lazy_group_mod = @import("dataframe_lazy_group_plan.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const names_mod = @import("dataframe_names.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -216,29 +217,11 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn groupByCount(self: *DeviceLazyFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
-                const owned_key = try self.allocator.dupe(u8, key_name);
-                errdefer self.allocator.free(owned_key);
-                const owned_output = try self.allocator.dupe(u8, output_name);
-                errdefer self.allocator.free(owned_output);
-                try self.ops.append(self.allocator, .{ .group_by_count = .{
-                    .key_name = owned_key,
-                    .output_name = owned_output,
-                } });
+                return lazy_group_mod.groupByCount(self, key_name, output_name);
             }
 
             pub fn groupByValue(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
-                const owned_key = try self.allocator.dupe(u8, key_name);
-                errdefer self.allocator.free(owned_key);
-                const owned_value = try self.allocator.dupe(u8, value_name);
-                errdefer self.allocator.free(owned_value);
-                const owned_output = try self.allocator.dupe(u8, output_name);
-                errdefer self.allocator.free(owned_output);
-                try self.ops.append(self.allocator, .{ .group_by_value = .{
-                    .key_name = owned_key,
-                    .value_name = owned_value,
-                    .output_name = owned_output,
-                    .aggregation = aggregation,
-                } });
+                return lazy_group_mod.groupByValue(self, key_name, value_name, output_name, aggregation);
             }
 
             pub fn groupBySum(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
@@ -258,59 +241,19 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn groupByStats(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                const owned_key = try self.allocator.dupe(u8, key_name);
-                errdefer self.allocator.free(owned_key);
-                const owned_value = try self.allocator.dupe(u8, value_name);
-                errdefer self.allocator.free(owned_value);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .group_by_stats = .{
-                    .key_name = owned_key,
-                    .value_name = owned_value,
-                    .output_prefix = owned_prefix,
-                } });
+                return lazy_group_mod.groupByStats(self, key_name, value_name, output_prefix);
             }
 
             pub fn groupByStatsOn(self: *DeviceLazyFrame, key_names: []const []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                const owned_keys = try cloneNameList(self.allocator, key_names);
-                errdefer freeNameList(self.allocator, owned_keys);
-                const owned_value = try self.allocator.dupe(u8, value_name);
-                errdefer self.allocator.free(owned_value);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .group_by_stats_on = .{
-                    .key_names = owned_keys,
-                    .value_name = owned_value,
-                    .output_prefix = owned_prefix,
-                } });
+                return lazy_group_mod.groupByStatsOn(self, key_names, value_name, output_prefix);
             }
 
             pub fn groupByProfile(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                const owned_key = try self.allocator.dupe(u8, key_name);
-                errdefer self.allocator.free(owned_key);
-                const owned_value = try self.allocator.dupe(u8, value_name);
-                errdefer self.allocator.free(owned_value);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .group_by_profile = .{
-                    .key_name = owned_key,
-                    .value_name = owned_value,
-                    .output_prefix = owned_prefix,
-                } });
+                return lazy_group_mod.groupByProfile(self, key_name, value_name, output_prefix);
             }
 
             pub fn groupByProfileOn(self: *DeviceLazyFrame, key_names: []const []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                const owned_keys = try cloneNameList(self.allocator, key_names);
-                errdefer freeNameList(self.allocator, owned_keys);
-                const owned_value = try self.allocator.dupe(u8, value_name);
-                errdefer self.allocator.free(owned_value);
-                const owned_prefix = try self.allocator.dupe(u8, output_prefix);
-                errdefer self.allocator.free(owned_prefix);
-                try self.ops.append(self.allocator, .{ .group_by_profile_on = .{
-                    .key_names = owned_keys,
-                    .value_name = owned_value,
-                    .output_prefix = owned_prefix,
-                } });
+                return lazy_group_mod.groupByProfileOn(self, key_names, value_name, output_prefix);
             }
 
             pub fn joinOn(
