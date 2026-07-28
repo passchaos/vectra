@@ -1006,6 +1006,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceLagOptions,
     },
+    lead_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceLagOptions,
+    },
     expanding_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1156,6 +1161,10 @@ pub const DeviceLazyOp = union(enum) {
             .lag_profile => |lag| {
                 allocator.free(lag.name);
                 allocator.free(lag.output_prefix);
+            },
+            .lead_profile => |lead| {
+                allocator.free(lead.name);
+                allocator.free(lead.output_prefix);
             },
             .expanding_profile => |expanding| {
                 allocator.free(expanding.name);
@@ -1459,6 +1468,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = lag.options,
+                } };
+            },
+            .lead_profile => |lead| blk: {
+                const name = try allocator.dupe(u8, lead.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, lead.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .lead_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = lead.options,
                 } };
             },
             .expanding_profile => |expanding| blk: {
@@ -2035,6 +2055,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn leadProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .lead_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn expandingProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -2264,6 +2296,7 @@ pub const DeviceLazyFrame = struct {
                 .rolling_range_profile => |rolling| try current.rollingRangeProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .rolling_normalize_profile => |rolling| try current.rollingNormalizeProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .lag_profile => |lag| try current.lagProfile(lag.name, lag.output_prefix, lag.options),
+                .lead_profile => |lead| try current.leadProfile(lead.name, lead.output_prefix, lead.options),
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
@@ -2699,6 +2732,14 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(lag.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, lag.name);
                 break :op_loop;
             },
+            .lead_profile => |lead| {
+                // Lead profiles append forward-looking derived columns and
+                // preserve the input schema. Keep scan predicates, but block
+                // projection pushdown across generated lead fields.
+                projection_blocked = true;
+                if (!nameInBorrowedList(lead.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, lead.name);
+                break :op_loop;
+            },
             .expanding_profile => |expanding| {
                 // Expanding profiles append cumulative derived columns while
                 // preserving source columns.  Keep the source dependency for
@@ -2983,6 +3024,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .rolling_range_profile => |rolling| try writer.print("rolling_range_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .rolling_normalize_profile => |rolling| try writer.print("rolling_normalize_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .lag_profile => |lag| try writer.print("lag_profile({s}, prefix={s}, periods={d})", .{ lag.name, lag.output_prefix, lag.options.periods }),
+        .lead_profile => |lead| try writer.print("lead_profile({s}, prefix={s}, periods={d})", .{ lead.name, lead.output_prefix, lead.options.periods }),
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
@@ -3727,6 +3769,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = lag_col.*;
             initialized += 1;
             lag_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn leadProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!DeviceDataFrame {
+        const lead_value = try self.column(name);
+        var lead_columns = try leadProfileColumnsByValue(self.allocator, lead_value.*, options_value, self.device, self.rows);
+        var lead_columns_transferred: usize = 0;
+        errdefer {
+            for (lead_columns[lead_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + lead_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var lead_names = try leadProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, lead_names[0..]);
+        for (lead_names, 0..) |lead_name, i| source_names[self.columns.len + i] = lead_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + lead_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&lead_columns) |*lead_col| {
+            columns[initialized] = lead_col.*;
+            initialized += 1;
+            lead_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -5207,6 +5284,118 @@ fn lagProfileColumnsTyped(
         for (columns[0..initialized]) |*col| col.deinit();
     }
     columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, lag_values, lag_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, diff_values, change_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, pct_values, change_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const LeadProfileColumnCount = 3;
+
+fn leadProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![LeadProfileColumnCount][]const u8 {
+    var names: [LeadProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "lead", "forward_diff", "forward_pct_change" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn leadProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceLagOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![LeadProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| leadProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| leadProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| leadProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| leadProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| leadProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| leadProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| leadProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| leadProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| leadProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| leadProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| leadProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| leadProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| leadProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn leadProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceLagOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![LeadProfileColumnCount]DeviceColumn {
+    if (options_value.periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const lead_values = try allocator.alloc(f64, rows);
+    defer allocator.free(lead_values);
+    const diff_values = try allocator.alloc(f64, rows);
+    defer allocator.free(diff_values);
+    const pct_values = try allocator.alloc(f64, rows);
+    defer allocator.free(pct_values);
+    const lead_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(lead_validity);
+    const change_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(change_validity);
+
+    for (values, 0..) |value_item, row| {
+        const lead_row = row + options_value.periods;
+        const row_valid = if (maybe_validity) |mask| mask[row] else true;
+        if (lead_row >= rows) {
+            lead_values[row] = 0;
+            diff_values[row] = 0;
+            pct_values[row] = 0;
+            lead_validity[row] = false;
+            change_validity[row] = false;
+            continue;
+        }
+
+        const lead_row_valid = if (maybe_validity) |mask| mask[lead_row] else true;
+        const current = castToF64(T, value_item);
+        const future = castToF64(T, values[lead_row]);
+        lead_values[row] = future;
+        lead_validity[row] = lead_row_valid;
+
+        const can_change = row_valid and lead_row_valid;
+        change_validity[row] = can_change;
+        if (can_change) {
+            const diff = future - current;
+            diff_values[row] = diff;
+            pct_values[row] = if (current == 0) std.math.nan(f64) else diff / current;
+        } else {
+            diff_values[row] = 0;
+            pct_values[row] = 0;
+        }
+    }
+
+    var columns: [LeadProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, lead_values, lead_validity, device_value);
     initialized += 1;
     columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, diff_values, change_validity, device_value);
     initialized += 1;
@@ -9979,6 +10168,28 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), pct_values[2], 1e-12);
     try std.testing.expect(std.math.isNan(pct_values[3]));
 
+    var leaded = try lag_table.leadProfile("sales", "sales", .{ .periods = 2 });
+    defer leaded.deinit();
+    try std.testing.expectEqual(@as(usize, 5), leaded.width());
+    const lead_values = try (try leaded.column("sales_lead")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lead_values);
+    const forward_diff = try (try leaded.column("sales_forward_diff")).f64.toOwnedSlice(gpa);
+    defer gpa.free(forward_diff);
+    const forward_pct = try (try leaded.column("sales_forward_pct_change")).f64.toOwnedSlice(gpa);
+    defer gpa.free(forward_pct);
+    const lead_validity = try (try leaded.column("sales_lead")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lead_validity);
+    const forward_validity = try (try leaded.column("sales_forward_diff")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(forward_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false }, lead_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false }, forward_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 15.0), lead_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), lead_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), forward_diff[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), forward_diff[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), forward_pct[0], 1e-12);
+    try std.testing.expect(std.math.isNan(forward_pct[1]));
+
     var expanding = try lag_table.expandingProfile("sales", "sales", .{ .min_periods = 2 });
     defer expanding.deinit();
     try std.testing.expectEqual(@as(usize, 7), expanding.width());
@@ -11239,6 +11450,36 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_pct[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), lazy_pct[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.4), lazy_pct[3], 1e-12);
+
+    var lead_plan = try DeviceLazyFrame.init(gpa, table);
+    defer lead_plan.deinit();
+    try lead_plan.leadProfile("sales", "sales", .{ .periods = 1 });
+    try lead_plan.select(&.{ "sales", "sales_lead", "sales_forward_diff", "sales_forward_pct_change" });
+    const lead_explain = try lead_plan.explain(gpa);
+    defer gpa.free(lead_explain);
+    try std.testing.expect(std.mem.indexOf(u8, lead_explain, "lead_profile(sales") != null);
+    var leaded = try lead_plan.collect();
+    defer leaded.deinit();
+    try std.testing.expectEqual(@as(usize, 4), leaded.height());
+    try std.testing.expectEqual(@as(usize, 4), leaded.width());
+    const lazy_lead = try (try leaded.column("sales_lead")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_lead);
+    const lazy_forward_diff = try (try leaded.column("sales_forward_diff")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_forward_diff);
+    const lazy_forward_pct = try (try leaded.column("sales_forward_pct_change")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_forward_pct);
+    const lazy_lead_validity = try (try leaded.column("sales_lead")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_lead_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, lazy_lead_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_lead[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_lead[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), lazy_lead[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_forward_diff[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_forward_diff[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_forward_diff[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_forward_pct[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), lazy_forward_pct[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.4), lazy_forward_pct[2], 1e-12);
 
     var expanding_plan = try DeviceLazyFrame.init(gpa, table);
     defer expanding_plan.deinit();
