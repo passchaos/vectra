@@ -194,6 +194,8 @@ const RollingMomentProfileColumnCount = moment_mod.RollingMomentProfileColumnCou
 const rollingMomentProfileOutputNames = moment_mod.rollingMomentProfileOutputNames;
 const ExpandingMomentProfileColumnCount = moment_mod.ExpandingMomentProfileColumnCount;
 const expandingMomentProfileOutputNames = moment_mod.expandingMomentProfileOutputNames;
+const rollingMomentProfileColumnsByValue = moment_mod.rollingMomentProfileColumnsByValue;
+const expandingMomentProfileColumnsByValue = moment_mod.expandingMomentProfileColumnsByValue;
 const normalize_mod = @import("dataframe_normalize.zig");
 const RollingNormalizeProfileColumnCount = normalize_mod.RollingNormalizeProfileColumnCount;
 const rollingNormalizeProfileOutputNames = normalize_mod.rollingNormalizeProfileOutputNames;
@@ -6688,70 +6690,6 @@ pub const DeviceDataFrame = struct {
 const compareSortValues = numeric_mod.compareSortValues;
 const compareFloatSortValues = numeric_mod.compareFloatSortValues;
 
-fn rollingMomentProfileColumnsByValue(
-    allocator: std.mem.Allocator,
-    value: DeviceColumn,
-    options_value: DeviceRollingOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![RollingMomentProfileColumnCount]DeviceColumn {
-    if (value.len() != rows) return error.LengthMismatch;
-    return switch (value) {
-        .i8 => |typed| rollingMomentProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
-        .i16 => |typed| rollingMomentProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
-        .i32 => |typed| rollingMomentProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
-        .i64 => |typed| rollingMomentProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
-        .u8 => |typed| rollingMomentProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
-        .u16 => |typed| rollingMomentProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
-        .u32 => |typed| rollingMomentProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
-        .u64 => |typed| rollingMomentProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
-        .usize => |typed| rollingMomentProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
-        .isize => |typed| rollingMomentProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
-        .f16 => |typed| rollingMomentProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
-        .f32 => |typed| rollingMomentProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
-        .f64 => |typed| rollingMomentProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
-        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn rollingMomentProfileColumnsTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    column: DeviceTypedColumn(T),
-    options_value: DeviceRollingOptions,
-    device_value: array_mod.Device,
-) DeviceDataError![RollingMomentProfileColumnCount]DeviceColumn {
-    const min_periods = options_value.min_periods orelse options_value.window;
-    const values_typed = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values_typed);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const rows = values_typed.len;
-    const values = try allocator.alloc(f64, rows);
-    defer allocator.free(values);
-    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
-    var metrics = try moment_mod.rollingMomentProfile(allocator, values, maybe_validity, options_value.window, min_periods);
-    defer metrics.deinit();
-
-    var columns: [RollingMomentProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.m3_values, metrics.validity, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.m4_values, metrics.validity, device_value);
-    initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.skewnesses, metrics.validity, device_value);
-    initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.kurtoses, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
-
 fn rollingRangeProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -7053,69 +6991,6 @@ fn expandingQuantileProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.q3, metrics.validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.iqrs, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
-
-fn expandingMomentProfileColumnsByValue(
-    allocator: std.mem.Allocator,
-    value: DeviceColumn,
-    options_value: DeviceExpandingOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![ExpandingMomentProfileColumnCount]DeviceColumn {
-    if (value.len() != rows) return error.LengthMismatch;
-    return switch (value) {
-        .i8 => |typed| expandingMomentProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
-        .i16 => |typed| expandingMomentProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
-        .i32 => |typed| expandingMomentProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
-        .i64 => |typed| expandingMomentProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
-        .u8 => |typed| expandingMomentProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
-        .u16 => |typed| expandingMomentProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
-        .u32 => |typed| expandingMomentProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
-        .u64 => |typed| expandingMomentProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
-        .usize => |typed| expandingMomentProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
-        .isize => |typed| expandingMomentProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
-        .f16 => |typed| expandingMomentProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
-        .f32 => |typed| expandingMomentProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
-        .f64 => |typed| expandingMomentProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
-        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn expandingMomentProfileColumnsTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    column: DeviceTypedColumn(T),
-    options_value: DeviceExpandingOptions,
-    device_value: array_mod.Device,
-) DeviceDataError![ExpandingMomentProfileColumnCount]DeviceColumn {
-    const values_typed = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values_typed);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const rows = values_typed.len;
-    const values = try allocator.alloc(f64, rows);
-    defer allocator.free(values);
-    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
-    var metrics = try moment_mod.expandingMomentProfile(allocator, values, maybe_validity, options_value.min_periods);
-    defer metrics.deinit();
-
-    var columns: [ExpandingMomentProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.m3_values, metrics.validity, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.m4_values, metrics.validity, device_value);
-    initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.skewnesses, metrics.validity, device_value);
-    initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.kurtoses, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
