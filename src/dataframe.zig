@@ -13115,46 +13115,7 @@ fn innerJoinRowIndicesTyped(
     left: DeviceTypedColumn(T),
     right: DeviceTypedColumn(T),
 ) DeviceDataError!JoinRowIndexPair {
-    if (!left.device().sameDevice(right.device())) return error.InvalidDevice;
-    const left_values = try left.values.toOwnedSlice(allocator);
-    defer allocator.free(left_values);
-    const right_values = try right.values.toOwnedSlice(allocator);
-    defer allocator.free(right_values);
-    const maybe_left_validity = try validityValues(left, allocator);
-    defer if (maybe_left_validity) |validity| allocator.free(validity);
-    const maybe_right_validity = try validityValues(right, allocator);
-    defer if (maybe_right_validity) |validity| allocator.free(validity);
-
-    var left_indices: std.ArrayList(?usize) = .empty;
-    errdefer left_indices.deinit(allocator);
-    var right_indices: std.ArrayList(?usize) = .empty;
-    errdefer right_indices.deinit(allocator);
-
-    for (left_values, 0..) |left_value, left_i| {
-        if (maybe_left_validity) |validity| {
-            if (!validity[left_i]) continue;
-        }
-        for (right_values, 0..) |right_value, right_i| {
-            if (maybe_right_validity) |validity| {
-                if (!validity[right_i]) continue;
-            }
-            if (groupKeyEqual(T, left_value, right_value)) {
-                try left_indices.append(allocator, left_i);
-                try right_indices.append(allocator, right_i);
-            }
-        }
-    }
-
-    const owned_left = try left_indices.toOwnedSlice(allocator);
-    left_indices = .empty;
-    errdefer allocator.free(owned_left);
-    const owned_right = try right_indices.toOwnedSlice(allocator);
-    right_indices = .empty;
-    return .{
-        .allocator = allocator,
-        .left = owned_left,
-        .right = owned_right,
-    };
+    return keys_mod.innerJoinRowIndicesTyped(T, JoinRowIndexPair, allocator, left, right);
 }
 
 fn leftJoinRowIndicesTyped(
