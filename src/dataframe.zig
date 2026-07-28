@@ -4939,6 +4939,10 @@ const appendOwnedNameUnique = names_mod.appendOwnedNameUnique;
 const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
 const nameInBorrowedList = names_mod.nameInBorrowedList;
 const freeOwnedNameItems = names_mod.freeOwnedNameItems;
+const statsOutputNames = names_mod.statsOutputNames;
+const freeStatsOutputNames = names_mod.freeStatsOutputNames;
+const profileOutputNames = names_mod.profileOutputNames;
+const freeProfileOutputNames = names_mod.freeProfileOutputNames;
 
 fn parquetRangePredicateFromScalar(scalar: DeviceScalar, op: DeviceColumnCompareOp) ?ParquetRangePredicate {
     return switch (scalar) {
@@ -12601,27 +12605,6 @@ fn groupByStatsTyped(
     return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, unique_keys.items.len, device_value);
 }
 
-fn statsOutputNames(allocator: std.mem.Allocator, key_name: []const u8, prefix: []const u8) std.mem.Allocator.Error![]const []const u8 {
-    const names = try allocator.alloc([]const u8, 6);
-    errdefer allocator.free(names);
-    names[0] = key_name;
-    names[1] = try std.fmt.allocPrint(allocator, "{s}_count", .{prefix});
-    errdefer allocator.free(names[1]);
-    names[2] = try std.fmt.allocPrint(allocator, "{s}_sum", .{prefix});
-    errdefer allocator.free(names[2]);
-    names[3] = try std.fmt.allocPrint(allocator, "{s}_min", .{prefix});
-    errdefer allocator.free(names[3]);
-    names[4] = try std.fmt.allocPrint(allocator, "{s}_max", .{prefix});
-    errdefer allocator.free(names[4]);
-    names[5] = try std.fmt.allocPrint(allocator, "{s}_mean", .{prefix});
-    return names;
-}
-
-fn freeStatsOutputNames(allocator: std.mem.Allocator, names: []const []const u8) void {
-    for (names[1..]) |name| allocator.free(name);
-    allocator.free(names);
-}
-
 fn groupByStatsOnDispatchValue(
     allocator: std.mem.Allocator,
     frame: DeviceDataFrame,
@@ -12924,27 +12907,6 @@ fn groupByProfileOnTyped(
     }
 
     return initProfileDataFrame(allocator, key_names, output_prefix, key_columns, metrics, device_value);
-}
-
-fn profileOutputNames(allocator: std.mem.Allocator, key_names: []const []const u8, prefix: []const u8) std.mem.Allocator.Error![]const []const u8 {
-    const names = try allocator.alloc([]const u8, key_names.len + 7);
-    errdefer allocator.free(names);
-    for (key_names, 0..) |key_name, i| names[i] = key_name;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[key_names.len .. key_names.len + initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "count", "sum", "mean", "variance", "stddev", "skewness", "kurtosis" };
-    for (suffixes, 0..) |suffix, i| {
-        names[key_names.len + i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
-fn freeProfileOutputNames(allocator: std.mem.Allocator, names: []const []const u8, key_count: usize) void {
-    for (names[key_count..]) |name| allocator.free(name);
-    allocator.free(names);
 }
 
 fn initProfileDataFrame(
