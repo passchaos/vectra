@@ -38,6 +38,54 @@ pub const ChangeSummaryMetrics = struct {
     }
 };
 
+pub const ChangePointProfileColumnCount = 4;
+
+pub fn changePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ChangePointProfileColumnCount][]const u8 {
+    var names: [ChangePointProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "change_delta", "change_abs_delta", "change_pct", "change_point" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingChangePointProfileColumnCount = 5;
+
+pub fn rollingChangePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingChangePointProfileColumnCount][]const u8 {
+    var names: [RollingChangePointProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_change_count", "rolling_change_point_count", "rolling_change_rate", "rolling_mean_abs_delta", "rolling_max_abs_delta" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingChangePointProfileColumnCount = 5;
+
+pub fn expandingChangePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingChangePointProfileColumnCount][]const u8 {
+    var names: [ExpandingChangePointProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_change_count", "expanding_change_point_count", "expanding_change_rate", "expanding_mean_abs_delta", "expanding_max_abs_delta" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validate(values: []const f64, maybe_validity: ?[]const bool, threshold: f64, periods: usize) error{ InvalidShape, LengthMismatch }!void {
     if (periods == 0) return error.InvalidShape;
     if (threshold < 0) return error.InvalidShape;

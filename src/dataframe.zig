@@ -83,6 +83,12 @@ const rollingTrendProfileOutputNames = trend_mod.rollingTrendProfileOutputNames;
 const ExpandingTrendProfileColumnCount = trend_mod.ExpandingTrendProfileColumnCount;
 const expandingTrendProfileOutputNames = trend_mod.expandingTrendProfileOutputNames;
 const change_mod = @import("dataframe_change.zig");
+const ChangePointProfileColumnCount = change_mod.ChangePointProfileColumnCount;
+const changePointProfileOutputNames = change_mod.changePointProfileOutputNames;
+const RollingChangePointProfileColumnCount = change_mod.RollingChangePointProfileColumnCount;
+const rollingChangePointProfileOutputNames = change_mod.rollingChangePointProfileOutputNames;
+const ExpandingChangePointProfileColumnCount = change_mod.ExpandingChangePointProfileColumnCount;
+const expandingChangePointProfileOutputNames = change_mod.expandingChangePointProfileOutputNames;
 const sign_mod = @import("dataframe_sign.zig");
 const SignProfileColumnCount = sign_mod.SignProfileColumnCount;
 const signProfileOutputNames = sign_mod.signProfileOutputNames;
@@ -10379,22 +10385,6 @@ fn expandingTrendProfileColumnsTyped(
     return columns;
 }
 
-const ChangePointProfileColumnCount = 4;
-
-fn changePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ChangePointProfileColumnCount][]const u8 {
-    var names: [ChangePointProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "change_delta", "change_abs_delta", "change_pct", "change_point" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn changePointProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -10456,22 +10446,6 @@ fn changePointProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.change_points, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingChangePointProfileColumnCount = 5;
-
-fn rollingChangePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingChangePointProfileColumnCount][]const u8 {
-    var names: [RollingChangePointProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_change_count", "rolling_change_point_count", "rolling_change_rate", "rolling_mean_abs_delta", "rolling_max_abs_delta" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingChangePointProfileColumnsByValue(
@@ -10540,22 +10514,6 @@ fn rollingChangePointProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.max_abs_delta, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingChangePointProfileColumnCount = 5;
-
-fn expandingChangePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingChangePointProfileColumnCount][]const u8 {
-    var names: [ExpandingChangePointProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_change_count", "expanding_change_point_count", "expanding_change_rate", "expanding_mean_abs_delta", "expanding_max_abs_delta" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingChangePointProfileColumnsByValue(
