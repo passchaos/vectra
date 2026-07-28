@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -303,4 +305,89 @@ fn expandingNormalizeProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.minmax, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const NormalizeFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendNormalizeColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    normalize_columns: anytype,
+) NormalizeFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + normalize_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&normalize_columns) |*normalize_col| {
+        columns[initialized] = normalize_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn normalizeFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    normalize_columns_value: anytype,
+    comptime namesFn: anytype,
+) NormalizeFrameError!DeviceDataFrame {
+    var normalize_columns = normalize_columns_value;
+    var normalize_columns_transferred: usize = 0;
+    errdefer {
+        for (normalize_columns[normalize_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + normalize_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var normalize_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, normalize_names[0..]);
+    for (normalize_names, 0..) |normalize_name, i| source_names[frame.columns.len + i] = normalize_name;
+
+    const out = try appendNormalizeColumns(DeviceDataFrame, frame, source_names, normalize_columns);
+    normalize_columns_transferred = normalize_columns.len;
+    return out;
+}
+
+pub fn rollingNormalizeProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRollingOptions,
+) NormalizeFrameError!DeviceDataFrame {
+    const rolling_value = try frame.column(name);
+    const rolling_columns = try rollingNormalizeProfileColumnsByValue(frame.allocator, rolling_value.*, options_value, frame.device, frame.rows);
+    return normalizeFrameFromColumns(DeviceDataFrame, frame, output_prefix, rolling_columns, rollingNormalizeProfileOutputNames);
+}
+
+pub fn expandingNormalizeProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceExpandingOptions,
+) NormalizeFrameError!DeviceDataFrame {
+    const expanding_value = try frame.column(name);
+    const expanding_columns = try expandingNormalizeProfileColumnsByValue(frame.allocator, expanding_value.*, options_value, frame.device, frame.rows);
+    return normalizeFrameFromColumns(DeviceDataFrame, frame, output_prefix, expanding_columns, expandingNormalizeProfileOutputNames);
 }

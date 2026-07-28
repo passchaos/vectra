@@ -67,12 +67,6 @@ const expandingRankProfileColumnsByValue = rank_mod.expandingRankProfileColumnsB
 const stats_profile_mod = @import("dataframe_stats_profile.zig");
 const moment_mod = @import("dataframe_moment.zig");
 const normalize_mod = @import("dataframe_normalize.zig");
-const RollingNormalizeProfileColumnCount = normalize_mod.RollingNormalizeProfileColumnCount;
-const rollingNormalizeProfileOutputNames = normalize_mod.rollingNormalizeProfileOutputNames;
-const ExpandingNormalizeProfileColumnCount = normalize_mod.ExpandingNormalizeProfileColumnCount;
-const expandingNormalizeProfileOutputNames = normalize_mod.expandingNormalizeProfileOutputNames;
-const rollingNormalizeProfileColumnsByValue = normalize_mod.rollingNormalizeProfileColumnsByValue;
-const expandingNormalizeProfileColumnsByValue = normalize_mod.expandingNormalizeProfileColumnsByValue;
 const range_mod = @import("dataframe_range.zig");
 const group_profile_mod = @import("dataframe_group_profile.zig");
 const group_multi_mod = @import("dataframe_group_multi.zig");
@@ -411,73 +405,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn rollingNormalizeProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        const rolling_value = try self.column(name);
-        var rolling_columns = try rollingNormalizeProfileColumnsByValue(self.allocator, rolling_value.*, options_value, self.device, self.rows);
-        var rolling_columns_transferred: usize = 0;
-        errdefer {
-            for (rolling_columns[rolling_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + rolling_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var rolling_names = try rollingNormalizeProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, rolling_names[0..]);
-        for (rolling_names, 0..) |rolling_name, i| source_names[self.columns.len + i] = rolling_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + rolling_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&rolling_columns) |*rolling_col| {
-            columns[initialized] = rolling_col.*;
-            initialized += 1;
-            rolling_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return normalize_mod.rollingNormalizeProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn expandingNormalizeProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        const expanding_value = try self.column(name);
-        var expanding_columns = try expandingNormalizeProfileColumnsByValue(self.allocator, expanding_value.*, options_value, self.device, self.rows);
-        var expanding_columns_transferred: usize = 0;
-        errdefer {
-            for (expanding_columns[expanding_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + expanding_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var expanding_names = try expandingNormalizeProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, expanding_names[0..]);
-        for (expanding_names, 0..) |expanding_name, i| source_names[self.columns.len + i] = expanding_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + expanding_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&expanding_columns) |*expanding_col| {
-            columns[initialized] = expanding_col.*;
-            initialized += 1;
-            expanding_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return normalize_mod.expandingNormalizeProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn rollingQuantileProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
