@@ -5,6 +5,12 @@ const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const classification_mod = @import("dataframe_classification.zig");
 const error_mod = @import("dataframe_error.zig");
+const ErrorProfileColumnCount = error_mod.ErrorProfileColumnCount;
+const errorProfileOutputNames = error_mod.errorProfileOutputNames;
+const RollingErrorProfileColumnCount = error_mod.RollingErrorProfileColumnCount;
+const rollingErrorProfileOutputNames = error_mod.rollingErrorProfileOutputNames;
+const ExpandingErrorProfileColumnCount = error_mod.ExpandingErrorProfileColumnCount;
+const expandingErrorProfileOutputNames = error_mod.expandingErrorProfileOutputNames;
 const correlation_mod = @import("dataframe_correlation.zig");
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
 const LinearFitProfileColumnCount = linear_fit_mod.LinearFitProfileColumnCount;
@@ -11595,22 +11601,6 @@ fn linearFitProfileColumnsTyped(
     return columns;
 }
 
-const ErrorProfileColumnCount = 5;
-
-fn errorProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ErrorProfileColumnCount][]const u8 {
-    var names: [ErrorProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "error", "abs_error", "squared_error", "ape", "smape" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn errorProfileColumnsByValue(
     allocator: std.mem.Allocator,
     actual: DeviceColumn,
@@ -11686,22 +11676,6 @@ fn errorProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.smape, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingErrorProfileColumnCount = 5;
-
-fn rollingErrorProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingErrorProfileColumnCount][]const u8 {
-    var names: [RollingErrorProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_error_count", "rolling_mae", "rolling_rmse", "rolling_mape", "rolling_smape" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingErrorProfileColumnsByValue(
@@ -11790,22 +11764,6 @@ fn rollingErrorProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.smape, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingErrorProfileColumnCount = 5;
-
-fn expandingErrorProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingErrorProfileColumnCount][]const u8 {
-    var names: [ExpandingErrorProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_error_count", "expanding_mae", "expanding_rmse", "expanding_mape", "expanding_smape" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingErrorProfileColumnsByValue(

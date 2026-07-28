@@ -40,6 +40,54 @@ pub const ErrorSummaryMetrics = struct {
     }
 };
 
+pub const ErrorProfileColumnCount = 5;
+
+pub fn errorProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ErrorProfileColumnCount][]const u8 {
+    var names: [ErrorProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "error", "abs_error", "squared_error", "ape", "smape" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingErrorProfileColumnCount = 5;
+
+pub fn rollingErrorProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingErrorProfileColumnCount][]const u8 {
+    var names: [RollingErrorProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_error_count", "rolling_mae", "rolling_rmse", "rolling_mape", "rolling_smape" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingErrorProfileColumnCount = 5;
+
+pub fn expandingErrorProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingErrorProfileColumnCount][]const u8 {
+    var names: [ExpandingErrorProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_error_count", "expanding_mae", "expanding_rmse", "expanding_mape", "expanding_smape" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validatePairLengths(
     actual: []const f64,
     predicted: []const f64,
