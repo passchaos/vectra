@@ -30,6 +30,8 @@ const range_mod = @import("dataframe_range.zig");
 const group_profile_mod = @import("dataframe_group_profile.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const names_mod = @import("dataframe_names.zig");
+const countNulls = validity_mod.countNulls;
+const countNullsInArray = validity_mod.countNullsInArray;
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -8149,20 +8151,6 @@ pub const DeviceDataFrame = struct {
         return DataFrame.init(self.allocator, defs);
     }
 };
-
-fn countNulls(validity_values: []const bool) usize {
-    var nulls: usize = 0;
-    for (validity_values) |valid| {
-        if (!valid) nulls += 1;
-    }
-    return nulls;
-}
-
-fn countNullsInArray(mask: array_mod.Array(bool)) array_mod.ArrayError!usize {
-    const values = try mask.toOwnedSlice(mask.allocator);
-    defer mask.allocator.free(values);
-    return countNulls(values);
-}
 
 fn argsortTypedColumn(comptime T: type, column: DeviceTypedColumn(T), allocator: std.mem.Allocator, options_value: DeviceSortOptions) DeviceDataError![]usize {
     const values = try column.values.toOwnedSlice(allocator);

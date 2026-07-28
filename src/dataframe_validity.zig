@@ -1,4 +1,5 @@
 const std = @import("std");
+const array_mod = @import("array.zig");
 
 pub const ValidityMetrics = struct {
     allocator: std.mem.Allocator,
@@ -35,6 +36,20 @@ pub const ValiditySummaryMetrics = struct {
         self.* = undefined;
     }
 };
+
+pub fn countNulls(validity_values: []const bool) usize {
+    var nulls: usize = 0;
+    for (validity_values) |valid| {
+        if (!valid) nulls += 1;
+    }
+    return nulls;
+}
+
+pub fn countNullsInArray(mask: array_mod.Array(bool)) array_mod.ArrayError!usize {
+    const values = try mask.toOwnedSlice(mask.allocator);
+    defer mask.allocator.free(values);
+    return countNulls(values);
+}
 
 fn rowValid(maybe_validity: ?[]const bool, row: usize) bool {
     return if (maybe_validity) |validity| validity[row] else true;
