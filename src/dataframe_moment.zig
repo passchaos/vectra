@@ -20,6 +20,38 @@ pub const MomentMetrics = struct {
     }
 };
 
+pub const RollingMomentProfileColumnCount = 5;
+
+pub fn rollingMomentProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingMomentProfileColumnCount][]const u8 {
+    var names: [RollingMomentProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_moment_count", "rolling_m3", "rolling_m4", "rolling_skewness", "rolling_kurtosis" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingMomentProfileColumnCount = 5;
+
+pub fn expandingMomentProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingMomentProfileColumnCount][]const u8 {
+    var names: [ExpandingMomentProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_moment_count", "expanding_m3", "expanding_m4", "expanding_skewness", "expanding_kurtosis" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 const OnlineMoment = struct {
     count: i64 = 0,
     mean: f64 = 0,
