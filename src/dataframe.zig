@@ -25,12 +25,6 @@ const crossover_mod = @import("dataframe_crossover.zig");
 const threshold_mod = @import("dataframe_threshold.zig");
 const validity_mod = @import("dataframe_validity.zig");
 const bool_profile_mod = @import("dataframe_bool_profile.zig");
-const RollingBoolProfileColumnCount = bool_profile_mod.RollingBoolProfileColumnCount;
-const rollingBoolProfileOutputNames = bool_profile_mod.rollingBoolProfileOutputNames;
-const ExpandingBoolProfileColumnCount = bool_profile_mod.ExpandingBoolProfileColumnCount;
-const expandingBoolProfileOutputNames = bool_profile_mod.expandingBoolProfileOutputNames;
-const rollingBoolProfileColumns = bool_profile_mod.rollingBoolProfileColumns;
-const expandingBoolProfileColumns = bool_profile_mod.expandingBoolProfileColumns;
 const clip_mod = @import("dataframe_clip.zig");
 const risk_mod = @import("dataframe_risk.zig");
 const RollingDrawdownProfileColumnCount = risk_mod.RollingDrawdownProfileColumnCount;
@@ -415,39 +409,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn rollingBoolProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        const source = try self.column(name);
-        if (source.dtype() != .bool) return error.TypeMismatch;
-        var bool_columns = try rollingBoolProfileColumns(self.allocator, source.bool, options_value, self.device, self.rows);
-        var bool_columns_transferred: usize = 0;
-        errdefer {
-            for (bool_columns[bool_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + bool_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var bool_names = try rollingBoolProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, bool_names[0..]);
-        for (bool_names, 0..) |bool_name, i| source_names[self.columns.len + i] = bool_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + bool_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&bool_columns) |*bool_col| {
-            columns[initialized] = bool_col.*;
-            initialized += 1;
-            bool_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return bool_profile_mod.rollingBoolProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn rollingDrawdownProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
@@ -592,39 +554,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn expandingBoolProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        const source = try self.column(name);
-        if (source.dtype() != .bool) return error.TypeMismatch;
-        var bool_columns = try expandingBoolProfileColumns(self.allocator, source.bool, options_value, self.device, self.rows);
-        var bool_columns_transferred: usize = 0;
-        errdefer {
-            for (bool_columns[bool_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + bool_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var bool_names = try expandingBoolProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, bool_names[0..]);
-        for (bool_names, 0..) |bool_name, i| source_names[self.columns.len + i] = bool_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + bool_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&bool_columns) |*bool_col| {
-            columns[initialized] = bool_col.*;
-            initialized += 1;
-            bool_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return bool_profile_mod.expandingBoolProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn expandingRankProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingRankOptions) DeviceDataError!DeviceDataFrame {
