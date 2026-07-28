@@ -1,4 +1,16 @@
 const std = @import("std");
+const array_mod = @import("array.zig");
+const dataframe_device_column_mod = @import("dataframe_device_column.zig");
+const numeric_mod = @import("dataframe_numeric.zig");
+const options_mod = @import("dataframe_options.zig");
+const validity_mod = @import("dataframe_validity.zig");
+
+const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
+const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;
+const DeviceRollingRobustOptions = options_mod.DeviceRollingRobustOptions;
+const DeviceRobustOptions = options_mod.DeviceRobustOptions;
+const castToF64 = numeric_mod.castToF64;
+const validityValues = validity_mod.validityValues;
 
 const mad_normal = 0.6744897501960817;
 
@@ -280,4 +292,183 @@ pub fn expandingRobustProfile(
     }
 
     return out;
+}
+
+pub fn rollingRobustProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceRollingRobustOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{LengthMismatch})![RollingRobustProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| rollingRobustProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| rollingRobustProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| rollingRobustProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| rollingRobustProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| rollingRobustProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| rollingRobustProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| rollingRobustProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| rollingRobustProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| rollingRobustProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| rollingRobustProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| rollingRobustProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| rollingRobustProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| rollingRobustProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+fn rollingRobustProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceRollingRobustOptions,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || error{LengthMismatch})![RollingRobustProfileColumnCount]DeviceColumn {
+    const min_periods = options_value.min_periods orelse options_value.window;
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try rollingRobustProfile(allocator, values, maybe_validity, options_value.window, min_periods, options_value.iqr_multiplier);
+    defer metrics.deinit();
+
+    var columns: [RollingRobustProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.centered, metrics.validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mad_zscore, metrics.validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.outlier, metrics.validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.winsorized, metrics.validity, device_value);
+    initialized += 1;
+    return columns;
+}
+pub fn expandingRobustProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceRobustOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{LengthMismatch})![ExpandingRobustProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| expandingRobustProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| expandingRobustProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| expandingRobustProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| expandingRobustProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| expandingRobustProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| expandingRobustProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| expandingRobustProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| expandingRobustProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| expandingRobustProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| expandingRobustProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| expandingRobustProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| expandingRobustProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| expandingRobustProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+fn expandingRobustProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceRobustOptions,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || error{LengthMismatch})![ExpandingRobustProfileColumnCount]DeviceColumn {
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try expandingRobustProfile(allocator, values, maybe_validity, options_value.min_periods, options_value.iqr_multiplier);
+    defer metrics.deinit();
+
+    var columns: [ExpandingRobustProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.centered, metrics.validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mad_zscore, metrics.validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.outlier, metrics.validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.winsorized, metrics.validity, device_value);
+    initialized += 1;
+    return columns;
+}
+pub fn robustProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceRobustOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{LengthMismatch})![RobustProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| robustProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| robustProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| robustProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| robustProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| robustProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| robustProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| robustProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| robustProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| robustProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| robustProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| robustProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| robustProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| robustProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+fn robustProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceRobustOptions,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || error{LengthMismatch})![RobustProfileColumnCount]DeviceColumn {
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try robustProfile(allocator, values, maybe_validity, options_value.min_periods, options_value.iqr_multiplier);
+    defer metrics.deinit();
+
+    var columns: [RobustProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.centered, metrics.validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mad_zscore, metrics.validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.outlier, metrics.validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.winsorized, metrics.validity, device_value);
+    initialized += 1;
+    return columns;
 }
