@@ -217,3 +217,29 @@ pub fn initDeviceDataFrameFromOwnedColumns(
     }
     return .{ .allocator = allocator, .names = names, .columns = columns, .rows = rows, .device = device_value };
 }
+
+pub fn concatDeviceDataFramesRows(
+    comptime DeviceDataFrame: type,
+    first: DeviceDataFrame,
+    second: DeviceDataFrame,
+) (std.mem.Allocator.Error || array_mod.ArrayError || error{ LengthMismatch, InvalidDevice, ColumnNotFound, TypeMismatch })!DeviceDataFrame {
+    if (!first.device.sameDevice(second.device)) return error.InvalidDevice;
+    if (first.columns.len != second.columns.len) return error.LengthMismatch;
+    for (first.names, second.names, first.columns, second.columns) |first_name, second_name, first_col, second_col| {
+        if (!std.mem.eql(u8, first_name, second_name)) return error.ColumnNotFound;
+        if (first_col.dtype() != second_col.dtype()) return error.TypeMismatch;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(first.columns));
+    var columns = try first.allocator.alloc(DeviceColumn, first.columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        first.allocator.free(columns);
+    }
+    for (first.columns, second.columns, 0..) |first_col, second_col, i| {
+        columns[i] = try concatDeviceColumns(first_col, second_col);
+        initialized += 1;
+    }
+    return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, first.allocator, first.names, columns, first.rows + second.rows, first.device);
+}

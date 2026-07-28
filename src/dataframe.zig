@@ -13642,24 +13642,7 @@ fn concatFullJoinedTablesOn(
 }
 
 fn concatDeviceDataFramesRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-    if (!first.device.sameDevice(second.device)) return error.InvalidDevice;
-    if (first.columns.len != second.columns.len) return error.LengthMismatch;
-    for (first.names, second.names, first.columns, second.columns) |first_name, second_name, first_col, second_col| {
-        if (!std.mem.eql(u8, first_name, second_name)) return error.ColumnNotFound;
-        if (first_col.dtype() != second_col.dtype()) return error.TypeMismatch;
-    }
-
-    var columns = try first.allocator.alloc(DeviceColumn, first.columns.len);
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-        first.allocator.free(columns);
-    }
-    for (first.columns, second.columns, 0..) |first_col, second_col, i| {
-        columns[i] = try concatDeviceColumns(first_col, second_col);
-        initialized += 1;
-    }
-    return initDeviceDataFrameFromOwnedColumns(first.allocator, first.names, columns, first.rows + second.rows, first.device);
+    return dataframe_array_mod.concatDeviceDataFramesRows(DeviceDataFrame, first, second);
 }
 
 fn initDeviceDataFrameFromOwnedColumns(
