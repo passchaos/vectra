@@ -29,6 +29,7 @@ const normalize_mod = @import("dataframe_normalize.zig");
 const range_mod = @import("dataframe_range.zig");
 const group_profile_mod = @import("dataframe_group_profile.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
+const names_mod = @import("dataframe_names.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -4189,24 +4190,8 @@ fn deinitLazyOps(allocator: std.mem.Allocator, ops: *std.ArrayList(DeviceLazyOp)
     ops.deinit(allocator);
 }
 
-fn cloneNameList(allocator: std.mem.Allocator, names: []const []const u8) std.mem.Allocator.Error![][]const u8 {
-    const owned = try allocator.alloc([]const u8, names.len);
-    errdefer allocator.free(owned);
-    var initialized: usize = 0;
-    errdefer {
-        for (owned[0..initialized]) |name| allocator.free(name);
-    }
-    for (names, owned) |name, *slot| {
-        slot.* = try allocator.dupe(u8, name);
-        initialized += 1;
-    }
-    return owned;
-}
-
-fn freeNameList(allocator: std.mem.Allocator, names: [][]const u8) void {
-    for (names) |name| allocator.free(name);
-    allocator.free(names);
-}
+const cloneNameList = names_mod.cloneNameList;
+const freeNameList = names_mod.freeNameList;
 
 const LazyScanPushdown = struct {
     allocator: std.mem.Allocator,
@@ -4828,30 +4813,10 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
     return out;
 }
 
-fn appendOwnedNameUnique(allocator: std.mem.Allocator, names: *std.ArrayList([]const u8), name: []const u8) std.mem.Allocator.Error!void {
-    for (names.items) |existing| {
-        if (std.mem.eql(u8, existing, name)) return;
-    }
-    const owned = try allocator.dupe(u8, name);
-    errdefer allocator.free(owned);
-    try names.append(allocator, owned);
-}
-
-fn appendBorrowedNameUnique(allocator: std.mem.Allocator, names: *std.ArrayList([]const u8), name: []const u8) std.mem.Allocator.Error!void {
-    if (nameInBorrowedList(name, names.items)) return;
-    try names.append(allocator, name);
-}
-
-fn nameInBorrowedList(name: []const u8, names: []const []const u8) bool {
-    for (names) |existing| {
-        if (std.mem.eql(u8, existing, name)) return true;
-    }
-    return false;
-}
-
-fn freeOwnedNameItems(allocator: std.mem.Allocator, names: []const []const u8) void {
-    for (names) |name| allocator.free(name);
-}
+const appendOwnedNameUnique = names_mod.appendOwnedNameUnique;
+const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
+const nameInBorrowedList = names_mod.nameInBorrowedList;
+const freeOwnedNameItems = names_mod.freeOwnedNameItems;
 
 fn parquetRangePredicateFromScalar(scalar: DeviceScalar, op: DeviceColumnCompareOp) ?ParquetRangePredicate {
     return switch (scalar) {
@@ -4892,19 +4857,7 @@ fn rangeFromScalarPredicate(comptime T: type, value: T, op: DeviceColumnCompareO
     };
 }
 
-fn allNamesIn(names: []const []const u8, allowed: []const []const u8) bool {
-    for (names) |name| {
-        var found = false;
-        for (allowed) |candidate| {
-            if (std.mem.eql(u8, name, candidate)) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) return false;
-    }
-    return true;
-}
+const allNamesIn = names_mod.allNamesIn;
 
 fn formatLazyScanPushdown(writer: *std.Io.Writer, pushdown: LazyScanPushdown) std.Io.Writer.Error!void {
     var printed = false;
