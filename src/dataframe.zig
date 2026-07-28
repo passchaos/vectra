@@ -76,6 +76,12 @@ const rollingRobustProfileOutputNames = robust_mod.rollingRobustProfileOutputNam
 const ExpandingRobustProfileColumnCount = robust_mod.ExpandingRobustProfileColumnCount;
 const expandingRobustProfileOutputNames = robust_mod.expandingRobustProfileOutputNames;
 const trend_mod = @import("dataframe_trend.zig");
+const TrendProfileColumnCount = trend_mod.TrendProfileColumnCount;
+const trendProfileOutputNames = trend_mod.trendProfileOutputNames;
+const RollingTrendProfileColumnCount = trend_mod.RollingTrendProfileColumnCount;
+const rollingTrendProfileOutputNames = trend_mod.rollingTrendProfileOutputNames;
+const ExpandingTrendProfileColumnCount = trend_mod.ExpandingTrendProfileColumnCount;
+const expandingTrendProfileOutputNames = trend_mod.expandingTrendProfileOutputNames;
 const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
 const SignProfileColumnCount = sign_mod.SignProfileColumnCount;
@@ -10179,22 +10185,6 @@ fn extremaProfileColumnsTyped(
     return columns;
 }
 
-const TrendProfileColumnCount = 5;
-
-fn trendProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![TrendProfileColumnCount][]const u8 {
-    var names: [TrendProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "trend", "up_streak", "down_streak", "flat_streak", "reversal" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn trendProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -10256,22 +10246,6 @@ fn trendProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.reversal, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingTrendProfileColumnCount = 5;
-
-fn rollingTrendProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingTrendProfileColumnCount][]const u8 {
-    var names: [RollingTrendProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_trend_count", "rolling_up_rate", "rolling_down_rate", "rolling_flat_rate", "rolling_reversal_rate" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingTrendProfileColumnsByValue(
@@ -10338,22 +10312,6 @@ fn rollingTrendProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.reversal_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingTrendProfileColumnCount = 5;
-
-fn expandingTrendProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingTrendProfileColumnCount][]const u8 {
-    var names: [ExpandingTrendProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_trend_count", "expanding_up_rate", "expanding_down_rate", "expanding_flat_rate", "expanding_reversal_rate" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingTrendProfileColumnsByValue(
