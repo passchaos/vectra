@@ -5,6 +5,7 @@ const dataframe_array_mod = @import("dataframe_array.zig");
 const dataframe_arrow_mod = @import("dataframe_arrow.zig");
 const dataframe_column_mod = @import("dataframe_column.zig");
 const dataframe_host_mod = @import("dataframe_host.zig");
+const expr_mod = @import("dataframe_expr.zig");
 const options_mod = @import("dataframe_options.zig");
 const dataframe_view_mod = @import("dataframe_view.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
@@ -427,9 +428,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn binaryColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
-        const lhs = try self.column(lhs_name);
-        const rhs = try self.column(rhs_name);
-        return lhs.binary(rhs.*, op);
+        return expr_mod.binaryColumns(self, lhs_name, rhs_name, op);
     }
 
     pub fn addColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!DeviceColumn {
@@ -449,86 +448,27 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn binaryColumnScalar(self: DeviceDataFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
-        const col = try self.column(name);
-        return col.binaryScalar(T, scalar, op);
+        return expr_mod.binaryColumnScalar(self, name, T, scalar, op);
     }
 
     pub fn binaryColumnScalarWithDeviceScalar(self: DeviceDataFrame, name: []const u8, scalar: DeviceScalar, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
-        const col = try self.column(name);
-        return switch (scalar) {
-            .i8 => |value| col.binaryScalar(i8, value, op),
-            .i16 => |value| col.binaryScalar(i16, value, op),
-            .i32 => |value| col.binaryScalar(i32, value, op),
-            .i64 => |value| col.binaryScalar(i64, value, op),
-            .u8 => |value| col.binaryScalar(u8, value, op),
-            .u16 => |value| col.binaryScalar(u16, value, op),
-            .u32 => |value| col.binaryScalar(u32, value, op),
-            .u64 => |value| col.binaryScalar(u64, value, op),
-            .usize => |value| col.binaryScalar(usize, value, op),
-            .isize => |value| col.binaryScalar(isize, value, op),
-            .f16 => |value| col.binaryScalar(f16, value, op),
-            .f32 => |value| col.binaryScalar(f32, value, op),
-            .f64 => |value| col.binaryScalar(f64, value, op),
-            .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
-        };
+        return expr_mod.binaryColumnScalarWithDeviceScalar(self, name, scalar, op);
     }
 
     pub fn compareColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
-        const lhs = try self.column(lhs_name);
-        const rhs = try self.column(rhs_name);
-        return lhs.compare(rhs.*, op);
+        return expr_mod.compareColumns(self, lhs_name, rhs_name, op);
     }
 
     pub fn compareColumnScalar(self: DeviceDataFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
-        const col = try self.column(name);
-        return col.compareScalar(T, scalar, op);
+        return expr_mod.compareColumnScalar(self, name, T, scalar, op);
     }
 
     pub fn compareColumnScalarWithDeviceScalar(self: DeviceDataFrame, name: []const u8, scalar: DeviceScalar, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
-        const col = try self.column(name);
-        return switch (scalar) {
-            .bool => |value| col.compareScalar(bool, value, op),
-            .i8 => |value| col.compareScalar(i8, value, op),
-            .i16 => |value| col.compareScalar(i16, value, op),
-            .i32 => |value| col.compareScalar(i32, value, op),
-            .i64 => |value| col.compareScalar(i64, value, op),
-            .u8 => |value| col.compareScalar(u8, value, op),
-            .u16 => |value| col.compareScalar(u16, value, op),
-            .u32 => |value| col.compareScalar(u32, value, op),
-            .u64 => |value| col.compareScalar(u64, value, op),
-            .usize => |value| col.compareScalar(usize, value, op),
-            .isize => |value| col.compareScalar(isize, value, op),
-            .f16 => |value| col.compareScalar(f16, value, op),
-            .f32 => |value| col.compareScalar(f32, value, op),
-            .f64 => |value| col.compareScalar(f64, value, op),
-            .bf16, .c64, .c128 => error.TypeUnsupported,
-        };
+        return expr_mod.compareColumnScalarWithDeviceScalar(self, name, scalar, op);
     }
 
     pub fn filterColumnMask(self: DeviceDataFrame, mask: DeviceColumn) DeviceDataError!DeviceDataFrame {
-        const typed_mask = switch (mask) {
-            .bool => |typed| typed,
-            else => return error.TypeMismatch,
-        };
-        if (!typed_mask.device().sameDevice(self.device)) return error.InvalidDevice;
-        if (typed_mask.len() != self.rows) return error.LengthMismatch;
-        const host_values = try typed_mask.values.toOwnedSlice(self.allocator);
-        defer self.allocator.free(host_values);
-        if (typed_mask.validity) |validity_array| {
-            const host_validity = try validity_array.toOwnedSlice(self.allocator);
-            defer self.allocator.free(host_validity);
-            const host_mask = try self.allocator.alloc(bool, self.rows);
-            defer self.allocator.free(host_mask);
-            for (host_values, host_validity, host_mask) |value, valid, *slot| {
-                // Match dataframe query semantics used by Polars/Arrow engines:
-                // a null predicate does not select the row.  Keeping the mask
-                // resolution here makes scalar-filter and Parquet statistics
-                // pushdown conservative even when predicate columns are nullable.
-                slot.* = valid and value;
-            }
-            return self.filter(host_mask);
-        }
-        return self.filter(host_values);
+        return expr_mod.filterColumnMask(DeviceDataFrame, self, mask);
     }
 
     pub fn toArrowSchema(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
