@@ -48,6 +48,40 @@ pub fn suffixedNameTemp(allocator: std.mem.Allocator, name: []const u8, suffix: 
     return buffer.toOwnedSlice(allocator);
 }
 
+pub fn rightExcludedKeyCount(right: anytype, names: []const []const u8) usize {
+    var count: usize = 0;
+    for (right.names) |name| {
+        if (nameInBorrowedList(name, names)) count += 1;
+    }
+    return count;
+}
+
+pub fn leftKeyRightIndex(
+    left: anytype,
+    right: anytype,
+    left_key_names: []const []const u8,
+    right_key_names: []const []const u8,
+    left_index: usize,
+) ?usize {
+    for (left_key_names, right_key_names) |left_name, right_name| {
+        const candidate = left.columnIndex(left_name) orelse continue;
+        if (candidate == left_index) return right.columnIndex(right_name);
+    }
+    return null;
+}
+
+pub fn rightKeyIndexInList(right: anytype, right_key_names: []const []const u8, right_index: usize) bool {
+    for (right_key_names) |right_name| {
+        const candidate = right.columnIndex(right_name) orelse continue;
+        if (candidate == right_index) return true;
+    }
+    return false;
+}
+
+pub fn nameNeedsSuffix(left: anytype, name: []const u8) bool {
+    return left.columnIndex(name) != null;
+}
+
 pub fn freeOwnedNameItems(allocator: std.mem.Allocator, names: []const []const u8) void {
     for (names) |name| allocator.free(name);
 }

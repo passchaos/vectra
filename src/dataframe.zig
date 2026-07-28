@@ -4946,6 +4946,10 @@ const appendOwnedNameUnique = names_mod.appendOwnedNameUnique;
 const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
 const nameInBorrowedList = names_mod.nameInBorrowedList;
 const suffixedNameTemp = names_mod.suffixedNameTemp;
+const rightExcludedKeyCount = names_mod.rightExcludedKeyCount;
+const leftKeyRightIndex = names_mod.leftKeyRightIndex;
+const rightKeyIndexInList = names_mod.rightKeyIndexInList;
+const nameNeedsSuffix = names_mod.nameNeedsSuffix;
 const freeOwnedNameItems = names_mod.freeOwnedNameItems;
 const statsOutputNames = names_mod.statsOutputNames;
 const freeStatsOutputNames = names_mod.freeStatsOutputNames;
@@ -13702,14 +13706,6 @@ fn concatJoinedTablesExcludingKeys(
     return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, left.rows, left.device);
 }
 
-fn rightExcludedKeyCount(right: DeviceDataFrame, names: []const []const u8) usize {
-    var count: usize = 0;
-    for (right.names) |name| {
-        if (nameInBorrowedList(name, names)) count += 1;
-    }
-    return count;
-}
-
 fn concatFullJoinedTables(
     allocator: std.mem.Allocator,
     left: DeviceDataFrame,
@@ -13779,28 +13775,6 @@ fn concatFullJoinedTablesOn(
     return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, left.rows, left.device);
 }
 
-fn leftKeyRightIndex(
-    left: DeviceDataFrame,
-    right: DeviceDataFrame,
-    left_key_names: []const []const u8,
-    right_key_names: []const []const u8,
-    left_index: usize,
-) ?usize {
-    for (left_key_names, right_key_names) |left_name, right_name| {
-        const candidate = left.columnIndex(left_name) orelse continue;
-        if (candidate == left_index) return right.columnIndex(right_name);
-    }
-    return null;
-}
-
-fn rightKeyIndexInList(right: DeviceDataFrame, right_key_names: []const []const u8, right_index: usize) bool {
-    for (right_key_names) |right_name| {
-        const candidate = right.columnIndex(right_name) orelse continue;
-        if (candidate == right_index) return true;
-    }
-    return false;
-}
-
 fn coalesceJoinKeys(left: DeviceColumn, right: DeviceColumn) DeviceDataError!DeviceColumn {
     if (left.dtype() != right.dtype()) return error.TypeMismatch;
     return switch (left) {
@@ -13857,10 +13831,6 @@ fn coalesceTypedJoinKeys(comptime T: type, left: DeviceTypedColumn(T), right: De
     }
     if (countNulls(validity) == 0) return DeviceTypedColumn(T).fromSlice(allocator, values, left.device());
     return DeviceTypedColumn(T).fromSliceWithValidity(allocator, values, validity, left.device());
-}
-
-fn nameNeedsSuffix(left: DeviceDataFrame, name: []const u8) bool {
-    return left.columnIndex(name) != null;
 }
 
 fn deviceDTypeToArrowDataType(dtype: DeviceDType) ArrowInteropError!boltha.arrow.DataType {
