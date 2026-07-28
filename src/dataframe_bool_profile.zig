@@ -1,4 +1,14 @@
 const std = @import("std");
+const array_mod = @import("array.zig");
+const dataframe_device_column_mod = @import("dataframe_device_column.zig");
+const options_mod = @import("dataframe_options.zig");
+const validity_mod = @import("dataframe_validity.zig");
+
+const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
+const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;
+const DeviceRollingOptions = options_mod.DeviceRollingOptions;
+const DeviceExpandingOptions = options_mod.DeviceExpandingOptions;
+const validityValues = validity_mod.validityValues;
 
 pub const BoolProfileMetrics = struct {
     allocator: std.mem.Allocator,
@@ -176,4 +186,74 @@ pub fn expandingBoolProfile(
     }
 
     return out;
+}
+
+pub fn rollingBoolProfileColumns(
+    allocator: std.mem.Allocator,
+    source: DeviceTypedColumn(bool),
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{LengthMismatch})![RollingBoolProfileColumnCount]DeviceColumn {
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (source.len() != rows) return error.LengthMismatch;
+
+    const values = try source.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(source, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    var metrics = try rollingBoolProfile(allocator, values, maybe_validity, options_value.window, min_periods);
+    defer metrics.deinit();
+
+    var columns: [RollingBoolProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.true_counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.false_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.true_rates, metrics.validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.any_values, metrics.validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.all_values, metrics.validity, device_value);
+    initialized += 1;
+    return columns;
+}
+pub fn expandingBoolProfileColumns(
+    allocator: std.mem.Allocator,
+    source: DeviceTypedColumn(bool),
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{LengthMismatch})![ExpandingBoolProfileColumnCount]DeviceColumn {
+    if (source.len() != rows) return error.LengthMismatch;
+
+    const values = try source.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(source, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    var metrics = try expandingBoolProfile(allocator, values, maybe_validity, options_value.min_periods);
+    defer metrics.deinit();
+
+    var columns: [ExpandingBoolProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.true_counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.false_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.true_rates, metrics.validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.any_values, metrics.validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.all_values, metrics.validity, device_value);
+    initialized += 1;
+    return columns;
 }

@@ -66,6 +66,8 @@ const RollingBoolProfileColumnCount = bool_profile_mod.RollingBoolProfileColumnC
 const rollingBoolProfileOutputNames = bool_profile_mod.rollingBoolProfileOutputNames;
 const ExpandingBoolProfileColumnCount = bool_profile_mod.ExpandingBoolProfileColumnCount;
 const expandingBoolProfileOutputNames = bool_profile_mod.expandingBoolProfileOutputNames;
+const rollingBoolProfileColumns = bool_profile_mod.rollingBoolProfileColumns;
+const expandingBoolProfileColumns = bool_profile_mod.expandingBoolProfileColumns;
 const clip_mod = @import("dataframe_clip.zig");
 const ClipProfileColumnCount = clip_mod.ClipProfileColumnCount;
 const clipProfileOutputNames = clip_mod.clipProfileOutputNames;
@@ -7074,42 +7076,6 @@ fn expandingQuantileProfileColumnsTyped(
     return columns;
 }
 
-fn rollingBoolProfileColumns(
-    allocator: std.mem.Allocator,
-    source: DeviceTypedColumn(bool),
-    options_value: DeviceRollingOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![RollingBoolProfileColumnCount]DeviceColumn {
-    const min_periods = options_value.min_periods orelse options_value.window;
-    if (source.len() != rows) return error.LengthMismatch;
-
-    const values = try source.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
-    const maybe_validity = try validityValues(source, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    var metrics = try bool_profile_mod.rollingBoolProfile(allocator, values, maybe_validity, options_value.window, min_periods);
-    defer metrics.deinit();
-
-    var columns: [RollingBoolProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.true_counts, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.false_counts, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.true_rates, metrics.validity, device_value);
-    initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.any_values, metrics.validity, device_value);
-    initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.all_values, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
-
 fn rollingDrawdownProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -7812,41 +7778,6 @@ fn expandingProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.mins, metrics.validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.maxes, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
-
-fn expandingBoolProfileColumns(
-    allocator: std.mem.Allocator,
-    source: DeviceTypedColumn(bool),
-    options_value: DeviceExpandingOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![ExpandingBoolProfileColumnCount]DeviceColumn {
-    if (source.len() != rows) return error.LengthMismatch;
-
-    const values = try source.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
-    const maybe_validity = try validityValues(source, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    var metrics = try bool_profile_mod.expandingBoolProfile(allocator, values, maybe_validity, options_value.min_periods);
-    defer metrics.deinit();
-
-    var columns: [ExpandingBoolProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.true_counts, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.false_counts, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.true_rates, metrics.validity, device_value);
-    initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.any_values, metrics.validity, device_value);
-    initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.all_values, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
