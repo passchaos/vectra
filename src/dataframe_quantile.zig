@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -316,4 +318,89 @@ fn expandingQuantileProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.iqrs, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const QuantileFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendQuantileColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    quantile_columns: anytype,
+) QuantileFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + quantile_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&quantile_columns) |*quantile_col| {
+        columns[initialized] = quantile_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn quantileFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    quantile_columns_value: anytype,
+    comptime namesFn: anytype,
+) QuantileFrameError!DeviceDataFrame {
+    var quantile_columns = quantile_columns_value;
+    var quantile_columns_transferred: usize = 0;
+    errdefer {
+        for (quantile_columns[quantile_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + quantile_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var quantile_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, quantile_names[0..]);
+    for (quantile_names, 0..) |quantile_name, i| source_names[frame.columns.len + i] = quantile_name;
+
+    const out = try appendQuantileColumns(DeviceDataFrame, frame, source_names, quantile_columns);
+    quantile_columns_transferred = quantile_columns.len;
+    return out;
+}
+
+pub fn rollingQuantileProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRollingOptions,
+) QuantileFrameError!DeviceDataFrame {
+    const rolling_value = try frame.column(name);
+    const rolling_columns = try rollingQuantileProfileColumnsByValue(frame.allocator, rolling_value.*, options_value, frame.device, frame.rows);
+    return quantileFrameFromColumns(DeviceDataFrame, frame, output_prefix, rolling_columns, rollingQuantileProfileOutputNames);
+}
+
+pub fn expandingQuantileProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceExpandingOptions,
+) QuantileFrameError!DeviceDataFrame {
+    const expanding_value = try frame.column(name);
+    const expanding_columns = try expandingQuantileProfileColumnsByValue(frame.allocator, expanding_value.*, options_value, frame.device, frame.rows);
+    return quantileFrameFromColumns(DeviceDataFrame, frame, output_prefix, expanding_columns, expandingQuantileProfileOutputNames);
 }

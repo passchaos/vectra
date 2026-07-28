@@ -50,12 +50,6 @@ const sign_mod = @import("dataframe_sign.zig");
 const shift_mod = @import("dataframe_shift.zig");
 const ema_mod = @import("dataframe_ema.zig");
 const quantile_mod = @import("dataframe_quantile.zig");
-const RollingQuantileProfileColumnCount = quantile_mod.RollingQuantileProfileColumnCount;
-const rollingQuantileProfileOutputNames = quantile_mod.rollingQuantileProfileOutputNames;
-const ExpandingQuantileProfileColumnCount = quantile_mod.ExpandingQuantileProfileColumnCount;
-const expandingQuantileProfileOutputNames = quantile_mod.expandingQuantileProfileOutputNames;
-const rollingQuantileProfileColumnsByValue = quantile_mod.rollingQuantileProfileColumnsByValue;
-const expandingQuantileProfileColumnsByValue = quantile_mod.expandingQuantileProfileColumnsByValue;
 const bucket_mod = @import("dataframe_bucket.zig");
 const rank_mod = @import("dataframe_rank.zig");
 const RollingRankProfileColumnCount = rank_mod.RollingRankProfileColumnCount;
@@ -413,73 +407,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn rollingQuantileProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        const rolling_value = try self.column(name);
-        var rolling_columns = try rollingQuantileProfileColumnsByValue(self.allocator, rolling_value.*, options_value, self.device, self.rows);
-        var rolling_columns_transferred: usize = 0;
-        errdefer {
-            for (rolling_columns[rolling_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + rolling_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var rolling_names = try rollingQuantileProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, rolling_names[0..]);
-        for (rolling_names, 0..) |rolling_name, i| source_names[self.columns.len + i] = rolling_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + rolling_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&rolling_columns) |*rolling_col| {
-            columns[initialized] = rolling_col.*;
-            initialized += 1;
-            rolling_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return quantile_mod.rollingQuantileProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn expandingQuantileProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        const expanding_value = try self.column(name);
-        var expanding_columns = try expandingQuantileProfileColumnsByValue(self.allocator, expanding_value.*, options_value, self.device, self.rows);
-        var expanding_columns_transferred: usize = 0;
-        errdefer {
-            for (expanding_columns[expanding_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + expanding_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var expanding_names = try expandingQuantileProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, expanding_names[0..]);
-        for (expanding_names, 0..) |expanding_name, i| source_names[self.columns.len + i] = expanding_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + expanding_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&expanding_columns) |*expanding_col| {
-            columns[initialized] = expanding_col.*;
-            initialized += 1;
-            expanding_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return quantile_mod.expandingQuantileProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn rollingBoolProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
