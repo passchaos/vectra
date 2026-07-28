@@ -3,6 +3,7 @@ const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 const dataframe_arrow_mod = @import("dataframe_arrow.zig");
+const dataframe_column_mod = @import("dataframe_column.zig");
 const keys_mod = @import("dataframe_keys.zig");
 const join_mod = @import("dataframe_join.zig");
 const lazy_mod = @import("dataframe_lazy.zig");
@@ -150,6 +151,11 @@ const rollingRangeProfileOutputNames = range_mod.rollingRangeProfileOutputNames;
 const group_profile_mod = @import("dataframe_group_profile.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const names_mod = @import("dataframe_names.zig");
+const cloneColumn = dataframe_column_mod.cloneColumn;
+const freeColumn = dataframe_column_mod.freeColumn;
+const filterColumn = dataframe_column_mod.filterColumn;
+const sliceColumn = dataframe_column_mod.sliceColumn;
+const takeColumn = dataframe_column_mod.takeColumn;
 const countNulls = validity_mod.countNulls;
 const countNullsInArray = validity_mod.countNullsInArray;
 const validityValues = validity_mod.validityValues;
@@ -13337,130 +13343,6 @@ pub const DataFrame = struct {
         if (self.rows > limit) try writer.print("...\n", .{});
     }
 };
-
-fn cloneColumn(allocator: std.mem.Allocator, col: Column) DataError!Column {
-    return switch (col) {
-        .f64 => |v| .{ .f64 = try allocator.dupe(f64, v) },
-        .i64 => |v| .{ .i64 = try allocator.dupe(i64, v) },
-        .bool => |v| .{ .bool = try allocator.dupe(bool, v) },
-        .string => |v| blk: {
-            var out = try allocator.alloc([]const u8, v.len);
-            errdefer allocator.free(out);
-            var initialized: usize = 0;
-            errdefer {
-                for (out[0..initialized]) |s| allocator.free(s);
-            }
-            for (v, 0..) |s, i| {
-                out[i] = try allocator.dupe(u8, s);
-                initialized += 1;
-            }
-            break :blk .{ .string = out };
-        },
-    };
-}
-
-fn freeColumn(allocator: std.mem.Allocator, col: Column) void {
-    switch (col) {
-        .f64 => |v| allocator.free(v),
-        .i64 => |v| allocator.free(v),
-        .bool => |v| allocator.free(v),
-        .string => |v| {
-            for (v) |s| allocator.free(s);
-            allocator.free(v);
-        },
-    }
-}
-
-fn filterColumn(allocator: std.mem.Allocator, col: Column, mask: []const bool) DataError!Column {
-    var count: usize = 0;
-    for (mask) |keep| {
-        if (keep) count += 1;
-    }
-    return switch (col) {
-        .f64 => |v| blk: {
-            var out = try allocator.alloc(f64, count);
-            var w: usize = 0;
-            for (v, mask) |x, keep| if (keep) {
-                out[w] = x;
-                w += 1;
-            };
-            break :blk .{ .f64 = out };
-        },
-        .i64 => |v| blk: {
-            var out = try allocator.alloc(i64, count);
-            var w: usize = 0;
-            for (v, mask) |x, keep| if (keep) {
-                out[w] = x;
-                w += 1;
-            };
-            break :blk .{ .i64 = out };
-        },
-        .bool => |v| blk: {
-            var out = try allocator.alloc(bool, count);
-            var w: usize = 0;
-            for (v, mask) |x, keep| if (keep) {
-                out[w] = x;
-                w += 1;
-            };
-            break :blk .{ .bool = out };
-        },
-        .string => |v| blk: {
-            var out = try allocator.alloc([]const u8, count);
-            errdefer allocator.free(out);
-            var w: usize = 0;
-            errdefer {
-                for (out[0..w]) |s| allocator.free(s);
-            }
-            for (v, mask) |x, keep| if (keep) {
-                out[w] = try allocator.dupe(u8, x);
-                w += 1;
-            };
-            break :blk .{ .string = out };
-        },
-    };
-}
-
-fn sliceColumn(col: Column, start: usize, stop: usize) Column {
-    return switch (col) {
-        .f64 => |v| .{ .f64 = v[start..stop] },
-        .i64 => |v| .{ .i64 = v[start..stop] },
-        .bool => |v| .{ .bool = v[start..stop] },
-        .string => |v| .{ .string = v[start..stop] },
-    };
-}
-
-fn takeColumn(allocator: std.mem.Allocator, col: Column, indices: []const usize) DataError!Column {
-    return switch (col) {
-        .f64 => |v| blk: {
-            const out = try allocator.alloc(f64, indices.len);
-            for (indices, out) |idx, *slot| slot.* = v[idx];
-            break :blk .{ .f64 = out };
-        },
-        .i64 => |v| blk: {
-            const out = try allocator.alloc(i64, indices.len);
-            for (indices, out) |idx, *slot| slot.* = v[idx];
-            break :blk .{ .i64 = out };
-        },
-        .bool => |v| blk: {
-            const out = try allocator.alloc(bool, indices.len);
-            for (indices, out) |idx, *slot| slot.* = v[idx];
-            break :blk .{ .bool = out };
-        },
-        .string => |v| blk: {
-            var out = try allocator.alloc([]const u8, indices.len);
-            errdefer allocator.free(out);
-            var initialized: usize = 0;
-            errdefer {
-                for (out[0..initialized]) |s| allocator.free(s);
-            }
-            for (indices, out) |idx, *slot| {
-                slot.* = try allocator.dupe(u8, v[idx]);
-                initialized += 1;
-            }
-            break :blk .{ .string = out };
-        },
-    };
-}
 
 pub fn dataframe(allocator: std.mem.Allocator, defs: []const ColumnDef) DataError!DataFrame {
     return DataFrame.init(allocator, defs);
