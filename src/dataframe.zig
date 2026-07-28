@@ -1107,6 +1107,11 @@ pub const DeviceLazyOp = union(enum) {
         predicted_name: []const u8,
         output_prefix: []const u8,
     },
+    bool_transition_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceTrendOptions,
+    },
     rolling_correlation_profile: struct {
         x_name: []const u8,
         y_name: []const u8,
@@ -1282,6 +1287,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(class.actual_name);
                 allocator.free(class.predicted_name);
                 allocator.free(class.output_prefix);
+            },
+            .bool_transition_profile => |transition| {
+                allocator.free(transition.name);
+                allocator.free(transition.output_prefix);
             },
             .rolling_correlation_profile => |corr| {
                 allocator.free(corr.x_name);
@@ -1744,6 +1753,17 @@ pub const DeviceLazyOp = union(enum) {
                     .actual_name = actual_name,
                     .predicted_name = predicted_name,
                     .output_prefix = output_prefix,
+                } };
+            },
+            .bool_transition_profile => |transition| blk: {
+                const name = try allocator.dupe(u8, transition.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, transition.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .bool_transition_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = transition.options,
                 } };
             },
             .rolling_correlation_profile => |corr| blk: {
@@ -2451,6 +2471,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn boolTransitionProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .bool_transition_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn rollingCorrelationProfile(
         self: *DeviceLazyFrame,
         x_name: []const u8,
@@ -2571,6 +2603,7 @@ pub const DeviceLazyFrame = struct {
                 .linear_fit_profile => |fit| try current.linearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
                 .error_profile => |err| try current.errorProfile(err.actual_name, err.predicted_name, err.output_prefix),
                 .classification_profile => |class| try current.classificationProfile(class.actual_name, class.predicted_name, class.output_prefix),
+                .bool_transition_profile => |transition| try current.boolTransitionProfile(transition.name, transition.output_prefix, transition.options),
                 .rolling_correlation_profile => |corr| try current.rollingCorrelationProfile(corr.x_name, corr.y_name, corr.output_prefix, corr.options),
                 .validity_profile => |validity| try current.validityProfile(validity.name, validity.output_prefix),
                 .head => |n| try current.head(n),
@@ -3129,6 +3162,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(class.predicted_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, class.predicted_name);
                 break :op_loop;
             },
+            .bool_transition_profile => |transition| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(transition.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, transition.name);
+                break :op_loop;
+            },
             .rolling_correlation_profile => |corr| {
                 // Rolling correlation profiles depend on two source columns and
                 // append several window diagnostics. Keep predicate pruning but
@@ -3349,6 +3387,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .linear_fit_profile => |fit| try writer.print("linear_fit_profile({s}->{s}, prefix={s})", .{ fit.x_name, fit.y_name, fit.output_prefix }),
         .error_profile => |err| try writer.print("error_profile(actual={s}, predicted={s}, prefix={s})", .{ err.actual_name, err.predicted_name, err.output_prefix }),
         .classification_profile => |class| try writer.print("classification_profile(actual={s}, predicted={s}, prefix={s})", .{ class.actual_name, class.predicted_name, class.output_prefix }),
+        .bool_transition_profile => |transition| try writer.print("bool_transition_profile({s}, prefix={s}, periods={d})", .{ transition.name, transition.output_prefix, transition.options.periods }),
         .rolling_correlation_profile => |corr| try writer.print("rolling_correlation_profile({s},{s}, prefix={s}, window={d})", .{ corr.x_name, corr.y_name, corr.output_prefix, corr.options.window }),
         .validity_profile => |validity| try writer.print("validity_profile({s}, prefix={s})", .{ validity.name, validity.output_prefix }),
         .head => |n| try writer.print("head({d})", .{n}),
@@ -4709,6 +4748,42 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = class_col.*;
             initialized += 1;
             class_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn boolTransitionProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
+        const source = try self.column(name);
+        if (source.dtype() != .bool) return error.TypeMismatch;
+        var transition_columns = try boolTransitionProfileColumns(self.allocator, source.bool, options_value, self.device, self.rows);
+        var transition_columns_transferred: usize = 0;
+        errdefer {
+            for (transition_columns[transition_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + transition_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var transition_names = try boolTransitionProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, transition_names[0..]);
+        for (transition_names, 0..) |transition_name, i| source_names[self.columns.len + i] = transition_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + transition_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&transition_columns) |*transition_col| {
+            columns[initialized] = transition_col.*;
+            initialized += 1;
+            transition_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -7990,6 +8065,114 @@ fn classificationProfileColumns(
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, fn_values, metric_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, correct, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const BoolTransitionProfileColumnCount = 5;
+
+fn boolTransitionProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![BoolTransitionProfileColumnCount][]const u8 {
+    var names: [BoolTransitionProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rising", "falling", "toggled", "true_streak", "false_streak" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn boolTransitionProfileColumns(
+    allocator: std.mem.Allocator,
+    source: DeviceTypedColumn(bool),
+    options_value: DeviceTrendOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![BoolTransitionProfileColumnCount]DeviceColumn {
+    if (options_value.periods == 0) return error.InvalidShape;
+    if (source.len() != rows) return error.LengthMismatch;
+
+    const values = try source.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(source, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rising = try allocator.alloc(bool, rows);
+    defer allocator.free(rising);
+    const falling = try allocator.alloc(bool, rows);
+    defer allocator.free(falling);
+    const toggled = try allocator.alloc(bool, rows);
+    defer allocator.free(toggled);
+    const true_streak = try allocator.alloc(i64, rows);
+    defer allocator.free(true_streak);
+    const false_streak = try allocator.alloc(i64, rows);
+    defer allocator.free(false_streak);
+    const transition_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(transition_validity);
+    const streak_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(streak_validity);
+
+    var current_true_streak: i64 = 0;
+    var current_false_streak: i64 = 0;
+    for (values, 0..) |value, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        streak_validity[row] = valid;
+        if (valid) {
+            if (value) {
+                current_true_streak += 1;
+                current_false_streak = 0;
+            } else {
+                current_false_streak += 1;
+                current_true_streak = 0;
+            }
+            true_streak[row] = current_true_streak;
+            false_streak[row] = current_false_streak;
+        } else {
+            current_true_streak = 0;
+            current_false_streak = 0;
+            true_streak[row] = 0;
+            false_streak[row] = 0;
+        }
+
+        if (row < options_value.periods) {
+            rising[row] = false;
+            falling[row] = false;
+            toggled[row] = false;
+            transition_validity[row] = false;
+            continue;
+        }
+        const previous_row = row - options_value.periods;
+        const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
+        const can_transition = valid and previous_valid;
+        transition_validity[row] = can_transition;
+        if (can_transition) {
+            rising[row] = !values[previous_row] and value;
+            falling[row] = values[previous_row] and !value;
+            toggled[row] = values[previous_row] != value;
+        } else {
+            rising[row] = false;
+            falling[row] = false;
+            toggled[row] = false;
+        }
+    }
+
+    var columns: [BoolTransitionProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(bool, allocator, rising, transition_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, falling, transition_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, toggled, transition_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, true_streak, streak_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(i64, allocator, false_streak, streak_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11902,6 +12085,28 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, fn_values);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true }, correct);
 
+    var transitions = try label_table.boolTransitionProfile("actual", "actual", .{ .periods = 1 });
+    defer transitions.deinit();
+    try std.testing.expectEqual(@as(usize, 7), transitions.width());
+    const rising = try (try transitions.column("actual_rising")).bool.toOwnedSlice(gpa);
+    defer gpa.free(rising);
+    const falling = try (try transitions.column("actual_falling")).bool.toOwnedSlice(gpa);
+    defer gpa.free(falling);
+    const toggled = try (try transitions.column("actual_toggled")).bool.toOwnedSlice(gpa);
+    defer gpa.free(toggled);
+    const true_streak = try (try transitions.column("actual_true_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(true_streak);
+    const false_streak = try (try transitions.column("actual_false_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(false_streak);
+    const transition_validity = try (try transitions.column("actual_toggled")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(transition_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false, false }, transition_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, rising);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, falling);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false, false }, toggled);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1, 0, 1 }, true_streak);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 0 }, false_streak);
+
     var fast = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 3.0, 2.0, 5.0, 4.0, 6.0 }, &.{ true, true, true, true, false, true }, .cpu);
     defer fast.deinit();
     var slow = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 2.0, 2.0, 4.0, 5.0, 0.0 }, .cpu);
@@ -13376,6 +13581,33 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, lazy_tn);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, lazy_fn);
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_correct);
+
+    var transition_plan = try DeviceLazyFrame.init(gpa, table);
+    defer transition_plan.deinit();
+    try transition_plan.boolTransitionProfile("active", "active", .{ .periods = 1 });
+    try transition_plan.select(&.{ "active", "active_rising", "active_falling", "active_toggled", "active_true_streak", "active_false_streak" });
+    const transition_explain = try transition_plan.explain(gpa);
+    defer gpa.free(transition_explain);
+    try std.testing.expect(std.mem.indexOf(u8, transition_explain, "bool_transition_profile(active") != null);
+    var lazy_transition = try transition_plan.collect();
+    defer lazy_transition.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_transition.height());
+    try std.testing.expectEqual(@as(usize, 6), lazy_transition.width());
+    const lazy_rising = try (try lazy_transition.column("active_rising")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rising);
+    const lazy_falling = try (try lazy_transition.column("active_falling")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_falling);
+    const lazy_toggled = try (try lazy_transition.column("active_toggled")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_toggled);
+    const lazy_true_streak = try (try lazy_transition.column("active_true_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_true_streak);
+    const lazy_false_streak = try (try lazy_transition.column("active_false_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_false_streak);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, lazy_rising);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, lazy_falling);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, lazy_toggled);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1, 2 }, lazy_true_streak);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, lazy_false_streak);
 
     var crossover_plan = try DeviceLazyFrame.init(gpa, table);
     defer crossover_plan.deinit();
