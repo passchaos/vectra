@@ -1090,6 +1090,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceExpandingOptions,
     },
+    expanding_bool_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceExpandingOptions,
+    },
     expanding_moment_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1309,6 +1314,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(threshold.output_prefix);
             },
             .expanding_profile => |expanding| {
+                allocator.free(expanding.name);
+                allocator.free(expanding.output_prefix);
+            },
+            .expanding_bool_profile => |expanding| {
                 allocator.free(expanding.name);
                 allocator.free(expanding.output_prefix);
             },
@@ -1748,6 +1757,17 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, expanding.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .expanding_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = expanding.options,
+                } };
+            },
+            .expanding_bool_profile => |expanding| blk: {
+                const name = try allocator.dupe(u8, expanding.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, expanding.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .expanding_bool_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = expanding.options,
@@ -2520,6 +2540,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn expandingBoolProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .expanding_bool_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn expandingMomentProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -2854,6 +2886,7 @@ pub const DeviceLazyFrame = struct {
                 .clip_profile => |clip| try current.clipProfile(clip.name, clip.output_prefix, clip.options),
                 .threshold_profile => |threshold| try current.thresholdProfile(threshold.name, threshold.output_prefix, threshold.options),
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
+                .expanding_bool_profile => |expanding| try current.expandingBoolProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .expanding_moment_profile => |expanding| try current.expandingMomentProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
@@ -3368,6 +3401,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(expanding.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, expanding.name);
                 break :op_loop;
             },
+            .expanding_bool_profile => |expanding| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(expanding.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, expanding.name);
+                break :op_loop;
+            },
             .expanding_moment_profile => |expanding| {
                 // Expanding moment profiles append higher-order cumulative
                 // distribution diagnostics while preserving source columns.
@@ -3697,6 +3735,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .clip_profile => |clip| try writer.print("clip_profile({s}, prefix={s}, [{d},{d}])", .{ clip.name, clip.output_prefix, clip.options.lower, clip.options.upper }),
         .threshold_profile => |threshold| try writer.print("threshold_profile({s}, prefix={s}, threshold={d})", .{ threshold.name, threshold.output_prefix, threshold.options.threshold }),
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
+        .expanding_bool_profile => |expanding| try writer.print("expanding_bool_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .expanding_moment_profile => |expanding| try writer.print("expanding_moment_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
@@ -4798,6 +4837,42 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = expanding_col.*;
             initialized += 1;
             expanding_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn expandingBoolProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
+        const source = try self.column(name);
+        if (source.dtype() != .bool) return error.TypeMismatch;
+        var bool_columns = try expandingBoolProfileColumns(self.allocator, source.bool, options_value, self.device, self.rows);
+        var bool_columns_transferred: usize = 0;
+        errdefer {
+            for (bool_columns[bool_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + bool_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var bool_names = try expandingBoolProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, bool_names[0..]);
+        for (bool_names, 0..) |bool_name, i| source_names[self.columns.len + i] = bool_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + bool_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&bool_columns) |*bool_col| {
+            columns[initialized] = bool_col.*;
+            initialized += 1;
+            bool_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -7716,6 +7791,97 @@ fn expandingProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mins, metric_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, maxes, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ExpandingBoolProfileColumnCount = 5;
+
+fn expandingBoolProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingBoolProfileColumnCount][]const u8 {
+    var names: [ExpandingBoolProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_true_count", "expanding_false_count", "expanding_true_rate", "expanding_any", "expanding_all" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn expandingBoolProfileColumns(
+    allocator: std.mem.Allocator,
+    source: DeviceTypedColumn(bool),
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ExpandingBoolProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+    if (source.len() != rows) return error.LengthMismatch;
+
+    const values = try source.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(source, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const true_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(true_counts);
+    const false_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(false_counts);
+    const true_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(true_rates);
+    const any_values = try allocator.alloc(bool, rows);
+    defer allocator.free(any_values);
+    const all_values = try allocator.alloc(bool, rows);
+    defer allocator.free(all_values);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var running_true: usize = 0;
+    var running_false: usize = 0;
+    for (values, 0..) |value, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (valid) {
+            if (value) {
+                running_true += 1;
+            } else {
+                running_false += 1;
+            }
+        }
+
+        const valid_count = running_true + running_false;
+        true_counts[row] = @intCast(running_true);
+        false_counts[row] = @intCast(running_false);
+        const current_valid = if (maybe_validity) |mask| mask[row] else true;
+        const has_enough = current_valid and valid_count >= options_value.min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            true_rates[row] = @as(f64, @floatFromInt(running_true)) / @as(f64, @floatFromInt(valid_count));
+            any_values[row] = running_true != 0;
+            all_values[row] = running_false == 0;
+        } else {
+            true_rates[row] = 0;
+            any_values[row] = false;
+            all_values[row] = false;
+        }
+    }
+
+    var columns: [ExpandingBoolProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, true_counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, false_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, true_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, any_values, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, all_values, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -13981,6 +14147,31 @@ test "device dataframe rolling bool profile handles nullable windows" {
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), true_rate[5], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, true }, rolling_any);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, true, false }, rolling_all);
+
+    var expanding_bool = try table.expandingBoolProfile("active", "active", .{ .min_periods = 2 });
+    defer expanding_bool.deinit();
+    try std.testing.expectEqual(@as(usize, 7), expanding_bool.width());
+    const expanding_true_count = try (try expanding_bool.column("active_expanding_true_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_true_count);
+    const expanding_false_count = try (try expanding_bool.column("active_expanding_false_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_false_count);
+    const expanding_true_rate = try (try expanding_bool.column("active_expanding_true_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_true_rate);
+    const expanding_any = try (try expanding_bool.column("active_expanding_any")).bool.toOwnedSlice(gpa);
+    defer gpa.free(expanding_any);
+    const expanding_all = try (try expanding_bool.column("active_expanding_all")).bool.toOwnedSlice(gpa);
+    defer gpa.free(expanding_all);
+    const expanding_bool_validity = try (try expanding_bool.column("active_expanding_true_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(expanding_bool_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1, 2, 3, 3 }, expanding_true_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1, 1, 2 }, expanding_false_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, true }, expanding_bool_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_true_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), expanding_true_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), expanding_true_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), expanding_true_rate[5], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, true }, expanding_any);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false }, expanding_all);
 }
 
 test "device dataframe groupby aggregations on fixed-width columns" {
@@ -15075,6 +15266,38 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_true_rate[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_rolling_any);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, lazy_rolling_all);
+
+    var expanding_bool_plan = try DeviceLazyFrame.init(gpa, table);
+    defer expanding_bool_plan.deinit();
+    try expanding_bool_plan.expandingBoolProfile("active", "active", .{ .min_periods = 2 });
+    try expanding_bool_plan.select(&.{ "active", "active_expanding_true_count", "active_expanding_false_count", "active_expanding_true_rate", "active_expanding_any", "active_expanding_all" });
+    const expanding_bool_explain = try expanding_bool_plan.explain(gpa);
+    defer gpa.free(expanding_bool_explain);
+    try std.testing.expect(std.mem.indexOf(u8, expanding_bool_explain, "expanding_bool_profile(active") != null);
+    var lazy_expanding_bool = try expanding_bool_plan.collect();
+    defer lazy_expanding_bool.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_expanding_bool.height());
+    try std.testing.expectEqual(@as(usize, 6), lazy_expanding_bool.width());
+    const lazy_expanding_true_count = try (try lazy_expanding_bool.column("active_expanding_true_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_true_count);
+    const lazy_expanding_false_count = try (try lazy_expanding_bool.column("active_expanding_false_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_false_count);
+    const lazy_expanding_true_rate = try (try lazy_expanding_bool.column("active_expanding_true_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_true_rate);
+    const lazy_expanding_any = try (try lazy_expanding_bool.column("active_expanding_any")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_any);
+    const lazy_expanding_all = try (try lazy_expanding_bool.column("active_expanding_all")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_all);
+    const lazy_expanding_bool_validity = try (try lazy_expanding_bool.column("active_expanding_true_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_bool_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 2, 3 }, lazy_expanding_true_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, lazy_expanding_false_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_expanding_bool_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_expanding_true_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), lazy_expanding_true_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), lazy_expanding_true_rate[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_expanding_any);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_expanding_all);
 
     var lag_plan = try DeviceLazyFrame.init(gpa, table);
     defer lag_plan.deinit();
