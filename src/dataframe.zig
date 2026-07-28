@@ -32,6 +32,12 @@ const numeric_mod = @import("dataframe_numeric.zig");
 const names_mod = @import("dataframe_names.zig");
 const countNulls = validity_mod.countNulls;
 const countNullsInArray = validity_mod.countNullsInArray;
+const ValidityProfileColumnCount = validity_mod.ValidityProfileColumnCount;
+const validityProfileOutputNames = validity_mod.validityProfileOutputNames;
+const RollingValidityProfileColumnCount = validity_mod.RollingValidityProfileColumnCount;
+const rollingValidityProfileOutputNames = validity_mod.rollingValidityProfileOutputNames;
+const ExpandingValidityProfileColumnCount = validity_mod.ExpandingValidityProfileColumnCount;
+const expandingValidityProfileOutputNames = validity_mod.expandingValidityProfileOutputNames;
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -12902,22 +12908,6 @@ fn rollingLinearFitProfileColumnsTyped(
     return columns;
 }
 
-const ValidityProfileColumnCount = 4;
-
-fn validityProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ValidityProfileColumnCount][]const u8 {
-    var names: [ValidityProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "is_null", "is_valid", "valid_streak", "null_streak" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn validityProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -12956,22 +12946,6 @@ fn validityProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSlice(i64, allocator, metrics.null_streak, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingValidityProfileColumnCount = 5;
-
-fn rollingValidityProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingValidityProfileColumnCount][]const u8 {
-    var names: [RollingValidityProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_validity_count", "rolling_valid_count", "rolling_null_count", "rolling_valid_rate", "rolling_null_rate" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingValidityProfileColumnsByValue(
@@ -13017,22 +12991,6 @@ fn rollingValidityProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.null_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingValidityProfileColumnCount = 5;
-
-fn expandingValidityProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingValidityProfileColumnCount][]const u8 {
-    var names: [ExpandingValidityProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_validity_count", "expanding_valid_count", "expanding_null_count", "expanding_valid_rate", "expanding_null_rate" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingValidityProfileColumnsByValue(

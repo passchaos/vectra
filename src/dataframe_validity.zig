@@ -51,6 +51,54 @@ pub fn countNullsInArray(mask: array_mod.Array(bool)) array_mod.ArrayError!usize
     return countNulls(values);
 }
 
+pub const ValidityProfileColumnCount = 4;
+
+pub fn validityProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ValidityProfileColumnCount][]const u8 {
+    var names: [ValidityProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "is_null", "is_valid", "valid_streak", "null_streak" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingValidityProfileColumnCount = 5;
+
+pub fn rollingValidityProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingValidityProfileColumnCount][]const u8 {
+    var names: [RollingValidityProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_validity_count", "rolling_valid_count", "rolling_null_count", "rolling_valid_rate", "rolling_null_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingValidityProfileColumnCount = 5;
+
+pub fn expandingValidityProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingValidityProfileColumnCount][]const u8 {
+    var names: [ExpandingValidityProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_validity_count", "expanding_valid_count", "expanding_null_count", "expanding_valid_rate", "expanding_null_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn rowValid(maybe_validity: ?[]const bool, row: usize) bool {
     return if (maybe_validity) |validity| validity[row] else true;
 }
