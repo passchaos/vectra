@@ -212,7 +212,6 @@ const group_profile_mod = @import("dataframe_group_profile.zig");
 const group_multi_mod = @import("dataframe_group_multi.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const names_mod = @import("dataframe_names.zig");
-const freeColumn = dataframe_column_mod.freeColumn;
 const validityValues = validity_mod.validityValues;
 const freeOwnedNameItems = names_mod.freeOwnedNameItems;
 const takeOptionalRows = dataframe_array_mod.takeOptionalRows;
@@ -352,25 +351,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn fromDataFrame(allocator: std.mem.Allocator, frame: DataFrame, device_value: array_mod.Device) DeviceDataError!DeviceDataFrame {
-        if (!device_value.isAvailable()) return error.InvalidDevice;
-        if (frame.columns.len == 0) return DeviceDataFrame.initEmpty(allocator, frame.rows, device_value);
-        var defs = try allocator.alloc(DeviceColumnDef, frame.columns.len);
-        defer allocator.free(defs);
-        var initialized: usize = 0;
-        defer {
-            for (defs[0..initialized]) |*def| def.data.deinit();
-        }
-        for (frame.names, frame.columns, 0..) |name, col, i| {
-            defs[i].name = name;
-            defs[i].data = switch (col) {
-                .f64 => |values| try DeviceColumn.fromSlice(f64, allocator, values, device_value),
-                .i64 => |values| try DeviceColumn.fromSlice(i64, allocator, values, device_value),
-                .bool => |values| try DeviceColumn.fromSlice(bool, allocator, values, device_value),
-                .string => return error.TypeUnsupported,
-            };
-            initialized += 1;
-        }
-        return DeviceDataFrame.init(allocator, defs);
+        return dataframe_host_mod.deviceDataFrameFromDataFrame(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, frame, device_value);
     }
 
     pub fn deinit(self: *DeviceDataFrame) void {
@@ -2952,25 +2933,7 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn toDataFrame(self: DeviceDataFrame) DeviceDataError!DataFrame {
-        var defs = try self.allocator.alloc(ColumnDef, self.columns.len);
-        defer self.allocator.free(defs);
-        var initialized: usize = 0;
-        defer {
-            for (defs[0..initialized]) |def| freeColumn(self.allocator, def.data);
-        }
-
-        for (self.names, self.columns, 0..) |name, col, i| {
-            if (col.hasNulls()) return error.TypeUnsupported;
-            defs[i].name = name;
-            defs[i].data = switch (col) {
-                .f64 => |typed| .{ .f64 = try typed.toOwnedSlice(self.allocator) },
-                .i64 => |typed| .{ .i64 = try typed.toOwnedSlice(self.allocator) },
-                .bool => |typed| .{ .bool = try typed.toOwnedSlice(self.allocator) },
-                else => return error.TypeUnsupported,
-            };
-            initialized += 1;
-        }
-        return DataFrame.init(self.allocator, defs);
+        return dataframe_host_mod.deviceDataFrameToDataFrame(self);
     }
 };
 

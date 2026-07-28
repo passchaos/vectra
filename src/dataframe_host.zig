@@ -391,3 +391,54 @@ pub const DataFrame = struct {
 pub fn dataframe(allocator: std.mem.Allocator, defs: []const ColumnDef) DataError!DataFrame {
     return DataFrame.init(allocator, defs);
 }
+
+pub fn deviceDataFrameFromDataFrame(
+    comptime DeviceDataFrame: type,
+    comptime DeviceColumnDef: type,
+    comptime DeviceColumn: type,
+    allocator: std.mem.Allocator,
+    frame: DataFrame,
+    device_value: array_mod.Device,
+) (DataError || array_mod.ArrayError)!DeviceDataFrame {
+    if (!device_value.isAvailable()) return error.InvalidDevice;
+    if (frame.columns.len == 0) return DeviceDataFrame.initEmpty(allocator, frame.rows, device_value);
+    var defs = try allocator.alloc(DeviceColumnDef, frame.columns.len);
+    defer allocator.free(defs);
+    var initialized: usize = 0;
+    defer {
+        for (defs[0..initialized]) |*def| def.data.deinit();
+    }
+    for (frame.names, frame.columns, 0..) |name, col, i| {
+        defs[i].name = name;
+        defs[i].data = switch (col) {
+            .f64 => |values| try DeviceColumn.fromSlice(f64, allocator, values, device_value),
+            .i64 => |values| try DeviceColumn.fromSlice(i64, allocator, values, device_value),
+            .bool => |values| try DeviceColumn.fromSlice(bool, allocator, values, device_value),
+            .string => return error.TypeUnsupported,
+        };
+        initialized += 1;
+    }
+    return DeviceDataFrame.init(allocator, defs);
+}
+
+pub fn deviceDataFrameToDataFrame(frame: anytype) (DataError || array_mod.ArrayError)!DataFrame {
+    var defs = try frame.allocator.alloc(ColumnDef, frame.columns.len);
+    defer frame.allocator.free(defs);
+    var initialized: usize = 0;
+    defer {
+        for (defs[0..initialized]) |def| freeColumn(frame.allocator, def.data);
+    }
+
+    for (frame.names, frame.columns, 0..) |name, col, i| {
+        if (col.hasNulls()) return error.TypeUnsupported;
+        defs[i].name = name;
+        defs[i].data = switch (col) {
+            .f64 => |typed| .{ .f64 = try typed.toOwnedSlice(frame.allocator) },
+            .i64 => |typed| .{ .i64 = try typed.toOwnedSlice(frame.allocator) },
+            .bool => |typed| .{ .bool = try typed.toOwnedSlice(frame.allocator) },
+            else => return error.TypeUnsupported,
+        };
+        initialized += 1;
+    }
+    return DataFrame.init(frame.allocator, defs);
+}
