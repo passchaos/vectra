@@ -139,6 +139,11 @@ pub const DeviceExpandingOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceStandardizeOptions = struct {
+    /// Minimum valid observations required to compute global scaling metrics.
+    min_periods: usize = 1,
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -943,6 +948,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceExpandingOptions,
     },
+    standardize_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceStandardizeOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1032,6 +1042,10 @@ pub const DeviceLazyOp = union(enum) {
             .expanding_profile => |expanding| {
                 allocator.free(expanding.name);
                 allocator.free(expanding.output_prefix);
+            },
+            .standardize_profile => |standardize| {
+                allocator.free(standardize.name);
+                allocator.free(standardize.output_prefix);
             },
             .distinct_rows, .head, .tail => {},
         }
@@ -1277,6 +1291,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = expanding.options,
+                } };
+            },
+            .standardize_profile => |standardize| blk: {
+                const name = try allocator.dupe(u8, standardize.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, standardize.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .standardize_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = standardize.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -1712,6 +1737,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn standardizeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceStandardizeOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .standardize_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -1782,6 +1819,7 @@ pub const DeviceLazyFrame = struct {
                 .rolling_profile => |rolling| try current.rollingProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .lag_profile => |lag| try current.lagProfile(lag.name, lag.output_prefix, lag.options),
                 .expanding_profile => |expanding| try current.expandingProfile(expanding.name, expanding.output_prefix, expanding.options),
+                .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2199,6 +2237,15 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(expanding.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, expanding.name);
                 break :op_loop;
             },
+            .standardize_profile => |standardize| {
+                // Standardization adds derived scale columns while retaining the
+                // input schema. It depends on the whole source column, so keep
+                // predicate pruning but avoid unsafe projection pushdown until
+                // derived-field schema metadata is available.
+                projection_blocked = true;
+                if (!nameInBorrowedList(standardize.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, standardize.name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2383,6 +2430,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .rolling_profile => |rolling| try writer.print("rolling_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .lag_profile => |lag| try writer.print("lag_profile({s}, prefix={s}, periods={d})", .{ lag.name, lag.output_prefix, lag.options.periods }),
         .expanding_profile => |expanding| try writer.print("expanding_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
+        .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -3081,6 +3129,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = expanding_col.*;
             initialized += 1;
             expanding_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn standardizeProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceStandardizeOptions) DeviceDataError!DeviceDataFrame {
+        const standardize_value = try self.column(name);
+        var standardize_columns = try standardizeProfileColumnsByValue(self.allocator, standardize_value.*, options_value, self.device, self.rows);
+        var standardize_columns_transferred: usize = 0;
+        errdefer {
+            for (standardize_columns[standardize_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + standardize_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var standardize_names = try standardizeProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, standardize_names[0..]);
+        for (standardize_names, 0..) |standardize_name, i| source_names[self.columns.len + i] = standardize_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + standardize_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&standardize_columns) |*standardize_col| {
+            columns[initialized] = standardize_col.*;
+            initialized += 1;
+            standardize_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -4026,6 +4109,135 @@ fn expandingProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mins, metric_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, maxes, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const StandardizeProfileColumnCount = 3;
+
+fn standardizeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![StandardizeProfileColumnCount][]const u8 {
+    var names: [StandardizeProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "centered", "zscore", "minmax" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn standardizeProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceStandardizeOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![StandardizeProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| standardizeProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| standardizeProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| standardizeProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| standardizeProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| standardizeProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| standardizeProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| standardizeProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| standardizeProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| standardizeProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| standardizeProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| standardizeProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| standardizeProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| standardizeProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn standardizeProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceStandardizeOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![StandardizeProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    var count: usize = 0;
+    var sum: f64 = 0;
+    var sum_sq: f64 = 0;
+    var min_value: f64 = 0;
+    var max_value: f64 = 0;
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (!valid) continue;
+        const x = castToF64(T, value_item);
+        if (count == 0) {
+            min_value = x;
+            max_value = x;
+        } else {
+            if (x < min_value) min_value = x;
+            if (x > max_value) max_value = x;
+        }
+        sum += x;
+        sum_sq += x * x;
+        count += 1;
+    }
+
+    const rows = values.len;
+    const centered = try allocator.alloc(f64, rows);
+    defer allocator.free(centered);
+    const zscores = try allocator.alloc(f64, rows);
+    defer allocator.free(zscores);
+    const minmax = try allocator.alloc(f64, rows);
+    defer allocator.free(minmax);
+    const validity = try allocator.alloc(bool, rows);
+    defer allocator.free(validity);
+
+    const has_enough = count >= options_value.min_periods;
+    const mean = if (count == 0) 0 else sum / @as(f64, @floatFromInt(count));
+    const raw_variance = if (count == 0) 0 else sum_sq / @as(f64, @floatFromInt(count)) - mean * mean;
+    const variance = if (raw_variance < 0) 0 else raw_variance;
+    const stddev = std.math.sqrt(variance);
+    const range = max_value - min_value;
+
+    // Generate common whole-column scaling features in a single pass over the
+    // materialized values. This mirrors dataframe feature-engineering pipelines
+    // that ask for centered, z-score, and min-max forms together while leaving a
+    // single future lowering seam for device-side normalization kernels.
+    for (values, 0..) |value_item, row| {
+        const row_valid = if (maybe_validity) |mask| mask[row] else true;
+        const valid = row_valid and has_enough;
+        validity[row] = valid;
+        if (valid) {
+            const x = castToF64(T, value_item);
+            const delta = x - mean;
+            centered[row] = delta;
+            zscores[row] = if (stddev == 0) std.math.nan(f64) else delta / stddev;
+            minmax[row] = if (range == 0) std.math.nan(f64) else (x - min_value) / range;
+        } else {
+            centered[row] = 0;
+            zscores[row] = 0;
+            minmax[row] = 0;
+        }
+    }
+
+    var columns: [StandardizeProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, centered, validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, zscores, validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, minmax, validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -7319,6 +7531,31 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), expanding_min[4], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 10.0), expanding_max[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 20.0), expanding_max[4], 1e-12);
+
+    var scaled = try lag_table.standardizeProfile("sales", "sales", .{ .min_periods = 3 });
+    defer scaled.deinit();
+    try std.testing.expectEqual(@as(usize, 5), scaled.width());
+    const centered = try (try scaled.column("sales_centered")).f64.toOwnedSlice(gpa);
+    defer gpa.free(centered);
+    const zscore = try (try scaled.column("sales_zscore")).f64.toOwnedSlice(gpa);
+    defer gpa.free(zscore);
+    const minmax = try (try scaled.column("sales_minmax")).f64.toOwnedSlice(gpa);
+    defer gpa.free(minmax);
+    const scaled_validity = try (try scaled.column("sales_zscore")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(scaled_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, scaled_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.25), centered[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -11.25), centered[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.75), centered[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 8.75), centered[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.1690308509457033), zscore[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.5212776585113297), zscore[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.50709255283711), zscore[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.1832159566199232), zscore[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), minmax[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), minmax[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), minmax[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), minmax[3], 1e-12);
 }
 
 test "device dataframe groupby aggregations on fixed-width columns" {
@@ -8204,6 +8441,39 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 3.0), expanding_max[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0), expanding_max[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 7.0), expanding_max[3], 1e-12);
+
+    var standardize_plan = try DeviceLazyFrame.init(gpa, table);
+    defer standardize_plan.deinit();
+    try standardize_plan.standardizeProfile("sales", "sales", .{});
+    try standardize_plan.select(&.{ "sales", "sales_centered", "sales_zscore", "sales_minmax" });
+    const standardize_explain = try standardize_plan.explain(gpa);
+    defer gpa.free(standardize_explain);
+    try std.testing.expect(std.mem.indexOf(u8, standardize_explain, "standardize_profile(sales") != null);
+    var standardized = try standardize_plan.collect();
+    defer standardized.deinit();
+    try std.testing.expectEqual(@as(usize, 4), standardized.height());
+    try std.testing.expectEqual(@as(usize, 4), standardized.width());
+    const lazy_centered = try (try standardized.column("sales_centered")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_centered);
+    const lazy_zscore = try (try standardized.column("sales_zscore")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_zscore);
+    const lazy_minmax = try (try standardized.column("sales_minmax")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_minmax);
+    const lazy_standardized_validity = try (try standardized.column("sales_zscore")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_standardized_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_standardized_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.25), lazy_centered[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.25), lazy_centered[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), lazy_centered[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.75), lazy_centered[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.171700198827415), lazy_zscore[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.6509445549041194), lazy_zscore[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.39056673294247163), lazy_zscore[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.4320780207890627), lazy_zscore[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_minmax[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.2), lazy_minmax[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6), lazy_minmax[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_minmax[3], 1e-12);
 }
 
 test "device lazy frame collects groupby aggregations" {
