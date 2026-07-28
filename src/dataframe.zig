@@ -1097,6 +1097,12 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceClipOptions,
     },
+    rolling_clip_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        clip_options: DeviceClipOptions,
+        options: DeviceRollingOptions,
+    },
     threshold_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1377,6 +1383,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(lead.output_prefix);
             },
             .clip_profile => |clip| {
+                allocator.free(clip.name);
+                allocator.free(clip.output_prefix);
+            },
+            .rolling_clip_profile => |clip| {
                 allocator.free(clip.name);
                 allocator.free(clip.output_prefix);
             },
@@ -1866,6 +1876,18 @@ pub const DeviceLazyOp = union(enum) {
                 break :blk .{ .clip_profile = .{
                     .name = name,
                     .output_prefix = output_prefix,
+                    .options = clip.options,
+                } };
+            },
+            .rolling_clip_profile => |clip| blk: {
+                const name = try allocator.dupe(u8, clip.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, clip.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_clip_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .clip_options = clip.clip_options,
                     .options = clip.options,
                 } };
             },
@@ -2771,6 +2793,19 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingClipProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, clip_options: DeviceClipOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_clip_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .clip_options = clip_options,
+            .options = options_value,
+        } });
+    }
+
     pub fn thresholdProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceThresholdOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -3275,6 +3310,7 @@ pub const DeviceLazyFrame = struct {
                 .lag_profile => |lag| try current.lagProfile(lag.name, lag.output_prefix, lag.options),
                 .lead_profile => |lead| try current.leadProfile(lead.name, lead.output_prefix, lead.options),
                 .clip_profile => |clip| try current.clipProfile(clip.name, clip.output_prefix, clip.options),
+                .rolling_clip_profile => |clip| try current.rollingClipProfile(clip.name, clip.output_prefix, clip.clip_options, clip.options),
                 .threshold_profile => |threshold| try current.thresholdProfile(threshold.name, threshold.output_prefix, threshold.options),
                 .rolling_threshold_profile => |threshold| try current.rollingThresholdProfile(threshold.name, threshold.output_prefix, threshold.threshold, threshold.options),
                 .expanding_threshold_profile => |threshold| try current.expandingThresholdProfile(threshold.name, threshold.output_prefix, threshold.threshold, threshold.options),
@@ -3796,6 +3832,14 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(clip.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, clip.name);
                 break :op_loop;
             },
+            .rolling_clip_profile => |clip| {
+                // Rolling clip profiles append window-level clipping summaries
+                // and keep source columns. Predicate pruning is still safe, but
+                // projection pushdown needs generated-field schema awareness.
+                projection_blocked = true;
+                if (!nameInBorrowedList(clip.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, clip.name);
+                break :op_loop;
+            },
             .threshold_profile => |threshold| {
                 projection_blocked = true;
                 if (!nameInBorrowedList(threshold.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, threshold.name);
@@ -4196,6 +4240,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .lag_profile => |lag| try writer.print("lag_profile({s}, prefix={s}, periods={d})", .{ lag.name, lag.output_prefix, lag.options.periods }),
         .lead_profile => |lead| try writer.print("lead_profile({s}, prefix={s}, periods={d})", .{ lead.name, lead.output_prefix, lead.options.periods }),
         .clip_profile => |clip| try writer.print("clip_profile({s}, prefix={s}, [{d},{d}])", .{ clip.name, clip.output_prefix, clip.options.lower, clip.options.upper }),
+        .rolling_clip_profile => |clip| try writer.print("rolling_clip_profile({s}, prefix={s}, [{d},{d}], window={d})", .{ clip.name, clip.output_prefix, clip.clip_options.lower, clip.clip_options.upper, clip.options.window }),
         .threshold_profile => |threshold| try writer.print("threshold_profile({s}, prefix={s}, threshold={d})", .{ threshold.name, threshold.output_prefix, threshold.options.threshold }),
         .rolling_threshold_profile => |threshold| try writer.print("rolling_threshold_profile({s}, prefix={s}, threshold={d}, window={d})", .{ threshold.name, threshold.output_prefix, threshold.threshold, threshold.options.window }),
         .expanding_threshold_profile => |threshold| try writer.print("expanding_threshold_profile({s}, prefix={s}, threshold={d}, min_periods={d})", .{ threshold.name, threshold.output_prefix, threshold.threshold, threshold.options.min_periods }),
@@ -5291,6 +5336,41 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var clip_names = try clipProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, clip_names[0..]);
+        for (clip_names, 0..) |clip_name, i| source_names[self.columns.len + i] = clip_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + clip_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&clip_columns) |*clip_col| {
+            columns[initialized] = clip_col.*;
+            initialized += 1;
+            clip_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingClipProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, clip_options: DeviceClipOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
+        const clip_value = try self.column(name);
+        var clip_columns = try rollingClipProfileColumnsByValue(self.allocator, clip_value.*, clip_options, options_value, self.device, self.rows);
+        var clip_columns_transferred: usize = 0;
+        errdefer {
+            for (clip_columns[clip_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + clip_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var clip_names = try rollingClipProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, clip_names[0..]);
         for (clip_names, 0..) |clip_name, i| source_names[self.columns.len + i] = clip_name;
 
@@ -8655,6 +8735,176 @@ fn clipProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, above, validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, in_range, validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const RollingClipProfileColumnCount = 6;
+
+fn rollingClipProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingClipProfileColumnCount][]const u8 {
+    var names: [RollingClipProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{
+        "rolling_clip_count",
+        "rolling_mean_clipped",
+        "rolling_clipped_rate",
+        "rolling_clip_below_rate",
+        "rolling_clip_above_rate",
+        "rolling_clip_in_range_rate",
+    };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingClipProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    clip_options: DeviceClipOptions,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingClipProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| rollingClipProfileColumnsTyped(i8, allocator, typed, clip_options, options_value, device_value),
+        .i16 => |typed| rollingClipProfileColumnsTyped(i16, allocator, typed, clip_options, options_value, device_value),
+        .i32 => |typed| rollingClipProfileColumnsTyped(i32, allocator, typed, clip_options, options_value, device_value),
+        .i64 => |typed| rollingClipProfileColumnsTyped(i64, allocator, typed, clip_options, options_value, device_value),
+        .u8 => |typed| rollingClipProfileColumnsTyped(u8, allocator, typed, clip_options, options_value, device_value),
+        .u16 => |typed| rollingClipProfileColumnsTyped(u16, allocator, typed, clip_options, options_value, device_value),
+        .u32 => |typed| rollingClipProfileColumnsTyped(u32, allocator, typed, clip_options, options_value, device_value),
+        .u64 => |typed| rollingClipProfileColumnsTyped(u64, allocator, typed, clip_options, options_value, device_value),
+        .usize => |typed| rollingClipProfileColumnsTyped(usize, allocator, typed, clip_options, options_value, device_value),
+        .isize => |typed| rollingClipProfileColumnsTyped(isize, allocator, typed, clip_options, options_value, device_value),
+        .f16 => |typed| rollingClipProfileColumnsTyped(f16, allocator, typed, clip_options, options_value, device_value),
+        .f32 => |typed| rollingClipProfileColumnsTyped(f32, allocator, typed, clip_options, options_value, device_value),
+        .f64 => |typed| rollingClipProfileColumnsTyped(f64, allocator, typed, clip_options, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rollingClipProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    clip_options: DeviceClipOptions,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingClipProfileColumnCount]DeviceColumn {
+    if (clip_options.lower > clip_options.upper) return error.InvalidShape;
+    if (options_value.window == 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const mean_clipped = try allocator.alloc(f64, rows);
+    defer allocator.free(mean_clipped);
+    const clipped_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(clipped_rates);
+    const below_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(below_rates);
+    const above_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(above_rates);
+    const in_range_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(in_range_rates);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var running_count: usize = 0;
+    var running_clipped_sum: f64 = 0;
+    var running_below_count: usize = 0;
+    var running_above_count: usize = 0;
+    var running_in_range_count: usize = 0;
+
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (valid) {
+            const x = castToF64(T, value_item);
+            const below = x < clip_options.lower;
+            const above = x > clip_options.upper;
+            const clipped = @min(@max(x, clip_options.lower), clip_options.upper);
+            running_clipped_sum += clipped;
+            if (below) {
+                running_below_count += 1;
+            } else if (above) {
+                running_above_count += 1;
+            } else {
+                running_in_range_count += 1;
+            }
+            running_count += 1;
+        }
+
+        if (row >= options_value.window) {
+            const evict_row = row - options_value.window;
+            const evict_valid = if (maybe_validity) |mask| mask[evict_row] else true;
+            if (evict_valid) {
+                const x = castToF64(T, values[evict_row]);
+                const below = x < clip_options.lower;
+                const above = x > clip_options.upper;
+                const clipped = @min(@max(x, clip_options.lower), clip_options.upper);
+                running_clipped_sum -= clipped;
+                if (below) {
+                    running_below_count -= 1;
+                } else if (above) {
+                    running_above_count -= 1;
+                } else {
+                    running_in_range_count -= 1;
+                }
+                running_count -= 1;
+            }
+        }
+
+        counts[row] = @intCast(running_count);
+        const has_enough = running_count >= min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(running_count);
+            const clipped_count = running_below_count + running_above_count;
+            mean_clipped[row] = running_clipped_sum / n;
+            clipped_rates[row] = @as(f64, @floatFromInt(clipped_count)) / n;
+            below_rates[row] = @as(f64, @floatFromInt(running_below_count)) / n;
+            above_rates[row] = @as(f64, @floatFromInt(running_above_count)) / n;
+            in_range_rates[row] = @as(f64, @floatFromInt(running_in_range_count)) / n;
+        } else {
+            mean_clipped[row] = 0;
+            clipped_rates[row] = 0;
+            below_rates[row] = 0;
+            above_rates[row] = 0;
+            in_range_rates[row] = 0;
+        }
+    }
+
+    var columns: [RollingClipProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    // Keep the valid-count non-null so downstream monitoring can distinguish
+    // "not enough history yet" from "there were no valid observations".
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_clipped, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, clipped_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, below_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, above_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, in_range_rates, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -15904,6 +16154,46 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false }, above_values);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, false, false }, in_range_values);
 
+    var rolling_clipped = try lag_table.rollingClipProfile("sales", "sales", .{ .lower = 5.0, .upper = 15.0 }, .{ .window = 3, .min_periods = 2 });
+    defer rolling_clipped.deinit();
+    try std.testing.expectEqual(@as(usize, 8), rolling_clipped.width());
+    const rolling_clip_count = try (try rolling_clipped.column("sales_rolling_clip_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_clip_count);
+    const rolling_mean_clipped = try (try rolling_clipped.column("sales_rolling_mean_clipped")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_mean_clipped);
+    const rolling_clipped_rate = try (try rolling_clipped.column("sales_rolling_clipped_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_clipped_rate);
+    const rolling_clip_below_rate = try (try rolling_clipped.column("sales_rolling_clip_below_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_clip_below_rate);
+    const rolling_clip_above_rate = try (try rolling_clipped.column("sales_rolling_clip_above_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_clip_above_rate);
+    const rolling_in_range_rate = try (try rolling_clipped.column("sales_rolling_clip_in_range_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_in_range_rate);
+    const rolling_clip_validity = try (try rolling_clipped.column("sales_rolling_mean_clipped")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_clip_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 3, 2 }, rolling_clip_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true }, rolling_clip_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.5), rolling_mean_clipped[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0), rolling_mean_clipped[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 35.0 / 3.0), rolling_mean_clipped[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15.0), rolling_mean_clipped[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_clipped_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_clipped_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), rolling_clipped_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_clipped_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_clip_below_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_clip_below_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_clip_below_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_clip_below_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_clip_above_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_clip_above_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_clip_above_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_clip_above_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_in_range_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), rolling_in_range_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_in_range_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_in_range_rate[4], 1e-12);
+
     var thresholded = try lag_table.thresholdProfile("sales", "sales", .{ .threshold = 10.0 });
     defer thresholded.deinit();
     try std.testing.expectEqual(@as(usize, 7), thresholded.width());
@@ -17976,6 +18266,49 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, lazy_below);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, lazy_above);
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, lazy_in_range);
+
+    var rolling_clip_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_clip_plan.deinit();
+    try rolling_clip_plan.rollingClipProfile("sales", "sales", .{ .lower = 3.0, .upper = 5.0 }, .{ .window = 2, .min_periods = 2 });
+    try rolling_clip_plan.select(&.{ "sales", "sales_rolling_clip_count", "sales_rolling_mean_clipped", "sales_rolling_clipped_rate", "sales_rolling_clip_below_rate", "sales_rolling_clip_above_rate", "sales_rolling_clip_in_range_rate" });
+    const rolling_clip_explain = try rolling_clip_plan.explain(gpa);
+    defer gpa.free(rolling_clip_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_clip_explain, "rolling_clip_profile(sales") != null);
+    var lazy_rolling_clip = try rolling_clip_plan.collect();
+    defer lazy_rolling_clip.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_rolling_clip.height());
+    try std.testing.expectEqual(@as(usize, 7), lazy_rolling_clip.width());
+    const lazy_rolling_clip_count = try (try lazy_rolling_clip.column("sales_rolling_clip_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_clip_count);
+    const lazy_rolling_mean_clipped = try (try lazy_rolling_clip.column("sales_rolling_mean_clipped")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_mean_clipped);
+    const lazy_rolling_clipped_rate = try (try lazy_rolling_clip.column("sales_rolling_clipped_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_clipped_rate);
+    const lazy_rolling_clip_below_rate = try (try lazy_rolling_clip.column("sales_rolling_clip_below_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_clip_below_rate);
+    const lazy_rolling_clip_above_rate = try (try lazy_rolling_clip.column("sales_rolling_clip_above_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_clip_above_rate);
+    const lazy_rolling_clip_in_range_rate = try (try lazy_rolling_clip.column("sales_rolling_clip_in_range_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_clip_in_range_rate);
+    const lazy_rolling_clip_validity = try (try lazy_rolling_clip.column("sales_rolling_mean_clipped")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_clip_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 2 }, lazy_rolling_clip_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_rolling_clip_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_rolling_mean_clipped[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_rolling_mean_clipped[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_rolling_mean_clipped[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_clipped_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_clipped_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_clipped_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_clip_below_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_clip_below_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_clip_below_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_clip_above_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_clip_above_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_clip_above_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_clip_in_range_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_clip_in_range_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_clip_in_range_rate[3], 1e-12);
 
     var threshold_plan = try DeviceLazyFrame.init(gpa, table);
     defer threshold_plan.deinit();
