@@ -126,15 +126,6 @@ const argsortTypedColumn = dataframe_device_column_mod.argsortTypedColumn;
 const distinctRowIndices = keys_mod.distinctRowIndices;
 const rowsMatchAllKeys = keys_mod.rowsMatchAllKeys;
 const asofRightRowIndices = keys_mod.asofRightRowIndices;
-const ValidityProfileColumnCount = validity_mod.ValidityProfileColumnCount;
-const validityProfileOutputNames = validity_mod.validityProfileOutputNames;
-const RollingValidityProfileColumnCount = validity_mod.RollingValidityProfileColumnCount;
-const rollingValidityProfileOutputNames = validity_mod.rollingValidityProfileOutputNames;
-const ExpandingValidityProfileColumnCount = validity_mod.ExpandingValidityProfileColumnCount;
-const expandingValidityProfileOutputNames = validity_mod.expandingValidityProfileOutputNames;
-const validityProfileColumnsByValue = validity_mod.validityProfileColumnsByValue;
-const rollingValidityProfileColumnsByValue = validity_mod.rollingValidityProfileColumnsByValue;
-const expandingValidityProfileColumnsByValue = validity_mod.expandingValidityProfileColumnsByValue;
 
 pub const DataError = series_mod.DataError;
 pub const DType = dataframe_host_mod.DType;
@@ -1501,108 +1492,15 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn validityProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
-        const source = try self.column(name);
-        var validity_columns = try validityProfileColumnsByValue(self.allocator, source.*, self.device, self.rows);
-        var validity_columns_transferred: usize = 0;
-        errdefer {
-            for (validity_columns[validity_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + validity_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var validity_names = try validityProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, validity_names[0..]);
-        for (validity_names, 0..) |validity_name, i| source_names[self.columns.len + i] = validity_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + validity_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&validity_columns) |*validity_col| {
-            columns[initialized] = validity_col.*;
-            initialized += 1;
-            validity_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return validity_mod.validityProfileFrame(DeviceDataFrame, self, name, output_prefix);
     }
 
     pub fn rollingValidityProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        const source = try self.column(name);
-        var validity_columns = try rollingValidityProfileColumnsByValue(self.allocator, source.*, options_value, self.device, self.rows);
-        var validity_columns_transferred: usize = 0;
-        errdefer {
-            for (validity_columns[validity_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + validity_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var validity_names = try rollingValidityProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, validity_names[0..]);
-        for (validity_names, 0..) |validity_name, i| source_names[self.columns.len + i] = validity_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + validity_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&validity_columns) |*validity_col| {
-            columns[initialized] = validity_col.*;
-            initialized += 1;
-            validity_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return validity_mod.rollingValidityProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn expandingValidityProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        const source = try self.column(name);
-        var validity_columns = try expandingValidityProfileColumnsByValue(self.allocator, source.*, options_value, self.device, self.rows);
-        var validity_columns_transferred: usize = 0;
-        errdefer {
-            for (validity_columns[validity_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + validity_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var validity_names = try expandingValidityProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, validity_names[0..]);
-        for (validity_names, 0..) |validity_name, i| source_names[self.columns.len + i] = validity_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + validity_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&validity_columns) |*validity_col| {
-            columns[initialized] = validity_col.*;
-            initialized += 1;
-            validity_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return validity_mod.expandingValidityProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn groupByCount(self: DeviceDataFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
