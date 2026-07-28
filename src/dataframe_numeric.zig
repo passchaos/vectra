@@ -31,6 +31,35 @@ pub fn asofDistance(comptime T: type, lhs: T, rhs: T) f64 {
     return @abs(castToF64(T, lhs) - castToF64(T, rhs));
 }
 
+pub fn describeF64(allocator: std.mem.Allocator, v: []const f64) std.mem.Allocator.Error![]f64 {
+    var out = try allocator.alloc(f64, 4);
+    if (v.len == 0) {
+        @memset(out, std.math.nan(f64));
+        out[0] = 0;
+        return out;
+    }
+    var total: f64 = 0;
+    var min_v = v[0];
+    var max_v = v[0];
+    for (v) |x| {
+        total += x;
+        if (x < min_v) min_v = x;
+        if (x > max_v) max_v = x;
+    }
+    out[0] = @floatFromInt(v.len);
+    out[1] = total / @as(f64, @floatFromInt(v.len));
+    out[2] = min_v;
+    out[3] = max_v;
+    return out;
+}
+
+pub fn describeI64(allocator: std.mem.Allocator, v: []const i64) std.mem.Allocator.Error![]f64 {
+    const tmp = try allocator.alloc(f64, v.len);
+    defer allocator.free(tmp);
+    for (v, tmp) |x, *slot| slot.* = @floatFromInt(x);
+    return describeF64(allocator, tmp);
+}
+
 pub fn compareSortValues(comptime T: type, lhs: T, rhs: T) i8 {
     if (comptime T == bool) {
         if (lhs == rhs) return 0;

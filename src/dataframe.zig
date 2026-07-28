@@ -5011,6 +5011,8 @@ const formatLazyScanPushdown = lazy_mod.formatLazyScanPushdown;
 const formatLazyOp = lazy_mod.formatLazyOp;
 const isIntegerColumnType = numeric_mod.isIntegerColumnType;
 const isOrderedColumnType = numeric_mod.isOrderedColumnType;
+const describeF64 = numeric_mod.describeF64;
+const describeI64 = numeric_mod.describeI64;
 
 /// Owning fixed-width dataframe that can keep every column on the same Vectra
 /// device.
@@ -13455,35 +13457,6 @@ fn takeColumn(allocator: std.mem.Allocator, col: Column, indices: []const usize)
             break :blk .{ .string = out };
         },
     };
-}
-
-fn describeF64(allocator: std.mem.Allocator, v: []const f64) DataError![]f64 {
-    var out = try allocator.alloc(f64, 4);
-    if (v.len == 0) {
-        @memset(out, std.math.nan(f64));
-        out[0] = 0;
-        return out;
-    }
-    var total: f64 = 0;
-    var min_v = v[0];
-    var max_v = v[0];
-    for (v) |x| {
-        total += x;
-        if (x < min_v) min_v = x;
-        if (x > max_v) max_v = x;
-    }
-    out[0] = @floatFromInt(v.len);
-    out[1] = total / @as(f64, @floatFromInt(v.len));
-    out[2] = min_v;
-    out[3] = max_v;
-    return out;
-}
-
-fn describeI64(allocator: std.mem.Allocator, v: []const i64) DataError![]f64 {
-    const tmp = try allocator.alloc(f64, v.len);
-    defer allocator.free(tmp);
-    for (v, tmp) |x, *slot| slot.* = @floatFromInt(x);
-    return describeF64(allocator, tmp);
 }
 
 fn splitCsvLineOwned(allocator: std.mem.Allocator, line: []const u8, out: *std.ArrayList([]const u8)) DataError!void {
