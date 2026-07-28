@@ -102,6 +102,10 @@ pub const DeviceLagOptions = struct {
     periods: usize = 1,
 };
 
+pub const DeviceExpandingOptions = struct {
+    min_periods: usize = 1,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };
