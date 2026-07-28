@@ -14852,7 +14852,6 @@ fn boolTransitionProfileColumns(
     device_value: array_mod.Device,
     rows: usize,
 ) DeviceDataError![BoolTransitionProfileColumnCount]DeviceColumn {
-    if (options_value.periods == 0) return error.InvalidShape;
     if (source.len() != rows) return error.LengthMismatch;
 
     const values = try source.values.toOwnedSlice(allocator);
@@ -14860,79 +14859,23 @@ fn boolTransitionProfileColumns(
     const maybe_validity = try validityValues(source, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rising = try allocator.alloc(bool, rows);
-    defer allocator.free(rising);
-    const falling = try allocator.alloc(bool, rows);
-    defer allocator.free(falling);
-    const toggled = try allocator.alloc(bool, rows);
-    defer allocator.free(toggled);
-    const true_streak = try allocator.alloc(i64, rows);
-    defer allocator.free(true_streak);
-    const false_streak = try allocator.alloc(i64, rows);
-    defer allocator.free(false_streak);
-    const transition_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(transition_validity);
-    const streak_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(streak_validity);
-
-    var current_true_streak: i64 = 0;
-    var current_false_streak: i64 = 0;
-    for (values, 0..) |value, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        streak_validity[row] = valid;
-        if (valid) {
-            if (value) {
-                current_true_streak += 1;
-                current_false_streak = 0;
-            } else {
-                current_false_streak += 1;
-                current_true_streak = 0;
-            }
-            true_streak[row] = current_true_streak;
-            false_streak[row] = current_false_streak;
-        } else {
-            current_true_streak = 0;
-            current_false_streak = 0;
-            true_streak[row] = 0;
-            false_streak[row] = 0;
-        }
-
-        if (row < options_value.periods) {
-            rising[row] = false;
-            falling[row] = false;
-            toggled[row] = false;
-            transition_validity[row] = false;
-            continue;
-        }
-        const previous_row = row - options_value.periods;
-        const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
-        const can_transition = valid and previous_valid;
-        transition_validity[row] = can_transition;
-        if (can_transition) {
-            rising[row] = !values[previous_row] and value;
-            falling[row] = values[previous_row] and !value;
-            toggled[row] = values[previous_row] != value;
-        } else {
-            rising[row] = false;
-            falling[row] = false;
-            toggled[row] = false;
-        }
-    }
+    var profile = try bool_transition_mod.boolTransitionProfile(allocator, values, maybe_validity, options_value.periods);
+    defer profile.deinit();
 
     var columns: [BoolTransitionProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(bool, allocator, rising, transition_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.rising, profile.transition_validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, falling, transition_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.falling, profile.transition_validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, toggled, transition_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, profile.toggled, profile.transition_validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, true_streak, streak_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, profile.true_streak, profile.streak_validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(i64, allocator, false_streak, streak_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(i64, allocator, profile.false_streak, profile.streak_validity, device_value);
     initialized += 1;
     return columns;
 }
