@@ -2,10 +2,14 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const boltha = @import("boltha");
 const numeric_mod = @import("dataframe_numeric.zig");
+const validity_mod = @import("dataframe_validity.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
 
 pub const ArrowInteropError = array_mod.ArrayError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;
 pub const ParquetInteropError = ArrowInteropError || boltha.parquet.SimpleError;
 const optionalCast = numeric_mod.optionalCast;
+const validityValues = validity_mod.validityValues;
+const zeroValue = dataframe_array_mod.zeroValue;
 
 pub fn deviceDTypeToArrowDataType(dtype: array_mod.DType) ArrowInteropError!boltha.arrow.DataType {
     return switch (dtype) {
@@ -88,4 +92,86 @@ pub fn emptyBolthaTableForParquetBytes(allocator: std.mem.Allocator, bytes: []co
     const batches = try allocator.alloc(boltha.arrow.RecordBatch, 0);
     errdefer allocator.free(batches);
     return boltha.arrow.Table.initOwned(schema, batches);
+}
+
+pub fn primitiveColumnToArrow(
+    comptime T: type,
+    comptime tag_name: []const u8,
+    column: anytype,
+    allocator: std.mem.Allocator,
+) ArrowInteropError!boltha.arrow.AnyArray {
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const primitive = if (maybe_validity) |validity| blk: {
+        const optional_values = try allocator.alloc(?T, values.len);
+        defer allocator.free(optional_values);
+        for (values, validity, optional_values) |value, valid, *slot| {
+            slot.* = if (valid) value else null;
+        }
+        break :blk try boltha.arrow.PrimitiveArray(T).fromOptionalSlice(allocator, optional_values, zeroValue(T));
+    } else try boltha.arrow.PrimitiveArray(T).fromSlice(allocator, values);
+    return @unionInit(boltha.arrow.AnyArray, tag_name, primitive);
+}
+
+pub fn boolColumnToArrow(column: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.AnyArray {
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const array_value = if (maybe_validity) |validity| blk: {
+        const optional_values = try allocator.alloc(?bool, values.len);
+        defer allocator.free(optional_values);
+        for (values, validity, optional_values) |value, valid, *slot| {
+            slot.* = if (valid) value else null;
+        }
+        break :blk try boltha.arrow.BooleanArray.fromOptionalSlice(allocator, optional_values);
+    } else try boltha.arrow.BooleanArray.fromSlice(allocator, values);
+    return .{ .boolean = array_value };
+}
+
+pub fn indexColumnToArrow(comptime T: type, column: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.AnyArray {
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    if (comptime T == usize) {
+        const converted = try allocator.alloc(u64, values.len);
+        defer allocator.free(converted);
+        for (values, converted) |value, *slot| {
+            slot.* = std.math.cast(u64, value) orelse return error.TypeUnsupported;
+        }
+        if (maybe_validity) |validity| {
+            const optional_values = try allocator.alloc(?u64, values.len);
+            defer allocator.free(optional_values);
+            for (converted, validity, optional_values) |value, valid, *slot| {
+                slot.* = if (valid) value else null;
+            }
+            return .{ .uint64 = try boltha.arrow.PrimitiveArray(u64).fromOptionalSlice(allocator, optional_values, 0) };
+        }
+        return .{ .uint64 = try boltha.arrow.PrimitiveArray(u64).fromSlice(allocator, converted) };
+    }
+
+    if (comptime T == isize) {
+        const converted = try allocator.alloc(i64, values.len);
+        defer allocator.free(converted);
+        for (values, converted) |value, *slot| {
+            slot.* = std.math.cast(i64, value) orelse return error.TypeUnsupported;
+        }
+        if (maybe_validity) |validity| {
+            const optional_values = try allocator.alloc(?i64, values.len);
+            defer allocator.free(optional_values);
+            for (converted, validity, optional_values) |value, valid, *slot| {
+                slot.* = if (valid) value else null;
+            }
+            return .{ .int64 = try boltha.arrow.PrimitiveArray(i64).fromOptionalSlice(allocator, optional_values, 0) };
+        }
+        return .{ .int64 = try boltha.arrow.PrimitiveArray(i64).fromSlice(allocator, converted) };
+    }
+
+    unreachable;
 }

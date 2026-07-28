@@ -157,6 +157,9 @@ const sliceArray1d = dataframe_array_mod.sliceArray1d;
 const takeArray1d = dataframe_array_mod.takeArray1d;
 const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
 const readBolthaTableWithRangePruning = dataframe_arrow_mod.readBolthaTableWithRangePruning;
+const primitiveColumnToArrow = dataframe_arrow_mod.primitiveColumnToArrow;
+const boolColumnToArrow = dataframe_arrow_mod.boolColumnToArrow;
+const indexColumnToArrow = dataframe_arrow_mod.indexColumnToArrow;
 const ValidityProfileColumnCount = validity_mod.ValidityProfileColumnCount;
 const validityProfileOutputNames = validity_mod.validityProfileOutputNames;
 const RollingValidityProfileColumnCount = validity_mod.RollingValidityProfileColumnCount;
@@ -13837,45 +13840,6 @@ fn coalesceTypedJoinKeys(comptime T: type, left: DeviceTypedColumn(T), right: De
     return DeviceTypedColumn(T).fromSliceWithValidity(allocator, values, validity, left.device());
 }
 
-fn primitiveColumnToArrow(
-    comptime T: type,
-    comptime tag_name: []const u8,
-    column: DeviceTypedColumn(T),
-    allocator: std.mem.Allocator,
-) ArrowInteropError!boltha.arrow.AnyArray {
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const primitive = if (maybe_validity) |validity| blk: {
-        const optional_values = try allocator.alloc(?T, values.len);
-        defer allocator.free(optional_values);
-        for (values, validity, optional_values) |value, valid, *slot| {
-            slot.* = if (valid) value else null;
-        }
-        break :blk try boltha.arrow.PrimitiveArray(T).fromOptionalSlice(allocator, optional_values, zeroValue(T));
-    } else try boltha.arrow.PrimitiveArray(T).fromSlice(allocator, values);
-    return @unionInit(boltha.arrow.AnyArray, tag_name, primitive);
-}
-
-fn boolColumnToArrow(column: DeviceTypedColumn(bool), allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.AnyArray {
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const array_value = if (maybe_validity) |validity| blk: {
-        const optional_values = try allocator.alloc(?bool, values.len);
-        defer allocator.free(optional_values);
-        for (values, validity, optional_values) |value, valid, *slot| {
-            slot.* = if (valid) value else null;
-        }
-        break :blk try boltha.arrow.BooleanArray.fromOptionalSlice(allocator, optional_values);
-    } else try boltha.arrow.BooleanArray.fromSlice(allocator, values);
-    return .{ .boolean = array_value };
-}
-
 fn deviceColumnFromArrowArray(allocator: std.mem.Allocator, column: boltha.arrow.AnyArray, device_value: array_mod.Device) ArrowInteropError!DeviceColumn {
     return switch (column) {
         .boolean => |array| boolDeviceColumnFromArrow(allocator, array, device_value),
@@ -14062,49 +14026,6 @@ fn boolDeviceColumnFromArrow(allocator: std.mem.Allocator, arrow_array: boltha.a
     }
     if (arrow_array.null_count == 0) return DeviceColumn.fromSlice(bool, allocator, values, device_value);
     return DeviceColumn.fromSliceWithValidity(bool, allocator, values, validity, device_value);
-}
-
-fn indexColumnToArrow(comptime T: type, column: DeviceTypedColumn(T), allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.AnyArray {
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    if (comptime T == usize) {
-        const converted = try allocator.alloc(u64, values.len);
-        defer allocator.free(converted);
-        for (values, converted) |value, *slot| {
-            slot.* = std.math.cast(u64, value) orelse return error.TypeUnsupported;
-        }
-        if (maybe_validity) |validity| {
-            const optional_values = try allocator.alloc(?u64, values.len);
-            defer allocator.free(optional_values);
-            for (converted, validity, optional_values) |value, valid, *slot| {
-                slot.* = if (valid) value else null;
-            }
-            return .{ .uint64 = try boltha.arrow.PrimitiveArray(u64).fromOptionalSlice(allocator, optional_values, 0) };
-        }
-        return .{ .uint64 = try boltha.arrow.PrimitiveArray(u64).fromSlice(allocator, converted) };
-    }
-
-    if (comptime T == isize) {
-        const converted = try allocator.alloc(i64, values.len);
-        defer allocator.free(converted);
-        for (values, converted) |value, *slot| {
-            slot.* = std.math.cast(i64, value) orelse return error.TypeUnsupported;
-        }
-        if (maybe_validity) |validity| {
-            const optional_values = try allocator.alloc(?i64, values.len);
-            defer allocator.free(optional_values);
-            for (converted, validity, optional_values) |value, valid, *slot| {
-                slot.* = if (valid) value else null;
-            }
-            return .{ .int64 = try boltha.arrow.PrimitiveArray(i64).fromOptionalSlice(allocator, optional_values, 0) };
-        }
-        return .{ .int64 = try boltha.arrow.PrimitiveArray(i64).fromSlice(allocator, converted) };
-    }
-
-    unreachable;
 }
 
 fn initDeviceDataFrameFromOwnedColumns(
