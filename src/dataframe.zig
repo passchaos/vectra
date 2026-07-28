@@ -4,6 +4,7 @@ const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 const dataframe_arrow_mod = @import("dataframe_arrow.zig");
 const keys_mod = @import("dataframe_keys.zig");
+const join_mod = @import("dataframe_join.zig");
 const lazy_mod = @import("dataframe_lazy.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
@@ -158,7 +159,6 @@ const rowIndicesFromMask = dataframe_array_mod.rowIndicesFromMask;
 const sliceArray1d = dataframe_array_mod.sliceArray1d;
 const takeArray1d = dataframe_array_mod.takeArray1d;
 const concatDeviceColumns = dataframe_array_mod.concatDeviceColumns;
-const coalesceJoinKeys = dataframe_array_mod.coalesceJoinKeys;
 const distinctRowIndices = keys_mod.distinctRowIndices;
 const rowHasValidKeys = keys_mod.rowHasValidKeys;
 const findMultiKeyGroupIndex = keys_mod.findMultiKeyGroupIndex;
@@ -4961,11 +4961,6 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
 const appendOwnedNameUnique = names_mod.appendOwnedNameUnique;
 const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
 const nameInBorrowedList = names_mod.nameInBorrowedList;
-const suffixedNameTemp = names_mod.suffixedNameTemp;
-const rightExcludedKeyCount = names_mod.rightExcludedKeyCount;
-const leftKeyRightIndex = names_mod.leftKeyRightIndex;
-const rightKeyIndexInList = names_mod.rightKeyIndexInList;
-const nameNeedsSuffix = names_mod.nameNeedsSuffix;
 const freeOwnedNameItems = names_mod.freeOwnedNameItems;
 const statsOutputNames = names_mod.statsOutputNames;
 const freeStatsOutputNames = names_mod.freeStatsOutputNames;
@@ -12954,45 +12949,7 @@ fn concatJoinedTablesExcludingKeys(
     right_key_names: []const []const u8,
     options_value: DeviceJoinOptions,
 ) DeviceDataError!DeviceDataFrame {
-    if (!left.device.sameDevice(right.device)) return error.InvalidDevice;
-    if (left.rows != right.rows) return error.LengthMismatch;
-
-    const total_cols = left.columns.len + right.columns.len - rightExcludedKeyCount(right, right_key_names);
-    var names = try allocator.alloc([]const u8, total_cols);
-    defer allocator.free(names);
-    var temporary_names: std.ArrayList([]const u8) = .empty;
-    defer {
-        for (temporary_names.items) |name| allocator.free(name);
-        temporary_names.deinit(allocator);
-    }
-    var columns = try allocator.alloc(DeviceColumn, total_cols);
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-        allocator.free(columns);
-    }
-
-    for (left.names, left.columns) |name, col| {
-        names[initialized] = name;
-        columns[initialized] = try col.clone();
-        initialized += 1;
-    }
-
-    for (right.names, right.columns) |name, col| {
-        if (nameInBorrowedList(name, right_key_names)) continue;
-        if (nameNeedsSuffix(left, name)) {
-            const suffixed = try suffixedNameTemp(allocator, name, options_value.right_suffix);
-            errdefer allocator.free(suffixed);
-            try temporary_names.append(allocator, suffixed);
-            names[initialized] = suffixed;
-        } else {
-            names[initialized] = name;
-        }
-        columns[initialized] = try col.clone();
-        initialized += 1;
-    }
-
-    return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, left.rows, left.device);
+    return join_mod.concatJoinedTablesExcludingKeys(DeviceDataFrame, allocator, left, right, right_key_names, options_value);
 }
 
 fn concatFullJoinedTables(
@@ -13014,54 +12971,7 @@ fn concatFullJoinedTablesOn(
     right_key_names: []const []const u8,
     options_value: DeviceJoinOptions,
 ) DeviceDataError!DeviceDataFrame {
-    if (!left.device.sameDevice(right.device)) return error.InvalidDevice;
-    if (left.rows != right.rows) return error.LengthMismatch;
-    if (left_key_names.len == 0 or left_key_names.len != right_key_names.len) return error.LengthMismatch;
-    for (left_key_names, right_key_names) |left_name, right_name| {
-        const left_key = try left.column(left_name);
-        const right_key = try right.column(right_name);
-        if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-    }
-
-    const total_cols = left.columns.len + right.columns.len - rightExcludedKeyCount(right, right_key_names);
-    var names = try allocator.alloc([]const u8, total_cols);
-    defer allocator.free(names);
-    var temporary_names: std.ArrayList([]const u8) = .empty;
-    defer {
-        for (temporary_names.items) |name| allocator.free(name);
-        temporary_names.deinit(allocator);
-    }
-    var columns = try allocator.alloc(DeviceColumn, total_cols);
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-        allocator.free(columns);
-    }
-
-    for (left.names, left.columns, 0..) |name, col, i| {
-        names[initialized] = name;
-        columns[initialized] = if (leftKeyRightIndex(left, right, left_key_names, right_key_names, i)) |right_key_index|
-            try coalesceJoinKeys(col, right.columns[right_key_index])
-        else
-            try col.clone();
-        initialized += 1;
-    }
-
-    for (right.names, right.columns, 0..) |name, col, i| {
-        if (rightKeyIndexInList(right, right_key_names, i)) continue;
-        if (nameNeedsSuffix(left, name)) {
-            const suffixed = try suffixedNameTemp(allocator, name, options_value.right_suffix);
-            errdefer allocator.free(suffixed);
-            try temporary_names.append(allocator, suffixed);
-            names[initialized] = suffixed;
-        } else {
-            names[initialized] = name;
-        }
-        columns[initialized] = try col.clone();
-        initialized += 1;
-    }
-
-    return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, left.rows, left.device);
+    return join_mod.concatFullJoinedTablesOn(DeviceDataFrame, allocator, left, right, left_key_names, right_key_names, options_value);
 }
 
 fn concatDeviceDataFramesRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
