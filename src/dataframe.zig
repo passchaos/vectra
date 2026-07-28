@@ -26,6 +26,7 @@ const rank_mod = @import("dataframe_rank.zig");
 const stats_profile_mod = @import("dataframe_stats_profile.zig");
 const moment_mod = @import("dataframe_moment.zig");
 const normalize_mod = @import("dataframe_normalize.zig");
+const range_mod = @import("dataframe_range.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -8587,80 +8588,32 @@ fn rollingRangeProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingRangeProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const lows = try allocator.alloc(f64, rows);
-    defer allocator.free(lows);
-    const highs = try allocator.alloc(f64, rows);
-    defer allocator.free(highs);
-    const ranges = try allocator.alloc(f64, rows);
-    defer allocator.free(ranges);
-    const positions = try allocator.alloc(f64, rows);
-    defer allocator.free(positions);
-    const validity = try allocator.alloc(bool, rows);
-    defer allocator.free(validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    // This intentionally recomputes each small trailing window in host memory,
-    // matching the other dataframe profile APIs' current gather/materialize
-    // strategy while preserving a single future lowering seam for device rolling
-    // min/max kernels.
-    for (values, 0..) |value_item, row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var low: f64 = 0;
-        var high: f64 = 0;
-        for (start..row + 1) |window_row| {
-            const row_valid = if (maybe_validity) |mask| mask[window_row] else true;
-            if (!row_valid) continue;
-            const x = castToF64(T, values[window_row]);
-            if (count == 0) {
-                low = x;
-                high = x;
-            } else {
-                if (x < low) low = x;
-                if (x > high) high = x;
-            }
-            count += 1;
-        }
-
-        const current_valid = if (maybe_validity) |mask| mask[row] else true;
-        const has_enough = current_valid and count >= min_periods;
-        validity[row] = has_enough;
-        if (has_enough) {
-            const current = castToF64(T, value_item);
-            const range = high - low;
-            lows[row] = low;
-            highs[row] = high;
-            ranges[row] = range;
-            positions[row] = if (range == 0) std.math.nan(f64) else (current - low) / range;
-        } else {
-            lows[row] = 0;
-            highs[row] = 0;
-            ranges[row] = 0;
-            positions[row] = 0;
-        }
-    }
+    var metrics = try range_mod.rollingRangeProfile(allocator, values, maybe_validity, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingRangeProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, lows, validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.lows, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, highs, validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.highs, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ranges, validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ranges, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, positions, validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.positions, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
