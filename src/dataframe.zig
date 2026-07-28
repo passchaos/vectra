@@ -869,6 +869,16 @@ pub const DeviceLazyOp = union(enum) {
         value_name: []const u8,
         output_prefix: []const u8,
     },
+    group_by_profile: struct {
+        key_name: []const u8,
+        value_name: []const u8,
+        output_prefix: []const u8,
+    },
+    group_by_profile_on: struct {
+        key_names: [][]const u8,
+        value_name: []const u8,
+        output_prefix: []const u8,
+    },
     join_on: struct {
         kind: DeviceLazyJoinKind,
         right: DeviceDataFrame,
@@ -938,6 +948,16 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(group.output_prefix);
             },
             .group_by_stats_on => |group| {
+                freeNameList(allocator, group.key_names);
+                allocator.free(group.value_name);
+                allocator.free(group.output_prefix);
+            },
+            .group_by_profile => |group| {
+                allocator.free(group.key_name);
+                allocator.free(group.value_name);
+                allocator.free(group.output_prefix);
+            },
+            .group_by_profile_on => |group| {
                 freeNameList(allocator, group.key_names);
                 allocator.free(group.value_name);
                 allocator.free(group.output_prefix);
@@ -1081,6 +1101,32 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, group.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .group_by_stats_on = .{
+                    .key_names = key_names,
+                    .value_name = value_name,
+                    .output_prefix = output_prefix,
+                } };
+            },
+            .group_by_profile => |group| blk: {
+                const key_name = try allocator.dupe(u8, group.key_name);
+                errdefer allocator.free(key_name);
+                const value_name = try allocator.dupe(u8, group.value_name);
+                errdefer allocator.free(value_name);
+                const output_prefix = try allocator.dupe(u8, group.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .group_by_profile = .{
+                    .key_name = key_name,
+                    .value_name = value_name,
+                    .output_prefix = output_prefix,
+                } };
+            },
+            .group_by_profile_on => |group| blk: {
+                const key_names = try cloneNameList(allocator, group.key_names);
+                errdefer freeNameList(allocator, key_names);
+                const value_name = try allocator.dupe(u8, group.value_name);
+                errdefer allocator.free(value_name);
+                const output_prefix = try allocator.dupe(u8, group.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .group_by_profile_on = .{
                     .key_names = key_names,
                     .value_name = value_name,
                     .output_prefix = output_prefix,
@@ -1369,6 +1415,34 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn groupByProfile(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
+        const owned_key = try self.allocator.dupe(u8, key_name);
+        errdefer self.allocator.free(owned_key);
+        const owned_value = try self.allocator.dupe(u8, value_name);
+        errdefer self.allocator.free(owned_value);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .group_by_profile = .{
+            .key_name = owned_key,
+            .value_name = owned_value,
+            .output_prefix = owned_prefix,
+        } });
+    }
+
+    pub fn groupByProfileOn(self: *DeviceLazyFrame, key_names: []const []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
+        const owned_keys = try cloneNameList(self.allocator, key_names);
+        errdefer freeNameList(self.allocator, owned_keys);
+        const owned_value = try self.allocator.dupe(u8, value_name);
+        errdefer self.allocator.free(owned_value);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .group_by_profile_on = .{
+            .key_names = owned_keys,
+            .value_name = owned_value,
+            .output_prefix = owned_prefix,
+        } });
+    }
+
     pub fn joinOn(
         self: *DeviceLazyFrame,
         right: DeviceDataFrame,
@@ -1542,6 +1616,8 @@ pub const DeviceLazyFrame = struct {
                 },
                 .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
                 .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),
+                .group_by_profile => |group| try current.groupByProfile(group.key_name, group.value_name, group.output_prefix),
+                .group_by_profile_on => |group| try current.groupByProfileOn(group.key_names, group.value_name, group.output_prefix),
                 .join_on => |join| switch (join.kind) {
                     .inner => try current.innerJoinOn(join.right, join.left_key_names, join.right_key_names, join.options),
                     .left => try current.leftJoinOn(join.right, join.left_key_names, join.right_key_names, join.options),
@@ -1860,6 +1936,28 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 saw_select = true;
                 break :op_loop;
             },
+            .group_by_profile => |group| {
+                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
+                }
+                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
+                }
+                saw_select = true;
+                break :op_loop;
+            },
+            .group_by_profile_on => |group| {
+                for (group.key_names) |key_name| {
+                    if (!nameInBorrowedList(key_name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, key_name);
+                    }
+                }
+                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
+                }
+                saw_select = true;
+                break :op_loop;
+            },
             .join_on => |join| {
                 // A join changes the output schema by adding right-side payload
                 // columns.  Without source schema metadata at this planning
@@ -2053,6 +2151,15 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .group_by_stats => |group| try writer.print("group_by_stats({s}, value={s}, prefix={s})", .{ group.key_name, group.value_name, group.output_prefix }),
         .group_by_stats_on => |group| {
             try writer.print("group_by_stats_on([", .{});
+            for (group.key_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, prefix={s})", .{ group.value_name, group.output_prefix });
+        },
+        .group_by_profile => |group| try writer.print("group_by_profile({s}, value={s}, prefix={s})", .{ group.key_name, group.value_name, group.output_prefix }),
+        .group_by_profile_on => |group| {
+            try writer.print("group_by_profile_on([", .{});
             for (group.key_names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});
@@ -2704,6 +2811,19 @@ pub const DeviceDataFrame = struct {
         for (key_names) |key_name| _ = try self.column(key_name);
         const value = try self.column(value_name);
         return groupByStatsOnDispatchValue(self.allocator, self, key_names, output_prefix, value.*, self.device);
+    }
+
+    pub fn groupByProfile(self: DeviceDataFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
+        const key = try self.column(key_name);
+        const value = try self.column(value_name);
+        return groupByProfileDispatchKey(self.allocator, key_name, output_prefix, key.*, value.*, self.device);
+    }
+
+    pub fn groupByProfileOn(self: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
+        if (key_names.len == 0) return error.LengthMismatch;
+        for (key_names) |key_name| _ = try self.column(key_name);
+        const value = try self.column(value_name);
+        return groupByProfileOnDispatchValue(self.allocator, self, key_names, output_prefix, value.*, self.device);
     }
 
     pub fn innerJoin(
@@ -3627,6 +3747,362 @@ fn groupByStatsOnTyped(
     columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, means, device_value);
     initialized += 1;
     return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, representative_rows.items.len, device_value);
+}
+
+const GroupedMomentProfile = struct {
+    count: i64 = 0,
+    sum: f64 = 0,
+    mean: f64 = 0,
+    m2: f64 = 0,
+    m3: f64 = 0,
+    m4: f64 = 0,
+
+    fn update(self: *GroupedMomentProfile, value: f64) void {
+        const previous_count = self.count;
+        self.count += 1;
+
+        const n: f64 = @floatFromInt(self.count);
+        const previous_n: f64 = @floatFromInt(previous_count);
+        const delta = value - self.mean;
+        const delta_n = delta / n;
+        const delta_n2 = delta_n * delta_n;
+        const term1 = delta * delta_n * previous_n;
+        const previous_m2 = self.m2;
+        const previous_m3 = self.m3;
+
+        self.mean += delta_n;
+        self.m4 += term1 * delta_n2 * (n * n - 3.0 * n + 3.0) + 6.0 * delta_n2 * previous_m2 - 4.0 * delta_n * previous_m3;
+        self.m3 += term1 * delta_n * (n - 2.0) - 3.0 * delta_n * previous_m2;
+        self.m2 += term1;
+        self.sum += value;
+    }
+
+    fn variance(self: GroupedMomentProfile) f64 {
+        if (self.count == 0) return std.math.nan(f64);
+        return self.m2 / @as(f64, @floatFromInt(self.count));
+    }
+
+    fn stddev(self: GroupedMomentProfile) f64 {
+        return std.math.sqrt(self.variance());
+    }
+
+    fn skewness(self: GroupedMomentProfile) f64 {
+        if (self.count < 2 or self.m2 == 0) return std.math.nan(f64);
+        const n: f64 = @floatFromInt(self.count);
+        return std.math.sqrt(n) * self.m3 / std.math.pow(f64, self.m2, 1.5);
+    }
+
+    fn kurtosis(self: GroupedMomentProfile) f64 {
+        if (self.count < 2 or self.m2 == 0) return std.math.nan(f64);
+        const n: f64 = @floatFromInt(self.count);
+        return n * self.m4 / (self.m2 * self.m2) - 3.0;
+    }
+};
+
+const ProfileMetricSlices = struct {
+    allocator: std.mem.Allocator,
+    counts: []i64,
+    sums: []f64,
+    means: []f64,
+    variances: []f64,
+    stddevs: []f64,
+    skewnesses: []f64,
+    kurtoses: []f64,
+
+    fn deinit(self: *ProfileMetricSlices) void {
+        self.allocator.free(self.counts);
+        self.allocator.free(self.sums);
+        self.allocator.free(self.means);
+        self.allocator.free(self.variances);
+        self.allocator.free(self.stddevs);
+        self.allocator.free(self.skewnesses);
+        self.allocator.free(self.kurtoses);
+        self.* = undefined;
+    }
+};
+
+fn materializeProfileMetrics(allocator: std.mem.Allocator, profiles: []const GroupedMomentProfile) std.mem.Allocator.Error!ProfileMetricSlices {
+    const counts = try allocator.alloc(i64, profiles.len);
+    errdefer allocator.free(counts);
+    const sums = try allocator.alloc(f64, profiles.len);
+    errdefer allocator.free(sums);
+    const means = try allocator.alloc(f64, profiles.len);
+    errdefer allocator.free(means);
+    const variances = try allocator.alloc(f64, profiles.len);
+    errdefer allocator.free(variances);
+    const stddevs = try allocator.alloc(f64, profiles.len);
+    errdefer allocator.free(stddevs);
+    const skewnesses = try allocator.alloc(f64, profiles.len);
+    errdefer allocator.free(skewnesses);
+    const kurtoses = try allocator.alloc(f64, profiles.len);
+    errdefer allocator.free(kurtoses);
+
+    for (profiles, 0..) |profile, i| {
+        counts[i] = profile.count;
+        sums[i] = profile.sum;
+        means[i] = profile.mean;
+        variances[i] = profile.variance();
+        stddevs[i] = profile.stddev();
+        skewnesses[i] = profile.skewness();
+        kurtoses[i] = profile.kurtosis();
+    }
+
+    return .{
+        .allocator = allocator,
+        .counts = counts,
+        .sums = sums,
+        .means = means,
+        .variances = variances,
+        .stddevs = stddevs,
+        .skewnesses = skewnesses,
+        .kurtoses = kurtoses,
+    };
+}
+
+fn groupByProfileDispatchKey(
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_prefix: []const u8,
+    key: DeviceColumn,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    return switch (key) {
+        .bool => |typed| groupByProfileDispatchValue(bool, allocator, key_name, output_prefix, typed, value, device_value),
+        .i8 => |typed| groupByProfileDispatchValue(i8, allocator, key_name, output_prefix, typed, value, device_value),
+        .i16 => |typed| groupByProfileDispatchValue(i16, allocator, key_name, output_prefix, typed, value, device_value),
+        .i32 => |typed| groupByProfileDispatchValue(i32, allocator, key_name, output_prefix, typed, value, device_value),
+        .i64 => |typed| groupByProfileDispatchValue(i64, allocator, key_name, output_prefix, typed, value, device_value),
+        .u8 => |typed| groupByProfileDispatchValue(u8, allocator, key_name, output_prefix, typed, value, device_value),
+        .u16 => |typed| groupByProfileDispatchValue(u16, allocator, key_name, output_prefix, typed, value, device_value),
+        .u32 => |typed| groupByProfileDispatchValue(u32, allocator, key_name, output_prefix, typed, value, device_value),
+        .u64 => |typed| groupByProfileDispatchValue(u64, allocator, key_name, output_prefix, typed, value, device_value),
+        .usize => |typed| groupByProfileDispatchValue(usize, allocator, key_name, output_prefix, typed, value, device_value),
+        .isize => |typed| groupByProfileDispatchValue(isize, allocator, key_name, output_prefix, typed, value, device_value),
+        .f16 => |typed| groupByProfileDispatchValue(f16, allocator, key_name, output_prefix, typed, value, device_value),
+        .f32 => |typed| groupByProfileDispatchValue(f32, allocator, key_name, output_prefix, typed, value, device_value),
+        .f64 => |typed| groupByProfileDispatchValue(f64, allocator, key_name, output_prefix, typed, value, device_value),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByProfileDispatchValue(
+    comptime K: type,
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_prefix: []const u8,
+    key: DeviceTypedColumn(K),
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByProfileTyped(K, i8, allocator, key_name, output_prefix, key, typed, device_value),
+        .i16 => |typed| groupByProfileTyped(K, i16, allocator, key_name, output_prefix, key, typed, device_value),
+        .i32 => |typed| groupByProfileTyped(K, i32, allocator, key_name, output_prefix, key, typed, device_value),
+        .i64 => |typed| groupByProfileTyped(K, i64, allocator, key_name, output_prefix, key, typed, device_value),
+        .u8 => |typed| groupByProfileTyped(K, u8, allocator, key_name, output_prefix, key, typed, device_value),
+        .u16 => |typed| groupByProfileTyped(K, u16, allocator, key_name, output_prefix, key, typed, device_value),
+        .u32 => |typed| groupByProfileTyped(K, u32, allocator, key_name, output_prefix, key, typed, device_value),
+        .u64 => |typed| groupByProfileTyped(K, u64, allocator, key_name, output_prefix, key, typed, device_value),
+        .usize => |typed| groupByProfileTyped(K, usize, allocator, key_name, output_prefix, key, typed, device_value),
+        .isize => |typed| groupByProfileTyped(K, isize, allocator, key_name, output_prefix, key, typed, device_value),
+        .f16 => |typed| groupByProfileTyped(K, f16, allocator, key_name, output_prefix, key, typed, device_value),
+        .f32 => |typed| groupByProfileTyped(K, f32, allocator, key_name, output_prefix, key, typed, device_value),
+        .f64 => |typed| groupByProfileTyped(K, f64, allocator, key_name, output_prefix, key, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByProfileTyped(
+    comptime K: type,
+    comptime V: type,
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_prefix: []const u8,
+    key: DeviceTypedColumn(K),
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    if (key.len() != value.len()) return error.LengthMismatch;
+    if (!key.device().sameDevice(value.device())) return error.InvalidDevice;
+
+    const keys = try key.values.toOwnedSlice(allocator);
+    defer allocator.free(keys);
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_key_validity = try validityValues(key, allocator);
+    defer if (maybe_key_validity) |validity| allocator.free(validity);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var unique_keys: std.ArrayList(K) = .empty;
+    defer unique_keys.deinit(allocator);
+    var profiles: std.ArrayList(GroupedMomentProfile) = .empty;
+    defer profiles.deinit(allocator);
+
+    // Keep all moment-derived metrics in one pass over each group.  Besides
+    // being cheaper than issuing many independent group-bys, this preserves one
+    // API seam for a future Axiom grouped-moment kernel on CPU/CUDA/MPS.
+    for (keys, values, 0..) |key_value, value_item, row| {
+        if (maybe_key_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        const group_index = findGroupIndex(K, unique_keys.items, key_value) orelse blk: {
+            try unique_keys.append(allocator, key_value);
+            try profiles.append(allocator, .{});
+            break :blk unique_keys.items.len - 1;
+        };
+        profiles.items[group_index].update(castToF64(V, value_item));
+    }
+
+    var metrics = try materializeProfileMetrics(allocator, profiles.items);
+    defer metrics.deinit();
+    var key_col = try DeviceColumn.fromSlice(K, allocator, unique_keys.items, device_value);
+    defer key_col.deinit();
+    return initProfileDataFrame(allocator, &.{key_name}, output_prefix, &.{key_col}, metrics, device_value);
+}
+
+fn groupByProfileOnDispatchValue(
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_prefix: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByProfileOnTyped(i8, allocator, frame, key_names, output_prefix, typed, device_value),
+        .i16 => |typed| groupByProfileOnTyped(i16, allocator, frame, key_names, output_prefix, typed, device_value),
+        .i32 => |typed| groupByProfileOnTyped(i32, allocator, frame, key_names, output_prefix, typed, device_value),
+        .i64 => |typed| groupByProfileOnTyped(i64, allocator, frame, key_names, output_prefix, typed, device_value),
+        .u8 => |typed| groupByProfileOnTyped(u8, allocator, frame, key_names, output_prefix, typed, device_value),
+        .u16 => |typed| groupByProfileOnTyped(u16, allocator, frame, key_names, output_prefix, typed, device_value),
+        .u32 => |typed| groupByProfileOnTyped(u32, allocator, frame, key_names, output_prefix, typed, device_value),
+        .u64 => |typed| groupByProfileOnTyped(u64, allocator, frame, key_names, output_prefix, typed, device_value),
+        .usize => |typed| groupByProfileOnTyped(usize, allocator, frame, key_names, output_prefix, typed, device_value),
+        .isize => |typed| groupByProfileOnTyped(isize, allocator, frame, key_names, output_prefix, typed, device_value),
+        .f16 => |typed| groupByProfileOnTyped(f16, allocator, frame, key_names, output_prefix, typed, device_value),
+        .f32 => |typed| groupByProfileOnTyped(f32, allocator, frame, key_names, output_prefix, typed, device_value),
+        .f64 => |typed| groupByProfileOnTyped(f64, allocator, frame, key_names, output_prefix, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByProfileOnTyped(
+    comptime V: type,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_prefix: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var profiles: std.ArrayList(GroupedMomentProfile) = .empty;
+    defer profiles.deinit(allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const maybe_group_index = try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row);
+        const group_index = maybe_group_index orelse blk: {
+            try representative_rows.append(allocator, row);
+            try profiles.append(allocator, .{});
+            break :blk representative_rows.items.len - 1;
+        };
+        profiles.items[group_index].update(castToF64(V, value_item));
+    }
+
+    var metrics = try materializeProfileMetrics(allocator, profiles.items);
+    defer metrics.deinit();
+    var key_columns = try allocator.alloc(DeviceColumn, key_names.len);
+    var initialized: usize = 0;
+    defer {
+        for (key_columns[0..initialized]) |*col| col.deinit();
+        allocator.free(key_columns);
+    }
+    for (key_names, key_columns) |key_name, *slot| {
+        slot.* = try (try frame.column(key_name)).take(representative_rows.items);
+        initialized += 1;
+    }
+
+    return initProfileDataFrame(allocator, key_names, output_prefix, key_columns, metrics, device_value);
+}
+
+fn profileOutputNames(allocator: std.mem.Allocator, key_names: []const []const u8, prefix: []const u8) std.mem.Allocator.Error![]const []const u8 {
+    const names = try allocator.alloc([]const u8, key_names.len + 7);
+    errdefer allocator.free(names);
+    for (key_names, 0..) |key_name, i| names[i] = key_name;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[key_names.len .. key_names.len + initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "count", "sum", "mean", "variance", "stddev", "skewness", "kurtosis" };
+    for (suffixes, 0..) |suffix, i| {
+        names[key_names.len + i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn freeProfileOutputNames(allocator: std.mem.Allocator, names: []const []const u8, key_count: usize) void {
+    for (names[key_count..]) |name| allocator.free(name);
+    allocator.free(names);
+}
+
+fn initProfileDataFrame(
+    allocator: std.mem.Allocator,
+    key_names: []const []const u8,
+    output_prefix: []const u8,
+    key_columns: []const DeviceColumn,
+    metrics: ProfileMetricSlices,
+    device_value: array_mod.Device,
+) DeviceDataError!DeviceDataFrame {
+    if (key_columns.len != key_names.len) return error.LengthMismatch;
+    const rows = metrics.counts.len;
+    const names = try profileOutputNames(allocator, key_names, output_prefix);
+    defer freeProfileOutputNames(allocator, names, key_names.len);
+
+    var columns = try allocator.alloc(DeviceColumn, key_names.len + 7);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        allocator.free(columns);
+    }
+
+    for (key_columns) |key_col| {
+        if (key_col.len() != rows) return error.LengthMismatch;
+        columns[initialized] = try key_col.clone();
+        initialized += 1;
+    }
+    columns[initialized] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.sums, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.means, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.variances, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.stddevs, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.skewnesses, device_value);
+    initialized += 1;
+    columns[initialized] = try DeviceColumn.fromSlice(f64, allocator, metrics.kurtoses, device_value);
+    initialized += 1;
+
+    return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, rows, device_value);
 }
 
 fn distinctRowIndices(allocator: std.mem.Allocator, frame: DeviceDataFrame, key_names: []const []const u8) DeviceDataError![]usize {
@@ -5936,6 +6412,35 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectEqualSlices(f64, &.{ 13.0, 11.0 }, stats_maxes);
     try std.testing.expectEqualSlices(f64, &.{ 7.5, 7.0 }, stats_means);
 
+    var profile = try table.groupByProfile("store", "sales", "sales");
+    defer profile.deinit();
+    try std.testing.expectEqual(@as(usize, 8), profile.width());
+    const profile_keys = try (try profile.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(profile_keys);
+    const profile_counts = try (try profile.column("sales_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(profile_counts);
+    const profile_sums = try (try profile.column("sales_sum")).f64.toOwnedSlice(gpa);
+    defer gpa.free(profile_sums);
+    const profile_variances = try (try profile.column("sales_variance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(profile_variances);
+    const profile_stddevs = try (try profile.column("sales_stddev")).f64.toOwnedSlice(gpa);
+    defer gpa.free(profile_stddevs);
+    const profile_skewnesses = try (try profile.column("sales_skewness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(profile_skewnesses);
+    const profile_kurtoses = try (try profile.column("sales_kurtosis")).f64.toOwnedSlice(gpa);
+    defer gpa.free(profile_kurtoses);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, profile_keys);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2 }, profile_counts);
+    try std.testing.expectEqualSlices(f64, &.{ 15.0, 14.0 }, profile_sums);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.25), profile_variances[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0), profile_variances[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.5), profile_stddevs[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), profile_stddevs[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), profile_skewnesses[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), profile_skewnesses[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), profile_kurtoses[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), profile_kurtoses[1], 1e-12);
+
     var keyed = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 2, 2, 2 }, .cpu);
     defer keyed.deinit();
     var day = try DeviceColumn.fromSlice(i32, gpa, &.{ 10, 10, 11, 10, 10, 11 }, .cpu);
@@ -5968,6 +6473,34 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 1 }, ms_count);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 9.0, 4.0, 12.0 }, ms_sum);
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, ms_mean);
+
+    var multi_profile = try multi.groupByProfileOn(&.{ "store", "day" }, "amount", "amount");
+    defer multi_profile.deinit();
+    try std.testing.expectEqual(@as(usize, 9), multi_profile.width());
+    try std.testing.expectEqual(@as(usize, 4), multi_profile.height());
+    const mp_store = try (try multi_profile.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(mp_store);
+    const mp_day = try (try multi_profile.column("day")).i32.toOwnedSlice(gpa);
+    defer gpa.free(mp_day);
+    const mp_count = try (try multi_profile.column("amount_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(mp_count);
+    const mp_variance = try (try multi_profile.column("amount_variance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mp_variance);
+    const mp_stddev = try (try multi_profile.column("amount_stddev")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mp_stddev);
+    const mp_skewness = try (try multi_profile.column("amount_skewness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mp_skewness);
+    const mp_kurtosis = try (try multi_profile.column("amount_kurtosis")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mp_kurtosis);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2, 2 }, mp_store);
+    try std.testing.expectEqualSlices(i32, &.{ 10, 11, 10, 11 }, mp_day);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 1 }, mp_count);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), mp_variance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), mp_stddev[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), mp_skewness[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), mp_kurtosis[0], 1e-12);
+    try std.testing.expect(std.math.isNan(mp_skewness[1]));
+    try std.testing.expect(std.math.isNan(mp_kurtosis[1]));
 }
 
 test "device dataframe inner joins on fixed-width keys" {
@@ -6635,6 +7168,32 @@ test "device lazy frame collects groupby aggregations" {
     try std.testing.expectEqualSlices(i32, &.{ 10, 10, 11 }, stats_day);
     try std.testing.expectEqualSlices(i64, &.{ 2, 1, 2 }, stats_count);
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 5.0, 18.0 }, stats_sum);
+
+    var profile_plan = try DeviceLazyFrame.init(gpa, table);
+    defer profile_plan.deinit();
+    try profile_plan.groupByProfile("store", "sales", "sales");
+    const profile_explain = try profile_plan.explain(gpa);
+    defer gpa.free(profile_explain);
+    try std.testing.expect(std.mem.indexOf(u8, profile_explain, "group_by_profile(store") != null);
+    var profile = try profile_plan.collect();
+    defer profile.deinit();
+    try std.testing.expectEqual(@as(usize, 2), profile.height());
+    try std.testing.expectEqual(@as(usize, 8), profile.width());
+    const profile_count = try (try profile.column("sales_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(profile_count);
+    const profile_variance = try (try profile.column("sales_variance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(profile_variance);
+    const profile_skewness = try (try profile.column("sales_skewness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(profile_skewness);
+    const profile_kurtosis = try (try profile.column("sales_kurtosis")).f64.toOwnedSlice(gpa);
+    defer gpa.free(profile_kurtosis);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 3 }, profile_count);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), profile_variance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 6.222222222222222), profile_variance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), profile_skewness[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.3818017741606059), profile_skewness[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), profile_kurtosis[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.5), profile_kurtosis[1], 1e-12);
 }
 
 test "device lazy frame collects multi-key joins" {
