@@ -93,6 +93,11 @@ pub const DeviceSortOptions = struct {
     nulls: NullPlacement = .last,
 };
 
+pub const DeviceRollingOptions = struct {
+    window: usize,
+    min_periods: ?usize = null,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };
