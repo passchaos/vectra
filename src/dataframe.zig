@@ -1180,6 +1180,12 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceRollingOptions,
     },
+    expanding_error_profile: struct {
+        actual_name: []const u8,
+        predicted_name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceExpandingOptions,
+    },
     classification_profile: struct {
         actual_name: []const u8,
         predicted_name: []const u8,
@@ -1416,6 +1422,11 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(err.output_prefix);
             },
             .rolling_error_profile => |err| {
+                allocator.free(err.actual_name);
+                allocator.free(err.predicted_name);
+                allocator.free(err.output_prefix);
+            },
+            .expanding_error_profile => |err| {
                 allocator.free(err.actual_name);
                 allocator.free(err.predicted_name);
                 allocator.free(err.output_prefix);
@@ -2001,6 +2012,20 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, err.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .rolling_error_profile = .{
+                    .actual_name = actual_name,
+                    .predicted_name = predicted_name,
+                    .output_prefix = output_prefix,
+                    .options = err.options,
+                } };
+            },
+            .expanding_error_profile => |err| blk: {
+                const actual_name = try allocator.dupe(u8, err.actual_name);
+                errdefer allocator.free(actual_name);
+                const predicted_name = try allocator.dupe(u8, err.predicted_name);
+                errdefer allocator.free(predicted_name);
+                const output_prefix = try allocator.dupe(u8, err.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .expanding_error_profile = .{
                     .actual_name = actual_name,
                     .predicted_name = predicted_name,
                     .output_prefix = output_prefix,
@@ -2888,6 +2913,27 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn expandingErrorProfile(
+        self: *DeviceLazyFrame,
+        actual_name: []const u8,
+        predicted_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceExpandingOptions,
+    ) DeviceDataError!void {
+        const owned_actual = try self.allocator.dupe(u8, actual_name);
+        errdefer self.allocator.free(owned_actual);
+        const owned_predicted = try self.allocator.dupe(u8, predicted_name);
+        errdefer self.allocator.free(owned_predicted);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .expanding_error_profile = .{
+            .actual_name = owned_actual,
+            .predicted_name = owned_predicted,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn classificationProfile(
         self: *DeviceLazyFrame,
         actual_name: []const u8,
@@ -3111,6 +3157,7 @@ pub const DeviceLazyFrame = struct {
                 .linear_fit_profile => |fit| try current.linearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
                 .error_profile => |err| try current.errorProfile(err.actual_name, err.predicted_name, err.output_prefix),
                 .rolling_error_profile => |err| try current.rollingErrorProfile(err.actual_name, err.predicted_name, err.output_prefix, err.options),
+                .expanding_error_profile => |err| try current.expandingErrorProfile(err.actual_name, err.predicted_name, err.output_prefix, err.options),
                 .classification_profile => |class| try current.classificationProfile(class.actual_name, class.predicted_name, class.output_prefix),
                 .bool_transition_profile => |transition| try current.boolTransitionProfile(transition.name, transition.output_prefix, transition.options),
                 .rolling_correlation_profile => |corr| try current.rollingCorrelationProfile(corr.x_name, corr.y_name, corr.output_prefix, corr.options),
@@ -3731,6 +3778,12 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(err.predicted_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, err.predicted_name);
                 break :op_loop;
             },
+            .expanding_error_profile => |err| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(err.actual_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, err.actual_name);
+                if (!nameInBorrowedList(err.predicted_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, err.predicted_name);
+                break :op_loop;
+            },
             .classification_profile => |class| {
                 projection_blocked = true;
                 if (!nameInBorrowedList(class.actual_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, class.actual_name);
@@ -3993,6 +4046,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .linear_fit_profile => |fit| try writer.print("linear_fit_profile({s}->{s}, prefix={s})", .{ fit.x_name, fit.y_name, fit.output_prefix }),
         .error_profile => |err| try writer.print("error_profile(actual={s}, predicted={s}, prefix={s})", .{ err.actual_name, err.predicted_name, err.output_prefix }),
         .rolling_error_profile => |err| try writer.print("rolling_error_profile(actual={s}, predicted={s}, prefix={s}, window={d})", .{ err.actual_name, err.predicted_name, err.output_prefix, err.options.window }),
+        .expanding_error_profile => |err| try writer.print("expanding_error_profile(actual={s}, predicted={s}, prefix={s}, min_periods={d})", .{ err.actual_name, err.predicted_name, err.output_prefix, err.options.min_periods }),
         .classification_profile => |class| try writer.print("classification_profile(actual={s}, predicted={s}, prefix={s})", .{ class.actual_name, class.predicted_name, class.output_prefix }),
         .bool_transition_profile => |transition| try writer.print("bool_transition_profile({s}, prefix={s}, periods={d})", .{ transition.name, transition.output_prefix, transition.options.periods }),
         .rolling_correlation_profile => |corr| try writer.print("rolling_correlation_profile({s},{s}, prefix={s}, window={d})", .{ corr.x_name, corr.y_name, corr.output_prefix, corr.options.window }),
@@ -5659,6 +5713,49 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var error_names = try rollingErrorProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, error_names[0..]);
+        for (error_names, 0..) |error_name, i| source_names[self.columns.len + i] = error_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + error_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&error_columns) |*error_col| {
+            columns[initialized] = error_col.*;
+            initialized += 1;
+            error_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn expandingErrorProfile(
+        self: DeviceDataFrame,
+        actual_name: []const u8,
+        predicted_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceExpandingOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        const actual = try self.column(actual_name);
+        const predicted = try self.column(predicted_name);
+        if (actual.dtype() != predicted.dtype()) return error.TypeMismatch;
+        var error_columns = try expandingErrorProfileColumnsByValue(self.allocator, actual.*, predicted.*, options_value, self.device, self.rows);
+        var error_columns_transferred: usize = 0;
+        errdefer {
+            for (error_columns[error_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + error_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var error_names = try expandingErrorProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, error_names[0..]);
         for (error_names, 0..) |error_name, i| source_names[self.columns.len + i] = error_name;
 
@@ -10292,6 +10389,140 @@ fn rollingErrorProfileColumnsTyped(
     }
 
     var columns: [RollingErrorProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mae, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, rmse, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mape, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, smape, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ExpandingErrorProfileColumnCount = 5;
+
+fn expandingErrorProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingErrorProfileColumnCount][]const u8 {
+    var names: [ExpandingErrorProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_error_count", "expanding_mae", "expanding_rmse", "expanding_mape", "expanding_smape" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn expandingErrorProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    actual: DeviceColumn,
+    predicted: DeviceColumn,
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ExpandingErrorProfileColumnCount]DeviceColumn {
+    if (actual.len() != rows or predicted.len() != rows) return error.LengthMismatch;
+    if (actual.dtype() != predicted.dtype()) return error.TypeMismatch;
+    return switch (actual) {
+        .i8 => |typed| expandingErrorProfileColumnsTyped(i8, allocator, typed, predicted.i8, options_value, device_value),
+        .i16 => |typed| expandingErrorProfileColumnsTyped(i16, allocator, typed, predicted.i16, options_value, device_value),
+        .i32 => |typed| expandingErrorProfileColumnsTyped(i32, allocator, typed, predicted.i32, options_value, device_value),
+        .i64 => |typed| expandingErrorProfileColumnsTyped(i64, allocator, typed, predicted.i64, options_value, device_value),
+        .u8 => |typed| expandingErrorProfileColumnsTyped(u8, allocator, typed, predicted.u8, options_value, device_value),
+        .u16 => |typed| expandingErrorProfileColumnsTyped(u16, allocator, typed, predicted.u16, options_value, device_value),
+        .u32 => |typed| expandingErrorProfileColumnsTyped(u32, allocator, typed, predicted.u32, options_value, device_value),
+        .u64 => |typed| expandingErrorProfileColumnsTyped(u64, allocator, typed, predicted.u64, options_value, device_value),
+        .usize => |typed| expandingErrorProfileColumnsTyped(usize, allocator, typed, predicted.usize, options_value, device_value),
+        .isize => |typed| expandingErrorProfileColumnsTyped(isize, allocator, typed, predicted.isize, options_value, device_value),
+        .f16 => |typed| expandingErrorProfileColumnsTyped(f16, allocator, typed, predicted.f16, options_value, device_value),
+        .f32 => |typed| expandingErrorProfileColumnsTyped(f32, allocator, typed, predicted.f32, options_value, device_value),
+        .f64 => |typed| expandingErrorProfileColumnsTyped(f64, allocator, typed, predicted.f64, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn expandingErrorProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    actual_column: DeviceTypedColumn(T),
+    predicted_column: DeviceTypedColumn(T),
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![ExpandingErrorProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+    if (actual_column.len() != predicted_column.len()) return error.LengthMismatch;
+    if (!actual_column.device().sameDevice(predicted_column.device())) return error.InvalidDevice;
+
+    const actual_values = try actual_column.values.toOwnedSlice(allocator);
+    defer allocator.free(actual_values);
+    const predicted_values = try predicted_column.values.toOwnedSlice(allocator);
+    defer allocator.free(predicted_values);
+    const maybe_actual_validity = try validityValues(actual_column, allocator);
+    defer if (maybe_actual_validity) |validity| allocator.free(validity);
+    const maybe_predicted_validity = try validityValues(predicted_column, allocator);
+    defer if (maybe_predicted_validity) |validity| allocator.free(validity);
+
+    const rows = actual_values.len;
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const mae = try allocator.alloc(f64, rows);
+    defer allocator.free(mae);
+    const rmse = try allocator.alloc(f64, rows);
+    defer allocator.free(rmse);
+    const mape = try allocator.alloc(f64, rows);
+    defer allocator.free(mape);
+    const smape = try allocator.alloc(f64, rows);
+    defer allocator.free(smape);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var count: usize = 0;
+    var abs_sum: f64 = 0;
+    var sq_sum: f64 = 0;
+    var ape_sum: f64 = 0;
+    var smape_sum: f64 = 0;
+    for (actual_values, predicted_values, 0..) |actual_value, predicted_value, row| {
+        const valid = (if (maybe_actual_validity) |mask| mask[row] else true) and (if (maybe_predicted_validity) |mask| mask[row] else true);
+        if (valid) {
+            const actual = castToF64(T, actual_value);
+            const predicted = castToF64(T, predicted_value);
+            const err = actual - predicted;
+            const abs_err = @abs(err);
+            const denom = @abs(actual) + @abs(predicted);
+            abs_sum += abs_err;
+            sq_sum += err * err;
+            ape_sum += if (actual == 0) std.math.nan(f64) else abs_err / @abs(actual);
+            smape_sum += if (denom == 0) std.math.nan(f64) else 2.0 * abs_err / denom;
+            count += 1;
+        }
+
+        counts[row] = @intCast(count);
+        const has_enough = count >= options_value.min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(count);
+            mae[row] = abs_sum / n;
+            rmse[row] = std.math.sqrt(sq_sum / n);
+            mape[row] = ape_sum / n;
+            smape[row] = smape_sum / n;
+        } else {
+            mae[row] = 0;
+            rmse[row] = 0;
+            mape[row] = 0;
+            smape[row] = 0;
+        }
+    }
+
+    var columns: [ExpandingErrorProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
@@ -15356,6 +15587,36 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.9220779220779219), rolling_smape[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.8451548451548452), rolling_smape[3], 1e-12);
 
+    var expanding_errors = try fit_table.expandingErrorProfile("y", "x", "yx_expand", .{ .min_periods = 2 });
+    defer expanding_errors.deinit();
+    try std.testing.expectEqual(@as(usize, 7), expanding_errors.width());
+    const expanding_error_count = try (try expanding_errors.column("yx_expand_expanding_error_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_error_count);
+    const expanding_mae = try (try expanding_errors.column("yx_expand_expanding_mae")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_mae);
+    const expanding_rmse = try (try expanding_errors.column("yx_expand_expanding_rmse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_rmse);
+    const expanding_mape = try (try expanding_errors.column("yx_expand_expanding_mape")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_mape);
+    const expanding_smape = try (try expanding_errors.column("yx_expand_expanding_smape")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_smape);
+    const expanding_error_validity = try (try expanding_errors.column("yx_expand_expanding_mae")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(expanding_error_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4, 4 }, expanding_error_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true }, expanding_error_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), expanding_mae[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 3.0), expanding_mae[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.75), expanding_mae[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5495097567963922), expanding_rmse[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.559026084010437), expanding_rmse[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.968626966596886), expanding_rmse[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6333333333333333), expanding_mape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6305555555555555), expanding_mape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6118055555555555), expanding_mape[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.9285714285714286), expanding_smape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.9220779220779219), expanding_smape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.8838661338661339), expanding_smape[3], 1e-12);
+
     var bucketed = try signal_table.bucketProfile("fast", "fast", .{ .buckets = 3, .lower_quantile = 0.34, .upper_quantile = 0.84 });
     defer bucketed.deinit();
     try std.testing.expectEqual(@as(usize, 6), bucketed.width());
@@ -17215,6 +17476,41 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, (2.0 / 3.0 + 2.0 / 5.0) / 2.0), lazy_rolling_smape[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, (2.0 / 5.0 + 2.0 / 9.0) / 2.0), lazy_rolling_smape[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, (2.0 / 9.0 + 2.0 / 13.0) / 2.0), lazy_rolling_smape[3], 1e-12);
+
+    var expanding_error_plan = try DeviceLazyFrame.init(gpa, table);
+    defer expanding_error_plan.deinit();
+    try expanding_error_plan.withColumnScalar("sales_minus1", "sales", f64, 1.0, .sub);
+    try expanding_error_plan.expandingErrorProfile("sales", "sales_minus1", "sales_err", .{ .min_periods = 2 });
+    try expanding_error_plan.select(&.{ "sales", "sales_err_expanding_error_count", "sales_err_expanding_mae", "sales_err_expanding_rmse", "sales_err_expanding_mape", "sales_err_expanding_smape" });
+    const expanding_error_explain = try expanding_error_plan.explain(gpa);
+    defer gpa.free(expanding_error_explain);
+    try std.testing.expect(std.mem.indexOf(u8, expanding_error_explain, "expanding_error_profile(actual=sales, predicted=sales_minus1") != null);
+    var expanding_errors = try expanding_error_plan.collect();
+    defer expanding_errors.deinit();
+    try std.testing.expectEqual(@as(usize, 4), expanding_errors.height());
+    try std.testing.expectEqual(@as(usize, 6), expanding_errors.width());
+    const lazy_expanding_error_count = try (try expanding_errors.column("sales_err_expanding_error_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_error_count);
+    const lazy_expanding_mae = try (try expanding_errors.column("sales_err_expanding_mae")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_mae);
+    const lazy_expanding_rmse = try (try expanding_errors.column("sales_err_expanding_rmse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_rmse);
+    const lazy_expanding_mape = try (try expanding_errors.column("sales_err_expanding_mape")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_mape);
+    const lazy_expanding_smape = try (try expanding_errors.column("sales_err_expanding_smape")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_smape);
+    const lazy_expanding_error_validity = try (try expanding_errors.column("sales_err_expanding_mae")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_error_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4 }, lazy_expanding_error_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_expanding_error_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 1.0, 1.0 }, lazy_expanding_mae);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 1.0, 1.0 }, lazy_expanding_rmse);
+    try std.testing.expectApproxEqAbs(@as(f64, (0.5 + 1.0 / 3.0) / 2.0), lazy_expanding_mape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (0.5 + 1.0 / 3.0 + 0.2) / 3.0), lazy_expanding_mape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (0.5 + 1.0 / 3.0 + 0.2 + 1.0 / 7.0) / 4.0), lazy_expanding_mape[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (2.0 / 3.0 + 2.0 / 5.0) / 2.0), lazy_expanding_smape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (2.0 / 3.0 + 2.0 / 5.0 + 2.0 / 9.0) / 3.0), lazy_expanding_smape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (2.0 / 3.0 + 2.0 / 5.0 + 2.0 / 9.0 + 2.0 / 13.0) / 4.0), lazy_expanding_smape[3], 1e-12);
 
     var corr_plan = try DeviceLazyFrame.init(gpa, table);
     defer corr_plan.deinit();
