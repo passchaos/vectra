@@ -48,6 +48,54 @@ pub const WindowLinearFitMetrics = struct {
     }
 };
 
+pub const LinearFitProfileColumnCount = 4;
+
+pub fn linearFitProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![LinearFitProfileColumnCount][]const u8 {
+    var names: [LinearFitProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "fitted", "residual", "residual_zscore", "slope" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingLinearFitProfileColumnCount = 6;
+
+pub fn expandingLinearFitProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingLinearFitProfileColumnCount][]const u8 {
+    var names: [ExpandingLinearFitProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_pair_count", "expanding_slope", "expanding_intercept", "expanding_fitted", "expanding_residual", "expanding_residual_zscore" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingLinearFitProfileColumnCount = 6;
+
+pub fn rollingLinearFitProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingLinearFitProfileColumnCount][]const u8 {
+    var names: [RollingLinearFitProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_pair_count", "rolling_slope", "rolling_intercept", "rolling_fitted", "rolling_residual", "rolling_residual_zscore" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validatePairLengths(xs: []const f64, ys: []const f64, maybe_x_validity: ?[]const bool, maybe_y_validity: ?[]const bool) error{LengthMismatch}!void {
     if (xs.len != ys.len) return error.LengthMismatch;
     if (maybe_x_validity) |validity| {

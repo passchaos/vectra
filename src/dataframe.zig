@@ -7,6 +7,12 @@ const classification_mod = @import("dataframe_classification.zig");
 const error_mod = @import("dataframe_error.zig");
 const correlation_mod = @import("dataframe_correlation.zig");
 const linear_fit_mod = @import("dataframe_linear_fit.zig");
+const LinearFitProfileColumnCount = linear_fit_mod.LinearFitProfileColumnCount;
+const linearFitProfileOutputNames = linear_fit_mod.linearFitProfileOutputNames;
+const ExpandingLinearFitProfileColumnCount = linear_fit_mod.ExpandingLinearFitProfileColumnCount;
+const expandingLinearFitProfileOutputNames = linear_fit_mod.expandingLinearFitProfileOutputNames;
+const RollingLinearFitProfileColumnCount = linear_fit_mod.RollingLinearFitProfileColumnCount;
+const rollingLinearFitProfileOutputNames = linear_fit_mod.rollingLinearFitProfileOutputNames;
 const crossover_mod = @import("dataframe_crossover.zig");
 const CrossoverProfileColumnCount = crossover_mod.CrossoverProfileColumnCount;
 const crossoverProfileOutputNames = crossover_mod.crossoverProfileOutputNames;
@@ -11512,22 +11518,6 @@ fn emaProfileColumnsTyped(
     return columns;
 }
 
-const LinearFitProfileColumnCount = 4;
-
-fn linearFitProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![LinearFitProfileColumnCount][]const u8 {
-    var names: [LinearFitProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "fitted", "residual", "residual_zscore", "slope" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn linearFitProfileColumnsByValue(
     allocator: std.mem.Allocator,
     x: DeviceColumn,
@@ -12481,22 +12471,6 @@ fn expandingCorrelationProfileColumnsTyped(
     return columns;
 }
 
-const ExpandingLinearFitProfileColumnCount = 6;
-
-fn expandingLinearFitProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingLinearFitProfileColumnCount][]const u8 {
-    var names: [ExpandingLinearFitProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_pair_count", "expanding_slope", "expanding_intercept", "expanding_fitted", "expanding_residual", "expanding_residual_zscore" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn expandingLinearFitProfileColumnsByValue(
     allocator: std.mem.Allocator,
     x: DeviceColumn,
@@ -12576,22 +12550,6 @@ fn expandingLinearFitProfileColumnsTyped(
     columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.residual_z, metrics.row_validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingLinearFitProfileColumnCount = 6;
-
-fn rollingLinearFitProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingLinearFitProfileColumnCount][]const u8 {
-    var names: [RollingLinearFitProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_pair_count", "rolling_slope", "rolling_intercept", "rolling_fitted", "rolling_residual", "rolling_residual_zscore" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingLinearFitProfileColumnsByValue(
