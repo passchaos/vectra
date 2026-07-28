@@ -3029,20 +3029,7 @@ pub const DeviceDataFrame = struct {
         right_key_name: []const u8,
         options_value: DeviceJoinOptions,
     ) DeviceDataError!DeviceDataFrame {
-        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
-        const left_key = try self.column(left_key_name);
-        const right_key = try right.column(right_key_name);
-        if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-
-        var pair = try innerJoinRowIndices(self.allocator, left_key.*, right_key.*);
-        defer pair.deinit();
-
-        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
-        defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
-        defer right_rows.deinit();
-
-        return concatJoinedTables(DeviceDataFrame, self.allocator, left_rows, right_rows, right_key_name, options_value);
+        return join_mod.innerJoin(DeviceDataFrame, self, right, left_key_name, right_key_name, options_value);
     }
 
     pub fn innerJoinOn(
@@ -3052,23 +3039,7 @@ pub const DeviceDataFrame = struct {
         right_key_names: []const []const u8,
         options_value: DeviceJoinOptions,
     ) DeviceDataError!DeviceDataFrame {
-        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
-        if (left_key_names.len == 0 or left_key_names.len != right_key_names.len) return error.LengthMismatch;
-        for (left_key_names, right_key_names) |left_name, right_name| {
-            const left_key = try self.column(left_name);
-            const right_key = try right.column(right_name);
-            if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-        }
-
-        var pair = try innerJoinRowIndicesMulti(self.allocator, self, right, left_key_names, right_key_names);
-        defer pair.deinit();
-
-        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
-        defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
-        defer right_rows.deinit();
-
-        return concatJoinedTablesExcludingKeys(DeviceDataFrame, self.allocator, left_rows, right_rows, right_key_names, options_value);
+        return join_mod.innerJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names, options_value);
     }
 
     pub fn leftJoin(
@@ -3078,20 +3049,7 @@ pub const DeviceDataFrame = struct {
         right_key_name: []const u8,
         options_value: DeviceJoinOptions,
     ) DeviceDataError!DeviceDataFrame {
-        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
-        const left_key = try self.column(left_key_name);
-        const right_key = try right.column(right_key_name);
-        if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-
-        var pair = try leftJoinRowIndices(self.allocator, left_key.*, right_key.*);
-        defer pair.deinit();
-
-        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
-        defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
-        defer right_rows.deinit();
-
-        return concatJoinedTables(DeviceDataFrame, self.allocator, left_rows, right_rows, right_key_name, options_value);
+        return join_mod.leftJoin(DeviceDataFrame, self, right, left_key_name, right_key_name, options_value);
     }
 
     pub fn leftJoinOn(
@@ -3101,23 +3059,7 @@ pub const DeviceDataFrame = struct {
         right_key_names: []const []const u8,
         options_value: DeviceJoinOptions,
     ) DeviceDataError!DeviceDataFrame {
-        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
-        if (left_key_names.len == 0 or left_key_names.len != right_key_names.len) return error.LengthMismatch;
-        for (left_key_names, right_key_names) |left_name, right_name| {
-            const left_key = try self.column(left_name);
-            const right_key = try right.column(right_name);
-            if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-        }
-
-        var pair = try leftJoinRowIndicesMulti(self.allocator, self, right, left_key_names, right_key_names);
-        defer pair.deinit();
-
-        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
-        defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
-        defer right_rows.deinit();
-
-        return concatJoinedTablesExcludingKeys(DeviceDataFrame, self.allocator, left_rows, right_rows, right_key_names, options_value);
+        return join_mod.leftJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names, options_value);
     }
 
     pub fn fullJoin(
@@ -3127,20 +3069,7 @@ pub const DeviceDataFrame = struct {
         right_key_name: []const u8,
         options_value: DeviceJoinOptions,
     ) DeviceDataError!DeviceDataFrame {
-        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
-        const left_key = try self.column(left_key_name);
-        const right_key = try right.column(right_key_name);
-        if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-
-        var pair = try fullJoinRowIndices(self.allocator, left_key.*, right_key.*);
-        defer pair.deinit();
-
-        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
-        defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
-        defer right_rows.deinit();
-
-        return concatFullJoinedTables(DeviceDataFrame, self.allocator, left_rows, right_rows, left_key_name, right_key_name, options_value);
+        return join_mod.fullJoin(DeviceDataFrame, self, right, left_key_name, right_key_name, options_value);
     }
 
     pub fn fullJoinOn(
@@ -3150,23 +3079,7 @@ pub const DeviceDataFrame = struct {
         right_key_names: []const []const u8,
         options_value: DeviceJoinOptions,
     ) DeviceDataError!DeviceDataFrame {
-        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
-        if (left_key_names.len == 0 or left_key_names.len != right_key_names.len) return error.LengthMismatch;
-        for (left_key_names, right_key_names) |left_name, right_name| {
-            const left_key = try self.column(left_name);
-            const right_key = try right.column(right_name);
-            if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-        }
-
-        var pair = try fullJoinRowIndicesMulti(self.allocator, self, right, left_key_names, right_key_names);
-        defer pair.deinit();
-
-        var left_rows = try takeOptionalRows(DeviceDataFrame, self, pair.left);
-        defer left_rows.deinit();
-        var right_rows = try takeOptionalRows(DeviceDataFrame, right, pair.right);
-        defer right_rows.deinit();
-
-        return concatFullJoinedTablesOn(DeviceDataFrame, self.allocator, left_rows, right_rows, left_key_names, right_key_names, options_value);
+        return join_mod.fullJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names, options_value);
     }
 
     pub fn semiJoin(
@@ -3175,9 +3088,7 @@ pub const DeviceDataFrame = struct {
         left_key_name: []const u8,
         right_key_name: []const u8,
     ) DeviceDataError!DeviceDataFrame {
-        const indices = try self.semiAntiJoinIndices(right, left_key_name, right_key_name, true);
-        defer self.allocator.free(indices);
-        return self.take(indices);
+        return join_mod.semiJoin(DeviceDataFrame, self, right, left_key_name, right_key_name);
     }
 
     pub fn semiJoinOn(
@@ -3186,9 +3097,7 @@ pub const DeviceDataFrame = struct {
         left_key_names: []const []const u8,
         right_key_names: []const []const u8,
     ) DeviceDataError!DeviceDataFrame {
-        const indices = try self.semiAntiJoinIndicesOn(right, left_key_names, right_key_names, true);
-        defer self.allocator.free(indices);
-        return self.take(indices);
+        return join_mod.semiJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names);
     }
 
     pub fn antiJoin(
@@ -3197,9 +3106,7 @@ pub const DeviceDataFrame = struct {
         left_key_name: []const u8,
         right_key_name: []const u8,
     ) DeviceDataError!DeviceDataFrame {
-        const indices = try self.semiAntiJoinIndices(right, left_key_name, right_key_name, false);
-        defer self.allocator.free(indices);
-        return self.take(indices);
+        return join_mod.antiJoin(DeviceDataFrame, self, right, left_key_name, right_key_name);
     }
 
     pub fn antiJoinOn(
@@ -3208,9 +3115,7 @@ pub const DeviceDataFrame = struct {
         left_key_names: []const []const u8,
         right_key_names: []const []const u8,
     ) DeviceDataError!DeviceDataFrame {
-        const indices = try self.semiAntiJoinIndicesOn(right, left_key_names, right_key_names, false);
-        defer self.allocator.free(indices);
-        return self.take(indices);
+        return join_mod.antiJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names);
     }
 
     pub fn asofJoin(
@@ -3220,48 +3125,7 @@ pub const DeviceDataFrame = struct {
         right_key_name: []const u8,
         options_value: DeviceAsofOptions,
     ) DeviceDataError!DeviceDataFrame {
-        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
-        const left_key = try self.column(left_key_name);
-        const right_key = try right.column(right_key_name);
-        if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-
-        const right_indices = try asofRightRowIndices(self.allocator, left_key.*, right_key.*, options_value.strategy);
-        defer self.allocator.free(right_indices);
-        var right_rows = try takeOptionalRows(DeviceDataFrame, right, right_indices);
-        defer right_rows.deinit();
-
-        return concatJoinedTables(DeviceDataFrame, self.allocator, self, right_rows, right_key_name, .{ .right_suffix = options_value.right_suffix });
-    }
-
-    fn semiAntiJoinIndices(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_name: []const u8,
-        right_key_name: []const u8,
-        keep_matches: bool,
-    ) DeviceDataError![]usize {
-        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
-        const left_key = try self.column(left_key_name);
-        const right_key = try right.column(right_key_name);
-        if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-        return semiAntiJoinRowIndices(self.allocator, left_key.*, right_key.*, keep_matches);
-    }
-
-    fn semiAntiJoinIndicesOn(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_names: []const []const u8,
-        right_key_names: []const []const u8,
-        keep_matches: bool,
-    ) DeviceDataError![]usize {
-        if (!self.device.sameDevice(right.device)) return error.InvalidDevice;
-        if (left_key_names.len == 0 or left_key_names.len != right_key_names.len) return error.LengthMismatch;
-        for (left_key_names, right_key_names) |left_name, right_name| {
-            const left_key = try self.column(left_name);
-            const right_key = try right.column(right_name);
-            if (left_key.dtype() != right_key.dtype()) return error.TypeMismatch;
-        }
-        return semiAntiJoinRowIndicesMulti(self.allocator, self, right, left_key_names, right_key_names, keep_matches);
+        return join_mod.asofJoin(DeviceDataFrame, self, right, left_key_name, right_key_name, options_value);
     }
 
     pub fn filter(self: DeviceDataFrame, mask: []const bool) DeviceDataError!DeviceDataFrame {
@@ -3330,18 +3194,6 @@ const groupByNumericDispatchKey = group_profile_mod.groupByNumericDispatchKey;
 const groupByMeanDispatchKey = group_profile_mod.groupByMeanDispatchKey;
 const groupByStatsDispatchKey = group_profile_mod.groupByStatsDispatchKey;
 const groupByProfileDispatchKey = group_profile_mod.groupByProfileDispatchKey;
-const innerJoinRowIndices = join_mod.innerJoinRowIndices;
-const innerJoinRowIndicesMulti = join_mod.innerJoinRowIndicesMulti;
-const leftJoinRowIndices = join_mod.leftJoinRowIndices;
-const leftJoinRowIndicesMulti = join_mod.leftJoinRowIndicesMulti;
-const fullJoinRowIndices = join_mod.fullJoinRowIndices;
-const fullJoinRowIndicesMulti = join_mod.fullJoinRowIndicesMulti;
-const semiAntiJoinRowIndices = join_mod.semiAntiJoinRowIndices;
-const semiAntiJoinRowIndicesMulti = join_mod.semiAntiJoinRowIndicesMulti;
-const concatJoinedTables = join_mod.concatJoinedTables;
-const concatJoinedTablesExcludingKeys = join_mod.concatJoinedTablesExcludingKeys;
-const concatFullJoinedTables = join_mod.concatFullJoinedTables;
-const concatFullJoinedTablesOn = join_mod.concatFullJoinedTablesOn;
 const findGroupIndex = numeric_mod.findGroupIndex;
 const groupKeyEqual = numeric_mod.groupKeyEqual;
 const castToF64 = numeric_mod.castToF64;
