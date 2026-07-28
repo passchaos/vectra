@@ -6,6 +6,7 @@ const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const classification_mod = @import("dataframe_classification.zig");
 const error_mod = @import("dataframe_error.zig");
 const correlation_mod = @import("dataframe_correlation.zig");
+const linear_fit_mod = @import("dataframe_linear_fit.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -14002,99 +14003,43 @@ fn linearFitProfileColumnsTyped(
     options_value: DeviceLinearFitOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![LinearFitProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
     if (x_column.len() != y_column.len()) return error.LengthMismatch;
     if (!x_column.device().sameDevice(y_column.device())) return error.InvalidDevice;
 
-    const xs = try x_column.values.toOwnedSlice(allocator);
-    defer allocator.free(xs);
-    const ys = try y_column.values.toOwnedSlice(allocator);
-    defer allocator.free(ys);
+    const xs_typed = try x_column.values.toOwnedSlice(allocator);
+    defer allocator.free(xs_typed);
+    const ys_typed = try y_column.values.toOwnedSlice(allocator);
+    defer allocator.free(ys_typed);
     const maybe_x_validity = try validityValues(x_column, allocator);
     defer if (maybe_x_validity) |validity| allocator.free(validity);
     const maybe_y_validity = try validityValues(y_column, allocator);
     defer if (maybe_y_validity) |validity| allocator.free(validity);
 
-    var count: usize = 0;
-    var sum_x: f64 = 0;
-    var sum_y: f64 = 0;
-    var sum_xx: f64 = 0;
-    var sum_xy: f64 = 0;
-    for (xs, ys, 0..) |x_value, y_value, row| {
-        const valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
-        if (!valid) continue;
-        const x = castToF64(T, x_value);
-        const y = castToF64(T, y_value);
-        sum_x += x;
-        sum_y += y;
-        sum_xx += x * x;
-        sum_xy += x * y;
-        count += 1;
+    const rows = xs_typed.len;
+    const xs = try allocator.alloc(f64, rows);
+    defer allocator.free(xs);
+    const ys = try allocator.alloc(f64, rows);
+    defer allocator.free(ys);
+    for (xs_typed, ys_typed, 0..) |x_value, y_value, row| {
+        xs[row] = castToF64(T, x_value);
+        ys[row] = castToF64(T, y_value);
     }
 
-    const rows = xs.len;
-    const fitted = try allocator.alloc(f64, rows);
-    defer allocator.free(fitted);
-    const residuals = try allocator.alloc(f64, rows);
-    defer allocator.free(residuals);
-    const residual_z = try allocator.alloc(f64, rows);
-    defer allocator.free(residual_z);
-    const slopes = try allocator.alloc(f64, rows);
-    defer allocator.free(slopes);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    const has_fit = count >= options_value.min_periods;
-    const denom = @as(f64, @floatFromInt(count)) * sum_xx - sum_x * sum_x;
-    const slope = if (has_fit and denom != 0) (@as(f64, @floatFromInt(count)) * sum_xy - sum_x * sum_y) / denom else std.math.nan(f64);
-    const intercept = if (has_fit and !std.math.isNan(slope)) (sum_y - slope * sum_x) / @as(f64, @floatFromInt(count)) else std.math.nan(f64);
-
-    var residual_sum_sq: f64 = 0;
-    if (has_fit and !std.math.isNan(slope)) {
-        for (xs, ys, 0..) |x_value, y_value, row| {
-            const valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
-            if (!valid) continue;
-            const fit = intercept + slope * castToF64(T, x_value);
-            const residual = castToF64(T, y_value) - fit;
-            residual_sum_sq += residual * residual;
-        }
-    }
-    const residual_std = if (count == 0 or std.math.isNan(slope)) std.math.nan(f64) else std.math.sqrt(residual_sum_sq / @as(f64, @floatFromInt(count)));
-
-    // Fit one global y = intercept + slope*x model and emit row-aligned
-    // diagnostics. This keeps model diagnostics in the dataframe API while
-    // leaving a future backend seam for regression kernels.
-    for (xs, ys, 0..) |x_value, y_value, row| {
-        const row_valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
-        const valid = row_valid and has_fit;
-        metric_validity[row] = valid;
-        if (valid) {
-            const fit = intercept + slope * castToF64(T, x_value);
-            const residual = castToF64(T, y_value) - fit;
-            fitted[row] = fit;
-            residuals[row] = residual;
-            residual_z[row] = if (residual_std == 0 or std.math.isNan(residual_std)) std.math.nan(f64) else residual / residual_std;
-            slopes[row] = slope;
-        } else {
-            fitted[row] = 0;
-            residuals[row] = 0;
-            residual_z[row] = 0;
-            slopes[row] = 0;
-        }
-    }
+    var metrics = try linear_fit_mod.linearFitProfile(allocator, xs, ys, maybe_x_validity, maybe_y_validity, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [LinearFitProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, fitted, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.fitted, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residuals, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.residuals, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residual_z, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.residual_z, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, slopes, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.slopes, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -15027,118 +14972,47 @@ fn expandingLinearFitProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingLinearFitProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
     if (x_column.len() != y_column.len()) return error.LengthMismatch;
     if (!x_column.device().sameDevice(y_column.device())) return error.InvalidDevice;
 
-    const xs = try x_column.values.toOwnedSlice(allocator);
-    defer allocator.free(xs);
-    const ys = try y_column.values.toOwnedSlice(allocator);
-    defer allocator.free(ys);
+    const xs_typed = try x_column.values.toOwnedSlice(allocator);
+    defer allocator.free(xs_typed);
+    const ys_typed = try y_column.values.toOwnedSlice(allocator);
+    defer allocator.free(ys_typed);
     const maybe_x_validity = try validityValues(x_column, allocator);
     defer if (maybe_x_validity) |validity| allocator.free(validity);
     const maybe_y_validity = try validityValues(y_column, allocator);
     defer if (maybe_y_validity) |validity| allocator.free(validity);
 
-    const rows = xs.len;
-    const pair_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(pair_counts);
-    const slopes = try allocator.alloc(f64, rows);
-    defer allocator.free(slopes);
-    const intercepts = try allocator.alloc(f64, rows);
-    defer allocator.free(intercepts);
-    const fitted = try allocator.alloc(f64, rows);
-    defer allocator.free(fitted);
-    const residuals = try allocator.alloc(f64, rows);
-    defer allocator.free(residuals);
-    const residual_z = try allocator.alloc(f64, rows);
-    defer allocator.free(residual_z);
-    const fit_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(fit_validity);
-    const row_metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(row_metric_validity);
-
-    var count: usize = 0;
-    var sum_x: f64 = 0;
-    var sum_y: f64 = 0;
-    var sum_xx: f64 = 0;
-    var sum_xy: f64 = 0;
-    for (xs, ys, 0..) |x_value, y_value, row| {
-        const valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
-        if (valid) {
-            const x = castToF64(T, x_value);
-            const y = castToF64(T, y_value);
-            sum_x += x;
-            sum_y += y;
-            sum_xx += x * x;
-            sum_xy += x * y;
-            count += 1;
-        }
-
-        pair_counts[row] = @intCast(count);
-        const has_fit = count >= options_value.min_periods;
-        fit_validity[row] = has_fit;
-        if (!has_fit) {
-            slopes[row] = 0;
-            intercepts[row] = 0;
-            fitted[row] = 0;
-            residuals[row] = 0;
-            residual_z[row] = 0;
-            row_metric_validity[row] = false;
-            continue;
-        }
-
-        const n: f64 = @floatFromInt(count);
-        const denom = n * sum_xx - sum_x * sum_x;
-        const slope = if (denom == 0) std.math.nan(f64) else (n * sum_xy - sum_x * sum_y) / denom;
-        const intercept = if (std.math.isNan(slope)) std.math.nan(f64) else (sum_y - slope * sum_x) / n;
-        slopes[row] = slope;
-        intercepts[row] = intercept;
-
-        var residual_sum_sq: f64 = 0;
-        if (!std.math.isNan(slope)) {
-            for (0..row + 1) |prefix_row| {
-                const prefix_valid = (if (maybe_x_validity) |mask| mask[prefix_row] else true) and (if (maybe_y_validity) |mask| mask[prefix_row] else true);
-                if (!prefix_valid) continue;
-                const fit = intercept + slope * castToF64(T, xs[prefix_row]);
-                const residual = castToF64(T, ys[prefix_row]) - fit;
-                residual_sum_sq += residual * residual;
-            }
-        }
-        const residual_std = if (std.math.isNan(slope)) std.math.nan(f64) else std.math.sqrt(residual_sum_sq / n);
-        const current_valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
-        row_metric_validity[row] = current_valid;
-        if (current_valid) {
-            const x_current = castToF64(T, x_value);
-            const y_current = castToF64(T, y_value);
-            const fit = intercept + slope * x_current;
-            const residual = y_current - fit;
-            fitted[row] = fit;
-            residuals[row] = residual;
-            residual_z[row] = if (residual_std == 0 or std.math.isNan(residual_std)) std.math.nan(f64) else residual / residual_std;
-        } else {
-            fitted[row] = 0;
-            residuals[row] = 0;
-            residual_z[row] = 0;
-        }
+    const rows = xs_typed.len;
+    const xs = try allocator.alloc(f64, rows);
+    defer allocator.free(xs);
+    const ys = try allocator.alloc(f64, rows);
+    defer allocator.free(ys);
+    for (xs_typed, ys_typed, 0..) |x_value, y_value, row| {
+        xs[row] = castToF64(T, x_value);
+        ys[row] = castToF64(T, y_value);
     }
+
+    var metrics = try linear_fit_mod.expandingLinearFitProfile(allocator, xs, ys, maybe_x_validity, maybe_y_validity, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExpandingLinearFitProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, pair_counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.pair_counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, slopes, fit_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.slopes, metrics.fit_validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, intercepts, fit_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.intercepts, metrics.fit_validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, fitted, row_metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.fitted, metrics.row_validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residuals, row_metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.residuals, metrics.row_validity, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residual_z, row_metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.residual_z, metrics.row_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -15195,127 +15069,56 @@ fn rollingLinearFitProfileColumnsTyped(
     options_value: DeviceRollingCorrelationOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingLinearFitProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
     if (x_column.len() != y_column.len()) return error.LengthMismatch;
     if (!x_column.device().sameDevice(y_column.device())) return error.InvalidDevice;
 
-    const xs = try x_column.values.toOwnedSlice(allocator);
-    defer allocator.free(xs);
-    const ys = try y_column.values.toOwnedSlice(allocator);
-    defer allocator.free(ys);
+    const xs_typed = try x_column.values.toOwnedSlice(allocator);
+    defer allocator.free(xs_typed);
+    const ys_typed = try y_column.values.toOwnedSlice(allocator);
+    defer allocator.free(ys_typed);
     const maybe_x_validity = try validityValues(x_column, allocator);
     defer if (maybe_x_validity) |validity| allocator.free(validity);
     const maybe_y_validity = try validityValues(y_column, allocator);
     defer if (maybe_y_validity) |validity| allocator.free(validity);
 
-    const rows = xs.len;
-    const pair_counts = try allocator.alloc(i64, rows);
-    defer allocator.free(pair_counts);
-    const slopes = try allocator.alloc(f64, rows);
-    defer allocator.free(slopes);
-    const intercepts = try allocator.alloc(f64, rows);
-    defer allocator.free(intercepts);
-    const fitted = try allocator.alloc(f64, rows);
-    defer allocator.free(fitted);
-    const residuals = try allocator.alloc(f64, rows);
-    defer allocator.free(residuals);
-    const residual_z = try allocator.alloc(f64, rows);
-    defer allocator.free(residual_z);
-    const fit_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(fit_validity);
-    const row_metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(row_metric_validity);
-
-    // Each row receives the ordinary least-squares line fitted over its trailing
-    // valid-pair window.  Recomputing windows on the host matches the current
-    // rolling correlation implementation and keeps a single public seam for
-    // future device-side rolling regression kernels.
-    for (xs, ys, 0..) |x_value, y_value, row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var sum_x: f64 = 0;
-        var sum_y: f64 = 0;
-        var sum_xx: f64 = 0;
-        var sum_xy: f64 = 0;
-        for (start..row + 1) |window_row| {
-            const valid = (if (maybe_x_validity) |mask| mask[window_row] else true) and (if (maybe_y_validity) |mask| mask[window_row] else true);
-            if (!valid) continue;
-            const x = castToF64(T, xs[window_row]);
-            const y = castToF64(T, ys[window_row]);
-            sum_x += x;
-            sum_y += y;
-            sum_xx += x * x;
-            sum_xy += x * y;
-            count += 1;
-        }
-
-        pair_counts[row] = @intCast(count);
-        const has_fit = count >= min_periods;
-        fit_validity[row] = has_fit;
-        if (!has_fit) {
-            slopes[row] = 0;
-            intercepts[row] = 0;
-            fitted[row] = 0;
-            residuals[row] = 0;
-            residual_z[row] = 0;
-            row_metric_validity[row] = false;
-            continue;
-        }
-
-        const n: f64 = @floatFromInt(count);
-        const denom = n * sum_xx - sum_x * sum_x;
-        const slope = if (denom == 0) std.math.nan(f64) else (n * sum_xy - sum_x * sum_y) / denom;
-        const intercept = if (std.math.isNan(slope)) std.math.nan(f64) else (sum_y - slope * sum_x) / n;
-        slopes[row] = slope;
-        intercepts[row] = intercept;
-
-        var residual_sum_sq: f64 = 0;
-        if (!std.math.isNan(slope)) {
-            for (start..row + 1) |window_row| {
-                const valid = (if (maybe_x_validity) |mask| mask[window_row] else true) and (if (maybe_y_validity) |mask| mask[window_row] else true);
-                if (!valid) continue;
-                const fit = intercept + slope * castToF64(T, xs[window_row]);
-                const residual = castToF64(T, ys[window_row]) - fit;
-                residual_sum_sq += residual * residual;
-            }
-        }
-        const residual_std = if (std.math.isNan(slope)) std.math.nan(f64) else std.math.sqrt(residual_sum_sq / n);
-
-        const current_valid = (if (maybe_x_validity) |mask| mask[row] else true) and (if (maybe_y_validity) |mask| mask[row] else true);
-        row_metric_validity[row] = current_valid;
-        if (current_valid) {
-            const x_current = castToF64(T, x_value);
-            const y_current = castToF64(T, y_value);
-            const fit = intercept + slope * x_current;
-            const residual = y_current - fit;
-            fitted[row] = fit;
-            residuals[row] = residual;
-            residual_z[row] = if (residual_std == 0 or std.math.isNan(residual_std)) std.math.nan(f64) else residual / residual_std;
-        } else {
-            fitted[row] = 0;
-            residuals[row] = 0;
-            residual_z[row] = 0;
-        }
+    const rows = xs_typed.len;
+    const xs = try allocator.alloc(f64, rows);
+    defer allocator.free(xs);
+    const ys = try allocator.alloc(f64, rows);
+    defer allocator.free(ys);
+    for (xs_typed, ys_typed, 0..) |x_value, y_value, row| {
+        xs[row] = castToF64(T, x_value);
+        ys[row] = castToF64(T, y_value);
     }
+
+    var metrics = try linear_fit_mod.rollingLinearFitProfile(
+        allocator,
+        xs,
+        ys,
+        maybe_x_validity,
+        maybe_y_validity,
+        options_value.window,
+        min_periods,
+    );
+    defer metrics.deinit();
 
     var columns: [RollingLinearFitProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, pair_counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.pair_counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, slopes, fit_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.slopes, metrics.fit_validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, intercepts, fit_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.intercepts, metrics.fit_validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, fitted, row_metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.fitted, metrics.row_validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residuals, row_metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.residuals, metrics.row_validity, device_value);
     initialized += 1;
-    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residual_z, row_metric_validity, device_value);
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.residual_z, metrics.row_validity, device_value);
     initialized += 1;
     return columns;
 }
