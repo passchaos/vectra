@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -13,6 +15,17 @@ const DeviceExpandingRankOptions = options_mod.DeviceExpandingRankOptions;
 const argsortTypedColumn = dataframe_device_column_mod.argsortTypedColumn;
 const compareSortValues = numeric_mod.compareSortValues;
 const validityValues = validity_mod.validityValues;
+const freeOwnedNameItems = names_mod.freeOwnedNameItems;
+
+const RankFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    InvalidCsv,
+    EmptyDataFrame,
+    UnsupportedType,
+    InvalidDevice,
+};
 
 pub const RankMetrics = struct {
     allocator: std.mem.Allocator,
@@ -495,4 +508,74 @@ fn expandingRankProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.cume_dist, metrics.validity, device_value);
     initialized += 1;
     return columns;
+}
+
+pub fn argsortBy(frame: anytype, name: []const u8, options_value: DeviceSortOptions) RankFrameError![]usize {
+    const sort_key = try frame.column(name);
+    return sort_key.argsort(frame.allocator, options_value);
+}
+
+pub fn sortBy(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    options_value: DeviceSortOptions,
+) RankFrameError!DeviceDataFrame {
+    const order = try argsortBy(frame, name, options_value);
+    defer frame.allocator.free(order);
+    return frame.take(order);
+}
+
+pub fn topKBy(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    k: usize,
+    options_value: DeviceSortOptions,
+) RankFrameError!DeviceDataFrame {
+    var sorted = try sortBy(DeviceDataFrame, frame, name, options_value);
+    defer sorted.deinit();
+    return sorted.head(k);
+}
+
+pub fn rankProfileBy(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceSortOptions,
+) RankFrameError!DeviceDataFrame {
+    const rank_key = try frame.column(name);
+    var rank_columns = try rankProfileColumnsByKey(frame.allocator, rank_key.*, options_value, frame.device, frame.rows);
+    var rank_columns_transferred: usize = 0;
+    errdefer {
+        for (rank_columns[rank_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + rank_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var rank_names = try rankProfileOutputNames(frame.allocator, output_prefix);
+    defer freeOwnedNameItems(frame.allocator, rank_names[0..]);
+    for (rank_names, 0..) |rank_name, i| source_names[frame.columns.len + i] = rank_name;
+
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + rank_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&rank_columns) |*rank_col| {
+        columns[initialized] = rank_col.*;
+        initialized += 1;
+        rank_columns_transferred += 1;
+    }
+
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
 }

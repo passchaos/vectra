@@ -177,13 +177,10 @@ const BucketProfileColumnCount = bucket_mod.BucketProfileColumnCount;
 const bucketProfileOutputNames = bucket_mod.bucketProfileOutputNames;
 const bucketProfileColumnsByValue = bucket_mod.bucketProfileColumnsByValue;
 const rank_mod = @import("dataframe_rank.zig");
-const RankProfileColumnCount = rank_mod.RankProfileColumnCount;
-const rankProfileOutputNames = rank_mod.rankProfileOutputNames;
 const RollingRankProfileColumnCount = rank_mod.RollingRankProfileColumnCount;
 const rollingRankProfileOutputNames = rank_mod.rollingRankProfileOutputNames;
 const ExpandingRankProfileColumnCount = rank_mod.ExpandingRankProfileColumnCount;
 const expandingRankProfileOutputNames = rank_mod.expandingRankProfileOutputNames;
-const rankProfileColumnsByKey = rank_mod.rankProfileColumnsByKey;
 const rollingRankProfileColumnsByValue = rank_mod.rollingRankProfileColumnsByValue;
 const expandingRankProfileColumnsByValue = rank_mod.expandingRankProfileColumnsByValue;
 const stats_profile_mod = @import("dataframe_stats_profile.zig");
@@ -591,14 +588,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn argsortBy(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError![]usize {
-        const sort_key = try self.column(name);
-        return sort_key.argsort(self.allocator, options_value);
+        return rank_mod.argsortBy(self, name, options_value);
     }
 
     pub fn sortBy(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
-        const order = try self.argsortBy(name, options_value);
-        defer self.allocator.free(order);
-        return self.take(order);
+        return rank_mod.sortBy(DeviceDataFrame, self, name, options_value);
     }
 
     pub fn sortByColumn(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
@@ -606,44 +600,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn topKBy(self: DeviceDataFrame, name: []const u8, k: usize, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
-        var sorted = try self.sortBy(name, options_value);
-        defer sorted.deinit();
-        return sorted.head(k);
+        return rank_mod.topKBy(DeviceDataFrame, self, name, k, options_value);
     }
 
     pub fn rankProfileBy(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
-        const rank_key = try self.column(name);
-        var rank_columns = try rankProfileColumnsByKey(self.allocator, rank_key.*, options_value, self.device, self.rows);
-        var rank_columns_transferred: usize = 0;
-        errdefer {
-            for (rank_columns[rank_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + rank_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var rank_names = try rankProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, rank_names[0..]);
-        for (rank_names, 0..) |rank_name, i| source_names[self.columns.len + i] = rank_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + rank_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&rank_columns) |*rank_col| {
-            columns[initialized] = rank_col.*;
-            initialized += 1;
-            rank_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return rank_mod.rankProfileBy(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn rollingProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
