@@ -1052,6 +1052,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceRollingOptions,
     },
+    expanding_quantile_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceExpandingOptions,
+    },
     rolling_bool_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1321,6 +1326,10 @@ pub const DeviceLazyOp = union(enum) {
             .rolling_quantile_profile => |rolling| {
                 allocator.free(rolling.name);
                 allocator.free(rolling.output_prefix);
+            },
+            .expanding_quantile_profile => |expanding| {
+                allocator.free(expanding.name);
+                allocator.free(expanding.output_prefix);
             },
             .rolling_bool_profile => |rolling| {
                 allocator.free(rolling.name);
@@ -1730,6 +1739,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = rolling.options,
+                } };
+            },
+            .expanding_quantile_profile => |expanding| blk: {
+                const name = try allocator.dupe(u8, expanding.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, expanding.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .expanding_quantile_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = expanding.options,
                 } };
             },
             .rolling_bool_profile => |rolling| blk: {
@@ -2579,6 +2599,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn expandingQuantileProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .expanding_quantile_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn rollingBoolProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -3132,6 +3164,7 @@ pub const DeviceLazyFrame = struct {
                 .rolling_range_profile => |rolling| try current.rollingRangeProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .rolling_normalize_profile => |rolling| try current.rollingNormalizeProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .rolling_quantile_profile => |rolling| try current.rollingQuantileProfile(rolling.name, rolling.output_prefix, rolling.options),
+                .expanding_quantile_profile => |expanding| try current.expandingQuantileProfile(expanding.name, expanding.output_prefix, expanding.options),
                 .rolling_bool_profile => |rolling| try current.rollingBoolProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .rolling_drawdown_profile => |rolling| try current.rollingDrawdownProfile(rolling.name, rolling.output_prefix, rolling.options),
                 .rolling_robust_profile => |rolling| try current.rollingRobustProfile(rolling.name, rolling.output_prefix, rolling.options),
@@ -3596,6 +3629,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(rolling.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, rolling.name);
                 break :op_loop;
             },
+            .expanding_quantile_profile => |expanding| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(expanding.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, expanding.name);
+                break :op_loop;
+            },
             .rolling_bool_profile => |rolling| {
                 // Rolling bool profiles append count/rate/predicate diagnostics
                 // while preserving source columns. Keep scan predicates, but do
@@ -4021,6 +4059,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .rolling_range_profile => |rolling| try writer.print("rolling_range_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .rolling_normalize_profile => |rolling| try writer.print("rolling_normalize_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .rolling_quantile_profile => |rolling| try writer.print("rolling_quantile_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
+        .expanding_quantile_profile => |expanding| try writer.print("expanding_quantile_profile({s}, prefix={s}, min_periods={d})", .{ expanding.name, expanding.output_prefix, expanding.options.min_periods }),
         .rolling_bool_profile => |rolling| try writer.print("rolling_bool_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .rolling_drawdown_profile => |rolling| try writer.print("rolling_drawdown_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
         .rolling_robust_profile => |rolling| try writer.print("rolling_robust_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),
@@ -4822,6 +4861,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = rolling_col.*;
             initialized += 1;
             rolling_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn expandingQuantileProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
+        const expanding_value = try self.column(name);
+        var expanding_columns = try expandingQuantileProfileColumnsByValue(self.allocator, expanding_value.*, options_value, self.device, self.rows);
+        var expanding_columns_transferred: usize = 0;
+        errdefer {
+            for (expanding_columns[expanding_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + expanding_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var expanding_names = try expandingQuantileProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, expanding_names[0..]);
+        for (expanding_names, 0..) |expanding_name, i| source_names[self.columns.len + i] = expanding_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + expanding_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&expanding_columns) |*expanding_col| {
+            columns[initialized] = expanding_col.*;
+            initialized += 1;
+            expanding_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -7281,6 +7355,124 @@ fn rollingQuantileProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, q3_values, validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, iqrs, validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ExpandingQuantileProfileColumnCount = 4;
+
+fn expandingQuantileProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingQuantileProfileColumnCount][]const u8 {
+    var names: [ExpandingQuantileProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_q1", "expanding_median", "expanding_q3", "expanding_iqr" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn expandingQuantileProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ExpandingQuantileProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| expandingQuantileProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| expandingQuantileProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| expandingQuantileProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| expandingQuantileProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| expandingQuantileProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| expandingQuantileProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| expandingQuantileProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| expandingQuantileProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| expandingQuantileProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| expandingQuantileProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| expandingQuantileProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| expandingQuantileProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| expandingQuantileProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn expandingQuantileProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![ExpandingQuantileProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const q1_values = try allocator.alloc(f64, rows);
+    defer allocator.free(q1_values);
+    const medians = try allocator.alloc(f64, rows);
+    defer allocator.free(medians);
+    const q3_values = try allocator.alloc(f64, rows);
+    defer allocator.free(q3_values);
+    const iqrs = try allocator.alloc(f64, rows);
+    defer allocator.free(iqrs);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+    const scratch = try allocator.alloc(f64, rows);
+    defer allocator.free(scratch);
+
+    var valid_count: usize = 0;
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (valid) {
+            scratch[valid_count] = castToF64(T, value_item);
+            valid_count += 1;
+        }
+
+        const has_enough = valid_count >= options_value.min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const prefix_values = scratch[0..valid_count];
+            std.sort.insertion(f64, prefix_values, {}, struct {
+                fn lessThan(_: void, lhs: f64, rhs: f64) bool {
+                    return compareFloatSortValues(f64, lhs, rhs) < 0;
+                }
+            }.lessThan);
+            const q1 = quantileSorted(prefix_values, 0.25);
+            const median = quantileSorted(prefix_values, 0.5);
+            const q3 = quantileSorted(prefix_values, 0.75);
+            q1_values[row] = q1;
+            medians[row] = median;
+            q3_values[row] = q3;
+            iqrs[row] = q3 - q1;
+        } else {
+            q1_values[row] = 0;
+            medians[row] = 0;
+            q3_values[row] = 0;
+            iqrs[row] = 0;
+        }
+    }
+
+    var columns: [ExpandingQuantileProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, q1_values, metric_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, medians, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, q3_values, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, iqrs, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -14853,6 +15045,37 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_iqr[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_iqr[4], 1e-12);
 
+    var expanding_quantiles = try rolling_table.expandingQuantileProfile("sales", "sales", .{ .min_periods = 2 });
+    defer expanding_quantiles.deinit();
+    try std.testing.expectEqual(@as(usize, 6), expanding_quantiles.width());
+    const expanding_q1 = try (try expanding_quantiles.column("sales_expanding_q1")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_q1);
+    const expanding_median = try (try expanding_quantiles.column("sales_expanding_median")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_median);
+    const expanding_q3 = try (try expanding_quantiles.column("sales_expanding_q3")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_q3);
+    const expanding_iqr = try (try expanding_quantiles.column("sales_expanding_iqr")).f64.toOwnedSlice(gpa);
+    defer gpa.free(expanding_iqr);
+    const expanding_quantile_validity = try (try expanding_quantiles.column("sales_expanding_median")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(expanding_quantile_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true }, expanding_quantile_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), expanding_q1[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), expanding_q1[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), expanding_q1[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.75), expanding_q1[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), expanding_median[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), expanding_median[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), expanding_median[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), expanding_median[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.75), expanding_q3[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.75), expanding_q3[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), expanding_q3[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.25), expanding_q3[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_iqr[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), expanding_iqr[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), expanding_iqr[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), expanding_iqr[4], 1e-12);
+
     var lag_source = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 10.0, 0.0, 15.0, 20.0, 99.0 }, &.{ true, true, true, true, false }, .cpu);
     defer lag_source.deinit();
     var lag_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4, 5 }, .cpu);
@@ -16798,6 +17021,41 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_iqr[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_iqr[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_iqr[3], 1e-12);
+
+    var expanding_quantile_plan = try DeviceLazyFrame.init(gpa, table);
+    defer expanding_quantile_plan.deinit();
+    try expanding_quantile_plan.expandingQuantileProfile("sales", "sales", .{ .min_periods = 2 });
+    try expanding_quantile_plan.select(&.{ "sales", "sales_expanding_q1", "sales_expanding_median", "sales_expanding_q3", "sales_expanding_iqr" });
+    const expanding_quantile_explain = try expanding_quantile_plan.explain(gpa);
+    defer gpa.free(expanding_quantile_explain);
+    try std.testing.expect(std.mem.indexOf(u8, expanding_quantile_explain, "expanding_quantile_profile(sales") != null);
+    var expanding_quantile = try expanding_quantile_plan.collect();
+    defer expanding_quantile.deinit();
+    try std.testing.expectEqual(@as(usize, 4), expanding_quantile.height());
+    try std.testing.expectEqual(@as(usize, 5), expanding_quantile.width());
+    const lazy_expanding_q1 = try (try expanding_quantile.column("sales_expanding_q1")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_q1);
+    const lazy_expanding_median = try (try expanding_quantile.column("sales_expanding_median")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_median);
+    const lazy_expanding_q3 = try (try expanding_quantile.column("sales_expanding_q3")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_q3);
+    const lazy_expanding_iqr = try (try expanding_quantile.column("sales_expanding_iqr")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_iqr);
+    const lazy_expanding_quantile_validity = try (try expanding_quantile.column("sales_expanding_median")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_quantile_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_expanding_quantile_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.25), lazy_expanding_q1[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), lazy_expanding_q1[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.75), lazy_expanding_q1[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), lazy_expanding_median[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_expanding_median[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_expanding_median[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.75), lazy_expanding_q3[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_expanding_q3[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.5), lazy_expanding_q3[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_expanding_iqr[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), lazy_expanding_iqr[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.75), lazy_expanding_iqr[3], 1e-12);
 
     var rolling_bool_plan = try DeviceLazyFrame.init(gpa, table);
     defer rolling_bool_plan.deinit();
