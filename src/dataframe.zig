@@ -41,15 +41,6 @@ const expandingBoolProfileOutputNames = bool_profile_mod.expandingBoolProfileOut
 const rollingBoolProfileColumns = bool_profile_mod.rollingBoolProfileColumns;
 const expandingBoolProfileColumns = bool_profile_mod.expandingBoolProfileColumns;
 const clip_mod = @import("dataframe_clip.zig");
-const ClipProfileColumnCount = clip_mod.ClipProfileColumnCount;
-const clipProfileOutputNames = clip_mod.clipProfileOutputNames;
-const RollingClipProfileColumnCount = clip_mod.RollingClipProfileColumnCount;
-const rollingClipProfileOutputNames = clip_mod.rollingClipProfileOutputNames;
-const ExpandingClipProfileColumnCount = clip_mod.ExpandingClipProfileColumnCount;
-const expandingClipProfileOutputNames = clip_mod.expandingClipProfileOutputNames;
-const clipProfileColumnsByValue = clip_mod.clipProfileColumnsByValue;
-const rollingClipProfileColumnsByValue = clip_mod.rollingClipProfileColumnsByValue;
-const expandingClipProfileColumnsByValue = clip_mod.expandingClipProfileColumnsByValue;
 const risk_mod = @import("dataframe_risk.zig");
 const RollingDrawdownProfileColumnCount = risk_mod.RollingDrawdownProfileColumnCount;
 const rollingDrawdownProfileOutputNames = risk_mod.rollingDrawdownProfileOutputNames;
@@ -789,108 +780,15 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn clipProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceClipOptions) DeviceDataError!DeviceDataFrame {
-        const clip_value = try self.column(name);
-        var clip_columns = try clipProfileColumnsByValue(self.allocator, clip_value.*, options_value, self.device, self.rows);
-        var clip_columns_transferred: usize = 0;
-        errdefer {
-            for (clip_columns[clip_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + clip_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var clip_names = try clipProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, clip_names[0..]);
-        for (clip_names, 0..) |clip_name, i| source_names[self.columns.len + i] = clip_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + clip_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&clip_columns) |*clip_col| {
-            columns[initialized] = clip_col.*;
-            initialized += 1;
-            clip_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return clip_mod.clipProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn rollingClipProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, clip_options: DeviceClipOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        const clip_value = try self.column(name);
-        var clip_columns = try rollingClipProfileColumnsByValue(self.allocator, clip_value.*, clip_options, options_value, self.device, self.rows);
-        var clip_columns_transferred: usize = 0;
-        errdefer {
-            for (clip_columns[clip_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + clip_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var clip_names = try rollingClipProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, clip_names[0..]);
-        for (clip_names, 0..) |clip_name, i| source_names[self.columns.len + i] = clip_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + clip_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&clip_columns) |*clip_col| {
-            columns[initialized] = clip_col.*;
-            initialized += 1;
-            clip_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return clip_mod.rollingClipProfileFrame(DeviceDataFrame, self, name, output_prefix, clip_options, options_value);
     }
 
     pub fn expandingClipProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, clip_options: DeviceClipOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        const clip_value = try self.column(name);
-        var clip_columns = try expandingClipProfileColumnsByValue(self.allocator, clip_value.*, clip_options, options_value, self.device, self.rows);
-        var clip_columns_transferred: usize = 0;
-        errdefer {
-            for (clip_columns[clip_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + clip_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var clip_names = try expandingClipProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, clip_names[0..]);
-        for (clip_names, 0..) |clip_name, i| source_names[self.columns.len + i] = clip_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + clip_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&clip_columns) |*clip_col| {
-            columns[initialized] = clip_col.*;
-            initialized += 1;
-            clip_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return clip_mod.expandingClipProfileFrame(DeviceDataFrame, self, name, output_prefix, clip_options, options_value);
     }
 
     pub fn thresholdProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceThresholdOptions) DeviceDataError!DeviceDataFrame {
