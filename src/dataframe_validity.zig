@@ -1,5 +1,11 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_device_column_mod = @import("dataframe_device_column.zig");
+const options_mod = @import("dataframe_options.zig");
+
+const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
+const DeviceRollingOptions = options_mod.DeviceRollingOptions;
+const DeviceExpandingOptions = options_mod.DeviceExpandingOptions;
 
 pub const ValidityMetrics = struct {
     allocator: std.mem.Allocator,
@@ -256,4 +262,128 @@ pub fn expandingValidityProfile(
     }
 
     return out;
+}
+
+pub fn validityProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{LengthMismatch})![ValidityProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        inline else => |typed| validityProfileColumnsTyped(allocator, typed, device_value),
+    };
+}
+fn validityProfileColumnsTyped(
+    allocator: std.mem.Allocator,
+    column: anytype,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || error{LengthMismatch})![ValidityProfileColumnCount]DeviceColumn {
+    const rows = column.len();
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    var metrics = try validityProfile(allocator, rows, maybe_validity);
+    defer metrics.deinit();
+
+    var columns: [ValidityProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(bool, allocator, metrics.is_null, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(bool, allocator, metrics.is_valid, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, metrics.valid_streak, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSlice(i64, allocator, metrics.null_streak, device_value);
+    initialized += 1;
+    return columns;
+}
+pub fn rollingValidityProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{LengthMismatch})![RollingValidityProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        inline else => |typed| rollingValidityProfileColumnsTyped(allocator, typed, options_value, device_value),
+    };
+}
+fn rollingValidityProfileColumnsTyped(
+    allocator: std.mem.Allocator,
+    column: anytype,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || error{LengthMismatch})![RollingValidityProfileColumnCount]DeviceColumn {
+    const min_periods = options_value.min_periods orelse options_value.window;
+    const rows = column.len();
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    var metrics = try rollingValidityProfile(allocator, rows, maybe_validity, options_value.window, min_periods);
+    defer metrics.deinit();
+
+    var columns: [RollingValidityProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.total_counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.valid_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, metrics.null_counts, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.valid_rates, metrics.validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.null_rates, metrics.validity, device_value);
+    initialized += 1;
+    return columns;
+}
+pub fn expandingValidityProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) (array_mod.ArrayError || error{LengthMismatch})![ExpandingValidityProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        inline else => |typed| expandingValidityProfileColumnsTyped(allocator, typed, options_value, device_value),
+    };
+}
+fn expandingValidityProfileColumnsTyped(
+    allocator: std.mem.Allocator,
+    column: anytype,
+    options_value: DeviceExpandingOptions,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || error{LengthMismatch})![ExpandingValidityProfileColumnCount]DeviceColumn {
+    const rows = column.len();
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    var metrics = try expandingValidityProfile(allocator, rows, maybe_validity, options_value.min_periods);
+    defer metrics.deinit();
+
+    var columns: [ExpandingValidityProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.total_counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, metrics.valid_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, metrics.null_counts, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.valid_rates, metrics.validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.null_rates, metrics.validity, device_value);
+    initialized += 1;
+    return columns;
 }
