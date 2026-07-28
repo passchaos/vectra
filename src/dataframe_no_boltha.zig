@@ -134,6 +134,11 @@ pub const DeviceBucketOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceEmaOptions = struct {
+    alpha: f64,
+    min_periods: usize = 1,
+};
+
 pub const DeviceJoinOptions = struct {
     right_suffix: []const u8 = "_right",
 };

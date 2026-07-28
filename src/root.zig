@@ -101,6 +101,7 @@ pub const DeviceDrawdownOptions = dataframe_mod.DeviceDrawdownOptions;
 pub const DeviceTrendOptions = dataframe_mod.DeviceTrendOptions;
 pub const DeviceCrossoverOptions = dataframe_mod.DeviceCrossoverOptions;
 pub const DeviceBucketOptions = dataframe_mod.DeviceBucketOptions;
+pub const DeviceEmaOptions = dataframe_mod.DeviceEmaOptions;
 pub const NullPlacement = dataframe_mod.NullPlacement;
 pub const DeviceJoinOptions = dataframe_mod.DeviceJoinOptions;
 pub const AsofStrategy = dataframe_mod.AsofStrategy;

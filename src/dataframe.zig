@@ -177,6 +177,13 @@ pub const DeviceBucketOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceEmaOptions = struct {
+    /// Exponential smoothing factor in (0, 1].
+    alpha: f64,
+    /// Minimum valid observations required before EMA-derived metrics are valid.
+    min_periods: usize = 1,
+};
+
 pub const ParquetRangePredicate = union(DeviceDType) {
     f32: Range(f32),
     f64: Range(f64),
@@ -1017,6 +1024,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceBucketOptions,
     },
+    ema_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceEmaOptions,
+    },
     head: usize,
     tail: usize,
 
@@ -1135,6 +1147,10 @@ pub const DeviceLazyOp = union(enum) {
             .bucket_profile => |bucket| {
                 allocator.free(bucket.name);
                 allocator.free(bucket.output_prefix);
+            },
+            .ema_profile => |ema| {
+                allocator.free(ema.name);
+                allocator.free(ema.output_prefix);
             },
             .distinct_rows, .head, .tail => {},
         }
@@ -1460,6 +1476,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = bucket.options,
+                } };
+            },
+            .ema_profile => |ema| blk: {
+                const name = try allocator.dupe(u8, ema.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, ema.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .ema_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = ema.options,
                 } };
             },
             .head => |n| .{ .head = n },
@@ -1988,6 +2015,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn emaProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceEmaOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .ema_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
         try self.ops.append(self.allocator, .{ .head = n });
     }
@@ -2065,6 +2104,7 @@ pub const DeviceLazyFrame = struct {
                 .trend_profile => |trend| try current.trendProfile(trend.name, trend.output_prefix, trend.options),
                 .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
                 .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
+                .ema_profile => |ema| try current.emaProfile(ema.name, ema.output_prefix, ema.options),
                 .head => |n| try current.head(n),
                 .tail => |n| try current.tail(n),
             };
@@ -2545,6 +2585,14 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(bucket.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, bucket.name);
                 break :op_loop;
             },
+            .ema_profile => |ema| {
+                // EMA profiles are order-dependent and append derived columns,
+                // so keep predicate pruning but block projection pushdown until
+                // generated-field schema metadata is explicit.
+                projection_blocked = true;
+                if (!nameInBorrowedList(ema.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, ema.name);
+                break :op_loop;
+            },
             .filter_mask, .head, .tail => {},
         }
     }
@@ -2736,6 +2784,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .trend_profile => |trend| try writer.print("trend_profile({s}, prefix={s}, periods={d})", .{ trend.name, trend.output_prefix, trend.options.periods }),
         .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
         .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
+        .ema_profile => |ema| try writer.print("ema_profile({s}, prefix={s}, alpha={d})", .{ ema.name, ema.output_prefix, ema.options.alpha }),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }
@@ -3687,6 +3736,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = bucket_col.*;
             initialized += 1;
             bucket_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn emaProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceEmaOptions) DeviceDataError!DeviceDataFrame {
+        const ema_value = try self.column(name);
+        var ema_columns = try emaProfileColumnsByValue(self.allocator, ema_value.*, options_value, self.device, self.rows);
+        var ema_columns_transferred: usize = 0;
+        errdefer {
+            for (ema_columns[ema_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + ema_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var ema_names = try emaProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, ema_names[0..]);
+        for (ema_names, 0..) |ema_name, i| source_names[self.columns.len + i] = ema_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + ema_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&ema_columns) |*ema_col| {
+            columns[initialized] = ema_col.*;
+            initialized += 1;
+            ema_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -5586,6 +5670,122 @@ fn bucketProfileColumnsTyped(
 fn bucketKeysTie(comptime T: type, values: []const T, lhs: usize, rhs: usize) bool {
     if (comptime T == bool) return values[lhs] == values[rhs];
     return compareSortValues(T, values[lhs], values[rhs]) == 0;
+}
+
+const EmaProfileColumnCount = 3;
+
+fn emaProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![EmaProfileColumnCount][]const u8 {
+    var names: [EmaProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "ema", "ema_residual", "ema_ratio" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn emaProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceEmaOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![EmaProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| emaProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| emaProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| emaProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| emaProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| emaProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| emaProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| emaProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| emaProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| emaProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| emaProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| emaProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| emaProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| emaProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn emaProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceEmaOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![EmaProfileColumnCount]DeviceColumn {
+    if (options_value.alpha <= 0 or options_value.alpha > 1 or options_value.min_periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const ema_values = try allocator.alloc(f64, rows);
+    defer allocator.free(ema_values);
+    const residuals = try allocator.alloc(f64, rows);
+    defer allocator.free(residuals);
+    const ratios = try allocator.alloc(f64, rows);
+    defer allocator.free(ratios);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var seen: usize = 0;
+    var ema: f64 = 0;
+    // Null observations do not update EMA state. This keeps sequence gaps from
+    // biasing the exponential smoother while preserving row-aligned nullable
+    // outputs for downstream feature engineering.
+    for (values, 0..) |value_item, row| {
+        const row_valid = if (maybe_validity) |mask| mask[row] else true;
+        if (!row_valid) {
+            ema_values[row] = 0;
+            residuals[row] = 0;
+            ratios[row] = 0;
+            metric_validity[row] = false;
+            continue;
+        }
+
+        const x = castToF64(T, value_item);
+        if (seen == 0) {
+            ema = x;
+        } else {
+            ema = options_value.alpha * x + (1.0 - options_value.alpha) * ema;
+        }
+        seen += 1;
+
+        const has_enough = seen >= options_value.min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            ema_values[row] = ema;
+            residuals[row] = x - ema;
+            ratios[row] = if (ema == 0) std.math.nan(f64) else x / ema;
+        } else {
+            ema_values[row] = 0;
+            residuals[row] = 0;
+            ratios[row] = 0;
+        }
+    }
+
+    var columns: [EmaProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ema_values, metric_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, residuals, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ratios, metric_validity, device_value);
+    initialized += 1;
+    return columns;
 }
 
 fn groupByCountTyped(
@@ -8815,6 +9015,28 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_stddev[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_stddev[4], 1e-12);
 
+    var ema = try rolling_table.emaProfile("sales", "sales", .{ .alpha = 0.5, .min_periods = 2 });
+    defer ema.deinit();
+    try std.testing.expectEqual(@as(usize, 5), ema.width());
+    const ema_values = try (try ema.column("sales_ema")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ema_values);
+    const ema_residual = try (try ema.column("sales_ema_residual")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ema_residual);
+    const ema_ratio = try (try ema.column("sales_ema_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ema_ratio);
+    const ema_validity = try (try ema.column("sales_ema")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(ema_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true }, ema_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), ema_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.75), ema_values[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.875), ema_values[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ema_residual[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), ema_residual[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.125), ema_residual[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 1.5), ema_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 2.75), ema_ratio[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.875), ema_ratio[4], 1e-12);
+
     var rolling_range = try rolling_table.rollingRangeProfile("sales", "sales", .{ .window = 3, .min_periods = 2 });
     defer rolling_range.deinit();
     try std.testing.expectEqual(@as(usize, 6), rolling_range.width());
@@ -9924,6 +10146,39 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_stddev[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_stddev[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_stddev[3], 1e-12);
+
+    var ema_plan = try DeviceLazyFrame.init(gpa, table);
+    defer ema_plan.deinit();
+    try ema_plan.emaProfile("sales", "sales", .{ .alpha = 0.5, .min_periods = 1 });
+    try ema_plan.select(&.{ "sales", "sales_ema", "sales_ema_residual", "sales_ema_ratio" });
+    const ema_explain = try ema_plan.explain(gpa);
+    defer gpa.free(ema_explain);
+    try std.testing.expect(std.mem.indexOf(u8, ema_explain, "ema_profile(sales") != null);
+    var ema = try ema_plan.collect();
+    defer ema.deinit();
+    try std.testing.expectEqual(@as(usize, 4), ema.height());
+    try std.testing.expectEqual(@as(usize, 4), ema.width());
+    const lazy_ema = try (try ema.column("sales_ema")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ema);
+    const lazy_ema_residual = try (try ema.column("sales_ema_residual")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ema_residual);
+    const lazy_ema_ratio = try (try ema.column("sales_ema_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ema_ratio);
+    const lazy_ema_validity = try (try ema.column("sales_ema")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ema_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_ema_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_ema[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), lazy_ema[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.75), lazy_ema[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.375), lazy_ema[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ema_residual[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_ema_residual[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.25), lazy_ema_residual[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.625), lazy_ema_residual[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_ema_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.2), lazy_ema_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.75), lazy_ema_ratio[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 5.375), lazy_ema_ratio[3], 1e-12);
 
     var rolling_range_plan = try DeviceLazyFrame.init(gpa, table);
     defer rolling_range_plan.deinit();
