@@ -37,15 +37,6 @@ const classificationProfileColumns = classification_mod.classificationProfileCol
 const rollingClassificationProfileColumns = classification_mod.rollingClassificationProfileColumns;
 const expandingClassificationProfileColumns = classification_mod.expandingClassificationProfileColumns;
 const error_mod = @import("dataframe_error.zig");
-const ErrorProfileColumnCount = error_mod.ErrorProfileColumnCount;
-const errorProfileOutputNames = error_mod.errorProfileOutputNames;
-const RollingErrorProfileColumnCount = error_mod.RollingErrorProfileColumnCount;
-const rollingErrorProfileOutputNames = error_mod.rollingErrorProfileOutputNames;
-const ExpandingErrorProfileColumnCount = error_mod.ExpandingErrorProfileColumnCount;
-const expandingErrorProfileOutputNames = error_mod.expandingErrorProfileOutputNames;
-const errorProfileColumnsByValue = error_mod.errorProfileColumnsByValue;
-const rollingErrorProfileColumnsByValue = error_mod.rollingErrorProfileColumnsByValue;
-const expandingErrorProfileColumnsByValue = error_mod.expandingErrorProfileColumnsByValue;
 const correlation_mod = @import("dataframe_correlation.zig");
 const RollingCorrelationProfileColumnCount = correlation_mod.RollingCorrelationProfileColumnCount;
 const rollingCorrelationProfileOutputNames = correlation_mod.rollingCorrelationProfileOutputNames;
@@ -1429,40 +1420,7 @@ pub const DeviceDataFrame = struct {
         predicted_name: []const u8,
         output_prefix: []const u8,
     ) DeviceDataError!DeviceDataFrame {
-        const actual = try self.column(actual_name);
-        const predicted = try self.column(predicted_name);
-        if (actual.dtype() != predicted.dtype()) return error.TypeMismatch;
-        var error_columns = try errorProfileColumnsByValue(self.allocator, actual.*, predicted.*, self.device, self.rows);
-        var error_columns_transferred: usize = 0;
-        errdefer {
-            for (error_columns[error_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + error_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var error_names = try errorProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, error_names[0..]);
-        for (error_names, 0..) |error_name, i| source_names[self.columns.len + i] = error_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + error_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&error_columns) |*error_col| {
-            columns[initialized] = error_col.*;
-            initialized += 1;
-            error_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return error_mod.errorProfileFrame(DeviceDataFrame, self, actual_name, predicted_name, output_prefix);
     }
 
     pub fn rollingErrorProfile(
@@ -1472,40 +1430,7 @@ pub const DeviceDataFrame = struct {
         output_prefix: []const u8,
         options_value: DeviceRollingOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const actual = try self.column(actual_name);
-        const predicted = try self.column(predicted_name);
-        if (actual.dtype() != predicted.dtype()) return error.TypeMismatch;
-        var error_columns = try rollingErrorProfileColumnsByValue(self.allocator, actual.*, predicted.*, options_value, self.device, self.rows);
-        var error_columns_transferred: usize = 0;
-        errdefer {
-            for (error_columns[error_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + error_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var error_names = try rollingErrorProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, error_names[0..]);
-        for (error_names, 0..) |error_name, i| source_names[self.columns.len + i] = error_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + error_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&error_columns) |*error_col| {
-            columns[initialized] = error_col.*;
-            initialized += 1;
-            error_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return error_mod.rollingErrorProfileFrame(DeviceDataFrame, self, actual_name, predicted_name, output_prefix, options_value);
     }
 
     pub fn expandingErrorProfile(
@@ -1515,40 +1440,7 @@ pub const DeviceDataFrame = struct {
         output_prefix: []const u8,
         options_value: DeviceExpandingOptions,
     ) DeviceDataError!DeviceDataFrame {
-        const actual = try self.column(actual_name);
-        const predicted = try self.column(predicted_name);
-        if (actual.dtype() != predicted.dtype()) return error.TypeMismatch;
-        var error_columns = try expandingErrorProfileColumnsByValue(self.allocator, actual.*, predicted.*, options_value, self.device, self.rows);
-        var error_columns_transferred: usize = 0;
-        errdefer {
-            for (error_columns[error_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + error_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var error_names = try expandingErrorProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, error_names[0..]);
-        for (error_names, 0..) |error_name, i| source_names[self.columns.len + i] = error_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + error_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&error_columns) |*error_col| {
-            columns[initialized] = error_col.*;
-            initialized += 1;
-            error_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return error_mod.expandingErrorProfileFrame(DeviceDataFrame, self, actual_name, predicted_name, output_prefix, options_value);
     }
 
     pub fn classificationProfile(
