@@ -785,6 +785,25 @@ pub fn build(b: *std.Build) void {
         .root_module = mod,
     });
 
+    const run_dataframe_tests = if (enable_boltha) blk: {
+        const dataframe_test_boltha_dep = b.dependency("boltha", .{
+            .target = target,
+            .optimize = optimize,
+        });
+        const dataframe_tests = b.addTest(.{
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("src/dataframe_tests.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "vectra", .module = mod },
+                    .{ .name = "boltha", .module = dataframe_test_boltha_dep.module("boltha") },
+                },
+            }),
+        });
+        break :blk b.addRunArtifact(dataframe_tests);
+    } else null;
+
     // A run step that will run the test executable.
     const run_mod_tests = b.addRunArtifact(mod_tests);
 
@@ -800,6 +819,7 @@ pub fn build(b: *std.Build) void {
 
     const unit_test_step = b.step("unit-test", "Run Zig unit tests without audits, smokes, or examples");
     unit_test_step.dependOn(&run_mod_tests.step);
+    if (run_dataframe_tests) |run_dataframe_tests_value| unit_test_step.dependOn(&run_dataframe_tests_value.step);
     unit_test_step.dependOn(&run_exe_tests.step);
 
     // A top level step for running all tests. dependOn can be called multiple
@@ -807,6 +827,7 @@ pub fn build(b: *std.Build) void {
     // make the two of them run in parallel.
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
+    if (run_dataframe_tests) |run_dataframe_tests_value| test_step.dependOn(&run_dataframe_tests_value.step);
     test_step.dependOn(&run_exe_tests.step);
     test_step.dependOn(&api_boundary_audit_quiet_cmd.step);
     test_step.dependOn(&array_api_coverage_audit_quiet_cmd.step);
