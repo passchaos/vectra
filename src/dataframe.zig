@@ -21,6 +21,7 @@ const sign_mod = @import("dataframe_sign.zig");
 const shift_mod = @import("dataframe_shift.zig");
 const ema_mod = @import("dataframe_ema.zig");
 const quantile_mod = @import("dataframe_quantile.zig");
+const bucket_mod = @import("dataframe_bucket.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -12085,11 +12086,6 @@ fn bucketProfileColumnsTyped(
     options_value: DeviceBucketOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![BucketProfileColumnCount]DeviceColumn {
-    if (options_value.buckets == 0 or options_value.min_periods == 0) return error.InvalidShape;
-    if (options_value.lower_quantile < 0 or options_value.lower_quantile > 1) return error.InvalidShape;
-    if (options_value.upper_quantile < 0 or options_value.upper_quantile > 1) return error.InvalidShape;
-    if (options_value.lower_quantile > options_value.upper_quantile) return error.InvalidShape;
-
     const values = try column.values.toOwnedSlice(allocator);
     defer allocator.free(values);
     const maybe_validity = try validityValues(column, allocator);
@@ -12098,75 +12094,48 @@ fn bucketProfileColumnsTyped(
     const order = try argsortTypedColumn(T, column, allocator, .{ .descending = false, .nulls = .last });
     defer allocator.free(order);
 
-    var valid_count: usize = 0;
-    for (values, 0..) |_, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) valid_count += 1;
-    }
-
-    const rows = values.len;
-    const ecdf = try allocator.alloc(f64, rows);
-    defer allocator.free(ecdf);
-    const buckets = try allocator.alloc(i64, rows);
-    defer allocator.free(buckets);
-    const lower_tail = try allocator.alloc(bool, rows);
-    defer allocator.free(lower_tail);
-    const upper_tail = try allocator.alloc(bool, rows);
-    defer allocator.free(upper_tail);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    @memset(ecdf, 0);
-    @memset(buckets, 0);
-    @memset(lower_tail, false);
-    @memset(upper_tail, false);
-    @memset(metric_validity, false);
-
-    if (valid_count >= options_value.min_periods and valid_count != 0) {
-        var group_start: usize = 0;
-        while (group_start < valid_count) {
-            var group_end = group_start + 1;
-            while (group_end < valid_count and bucketKeysTie(T, values, order[group_start], order[group_end])) {
-                group_end += 1;
-            }
-
-            const rank_position = group_end; // right-continuous ECDF, 1-based.
-            const ecdf_value = @as(f64, @floatFromInt(rank_position)) / @as(f64, @floatFromInt(valid_count));
-            var bucket_index = @divFloor((rank_position - 1) * options_value.buckets, valid_count);
-            if (bucket_index >= options_value.buckets) bucket_index = options_value.buckets - 1;
-            const is_lower = ecdf_value <= options_value.lower_quantile;
-            const is_upper = ecdf_value >= options_value.upper_quantile;
-
-            for (order[group_start..group_end]) |row| {
-                ecdf[row] = ecdf_value;
-                buckets[row] = @intCast(bucket_index);
-                lower_tail[row] = is_lower;
-                upper_tail[row] = is_upper;
-                metric_validity[row] = true;
-            }
-            group_start = group_end;
+    const TieCtx = struct {
+        values: []const T,
+        fn keysTie(ctx: @This(), lhs: usize, rhs: usize) bool {
+            if (comptime T == bool) return ctx.values[lhs] == ctx.values[rhs];
+            return compareSortValues(T, ctx.values[lhs], ctx.values[rhs]) == 0;
         }
-    }
+    };
+    const ctx = TieCtx{ .values = values };
+    const keysTie = struct {
+        var context: TieCtx = undefined;
+        fn call(lhs: usize, rhs: usize) bool {
+            return context.keysTie(lhs, rhs);
+        }
+    };
+    keysTie.context = ctx;
+
+    var metrics = try bucket_mod.bucketProfile(
+        allocator,
+        order,
+        maybe_validity,
+        keysTie.call,
+        options_value.buckets,
+        options_value.lower_quantile,
+        options_value.upper_quantile,
+        options_value.min_periods,
+    );
+    defer metrics.deinit();
 
     var columns: [BucketProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ecdf, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ecdf, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, buckets, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.buckets, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, lower_tail, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.lower_tail, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, upper_tail, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.upper_tail, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-fn bucketKeysTie(comptime T: type, values: []const T, lhs: usize, rhs: usize) bool {
-    if (comptime T == bool) return values[lhs] == values[rhs];
-    return compareSortValues(T, values[lhs], values[rhs]) == 0;
 }
 
 const EmaProfileColumnCount = 3;
