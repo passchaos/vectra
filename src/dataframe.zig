@@ -1182,6 +1182,13 @@ pub const DeviceLazyOp = union(enum) {
         threshold: f64,
         options: DeviceTrendOptions,
     },
+    rolling_change_point_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        threshold: f64,
+        change_options: DeviceTrendOptions,
+        options: DeviceRollingOptions,
+    },
     sign_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1469,6 +1476,10 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(trend.output_prefix);
             },
             .change_point_profile => |change| {
+                allocator.free(change.name);
+                allocator.free(change.output_prefix);
+            },
+            .rolling_change_point_profile => |change| {
                 allocator.free(change.name);
                 allocator.free(change.output_prefix);
             },
@@ -2095,6 +2106,19 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .threshold = change.threshold,
+                    .options = change.options,
+                } };
+            },
+            .rolling_change_point_profile => |change| blk: {
+                const name = try allocator.dupe(u8, change.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, change.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_change_point_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .threshold = change.threshold,
+                    .change_options = change.change_options,
                     .options = change.options,
                 } };
             },
@@ -3074,6 +3098,20 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingChangePointProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_change_point_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .threshold = threshold,
+            .change_options = change_options,
+            .options = options_value,
+        } });
+    }
+
     pub fn signProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -3460,6 +3498,7 @@ pub const DeviceLazyFrame = struct {
                 .extrema_profile => |extrema| try current.extremaProfile(extrema.name, extrema.output_prefix, extrema.options),
                 .trend_profile => |trend| try current.trendProfile(trend.name, trend.output_prefix, trend.options),
                 .change_point_profile => |change| try current.changePointProfile(change.name, change.output_prefix, change.threshold, change.options),
+                .rolling_change_point_profile => |change| try current.rollingChangePointProfile(change.name, change.output_prefix, change.threshold, change.change_options, change.options),
                 .sign_profile => |sign| try current.signProfile(sign.name, sign.output_prefix, sign.options),
                 .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
                 .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
@@ -4090,6 +4129,14 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(change.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, change.name);
                 break :op_loop;
             },
+            .rolling_change_point_profile => |change| {
+                // Rolling change-point profiles append aggregate jump
+                // diagnostics over order-dependent deltas. Keep predicate
+                // pruning but block projection across generated fields.
+                projection_blocked = true;
+                if (!nameInBorrowedList(change.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, change.name);
+                break :op_loop;
+            },
             .sign_profile => |sign| {
                 projection_blocked = true;
                 if (!nameInBorrowedList(sign.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, sign.name);
@@ -4427,6 +4474,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .extrema_profile => |extrema| try writer.print("extrema_profile({s}, prefix={s}, min_periods={d})", .{ extrema.name, extrema.output_prefix, extrema.options.min_periods }),
         .trend_profile => |trend| try writer.print("trend_profile({s}, prefix={s}, periods={d})", .{ trend.name, trend.output_prefix, trend.options.periods }),
         .change_point_profile => |change| try writer.print("change_point_profile({s}, prefix={s}, threshold={d}, periods={d})", .{ change.name, change.output_prefix, change.threshold, change.options.periods }),
+        .rolling_change_point_profile => |change| try writer.print("rolling_change_point_profile({s}, prefix={s}, threshold={d}, periods={d}, window={d})", .{ change.name, change.output_prefix, change.threshold, change.change_options.periods, change.options.window }),
         .sign_profile => |sign| try writer.print("sign_profile({s}, prefix={s}, periods={d})", .{ sign.name, sign.output_prefix, sign.options.periods }),
         .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
         .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
@@ -6072,6 +6120,41 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var change_names = try changePointProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, change_names[0..]);
+        for (change_names, 0..) |change_name, i| source_names[self.columns.len + i] = change_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + change_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&change_columns) |*change_col| {
+            columns[initialized] = change_col.*;
+            initialized += 1;
+            change_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingChangePointProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
+        const change_value = try self.column(name);
+        var change_columns = try rollingChangePointProfileColumnsByValue(self.allocator, change_value.*, threshold, change_options, options_value, self.device, self.rows);
+        var change_columns_transferred: usize = 0;
+        errdefer {
+            for (change_columns[change_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + change_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var change_names = try rollingChangePointProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, change_names[0..]);
         for (change_names, 0..) |change_name, i| source_names[self.columns.len + i] = change_name;
 
@@ -11155,6 +11238,163 @@ fn changePointProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, pct_changes, metric_validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, change_points, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const RollingChangePointProfileColumnCount = 5;
+
+fn rollingChangePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingChangePointProfileColumnCount][]const u8 {
+    var names: [RollingChangePointProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_change_count", "rolling_change_point_count", "rolling_change_rate", "rolling_mean_abs_delta", "rolling_max_abs_delta" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingChangePointProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    threshold: f64,
+    change_options: DeviceTrendOptions,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingChangePointProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| rollingChangePointProfileColumnsTyped(i8, allocator, typed, threshold, change_options, options_value, device_value),
+        .i16 => |typed| rollingChangePointProfileColumnsTyped(i16, allocator, typed, threshold, change_options, options_value, device_value),
+        .i32 => |typed| rollingChangePointProfileColumnsTyped(i32, allocator, typed, threshold, change_options, options_value, device_value),
+        .i64 => |typed| rollingChangePointProfileColumnsTyped(i64, allocator, typed, threshold, change_options, options_value, device_value),
+        .u8 => |typed| rollingChangePointProfileColumnsTyped(u8, allocator, typed, threshold, change_options, options_value, device_value),
+        .u16 => |typed| rollingChangePointProfileColumnsTyped(u16, allocator, typed, threshold, change_options, options_value, device_value),
+        .u32 => |typed| rollingChangePointProfileColumnsTyped(u32, allocator, typed, threshold, change_options, options_value, device_value),
+        .u64 => |typed| rollingChangePointProfileColumnsTyped(u64, allocator, typed, threshold, change_options, options_value, device_value),
+        .usize => |typed| rollingChangePointProfileColumnsTyped(usize, allocator, typed, threshold, change_options, options_value, device_value),
+        .isize => |typed| rollingChangePointProfileColumnsTyped(isize, allocator, typed, threshold, change_options, options_value, device_value),
+        .f16 => |typed| rollingChangePointProfileColumnsTyped(f16, allocator, typed, threshold, change_options, options_value, device_value),
+        .f32 => |typed| rollingChangePointProfileColumnsTyped(f32, allocator, typed, threshold, change_options, options_value, device_value),
+        .f64 => |typed| rollingChangePointProfileColumnsTyped(f64, allocator, typed, threshold, change_options, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rollingChangePointProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    threshold: f64,
+    change_options: DeviceTrendOptions,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingChangePointProfileColumnCount]DeviceColumn {
+    if (change_options.periods == 0 or options_value.window == 0) return error.InvalidShape;
+    if (threshold < 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const per_row_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(per_row_validity);
+    const per_row_abs_delta = try allocator.alloc(f64, rows);
+    defer allocator.free(per_row_abs_delta);
+    const per_row_change = try allocator.alloc(bool, rows);
+    defer allocator.free(per_row_change);
+
+    for (values, 0..) |value_item, row| {
+        if (row < change_options.periods) {
+            per_row_validity[row] = false;
+            per_row_abs_delta[row] = 0;
+            per_row_change[row] = false;
+            continue;
+        }
+
+        const previous_row = row - change_options.periods;
+        const row_valid = if (maybe_validity) |mask| mask[row] else true;
+        const previous_valid = if (maybe_validity) |mask| mask[previous_row] else true;
+        const valid = row_valid and previous_valid;
+        per_row_validity[row] = valid;
+        if (!valid) {
+            per_row_abs_delta[row] = 0;
+            per_row_change[row] = false;
+            continue;
+        }
+
+        const abs_delta = @abs(castToF64(T, value_item) - castToF64(T, values[previous_row]));
+        per_row_abs_delta[row] = abs_delta;
+        per_row_change[row] = abs_delta >= threshold;
+    }
+
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const change_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(change_counts);
+    const change_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(change_rates);
+    const mean_abs_delta = try allocator.alloc(f64, rows);
+    defer allocator.free(mean_abs_delta);
+    const max_abs_delta = try allocator.alloc(f64, rows);
+    defer allocator.free(max_abs_delta);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    for (0..rows) |row| {
+        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
+        var count: usize = 0;
+        var change_count: usize = 0;
+        var sum_abs: f64 = 0;
+        var max_abs: f64 = 0;
+        for (start..row + 1) |window_row| {
+            if (!per_row_validity[window_row]) continue;
+            const abs_delta = per_row_abs_delta[window_row];
+            if (count == 0 or abs_delta > max_abs) max_abs = abs_delta;
+            sum_abs += abs_delta;
+            if (per_row_change[window_row]) change_count += 1;
+            count += 1;
+        }
+
+        counts[row] = @intCast(count);
+        change_counts[row] = @intCast(change_count);
+        const has_enough = count >= min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(count);
+            change_rates[row] = @as(f64, @floatFromInt(change_count)) / n;
+            mean_abs_delta[row] = sum_abs / n;
+            max_abs_delta[row] = max_abs;
+        } else {
+            change_rates[row] = 0;
+            mean_abs_delta[row] = 0;
+            max_abs_delta[row] = 0;
+        }
+    }
+
+    var columns: [RollingChangePointProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, change_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, change_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_abs_delta, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, max_abs_delta, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -17363,6 +17603,37 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.5), change_pct[4], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, true, false, false }, change_point);
 
+    var rolling_changes = try trend_table.rollingChangePointProfile("price", "price", 2.0, .{ .periods = 1 }, .{ .window = 3, .min_periods = 2 });
+    defer rolling_changes.deinit();
+    try std.testing.expectEqual(@as(usize, 7), rolling_changes.width());
+    const rolling_change_count = try (try rolling_changes.column("price_rolling_change_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_change_count);
+    const rolling_change_point_count = try (try rolling_changes.column("price_rolling_change_point_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_change_point_count);
+    const rolling_change_rate = try (try rolling_changes.column("price_rolling_change_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_change_rate);
+    const rolling_mean_abs_delta = try (try rolling_changes.column("price_rolling_mean_abs_delta")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_mean_abs_delta);
+    const rolling_max_abs_delta = try (try rolling_changes.column("price_rolling_max_abs_delta")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_max_abs_delta);
+    const rolling_change_validity = try (try rolling_changes.column("price_rolling_change_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_change_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 3, 3, 2, 1 }, rolling_change_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1, 1, 1, 1 }, rolling_change_point_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, true, true, false }, rolling_change_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_change_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_change_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_change_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_change_rate[5], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), rolling_mean_abs_delta[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_mean_abs_delta[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 3.0), rolling_mean_abs_delta[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), rolling_mean_abs_delta[5], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), rolling_max_abs_delta[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), rolling_max_abs_delta[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), rolling_max_abs_delta[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), rolling_max_abs_delta[5], 1e-12);
+
     var signed_values_col = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ -1.0, -2.0, 0.0, 3.0, -4.0, 0.0, 5.0 }, &.{ true, true, true, true, true, false, true }, .cpu);
     defer signed_values_col.deinit();
     var signed_table = try DeviceDataFrame.init(gpa, &.{
@@ -19701,6 +19972,42 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), lazy_change_pct[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.4), lazy_change_pct[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, lazy_change_point);
+
+    var rolling_change_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_change_plan.deinit();
+    try rolling_change_plan.rollingChangePointProfile("sales", "sales", 2.0, .{ .periods = 1 }, .{ .window = 2, .min_periods = 1 });
+    try rolling_change_plan.select(&.{ "sales", "sales_rolling_change_count", "sales_rolling_change_point_count", "sales_rolling_change_rate", "sales_rolling_mean_abs_delta", "sales_rolling_max_abs_delta" });
+    const rolling_change_explain = try rolling_change_plan.explain(gpa);
+    defer gpa.free(rolling_change_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_change_explain, "rolling_change_point_profile(sales") != null);
+    var lazy_rolling_change = try rolling_change_plan.collect();
+    defer lazy_rolling_change.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_rolling_change.height());
+    try std.testing.expectEqual(@as(usize, 6), lazy_rolling_change.width());
+    const lazy_rolling_change_count = try (try lazy_rolling_change.column("sales_rolling_change_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_change_count);
+    const lazy_rolling_change_point_count = try (try lazy_rolling_change.column("sales_rolling_change_point_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_change_point_count);
+    const lazy_rolling_change_rate = try (try lazy_rolling_change.column("sales_rolling_change_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_change_rate);
+    const lazy_rolling_mean_abs_delta = try (try lazy_rolling_change.column("sales_rolling_mean_abs_delta")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_mean_abs_delta);
+    const lazy_rolling_max_abs_delta = try (try lazy_rolling_change.column("sales_rolling_max_abs_delta")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_max_abs_delta);
+    const lazy_rolling_change_validity = try (try lazy_rolling_change.column("sales_rolling_change_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_change_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 2 }, lazy_rolling_change_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 2 }, lazy_rolling_change_point_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_rolling_change_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_change_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_change_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_change_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_mean_abs_delta[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), lazy_rolling_mean_abs_delta[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_rolling_mean_abs_delta[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_max_abs_delta[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_rolling_max_abs_delta[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_rolling_max_abs_delta[3], 1e-12);
 
     var sign_plan = try DeviceLazyFrame.init(gpa, table);
     defer sign_plan.deinit();
