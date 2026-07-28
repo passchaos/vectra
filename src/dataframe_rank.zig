@@ -579,3 +579,77 @@ pub fn rankProfileBy(
 
     return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
 }
+
+fn appendRankColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    rank_columns: anytype,
+) RankFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + rank_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&rank_columns) |*rank_col| {
+        columns[initialized] = rank_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn rankFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    rank_columns_value: anytype,
+    comptime namesFn: anytype,
+) RankFrameError!DeviceDataFrame {
+    var rank_columns = rank_columns_value;
+    var rank_columns_transferred: usize = 0;
+    errdefer {
+        for (rank_columns[rank_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + rank_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var rank_names = try namesFn(frame.allocator, output_prefix);
+    defer freeOwnedNameItems(frame.allocator, rank_names[0..]);
+    for (rank_names, 0..) |rank_name, i| source_names[frame.columns.len + i] = rank_name;
+
+    const out = try appendRankColumns(DeviceDataFrame, frame, source_names, rank_columns);
+    rank_columns_transferred = rank_columns.len;
+    return out;
+}
+
+pub fn rollingRankProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRollingRankOptions,
+) RankFrameError!DeviceDataFrame {
+    const rolling_value = try frame.column(name);
+    const rolling_columns = try rollingRankProfileColumnsByValue(frame.allocator, rolling_value.*, options_value, frame.device, frame.rows);
+    return rankFrameFromColumns(DeviceDataFrame, frame, output_prefix, rolling_columns, rollingRankProfileOutputNames);
+}
+
+pub fn expandingRankProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceExpandingRankOptions,
+) RankFrameError!DeviceDataFrame {
+    const expanding_value = try frame.column(name);
+    const expanding_columns = try expandingRankProfileColumnsByValue(frame.allocator, expanding_value.*, options_value, frame.device, frame.rows);
+    return rankFrameFromColumns(DeviceDataFrame, frame, output_prefix, expanding_columns, expandingRankProfileOutputNames);
+}
