@@ -1,5 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -288,4 +290,89 @@ fn leadProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.pct_change, metrics.change_validity, device_value);
     initialized += 1;
     return columns;
+}
+
+const ShiftFrameError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
+    LengthMismatch,
+    ColumnNotFound,
+    TypeMismatch,
+    TypeUnsupported,
+    UnsupportedType,
+    InvalidCsv,
+    EmptyDataFrame,
+    InvalidDevice,
+};
+
+fn appendShiftColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    source_names: []const []const u8,
+    shift_columns: anytype,
+) ShiftFrameError!DeviceDataFrame {
+    const DeviceColumnType = std.meta.Elem(@TypeOf(frame.columns));
+    var columns = try frame.allocator.alloc(DeviceColumnType, frame.columns.len + shift_columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+    for (frame.columns, 0..) |col, i| {
+        columns[i] = try col.clone();
+        initialized += 1;
+    }
+    for (&shift_columns) |*shift_col| {
+        columns[initialized] = shift_col.*;
+        initialized += 1;
+    }
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
+}
+
+fn shiftFrameFromColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    output_prefix: []const u8,
+    shift_columns_value: anytype,
+    comptime namesFn: anytype,
+) ShiftFrameError!DeviceDataFrame {
+    var shift_columns = shift_columns_value;
+    var shift_columns_transferred: usize = 0;
+    errdefer {
+        for (shift_columns[shift_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + shift_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var shift_names = try namesFn(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, shift_names[0..]);
+    for (shift_names, 0..) |shift_name, i| source_names[frame.columns.len + i] = shift_name;
+
+    const out = try appendShiftColumns(DeviceDataFrame, frame, source_names, shift_columns);
+    shift_columns_transferred = shift_columns.len;
+    return out;
+}
+
+pub fn lagProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceLagOptions,
+) ShiftFrameError!DeviceDataFrame {
+    const lag_value = try frame.column(name);
+    const lag_columns = try lagProfileColumnsByValue(frame.allocator, lag_value.*, options_value, frame.device, frame.rows);
+    return shiftFrameFromColumns(DeviceDataFrame, frame, output_prefix, lag_columns, lagProfileOutputNames);
+}
+
+pub fn leadProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceLagOptions,
+) ShiftFrameError!DeviceDataFrame {
+    const lead_value = try frame.column(name);
+    const lead_columns = try leadProfileColumnsByValue(frame.allocator, lead_value.*, options_value, frame.device, frame.rows);
+    return shiftFrameFromColumns(DeviceDataFrame, frame, output_prefix, lead_columns, leadProfileOutputNames);
 }

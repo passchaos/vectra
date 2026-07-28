@@ -66,12 +66,6 @@ const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
 const shift_mod = @import("dataframe_shift.zig");
-const LagProfileColumnCount = shift_mod.LagProfileColumnCount;
-const lagProfileOutputNames = shift_mod.lagProfileOutputNames;
-const LeadProfileColumnCount = shift_mod.LeadProfileColumnCount;
-const leadProfileOutputNames = shift_mod.leadProfileOutputNames;
-const lagProfileColumnsByValue = shift_mod.lagProfileColumnsByValue;
-const leadProfileColumnsByValue = shift_mod.leadProfileColumnsByValue;
 const ema_mod = @import("dataframe_ema.zig");
 const quantile_mod = @import("dataframe_quantile.zig");
 const RollingQuantileProfileColumnCount = quantile_mod.RollingQuantileProfileColumnCount;
@@ -787,73 +781,11 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn lagProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!DeviceDataFrame {
-        const lag_value = try self.column(name);
-        var lag_columns = try lagProfileColumnsByValue(self.allocator, lag_value.*, options_value, self.device, self.rows);
-        var lag_columns_transferred: usize = 0;
-        errdefer {
-            for (lag_columns[lag_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + lag_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var lag_names = try lagProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, lag_names[0..]);
-        for (lag_names, 0..) |lag_name, i| source_names[self.columns.len + i] = lag_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + lag_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&lag_columns) |*lag_col| {
-            columns[initialized] = lag_col.*;
-            initialized += 1;
-            lag_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return shift_mod.lagProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn leadProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!DeviceDataFrame {
-        const lead_value = try self.column(name);
-        var lead_columns = try leadProfileColumnsByValue(self.allocator, lead_value.*, options_value, self.device, self.rows);
-        var lead_columns_transferred: usize = 0;
-        errdefer {
-            for (lead_columns[lead_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + lead_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var lead_names = try leadProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, lead_names[0..]);
-        for (lead_names, 0..) |lead_name, i| source_names[self.columns.len + i] = lead_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + lead_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&lead_columns) |*lead_col| {
-            columns[initialized] = lead_col.*;
-            initialized += 1;
-            lead_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return shift_mod.leadProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn clipProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceClipOptions) DeviceDataError!DeviceDataFrame {
