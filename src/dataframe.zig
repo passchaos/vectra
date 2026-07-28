@@ -24,6 +24,7 @@ const quantile_mod = @import("dataframe_quantile.zig");
 const bucket_mod = @import("dataframe_bucket.zig");
 const rank_mod = @import("dataframe_rank.zig");
 const stats_profile_mod = @import("dataframe_stats_profile.zig");
+const moment_mod = @import("dataframe_moment.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -8505,94 +8506,33 @@ fn rollingMomentProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingMomentProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const m3_values = try allocator.alloc(f64, rows);
-    defer allocator.free(m3_values);
-    const m4_values = try allocator.alloc(f64, rows);
-    defer allocator.free(m4_values);
-    const skewnesses = try allocator.alloc(f64, rows);
-    defer allocator.free(skewnesses);
-    const kurtoses = try allocator.alloc(f64, rows);
-    defer allocator.free(kurtoses);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    for (values, 0..) |_, row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var sum: f64 = 0;
-        for (start..row + 1) |window_row| {
-            const valid = if (maybe_validity) |mask| mask[window_row] else true;
-            if (!valid) continue;
-            sum += castToF64(T, values[window_row]);
-            count += 1;
-        }
-
-        counts[row] = @intCast(count);
-        const has_enough = count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (!has_enough) {
-            m3_values[row] = 0;
-            m4_values[row] = 0;
-            skewnesses[row] = 0;
-            kurtoses[row] = 0;
-            continue;
-        }
-
-        const n: f64 = @floatFromInt(count);
-        const mean = sum / n;
-        var sum2: f64 = 0;
-        var sum3: f64 = 0;
-        var sum4: f64 = 0;
-        for (start..row + 1) |window_row| {
-            const valid = if (maybe_validity) |mask| mask[window_row] else true;
-            if (!valid) continue;
-            const centered = castToF64(T, values[window_row]) - mean;
-            const centered2 = centered * centered;
-            sum2 += centered2;
-            sum3 += centered2 * centered;
-            sum4 += centered2 * centered2;
-        }
-
-        const variance = sum2 / n;
-        const m3 = sum3 / n;
-        const m4 = sum4 / n;
-        m3_values[row] = m3;
-        m4_values[row] = m4;
-        if (count < 2 or variance == 0) {
-            skewnesses[row] = std.math.nan(f64);
-            kurtoses[row] = std.math.nan(f64);
-        } else {
-            skewnesses[row] = m3 / std.math.pow(f64, variance, 1.5);
-            kurtoses[row] = m4 / (variance * variance) - 3.0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try moment_mod.rollingMomentProfile(allocator, values, maybe_validity, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingMomentProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, m3_values, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.m3_values, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, m4_values, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.m4_values, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, skewnesses, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.skewnesses, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, kurtoses, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.kurtoses, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10444,63 +10384,32 @@ fn expandingMomentProfileColumnsTyped(
     options_value: DeviceExpandingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingMomentProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const m3_values = try allocator.alloc(f64, rows);
-    defer allocator.free(m3_values);
-    const m4_values = try allocator.alloc(f64, rows);
-    defer allocator.free(m4_values);
-    const skewnesses = try allocator.alloc(f64, rows);
-    defer allocator.free(skewnesses);
-    const kurtoses = try allocator.alloc(f64, rows);
-    defer allocator.free(kurtoses);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
-
-    var profile: GroupedMomentProfile = .{};
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (valid) profile.update(castToF64(T, value_item));
-
-        counts[row] = profile.count;
-        const has_enough = profile.count >= @as(i64, @intCast(options_value.min_periods));
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const n: f64 = @floatFromInt(profile.count);
-            m3_values[row] = profile.m3 / n;
-            m4_values[row] = profile.m4 / n;
-            skewnesses[row] = profile.skewness();
-            kurtoses[row] = profile.kurtosis();
-        } else {
-            m3_values[row] = 0;
-            m4_values[row] = 0;
-            skewnesses[row] = 0;
-            kurtoses[row] = 0;
-        }
-    }
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
+    var metrics = try moment_mod.expandingMomentProfile(allocator, values, maybe_validity, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExpandingMomentProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, m3_values, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.m3_values, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, m4_values, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.m4_values, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, skewnesses, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.skewnesses, metrics.validity, device_value);
     initialized += 1;
-    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, kurtoses, metric_validity, device_value);
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.kurtoses, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
