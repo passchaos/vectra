@@ -22,6 +22,7 @@ const shift_mod = @import("dataframe_shift.zig");
 const ema_mod = @import("dataframe_ema.zig");
 const quantile_mod = @import("dataframe_quantile.zig");
 const bucket_mod = @import("dataframe_bucket.zig");
+const rank_mod = @import("dataframe_rank.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -9454,76 +9455,42 @@ fn rollingRankProfileColumnsTyped(
     options_value: DeviceRollingRankOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingRankProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
     const values = try column.values.toOwnedSlice(allocator);
     defer allocator.free(values);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
-
     const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const ranks = try allocator.alloc(i64, rows);
-    defer allocator.free(ranks);
-    const percent_ranks = try allocator.alloc(f64, rows);
-    defer allocator.free(percent_ranks);
-    const cume_dist = try allocator.alloc(f64, rows);
-    defer allocator.free(cume_dist);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
 
-    for (values, 0..) |value_item, row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var less_count: usize = 0;
-        var equal_count: usize = 0;
-        const current_valid = if (maybe_validity) |mask| mask[row] else true;
-        if (current_valid) {
-            for (start..row + 1) |window_row| {
-                const row_valid = if (maybe_validity) |mask| mask[window_row] else true;
-                if (!row_valid) continue;
-                count += 1;
-                const cmp = compareSortValues(T, values[window_row], value_item);
-                const before = if (options_value.descending) cmp > 0 else cmp < 0;
-                if (before) less_count += 1;
-                if (cmp == 0) equal_count += 1;
-            }
-        } else {
-            for (start..row + 1) |window_row| {
-                const row_valid = if (maybe_validity) |mask| mask[window_row] else true;
-                if (row_valid) count += 1;
-            }
+    const CmpCtx = struct {
+        values: []const T,
+        fn compare(ctx: @This(), lhs: usize, rhs: usize) i8 {
+            return compareSortValues(T, ctx.values[lhs], ctx.values[rhs]);
         }
-
-        counts[row] = @intCast(count);
-        const has_enough = current_valid and count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            ranks[row] = @intCast(less_count + 1);
-            percent_ranks[row] = if (count <= 1) 0 else @as(f64, @floatFromInt(less_count)) / @as(f64, @floatFromInt(count - 1));
-            cume_dist[row] = @as(f64, @floatFromInt(less_count + equal_count)) / @as(f64, @floatFromInt(count));
-        } else {
-            ranks[row] = 0;
-            percent_ranks[row] = 0;
-            cume_dist[row] = 0;
+    };
+    const cmp_ctx = CmpCtx{ .values = values };
+    const cmp = struct {
+        var context: CmpCtx = undefined;
+        fn call(lhs: usize, rhs: usize) i8 {
+            return context.compare(lhs, rhs);
         }
-    }
+    };
+    cmp.context = cmp_ctx;
+    var metrics = try rank_mod.rollingRankProfile(allocator, rows, maybe_validity, options_value.window, min_periods, options_value.descending, cmp.call);
+    defer metrics.deinit();
 
     var columns: [RollingRankProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, ranks, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.ranks, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, percent_ranks, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.percent_ranks, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, cume_dist, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.cume_dist, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10426,69 +10393,41 @@ fn expandingRankProfileColumnsTyped(
     options_value: DeviceExpandingRankOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExpandingRankProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
     const values = try column.values.toOwnedSlice(allocator);
     defer allocator.free(values);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
-
     const rows = values.len;
-    const counts = try allocator.alloc(i64, rows);
-    defer allocator.free(counts);
-    const ranks = try allocator.alloc(i64, rows);
-    defer allocator.free(ranks);
-    const percent_ranks = try allocator.alloc(f64, rows);
-    defer allocator.free(percent_ranks);
-    const cume_dist = try allocator.alloc(f64, rows);
-    defer allocator.free(cume_dist);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
 
-    var valid_count: usize = 0;
-    for (values, 0..) |value_item, row| {
-        const current_valid = if (maybe_validity) |mask| mask[row] else true;
-        if (current_valid) valid_count += 1;
-
-        var before_count: usize = 0;
-        var equal_count: usize = 0;
-        if (current_valid) {
-            for (0..row + 1) |prefix_row| {
-                const row_valid = if (maybe_validity) |mask| mask[prefix_row] else true;
-                if (!row_valid) continue;
-                const cmp = compareSortValues(T, values[prefix_row], value_item);
-                const before = if (options_value.descending) cmp > 0 else cmp < 0;
-                if (before) before_count += 1;
-                if (cmp == 0) equal_count += 1;
-            }
+    const CmpCtx = struct {
+        values: []const T,
+        fn compare(ctx: @This(), lhs: usize, rhs: usize) i8 {
+            return compareSortValues(T, ctx.values[lhs], ctx.values[rhs]);
         }
-
-        counts[row] = @intCast(valid_count);
-        const has_enough = current_valid and valid_count >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            ranks[row] = @intCast(before_count + 1);
-            percent_ranks[row] = if (valid_count <= 1) 0 else @as(f64, @floatFromInt(before_count)) / @as(f64, @floatFromInt(valid_count - 1));
-            cume_dist[row] = @as(f64, @floatFromInt(before_count + equal_count)) / @as(f64, @floatFromInt(valid_count));
-        } else {
-            ranks[row] = 0;
-            percent_ranks[row] = 0;
-            cume_dist[row] = 0;
+    };
+    const cmp_ctx = CmpCtx{ .values = values };
+    const cmp = struct {
+        var context: CmpCtx = undefined;
+        fn call(lhs: usize, rhs: usize) i8 {
+            return context.compare(lhs, rhs);
         }
-    }
+    };
+    cmp.context = cmp_ctx;
+    var metrics = try rank_mod.expandingRankProfile(allocator, rows, maybe_validity, options_value.min_periods, options_value.descending, cmp.call);
+    defer metrics.deinit();
 
     var columns: [ExpandingRankProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, metrics.counts, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, ranks, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.ranks, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, percent_ranks, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.percent_ranks, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, cume_dist, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.cume_dist, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
