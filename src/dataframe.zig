@@ -1088,6 +1088,11 @@ pub const DeviceLazyOp = union(enum) {
         predicted_name: []const u8,
         output_prefix: []const u8,
     },
+    classification_profile: struct {
+        actual_name: []const u8,
+        predicted_name: []const u8,
+        output_prefix: []const u8,
+    },
     rolling_correlation_profile: struct {
         x_name: []const u8,
         y_name: []const u8,
@@ -1250,6 +1255,11 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(err.actual_name);
                 allocator.free(err.predicted_name);
                 allocator.free(err.output_prefix);
+            },
+            .classification_profile => |class| {
+                allocator.free(class.actual_name);
+                allocator.free(class.predicted_name);
+                allocator.free(class.output_prefix);
             },
             .rolling_correlation_profile => |corr| {
                 allocator.free(corr.x_name);
@@ -1674,6 +1684,19 @@ pub const DeviceLazyOp = union(enum) {
                 const output_prefix = try allocator.dupe(u8, err.output_prefix);
                 errdefer allocator.free(output_prefix);
                 break :blk .{ .error_profile = .{
+                    .actual_name = actual_name,
+                    .predicted_name = predicted_name,
+                    .output_prefix = output_prefix,
+                } };
+            },
+            .classification_profile => |class| blk: {
+                const actual_name = try allocator.dupe(u8, class.actual_name);
+                errdefer allocator.free(actual_name);
+                const predicted_name = try allocator.dupe(u8, class.predicted_name);
+                errdefer allocator.free(predicted_name);
+                const output_prefix = try allocator.dupe(u8, class.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .classification_profile = .{
                     .actual_name = actual_name,
                     .predicted_name = predicted_name,
                     .output_prefix = output_prefix,
@@ -2341,6 +2364,25 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn classificationProfile(
+        self: *DeviceLazyFrame,
+        actual_name: []const u8,
+        predicted_name: []const u8,
+        output_prefix: []const u8,
+    ) DeviceDataError!void {
+        const owned_actual = try self.allocator.dupe(u8, actual_name);
+        errdefer self.allocator.free(owned_actual);
+        const owned_predicted = try self.allocator.dupe(u8, predicted_name);
+        errdefer self.allocator.free(owned_predicted);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .classification_profile = .{
+            .actual_name = owned_actual,
+            .predicted_name = owned_predicted,
+            .output_prefix = owned_prefix,
+        } });
+    }
+
     pub fn rollingCorrelationProfile(
         self: *DeviceLazyFrame,
         x_name: []const u8,
@@ -2458,6 +2500,7 @@ pub const DeviceLazyFrame = struct {
                 .ema_profile => |ema| try current.emaProfile(ema.name, ema.output_prefix, ema.options),
                 .linear_fit_profile => |fit| try current.linearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
                 .error_profile => |err| try current.errorProfile(err.actual_name, err.predicted_name, err.output_prefix),
+                .classification_profile => |class| try current.classificationProfile(class.actual_name, class.predicted_name, class.output_prefix),
                 .rolling_correlation_profile => |corr| try current.rollingCorrelationProfile(corr.x_name, corr.y_name, corr.output_prefix, corr.options),
                 .validity_profile => |validity| try current.validityProfile(validity.name, validity.output_prefix),
                 .head => |n| try current.head(n),
@@ -3000,6 +3043,12 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(err.predicted_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, err.predicted_name);
                 break :op_loop;
             },
+            .classification_profile => |class| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(class.actual_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, class.actual_name);
+                if (!nameInBorrowedList(class.predicted_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, class.predicted_name);
+                break :op_loop;
+            },
             .rolling_correlation_profile => |corr| {
                 // Rolling correlation profiles depend on two source columns and
                 // append several window diagnostics. Keep predicate pruning but
@@ -3217,6 +3266,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .ema_profile => |ema| try writer.print("ema_profile({s}, prefix={s}, alpha={d})", .{ ema.name, ema.output_prefix, ema.options.alpha }),
         .linear_fit_profile => |fit| try writer.print("linear_fit_profile({s}->{s}, prefix={s})", .{ fit.x_name, fit.y_name, fit.output_prefix }),
         .error_profile => |err| try writer.print("error_profile(actual={s}, predicted={s}, prefix={s})", .{ err.actual_name, err.predicted_name, err.output_prefix }),
+        .classification_profile => |class| try writer.print("classification_profile(actual={s}, predicted={s}, prefix={s})", .{ class.actual_name, class.predicted_name, class.output_prefix }),
         .rolling_correlation_profile => |corr| try writer.print("rolling_correlation_profile({s},{s}, prefix={s}, window={d})", .{ corr.x_name, corr.y_name, corr.output_prefix, corr.options.window }),
         .validity_profile => |validity| try writer.print("validity_profile({s}, prefix={s})", .{ validity.name, validity.output_prefix }),
         .head => |n| try writer.print("head({d})", .{n}),
@@ -4465,6 +4515,48 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = error_col.*;
             initialized += 1;
             error_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn classificationProfile(
+        self: DeviceDataFrame,
+        actual_name: []const u8,
+        predicted_name: []const u8,
+        output_prefix: []const u8,
+    ) DeviceDataError!DeviceDataFrame {
+        const actual = try self.column(actual_name);
+        const predicted = try self.column(predicted_name);
+        if (actual.dtype() != .bool or predicted.dtype() != .bool) return error.TypeMismatch;
+        var class_columns = try classificationProfileColumns(self.allocator, actual.bool, predicted.bool, self.device, self.rows);
+        var class_columns_transferred: usize = 0;
+        errdefer {
+            for (class_columns[class_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + class_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var class_names = try classificationProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, class_names[0..]);
+        for (class_names, 0..) |class_name, i| source_names[self.columns.len + i] = class_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + class_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&class_columns) |*class_col| {
+            columns[initialized] = class_col.*;
+            initialized += 1;
+            class_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -7408,6 +7500,90 @@ fn errorProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ape, metric_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, smape, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ClassificationProfileColumnCount = 5;
+
+fn classificationProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ClassificationProfileColumnCount][]const u8 {
+    var names: [ClassificationProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "tp", "fp", "tn", "fn", "correct" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn classificationProfileColumns(
+    allocator: std.mem.Allocator,
+    actual: DeviceTypedColumn(bool),
+    predicted: DeviceTypedColumn(bool),
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ClassificationProfileColumnCount]DeviceColumn {
+    if (actual.len() != rows or predicted.len() != rows) return error.LengthMismatch;
+    if (!actual.device().sameDevice(predicted.device())) return error.InvalidDevice;
+
+    const actual_values = try actual.values.toOwnedSlice(allocator);
+    defer allocator.free(actual_values);
+    const predicted_values = try predicted.values.toOwnedSlice(allocator);
+    defer allocator.free(predicted_values);
+    const maybe_actual_validity = try validityValues(actual, allocator);
+    defer if (maybe_actual_validity) |validity| allocator.free(validity);
+    const maybe_predicted_validity = try validityValues(predicted, allocator);
+    defer if (maybe_predicted_validity) |validity| allocator.free(validity);
+
+    const tp = try allocator.alloc(bool, rows);
+    defer allocator.free(tp);
+    const fp = try allocator.alloc(bool, rows);
+    defer allocator.free(fp);
+    const tn = try allocator.alloc(bool, rows);
+    defer allocator.free(tn);
+    const fn_values = try allocator.alloc(bool, rows);
+    defer allocator.free(fn_values);
+    const correct = try allocator.alloc(bool, rows);
+    defer allocator.free(correct);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    for (actual_values, predicted_values, 0..) |actual_value, predicted_value, row| {
+        const valid = (if (maybe_actual_validity) |mask| mask[row] else true) and (if (maybe_predicted_validity) |mask| mask[row] else true);
+        metric_validity[row] = valid;
+        if (valid) {
+            tp[row] = actual_value and predicted_value;
+            fp[row] = !actual_value and predicted_value;
+            tn[row] = !actual_value and !predicted_value;
+            fn_values[row] = actual_value and !predicted_value;
+            correct[row] = actual_value == predicted_value;
+        } else {
+            tp[row] = false;
+            fp[row] = false;
+            tn[row] = false;
+            fn_values[row] = false;
+            correct[row] = false;
+        }
+    }
+
+    var columns: [ClassificationProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(bool, allocator, tp, metric_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(bool, allocator, fp, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, tn, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, fn_values, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, correct, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11235,6 +11411,38 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4, 5, 0, 1 }, valid_streak);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 0, 1, 0 }, null_streak);
 
+    var actual_label = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ true, false, true, false, true }, &.{ true, true, true, false, true }, .cpu);
+    defer actual_label.deinit();
+    var predicted_label = try DeviceColumn.fromSlice(bool, gpa, &.{ true, true, false, false, true }, .cpu);
+    defer predicted_label.deinit();
+    var label_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "actual", .data = actual_label },
+        .{ .name = "predicted", .data = predicted_label },
+    });
+    defer label_table.deinit();
+
+    var classes = try label_table.classificationProfile("actual", "predicted", "cls");
+    defer classes.deinit();
+    try std.testing.expectEqual(@as(usize, 7), classes.width());
+    const tp = try (try classes.column("cls_tp")).bool.toOwnedSlice(gpa);
+    defer gpa.free(tp);
+    const fp = try (try classes.column("cls_fp")).bool.toOwnedSlice(gpa);
+    defer gpa.free(fp);
+    const tn = try (try classes.column("cls_tn")).bool.toOwnedSlice(gpa);
+    defer gpa.free(tn);
+    const fn_values = try (try classes.column("cls_fn")).bool.toOwnedSlice(gpa);
+    defer gpa.free(fn_values);
+    const correct = try (try classes.column("cls_correct")).bool.toOwnedSlice(gpa);
+    defer gpa.free(correct);
+    const class_validity = try (try classes.column("cls_correct")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(class_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false, true }, class_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true }, tp);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, fp);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, tn);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, fn_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true }, correct);
+
     var fast = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 3.0, 2.0, 5.0, 4.0, 6.0 }, &.{ true, true, true, true, false, true }, .cpu);
     defer fast.deinit();
     var slow = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 2.0, 2.0, 4.0, 5.0, 0.0 }, .cpu);
@@ -12629,6 +12837,34 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_is_valid);
     try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4 }, lazy_valid_streak);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, lazy_null_streak);
+
+    var class_plan = try DeviceLazyFrame.init(gpa, table);
+    defer class_plan.deinit();
+    try class_plan.withColumnCompareScalar("predicted_active", "sales", f64, 4.0, .gt);
+    try class_plan.classificationProfile("active", "predicted_active", "active_cls");
+    try class_plan.select(&.{ "active", "predicted_active", "active_cls_tp", "active_cls_fp", "active_cls_tn", "active_cls_fn", "active_cls_correct" });
+    const class_explain = try class_plan.explain(gpa);
+    defer gpa.free(class_explain);
+    try std.testing.expect(std.mem.indexOf(u8, class_explain, "classification_profile(actual=active, predicted=predicted_active") != null);
+    var classed = try class_plan.collect();
+    defer classed.deinit();
+    try std.testing.expectEqual(@as(usize, 4), classed.height());
+    try std.testing.expectEqual(@as(usize, 7), classed.width());
+    const lazy_tp = try (try classed.column("active_cls_tp")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_tp);
+    const lazy_fp = try (try classed.column("active_cls_fp")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_fp);
+    const lazy_tn = try (try classed.column("active_cls_tn")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_tn);
+    const lazy_fn = try (try classed.column("active_cls_fn")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_fn);
+    const lazy_correct = try (try classed.column("active_cls_correct")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_correct);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true }, lazy_tp);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_fp);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, lazy_tn);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, lazy_fn);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_correct);
 
     var crossover_plan = try DeviceLazyFrame.init(gpa, table);
     defer crossover_plan.deinit();
