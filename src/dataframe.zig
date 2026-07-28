@@ -3,6 +3,7 @@ const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 const dataframe_arrow_mod = @import("dataframe_arrow.zig");
+const lazy_mod = @import("dataframe_lazy.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
 const BoolTransitionProfileColumnCount = bool_transition_mod.BoolTransitionProfileColumnCount;
@@ -5005,27 +5006,9 @@ fn rangeFromScalarPredicate(comptime T: type, value: T, op: DeviceColumnCompareO
 }
 
 const allNamesIn = names_mod.allNamesIn;
+const formatLazyScanPushdown = lazy_mod.formatLazyScanPushdown;
 const isIntegerColumnType = numeric_mod.isIntegerColumnType;
 const isOrderedColumnType = numeric_mod.isOrderedColumnType;
-
-fn formatLazyScanPushdown(writer: *std.Io.Writer, pushdown: LazyScanPushdown) std.Io.Writer.Error!void {
-    var printed = false;
-    if (pushdown.range_predicate) |predicate| {
-        try writer.print("range={s}", .{predicate.column});
-        printed = true;
-    }
-    if (pushdown.projection) |names| {
-        if (printed) try writer.print(", ", .{});
-        try writer.print("projection=[", .{});
-        for (names, 0..) |name, i| {
-            if (i != 0) try writer.print(",", .{});
-            try writer.print("{s}", .{name});
-        }
-        try writer.print("]", .{});
-        printed = true;
-    }
-    if (!printed) try writer.print("none", .{});
-}
 
 fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!void {
     switch (op) {
