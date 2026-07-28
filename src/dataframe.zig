@@ -1231,6 +1231,13 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceCrossoverOptions,
     },
+    rolling_crossover_profile: struct {
+        lhs_name: []const u8,
+        rhs_name: []const u8,
+        output_prefix: []const u8,
+        cross_options: DeviceCrossoverOptions,
+        options: DeviceRollingOptions,
+    },
     bucket_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1551,6 +1558,11 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(sign.output_prefix);
             },
             .crossover_profile => |cross| {
+                allocator.free(cross.lhs_name);
+                allocator.free(cross.rhs_name);
+                allocator.free(cross.output_prefix);
+            },
+            .rolling_crossover_profile => |cross| {
                 allocator.free(cross.lhs_name);
                 allocator.free(cross.rhs_name);
                 allocator.free(cross.output_prefix);
@@ -2278,6 +2290,21 @@ pub const DeviceLazyOp = union(enum) {
                     .lhs_name = lhs_name,
                     .rhs_name = rhs_name,
                     .output_prefix = output_prefix,
+                    .options = cross.options,
+                } };
+            },
+            .rolling_crossover_profile => |cross| blk: {
+                const lhs_name = try allocator.dupe(u8, cross.lhs_name);
+                errdefer allocator.free(lhs_name);
+                const rhs_name = try allocator.dupe(u8, cross.rhs_name);
+                errdefer allocator.free(rhs_name);
+                const output_prefix = try allocator.dupe(u8, cross.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_crossover_profile = .{
+                    .lhs_name = lhs_name,
+                    .rhs_name = rhs_name,
+                    .output_prefix = output_prefix,
+                    .cross_options = cross.cross_options,
                     .options = cross.options,
                 } };
             },
@@ -3373,6 +3400,29 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingCrossoverProfile(
+        self: *DeviceLazyFrame,
+        lhs_name: []const u8,
+        rhs_name: []const u8,
+        output_prefix: []const u8,
+        cross_options: DeviceCrossoverOptions,
+        options_value: DeviceRollingOptions,
+    ) DeviceDataError!void {
+        const owned_lhs = try self.allocator.dupe(u8, lhs_name);
+        errdefer self.allocator.free(owned_lhs);
+        const owned_rhs = try self.allocator.dupe(u8, rhs_name);
+        errdefer self.allocator.free(owned_rhs);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_crossover_profile = .{
+            .lhs_name = owned_lhs,
+            .rhs_name = owned_rhs,
+            .output_prefix = owned_prefix,
+            .cross_options = cross_options,
+            .options = options_value,
+        } });
+    }
+
     pub fn bucketProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceBucketOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -3776,6 +3826,7 @@ pub const DeviceLazyFrame = struct {
                 .rolling_sign_profile => |sign| try current.rollingSignProfile(sign.name, sign.output_prefix, sign.sign_options, sign.options),
                 .expanding_sign_profile => |sign| try current.expandingSignProfile(sign.name, sign.output_prefix, sign.sign_options, sign.options),
                 .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
+                .rolling_crossover_profile => |cross| try current.rollingCrossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.cross_options, cross.options),
                 .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
                 .ema_profile => |ema| try current.emaProfile(ema.name, ema.output_prefix, ema.options),
                 .linear_fit_profile => |fit| try current.linearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
@@ -4454,6 +4505,16 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(cross.rhs_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, cross.rhs_name);
                 break :op_loop;
             },
+            .rolling_crossover_profile => |cross| {
+                // Rolling crossover profiles append window-level signal
+                // summaries derived from two source columns. Predicate pruning
+                // remains safe, but projection pushdown must wait until the
+                // lazy planner tracks generated crossover fields explicitly.
+                projection_blocked = true;
+                if (!nameInBorrowedList(cross.lhs_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, cross.lhs_name);
+                if (!nameInBorrowedList(cross.rhs_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, cross.rhs_name);
+                break :op_loop;
+            },
             .bucket_profile => |bucket| {
                 // Bucket profiles depend on the whole source distribution and
                 // append several derived fields, so keep predicates but block
@@ -4796,6 +4857,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .rolling_sign_profile => |sign| try writer.print("rolling_sign_profile({s}, prefix={s}, periods={d}, window={d})", .{ sign.name, sign.output_prefix, sign.sign_options.periods, sign.options.window }),
         .expanding_sign_profile => |sign| try writer.print("expanding_sign_profile({s}, prefix={s}, periods={d}, min_periods={d})", .{ sign.name, sign.output_prefix, sign.sign_options.periods, sign.options.min_periods }),
         .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
+        .rolling_crossover_profile => |cross| try writer.print("rolling_crossover_profile({s},{s}, prefix={s}, periods={d}, window={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.cross_options.periods, cross.options.window }),
         .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
         .ema_profile => |ema| try writer.print("ema_profile({s}, prefix={s}, alpha={d})", .{ ema.name, ema.output_prefix, ema.options.alpha }),
         .linear_fit_profile => |fit| try writer.print("linear_fit_profile({s}->{s}, prefix={s})", .{ fit.x_name, fit.y_name, fit.output_prefix }),
@@ -6729,6 +6791,50 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var cross_names = try crossoverProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, cross_names[0..]);
+        for (cross_names, 0..) |cross_name, i| source_names[self.columns.len + i] = cross_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + cross_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&cross_columns) |*cross_col| {
+            columns[initialized] = cross_col.*;
+            initialized += 1;
+            cross_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingCrossoverProfile(
+        self: DeviceDataFrame,
+        lhs_name: []const u8,
+        rhs_name: []const u8,
+        output_prefix: []const u8,
+        cross_options: DeviceCrossoverOptions,
+        options_value: DeviceRollingOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        const lhs = try self.column(lhs_name);
+        const rhs = try self.column(rhs_name);
+        if (lhs.dtype() != rhs.dtype()) return error.TypeMismatch;
+        var cross_columns = try rollingCrossoverProfileColumnsByValue(self.allocator, lhs.*, rhs.*, cross_options, options_value, self.device, self.rows);
+        var cross_columns_transferred: usize = 0;
+        errdefer {
+            for (cross_columns[cross_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + cross_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var cross_names = try rollingCrossoverProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, cross_names[0..]);
         for (cross_names, 0..) |cross_name, i| source_names[self.columns.len + i] = cross_name;
 
@@ -12994,6 +13100,183 @@ fn crossoverProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, cross_above, cross_validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, cross_below, cross_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const RollingCrossoverProfileColumnCount = 6;
+
+fn rollingCrossoverProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingCrossoverProfileColumnCount][]const u8 {
+    var names: [RollingCrossoverProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_cross_count", "rolling_cross_above_count", "rolling_cross_below_count", "rolling_cross_above_rate", "rolling_cross_below_rate", "rolling_mean_abs_spread" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingCrossoverProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    lhs: DeviceColumn,
+    rhs: DeviceColumn,
+    cross_options: DeviceCrossoverOptions,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingCrossoverProfileColumnCount]DeviceColumn {
+    if (lhs.len() != rows or rhs.len() != rows) return error.LengthMismatch;
+    if (lhs.dtype() != rhs.dtype()) return error.TypeMismatch;
+    return switch (lhs) {
+        .i8 => |typed| rollingCrossoverProfileColumnsTyped(i8, allocator, typed, rhs.i8, cross_options, options_value, device_value),
+        .i16 => |typed| rollingCrossoverProfileColumnsTyped(i16, allocator, typed, rhs.i16, cross_options, options_value, device_value),
+        .i32 => |typed| rollingCrossoverProfileColumnsTyped(i32, allocator, typed, rhs.i32, cross_options, options_value, device_value),
+        .i64 => |typed| rollingCrossoverProfileColumnsTyped(i64, allocator, typed, rhs.i64, cross_options, options_value, device_value),
+        .u8 => |typed| rollingCrossoverProfileColumnsTyped(u8, allocator, typed, rhs.u8, cross_options, options_value, device_value),
+        .u16 => |typed| rollingCrossoverProfileColumnsTyped(u16, allocator, typed, rhs.u16, cross_options, options_value, device_value),
+        .u32 => |typed| rollingCrossoverProfileColumnsTyped(u32, allocator, typed, rhs.u32, cross_options, options_value, device_value),
+        .u64 => |typed| rollingCrossoverProfileColumnsTyped(u64, allocator, typed, rhs.u64, cross_options, options_value, device_value),
+        .usize => |typed| rollingCrossoverProfileColumnsTyped(usize, allocator, typed, rhs.usize, cross_options, options_value, device_value),
+        .isize => |typed| rollingCrossoverProfileColumnsTyped(isize, allocator, typed, rhs.isize, cross_options, options_value, device_value),
+        .f16 => |typed| rollingCrossoverProfileColumnsTyped(f16, allocator, typed, rhs.f16, cross_options, options_value, device_value),
+        .f32 => |typed| rollingCrossoverProfileColumnsTyped(f32, allocator, typed, rhs.f32, cross_options, options_value, device_value),
+        .f64 => |typed| rollingCrossoverProfileColumnsTyped(f64, allocator, typed, rhs.f64, cross_options, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rollingCrossoverProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    lhs: DeviceTypedColumn(T),
+    rhs: DeviceTypedColumn(T),
+    cross_options: DeviceCrossoverOptions,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingCrossoverProfileColumnCount]DeviceColumn {
+    if (cross_options.periods == 0 or options_value.window == 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+    if (lhs.len() != rhs.len()) return error.LengthMismatch;
+    if (!lhs.device().sameDevice(rhs.device())) return error.InvalidDevice;
+
+    const lhs_values = try lhs.values.toOwnedSlice(allocator);
+    defer allocator.free(lhs_values);
+    const rhs_values = try rhs.values.toOwnedSlice(allocator);
+    defer allocator.free(rhs_values);
+    const maybe_lhs_validity = try validityValues(lhs, allocator);
+    defer if (maybe_lhs_validity) |validity| allocator.free(validity);
+    const maybe_rhs_validity = try validityValues(rhs, allocator);
+    defer if (maybe_rhs_validity) |validity| allocator.free(validity);
+
+    const rows = lhs_values.len;
+    const spreads = try allocator.alloc(f64, rows);
+    defer allocator.free(spreads);
+    const spread_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(spread_validity);
+    const cross_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(cross_validity);
+    const cross_above = try allocator.alloc(bool, rows);
+    defer allocator.free(cross_above);
+    const cross_below = try allocator.alloc(bool, rows);
+    defer allocator.free(cross_below);
+
+    for (lhs_values, rhs_values, 0..) |lhs_value, rhs_value, row| {
+        const lhs_valid = if (maybe_lhs_validity) |mask| mask[row] else true;
+        const rhs_valid = if (maybe_rhs_validity) |mask| mask[row] else true;
+        const current_valid = lhs_valid and rhs_valid;
+        spread_validity[row] = current_valid;
+        spreads[row] = if (current_valid) castToF64(T, lhs_value) - castToF64(T, rhs_value) else 0;
+        cross_above[row] = false;
+        cross_below[row] = false;
+
+        if (row < cross_options.periods) {
+            cross_validity[row] = false;
+            continue;
+        }
+
+        const previous_row = row - cross_options.periods;
+        const event_valid = current_valid and spread_validity[previous_row];
+        cross_validity[row] = event_valid;
+        if (event_valid) {
+            const previous_spread = spreads[previous_row];
+            const current_spread = spreads[row];
+            cross_above[row] = previous_spread <= 0 and current_spread > 0;
+            cross_below[row] = previous_spread >= 0 and current_spread < 0;
+        }
+    }
+
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const cross_above_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(cross_above_counts);
+    const cross_below_counts = try allocator.alloc(i64, rows);
+    defer allocator.free(cross_below_counts);
+    const cross_above_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(cross_above_rates);
+    const cross_below_rates = try allocator.alloc(f64, rows);
+    defer allocator.free(cross_below_rates);
+    const mean_abs_spreads = try allocator.alloc(f64, rows);
+    defer allocator.free(mean_abs_spreads);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    for (0..rows) |row| {
+        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
+        var count: usize = 0;
+        var above_count: usize = 0;
+        var below_count: usize = 0;
+        var sum_abs_spread: f64 = 0;
+        for (start..row + 1) |window_row| {
+            if (!spread_validity[window_row]) continue;
+            count += 1;
+            sum_abs_spread += @abs(spreads[window_row]);
+            if (cross_validity[window_row] and cross_above[window_row]) above_count += 1;
+            if (cross_validity[window_row] and cross_below[window_row]) below_count += 1;
+        }
+
+        counts[row] = @intCast(count);
+        cross_above_counts[row] = @intCast(above_count);
+        cross_below_counts[row] = @intCast(below_count);
+        const has_enough = count >= min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            // Rates intentionally use the same valid-spread denominator as the
+            // mean spread metric.  This keeps early windows and nullable gaps
+            // comparable to the rolling sign/profile APIs, where event counts
+            // are a composition of valid observations rather than a separate
+            // history-valid denominator.
+            const n: f64 = @floatFromInt(count);
+            cross_above_rates[row] = @as(f64, @floatFromInt(above_count)) / n;
+            cross_below_rates[row] = @as(f64, @floatFromInt(below_count)) / n;
+            mean_abs_spreads[row] = sum_abs_spread / n;
+        } else {
+            cross_above_rates[row] = 0;
+            cross_below_rates[row] = 0;
+            mean_abs_spreads[row] = 0;
+        }
+    }
+
+    var columns: [RollingCrossoverProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSlice(i64, allocator, cross_above_counts, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSlice(i64, allocator, cross_below_counts, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, cross_above_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, cross_below_rates, metric_validity, device_value);
+    initialized += 1;
+    columns[5] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mean_abs_spreads, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -19623,6 +19906,39 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, false, false }, cross_above);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false }, cross_below);
 
+    var rolling_cross = try signal_table.rollingCrossoverProfile("fast", "slow", "fast_slow", .{ .periods = 1 }, .{ .window = 3, .min_periods = 2 });
+    defer rolling_cross.deinit();
+    try std.testing.expectEqual(@as(usize, 8), rolling_cross.width());
+    const rolling_cross_count = try (try rolling_cross.column("fast_slow_rolling_cross_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_cross_count);
+    const rolling_cross_above_count = try (try rolling_cross.column("fast_slow_rolling_cross_above_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_cross_above_count);
+    const rolling_cross_below_count = try (try rolling_cross.column("fast_slow_rolling_cross_below_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_cross_below_count);
+    const rolling_cross_above_rate = try (try rolling_cross.column("fast_slow_rolling_cross_above_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_cross_above_rate);
+    const rolling_cross_below_rate = try (try rolling_cross.column("fast_slow_rolling_cross_below_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_cross_below_rate);
+    const rolling_mean_abs_spread = try (try rolling_cross.column("fast_slow_rolling_mean_abs_spread")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_mean_abs_spread);
+    const rolling_cross_validity = try (try rolling_cross.column("fast_slow_rolling_cross_above_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_cross_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 3, 2, 2 }, rolling_cross_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 2, 1, 1 }, rolling_cross_above_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 0, 0 }, rolling_cross_below_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, true }, rolling_cross_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_cross_above_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), rolling_cross_above_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), rolling_cross_above_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_cross_above_rate[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_cross_above_rate[5], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), rolling_cross_below_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), rolling_mean_abs_spread[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), rolling_mean_abs_spread[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), rolling_mean_abs_spread[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), rolling_mean_abs_spread[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.5), rolling_mean_abs_spread[5], 1e-12);
+
     var corr = try signal_table.rollingCorrelationProfile("fast", "slow", "fast_slow", .{ .window = 3, .min_periods = 2 });
     defer corr.deinit();
     try std.testing.expectEqual(@as(usize, 6), corr.width());
@@ -22282,6 +22598,45 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 6.0), lazy_ratio[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_cross_above);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_cross_below);
+
+    var rolling_crossover_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_crossover_plan.deinit();
+    try rolling_crossover_plan.withColumnScalar("sales_minus4", "sales", f64, 4.0, .sub);
+    try rolling_crossover_plan.withColumnScalar("zero_sales", "sales", f64, 0.0, .mul);
+    try rolling_crossover_plan.rollingCrossoverProfile("sales_minus4", "zero_sales", "sales_zero", .{ .periods = 1 }, .{ .window = 2, .min_periods = 2 });
+    try rolling_crossover_plan.select(&.{ "sales", "sales_minus4", "zero_sales", "sales_zero_rolling_cross_count", "sales_zero_rolling_cross_above_count", "sales_zero_rolling_cross_below_count", "sales_zero_rolling_cross_above_rate", "sales_zero_rolling_cross_below_rate", "sales_zero_rolling_mean_abs_spread" });
+    const rolling_crossover_explain = try rolling_crossover_plan.explain(gpa);
+    defer gpa.free(rolling_crossover_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_crossover_explain, "rolling_crossover_profile(sales_minus4,zero_sales") != null);
+    var rolling_crossover = try rolling_crossover_plan.collect();
+    defer rolling_crossover.deinit();
+    try std.testing.expectEqual(@as(usize, 4), rolling_crossover.height());
+    try std.testing.expectEqual(@as(usize, 9), rolling_crossover.width());
+    const lazy_rolling_cross_count = try (try rolling_crossover.column("sales_zero_rolling_cross_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_cross_count);
+    const lazy_rolling_cross_above_count = try (try rolling_crossover.column("sales_zero_rolling_cross_above_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_cross_above_count);
+    const lazy_rolling_cross_below_count = try (try rolling_crossover.column("sales_zero_rolling_cross_below_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_cross_below_count);
+    const lazy_rolling_cross_above_rate = try (try rolling_crossover.column("sales_zero_rolling_cross_above_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_cross_above_rate);
+    const lazy_rolling_cross_below_rate = try (try rolling_crossover.column("sales_zero_rolling_cross_below_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_cross_below_rate);
+    const lazy_rolling_mean_abs_spread = try (try rolling_crossover.column("sales_zero_rolling_mean_abs_spread")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_mean_abs_spread);
+    const lazy_rolling_crossover_validity = try (try rolling_crossover.column("sales_zero_rolling_cross_above_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_crossover_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 2 }, lazy_rolling_cross_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 1 }, lazy_rolling_cross_above_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, lazy_rolling_cross_below_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_rolling_crossover_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_cross_above_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_cross_above_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_rolling_cross_above_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_cross_below_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), lazy_rolling_mean_abs_spread[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_mean_abs_spread[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_rolling_mean_abs_spread[3], 1e-12);
 
     var fit_plan = try DeviceLazyFrame.init(gpa, table);
     defer fit_plan.deinit();
