@@ -1174,6 +1174,12 @@ pub const DeviceLazyOp = union(enum) {
         predicted_name: []const u8,
         output_prefix: []const u8,
     },
+    rolling_error_profile: struct {
+        actual_name: []const u8,
+        predicted_name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceRollingOptions,
+    },
     classification_profile: struct {
         actual_name: []const u8,
         predicted_name: []const u8,
@@ -1405,6 +1411,11 @@ pub const DeviceLazyOp = union(enum) {
                 allocator.free(fit.output_prefix);
             },
             .error_profile => |err| {
+                allocator.free(err.actual_name);
+                allocator.free(err.predicted_name);
+                allocator.free(err.output_prefix);
+            },
+            .rolling_error_profile => |err| {
                 allocator.free(err.actual_name);
                 allocator.free(err.predicted_name);
                 allocator.free(err.output_prefix);
@@ -1980,6 +1991,20 @@ pub const DeviceLazyOp = union(enum) {
                     .actual_name = actual_name,
                     .predicted_name = predicted_name,
                     .output_prefix = output_prefix,
+                } };
+            },
+            .rolling_error_profile => |err| blk: {
+                const actual_name = try allocator.dupe(u8, err.actual_name);
+                errdefer allocator.free(actual_name);
+                const predicted_name = try allocator.dupe(u8, err.predicted_name);
+                errdefer allocator.free(predicted_name);
+                const output_prefix = try allocator.dupe(u8, err.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .rolling_error_profile = .{
+                    .actual_name = actual_name,
+                    .predicted_name = predicted_name,
+                    .output_prefix = output_prefix,
+                    .options = err.options,
                 } };
             },
             .classification_profile => |class| blk: {
@@ -2842,6 +2867,27 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn rollingErrorProfile(
+        self: *DeviceLazyFrame,
+        actual_name: []const u8,
+        predicted_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceRollingOptions,
+    ) DeviceDataError!void {
+        const owned_actual = try self.allocator.dupe(u8, actual_name);
+        errdefer self.allocator.free(owned_actual);
+        const owned_predicted = try self.allocator.dupe(u8, predicted_name);
+        errdefer self.allocator.free(owned_predicted);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .rolling_error_profile = .{
+            .actual_name = owned_actual,
+            .predicted_name = owned_predicted,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn classificationProfile(
         self: *DeviceLazyFrame,
         actual_name: []const u8,
@@ -3064,6 +3110,7 @@ pub const DeviceLazyFrame = struct {
                 .ema_profile => |ema| try current.emaProfile(ema.name, ema.output_prefix, ema.options),
                 .linear_fit_profile => |fit| try current.linearFitProfile(fit.x_name, fit.y_name, fit.output_prefix, fit.options),
                 .error_profile => |err| try current.errorProfile(err.actual_name, err.predicted_name, err.output_prefix),
+                .rolling_error_profile => |err| try current.rollingErrorProfile(err.actual_name, err.predicted_name, err.output_prefix, err.options),
                 .classification_profile => |class| try current.classificationProfile(class.actual_name, class.predicted_name, class.output_prefix),
                 .bool_transition_profile => |transition| try current.boolTransitionProfile(transition.name, transition.output_prefix, transition.options),
                 .rolling_correlation_profile => |corr| try current.rollingCorrelationProfile(corr.x_name, corr.y_name, corr.output_prefix, corr.options),
@@ -3678,6 +3725,12 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(err.predicted_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, err.predicted_name);
                 break :op_loop;
             },
+            .rolling_error_profile => |err| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(err.actual_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, err.actual_name);
+                if (!nameInBorrowedList(err.predicted_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, err.predicted_name);
+                break :op_loop;
+            },
             .classification_profile => |class| {
                 projection_blocked = true;
                 if (!nameInBorrowedList(class.actual_name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, class.actual_name);
@@ -3939,6 +3992,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .ema_profile => |ema| try writer.print("ema_profile({s}, prefix={s}, alpha={d})", .{ ema.name, ema.output_prefix, ema.options.alpha }),
         .linear_fit_profile => |fit| try writer.print("linear_fit_profile({s}->{s}, prefix={s})", .{ fit.x_name, fit.y_name, fit.output_prefix }),
         .error_profile => |err| try writer.print("error_profile(actual={s}, predicted={s}, prefix={s})", .{ err.actual_name, err.predicted_name, err.output_prefix }),
+        .rolling_error_profile => |err| try writer.print("rolling_error_profile(actual={s}, predicted={s}, prefix={s}, window={d})", .{ err.actual_name, err.predicted_name, err.output_prefix, err.options.window }),
         .classification_profile => |class| try writer.print("classification_profile(actual={s}, predicted={s}, prefix={s})", .{ class.actual_name, class.predicted_name, class.output_prefix }),
         .bool_transition_profile => |transition| try writer.print("bool_transition_profile({s}, prefix={s}, periods={d})", .{ transition.name, transition.output_prefix, transition.options.periods }),
         .rolling_correlation_profile => |corr| try writer.print("rolling_correlation_profile({s},{s}, prefix={s}, window={d})", .{ corr.x_name, corr.y_name, corr.output_prefix, corr.options.window }),
@@ -5562,6 +5616,49 @@ pub const DeviceDataFrame = struct {
         for (self.names, 0..) |source_name, i| source_names[i] = source_name;
 
         var error_names = try errorProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, error_names[0..]);
+        for (error_names, 0..) |error_name, i| source_names[self.columns.len + i] = error_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + error_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&error_columns) |*error_col| {
+            columns[initialized] = error_col.*;
+            initialized += 1;
+            error_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn rollingErrorProfile(
+        self: DeviceDataFrame,
+        actual_name: []const u8,
+        predicted_name: []const u8,
+        output_prefix: []const u8,
+        options_value: DeviceRollingOptions,
+    ) DeviceDataError!DeviceDataFrame {
+        const actual = try self.column(actual_name);
+        const predicted = try self.column(predicted_name);
+        if (actual.dtype() != predicted.dtype()) return error.TypeMismatch;
+        var error_columns = try rollingErrorProfileColumnsByValue(self.allocator, actual.*, predicted.*, options_value, self.device, self.rows);
+        var error_columns_transferred: usize = 0;
+        errdefer {
+            for (error_columns[error_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + error_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var error_names = try rollingErrorProfileOutputNames(self.allocator, output_prefix);
         defer freeOwnedNameItems(self.allocator, error_names[0..]);
         for (error_names, 0..) |error_name, i| source_names[self.columns.len + i] = error_name;
 
@@ -10068,6 +10165,144 @@ fn errorProfileColumnsTyped(
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, squared_errors, metric_validity, device_value);
     initialized += 1;
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, ape, metric_validity, device_value);
+    initialized += 1;
+    columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, smape, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const RollingErrorProfileColumnCount = 5;
+
+fn rollingErrorProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingErrorProfileColumnCount][]const u8 {
+    var names: [RollingErrorProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_error_count", "rolling_mae", "rolling_rmse", "rolling_mape", "rolling_smape" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn rollingErrorProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    actual: DeviceColumn,
+    predicted: DeviceColumn,
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![RollingErrorProfileColumnCount]DeviceColumn {
+    if (actual.len() != rows or predicted.len() != rows) return error.LengthMismatch;
+    if (actual.dtype() != predicted.dtype()) return error.TypeMismatch;
+    return switch (actual) {
+        .i8 => |typed| rollingErrorProfileColumnsTyped(i8, allocator, typed, predicted.i8, options_value, device_value),
+        .i16 => |typed| rollingErrorProfileColumnsTyped(i16, allocator, typed, predicted.i16, options_value, device_value),
+        .i32 => |typed| rollingErrorProfileColumnsTyped(i32, allocator, typed, predicted.i32, options_value, device_value),
+        .i64 => |typed| rollingErrorProfileColumnsTyped(i64, allocator, typed, predicted.i64, options_value, device_value),
+        .u8 => |typed| rollingErrorProfileColumnsTyped(u8, allocator, typed, predicted.u8, options_value, device_value),
+        .u16 => |typed| rollingErrorProfileColumnsTyped(u16, allocator, typed, predicted.u16, options_value, device_value),
+        .u32 => |typed| rollingErrorProfileColumnsTyped(u32, allocator, typed, predicted.u32, options_value, device_value),
+        .u64 => |typed| rollingErrorProfileColumnsTyped(u64, allocator, typed, predicted.u64, options_value, device_value),
+        .usize => |typed| rollingErrorProfileColumnsTyped(usize, allocator, typed, predicted.usize, options_value, device_value),
+        .isize => |typed| rollingErrorProfileColumnsTyped(isize, allocator, typed, predicted.isize, options_value, device_value),
+        .f16 => |typed| rollingErrorProfileColumnsTyped(f16, allocator, typed, predicted.f16, options_value, device_value),
+        .f32 => |typed| rollingErrorProfileColumnsTyped(f32, allocator, typed, predicted.f32, options_value, device_value),
+        .f64 => |typed| rollingErrorProfileColumnsTyped(f64, allocator, typed, predicted.f64, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn rollingErrorProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    actual_column: DeviceTypedColumn(T),
+    predicted_column: DeviceTypedColumn(T),
+    options_value: DeviceRollingOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![RollingErrorProfileColumnCount]DeviceColumn {
+    if (options_value.window == 0) return error.InvalidShape;
+    const min_periods = options_value.min_periods orelse options_value.window;
+    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
+    if (actual_column.len() != predicted_column.len()) return error.LengthMismatch;
+    if (!actual_column.device().sameDevice(predicted_column.device())) return error.InvalidDevice;
+
+    const actual_values = try actual_column.values.toOwnedSlice(allocator);
+    defer allocator.free(actual_values);
+    const predicted_values = try predicted_column.values.toOwnedSlice(allocator);
+    defer allocator.free(predicted_values);
+    const maybe_actual_validity = try validityValues(actual_column, allocator);
+    defer if (maybe_actual_validity) |validity| allocator.free(validity);
+    const maybe_predicted_validity = try validityValues(predicted_column, allocator);
+    defer if (maybe_predicted_validity) |validity| allocator.free(validity);
+
+    const rows = actual_values.len;
+    const counts = try allocator.alloc(i64, rows);
+    defer allocator.free(counts);
+    const mae = try allocator.alloc(f64, rows);
+    defer allocator.free(mae);
+    const rmse = try allocator.alloc(f64, rows);
+    defer allocator.free(rmse);
+    const mape = try allocator.alloc(f64, rows);
+    defer allocator.free(mape);
+    const smape = try allocator.alloc(f64, rows);
+    defer allocator.free(smape);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    for (actual_values, predicted_values, 0..) |_, _, row| {
+        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
+        var count: usize = 0;
+        var abs_sum: f64 = 0;
+        var sq_sum: f64 = 0;
+        var ape_sum: f64 = 0;
+        var smape_sum: f64 = 0;
+        for (start..row + 1) |window_row| {
+            const valid = (if (maybe_actual_validity) |mask| mask[window_row] else true) and (if (maybe_predicted_validity) |mask| mask[window_row] else true);
+            if (!valid) continue;
+            const actual = castToF64(T, actual_values[window_row]);
+            const predicted = castToF64(T, predicted_values[window_row]);
+            const err = actual - predicted;
+            const abs_err = @abs(err);
+            const denom = @abs(actual) + @abs(predicted);
+            abs_sum += abs_err;
+            sq_sum += err * err;
+            ape_sum += if (actual == 0) std.math.nan(f64) else abs_err / @abs(actual);
+            smape_sum += if (denom == 0) std.math.nan(f64) else 2.0 * abs_err / denom;
+            count += 1;
+        }
+
+        counts[row] = @intCast(count);
+        const has_enough = count >= min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            const n: f64 = @floatFromInt(count);
+            mae[row] = abs_sum / n;
+            rmse[row] = std.math.sqrt(sq_sum / n);
+            mape[row] = ape_sum / n;
+            smape[row] = smape_sum / n;
+        } else {
+            mae[row] = 0;
+            rmse[row] = 0;
+            mape[row] = 0;
+            smape[row] = 0;
+        }
+    }
+
+    var columns: [RollingErrorProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mae, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, rmse, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, mape, metric_validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, smape, metric_validity, device_value);
     initialized += 1;
@@ -15091,6 +15326,36 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), smape_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 11.0), smape_values[2], 1e-12);
 
+    var rolling_errors = try fit_table.rollingErrorProfile("y", "x", "yx_roll", .{ .window = 3, .min_periods = 2 });
+    defer rolling_errors.deinit();
+    try std.testing.expectEqual(@as(usize, 7), rolling_errors.width());
+    const rolling_error_count = try (try rolling_errors.column("yx_roll_rolling_error_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_error_count);
+    const rolling_mae = try (try rolling_errors.column("yx_roll_rolling_mae")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_mae);
+    const rolling_rmse = try (try rolling_errors.column("yx_roll_rolling_rmse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_rmse);
+    const rolling_mape = try (try rolling_errors.column("yx_roll_rolling_mape")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_mape);
+    const rolling_smape = try (try rolling_errors.column("yx_roll_rolling_smape")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolling_smape);
+    const rolling_error_validity = try (try rolling_errors.column("yx_roll_rolling_mae")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolling_error_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 3, 2 }, rolling_error_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true }, rolling_error_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), rolling_mae[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 3.0), rolling_mae[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 13.0 / 3.0), rolling_mae[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5495097567963922), rolling_rmse[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.559026084010437), rolling_rmse[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.43471156521669), rolling_rmse[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6333333333333333), rolling_mape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.6305555555555555), rolling_mape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5935185185185184), rolling_mape[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.9285714285714286), rolling_smape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.9220779220779219), rolling_smape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.8451548451548452), rolling_smape[3], 1e-12);
+
     var bucketed = try signal_table.bucketProfile("fast", "fast", .{ .buckets = 3, .lower_quantile = 0.34, .upper_quantile = 0.84 });
     defer bucketed.deinit();
     try std.testing.expectEqual(@as(usize, 6), bucketed.width());
@@ -16915,6 +17180,41 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 5.0), lazy_smape[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 9.0), lazy_smape[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 13.0), lazy_smape[3], 1e-12);
+
+    var rolling_error_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_error_plan.deinit();
+    try rolling_error_plan.withColumnScalar("sales_minus1", "sales", f64, 1.0, .sub);
+    try rolling_error_plan.rollingErrorProfile("sales", "sales_minus1", "sales_err", .{ .window = 2, .min_periods = 2 });
+    try rolling_error_plan.select(&.{ "sales", "sales_err_rolling_error_count", "sales_err_rolling_mae", "sales_err_rolling_rmse", "sales_err_rolling_mape", "sales_err_rolling_smape" });
+    const rolling_error_explain = try rolling_error_plan.explain(gpa);
+    defer gpa.free(rolling_error_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_error_explain, "rolling_error_profile(actual=sales, predicted=sales_minus1") != null);
+    var rolling_errors = try rolling_error_plan.collect();
+    defer rolling_errors.deinit();
+    try std.testing.expectEqual(@as(usize, 4), rolling_errors.height());
+    try std.testing.expectEqual(@as(usize, 6), rolling_errors.width());
+    const lazy_rolling_error_count = try (try rolling_errors.column("sales_err_rolling_error_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_error_count);
+    const lazy_rolling_mae = try (try rolling_errors.column("sales_err_rolling_mae")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_mae);
+    const lazy_rolling_rmse = try (try rolling_errors.column("sales_err_rolling_rmse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_rmse);
+    const lazy_rolling_mape = try (try rolling_errors.column("sales_err_rolling_mape")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_mape);
+    const lazy_rolling_smape = try (try rolling_errors.column("sales_err_rolling_smape")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_smape);
+    const lazy_rolling_error_validity = try (try rolling_errors.column("sales_err_rolling_mae")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_error_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 2, 2 }, lazy_rolling_error_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_rolling_error_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 1.0, 1.0 }, lazy_rolling_mae);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 1.0, 1.0 }, lazy_rolling_rmse);
+    try std.testing.expectApproxEqAbs(@as(f64, (0.5 + 1.0 / 3.0) / 2.0), lazy_rolling_mape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (1.0 / 3.0 + 0.2) / 2.0), lazy_rolling_mape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (0.2 + 1.0 / 7.0) / 2.0), lazy_rolling_mape[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (2.0 / 3.0 + 2.0 / 5.0) / 2.0), lazy_rolling_smape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (2.0 / 5.0 + 2.0 / 9.0) / 2.0), lazy_rolling_smape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (2.0 / 9.0 + 2.0 / 13.0) / 2.0), lazy_rolling_smape[3], 1e-12);
 
     var corr_plan = try DeviceLazyFrame.init(gpa, table);
     defer corr_plan.deinit();
