@@ -79,6 +79,12 @@ const bucket_mod = @import("dataframe_bucket.zig");
 const BucketProfileColumnCount = bucket_mod.BucketProfileColumnCount;
 const bucketProfileOutputNames = bucket_mod.bucketProfileOutputNames;
 const rank_mod = @import("dataframe_rank.zig");
+const RankProfileColumnCount = rank_mod.RankProfileColumnCount;
+const rankProfileOutputNames = rank_mod.rankProfileOutputNames;
+const RollingRankProfileColumnCount = rank_mod.RollingRankProfileColumnCount;
+const rollingRankProfileOutputNames = rank_mod.rollingRankProfileOutputNames;
+const ExpandingRankProfileColumnCount = rank_mod.ExpandingRankProfileColumnCount;
+const expandingRankProfileOutputNames = rank_mod.expandingRankProfileOutputNames;
 const stats_profile_mod = @import("dataframe_stats_profile.zig");
 const moment_mod = @import("dataframe_moment.zig");
 const normalize_mod = @import("dataframe_normalize.zig");
@@ -8260,28 +8266,6 @@ fn argsortTypedColumn(comptime T: type, column: DeviceTypedColumn(T), allocator:
 const compareSortValues = numeric_mod.compareSortValues;
 const compareFloatSortValues = numeric_mod.compareFloatSortValues;
 
-const RankProfileColumnCount = 5;
-
-fn rankProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RankProfileColumnCount][]const u8 {
-    var names: [RankProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{
-        "ordinal_rank",
-        "competition_rank",
-        "dense_rank",
-        "percent_rank",
-        "cume_dist",
-    };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn rankProfileColumnsByKey(
     allocator: std.mem.Allocator,
     key: DeviceColumn,
@@ -9119,22 +9103,6 @@ fn rollingRobustProfileColumnsTyped(
     return columns;
 }
 
-const RollingRankProfileColumnCount = 4;
-
-fn rollingRankProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingRankProfileColumnCount][]const u8 {
-    var names: [RollingRankProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_rank_count", "rolling_rank", "rolling_percent_rank", "rolling_cume_dist" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn rollingRankProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -9887,22 +9855,6 @@ fn expandingBoolProfileColumns(
     columns[4] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.all_values, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingRankProfileColumnCount = 4;
-
-fn expandingRankProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingRankProfileColumnCount][]const u8 {
-    var names: [ExpandingRankProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_rank_count", "expanding_rank", "expanding_percent_rank", "expanding_cume_dist" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingRankProfileColumnsByValue(

@@ -18,6 +18,28 @@ pub const RankMetrics = struct {
     }
 };
 
+pub const RankProfileColumnCount = 5;
+
+pub fn rankProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RankProfileColumnCount][]const u8 {
+    var names: [RankProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{
+        "ordinal_rank",
+        "competition_rank",
+        "dense_rank",
+        "percent_rank",
+        "cume_dist",
+    };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 pub fn rankProfile(
     allocator: std.mem.Allocator,
     rows: usize,
@@ -85,6 +107,38 @@ pub const RankWindowMetrics = struct {
         self.* = undefined;
     }
 };
+
+pub const RollingRankProfileColumnCount = 4;
+
+pub fn rollingRankProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingRankProfileColumnCount][]const u8 {
+    var names: [RollingRankProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_rank_count", "rolling_rank", "rolling_percent_rank", "rolling_cume_dist" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingRankProfileColumnCount = 4;
+
+pub fn expandingRankProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingRankProfileColumnCount][]const u8 {
+    var names: [ExpandingRankProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_rank_count", "expanding_rank", "expanding_percent_rank", "expanding_cume_dist" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
 
 fn validate(rows: usize, maybe_validity: ?[]const bool) error{LengthMismatch}!void {
     if (maybe_validity) |validity| {
