@@ -156,6 +156,7 @@ const expandingQuantileProfileOutputNames = quantile_mod.expandingQuantileProfil
 const bucket_mod = @import("dataframe_bucket.zig");
 const BucketProfileColumnCount = bucket_mod.BucketProfileColumnCount;
 const bucketProfileOutputNames = bucket_mod.bucketProfileOutputNames;
+const bucketProfileColumnsByValue = bucket_mod.bucketProfileColumnsByValue;
 const rank_mod = @import("dataframe_rank.zig");
 const RankProfileColumnCount = rank_mod.RankProfileColumnCount;
 const rankProfileOutputNames = rank_mod.rankProfileOutputNames;
@@ -7225,92 +7226,6 @@ fn expandingMomentProfileColumnsTyped(
     columns[3] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.skewnesses, metrics.validity, device_value);
     initialized += 1;
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.kurtoses, metrics.validity, device_value);
-    initialized += 1;
-    return columns;
-}
-
-fn bucketProfileColumnsByValue(
-    allocator: std.mem.Allocator,
-    value: DeviceColumn,
-    options_value: DeviceBucketOptions,
-    device_value: array_mod.Device,
-    rows: usize,
-) DeviceDataError![BucketProfileColumnCount]DeviceColumn {
-    if (value.len() != rows) return error.LengthMismatch;
-    return switch (value) {
-        .bool => |typed| bucketProfileColumnsTyped(bool, allocator, typed, options_value, device_value),
-        .i8 => |typed| bucketProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
-        .i16 => |typed| bucketProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
-        .i32 => |typed| bucketProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
-        .i64 => |typed| bucketProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
-        .u8 => |typed| bucketProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
-        .u16 => |typed| bucketProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
-        .u32 => |typed| bucketProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
-        .u64 => |typed| bucketProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
-        .usize => |typed| bucketProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
-        .isize => |typed| bucketProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
-        .f16 => |typed| bucketProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
-        .f32 => |typed| bucketProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
-        .f64 => |typed| bucketProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
-        .bf16, .c64, .c128 => error.TypeUnsupported,
-    };
-}
-
-fn bucketProfileColumnsTyped(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    column: DeviceTypedColumn(T),
-    options_value: DeviceBucketOptions,
-    device_value: array_mod.Device,
-) DeviceDataError![BucketProfileColumnCount]DeviceColumn {
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
-    const maybe_validity = try validityValues(column, allocator);
-    defer if (maybe_validity) |validity| allocator.free(validity);
-
-    const order = try argsortTypedColumn(T, column, allocator, .{ .descending = false, .nulls = .last });
-    defer allocator.free(order);
-
-    const TieCtx = struct {
-        values: []const T,
-        fn keysTie(ctx: @This(), lhs: usize, rhs: usize) bool {
-            if (comptime T == bool) return ctx.values[lhs] == ctx.values[rhs];
-            return compareSortValues(T, ctx.values[lhs], ctx.values[rhs]) == 0;
-        }
-    };
-    const ctx = TieCtx{ .values = values };
-    const keysTie = struct {
-        var context: TieCtx = undefined;
-        fn call(lhs: usize, rhs: usize) bool {
-            return context.keysTie(lhs, rhs);
-        }
-    };
-    keysTie.context = ctx;
-
-    var metrics = try bucket_mod.bucketProfile(
-        allocator,
-        order,
-        maybe_validity,
-        keysTie.call,
-        options_value.buckets,
-        options_value.lower_quantile,
-        options_value.upper_quantile,
-        options_value.min_periods,
-    );
-    defer metrics.deinit();
-
-    var columns: [BucketProfileColumnCount]DeviceColumn = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (columns[0..initialized]) |*col| col.deinit();
-    }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.ecdf, metrics.validity, device_value);
-    initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.buckets, metrics.validity, device_value);
-    initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.lower_tail, metrics.validity, device_value);
-    initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.upper_tail, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
