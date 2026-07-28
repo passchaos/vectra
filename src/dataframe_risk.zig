@@ -533,6 +533,33 @@ fn appendProfileColumns(
     return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, source_names, columns, frame.rows, frame.device);
 }
 
+pub fn rollingDrawdownProfileFrame(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+    output_prefix: []const u8,
+    options_value: DeviceRollingOptions,
+) RiskFrameError!DeviceDataFrame {
+    const rolling_value = try frame.column(name);
+    var rolling_columns = try rollingDrawdownProfileColumnsByValue(frame.allocator, rolling_value.*, options_value, frame.device, frame.rows);
+    var rolling_columns_transferred: usize = 0;
+    errdefer {
+        for (rolling_columns[rolling_columns_transferred..]) |*col| col.deinit();
+    }
+
+    const source_names = try frame.allocator.alloc([]const u8, frame.columns.len + rolling_columns.len);
+    defer frame.allocator.free(source_names);
+    for (frame.names, 0..) |source_name, i| source_names[i] = source_name;
+
+    var rolling_names = try rollingDrawdownProfileOutputNames(frame.allocator, output_prefix);
+    defer names_mod.freeOwnedNameItems(frame.allocator, rolling_names[0..]);
+    for (rolling_names, 0..) |rolling_name, i| source_names[frame.columns.len + i] = rolling_name;
+
+    const out = try appendProfileColumns(DeviceDataFrame, frame, source_names, rolling_columns);
+    rolling_columns_transferred = rolling_columns.len;
+    return out;
+}
+
 pub fn drawdownProfileFrame(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
