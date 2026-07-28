@@ -22,6 +22,11 @@ pub fn isOrderedColumnType(comptime T: type) bool {
     };
 }
 
+pub fn optionalCast(comptime T: type, value: anytype) ?T {
+    const unwrapped = value orelse return null;
+    return std.math.cast(T, unwrapped) orelse unreachable;
+}
+
 pub fn compareSortValues(comptime T: type, lhs: T, rhs: T) i8 {
     if (comptime T == bool) {
         if (lhs == rhs) return 0;

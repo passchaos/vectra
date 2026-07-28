@@ -4999,6 +4999,7 @@ fn rangeFromScalarPredicate(comptime T: type, value: T, op: DeviceColumnCompareO
 const allNamesIn = names_mod.allNamesIn;
 const isIntegerColumnType = numeric_mod.isIntegerColumnType;
 const isOrderedColumnType = numeric_mod.isOrderedColumnType;
+const optionalCast = numeric_mod.optionalCast;
 
 fn formatLazyScanPushdown(writer: *std.Io.Writer, pushdown: LazyScanPushdown) std.Io.Writer.Error!void {
     var printed = false;
@@ -14041,11 +14042,6 @@ fn emptyBolthaTableForParquetBytes(allocator: std.mem.Allocator, bytes: []const 
     const batches = try allocator.alloc(boltha.arrow.RecordBatch, 0);
     errdefer allocator.free(batches);
     return boltha.arrow.Table.initOwned(schema, batches);
-}
-
-fn optionalCast(comptime T: type, value: anytype) ?T {
-    const unwrapped = value orelse return null;
-    return std.math.cast(T, unwrapped) orelse unreachable;
 }
 
 fn concatDeviceDataFramesRows(first: DeviceDataFrame, second: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
