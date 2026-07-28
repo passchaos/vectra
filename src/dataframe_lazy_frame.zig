@@ -8,6 +8,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
 const lazy_exec_mod = @import("dataframe_lazy_frame_exec.zig");
+const lazy_expr_mod = @import("dataframe_lazy_expr_plan.zig");
 const lazy_group_mod = @import("dataframe_lazy_group_plan.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const names_mod = @import("dataframe_names.zig");
@@ -143,77 +144,27 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn select(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
-                const owned = try self.allocator.alloc([]const u8, names.len);
-                errdefer self.allocator.free(owned);
-                var initialized: usize = 0;
-                errdefer {
-                    for (owned[0..initialized]) |name| self.allocator.free(name);
-                }
-                for (names, owned) |name, *slot| {
-                    slot.* = try self.allocator.dupe(u8, name);
-                    initialized += 1;
-                }
-                try self.ops.append(self.allocator, .{ .select = owned });
+                return lazy_expr_mod.select(self, names);
             }
 
             pub fn filter(self: *DeviceLazyFrame, mask: DeviceColumn) DeviceDataError!void {
-                try self.ops.append(self.allocator, .{ .filter_mask = try mask.clone() });
+                return lazy_expr_mod.filter(self, mask);
             }
 
             pub fn withColumnBinary(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_lhs = try self.allocator.dupe(u8, lhs_name);
-                errdefer self.allocator.free(owned_lhs);
-                const owned_rhs = try self.allocator.dupe(u8, rhs_name);
-                errdefer self.allocator.free(owned_rhs);
-                try self.ops.append(self.allocator, .{ .with_column_binary = .{
-                    .name = owned_name,
-                    .lhs_name = owned_lhs,
-                    .rhs_name = owned_rhs,
-                    .op = op,
-                } });
+                return lazy_expr_mod.withColumnBinary(self, name, lhs_name, rhs_name, op);
             }
 
             pub fn withColumnScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, op: DeviceColumnBinaryOp) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_input = try self.allocator.dupe(u8, input_name);
-                errdefer self.allocator.free(owned_input);
-                try self.ops.append(self.allocator, .{ .with_column_scalar = .{
-                    .name = owned_name,
-                    .input_name = owned_input,
-                    .op = op,
-                    .scalar = DeviceScalar.init(T, scalar),
-                } });
+                return lazy_expr_mod.withColumnScalar(self, name, input_name, T, scalar, op);
             }
 
             pub fn withColumnCompare(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_lhs = try self.allocator.dupe(u8, lhs_name);
-                errdefer self.allocator.free(owned_lhs);
-                const owned_rhs = try self.allocator.dupe(u8, rhs_name);
-                errdefer self.allocator.free(owned_rhs);
-                try self.ops.append(self.allocator, .{ .with_column_compare = .{
-                    .name = owned_name,
-                    .lhs_name = owned_lhs,
-                    .rhs_name = owned_rhs,
-                    .op = op,
-                } });
+                return lazy_expr_mod.withColumnCompare(self, name, lhs_name, rhs_name, op);
             }
 
             pub fn withColumnCompareScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
-                const owned_name = try self.allocator.dupe(u8, name);
-                errdefer self.allocator.free(owned_name);
-                const owned_input = try self.allocator.dupe(u8, input_name);
-                errdefer self.allocator.free(owned_input);
-                try self.ops.append(self.allocator, .{ .with_column_compare_scalar = .{
-                    .name = owned_name,
-                    .input_name = owned_input,
-                    .op = op,
-                    .scalar = DeviceScalar.init(T, scalar),
-                } });
+                return lazy_expr_mod.withColumnCompareScalar(self, name, input_name, T, scalar, op);
             }
 
             pub fn groupByCount(self: *DeviceLazyFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
@@ -364,11 +315,7 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn filterColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
-                try self.ops.append(self.allocator, .{ .filter_scalar = .{
-                    .name = try self.allocator.dupe(u8, name),
-                    .op = op,
-                    .scalar = DeviceScalar.init(T, scalar),
-                } });
+                return lazy_expr_mod.filterColumnScalar(self, name, T, scalar, op);
             }
 
             pub fn sortBy(self: *DeviceLazyFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!void {
