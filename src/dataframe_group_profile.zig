@@ -1,4 +1,14 @@
 const std = @import("std");
+const array_mod = @import("array.zig");
+const dataframe_array_mod = @import("dataframe_array.zig");
+const dataframe_device_column_mod = @import("dataframe_device_column.zig");
+const numeric_mod = @import("dataframe_numeric.zig");
+const validity_mod = @import("dataframe_validity.zig");
+
+const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
+const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;
+const findGroupIndex = numeric_mod.findGroupIndex;
+const validityValues = validity_mod.validityValues;
 
 pub const MomentProfile = struct {
     count: i64 = 0,
@@ -108,4 +118,62 @@ pub fn materializeMetrics(allocator: std.mem.Allocator, profiles: []const Moment
         .skewnesses = skewnesses,
         .kurtoses = kurtoses,
     };
+}
+
+pub fn groupByCountTyped(
+    comptime DeviceDataFrame: type,
+    comptime K: type,
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    output_name: []const u8,
+    key: DeviceTypedColumn(K),
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || error{ LengthMismatch, InvalidDevice })!DeviceDataFrame {
+    const keys = try key.values.toOwnedSlice(allocator);
+    defer allocator.free(keys);
+    const maybe_key_validity = try validityValues(key, allocator);
+    defer if (maybe_key_validity) |validity| allocator.free(validity);
+
+    var unique_keys: std.ArrayList(K) = .empty;
+    defer unique_keys.deinit(allocator);
+    var counts: std.ArrayList(i64) = .empty;
+    defer counts.deinit(allocator);
+
+    for (keys, 0..) |key_value, row| {
+        if (maybe_key_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        const group_index = findGroupIndex(K, unique_keys.items, key_value) orelse blk: {
+            try unique_keys.append(allocator, key_value);
+            try counts.append(allocator, 0);
+            break :blk unique_keys.items.len - 1;
+        };
+        counts.items[group_index] += 1;
+    }
+
+    const key_col = try DeviceColumn.fromSlice(K, allocator, unique_keys.items, device_value);
+    const count_col = try DeviceColumn.fromSlice(i64, allocator, counts.items, device_value);
+    return initAggregatedDataFrame(DeviceDataFrame, allocator, key_name, key_col, output_name, count_col, device_value);
+}
+pub fn initAggregatedDataFrame(
+    comptime DeviceDataFrame: type,
+    allocator: std.mem.Allocator,
+    key_name: []const u8,
+    key_col: DeviceColumn,
+    output_name: []const u8,
+    value_col: DeviceColumn,
+    device_value: array_mod.Device,
+) (array_mod.ArrayError || error{ LengthMismatch, InvalidDevice })!DeviceDataFrame {
+    var owned_key = key_col;
+    errdefer owned_key.deinit();
+    const rows = owned_key.len();
+    var owned_value = value_col;
+    errdefer owned_value.deinit();
+    if (owned_value.len() != rows) return error.LengthMismatch;
+    const names = [_][]const u8{ key_name, output_name };
+    const columns = try allocator.alloc(DeviceColumn, 2);
+    errdefer allocator.free(columns);
+    columns[0] = owned_key;
+    columns[1] = owned_value;
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, allocator, &names, columns, rows, device_value);
 }

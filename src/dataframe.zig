@@ -6325,20 +6325,20 @@ pub const DeviceDataFrame = struct {
     pub fn groupByCount(self: DeviceDataFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
         const key = try self.column(key_name);
         return switch (key.*) {
-            .bool => |typed| groupByCountTyped(bool, self.allocator, key_name, output_name, typed, self.device),
-            .i8 => |typed| groupByCountTyped(i8, self.allocator, key_name, output_name, typed, self.device),
-            .i16 => |typed| groupByCountTyped(i16, self.allocator, key_name, output_name, typed, self.device),
-            .i32 => |typed| groupByCountTyped(i32, self.allocator, key_name, output_name, typed, self.device),
-            .i64 => |typed| groupByCountTyped(i64, self.allocator, key_name, output_name, typed, self.device),
-            .u8 => |typed| groupByCountTyped(u8, self.allocator, key_name, output_name, typed, self.device),
-            .u16 => |typed| groupByCountTyped(u16, self.allocator, key_name, output_name, typed, self.device),
-            .u32 => |typed| groupByCountTyped(u32, self.allocator, key_name, output_name, typed, self.device),
-            .u64 => |typed| groupByCountTyped(u64, self.allocator, key_name, output_name, typed, self.device),
-            .usize => |typed| groupByCountTyped(usize, self.allocator, key_name, output_name, typed, self.device),
-            .isize => |typed| groupByCountTyped(isize, self.allocator, key_name, output_name, typed, self.device),
-            .f16 => |typed| groupByCountTyped(f16, self.allocator, key_name, output_name, typed, self.device),
-            .f32 => |typed| groupByCountTyped(f32, self.allocator, key_name, output_name, typed, self.device),
-            .f64 => |typed| groupByCountTyped(f64, self.allocator, key_name, output_name, typed, self.device),
+            .bool => |typed| groupByCountTyped(DeviceDataFrame, bool, self.allocator, key_name, output_name, typed, self.device),
+            .i8 => |typed| groupByCountTyped(DeviceDataFrame, i8, self.allocator, key_name, output_name, typed, self.device),
+            .i16 => |typed| groupByCountTyped(DeviceDataFrame, i16, self.allocator, key_name, output_name, typed, self.device),
+            .i32 => |typed| groupByCountTyped(DeviceDataFrame, i32, self.allocator, key_name, output_name, typed, self.device),
+            .i64 => |typed| groupByCountTyped(DeviceDataFrame, i64, self.allocator, key_name, output_name, typed, self.device),
+            .u8 => |typed| groupByCountTyped(DeviceDataFrame, u8, self.allocator, key_name, output_name, typed, self.device),
+            .u16 => |typed| groupByCountTyped(DeviceDataFrame, u16, self.allocator, key_name, output_name, typed, self.device),
+            .u32 => |typed| groupByCountTyped(DeviceDataFrame, u32, self.allocator, key_name, output_name, typed, self.device),
+            .u64 => |typed| groupByCountTyped(DeviceDataFrame, u64, self.allocator, key_name, output_name, typed, self.device),
+            .usize => |typed| groupByCountTyped(DeviceDataFrame, usize, self.allocator, key_name, output_name, typed, self.device),
+            .isize => |typed| groupByCountTyped(DeviceDataFrame, isize, self.allocator, key_name, output_name, typed, self.device),
+            .f16 => |typed| groupByCountTyped(DeviceDataFrame, f16, self.allocator, key_name, output_name, typed, self.device),
+            .f32 => |typed| groupByCountTyped(DeviceDataFrame, f32, self.allocator, key_name, output_name, typed, self.device),
+            .f64 => |typed| groupByCountTyped(DeviceDataFrame, f64, self.allocator, key_name, output_name, typed, self.device),
             .bf16, .c64, .c128 => error.TypeUnsupported,
         };
     }
@@ -6695,41 +6695,6 @@ pub const DeviceDataFrame = struct {
 const compareSortValues = numeric_mod.compareSortValues;
 const compareFloatSortValues = numeric_mod.compareFloatSortValues;
 
-fn groupByCountTyped(
-    comptime K: type,
-    allocator: std.mem.Allocator,
-    key_name: []const u8,
-    output_name: []const u8,
-    key: DeviceTypedColumn(K),
-    device_value: array_mod.Device,
-) DeviceDataError!DeviceDataFrame {
-    const keys = try key.values.toOwnedSlice(allocator);
-    defer allocator.free(keys);
-    const maybe_key_validity = try validityValues(key, allocator);
-    defer if (maybe_key_validity) |validity| allocator.free(validity);
-
-    var unique_keys: std.ArrayList(K) = .empty;
-    defer unique_keys.deinit(allocator);
-    var counts: std.ArrayList(i64) = .empty;
-    defer counts.deinit(allocator);
-
-    for (keys, 0..) |key_value, row| {
-        if (maybe_key_validity) |validity| {
-            if (!validity[row]) continue;
-        }
-        const group_index = findGroupIndex(K, unique_keys.items, key_value) orelse blk: {
-            try unique_keys.append(allocator, key_value);
-            try counts.append(allocator, 0);
-            break :blk unique_keys.items.len - 1;
-        };
-        counts.items[group_index] += 1;
-    }
-
-    const key_col = try DeviceColumn.fromSlice(K, allocator, unique_keys.items, device_value);
-    const count_col = try DeviceColumn.fromSlice(i64, allocator, counts.items, device_value);
-    return initAggregatedDataFrame(allocator, key_name, key_col, output_name, count_col, device_value);
-}
-
 fn groupByNumericDispatchKey(
     op: DeviceGroupByAggregation,
     allocator: std.mem.Allocator,
@@ -6841,7 +6806,7 @@ fn groupByNumericTyped(
 
     const key_col = try DeviceColumn.fromSlice(K, allocator, unique_keys.items, device_value);
     const aggregate_col = try DeviceColumn.fromSlice(V, allocator, aggregates.items, device_value);
-    return initAggregatedDataFrame(allocator, key_name, key_col, output_name, aggregate_col, device_value);
+    return initAggregatedDataFrame(DeviceDataFrame, allocator, key_name, key_col, output_name, aggregate_col, device_value);
 }
 
 fn groupByMeanDispatchKey(
@@ -6952,7 +6917,7 @@ fn groupByMeanTyped(
 
     const key_col = try DeviceColumn.fromSlice(K, allocator, unique_keys.items, device_value);
     const mean_col = try DeviceColumn.fromSlice(f64, allocator, means, device_value);
-    return initAggregatedDataFrame(allocator, key_name, key_col, output_name, mean_col, device_value);
+    return initAggregatedDataFrame(DeviceDataFrame, allocator, key_name, key_col, output_name, mean_col, device_value);
 }
 
 fn groupByStatsDispatchKey(
@@ -7222,6 +7187,8 @@ fn groupByStatsOnTyped(
 const GroupedMomentProfile = group_profile_mod.MomentProfile;
 const ProfileMetricSlices = group_profile_mod.MetricSlices;
 const materializeProfileMetrics = group_profile_mod.materializeMetrics;
+const groupByCountTyped = group_profile_mod.groupByCountTyped;
+const initAggregatedDataFrame = group_profile_mod.initAggregatedDataFrame;
 
 fn groupByProfileDispatchKey(
     allocator: std.mem.Allocator,
@@ -7446,28 +7413,6 @@ fn initProfileDataFrame(
     initialized += 1;
 
     return initDeviceDataFrameFromOwnedColumns(allocator, names, columns, rows, device_value);
-}
-
-fn initAggregatedDataFrame(
-    allocator: std.mem.Allocator,
-    key_name: []const u8,
-    key_col: DeviceColumn,
-    output_name: []const u8,
-    value_col: DeviceColumn,
-    device_value: array_mod.Device,
-) DeviceDataError!DeviceDataFrame {
-    var owned_key = key_col;
-    errdefer owned_key.deinit();
-    const rows = owned_key.len();
-    var owned_value = value_col;
-    errdefer owned_value.deinit();
-    if (owned_value.len() != rows) return error.LengthMismatch;
-    const names = [_][]const u8{ key_name, output_name };
-    const columns = try allocator.alloc(DeviceColumn, 2);
-    errdefer allocator.free(columns);
-    columns[0] = owned_key;
-    columns[1] = owned_value;
-    return initDeviceDataFrameFromOwnedColumns(allocator, &names, columns, rows, device_value);
 }
 
 const findGroupIndex = numeric_mod.findGroupIndex;
