@@ -30,6 +30,12 @@ const robust_mod = @import("dataframe_robust.zig");
 const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
+const SignProfileColumnCount = sign_mod.SignProfileColumnCount;
+const signProfileOutputNames = sign_mod.signProfileOutputNames;
+const RollingSignProfileColumnCount = sign_mod.RollingSignProfileColumnCount;
+const rollingSignProfileOutputNames = sign_mod.rollingSignProfileOutputNames;
+const ExpandingSignProfileColumnCount = sign_mod.ExpandingSignProfileColumnCount;
+const expandingSignProfileOutputNames = sign_mod.expandingSignProfileOutputNames;
 const shift_mod = @import("dataframe_shift.zig");
 const ema_mod = @import("dataframe_ema.zig");
 const quantile_mod = @import("dataframe_quantile.zig");
@@ -10895,22 +10901,6 @@ fn expandingChangePointProfileColumnsTyped(
     return columns;
 }
 
-const SignProfileColumnCount = 5;
-
-fn signProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![SignProfileColumnCount][]const u8 {
-    var names: [SignProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "sign", "sign_flip", "positive_streak", "negative_streak", "zero_streak" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
 fn signProfileColumnsByValue(
     allocator: std.mem.Allocator,
     value: DeviceColumn,
@@ -10972,22 +10962,6 @@ fn signProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.zero_streak, metrics.sign_validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const RollingSignProfileColumnCount = 5;
-
-fn rollingSignProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingSignProfileColumnCount][]const u8 {
-    var names: [RollingSignProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_sign_count", "rolling_positive_rate", "rolling_negative_rate", "rolling_zero_rate", "rolling_sign_flip_rate" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn rollingSignProfileColumnsByValue(
@@ -11054,22 +11028,6 @@ fn rollingSignProfileColumnsTyped(
     columns[4] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.flip_rates, metrics.validity, device_value);
     initialized += 1;
     return columns;
-}
-
-const ExpandingSignProfileColumnCount = 5;
-
-fn expandingSignProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingSignProfileColumnCount][]const u8 {
-    var names: [ExpandingSignProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_sign_count", "expanding_positive_rate", "expanding_negative_rate", "expanding_zero_rate", "expanding_sign_flip_rate" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
 }
 
 fn expandingSignProfileColumnsByValue(

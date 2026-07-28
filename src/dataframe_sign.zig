@@ -42,6 +42,54 @@ pub const SignSummaryMetrics = struct {
     }
 };
 
+pub const SignProfileColumnCount = 5;
+
+pub fn signProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![SignProfileColumnCount][]const u8 {
+    var names: [SignProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "sign", "sign_flip", "positive_streak", "negative_streak", "zero_streak" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const RollingSignProfileColumnCount = 5;
+
+pub fn rollingSignProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingSignProfileColumnCount][]const u8 {
+    var names: [RollingSignProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "rolling_sign_count", "rolling_positive_rate", "rolling_negative_rate", "rolling_zero_rate", "rolling_sign_flip_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+pub const ExpandingSignProfileColumnCount = 5;
+
+pub fn expandingSignProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingSignProfileColumnCount][]const u8 {
+    var names: [ExpandingSignProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "expanding_sign_count", "expanding_positive_rate", "expanding_negative_rate", "expanding_zero_rate", "expanding_sign_flip_rate" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
 fn validate(values: []const f64, maybe_validity: ?[]const bool, periods: usize) error{ InvalidShape, LengthMismatch }!void {
     if (periods == 0) return error.InvalidShape;
     if (maybe_validity) |validity| {
