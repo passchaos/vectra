@@ -12,6 +12,7 @@ const threshold_mod = @import("dataframe_threshold.zig");
 const validity_mod = @import("dataframe_validity.zig");
 const bool_profile_mod = @import("dataframe_bool_profile.zig");
 const clip_mod = @import("dataframe_clip.zig");
+const risk_mod = @import("dataframe_risk.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = enum { f64, i64, bool, string };
@@ -9372,77 +9373,32 @@ fn rollingDrawdownProfileColumnsTyped(
     options_value: DeviceRollingOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![RollingDrawdownProfileColumnCount]DeviceColumn {
-    if (options_value.window == 0) return error.InvalidShape;
     const min_periods = options_value.min_periods orelse options_value.window;
-    if (min_periods == 0 or min_periods > options_value.window) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const peaks = try allocator.alloc(f64, rows);
-    defer allocator.free(peaks);
-    const drawdowns = try allocator.alloc(f64, rows);
-    defer allocator.free(drawdowns);
-    const drawdown_pcts = try allocator.alloc(f64, rows);
-    defer allocator.free(drawdown_pcts);
-    const peak_ages = try allocator.alloc(i64, rows);
-    defer allocator.free(peak_ages);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    // Use the most recent row when equal highs tie so `rolling_peak_age` answers
-    // "rows since the latest peak that still defines this window."  This is a
-    // deliberate risk-analysis convention: an equal high resets time-underwater
-    // without changing drawdown magnitude.
-    for (values, 0..) |value_item, row| {
-        const start = if (row + 1 > options_value.window) row + 1 - options_value.window else 0;
-        var count: usize = 0;
-        var peak: f64 = 0;
-        var peak_row: usize = start;
-        for (start..row + 1) |window_row| {
-            const row_valid = if (maybe_validity) |mask| mask[window_row] else true;
-            if (!row_valid) continue;
-            const x = castToF64(T, values[window_row]);
-            if (count == 0 or x >= peak) {
-                peak = x;
-                peak_row = window_row;
-            }
-            count += 1;
-        }
-
-        const current_valid = if (maybe_validity) |mask| mask[row] else true;
-        const has_enough = current_valid and count >= min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            const current = castToF64(T, value_item);
-            const drawdown = current - peak;
-            peaks[row] = peak;
-            drawdowns[row] = drawdown;
-            drawdown_pcts[row] = if (peak == 0) std.math.nan(f64) else drawdown / peak;
-            peak_ages[row] = @intCast(row - peak_row);
-        } else {
-            peaks[row] = 0;
-            drawdowns[row] = 0;
-            drawdown_pcts[row] = 0;
-            peak_ages[row] = 0;
-        }
-    }
+    var metrics = try risk_mod.rollingDrawdownProfile(allocator, values, maybe_validity, options_value.window, min_periods);
+    defer metrics.deinit();
 
     var columns: [RollingDrawdownProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, peaks, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.peaks, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdowns, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.drawdowns, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdown_pcts, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.drawdown_pcts, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, peak_ages, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(i64, allocator, metrics.peak_ages, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11325,66 +11281,29 @@ fn drawdownProfileColumnsTyped(
     options_value: DeviceDrawdownOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![DrawdownProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const running_peak = try allocator.alloc(f64, rows);
-    defer allocator.free(running_peak);
-    const drawdown = try allocator.alloc(f64, rows);
-    defer allocator.free(drawdown);
-    const drawdown_pct = try allocator.alloc(f64, rows);
-    defer allocator.free(drawdown_pct);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    var valid_count: usize = 0;
-    var peak: f64 = 0;
-    // Drawdown is inherently order-sensitive, so null rows do not advance the
-    // running peak and their derived metrics are null. The output remains in the
-    // original row order and gives risk/time-series pipelines a compact seam for
-    // later device-side prefix-max lowering.
-    for (values, 0..) |value_item, row| {
-        const row_valid = if (maybe_validity) |mask| mask[row] else true;
-        if (row_valid) {
-            const current = castToF64(T, value_item);
-            if (valid_count == 0 or current > peak) peak = current;
-            valid_count += 1;
-
-            const has_enough = valid_count >= options_value.min_periods;
-            metric_validity[row] = has_enough;
-            if (has_enough) {
-                const dd = current - peak;
-                running_peak[row] = peak;
-                drawdown[row] = dd;
-                drawdown_pct[row] = if (peak == 0) std.math.nan(f64) else dd / peak;
-            } else {
-                running_peak[row] = 0;
-                drawdown[row] = 0;
-                drawdown_pct[row] = 0;
-            }
-        } else {
-            metric_validity[row] = false;
-            running_peak[row] = 0;
-            drawdown[row] = 0;
-            drawdown_pct[row] = 0;
-        }
-    }
+    var metrics = try risk_mod.drawdownProfile(allocator, values, maybe_validity, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [DrawdownProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, running_peak, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.running_peak, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdown, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.drawdown, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdown_pct, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.drawdown_pct, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -11438,77 +11357,31 @@ fn extremaProfileColumnsTyped(
     options_value: DeviceExtremaOptions,
     device_value: array_mod.Device,
 ) DeviceDataError![ExtremaProfileColumnCount]DeviceColumn {
-    if (options_value.min_periods == 0) return error.InvalidShape;
-
-    const values = try column.values.toOwnedSlice(allocator);
-    defer allocator.free(values);
+    const values_typed = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values_typed);
     const maybe_validity = try validityValues(column, allocator);
     defer if (maybe_validity) |validity| allocator.free(validity);
 
-    const rows = values.len;
-    const running_low = try allocator.alloc(f64, rows);
-    defer allocator.free(running_low);
-    const running_high = try allocator.alloc(f64, rows);
-    defer allocator.free(running_high);
-    const new_low = try allocator.alloc(bool, rows);
-    defer allocator.free(new_low);
-    const new_high = try allocator.alloc(bool, rows);
-    defer allocator.free(new_high);
-    const metric_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(metric_validity);
+    const rows = values_typed.len;
+    const values = try allocator.alloc(f64, rows);
+    defer allocator.free(values);
+    for (values_typed, 0..) |value, row| values[row] = castToF64(T, value);
 
-    var seen: usize = 0;
-    var low: f64 = 0;
-    var high: f64 = 0;
-    for (values, 0..) |value_item, row| {
-        const valid = if (maybe_validity) |mask| mask[row] else true;
-        if (!valid) {
-            running_low[row] = 0;
-            running_high[row] = 0;
-            new_low[row] = false;
-            new_high[row] = false;
-            metric_validity[row] = false;
-            continue;
-        }
-        const value = castToF64(T, value_item);
-        const first = seen == 0;
-        const is_new_low = first or value < low;
-        const is_new_high = first or value > high;
-        if (first) {
-            low = value;
-            high = value;
-        } else {
-            if (is_new_low) low = value;
-            if (is_new_high) high = value;
-        }
-        seen += 1;
-        const has_enough = seen >= options_value.min_periods;
-        metric_validity[row] = has_enough;
-        if (has_enough) {
-            running_low[row] = low;
-            running_high[row] = high;
-            new_low[row] = is_new_low;
-            new_high[row] = is_new_high;
-        } else {
-            running_low[row] = 0;
-            running_high[row] = 0;
-            new_low[row] = false;
-            new_high[row] = false;
-        }
-    }
+    var metrics = try risk_mod.extremaProfile(allocator, values, maybe_validity, options_value.min_periods);
+    defer metrics.deinit();
 
     var columns: [ExtremaProfileColumnCount]DeviceColumn = undefined;
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
     }
-    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, running_low, metric_validity, device_value);
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.running_low, metrics.validity, device_value);
     initialized += 1;
-    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, running_high, metric_validity, device_value);
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, metrics.running_high, metrics.validity, device_value);
     initialized += 1;
-    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, new_low, metric_validity, device_value);
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.new_low, metrics.validity, device_value);
     initialized += 1;
-    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, new_high, metric_validity, device_value);
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, metrics.new_high, metrics.validity, device_value);
     initialized += 1;
     return columns;
 }
