@@ -124,6 +124,10 @@ pub const DeviceDrawdownOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceExtremaOptions = struct {
+    min_periods: usize = 1,
+};
+
 pub const DeviceTrendOptions = struct {
     periods: usize = 1,
 };

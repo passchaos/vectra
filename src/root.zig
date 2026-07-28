@@ -99,6 +99,7 @@ pub const DeviceExpandingOptions = dataframe_mod.DeviceExpandingOptions;
 pub const DeviceStandardizeOptions = dataframe_mod.DeviceStandardizeOptions;
 pub const DeviceRobustOptions = dataframe_mod.DeviceRobustOptions;
 pub const DeviceDrawdownOptions = dataframe_mod.DeviceDrawdownOptions;
+pub const DeviceExtremaOptions = dataframe_mod.DeviceExtremaOptions;
 pub const DeviceTrendOptions = dataframe_mod.DeviceTrendOptions;
 pub const DeviceCrossoverOptions = dataframe_mod.DeviceCrossoverOptions;
 pub const DeviceBucketOptions = dataframe_mod.DeviceBucketOptions;

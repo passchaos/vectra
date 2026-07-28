@@ -156,6 +156,11 @@ pub const DeviceDrawdownOptions = struct {
     min_periods: usize = 1,
 };
 
+pub const DeviceExtremaOptions = struct {
+    /// Minimum valid observations required to mark extrema metrics as valid.
+    min_periods: usize = 1,
+};
+
 pub const DeviceTrendOptions = struct {
     /// Number of rows to look backward for trend deltas.
     periods: usize = 1,
@@ -1046,6 +1051,11 @@ pub const DeviceLazyOp = union(enum) {
         output_prefix: []const u8,
         options: DeviceDrawdownOptions,
     },
+    extrema_profile: struct {
+        name: []const u8,
+        output_prefix: []const u8,
+        options: DeviceExtremaOptions,
+    },
     trend_profile: struct {
         name: []const u8,
         output_prefix: []const u8,
@@ -1209,6 +1219,10 @@ pub const DeviceLazyOp = union(enum) {
             .drawdown_profile => |drawdown| {
                 allocator.free(drawdown.name);
                 allocator.free(drawdown.output_prefix);
+            },
+            .extrema_profile => |extrema| {
+                allocator.free(extrema.name);
+                allocator.free(extrema.output_prefix);
             },
             .trend_profile => |trend| {
                 allocator.free(trend.name);
@@ -1578,6 +1592,17 @@ pub const DeviceLazyOp = union(enum) {
                     .name = name,
                     .output_prefix = output_prefix,
                     .options = drawdown.options,
+                } };
+            },
+            .extrema_profile => |extrema| blk: {
+                const name = try allocator.dupe(u8, extrema.name);
+                errdefer allocator.free(name);
+                const output_prefix = try allocator.dupe(u8, extrema.output_prefix);
+                errdefer allocator.free(output_prefix);
+                break :blk .{ .extrema_profile = .{
+                    .name = name,
+                    .output_prefix = output_prefix,
+                    .options = extrema.options,
                 } };
             },
             .trend_profile => |trend| blk: {
@@ -2207,6 +2232,18 @@ pub const DeviceLazyFrame = struct {
         } });
     }
 
+    pub fn extremaProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExtremaOptions) DeviceDataError!void {
+        const owned_name = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned_name);
+        const owned_prefix = try self.allocator.dupe(u8, output_prefix);
+        errdefer self.allocator.free(owned_prefix);
+        try self.ops.append(self.allocator, .{ .extrema_profile = .{
+            .name = owned_name,
+            .output_prefix = owned_prefix,
+            .options = options_value,
+        } });
+    }
+
     pub fn trendProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
@@ -2414,6 +2451,7 @@ pub const DeviceLazyFrame = struct {
                 .standardize_profile => |standardize| try current.standardizeProfile(standardize.name, standardize.output_prefix, standardize.options),
                 .robust_profile => |robust| try current.robustProfile(robust.name, robust.output_prefix, robust.options),
                 .drawdown_profile => |drawdown| try current.drawdownProfile(drawdown.name, drawdown.output_prefix, drawdown.options),
+                .extrema_profile => |extrema| try current.extremaProfile(extrema.name, extrema.output_prefix, extrema.options),
                 .trend_profile => |trend| try current.trendProfile(trend.name, trend.output_prefix, trend.options),
                 .crossover_profile => |cross| try current.crossoverProfile(cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options),
                 .bucket_profile => |bucket| try current.bucketProfile(bucket.name, bucket.output_prefix, bucket.options),
@@ -2906,6 +2944,11 @@ fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: []const DeviceLazyOp)
                 if (!nameInBorrowedList(drawdown.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, drawdown.name);
                 break :op_loop;
             },
+            .extrema_profile => |extrema| {
+                projection_blocked = true;
+                if (!nameInBorrowedList(extrema.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, extrema.name);
+                break :op_loop;
+            },
             .trend_profile => |trend| {
                 // Trend profiles are row-order dependent and append several
                 // derived columns. Preserve scan predicates, but block Parquet
@@ -3167,6 +3210,7 @@ fn formatLazyOp(writer: *std.Io.Writer, op: DeviceLazyOp) std.Io.Writer.Error!vo
         .standardize_profile => |standardize| try writer.print("standardize_profile({s}, prefix={s}, min_periods={d})", .{ standardize.name, standardize.output_prefix, standardize.options.min_periods }),
         .robust_profile => |robust| try writer.print("robust_profile({s}, prefix={s}, min_periods={d})", .{ robust.name, robust.output_prefix, robust.options.min_periods }),
         .drawdown_profile => |drawdown| try writer.print("drawdown_profile({s}, prefix={s}, min_periods={d})", .{ drawdown.name, drawdown.output_prefix, drawdown.options.min_periods }),
+        .extrema_profile => |extrema| try writer.print("extrema_profile({s}, prefix={s}, min_periods={d})", .{ extrema.name, extrema.output_prefix, extrema.options.min_periods }),
         .trend_profile => |trend| try writer.print("trend_profile({s}, prefix={s}, periods={d})", .{ trend.name, trend.output_prefix, trend.options.periods }),
         .crossover_profile => |cross| try writer.print("crossover_profile({s},{s}, prefix={s}, periods={d})", .{ cross.lhs_name, cross.rhs_name, cross.output_prefix, cross.options.periods }),
         .bucket_profile => |bucket| try writer.print("bucket_profile({s}, prefix={s}, buckets={d})", .{ bucket.name, bucket.output_prefix, bucket.options.buckets }),
@@ -4153,6 +4197,41 @@ pub const DeviceDataFrame = struct {
             columns[initialized] = drawdown_col.*;
             initialized += 1;
             drawdown_columns_transferred += 1;
+        }
+
+        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+    }
+
+    pub fn extremaProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExtremaOptions) DeviceDataError!DeviceDataFrame {
+        const extrema_value = try self.column(name);
+        var extrema_columns = try extremaProfileColumnsByValue(self.allocator, extrema_value.*, options_value, self.device, self.rows);
+        var extrema_columns_transferred: usize = 0;
+        errdefer {
+            for (extrema_columns[extrema_columns_transferred..]) |*col| col.deinit();
+        }
+
+        const source_names = try self.allocator.alloc([]const u8, self.columns.len + extrema_columns.len);
+        defer self.allocator.free(source_names);
+        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
+
+        var extrema_names = try extremaProfileOutputNames(self.allocator, output_prefix);
+        defer freeOwnedNameItems(self.allocator, extrema_names[0..]);
+        for (extrema_names, 0..) |extrema_name, i| source_names[self.columns.len + i] = extrema_name;
+
+        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + extrema_columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            self.allocator.free(columns);
+        }
+        for (self.columns, 0..) |col, i| {
+            columns[i] = try col.clone();
+            initialized += 1;
+        }
+        for (&extrema_columns) |*extrema_col| {
+            columns[initialized] = extrema_col.*;
+            initialized += 1;
+            extrema_columns_transferred += 1;
         }
 
         return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
@@ -6394,6 +6473,130 @@ fn drawdownProfileColumnsTyped(
     columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdown, metric_validity, device_value);
     initialized += 1;
     columns[2] = try DeviceColumn.fromSliceWithValidity(f64, allocator, drawdown_pct, metric_validity, device_value);
+    initialized += 1;
+    return columns;
+}
+
+const ExtremaProfileColumnCount = 4;
+
+fn extremaProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExtremaProfileColumnCount][]const u8 {
+    var names: [ExtremaProfileColumnCount][]const u8 = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (names[0..initialized]) |name| allocator.free(name);
+    }
+    const suffixes = [_][]const u8{ "running_low", "running_high", "new_low", "new_high" };
+    for (suffixes, 0..) |suffix, i| {
+        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
+        initialized += 1;
+    }
+    return names;
+}
+
+fn extremaProfileColumnsByValue(
+    allocator: std.mem.Allocator,
+    value: DeviceColumn,
+    options_value: DeviceExtremaOptions,
+    device_value: array_mod.Device,
+    rows: usize,
+) DeviceDataError![ExtremaProfileColumnCount]DeviceColumn {
+    if (value.len() != rows) return error.LengthMismatch;
+    return switch (value) {
+        .i8 => |typed| extremaProfileColumnsTyped(i8, allocator, typed, options_value, device_value),
+        .i16 => |typed| extremaProfileColumnsTyped(i16, allocator, typed, options_value, device_value),
+        .i32 => |typed| extremaProfileColumnsTyped(i32, allocator, typed, options_value, device_value),
+        .i64 => |typed| extremaProfileColumnsTyped(i64, allocator, typed, options_value, device_value),
+        .u8 => |typed| extremaProfileColumnsTyped(u8, allocator, typed, options_value, device_value),
+        .u16 => |typed| extremaProfileColumnsTyped(u16, allocator, typed, options_value, device_value),
+        .u32 => |typed| extremaProfileColumnsTyped(u32, allocator, typed, options_value, device_value),
+        .u64 => |typed| extremaProfileColumnsTyped(u64, allocator, typed, options_value, device_value),
+        .usize => |typed| extremaProfileColumnsTyped(usize, allocator, typed, options_value, device_value),
+        .isize => |typed| extremaProfileColumnsTyped(isize, allocator, typed, options_value, device_value),
+        .f16 => |typed| extremaProfileColumnsTyped(f16, allocator, typed, options_value, device_value),
+        .f32 => |typed| extremaProfileColumnsTyped(f32, allocator, typed, options_value, device_value),
+        .f64 => |typed| extremaProfileColumnsTyped(f64, allocator, typed, options_value, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn extremaProfileColumnsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: DeviceTypedColumn(T),
+    options_value: DeviceExtremaOptions,
+    device_value: array_mod.Device,
+) DeviceDataError![ExtremaProfileColumnCount]DeviceColumn {
+    if (options_value.min_periods == 0) return error.InvalidShape;
+
+    const values = try column.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const rows = values.len;
+    const running_low = try allocator.alloc(f64, rows);
+    defer allocator.free(running_low);
+    const running_high = try allocator.alloc(f64, rows);
+    defer allocator.free(running_high);
+    const new_low = try allocator.alloc(bool, rows);
+    defer allocator.free(new_low);
+    const new_high = try allocator.alloc(bool, rows);
+    defer allocator.free(new_high);
+    const metric_validity = try allocator.alloc(bool, rows);
+    defer allocator.free(metric_validity);
+
+    var seen: usize = 0;
+    var low: f64 = 0;
+    var high: f64 = 0;
+    for (values, 0..) |value_item, row| {
+        const valid = if (maybe_validity) |mask| mask[row] else true;
+        if (!valid) {
+            running_low[row] = 0;
+            running_high[row] = 0;
+            new_low[row] = false;
+            new_high[row] = false;
+            metric_validity[row] = false;
+            continue;
+        }
+        const value = castToF64(T, value_item);
+        const first = seen == 0;
+        const is_new_low = first or value < low;
+        const is_new_high = first or value > high;
+        if (first) {
+            low = value;
+            high = value;
+        } else {
+            if (is_new_low) low = value;
+            if (is_new_high) high = value;
+        }
+        seen += 1;
+        const has_enough = seen >= options_value.min_periods;
+        metric_validity[row] = has_enough;
+        if (has_enough) {
+            running_low[row] = low;
+            running_high[row] = high;
+            new_low[row] = is_new_low;
+            new_high[row] = is_new_high;
+        } else {
+            running_low[row] = 0;
+            running_high[row] = 0;
+            new_low[row] = false;
+            new_high[row] = false;
+        }
+    }
+
+    var columns: [ExtremaProfileColumnCount]DeviceColumn = undefined;
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+    }
+    columns[0] = try DeviceColumn.fromSliceWithValidity(f64, allocator, running_low, metric_validity, device_value);
+    initialized += 1;
+    columns[1] = try DeviceColumn.fromSliceWithValidity(f64, allocator, running_high, metric_validity, device_value);
+    initialized += 1;
+    columns[2] = try DeviceColumn.fromSliceWithValidity(bool, allocator, new_low, metric_validity, device_value);
+    initialized += 1;
+    columns[3] = try DeviceColumn.fromSliceWithValidity(bool, allocator, new_high, metric_validity, device_value);
     initialized += 1;
     return columns;
 }
@@ -10959,6 +11162,31 @@ test "device dataframe sorts by device column keys" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), drawdown_pct[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -50.0 / 130.0), drawdown_pct[4], 1e-12);
 
+    var extrema = try equity_table.extremaProfile("equity", "equity", .{ .min_periods = 2 });
+    defer extrema.deinit();
+    try std.testing.expectEqual(@as(usize, 6), extrema.width());
+    const running_low = try (try extrema.column("equity_running_low")).f64.toOwnedSlice(gpa);
+    defer gpa.free(running_low);
+    const running_high = try (try extrema.column("equity_running_high")).f64.toOwnedSlice(gpa);
+    defer gpa.free(running_high);
+    const new_low = try (try extrema.column("equity_new_low")).bool.toOwnedSlice(gpa);
+    defer gpa.free(new_low);
+    const new_high = try (try extrema.column("equity_new_high")).bool.toOwnedSlice(gpa);
+    defer gpa.free(new_high);
+    const extrema_validity = try (try extrema.column("equity_running_low")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(extrema_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, false }, extrema_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 100.0), running_low[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 90.0), running_low[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 90.0), running_low[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 80.0), running_low[4], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 120.0), running_high[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 120.0), running_high[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 130.0), running_high[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 130.0), running_high[4], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false }, new_low);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, false, false }, new_high);
+
     var trend_source = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 3.0, 2.0, 2.0, 5.0, 0.0, 4.0 }, &.{ true, true, true, true, true, false, true }, .cpu);
     defer trend_source.deinit();
     var trend_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4, 5, 6, 7 }, .cpu);
@@ -12329,6 +12557,30 @@ test "device lazy frame collects staged select filter sort and limit operations"
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[3], 1e-12);
+
+    var extrema_plan = try DeviceLazyFrame.init(gpa, table);
+    defer extrema_plan.deinit();
+    try extrema_plan.extremaProfile("sales", "sales", .{ .min_periods = 1 });
+    try extrema_plan.select(&.{ "sales", "sales_running_low", "sales_running_high", "sales_new_low", "sales_new_high" });
+    const extrema_explain = try extrema_plan.explain(gpa);
+    defer gpa.free(extrema_explain);
+    try std.testing.expect(std.mem.indexOf(u8, extrema_explain, "extrema_profile(sales") != null);
+    var lazy_extrema = try extrema_plan.collect();
+    defer lazy_extrema.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_extrema.height());
+    try std.testing.expectEqual(@as(usize, 5), lazy_extrema.width());
+    const lazy_running_low = try (try lazy_extrema.column("sales_running_low")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_running_low);
+    const lazy_running_high = try (try lazy_extrema.column("sales_running_high")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_running_high);
+    const lazy_new_low = try (try lazy_extrema.column("sales_new_low")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_new_low);
+    const lazy_new_high = try (try lazy_extrema.column("sales_new_high")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_new_high);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 2.0, 2.0, 2.0 }, lazy_running_low);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, 7.0 }, lazy_running_high);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, lazy_new_low);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_new_high);
 
     var trend_plan = try DeviceLazyFrame.init(gpa, table);
     defer trend_plan.deinit();
