@@ -17,15 +17,6 @@ const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const csv_mod = @import("dataframe_csv.zig");
 const boltha = @import("boltha");
 const bool_transition_mod = @import("dataframe_bool_transition.zig");
-const BoolTransitionProfileColumnCount = bool_transition_mod.BoolTransitionProfileColumnCount;
-const boolTransitionProfileOutputNames = bool_transition_mod.boolTransitionProfileOutputNames;
-const RollingBoolTransitionProfileColumnCount = bool_transition_mod.RollingBoolTransitionProfileColumnCount;
-const rollingBoolTransitionProfileOutputNames = bool_transition_mod.rollingBoolTransitionProfileOutputNames;
-const ExpandingBoolTransitionProfileColumnCount = bool_transition_mod.ExpandingBoolTransitionProfileColumnCount;
-const expandingBoolTransitionProfileOutputNames = bool_transition_mod.expandingBoolTransitionProfileOutputNames;
-const boolTransitionProfileColumns = bool_transition_mod.boolTransitionProfileColumns;
-const rollingBoolTransitionProfileColumns = bool_transition_mod.rollingBoolTransitionProfileColumns;
-const expandingBoolTransitionProfileColumns = bool_transition_mod.expandingBoolTransitionProfileColumns;
 const classification_mod = @import("dataframe_classification.zig");
 const error_mod = @import("dataframe_error.zig");
 const correlation_mod = @import("dataframe_correlation.zig");
@@ -1464,111 +1455,15 @@ pub const DeviceDataFrame = struct {
     }
 
     pub fn boolTransitionProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
-        const source = try self.column(name);
-        if (source.dtype() != .bool) return error.TypeMismatch;
-        var transition_columns = try boolTransitionProfileColumns(self.allocator, source.bool, options_value, self.device, self.rows);
-        var transition_columns_transferred: usize = 0;
-        errdefer {
-            for (transition_columns[transition_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + transition_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var transition_names = try boolTransitionProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, transition_names[0..]);
-        for (transition_names, 0..) |transition_name, i| source_names[self.columns.len + i] = transition_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + transition_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&transition_columns) |*transition_col| {
-            columns[initialized] = transition_col.*;
-            initialized += 1;
-            transition_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return bool_transition_mod.boolTransitionProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
     pub fn rollingBoolTransitionProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        const source = try self.column(name);
-        if (source.dtype() != .bool) return error.TypeMismatch;
-        var transition_columns = try rollingBoolTransitionProfileColumns(self.allocator, source.bool, transition_options, options_value, self.device, self.rows);
-        var transition_columns_transferred: usize = 0;
-        errdefer {
-            for (transition_columns[transition_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + transition_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var transition_names = try rollingBoolTransitionProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, transition_names[0..]);
-        for (transition_names, 0..) |transition_name, i| source_names[self.columns.len + i] = transition_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + transition_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&transition_columns) |*transition_col| {
-            columns[initialized] = transition_col.*;
-            initialized += 1;
-            transition_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return bool_transition_mod.rollingBoolTransitionProfileFrame(DeviceDataFrame, self, name, output_prefix, transition_options, options_value);
     }
 
     pub fn expandingBoolTransitionProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        const source = try self.column(name);
-        if (source.dtype() != .bool) return error.TypeMismatch;
-        var transition_columns = try expandingBoolTransitionProfileColumns(self.allocator, source.bool, transition_options, options_value, self.device, self.rows);
-        var transition_columns_transferred: usize = 0;
-        errdefer {
-            for (transition_columns[transition_columns_transferred..]) |*col| col.deinit();
-        }
-
-        const source_names = try self.allocator.alloc([]const u8, self.columns.len + transition_columns.len);
-        defer self.allocator.free(source_names);
-        for (self.names, 0..) |source_name, i| source_names[i] = source_name;
-
-        var transition_names = try expandingBoolTransitionProfileOutputNames(self.allocator, output_prefix);
-        defer freeOwnedNameItems(self.allocator, transition_names[0..]);
-        for (transition_names, 0..) |transition_name, i| source_names[self.columns.len + i] = transition_name;
-
-        var columns = try self.allocator.alloc(DeviceColumn, self.columns.len + transition_columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            self.allocator.free(columns);
-        }
-        for (self.columns, 0..) |col, i| {
-            columns[i] = try col.clone();
-            initialized += 1;
-        }
-        for (&transition_columns) |*transition_col| {
-            columns[initialized] = transition_col.*;
-            initialized += 1;
-            transition_columns_transferred += 1;
-        }
-
-        return initDeviceDataFrameFromOwnedColumns(self.allocator, source_names, columns, self.rows, self.device);
+        return bool_transition_mod.expandingBoolTransitionProfileFrame(DeviceDataFrame, self, name, output_prefix, transition_options, options_value);
     }
 
     pub fn rollingCorrelationProfile(
