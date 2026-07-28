@@ -8254,27 +8254,8 @@ fn argsortTypedColumn(comptime T: type, column: DeviceTypedColumn(T), allocator:
     return order;
 }
 
-fn compareSortValues(comptime T: type, lhs: T, rhs: T) i8 {
-    if (comptime T == bool) {
-        if (lhs == rhs) return 0;
-        return if (!lhs and rhs) -1 else 1;
-    }
-    return switch (@typeInfo(T)) {
-        .int, .comptime_int => if (lhs < rhs) -1 else if (rhs < lhs) 1 else 0,
-        .float, .comptime_float => compareFloatSortValues(T, lhs, rhs),
-        else => @compileError("sort requires bool or ordered numeric column values"),
-    };
-}
-
-fn compareFloatSortValues(comptime T: type, lhs: T, rhs: T) i8 {
-    const lhs_nan = std.math.isNan(lhs);
-    const rhs_nan = std.math.isNan(rhs);
-    if (lhs_nan != rhs_nan) return if (lhs_nan) 1 else -1;
-    if (lhs_nan and rhs_nan) return 0;
-    if (lhs < rhs) return -1;
-    if (rhs < lhs) return 1;
-    return 0;
-}
+const compareSortValues = numeric_mod.compareSortValues;
+const compareFloatSortValues = numeric_mod.compareFloatSortValues;
 
 const RankProfileColumnCount = 5;
 

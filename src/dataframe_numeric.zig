@@ -1,7 +1,31 @@
+const std = @import("std");
+
 pub fn castToF64(comptime T: type, value: T) f64 {
     return switch (@typeInfo(T)) {
         .float, .comptime_float => @floatCast(value),
         .int, .comptime_int => @floatFromInt(value),
         else => @compileError("numeric dataframe profile requires numeric values"),
     };
+}
+
+pub fn compareSortValues(comptime T: type, lhs: T, rhs: T) i8 {
+    if (comptime T == bool) {
+        if (lhs == rhs) return 0;
+        return if (!lhs and rhs) -1 else 1;
+    }
+    return switch (@typeInfo(T)) {
+        .int, .comptime_int => if (lhs < rhs) -1 else if (rhs < lhs) 1 else 0,
+        .float, .comptime_float => compareFloatSortValues(T, lhs, rhs),
+        else => @compileError("sort requires bool or ordered numeric column values"),
+    };
+}
+
+pub fn compareFloatSortValues(comptime T: type, lhs: T, rhs: T) i8 {
+    const lhs_nan = std.math.isNan(lhs);
+    const rhs_nan = std.math.isNan(rhs);
+    if (lhs_nan != rhs_nan) return if (lhs_nan) 1 else -1;
+    if (lhs_nan and rhs_nan) return 0;
+    if (lhs < rhs) return -1;
+    if (rhs < lhs) return 1;
+    return 0;
 }
