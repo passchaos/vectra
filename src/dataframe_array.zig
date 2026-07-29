@@ -1,6 +1,5 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
-const validity_mod = @import("dataframe_validity.zig");
 const array_helpers_mod = @import("dataframe_array_helpers.zig");
 
 const DeviceFrameArrayError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{

@@ -3,12 +3,17 @@ const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
+const validity_core_mod = @import("dataframe_validity_core.zig");
 const validity_metrics_mod = @import("dataframe_validity_metrics.zig");
 const options_mod = @import("dataframe_options.zig");
 
 const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
 const DeviceRollingOptions = options_mod.DeviceRollingOptions;
 const DeviceExpandingOptions = options_mod.DeviceExpandingOptions;
+
+pub const countNulls = validity_core_mod.countNulls;
+pub const countNullsInArray = validity_core_mod.countNullsInArray;
+pub const validityValues = validity_core_mod.validityValues;
 
 pub const ValidityMetrics = validity_metrics_mod.ValidityMetrics;
 pub const ValiditySummaryMetrics = validity_metrics_mod.ValiditySummaryMetrics;
@@ -21,25 +26,6 @@ pub const expandingValidityProfileOutputNames = validity_metrics_mod.expandingVa
 pub const validityProfile = validity_metrics_mod.validityProfile;
 pub const rollingValidityProfile = validity_metrics_mod.rollingValidityProfile;
 pub const expandingValidityProfile = validity_metrics_mod.expandingValidityProfile;
-
-pub fn countNulls(validity_values: []const bool) usize {
-    var nulls: usize = 0;
-    for (validity_values) |valid| {
-        if (!valid) nulls += 1;
-    }
-    return nulls;
-}
-
-pub fn countNullsInArray(mask: array_mod.Array(bool)) array_mod.ArrayError!usize {
-    const values = try mask.toOwnedSlice(mask.allocator);
-    defer mask.allocator.free(values);
-    return countNulls(values);
-}
-
-pub fn validityValues(column: anytype, allocator: std.mem.Allocator) array_mod.ArrayError!?[]bool {
-    const mask = column.validity orelse return null;
-    return try mask.toOwnedSlice(allocator);
-}
 
 pub fn validityProfileColumnsByValue(
     allocator: std.mem.Allocator,
