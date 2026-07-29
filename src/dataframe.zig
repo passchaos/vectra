@@ -10,14 +10,12 @@ const options_mod = @import("dataframe_options.zig");
 const dataframe_view_mod = @import("dataframe_view.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
 const keys_mod = @import("dataframe_keys.zig");
-const join_mod = @import("dataframe_join.zig");
 const lazy_frame_mod = @import("dataframe_lazy_frame.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const boltha = @import("boltha");
 const rank_mod = @import("dataframe_rank.zig");
-const group_profile_mod = @import("dataframe_group_profile.zig");
-const group_multi_mod = @import("dataframe_group_multi.zig");
 const profile_methods_mod = @import("dataframe_profile_methods.zig");
+const relation_methods_mod = @import("dataframe_relation_methods.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = dataframe_host_mod.DType;
@@ -386,148 +384,26 @@ pub const DeviceDataFrame = struct {
     pub const validityProfile = profile_methods_mod.validityProfile;
     pub const rollingValidityProfile = profile_methods_mod.rollingValidityProfile;
     pub const expandingValidityProfile = profile_methods_mod.expandingValidityProfile;
-    pub fn groupByCount(self: DeviceDataFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
-        return group_profile_mod.groupByCount(DeviceDataFrame, self, key_name, output_name);
-    }
-
-    pub fn groupBySum(self: DeviceDataFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
-        return group_profile_mod.groupByNumeric(DeviceDataFrame, .sum, self, key_name, value_name, output_name);
-    }
-
-    pub fn groupByMin(self: DeviceDataFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
-        return group_profile_mod.groupByNumeric(DeviceDataFrame, .min, self, key_name, value_name, output_name);
-    }
-
-    pub fn groupByMax(self: DeviceDataFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
-        return group_profile_mod.groupByNumeric(DeviceDataFrame, .max, self, key_name, value_name, output_name);
-    }
-
-    pub fn groupByMean(self: DeviceDataFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
-        return group_profile_mod.groupByMean(DeviceDataFrame, self, key_name, value_name, output_name);
-    }
-
-    pub fn groupByStats(self: DeviceDataFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
-        return group_profile_mod.groupByStats(DeviceDataFrame, self, key_name, value_name, output_prefix);
-    }
-
-    pub fn groupByStatsOn(self: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
-        return group_multi_mod.groupByStatsOn(DeviceDataFrame, self, key_names, value_name, output_prefix);
-    }
-
-    pub fn groupByProfile(self: DeviceDataFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
-        return group_profile_mod.groupByProfile(DeviceDataFrame, self, key_name, value_name, output_prefix);
-    }
-
-    pub fn groupByProfileOn(self: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
-        return group_multi_mod.groupByProfileOn(DeviceDataFrame, self, key_names, value_name, output_prefix);
-    }
-
-    pub fn innerJoin(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_name: []const u8,
-        right_key_name: []const u8,
-        options_value: DeviceJoinOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.innerJoin(DeviceDataFrame, self, right, left_key_name, right_key_name, options_value);
-    }
-
-    pub fn innerJoinOn(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_names: []const []const u8,
-        right_key_names: []const []const u8,
-        options_value: DeviceJoinOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.innerJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names, options_value);
-    }
-
-    pub fn leftJoin(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_name: []const u8,
-        right_key_name: []const u8,
-        options_value: DeviceJoinOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.leftJoin(DeviceDataFrame, self, right, left_key_name, right_key_name, options_value);
-    }
-
-    pub fn leftJoinOn(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_names: []const []const u8,
-        right_key_names: []const []const u8,
-        options_value: DeviceJoinOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.leftJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names, options_value);
-    }
-
-    pub fn fullJoin(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_name: []const u8,
-        right_key_name: []const u8,
-        options_value: DeviceJoinOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.fullJoin(DeviceDataFrame, self, right, left_key_name, right_key_name, options_value);
-    }
-
-    pub fn fullJoinOn(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_names: []const []const u8,
-        right_key_names: []const []const u8,
-        options_value: DeviceJoinOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.fullJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names, options_value);
-    }
-
-    pub fn semiJoin(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_name: []const u8,
-        right_key_name: []const u8,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.semiJoin(DeviceDataFrame, self, right, left_key_name, right_key_name);
-    }
-
-    pub fn semiJoinOn(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_names: []const []const u8,
-        right_key_names: []const []const u8,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.semiJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names);
-    }
-
-    pub fn antiJoin(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_name: []const u8,
-        right_key_name: []const u8,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.antiJoin(DeviceDataFrame, self, right, left_key_name, right_key_name);
-    }
-
-    pub fn antiJoinOn(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_names: []const []const u8,
-        right_key_names: []const []const u8,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.antiJoinOn(DeviceDataFrame, self, right, left_key_names, right_key_names);
-    }
-
-    pub fn asofJoin(
-        self: DeviceDataFrame,
-        right: DeviceDataFrame,
-        left_key_name: []const u8,
-        right_key_name: []const u8,
-        options_value: DeviceAsofOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return join_mod.asofJoin(DeviceDataFrame, self, right, left_key_name, right_key_name, options_value);
-    }
-
+    pub const groupByCount = relation_methods_mod.groupByCount;
+    pub const groupBySum = relation_methods_mod.groupBySum;
+    pub const groupByMin = relation_methods_mod.groupByMin;
+    pub const groupByMax = relation_methods_mod.groupByMax;
+    pub const groupByMean = relation_methods_mod.groupByMean;
+    pub const groupByStats = relation_methods_mod.groupByStats;
+    pub const groupByStatsOn = relation_methods_mod.groupByStatsOn;
+    pub const groupByProfile = relation_methods_mod.groupByProfile;
+    pub const groupByProfileOn = relation_methods_mod.groupByProfileOn;
+    pub const innerJoin = relation_methods_mod.innerJoin;
+    pub const innerJoinOn = relation_methods_mod.innerJoinOn;
+    pub const leftJoin = relation_methods_mod.leftJoin;
+    pub const leftJoinOn = relation_methods_mod.leftJoinOn;
+    pub const fullJoin = relation_methods_mod.fullJoin;
+    pub const fullJoinOn = relation_methods_mod.fullJoinOn;
+    pub const semiJoin = relation_methods_mod.semiJoin;
+    pub const semiJoinOn = relation_methods_mod.semiJoinOn;
+    pub const antiJoin = relation_methods_mod.antiJoin;
+    pub const antiJoinOn = relation_methods_mod.antiJoinOn;
+    pub const asofJoin = relation_methods_mod.asofJoin;
     pub fn filter(self: DeviceDataFrame, mask: []const bool) DeviceDataError!DeviceDataFrame {
         return dataframe_array_mod.filterRows(DeviceDataFrame, self, mask);
     }
