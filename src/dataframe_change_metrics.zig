@@ -1,6 +1,7 @@
 //! Change-point metric kernels and output-name helpers.
 
 const std = @import("std");
+const summary_metrics_mod = @import("dataframe_change_summary_metrics.zig");
 
 pub const ChangePointMetrics = struct {
     allocator: std.mem.Allocator,
@@ -15,26 +16,6 @@ pub const ChangePointMetrics = struct {
         self.allocator.free(self.abs_deltas);
         self.allocator.free(self.pct_changes);
         self.allocator.free(self.change_points);
-        self.allocator.free(self.validity);
-        self.* = undefined;
-    }
-};
-
-pub const ChangeSummaryMetrics = struct {
-    allocator: std.mem.Allocator,
-    counts: []i64,
-    change_counts: []i64,
-    change_rates: []f64,
-    mean_abs_delta: []f64,
-    max_abs_delta: []f64,
-    validity: []bool,
-
-    pub fn deinit(self: *ChangeSummaryMetrics) void {
-        self.allocator.free(self.counts);
-        self.allocator.free(self.change_counts);
-        self.allocator.free(self.change_rates);
-        self.allocator.free(self.mean_abs_delta);
-        self.allocator.free(self.max_abs_delta);
         self.allocator.free(self.validity);
         self.* = undefined;
     }
@@ -56,39 +37,12 @@ pub fn changePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []con
     return names;
 }
 
-pub const RollingChangePointProfileColumnCount = 5;
-
-pub fn rollingChangePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingChangePointProfileColumnCount][]const u8 {
-    var names: [RollingChangePointProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_change_count", "rolling_change_point_count", "rolling_change_rate", "rolling_mean_abs_delta", "rolling_max_abs_delta" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
-pub const ExpandingChangePointProfileColumnCount = 5;
-
-pub fn expandingChangePointProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingChangePointProfileColumnCount][]const u8 {
-    var names: [ExpandingChangePointProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_change_count", "expanding_change_point_count", "expanding_change_rate", "expanding_mean_abs_delta", "expanding_max_abs_delta" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
-fn validate(values: []const f64, maybe_validity: ?[]const bool, threshold: f64, periods: usize) error{ InvalidShape, LengthMismatch }!void {
+pub const ChangeSummaryMetrics = summary_metrics_mod.ChangeSummaryMetrics;
+pub const RollingChangePointProfileColumnCount = summary_metrics_mod.RollingChangePointProfileColumnCount;
+pub const rollingChangePointProfileOutputNames = summary_metrics_mod.rollingChangePointProfileOutputNames;
+pub const ExpandingChangePointProfileColumnCount = summary_metrics_mod.ExpandingChangePointProfileColumnCount;
+pub const expandingChangePointProfileOutputNames = summary_metrics_mod.expandingChangePointProfileOutputNames;
+pub fn validate(values: []const f64, maybe_validity: ?[]const bool, threshold: f64, periods: usize) error{ InvalidShape, LengthMismatch }!void {
     if (periods == 0) return error.InvalidShape;
     if (threshold < 0) return error.InvalidShape;
     if (maybe_validity) |validity| {
@@ -96,57 +50,16 @@ fn validate(values: []const f64, maybe_validity: ?[]const bool, threshold: f64, 
     }
 }
 
-fn rowValid(maybe_validity: ?[]const bool, row: usize) bool {
+pub fn rowValid(maybe_validity: ?[]const bool, row: usize) bool {
     return if (maybe_validity) |mask| mask[row] else true;
 }
 
-fn validPair(maybe_validity: ?[]const bool, row: usize, previous_row: usize) bool {
+pub fn validPair(maybe_validity: ?[]const bool, row: usize, previous_row: usize) bool {
     return rowValid(maybe_validity, row) and rowValid(maybe_validity, previous_row);
 }
 
-fn absDelta(values: []const f64, row: usize, previous_row: usize) f64 {
+pub fn absDelta(values: []const f64, row: usize, previous_row: usize) f64 {
     return @abs(values[row] - values[previous_row]);
-}
-
-fn allocSummary(allocator: std.mem.Allocator, rows: usize) std.mem.Allocator.Error!ChangeSummaryMetrics {
-    const counts = try allocator.alloc(i64, rows);
-    errdefer allocator.free(counts);
-    const change_counts = try allocator.alloc(i64, rows);
-    errdefer allocator.free(change_counts);
-    const change_rates = try allocator.alloc(f64, rows);
-    errdefer allocator.free(change_rates);
-    const mean_abs_delta = try allocator.alloc(f64, rows);
-    errdefer allocator.free(mean_abs_delta);
-    const max_abs_delta = try allocator.alloc(f64, rows);
-    errdefer allocator.free(max_abs_delta);
-    const validity = try allocator.alloc(bool, rows);
-    errdefer allocator.free(validity);
-    return .{
-        .allocator = allocator,
-        .counts = counts,
-        .change_counts = change_counts,
-        .change_rates = change_rates,
-        .mean_abs_delta = mean_abs_delta,
-        .max_abs_delta = max_abs_delta,
-        .validity = validity,
-    };
-}
-
-fn writeSummary(row: usize, min_periods: usize, count: usize, change_count: usize, sum_abs: f64, max_abs: f64, out: ChangeSummaryMetrics) void {
-    out.counts[row] = @intCast(count);
-    out.change_counts[row] = @intCast(change_count);
-    const has_enough = count >= min_periods;
-    out.validity[row] = has_enough;
-    if (has_enough) {
-        const n: f64 = @floatFromInt(count);
-        out.change_rates[row] = @as(f64, @floatFromInt(change_count)) / n;
-        out.mean_abs_delta[row] = sum_abs / n;
-        out.max_abs_delta[row] = max_abs;
-    } else {
-        out.change_rates[row] = 0;
-        out.mean_abs_delta[row] = 0;
-        out.max_abs_delta[row] = 0;
-    }
 }
 
 pub fn changePointProfile(
@@ -210,102 +123,5 @@ pub fn changePointProfile(
     };
 }
 
-pub fn rollingChangePointProfile(
-    allocator: std.mem.Allocator,
-    values: []const f64,
-    maybe_validity: ?[]const bool,
-    threshold: f64,
-    periods: usize,
-    window: usize,
-    min_periods: usize,
-) (std.mem.Allocator.Error || error{ InvalidShape, LengthMismatch })!ChangeSummaryMetrics {
-    if (window == 0) return error.InvalidShape;
-    if (min_periods == 0 or min_periods > window) return error.InvalidShape;
-    try validate(values, maybe_validity, threshold, periods);
-
-    const rows = values.len;
-    const per_row_validity = try allocator.alloc(bool, rows);
-    defer allocator.free(per_row_validity);
-    const per_row_abs_delta = try allocator.alloc(f64, rows);
-    defer allocator.free(per_row_abs_delta);
-    const per_row_change = try allocator.alloc(bool, rows);
-    defer allocator.free(per_row_change);
-
-    for (0..rows) |row| {
-        if (row < periods) {
-            per_row_validity[row] = false;
-            per_row_abs_delta[row] = 0;
-            per_row_change[row] = false;
-            continue;
-        }
-
-        const previous_row = row - periods;
-        const valid = validPair(maybe_validity, row, previous_row);
-        per_row_validity[row] = valid;
-        if (!valid) {
-            per_row_abs_delta[row] = 0;
-            per_row_change[row] = false;
-            continue;
-        }
-
-        const delta = absDelta(values, row, previous_row);
-        per_row_abs_delta[row] = delta;
-        per_row_change[row] = delta >= threshold;
-    }
-
-    var out = try allocSummary(allocator, rows);
-    errdefer out.deinit();
-    for (0..rows) |row| {
-        const start = if (row + 1 > window) row + 1 - window else 0;
-        var count: usize = 0;
-        var change_count: usize = 0;
-        var sum_abs: f64 = 0;
-        var max_abs: f64 = 0;
-        for (start..row + 1) |window_row| {
-            if (!per_row_validity[window_row]) continue;
-            const delta = per_row_abs_delta[window_row];
-            if (count == 0 or delta > max_abs) max_abs = delta;
-            sum_abs += delta;
-            if (per_row_change[window_row]) change_count += 1;
-            count += 1;
-        }
-        writeSummary(row, min_periods, count, change_count, sum_abs, max_abs, out);
-    }
-
-    return out;
-}
-
-pub fn expandingChangePointProfile(
-    allocator: std.mem.Allocator,
-    values: []const f64,
-    maybe_validity: ?[]const bool,
-    threshold: f64,
-    periods: usize,
-    min_periods: usize,
-) (std.mem.Allocator.Error || error{ InvalidShape, LengthMismatch })!ChangeSummaryMetrics {
-    if (min_periods == 0) return error.InvalidShape;
-    try validate(values, maybe_validity, threshold, periods);
-
-    var out = try allocSummary(allocator, values.len);
-    errdefer out.deinit();
-
-    var count: usize = 0;
-    var change_count: usize = 0;
-    var sum_abs: f64 = 0;
-    var max_abs: f64 = 0;
-    for (0..values.len) |row| {
-        if (row >= periods) {
-            const previous_row = row - periods;
-            if (validPair(maybe_validity, row, previous_row)) {
-                const delta = absDelta(values, row, previous_row);
-                if (count == 0 or delta > max_abs) max_abs = delta;
-                sum_abs += delta;
-                if (delta >= threshold) change_count += 1;
-                count += 1;
-            }
-        }
-        writeSummary(row, min_periods, count, change_count, sum_abs, max_abs, out);
-    }
-
-    return out;
-}
+pub const rollingChangePointProfile = summary_metrics_mod.rollingChangePointProfile;
+pub const expandingChangePointProfile = summary_metrics_mod.expandingChangePointProfile;
