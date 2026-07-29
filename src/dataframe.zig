@@ -1,21 +1,18 @@
 const std = @import("std");
 const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
-const dataframe_array_mod = @import("dataframe_array.zig");
 const dataframe_arrow_mod = @import("dataframe_arrow.zig");
 const dataframe_core_mod = @import("dataframe_core.zig");
 const dataframe_host_mod = @import("dataframe_host.zig");
-const expr_mod = @import("dataframe_expr.zig");
 const options_mod = @import("dataframe_options.zig");
 const dataframe_view_mod = @import("dataframe_view.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
-const keys_mod = @import("dataframe_keys.zig");
 const lazy_frame_mod = @import("dataframe_lazy_frame.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const boltha = @import("boltha");
-const rank_mod = @import("dataframe_rank.zig");
 const profile_methods_mod = @import("dataframe_profile_methods.zig");
 const relation_methods_mod = @import("dataframe_relation_methods.zig");
+const table_methods_mod = @import("dataframe_table_methods.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = dataframe_host_mod.DType;
@@ -144,50 +141,17 @@ pub const DeviceDataFrame = struct {
         return dataframe_core_mod.columnDType(self, name);
     }
 
-    pub fn binaryColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
-        return expr_mod.binaryColumns(self, lhs_name, rhs_name, op);
-    }
-
-    pub fn addColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!DeviceColumn {
-        return self.binaryColumns(lhs_name, rhs_name, .add);
-    }
-
-    pub fn subColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!DeviceColumn {
-        return self.binaryColumns(lhs_name, rhs_name, .sub);
-    }
-
-    pub fn mulColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!DeviceColumn {
-        return self.binaryColumns(lhs_name, rhs_name, .mul);
-    }
-
-    pub fn divColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!DeviceColumn {
-        return self.binaryColumns(lhs_name, rhs_name, .div);
-    }
-
-    pub fn binaryColumnScalar(self: DeviceDataFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
-        return expr_mod.binaryColumnScalar(self, name, T, scalar, op);
-    }
-
-    pub fn binaryColumnScalarWithDeviceScalar(self: DeviceDataFrame, name: []const u8, scalar: DeviceScalar, op: DeviceColumnBinaryOp) DeviceDataError!DeviceColumn {
-        return expr_mod.binaryColumnScalarWithDeviceScalar(self, name, scalar, op);
-    }
-
-    pub fn compareColumns(self: DeviceDataFrame, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
-        return expr_mod.compareColumns(self, lhs_name, rhs_name, op);
-    }
-
-    pub fn compareColumnScalar(self: DeviceDataFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
-        return expr_mod.compareColumnScalar(self, name, T, scalar, op);
-    }
-
-    pub fn compareColumnScalarWithDeviceScalar(self: DeviceDataFrame, name: []const u8, scalar: DeviceScalar, op: DeviceColumnCompareOp) DeviceDataError!DeviceColumn {
-        return expr_mod.compareColumnScalarWithDeviceScalar(self, name, scalar, op);
-    }
-
-    pub fn filterColumnMask(self: DeviceDataFrame, mask: DeviceColumn) DeviceDataError!DeviceDataFrame {
-        return expr_mod.filterColumnMask(DeviceDataFrame, self, mask);
-    }
-
+    pub const binaryColumns = table_methods_mod.binaryColumns;
+    pub const addColumns = table_methods_mod.addColumns;
+    pub const subColumns = table_methods_mod.subColumns;
+    pub const mulColumns = table_methods_mod.mulColumns;
+    pub const divColumns = table_methods_mod.divColumns;
+    pub const binaryColumnScalar = table_methods_mod.binaryColumnScalar;
+    pub const binaryColumnScalarWithDeviceScalar = table_methods_mod.binaryColumnScalarWithDeviceScalar;
+    pub const compareColumns = table_methods_mod.compareColumns;
+    pub const compareColumnScalar = table_methods_mod.compareColumnScalar;
+    pub const compareColumnScalarWithDeviceScalar = table_methods_mod.compareColumnScalarWithDeviceScalar;
+    pub const filterColumnMask = table_methods_mod.filterColumnMask;
     pub fn toArrowSchema(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
         return dataframe_arrow_mod.toArrowSchema(self, allocator);
     }
@@ -244,87 +208,26 @@ pub const DeviceDataFrame = struct {
         return dataframe_arrow_mod.fromArrowRecordBatchProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, batch, wanted_names, device_value);
     }
 
-    pub fn view(self: DeviceDataFrame) DeviceDataError!DeviceDataFrameView {
-        return dataframe_array_mod.view(DeviceDataFrameView, DeviceColumnView, self);
-    }
-
-    pub fn select(self: DeviceDataFrame, wanted_names: []const []const u8) DeviceDataError!DeviceDataFrame {
-        return dataframe_array_mod.select(DeviceDataFrame, self, wanted_names);
-    }
-
-    pub fn withColumn(self: DeviceDataFrame, name: []const u8, data: DeviceColumn) DeviceDataError!DeviceDataFrame {
-        return dataframe_array_mod.withColumn(DeviceDataFrame, self, name, data);
-    }
-
-    pub fn head(self: DeviceDataFrame, n: usize) DeviceDataError!DeviceDataFrame {
-        return self.sliceRows(0, @min(n, self.rows));
-    }
-
-    pub fn tail(self: DeviceDataFrame, n: usize) DeviceDataError!DeviceDataFrame {
-        const count = @min(n, self.rows);
-        return self.sliceRows(self.rows - count, self.rows);
-    }
-
-    pub fn sliceRows(self: DeviceDataFrame, start: usize, stop: usize) DeviceDataError!DeviceDataFrame {
-        return dataframe_array_mod.sliceRows(DeviceDataFrame, self, start, stop);
-    }
-
-    pub fn take(self: DeviceDataFrame, row_indices: []const usize) DeviceDataError!DeviceDataFrame {
-        return dataframe_array_mod.takeRows(DeviceDataFrame, self, row_indices);
-    }
-
-    pub fn concatRows(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return dataframe_array_mod.concatDeviceDataFramesRows(DeviceDataFrame, self, other);
-    }
-
-    pub fn appendRows(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return self.concatRows(other);
-    }
-
-    pub fn vstack(self: DeviceDataFrame, other: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return self.concatRows(other);
-    }
-
-    pub fn distinctRows(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return keys_mod.distinctRows(DeviceDataFrame, self);
-    }
-
-    pub fn distinctOn(self: DeviceDataFrame, key_names: []const []const u8) DeviceDataError!DeviceDataFrame {
-        return keys_mod.distinctOn(DeviceDataFrame, self, key_names);
-    }
-
-    pub fn dropDuplicates(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return self.distinctRows();
-    }
-
-    pub fn dropDuplicatesOn(self: DeviceDataFrame, key_names: []const []const u8) DeviceDataError!DeviceDataFrame {
-        return self.distinctOn(key_names);
-    }
-
-    pub fn uniqueRows(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return self.distinctRows();
-    }
-
-    pub fn argsortBy(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError![]usize {
-        return rank_mod.argsortBy(self, name, options_value);
-    }
-
-    pub fn sortBy(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
-        return rank_mod.sortBy(DeviceDataFrame, self, name, options_value);
-    }
-
-    pub fn sortByColumn(self: DeviceDataFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
-        return self.sortBy(name, options_value);
-    }
-
-    pub fn topKBy(self: DeviceDataFrame, name: []const u8, k: usize, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
-        return rank_mod.topKBy(DeviceDataFrame, self, name, k, options_value);
-    }
-
-    pub fn rankProfileBy(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceSortOptions) DeviceDataError!DeviceDataFrame {
-        return rank_mod.rankProfileBy(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
+    pub const view = table_methods_mod.view;
+    pub const select = table_methods_mod.select;
+    pub const withColumn = table_methods_mod.withColumn;
+    pub const head = table_methods_mod.head;
+    pub const tail = table_methods_mod.tail;
+    pub const sliceRows = table_methods_mod.sliceRows;
+    pub const take = table_methods_mod.take;
+    pub const concatRows = table_methods_mod.concatRows;
+    pub const appendRows = table_methods_mod.appendRows;
+    pub const vstack = table_methods_mod.vstack;
+    pub const distinctRows = table_methods_mod.distinctRows;
+    pub const distinctOn = table_methods_mod.distinctOn;
+    pub const dropDuplicates = table_methods_mod.dropDuplicates;
+    pub const dropDuplicatesOn = table_methods_mod.dropDuplicatesOn;
+    pub const uniqueRows = table_methods_mod.uniqueRows;
+    pub const argsortBy = table_methods_mod.argsortBy;
+    pub const sortBy = table_methods_mod.sortBy;
+    pub const sortByColumn = table_methods_mod.sortByColumn;
+    pub const topKBy = table_methods_mod.topKBy;
+    pub const rankProfileBy = table_methods_mod.rankProfileBy;
     pub const rollingProfile = profile_methods_mod.rollingProfile;
     pub const rollingMomentProfile = profile_methods_mod.rollingMomentProfile;
     pub const rollingRangeProfile = profile_methods_mod.rollingRangeProfile;
@@ -404,26 +307,11 @@ pub const DeviceDataFrame = struct {
     pub const antiJoin = relation_methods_mod.antiJoin;
     pub const antiJoinOn = relation_methods_mod.antiJoinOn;
     pub const asofJoin = relation_methods_mod.asofJoin;
-    pub fn filter(self: DeviceDataFrame, mask: []const bool) DeviceDataError!DeviceDataFrame {
-        return dataframe_array_mod.filterRows(DeviceDataFrame, self, mask);
-    }
-
-    pub fn to(self: DeviceDataFrame, device_value: array_mod.Device) DeviceDataError!DeviceDataFrame {
-        return dataframe_array_mod.toDevice(DeviceDataFrame, self, device_value);
-    }
-
-    pub fn cpu(self: DeviceDataFrame) DeviceDataError!DeviceDataFrame {
-        return self.to(.cpu);
-    }
-
-    pub fn cuda(self: DeviceDataFrame, index: usize) DeviceDataError!DeviceDataFrame {
-        return self.to(array_mod.Device.cuda(index));
-    }
-
-    pub fn mps(self: DeviceDataFrame, index: usize) DeviceDataError!DeviceDataFrame {
-        return self.to(array_mod.Device.mps(index));
-    }
-
+    pub const filter = table_methods_mod.filter;
+    pub const to = table_methods_mod.to;
+    pub const cpu = table_methods_mod.cpu;
+    pub const cuda = table_methods_mod.cuda;
+    pub const mps = table_methods_mod.mps;
     pub fn toDataFrame(self: DeviceDataFrame) DeviceDataError!DataFrame {
         return dataframe_host_mod.deviceDataFrameToDataFrame(self);
     }
