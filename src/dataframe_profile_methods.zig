@@ -6,14 +6,9 @@
 
 const std = @import("std");
 const array_mod = @import("array.zig");
-const bool_transition_mod = @import("dataframe_bool_transition.zig");
-const classification_mod = @import("dataframe_classification.zig");
-const error_mod = @import("dataframe_error.zig");
-const correlation_mod = @import("dataframe_correlation.zig");
-const linear_fit_mod = @import("dataframe_linear_fit.zig");
-const crossover_mod = @import("dataframe_crossover.zig");
 const threshold_mod = @import("dataframe_threshold.zig");
 const validity_mod = @import("dataframe_validity.zig");
+const pair_methods_mod = @import("dataframe_profile_pair_methods.zig");
 const bool_profile_mod = @import("dataframe_bool_profile.zig");
 const clip_mod = @import("dataframe_clip.zig");
 const risk_mod = @import("dataframe_risk.zig");
@@ -23,9 +18,7 @@ const trend_mod = @import("dataframe_trend.zig");
 const change_mod = @import("dataframe_change.zig");
 const sign_mod = @import("dataframe_sign.zig");
 const shift_mod = @import("dataframe_shift.zig");
-const ema_mod = @import("dataframe_ema.zig");
 const quantile_mod = @import("dataframe_quantile.zig");
-const bucket_mod = @import("dataframe_bucket.zig");
 const rank_mod = @import("dataframe_rank.zig");
 const stats_profile_mod = @import("dataframe_stats_profile.zig");
 const moment_mod = @import("dataframe_moment.zig");
@@ -216,165 +209,25 @@ pub fn expandingSignProfile(self: anytype, name: []const u8, output_prefix: []co
     return sign_mod.expandingSignProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, sign_options, options_value);
 }
 
-pub fn crossoverProfile(
-    self: anytype,
-    lhs_name: []const u8,
-    rhs_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceCrossoverOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return crossover_mod.crossoverProfileFrame(FrameType(@TypeOf(self)), frameValue(self), lhs_name, rhs_name, output_prefix, options_value);
-}
-
-pub fn rollingCrossoverProfile(
-    self: anytype,
-    lhs_name: []const u8,
-    rhs_name: []const u8,
-    output_prefix: []const u8,
-    cross_options: DeviceCrossoverOptions,
-    options_value: DeviceRollingOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return crossover_mod.rollingCrossoverProfileFrame(FrameType(@TypeOf(self)), frameValue(self), lhs_name, rhs_name, output_prefix, cross_options, options_value);
-}
-
-pub fn expandingCrossoverProfile(
-    self: anytype,
-    lhs_name: []const u8,
-    rhs_name: []const u8,
-    output_prefix: []const u8,
-    cross_options: DeviceCrossoverOptions,
-    options_value: DeviceExpandingOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return crossover_mod.expandingCrossoverProfileFrame(FrameType(@TypeOf(self)), frameValue(self), lhs_name, rhs_name, output_prefix, cross_options, options_value);
-}
-
-pub fn bucketProfile(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceBucketOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return bucket_mod.bucketProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, options_value);
-}
-
-pub fn emaProfile(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceEmaOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return ema_mod.emaProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, options_value);
-}
-
-pub fn linearFitProfile(
-    self: anytype,
-    x_name: []const u8,
-    y_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceLinearFitOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return linear_fit_mod.linearFitProfileFrame(FrameType(@TypeOf(self)), frameValue(self), x_name, y_name, output_prefix, options_value);
-}
-
-pub fn errorProfile(
-    self: anytype,
-    actual_name: []const u8,
-    predicted_name: []const u8,
-    output_prefix: []const u8,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return error_mod.errorProfileFrame(FrameType(@TypeOf(self)), frameValue(self), actual_name, predicted_name, output_prefix);
-}
-
-pub fn rollingErrorProfile(
-    self: anytype,
-    actual_name: []const u8,
-    predicted_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceRollingOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return error_mod.rollingErrorProfileFrame(FrameType(@TypeOf(self)), frameValue(self), actual_name, predicted_name, output_prefix, options_value);
-}
-
-pub fn expandingErrorProfile(
-    self: anytype,
-    actual_name: []const u8,
-    predicted_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceExpandingOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return error_mod.expandingErrorProfileFrame(FrameType(@TypeOf(self)), frameValue(self), actual_name, predicted_name, output_prefix, options_value);
-}
-
-pub fn classificationProfile(
-    self: anytype,
-    actual_name: []const u8,
-    predicted_name: []const u8,
-    output_prefix: []const u8,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return classification_mod.classificationProfileFrame(FrameType(@TypeOf(self)), frameValue(self), actual_name, predicted_name, output_prefix);
-}
-
-pub fn rollingClassificationProfile(
-    self: anytype,
-    actual_name: []const u8,
-    predicted_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceRollingOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return classification_mod.rollingClassificationProfileFrame(FrameType(@TypeOf(self)), frameValue(self), actual_name, predicted_name, output_prefix, options_value);
-}
-
-pub fn expandingClassificationProfile(
-    self: anytype,
-    actual_name: []const u8,
-    predicted_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceExpandingOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return classification_mod.expandingClassificationProfileFrame(FrameType(@TypeOf(self)), frameValue(self), actual_name, predicted_name, output_prefix, options_value);
-}
-
-pub fn boolTransitionProfile(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return bool_transition_mod.boolTransitionProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, options_value);
-}
-
-pub fn rollingBoolTransitionProfile(self: anytype, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return bool_transition_mod.rollingBoolTransitionProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, transition_options, options_value);
-}
-
-pub fn expandingBoolTransitionProfile(self: anytype, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return bool_transition_mod.expandingBoolTransitionProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, transition_options, options_value);
-}
-
-pub fn rollingCorrelationProfile(
-    self: anytype,
-    x_name: []const u8,
-    y_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceRollingCorrelationOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return correlation_mod.rollingCorrelationProfileFrame(FrameType(@TypeOf(self)), frameValue(self), x_name, y_name, output_prefix, options_value);
-}
-
-pub fn expandingCorrelationProfile(
-    self: anytype,
-    x_name: []const u8,
-    y_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceExpandingOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return correlation_mod.expandingCorrelationProfileFrame(FrameType(@TypeOf(self)), frameValue(self), x_name, y_name, output_prefix, options_value);
-}
-
-pub fn expandingLinearFitProfile(
-    self: anytype,
-    x_name: []const u8,
-    y_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceExpandingOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return linear_fit_mod.expandingLinearFitProfileFrame(FrameType(@TypeOf(self)), frameValue(self), x_name, y_name, output_prefix, options_value);
-}
-
-pub fn rollingLinearFitProfile(
-    self: anytype,
-    x_name: []const u8,
-    y_name: []const u8,
-    output_prefix: []const u8,
-    options_value: DeviceRollingCorrelationOptions,
-) DeviceDataError!FrameType(@TypeOf(self)) {
-    return linear_fit_mod.rollingLinearFitProfileFrame(FrameType(@TypeOf(self)), frameValue(self), x_name, y_name, output_prefix, options_value);
-}
+pub const crossoverProfile = pair_methods_mod.crossoverProfile;
+pub const rollingCrossoverProfile = pair_methods_mod.rollingCrossoverProfile;
+pub const expandingCrossoverProfile = pair_methods_mod.expandingCrossoverProfile;
+pub const bucketProfile = pair_methods_mod.bucketProfile;
+pub const emaProfile = pair_methods_mod.emaProfile;
+pub const linearFitProfile = pair_methods_mod.linearFitProfile;
+pub const errorProfile = pair_methods_mod.errorProfile;
+pub const rollingErrorProfile = pair_methods_mod.rollingErrorProfile;
+pub const expandingErrorProfile = pair_methods_mod.expandingErrorProfile;
+pub const classificationProfile = pair_methods_mod.classificationProfile;
+pub const rollingClassificationProfile = pair_methods_mod.rollingClassificationProfile;
+pub const expandingClassificationProfile = pair_methods_mod.expandingClassificationProfile;
+pub const boolTransitionProfile = pair_methods_mod.boolTransitionProfile;
+pub const rollingBoolTransitionProfile = pair_methods_mod.rollingBoolTransitionProfile;
+pub const expandingBoolTransitionProfile = pair_methods_mod.expandingBoolTransitionProfile;
+pub const rollingCorrelationProfile = pair_methods_mod.rollingCorrelationProfile;
+pub const expandingCorrelationProfile = pair_methods_mod.expandingCorrelationProfile;
+pub const expandingLinearFitProfile = pair_methods_mod.expandingLinearFitProfile;
+pub const rollingLinearFitProfile = pair_methods_mod.rollingLinearFitProfile;
 
 pub fn validityProfile(self: anytype, name: []const u8, output_prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return validity_mod.validityProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix);
