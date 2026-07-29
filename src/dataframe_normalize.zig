@@ -3,6 +3,7 @@ const array_mod = @import("array.zig");
 const dataframe_array_mod = @import("dataframe_array.zig");
 const names_mod = @import("dataframe_names.zig");
 const dataframe_device_column_mod = @import("dataframe_device_column.zig");
+const normalize_metrics_mod = @import("dataframe_normalize_metrics.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
 const validity_mod = @import("dataframe_validity.zig");
@@ -14,182 +15,13 @@ const DeviceExpandingOptions = options_mod.DeviceExpandingOptions;
 const castToF64 = numeric_mod.castToF64;
 const validityValues = validity_mod.validityValues;
 
-pub const NormalizeMetrics = struct {
-    allocator: std.mem.Allocator,
-    centered: []f64,
-    zscores: []f64,
-    minmax: []f64,
-    validity: []bool,
-
-    pub fn deinit(self: *NormalizeMetrics) void {
-        self.allocator.free(self.centered);
-        self.allocator.free(self.zscores);
-        self.allocator.free(self.minmax);
-        self.allocator.free(self.validity);
-        self.* = undefined;
-    }
-};
-
-pub const RollingNormalizeProfileColumnCount = 3;
-
-pub fn rollingNormalizeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![RollingNormalizeProfileColumnCount][]const u8 {
-    var names: [RollingNormalizeProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "rolling_centered", "rolling_zscore", "rolling_minmax" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
-pub const ExpandingNormalizeProfileColumnCount = 3;
-
-pub fn expandingNormalizeProfileOutputNames(allocator: std.mem.Allocator, prefix: []const u8) std.mem.Allocator.Error![ExpandingNormalizeProfileColumnCount][]const u8 {
-    var names: [ExpandingNormalizeProfileColumnCount][]const u8 = undefined;
-    var initialized: usize = 0;
-    errdefer {
-        for (names[0..initialized]) |name| allocator.free(name);
-    }
-    const suffixes = [_][]const u8{ "expanding_centered", "expanding_zscore", "expanding_minmax" };
-    for (suffixes, 0..) |suffix, i| {
-        names[i] = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ prefix, suffix });
-        initialized += 1;
-    }
-    return names;
-}
-
-fn validate(values: []const f64, maybe_validity: ?[]const bool) error{LengthMismatch}!void {
-    if (maybe_validity) |validity| {
-        if (validity.len != values.len) return error.LengthMismatch;
-    }
-}
-
-fn rowValid(maybe_validity: ?[]const bool, row: usize) bool {
-    return if (maybe_validity) |mask| mask[row] else true;
-}
-
-fn allocMetrics(allocator: std.mem.Allocator, rows: usize) std.mem.Allocator.Error!NormalizeMetrics {
-    const centered = try allocator.alloc(f64, rows);
-    errdefer allocator.free(centered);
-    const zscores = try allocator.alloc(f64, rows);
-    errdefer allocator.free(zscores);
-    const minmax = try allocator.alloc(f64, rows);
-    errdefer allocator.free(minmax);
-    const validity = try allocator.alloc(bool, rows);
-    errdefer allocator.free(validity);
-    return .{ .allocator = allocator, .centered = centered, .zscores = zscores, .minmax = minmax, .validity = validity };
-}
-
-fn writeInvalid(out: NormalizeMetrics, row: usize) void {
-    out.centered[row] = 0;
-    out.zscores[row] = 0;
-    out.minmax[row] = 0;
-    out.validity[row] = false;
-}
-
-fn writeNormalized(out: NormalizeMetrics, row: usize, x: f64, count: usize, sum: f64, sum_sq: f64, low: f64, high: f64, min_periods: usize, current_valid: bool) void {
-    const has_enough = current_valid and count >= min_periods;
-    out.validity[row] = has_enough;
-    if (!has_enough) {
-        out.centered[row] = 0;
-        out.zscores[row] = 0;
-        out.minmax[row] = 0;
-        return;
-    }
-
-    const n: f64 = @floatFromInt(count);
-    const mean = sum / n;
-    const raw_variance = sum_sq / n - mean * mean;
-    const variance = if (raw_variance < 0) 0 else raw_variance;
-    const stddev = std.math.sqrt(variance);
-    const range = high - low;
-    const delta = x - mean;
-    out.centered[row] = delta;
-    out.zscores[row] = if (stddev == 0) std.math.nan(f64) else delta / stddev;
-    out.minmax[row] = if (range == 0) std.math.nan(f64) else (x - low) / range;
-}
-
-pub fn rollingNormalizeProfile(
-    allocator: std.mem.Allocator,
-    values: []const f64,
-    maybe_validity: ?[]const bool,
-    window: usize,
-    min_periods: usize,
-) (std.mem.Allocator.Error || error{ InvalidShape, LengthMismatch })!NormalizeMetrics {
-    if (window == 0) return error.InvalidShape;
-    if (min_periods == 0 or min_periods > window) return error.InvalidShape;
-    try validate(values, maybe_validity);
-
-    var out = try allocMetrics(allocator, values.len);
-    errdefer out.deinit();
-
-    for (values, 0..) |value, row| {
-        const start = if (row + 1 > window) row + 1 - window else 0;
-        var count: usize = 0;
-        var sum: f64 = 0;
-        var sum_sq: f64 = 0;
-        var low: f64 = 0;
-        var high: f64 = 0;
-        for (start..row + 1) |window_row| {
-            if (!rowValid(maybe_validity, window_row)) continue;
-            const x = values[window_row];
-            if (count == 0) {
-                low = x;
-                high = x;
-            } else {
-                if (x < low) low = x;
-                if (x > high) high = x;
-            }
-            sum += x;
-            sum_sq += x * x;
-            count += 1;
-        }
-        writeNormalized(out, row, value, count, sum, sum_sq, low, high, min_periods, rowValid(maybe_validity, row));
-    }
-
-    return out;
-}
-
-pub fn expandingNormalizeProfile(
-    allocator: std.mem.Allocator,
-    values: []const f64,
-    maybe_validity: ?[]const bool,
-    min_periods: usize,
-) (std.mem.Allocator.Error || error{ InvalidShape, LengthMismatch })!NormalizeMetrics {
-    if (min_periods == 0) return error.InvalidShape;
-    try validate(values, maybe_validity);
-
-    var out = try allocMetrics(allocator, values.len);
-    errdefer out.deinit();
-
-    var count: usize = 0;
-    var sum: f64 = 0;
-    var sum_sq: f64 = 0;
-    var low: f64 = 0;
-    var high: f64 = 0;
-    for (values, 0..) |value, row| {
-        const valid = rowValid(maybe_validity, row);
-        if (valid) {
-            if (count == 0) {
-                low = value;
-                high = value;
-            } else {
-                if (value < low) low = value;
-                if (value > high) high = value;
-            }
-            sum += value;
-            sum_sq += value * value;
-            count += 1;
-        }
-        writeNormalized(out, row, value, count, sum, sum_sq, low, high, min_periods, valid);
-    }
-
-    return out;
-}
+pub const NormalizeMetrics = normalize_metrics_mod.NormalizeMetrics;
+pub const RollingNormalizeProfileColumnCount = normalize_metrics_mod.RollingNormalizeProfileColumnCount;
+pub const ExpandingNormalizeProfileColumnCount = normalize_metrics_mod.ExpandingNormalizeProfileColumnCount;
+pub const rollingNormalizeProfileOutputNames = normalize_metrics_mod.rollingNormalizeProfileOutputNames;
+pub const expandingNormalizeProfileOutputNames = normalize_metrics_mod.expandingNormalizeProfileOutputNames;
+pub const rollingNormalizeProfile = normalize_metrics_mod.rollingNormalizeProfile;
+pub const expandingNormalizeProfile = normalize_metrics_mod.expandingNormalizeProfile;
 
 pub fn rollingNormalizeProfileColumnsByValue(
     allocator: std.mem.Allocator,
