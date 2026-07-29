@@ -5,6 +5,7 @@
 //! absorb every field-level detail.
 
 const options_mod = @import("dataframe_options.zig");
+const profile_payloads = @import("dataframe_lazy_op_profile_payloads.zig");
 
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
@@ -12,24 +13,6 @@ const DeviceScalar = options_mod.DeviceScalar;
 const DeviceSortOptions = options_mod.DeviceSortOptions;
 const DeviceJoinOptions = options_mod.DeviceJoinOptions;
 const DeviceAsofOptions = options_mod.DeviceAsofOptions;
-const DeviceRollingOptions = options_mod.DeviceRollingOptions;
-const DeviceLagOptions = options_mod.DeviceLagOptions;
-const DeviceExpandingOptions = options_mod.DeviceExpandingOptions;
-const DeviceExpandingRankOptions = options_mod.DeviceExpandingRankOptions;
-const DeviceStandardizeOptions = options_mod.DeviceStandardizeOptions;
-const DeviceRobustOptions = options_mod.DeviceRobustOptions;
-const DeviceDrawdownOptions = options_mod.DeviceDrawdownOptions;
-const DeviceExtremaOptions = options_mod.DeviceExtremaOptions;
-const DeviceTrendOptions = options_mod.DeviceTrendOptions;
-const DeviceCrossoverOptions = options_mod.DeviceCrossoverOptions;
-const DeviceBucketOptions = options_mod.DeviceBucketOptions;
-const DeviceEmaOptions = options_mod.DeviceEmaOptions;
-const DeviceLinearFitOptions = options_mod.DeviceLinearFitOptions;
-const DeviceClipOptions = options_mod.DeviceClipOptions;
-const DeviceThresholdOptions = options_mod.DeviceThresholdOptions;
-const DeviceRollingCorrelationOptions = options_mod.DeviceRollingCorrelationOptions;
-const DeviceRollingRankOptions = options_mod.DeviceRollingRankOptions;
-const DeviceRollingRobustOptions = options_mod.DeviceRollingRobustOptions;
 
 pub const DeviceLazyGroupByAggregation = enum {
     sum,
@@ -44,25 +27,6 @@ pub const DeviceLazyJoinKind = enum {
     full,
     semi,
     anti,
-};
-
-const NameOutput = struct {
-    name: []const u8,
-    output_prefix: []const u8,
-};
-
-fn NameOutputOptions(comptime Options: type) type {
-    return struct {
-        name: []const u8,
-        output_prefix: []const u8,
-        options: Options,
-    };
-}
-
-const ActualPredictedOutput = struct {
-    actual_name: []const u8,
-    predicted_name: []const u8,
-    output_prefix: []const u8,
 };
 
 pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn: type) type {
@@ -142,164 +106,50 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             options: DeviceSortOptions,
             k: usize,
         };
-        pub const RankProfileBy = NameOutputOptions(DeviceSortOptions);
-        pub const RollingProfile = NameOutputOptions(DeviceRollingOptions);
-        pub const ExpandingProfile = NameOutputOptions(DeviceExpandingOptions);
-        pub const RollingRobustProfile = NameOutputOptions(DeviceRollingRobustOptions);
-        pub const RollingRankProfile = NameOutputOptions(DeviceRollingRankOptions);
-        pub const LagProfile = NameOutputOptions(DeviceLagOptions);
-        pub const ClipProfile = NameOutputOptions(DeviceClipOptions);
-        pub const RollingClipProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            clip_options: DeviceClipOptions,
-            options: DeviceRollingOptions,
-        };
-        pub const ExpandingClipProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            clip_options: DeviceClipOptions,
-            options: DeviceExpandingOptions,
-        };
-        pub const ThresholdProfile = NameOutputOptions(DeviceThresholdOptions);
-        pub const RollingThresholdProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            threshold: f64,
-            options: DeviceRollingOptions,
-        };
-        pub const ExpandingThresholdProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            threshold: f64,
-            options: DeviceExpandingOptions,
-        };
-        pub const ExpandingRankProfile = NameOutputOptions(DeviceExpandingRankOptions);
-        pub const ExpandingRobustProfile = NameOutputOptions(DeviceRobustOptions);
-        pub const StandardizeProfile = NameOutputOptions(DeviceStandardizeOptions);
-        pub const RobustProfile = NameOutputOptions(DeviceRobustOptions);
-        pub const DrawdownProfile = NameOutputOptions(DeviceDrawdownOptions);
-        pub const ExtremaProfile = NameOutputOptions(DeviceExtremaOptions);
-        pub const TrendProfile = NameOutputOptions(DeviceTrendOptions);
-        pub const RollingTrendProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            trend_options: DeviceTrendOptions,
-            options: DeviceRollingOptions,
-        };
-        pub const ExpandingTrendProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            trend_options: DeviceTrendOptions,
-            options: DeviceExpandingOptions,
-        };
-        pub const ChangePointProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            threshold: f64,
-            options: DeviceTrendOptions,
-        };
-        pub const RollingChangePointProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            threshold: f64,
-            change_options: DeviceTrendOptions,
-            options: DeviceRollingOptions,
-        };
-        pub const ExpandingChangePointProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            threshold: f64,
-            change_options: DeviceTrendOptions,
-            options: DeviceExpandingOptions,
-        };
-        pub const RollingSignProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            sign_options: DeviceTrendOptions,
-            options: DeviceRollingOptions,
-        };
-        pub const ExpandingSignProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            sign_options: DeviceTrendOptions,
-            options: DeviceExpandingOptions,
-        };
-        pub const CrossoverProfile = struct {
-            lhs_name: []const u8,
-            rhs_name: []const u8,
-            output_prefix: []const u8,
-            options: DeviceCrossoverOptions,
-        };
-        pub const RollingCrossoverProfile = struct {
-            lhs_name: []const u8,
-            rhs_name: []const u8,
-            output_prefix: []const u8,
-            cross_options: DeviceCrossoverOptions,
-            options: DeviceRollingOptions,
-        };
-        pub const ExpandingCrossoverProfile = struct {
-            lhs_name: []const u8,
-            rhs_name: []const u8,
-            output_prefix: []const u8,
-            cross_options: DeviceCrossoverOptions,
-            options: DeviceExpandingOptions,
-        };
-        pub const BucketProfile = NameOutputOptions(DeviceBucketOptions);
-        pub const EmaProfile = NameOutputOptions(DeviceEmaOptions);
-        pub const LinearFitProfile = struct {
-            x_name: []const u8,
-            y_name: []const u8,
-            output_prefix: []const u8,
-            options: DeviceLinearFitOptions,
-        };
-        pub const PairOutput = ActualPredictedOutput;
-        pub const RollingPairOutput = struct {
-            actual_name: []const u8,
-            predicted_name: []const u8,
-            output_prefix: []const u8,
-            options: DeviceRollingOptions,
-        };
-        pub const ExpandingPairOutput = struct {
-            actual_name: []const u8,
-            predicted_name: []const u8,
-            output_prefix: []const u8,
-            options: DeviceExpandingOptions,
-        };
-        pub const BoolTransitionProfile = NameOutputOptions(DeviceTrendOptions);
-        pub const RollingBoolTransitionProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            transition_options: DeviceTrendOptions,
-            options: DeviceRollingOptions,
-        };
-        pub const ExpandingBoolTransitionProfile = struct {
-            name: []const u8,
-            output_prefix: []const u8,
-            transition_options: DeviceTrendOptions,
-            options: DeviceExpandingOptions,
-        };
-        pub const RollingCorrelationProfile = struct {
-            x_name: []const u8,
-            y_name: []const u8,
-            output_prefix: []const u8,
-            options: DeviceRollingCorrelationOptions,
-        };
-        pub const ExpandingXYProfile = struct {
-            x_name: []const u8,
-            y_name: []const u8,
-            output_prefix: []const u8,
-            options: DeviceExpandingOptions,
-        };
-        pub const RollingLinearFitProfile = struct {
-            x_name: []const u8,
-            y_name: []const u8,
-            output_prefix: []const u8,
-            options: DeviceRollingCorrelationOptions,
-        };
-        pub const ValidityProfile = NameOutput;
-        pub const RollingValidityProfile = NameOutputOptions(DeviceRollingOptions);
-        pub const ExpandingValidityProfile = NameOutputOptions(DeviceExpandingOptions);
+        pub const RankProfileBy = profile_payloads.RankProfileBy;
+        pub const RollingProfile = profile_payloads.RollingProfile;
+        pub const ExpandingProfile = profile_payloads.ExpandingProfile;
+        pub const RollingRobustProfile = profile_payloads.RollingRobustProfile;
+        pub const RollingRankProfile = profile_payloads.RollingRankProfile;
+        pub const LagProfile = profile_payloads.LagProfile;
+        pub const ClipProfile = profile_payloads.ClipProfile;
+        pub const RollingClipProfile = profile_payloads.RollingClipProfile;
+        pub const ExpandingClipProfile = profile_payloads.ExpandingClipProfile;
+        pub const ThresholdProfile = profile_payloads.ThresholdProfile;
+        pub const RollingThresholdProfile = profile_payloads.RollingThresholdProfile;
+        pub const ExpandingThresholdProfile = profile_payloads.ExpandingThresholdProfile;
+        pub const ExpandingRankProfile = profile_payloads.ExpandingRankProfile;
+        pub const ExpandingRobustProfile = profile_payloads.ExpandingRobustProfile;
+        pub const StandardizeProfile = profile_payloads.StandardizeProfile;
+        pub const RobustProfile = profile_payloads.RobustProfile;
+        pub const DrawdownProfile = profile_payloads.DrawdownProfile;
+        pub const ExtremaProfile = profile_payloads.ExtremaProfile;
+        pub const TrendProfile = profile_payloads.TrendProfile;
+        pub const RollingTrendProfile = profile_payloads.RollingTrendProfile;
+        pub const ExpandingTrendProfile = profile_payloads.ExpandingTrendProfile;
+        pub const ChangePointProfile = profile_payloads.ChangePointProfile;
+        pub const RollingChangePointProfile = profile_payloads.RollingChangePointProfile;
+        pub const ExpandingChangePointProfile = profile_payloads.ExpandingChangePointProfile;
+        pub const RollingSignProfile = profile_payloads.RollingSignProfile;
+        pub const ExpandingSignProfile = profile_payloads.ExpandingSignProfile;
+        pub const CrossoverProfile = profile_payloads.CrossoverProfile;
+        pub const RollingCrossoverProfile = profile_payloads.RollingCrossoverProfile;
+        pub const ExpandingCrossoverProfile = profile_payloads.ExpandingCrossoverProfile;
+        pub const BucketProfile = profile_payloads.BucketProfile;
+        pub const EmaProfile = profile_payloads.EmaProfile;
+        pub const LinearFitProfile = profile_payloads.LinearFitProfile;
+        pub const PairOutput = profile_payloads.ActualPredictedOutput;
+        pub const RollingPairOutput = profile_payloads.RollingPairOutput;
+        pub const ExpandingPairOutput = profile_payloads.ExpandingPairOutput;
+        pub const BoolTransitionProfile = profile_payloads.TrendProfile;
+        pub const RollingBoolTransitionProfile = profile_payloads.RollingBoolTransitionProfile;
+        pub const ExpandingBoolTransitionProfile = profile_payloads.ExpandingBoolTransitionProfile;
+        pub const RollingCorrelationProfile = profile_payloads.RollingCorrelationProfile;
+        pub const ExpandingXYProfile = profile_payloads.ExpandingXYProfile;
+        pub const RollingLinearFitProfile = profile_payloads.RollingLinearFitProfile;
+        pub const ValidityProfile = profile_payloads.NameOutput;
+        pub const RollingValidityProfile = profile_payloads.RollingProfile;
+        pub const ExpandingValidityProfile = profile_payloads.ExpandingProfile;
         pub const HeadTail = usize;
     };
 }
