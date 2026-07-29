@@ -14,33 +14,10 @@ const join_mod = @import("dataframe_join.zig");
 const lazy_frame_mod = @import("dataframe_lazy_frame.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const boltha = @import("boltha");
-const bool_transition_mod = @import("dataframe_bool_transition.zig");
-const classification_mod = @import("dataframe_classification.zig");
-const error_mod = @import("dataframe_error.zig");
-const correlation_mod = @import("dataframe_correlation.zig");
-const linear_fit_mod = @import("dataframe_linear_fit.zig");
-const crossover_mod = @import("dataframe_crossover.zig");
-const threshold_mod = @import("dataframe_threshold.zig");
-const validity_mod = @import("dataframe_validity.zig");
-const bool_profile_mod = @import("dataframe_bool_profile.zig");
-const clip_mod = @import("dataframe_clip.zig");
-const risk_mod = @import("dataframe_risk.zig");
-const standardize_mod = @import("dataframe_standardize.zig");
-const robust_mod = @import("dataframe_robust.zig");
-const trend_mod = @import("dataframe_trend.zig");
-const change_mod = @import("dataframe_change.zig");
-const sign_mod = @import("dataframe_sign.zig");
-const shift_mod = @import("dataframe_shift.zig");
-const ema_mod = @import("dataframe_ema.zig");
-const quantile_mod = @import("dataframe_quantile.zig");
-const bucket_mod = @import("dataframe_bucket.zig");
 const rank_mod = @import("dataframe_rank.zig");
-const stats_profile_mod = @import("dataframe_stats_profile.zig");
-const moment_mod = @import("dataframe_moment.zig");
-const normalize_mod = @import("dataframe_normalize.zig");
-const range_mod = @import("dataframe_range.zig");
 const group_profile_mod = @import("dataframe_group_profile.zig");
 const group_multi_mod = @import("dataframe_group_multi.zig");
+const profile_methods_mod = @import("dataframe_profile_methods.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = dataframe_host_mod.DType;
@@ -350,326 +327,65 @@ pub const DeviceDataFrame = struct {
         return rank_mod.rankProfileBy(DeviceDataFrame, self, name, output_prefix, options_value);
     }
 
-    pub fn rollingProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return stats_profile_mod.rollingProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingMomentProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return moment_mod.rollingMomentProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingRangeProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return range_mod.rollingRangeProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingNormalizeProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return normalize_mod.rollingNormalizeProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn expandingNormalizeProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return normalize_mod.expandingNormalizeProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingQuantileProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return quantile_mod.rollingQuantileProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn expandingQuantileProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return quantile_mod.expandingQuantileProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingBoolProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return bool_profile_mod.rollingBoolProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingDrawdownProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return risk_mod.rollingDrawdownProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingRobustProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingRobustOptions) DeviceDataError!DeviceDataFrame {
-        return robust_mod.rollingRobustProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingRankProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingRankOptions) DeviceDataError!DeviceDataFrame {
-        return rank_mod.rollingRankProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn lagProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!DeviceDataFrame {
-        return shift_mod.lagProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn leadProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!DeviceDataFrame {
-        return shift_mod.leadProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn clipProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceClipOptions) DeviceDataError!DeviceDataFrame {
-        return clip_mod.clipProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingClipProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, clip_options: DeviceClipOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return clip_mod.rollingClipProfileFrame(DeviceDataFrame, self, name, output_prefix, clip_options, options_value);
-    }
-
-    pub fn expandingClipProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, clip_options: DeviceClipOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return clip_mod.expandingClipProfileFrame(DeviceDataFrame, self, name, output_prefix, clip_options, options_value);
-    }
-
-    pub fn thresholdProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceThresholdOptions) DeviceDataError!DeviceDataFrame {
-        return threshold_mod.thresholdProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingThresholdProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return threshold_mod.rollingThresholdProfileFrame(DeviceDataFrame, self, name, output_prefix, threshold, options_value);
-    }
-
-    pub fn expandingThresholdProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return threshold_mod.expandingThresholdProfileFrame(DeviceDataFrame, self, name, output_prefix, threshold, options_value);
-    }
-
-    pub fn expandingProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return stats_profile_mod.expandingProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn expandingBoolProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return bool_profile_mod.expandingBoolProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn expandingRankProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingRankOptions) DeviceDataError!DeviceDataFrame {
-        return rank_mod.expandingRankProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn expandingRobustProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!DeviceDataFrame {
-        return robust_mod.expandingRobustProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn expandingMomentProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return moment_mod.expandingMomentProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn standardizeProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceStandardizeOptions) DeviceDataError!DeviceDataFrame {
-        return standardize_mod.standardizeProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn robustProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!DeviceDataFrame {
-        return robust_mod.robustProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn drawdownProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceDrawdownOptions) DeviceDataError!DeviceDataFrame {
-        return risk_mod.drawdownProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn extremaProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExtremaOptions) DeviceDataError!DeviceDataFrame {
-        return risk_mod.extremaProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn trendProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
-        return trend_mod.trendProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn changePointProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
-        return change_mod.changePointProfileFrame(DeviceDataFrame, self, name, output_prefix, threshold, options_value);
-    }
-
-    pub fn rollingChangePointProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return change_mod.rollingChangePointProfileFrame(DeviceDataFrame, self, name, output_prefix, threshold, change_options, options_value);
-    }
-
-    pub fn expandingChangePointProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return change_mod.expandingChangePointProfileFrame(DeviceDataFrame, self, name, output_prefix, threshold, change_options, options_value);
-    }
-
-    pub fn rollingTrendProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return trend_mod.rollingTrendProfileFrame(DeviceDataFrame, self, name, output_prefix, trend_options, options_value);
-    }
-
-    pub fn expandingTrendProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return trend_mod.expandingTrendProfileFrame(DeviceDataFrame, self, name, output_prefix, trend_options, options_value);
-    }
-
-    pub fn signProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
-        return sign_mod.signProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingSignProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return sign_mod.rollingSignProfileFrame(DeviceDataFrame, self, name, output_prefix, sign_options, options_value);
-    }
-
-    pub fn expandingSignProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return sign_mod.expandingSignProfileFrame(DeviceDataFrame, self, name, output_prefix, sign_options, options_value);
-    }
-
-    pub fn crossoverProfile(
-        self: DeviceDataFrame,
-        lhs_name: []const u8,
-        rhs_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceCrossoverOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return crossover_mod.crossoverProfileFrame(DeviceDataFrame, self, lhs_name, rhs_name, output_prefix, options_value);
-    }
-
-    pub fn rollingCrossoverProfile(
-        self: DeviceDataFrame,
-        lhs_name: []const u8,
-        rhs_name: []const u8,
-        output_prefix: []const u8,
-        cross_options: DeviceCrossoverOptions,
-        options_value: DeviceRollingOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return crossover_mod.rollingCrossoverProfileFrame(DeviceDataFrame, self, lhs_name, rhs_name, output_prefix, cross_options, options_value);
-    }
-
-    pub fn expandingCrossoverProfile(
-        self: DeviceDataFrame,
-        lhs_name: []const u8,
-        rhs_name: []const u8,
-        output_prefix: []const u8,
-        cross_options: DeviceCrossoverOptions,
-        options_value: DeviceExpandingOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return crossover_mod.expandingCrossoverProfileFrame(DeviceDataFrame, self, lhs_name, rhs_name, output_prefix, cross_options, options_value);
-    }
-
-    pub fn bucketProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceBucketOptions) DeviceDataError!DeviceDataFrame {
-        return bucket_mod.bucketProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn emaProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceEmaOptions) DeviceDataError!DeviceDataFrame {
-        return ema_mod.emaProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn linearFitProfile(
-        self: DeviceDataFrame,
-        x_name: []const u8,
-        y_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceLinearFitOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return linear_fit_mod.linearFitProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
-    }
-
-    pub fn errorProfile(
-        self: DeviceDataFrame,
-        actual_name: []const u8,
-        predicted_name: []const u8,
-        output_prefix: []const u8,
-    ) DeviceDataError!DeviceDataFrame {
-        return error_mod.errorProfileFrame(DeviceDataFrame, self, actual_name, predicted_name, output_prefix);
-    }
-
-    pub fn rollingErrorProfile(
-        self: DeviceDataFrame,
-        actual_name: []const u8,
-        predicted_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceRollingOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return error_mod.rollingErrorProfileFrame(DeviceDataFrame, self, actual_name, predicted_name, output_prefix, options_value);
-    }
-
-    pub fn expandingErrorProfile(
-        self: DeviceDataFrame,
-        actual_name: []const u8,
-        predicted_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceExpandingOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return error_mod.expandingErrorProfileFrame(DeviceDataFrame, self, actual_name, predicted_name, output_prefix, options_value);
-    }
-
-    pub fn classificationProfile(
-        self: DeviceDataFrame,
-        actual_name: []const u8,
-        predicted_name: []const u8,
-        output_prefix: []const u8,
-    ) DeviceDataError!DeviceDataFrame {
-        return classification_mod.classificationProfileFrame(DeviceDataFrame, self, actual_name, predicted_name, output_prefix);
-    }
-
-    pub fn rollingClassificationProfile(
-        self: DeviceDataFrame,
-        actual_name: []const u8,
-        predicted_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceRollingOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return classification_mod.rollingClassificationProfileFrame(DeviceDataFrame, self, actual_name, predicted_name, output_prefix, options_value);
-    }
-
-    pub fn expandingClassificationProfile(
-        self: DeviceDataFrame,
-        actual_name: []const u8,
-        predicted_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceExpandingOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return classification_mod.expandingClassificationProfileFrame(DeviceDataFrame, self, actual_name, predicted_name, output_prefix, options_value);
-    }
-
-    pub fn boolTransitionProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!DeviceDataFrame {
-        return bool_transition_mod.boolTransitionProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn rollingBoolTransitionProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return bool_transition_mod.rollingBoolTransitionProfileFrame(DeviceDataFrame, self, name, output_prefix, transition_options, options_value);
-    }
-
-    pub fn expandingBoolTransitionProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return bool_transition_mod.expandingBoolTransitionProfileFrame(DeviceDataFrame, self, name, output_prefix, transition_options, options_value);
-    }
-
-    pub fn rollingCorrelationProfile(
-        self: DeviceDataFrame,
-        x_name: []const u8,
-        y_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceRollingCorrelationOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return correlation_mod.rollingCorrelationProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
-    }
-
-    pub fn expandingCorrelationProfile(
-        self: DeviceDataFrame,
-        x_name: []const u8,
-        y_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceExpandingOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return correlation_mod.expandingCorrelationProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
-    }
-
-    pub fn expandingLinearFitProfile(
-        self: DeviceDataFrame,
-        x_name: []const u8,
-        y_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceExpandingOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return linear_fit_mod.expandingLinearFitProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
-    }
-
-    pub fn rollingLinearFitProfile(
-        self: DeviceDataFrame,
-        x_name: []const u8,
-        y_name: []const u8,
-        output_prefix: []const u8,
-        options_value: DeviceRollingCorrelationOptions,
-    ) DeviceDataError!DeviceDataFrame {
-        return linear_fit_mod.rollingLinearFitProfileFrame(DeviceDataFrame, self, x_name, y_name, output_prefix, options_value);
-    }
-
-    pub fn validityProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8) DeviceDataError!DeviceDataFrame {
-        return validity_mod.validityProfileFrame(DeviceDataFrame, self, name, output_prefix);
-    }
-
-    pub fn rollingValidityProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!DeviceDataFrame {
-        return validity_mod.rollingValidityProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
-    pub fn expandingValidityProfile(self: DeviceDataFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!DeviceDataFrame {
-        return validity_mod.expandingValidityProfileFrame(DeviceDataFrame, self, name, output_prefix, options_value);
-    }
-
+    pub const rollingProfile = profile_methods_mod.rollingProfile;
+    pub const rollingMomentProfile = profile_methods_mod.rollingMomentProfile;
+    pub const rollingRangeProfile = profile_methods_mod.rollingRangeProfile;
+    pub const rollingNormalizeProfile = profile_methods_mod.rollingNormalizeProfile;
+    pub const expandingNormalizeProfile = profile_methods_mod.expandingNormalizeProfile;
+    pub const rollingQuantileProfile = profile_methods_mod.rollingQuantileProfile;
+    pub const expandingQuantileProfile = profile_methods_mod.expandingQuantileProfile;
+    pub const rollingBoolProfile = profile_methods_mod.rollingBoolProfile;
+    pub const rollingDrawdownProfile = profile_methods_mod.rollingDrawdownProfile;
+    pub const rollingRobustProfile = profile_methods_mod.rollingRobustProfile;
+    pub const rollingRankProfile = profile_methods_mod.rollingRankProfile;
+    pub const lagProfile = profile_methods_mod.lagProfile;
+    pub const leadProfile = profile_methods_mod.leadProfile;
+    pub const clipProfile = profile_methods_mod.clipProfile;
+    pub const rollingClipProfile = profile_methods_mod.rollingClipProfile;
+    pub const expandingClipProfile = profile_methods_mod.expandingClipProfile;
+    pub const thresholdProfile = profile_methods_mod.thresholdProfile;
+    pub const rollingThresholdProfile = profile_methods_mod.rollingThresholdProfile;
+    pub const expandingThresholdProfile = profile_methods_mod.expandingThresholdProfile;
+    pub const expandingProfile = profile_methods_mod.expandingProfile;
+    pub const expandingBoolProfile = profile_methods_mod.expandingBoolProfile;
+    pub const expandingRankProfile = profile_methods_mod.expandingRankProfile;
+    pub const expandingRobustProfile = profile_methods_mod.expandingRobustProfile;
+    pub const expandingMomentProfile = profile_methods_mod.expandingMomentProfile;
+    pub const standardizeProfile = profile_methods_mod.standardizeProfile;
+    pub const robustProfile = profile_methods_mod.robustProfile;
+    pub const drawdownProfile = profile_methods_mod.drawdownProfile;
+    pub const extremaProfile = profile_methods_mod.extremaProfile;
+    pub const trendProfile = profile_methods_mod.trendProfile;
+    pub const changePointProfile = profile_methods_mod.changePointProfile;
+    pub const rollingChangePointProfile = profile_methods_mod.rollingChangePointProfile;
+    pub const expandingChangePointProfile = profile_methods_mod.expandingChangePointProfile;
+    pub const rollingTrendProfile = profile_methods_mod.rollingTrendProfile;
+    pub const expandingTrendProfile = profile_methods_mod.expandingTrendProfile;
+    pub const signProfile = profile_methods_mod.signProfile;
+    pub const rollingSignProfile = profile_methods_mod.rollingSignProfile;
+    pub const expandingSignProfile = profile_methods_mod.expandingSignProfile;
+    pub const crossoverProfile = profile_methods_mod.crossoverProfile;
+    pub const rollingCrossoverProfile = profile_methods_mod.rollingCrossoverProfile;
+    pub const expandingCrossoverProfile = profile_methods_mod.expandingCrossoverProfile;
+    pub const bucketProfile = profile_methods_mod.bucketProfile;
+    pub const emaProfile = profile_methods_mod.emaProfile;
+    pub const linearFitProfile = profile_methods_mod.linearFitProfile;
+    pub const errorProfile = profile_methods_mod.errorProfile;
+    pub const rollingErrorProfile = profile_methods_mod.rollingErrorProfile;
+    pub const expandingErrorProfile = profile_methods_mod.expandingErrorProfile;
+    pub const classificationProfile = profile_methods_mod.classificationProfile;
+    pub const rollingClassificationProfile = profile_methods_mod.rollingClassificationProfile;
+    pub const expandingClassificationProfile = profile_methods_mod.expandingClassificationProfile;
+    pub const boolTransitionProfile = profile_methods_mod.boolTransitionProfile;
+    pub const rollingBoolTransitionProfile = profile_methods_mod.rollingBoolTransitionProfile;
+    pub const expandingBoolTransitionProfile = profile_methods_mod.expandingBoolTransitionProfile;
+    pub const rollingCorrelationProfile = profile_methods_mod.rollingCorrelationProfile;
+    pub const expandingCorrelationProfile = profile_methods_mod.expandingCorrelationProfile;
+    pub const expandingLinearFitProfile = profile_methods_mod.expandingLinearFitProfile;
+    pub const rollingLinearFitProfile = profile_methods_mod.rollingLinearFitProfile;
+    pub const validityProfile = profile_methods_mod.validityProfile;
+    pub const rollingValidityProfile = profile_methods_mod.rollingValidityProfile;
+    pub const expandingValidityProfile = profile_methods_mod.expandingValidityProfile;
     pub fn groupByCount(self: DeviceDataFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!DeviceDataFrame {
         return group_profile_mod.groupByCount(DeviceDataFrame, self, key_name, output_name);
     }
