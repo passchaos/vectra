@@ -1,15 +1,13 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
 const column_arrow_mod = @import("dataframe_device_column_arrow.zig");
+const column_ops_mod = @import("dataframe_device_column_ops.zig");
 const column_sort_mod = @import("dataframe_device_column_sort.zig");
 const dataframe_typed_column_mod = @import("dataframe_device_typed_column.zig");
 const dataframe_view_mod = @import("dataframe_view.zig");
-const options_mod = @import("dataframe_options.zig");
 
 const DeviceDType = array_mod.DType;
 const DeviceColumnView = dataframe_view_mod.DeviceColumnView;
-const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
-const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
 
 pub const DeviceTypedColumn = dataframe_typed_column_mod.DeviceTypedColumn;
 pub const DeviceColumn = union(DeviceDType) {
@@ -152,127 +150,30 @@ pub const DeviceColumn = union(DeviceDType) {
 
     pub const argsort = column_sort_mod.argsort;
 
-    pub fn binary(self: DeviceColumn, other: DeviceColumn, op: DeviceColumnBinaryOp) array_mod.ArrayError!DeviceColumn {
-        if (self.dtype() != other.dtype()) return error.TypeUnsupported;
-        if (!self.device().sameDevice(other.device())) return error.InvalidDevice;
-        return switch (self) {
-            inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.binary(@field(other, @tagName(tag)), op)),
-        };
-    }
-
-    pub fn add(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.binary(other, .add);
-    }
-
-    pub fn sub(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.binary(other, .sub);
-    }
-
-    pub fn mul(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.binary(other, .mul);
-    }
-
-    pub fn div(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.binary(other, .div);
-    }
-
-    pub fn binaryScalar(self: DeviceColumn, comptime T: type, scalar: T, op: DeviceColumnBinaryOp) array_mod.ArrayError!DeviceColumn {
-        if (self.dtype() != DeviceDType.of(T)) return error.TypeUnsupported;
-        const tag = comptime DeviceDType.of(T);
-        return @unionInit(DeviceColumn, @tagName(tag), try @field(self, @tagName(tag)).binaryScalar(scalar, op));
-    }
-
-    pub fn addScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.binaryScalar(T, scalar, .add);
-    }
-
-    pub fn subScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.binaryScalar(T, scalar, .sub);
-    }
-
-    pub fn mulScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.binaryScalar(T, scalar, .mul);
-    }
-
-    pub fn divScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.binaryScalar(T, scalar, .div);
-    }
-
-    pub fn compare(self: DeviceColumn, other: DeviceColumn, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceColumn {
-        if (self.dtype() != other.dtype()) return error.TypeUnsupported;
-        if (!self.device().sameDevice(other.device())) return error.InvalidDevice;
-        return switch (self) {
-            .bool => |typed| .{ .bool = try typed.compare(other.bool, op) },
-            .i8 => |typed| .{ .bool = try typed.compare(other.i8, op) },
-            .i16 => |typed| .{ .bool = try typed.compare(other.i16, op) },
-            .i32 => |typed| .{ .bool = try typed.compare(other.i32, op) },
-            .i64 => |typed| .{ .bool = try typed.compare(other.i64, op) },
-            .u8 => |typed| .{ .bool = try typed.compare(other.u8, op) },
-            .u16 => |typed| .{ .bool = try typed.compare(other.u16, op) },
-            .u32 => |typed| .{ .bool = try typed.compare(other.u32, op) },
-            .u64 => |typed| .{ .bool = try typed.compare(other.u64, op) },
-            .usize => |typed| .{ .bool = try typed.compare(other.usize, op) },
-            .isize => |typed| .{ .bool = try typed.compare(other.isize, op) },
-            .f16 => |typed| .{ .bool = try typed.compare(other.f16, op) },
-            .f32 => |typed| .{ .bool = try typed.compare(other.f32, op) },
-            .f64 => |typed| .{ .bool = try typed.compare(other.f64, op) },
-            .bf16, .c64, .c128 => error.TypeUnsupported,
-        };
-    }
-
-    pub fn equal(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.compare(other, .eq);
-    }
-
-    pub fn notEqual(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.compare(other, .ne);
-    }
-
-    pub fn greater(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.compare(other, .gt);
-    }
-
-    pub fn greaterEqual(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.compare(other, .ge);
-    }
-
-    pub fn less(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.compare(other, .lt);
-    }
-
-    pub fn lessEqual(self: DeviceColumn, other: DeviceColumn) array_mod.ArrayError!DeviceColumn {
-        return self.compare(other, .le);
-    }
-
-    pub fn compareScalar(self: DeviceColumn, comptime T: type, scalar: T, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceColumn {
-        if (self.dtype() != DeviceDType.of(T)) return error.TypeUnsupported;
-        const tag = comptime DeviceDType.of(T);
-        return .{ .bool = try @field(self, @tagName(tag)).compareScalar(scalar, op) };
-    }
-
-    pub fn equalScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.compareScalar(T, scalar, .eq);
-    }
-
-    pub fn notEqualScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.compareScalar(T, scalar, .ne);
-    }
-
-    pub fn greaterScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.compareScalar(T, scalar, .gt);
-    }
-
-    pub fn greaterEqualScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.compareScalar(T, scalar, .ge);
-    }
-
-    pub fn lessScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.compareScalar(T, scalar, .lt);
-    }
-
-    pub fn lessEqualScalar(self: DeviceColumn, comptime T: type, scalar: T) array_mod.ArrayError!DeviceColumn {
-        return self.compareScalar(T, scalar, .le);
-    }
+    pub const binary = column_ops_mod.binary;
+    pub const add = column_ops_mod.add;
+    pub const sub = column_ops_mod.sub;
+    pub const mul = column_ops_mod.mul;
+    pub const div = column_ops_mod.div;
+    pub const binaryScalar = column_ops_mod.binaryScalar;
+    pub const addScalar = column_ops_mod.addScalar;
+    pub const subScalar = column_ops_mod.subScalar;
+    pub const mulScalar = column_ops_mod.mulScalar;
+    pub const divScalar = column_ops_mod.divScalar;
+    pub const compare = column_ops_mod.compare;
+    pub const equal = column_ops_mod.equal;
+    pub const notEqual = column_ops_mod.notEqual;
+    pub const greater = column_ops_mod.greater;
+    pub const greaterEqual = column_ops_mod.greaterEqual;
+    pub const less = column_ops_mod.less;
+    pub const lessEqual = column_ops_mod.lessEqual;
+    pub const compareScalar = column_ops_mod.compareScalar;
+    pub const equalScalar = column_ops_mod.equalScalar;
+    pub const notEqualScalar = column_ops_mod.notEqualScalar;
+    pub const greaterScalar = column_ops_mod.greaterScalar;
+    pub const greaterEqualScalar = column_ops_mod.greaterEqualScalar;
+    pub const lessScalar = column_ops_mod.lessScalar;
+    pub const lessEqualScalar = column_ops_mod.lessEqualScalar;
 
     pub const arrowDataType = column_arrow_mod.arrowDataType;
     pub const toArrowArray = column_arrow_mod.toArrowArray;
