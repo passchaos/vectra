@@ -3,6 +3,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
 const lazy_profile_mod = @import("dataframe_lazy_profile_plan.zig");
+const trend_methods_mod = @import("dataframe_lazy_profile_trend_methods.zig");
 const lazy_sort_mod = @import("dataframe_lazy_sort_plan.zig");
 const options_mod = @import("dataframe_options.zig");
 const series_mod = @import("series.zig");
@@ -15,7 +16,6 @@ const DeviceStandardizeOptions = options_mod.DeviceStandardizeOptions;
 const DeviceRobustOptions = options_mod.DeviceRobustOptions;
 const DeviceDrawdownOptions = options_mod.DeviceDrawdownOptions;
 const DeviceExtremaOptions = options_mod.DeviceExtremaOptions;
-const DeviceTrendOptions = options_mod.DeviceTrendOptions;
 const DeviceClipOptions = options_mod.DeviceClipOptions;
 const DeviceThresholdOptions = options_mod.DeviceThresholdOptions;
 const DeviceRollingRankOptions = options_mod.DeviceRollingRankOptions;
@@ -134,38 +134,12 @@ pub fn extremaProfile(self: anytype, name: []const u8, output_prefix: []const u8
     return lazy_profile_mod.appendNameOutputOptions(self, "extrema_profile", name, output_prefix, options_value);
 }
 
-pub fn trendProfile(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
-    return lazy_profile_mod.appendNameOutputOptions(self, "trend_profile", name, output_prefix, options_value);
-}
-
-pub fn rollingTrendProfile(self: anytype, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
-    return lazy_profile_mod.appendNameOutputExtraOptions(self, "rolling_trend_profile", name, output_prefix, "trend_options", trend_options, options_value);
-}
-
-pub fn expandingTrendProfile(self: anytype, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
-    return lazy_profile_mod.appendNameOutputExtraOptions(self, "expanding_trend_profile", name, output_prefix, "trend_options", trend_options, options_value);
-}
-
-pub fn changePointProfile(self: anytype, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceTrendOptions) DeviceDataError!void {
-    return lazy_profile_mod.appendNameOutputThresholdOptions(self, "change_point_profile", name, output_prefix, threshold, options_value);
-}
-
-pub fn rollingChangePointProfile(self: anytype, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
-    return lazy_profile_mod.appendNameOutputThresholdExtraOptions(self, "rolling_change_point_profile", name, output_prefix, threshold, "change_options", change_options, options_value);
-}
-
-pub fn expandingChangePointProfile(self: anytype, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
-    return lazy_profile_mod.appendNameOutputThresholdExtraOptions(self, "expanding_change_point_profile", name, output_prefix, threshold, "change_options", change_options, options_value);
-}
-
-pub fn signProfile(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
-    return lazy_profile_mod.appendNameOutputOptions(self, "sign_profile", name, output_prefix, options_value);
-}
-
-pub fn rollingSignProfile(self: anytype, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
-    return lazy_profile_mod.appendNameOutputExtraOptions(self, "rolling_sign_profile", name, output_prefix, "sign_options", sign_options, options_value);
-}
-
-pub fn expandingSignProfile(self: anytype, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
-    return lazy_profile_mod.appendNameOutputExtraOptions(self, "expanding_sign_profile", name, output_prefix, "sign_options", sign_options, options_value);
-}
+pub const trendProfile = trend_methods_mod.trendProfile;
+pub const rollingTrendProfile = trend_methods_mod.rollingTrendProfile;
+pub const expandingTrendProfile = trend_methods_mod.expandingTrendProfile;
+pub const changePointProfile = trend_methods_mod.changePointProfile;
+pub const rollingChangePointProfile = trend_methods_mod.rollingChangePointProfile;
+pub const expandingChangePointProfile = trend_methods_mod.expandingChangePointProfile;
+pub const signProfile = trend_methods_mod.signProfile;
+pub const rollingSignProfile = trend_methods_mod.rollingSignProfile;
+pub const expandingSignProfile = trend_methods_mod.expandingSignProfile;
