@@ -1,7 +1,6 @@
 const std = @import("std");
 const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
-const dataframe_arrow_mod = @import("dataframe_arrow.zig");
 const dataframe_core_mod = @import("dataframe_core.zig");
 const dataframe_host_mod = @import("dataframe_host.zig");
 const options_mod = @import("dataframe_options.zig");
@@ -13,6 +12,7 @@ const boltha = @import("boltha");
 const profile_methods_mod = @import("dataframe_profile_methods.zig");
 const relation_methods_mod = @import("dataframe_relation_methods.zig");
 const table_methods_mod = @import("dataframe_table_methods.zig");
+const arrow_methods_mod = @import("dataframe_arrow_methods.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = dataframe_host_mod.DType;
@@ -152,24 +152,13 @@ pub const DeviceDataFrame = struct {
     pub const compareColumnScalar = table_methods_mod.compareColumnScalar;
     pub const compareColumnScalarWithDeviceScalar = table_methods_mod.compareColumnScalarWithDeviceScalar;
     pub const filterColumnMask = table_methods_mod.filterColumnMask;
-    pub fn toArrowSchema(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
-        return dataframe_arrow_mod.toArrowSchema(self, allocator);
-    }
-
-    pub fn toArrowRecordBatch(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.RecordBatch {
-        return dataframe_arrow_mod.toArrowRecordBatch(self, allocator);
-    }
-
-    pub fn toArrowTable(self: DeviceDataFrame, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Table {
-        return dataframe_arrow_mod.toArrowTable(self, allocator);
-    }
-
-    pub fn toParquetBytes(self: DeviceDataFrame, allocator: std.mem.Allocator) ParquetInteropError![]u8 {
-        return dataframe_arrow_mod.toParquetBytes(self, allocator);
-    }
+    pub const toArrowSchema = arrow_methods_mod.toArrowSchema;
+    pub const toArrowRecordBatch = arrow_methods_mod.toArrowRecordBatch;
+    pub const toArrowTable = arrow_methods_mod.toArrowTable;
+    pub const toParquetBytes = arrow_methods_mod.toParquetBytes;
 
     pub fn fromParquetBytes(allocator: std.mem.Allocator, bytes: []const u8, device_value: array_mod.Device) ParquetInteropError!DeviceDataFrame {
-        return dataframe_arrow_mod.fromParquetBytes(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, bytes, device_value);
+        return arrow_methods_mod.fromParquetBytes(DeviceDataFrame, DeviceColumnDef, allocator, bytes, device_value);
     }
 
     pub fn fromParquetBytesPruned(
@@ -179,11 +168,11 @@ pub const DeviceDataFrame = struct {
         predicate: ParquetRangePredicate,
         device_value: array_mod.Device,
     ) ParquetInteropError!DeviceDataFrame {
-        return dataframe_arrow_mod.fromParquetBytesPruned(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, bytes, column_name, predicate, device_value);
+        return arrow_methods_mod.fromParquetBytesPruned(DeviceDataFrame, DeviceColumnDef, allocator, bytes, column_name, predicate, device_value);
     }
 
     pub fn fromArrowTable(allocator: std.mem.Allocator, table: boltha.arrow.Table, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
-        return dataframe_arrow_mod.fromArrowTable(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table, device_value);
+        return arrow_methods_mod.fromArrowTable(DeviceDataFrame, DeviceColumnDef, allocator, table, device_value);
     }
 
     pub fn fromArrowTableProjection(
@@ -192,11 +181,11 @@ pub const DeviceDataFrame = struct {
         wanted_names: []const []const u8,
         device_value: array_mod.Device,
     ) ArrowInteropError!DeviceDataFrame {
-        return dataframe_arrow_mod.fromArrowTableProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, table, wanted_names, device_value);
+        return arrow_methods_mod.fromArrowTableProjection(DeviceDataFrame, DeviceColumnDef, allocator, table, wanted_names, device_value);
     }
 
     pub fn fromArrowRecordBatch(allocator: std.mem.Allocator, batch: boltha.arrow.RecordBatch, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
-        return dataframe_arrow_mod.fromArrowRecordBatch(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, batch, device_value);
+        return arrow_methods_mod.fromArrowRecordBatch(DeviceDataFrame, DeviceColumnDef, allocator, batch, device_value);
     }
 
     pub fn fromArrowRecordBatchProjection(
@@ -205,7 +194,7 @@ pub const DeviceDataFrame = struct {
         wanted_names: []const []const u8,
         device_value: array_mod.Device,
     ) ArrowInteropError!DeviceDataFrame {
-        return dataframe_arrow_mod.fromArrowRecordBatchProjection(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, batch, wanted_names, device_value);
+        return arrow_methods_mod.fromArrowRecordBatchProjection(DeviceDataFrame, DeviceColumnDef, allocator, batch, wanted_names, device_value);
     }
 
     pub const view = table_methods_mod.view;
