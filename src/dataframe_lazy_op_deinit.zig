@@ -2,8 +2,11 @@
 
 const std = @import("std");
 const names_mod = @import("dataframe_names.zig");
+const profile_deinit_mod = @import("dataframe_lazy_op_deinit_profile.zig");
 
 const freeNameList = names_mod.freeNameList;
+const freeNameOutput = profile_deinit_mod.freeNameOutput;
+const freePairOutput = profile_deinit_mod.freePairOutput;
 
 pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) void {
     switch (self.*) {
@@ -76,260 +79,66 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .distinct_on => |names| freeNameList(allocator, names),
         .sort_by => |sort| allocator.free(sort.name),
         .top_k => |top| allocator.free(top.name),
-        .rank_profile_by => |rank| {
-            allocator.free(rank.name);
-            allocator.free(rank.output_prefix);
-        },
-        .rolling_profile => |rolling| {
-            allocator.free(rolling.name);
-            allocator.free(rolling.output_prefix);
-        },
-        .rolling_moment_profile => |rolling| {
-            allocator.free(rolling.name);
-            allocator.free(rolling.output_prefix);
-        },
-        .rolling_range_profile => |rolling| {
-            allocator.free(rolling.name);
-            allocator.free(rolling.output_prefix);
-        },
-        .rolling_normalize_profile => |rolling| {
-            allocator.free(rolling.name);
-            allocator.free(rolling.output_prefix);
-        },
-        .expanding_normalize_profile => |expanding| {
-            allocator.free(expanding.name);
-            allocator.free(expanding.output_prefix);
-        },
-        .rolling_quantile_profile => |rolling| {
-            allocator.free(rolling.name);
-            allocator.free(rolling.output_prefix);
-        },
-        .expanding_quantile_profile => |expanding| {
-            allocator.free(expanding.name);
-            allocator.free(expanding.output_prefix);
-        },
-        .rolling_bool_profile => |rolling| {
-            allocator.free(rolling.name);
-            allocator.free(rolling.output_prefix);
-        },
-        .rolling_drawdown_profile => |rolling| {
-            allocator.free(rolling.name);
-            allocator.free(rolling.output_prefix);
-        },
-        .rolling_robust_profile => |rolling| {
-            allocator.free(rolling.name);
-            allocator.free(rolling.output_prefix);
-        },
-        .rolling_rank_profile => |rolling| {
-            allocator.free(rolling.name);
-            allocator.free(rolling.output_prefix);
-        },
-        .lag_profile => |lag| {
-            allocator.free(lag.name);
-            allocator.free(lag.output_prefix);
-        },
-        .lead_profile => |lead| {
-            allocator.free(lead.name);
-            allocator.free(lead.output_prefix);
-        },
-        .clip_profile => |clip| {
-            allocator.free(clip.name);
-            allocator.free(clip.output_prefix);
-        },
-        .rolling_clip_profile => |clip| {
-            allocator.free(clip.name);
-            allocator.free(clip.output_prefix);
-        },
-        .expanding_clip_profile => |clip| {
-            allocator.free(clip.name);
-            allocator.free(clip.output_prefix);
-        },
-        .threshold_profile => |threshold| {
-            allocator.free(threshold.name);
-            allocator.free(threshold.output_prefix);
-        },
-        .rolling_threshold_profile => |threshold| {
-            allocator.free(threshold.name);
-            allocator.free(threshold.output_prefix);
-        },
-        .expanding_threshold_profile => |threshold| {
-            allocator.free(threshold.name);
-            allocator.free(threshold.output_prefix);
-        },
-        .expanding_profile => |expanding| {
-            allocator.free(expanding.name);
-            allocator.free(expanding.output_prefix);
-        },
-        .expanding_bool_profile => |expanding| {
-            allocator.free(expanding.name);
-            allocator.free(expanding.output_prefix);
-        },
-        .expanding_rank_profile => |expanding| {
-            allocator.free(expanding.name);
-            allocator.free(expanding.output_prefix);
-        },
-        .expanding_robust_profile => |expanding| {
-            allocator.free(expanding.name);
-            allocator.free(expanding.output_prefix);
-        },
-        .expanding_moment_profile => |expanding| {
-            allocator.free(expanding.name);
-            allocator.free(expanding.output_prefix);
-        },
-        .standardize_profile => |standardize| {
-            allocator.free(standardize.name);
-            allocator.free(standardize.output_prefix);
-        },
-        .robust_profile => |robust| {
-            allocator.free(robust.name);
-            allocator.free(robust.output_prefix);
-        },
-        .drawdown_profile => |drawdown| {
-            allocator.free(drawdown.name);
-            allocator.free(drawdown.output_prefix);
-        },
-        .extrema_profile => |extrema| {
-            allocator.free(extrema.name);
-            allocator.free(extrema.output_prefix);
-        },
-        .trend_profile => |trend| {
-            allocator.free(trend.name);
-            allocator.free(trend.output_prefix);
-        },
-        .rolling_trend_profile => |trend| {
-            allocator.free(trend.name);
-            allocator.free(trend.output_prefix);
-        },
-        .expanding_trend_profile => |trend| {
-            allocator.free(trend.name);
-            allocator.free(trend.output_prefix);
-        },
-        .change_point_profile => |change| {
-            allocator.free(change.name);
-            allocator.free(change.output_prefix);
-        },
-        .rolling_change_point_profile => |change| {
-            allocator.free(change.name);
-            allocator.free(change.output_prefix);
-        },
-        .expanding_change_point_profile => |change| {
-            allocator.free(change.name);
-            allocator.free(change.output_prefix);
-        },
-        .sign_profile => |sign| {
-            allocator.free(sign.name);
-            allocator.free(sign.output_prefix);
-        },
-        .rolling_sign_profile => |sign| {
-            allocator.free(sign.name);
-            allocator.free(sign.output_prefix);
-        },
-        .expanding_sign_profile => |sign| {
-            allocator.free(sign.name);
-            allocator.free(sign.output_prefix);
-        },
-        .crossover_profile => |cross| {
-            allocator.free(cross.lhs_name);
-            allocator.free(cross.rhs_name);
-            allocator.free(cross.output_prefix);
-        },
-        .rolling_crossover_profile => |cross| {
-            allocator.free(cross.lhs_name);
-            allocator.free(cross.rhs_name);
-            allocator.free(cross.output_prefix);
-        },
-        .expanding_crossover_profile => |cross| {
-            allocator.free(cross.lhs_name);
-            allocator.free(cross.rhs_name);
-            allocator.free(cross.output_prefix);
-        },
-        .bucket_profile => |bucket| {
-            allocator.free(bucket.name);
-            allocator.free(bucket.output_prefix);
-        },
-        .ema_profile => |ema| {
-            allocator.free(ema.name);
-            allocator.free(ema.output_prefix);
-        },
-        .linear_fit_profile => |fit| {
-            allocator.free(fit.x_name);
-            allocator.free(fit.y_name);
-            allocator.free(fit.output_prefix);
-        },
-        .error_profile => |err| {
-            allocator.free(err.actual_name);
-            allocator.free(err.predicted_name);
-            allocator.free(err.output_prefix);
-        },
-        .rolling_error_profile => |err| {
-            allocator.free(err.actual_name);
-            allocator.free(err.predicted_name);
-            allocator.free(err.output_prefix);
-        },
-        .expanding_error_profile => |err| {
-            allocator.free(err.actual_name);
-            allocator.free(err.predicted_name);
-            allocator.free(err.output_prefix);
-        },
-        .classification_profile => |class| {
-            allocator.free(class.actual_name);
-            allocator.free(class.predicted_name);
-            allocator.free(class.output_prefix);
-        },
-        .rolling_classification_profile => |class| {
-            allocator.free(class.actual_name);
-            allocator.free(class.predicted_name);
-            allocator.free(class.output_prefix);
-        },
-        .expanding_classification_profile => |class| {
-            allocator.free(class.actual_name);
-            allocator.free(class.predicted_name);
-            allocator.free(class.output_prefix);
-        },
-        .bool_transition_profile => |transition| {
-            allocator.free(transition.name);
-            allocator.free(transition.output_prefix);
-        },
-        .rolling_bool_transition_profile => |transition| {
-            allocator.free(transition.name);
-            allocator.free(transition.output_prefix);
-        },
-        .expanding_bool_transition_profile => |transition| {
-            allocator.free(transition.name);
-            allocator.free(transition.output_prefix);
-        },
-        .rolling_correlation_profile => |corr| {
-            allocator.free(corr.x_name);
-            allocator.free(corr.y_name);
-            allocator.free(corr.output_prefix);
-        },
-        .expanding_correlation_profile => |corr| {
-            allocator.free(corr.x_name);
-            allocator.free(corr.y_name);
-            allocator.free(corr.output_prefix);
-        },
-        .expanding_linear_fit_profile => |fit| {
-            allocator.free(fit.x_name);
-            allocator.free(fit.y_name);
-            allocator.free(fit.output_prefix);
-        },
-        .rolling_linear_fit_profile => |fit| {
-            allocator.free(fit.x_name);
-            allocator.free(fit.y_name);
-            allocator.free(fit.output_prefix);
-        },
-        .validity_profile => |validity| {
-            allocator.free(validity.name);
-            allocator.free(validity.output_prefix);
-        },
-        .rolling_validity_profile => |validity| {
-            allocator.free(validity.name);
-            allocator.free(validity.output_prefix);
-        },
-        .expanding_validity_profile => |validity| {
-            allocator.free(validity.name);
-            allocator.free(validity.output_prefix);
-        },
+        .rank_profile_by => |payload| freeNameOutput(allocator, payload),
+        .rolling_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_moment_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_range_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_normalize_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_normalize_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_quantile_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_quantile_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_bool_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_drawdown_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_robust_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_rank_profile => |payload| freeNameOutput(allocator, payload),
+        .lag_profile => |payload| freeNameOutput(allocator, payload),
+        .lead_profile => |payload| freeNameOutput(allocator, payload),
+        .clip_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_clip_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_clip_profile => |payload| freeNameOutput(allocator, payload),
+        .threshold_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_threshold_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_threshold_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_bool_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_rank_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_robust_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_moment_profile => |payload| freeNameOutput(allocator, payload),
+        .standardize_profile => |payload| freeNameOutput(allocator, payload),
+        .robust_profile => |payload| freeNameOutput(allocator, payload),
+        .drawdown_profile => |payload| freeNameOutput(allocator, payload),
+        .extrema_profile => |payload| freeNameOutput(allocator, payload),
+        .trend_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_trend_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_trend_profile => |payload| freeNameOutput(allocator, payload),
+        .change_point_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_change_point_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_change_point_profile => |payload| freeNameOutput(allocator, payload),
+        .sign_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_sign_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_sign_profile => |payload| freeNameOutput(allocator, payload),
+        .crossover_profile => |payload| freePairOutput(allocator, payload, "lhs_name", "rhs_name"),
+        .rolling_crossover_profile => |payload| freePairOutput(allocator, payload, "lhs_name", "rhs_name"),
+        .expanding_crossover_profile => |payload| freePairOutput(allocator, payload, "lhs_name", "rhs_name"),
+        .bucket_profile => |payload| freeNameOutput(allocator, payload),
+        .ema_profile => |payload| freeNameOutput(allocator, payload),
+        .linear_fit_profile => |payload| freePairOutput(allocator, payload, "x_name", "y_name"),
+        .error_profile => |payload| freePairOutput(allocator, payload, "actual_name", "predicted_name"),
+        .rolling_error_profile => |payload| freePairOutput(allocator, payload, "actual_name", "predicted_name"),
+        .expanding_error_profile => |payload| freePairOutput(allocator, payload, "actual_name", "predicted_name"),
+        .classification_profile => |payload| freePairOutput(allocator, payload, "actual_name", "predicted_name"),
+        .rolling_classification_profile => |payload| freePairOutput(allocator, payload, "actual_name", "predicted_name"),
+        .expanding_classification_profile => |payload| freePairOutput(allocator, payload, "actual_name", "predicted_name"),
+        .bool_transition_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_bool_transition_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_bool_transition_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_correlation_profile => |payload| freePairOutput(allocator, payload, "x_name", "y_name"),
+        .expanding_correlation_profile => |payload| freePairOutput(allocator, payload, "x_name", "y_name"),
+        .expanding_linear_fit_profile => |payload| freePairOutput(allocator, payload, "x_name", "y_name"),
+        .rolling_linear_fit_profile => |payload| freePairOutput(allocator, payload, "x_name", "y_name"),
+        .validity_profile => |payload| freeNameOutput(allocator, payload),
+        .rolling_validity_profile => |payload| freeNameOutput(allocator, payload),
+        .expanding_validity_profile => |payload| freeNameOutput(allocator, payload),
         .distinct_rows, .head, .tail => {},
     }
     self.* = undefined;
