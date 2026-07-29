@@ -4,36 +4,9 @@
 //! them outside `dataframe.zig` keeps the public facade small while preserving
 //! `frame.rollingProfile(...)` style method syntax through aliases.
 
-const std = @import("std");
-const array_mod = @import("array.zig");
-const validity_mod = @import("dataframe_validity.zig");
+const validity_methods_mod = @import("dataframe_profile_validity_methods.zig");
 const name_methods_mod = @import("dataframe_profile_name_methods.zig");
 const pair_methods_mod = @import("dataframe_profile_pair_methods.zig");
-const options_mod = @import("dataframe_options.zig");
-const series_mod = @import("series.zig");
-
-const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
-const DeviceRollingOptions = options_mod.DeviceRollingOptions;
-const DeviceExpandingOptions = options_mod.DeviceExpandingOptions;
-const DeviceCrossoverOptions = options_mod.DeviceCrossoverOptions;
-const DeviceBucketOptions = options_mod.DeviceBucketOptions;
-const DeviceEmaOptions = options_mod.DeviceEmaOptions;
-const DeviceLinearFitOptions = options_mod.DeviceLinearFitOptions;
-const DeviceRollingCorrelationOptions = options_mod.DeviceRollingCorrelationOptions;
-
-fn FrameType(comptime Frame: type) type {
-    return switch (@typeInfo(Frame)) {
-        .pointer => |ptr| ptr.child,
-        else => Frame,
-    };
-}
-
-fn frameValue(self: anytype) FrameType(@TypeOf(self)) {
-    return switch (@typeInfo(@TypeOf(self))) {
-        .pointer => self.*,
-        else => self,
-    };
-}
 
 pub const rollingProfile = name_methods_mod.rollingProfile;
 pub const rollingMomentProfile = name_methods_mod.rollingMomentProfile;
@@ -92,14 +65,6 @@ pub const expandingCorrelationProfile = pair_methods_mod.expandingCorrelationPro
 pub const expandingLinearFitProfile = pair_methods_mod.expandingLinearFitProfile;
 pub const rollingLinearFitProfile = pair_methods_mod.rollingLinearFitProfile;
 
-pub fn validityProfile(self: anytype, name: []const u8, output_prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
-    return validity_mod.validityProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix);
-}
-
-pub fn rollingValidityProfile(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return validity_mod.rollingValidityProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, options_value);
-}
-
-pub fn expandingValidityProfile(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return validity_mod.expandingValidityProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, options_value);
-}
+pub const validityProfile = validity_methods_mod.validityProfile;
+pub const rollingValidityProfile = validity_methods_mod.rollingValidityProfile;
+pub const expandingValidityProfile = validity_methods_mod.expandingValidityProfile;
