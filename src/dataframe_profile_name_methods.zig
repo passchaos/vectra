@@ -8,9 +8,7 @@ const clip_mod = @import("dataframe_clip.zig");
 const risk_mod = @import("dataframe_risk.zig");
 const standardize_mod = @import("dataframe_standardize.zig");
 const robust_mod = @import("dataframe_robust.zig");
-const trend_mod = @import("dataframe_trend.zig");
-const change_mod = @import("dataframe_change.zig");
-const sign_mod = @import("dataframe_sign.zig");
+const trend_methods_mod = @import("dataframe_profile_trend_methods.zig");
 const shift_mod = @import("dataframe_shift.zig");
 const quantile_mod = @import("dataframe_quantile.zig");
 const rank_mod = @import("dataframe_rank.zig");
@@ -30,7 +28,6 @@ const DeviceStandardizeOptions = options_mod.DeviceStandardizeOptions;
 const DeviceRobustOptions = options_mod.DeviceRobustOptions;
 const DeviceDrawdownOptions = options_mod.DeviceDrawdownOptions;
 const DeviceExtremaOptions = options_mod.DeviceExtremaOptions;
-const DeviceTrendOptions = options_mod.DeviceTrendOptions;
 const DeviceClipOptions = options_mod.DeviceClipOptions;
 const DeviceThresholdOptions = options_mod.DeviceThresholdOptions;
 const DeviceRollingRankOptions = options_mod.DeviceRollingRankOptions;
@@ -162,38 +159,12 @@ pub fn extremaProfile(self: anytype, name: []const u8, output_prefix: []const u8
     return risk_mod.extremaProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, options_value);
 }
 
-pub fn trendProfile(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return trend_mod.trendProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, options_value);
-}
-
-pub fn changePointProfile(self: anytype, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceTrendOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return change_mod.changePointProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, threshold, options_value);
-}
-
-pub fn rollingChangePointProfile(self: anytype, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return change_mod.rollingChangePointProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, threshold, change_options, options_value);
-}
-
-pub fn expandingChangePointProfile(self: anytype, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return change_mod.expandingChangePointProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, threshold, change_options, options_value);
-}
-
-pub fn rollingTrendProfile(self: anytype, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return trend_mod.rollingTrendProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, trend_options, options_value);
-}
-
-pub fn expandingTrendProfile(self: anytype, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return trend_mod.expandingTrendProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, trend_options, options_value);
-}
-
-pub fn signProfile(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return sign_mod.signProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, options_value);
-}
-
-pub fn rollingSignProfile(self: anytype, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return sign_mod.rollingSignProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, sign_options, options_value);
-}
-
-pub fn expandingSignProfile(self: anytype, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!FrameType(@TypeOf(self)) {
-    return sign_mod.expandingSignProfileFrame(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, sign_options, options_value);
-}
+pub const trendProfile = trend_methods_mod.trendProfile;
+pub const changePointProfile = trend_methods_mod.changePointProfile;
+pub const rollingChangePointProfile = trend_methods_mod.rollingChangePointProfile;
+pub const expandingChangePointProfile = trend_methods_mod.expandingChangePointProfile;
+pub const rollingTrendProfile = trend_methods_mod.rollingTrendProfile;
+pub const expandingTrendProfile = trend_methods_mod.expandingTrendProfile;
+pub const signProfile = trend_methods_mod.signProfile;
+pub const rollingSignProfile = trend_methods_mod.rollingSignProfile;
+pub const expandingSignProfile = trend_methods_mod.expandingSignProfile;
