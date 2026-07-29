@@ -2,7 +2,8 @@ const std = @import("std");
 const series_mod = @import("series.zig");
 const array_mod = @import("array.zig");
 const dataframe_column_mod = @import("dataframe_column.zig");
-const csv_mod = @import("dataframe_csv.zig");
+const host_device_mod = @import("dataframe_host_device.zig");
+const host_io_mod = @import("dataframe_host_io.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 
 pub const DataError = series_mod.DataError;
@@ -11,8 +12,6 @@ const freeColumn = dataframe_column_mod.freeColumn;
 const filterColumn = dataframe_column_mod.filterColumn;
 const sliceColumn = dataframe_column_mod.sliceColumn;
 const takeColumn = dataframe_column_mod.takeColumn;
-const splitCsvLineOwned = csv_mod.splitCsvLineOwned;
-const printCell = csv_mod.printCell;
 const describeF64 = numeric_mod.describeF64;
 const describeI64 = numeric_mod.describeI64;
 
@@ -281,110 +280,15 @@ pub const DataFrame = struct {
     }
 
     pub fn readCsv(allocator: std.mem.Allocator, text: []const u8, has_header: bool) DataError!DataFrame {
-        var lines = std.mem.splitScalar(u8, text, '\n');
-        const first_raw = lines.next() orelse return error.InvalidCsv;
-        const first = std.mem.trim(u8, first_raw, "\r ");
-        if (first.len == 0) return error.InvalidCsv;
-        var headers_list: std.ArrayList([]const u8) = .empty;
-        defer {
-            for (headers_list.items) |h| allocator.free(h);
-            headers_list.deinit(allocator);
-        }
-
-        var first_values: ?[][]const u8 = null;
-        defer if (first_values) |vals| {
-            for (vals) |v| allocator.free(v);
-            allocator.free(vals);
-        };
-
-        if (has_header) {
-            try splitCsvLineOwned(allocator, first, &headers_list);
-        } else {
-            var vals_list: std.ArrayList([]const u8) = .empty;
-            defer vals_list.deinit(allocator);
-            try splitCsvLineOwned(allocator, first, &vals_list);
-            first_values = try vals_list.toOwnedSlice(allocator);
-            for (0..first_values.?.len) |i| {
-                var aw: std.Io.Writer.Allocating = .init(allocator);
-                defer aw.deinit();
-                try aw.writer.print("col{}", .{i});
-                try headers_list.append(allocator, try aw.toOwnedSlice());
-            }
-        }
-
-        const cols = headers_list.items.len;
-        var string_cols = try allocator.alloc(std.ArrayList([]const u8), cols);
-        defer allocator.free(string_cols);
-        for (string_cols) |*list| list.* = .empty;
-        defer {
-            for (string_cols) |*list| {
-                for (list.items) |cell| allocator.free(cell);
-                list.deinit(allocator);
-            }
-        }
-
-        if (first_values) |vals| {
-            if (vals.len != cols) return error.InvalidCsv;
-            for (vals, 0..) |v, i| try string_cols[i].append(allocator, try allocator.dupe(u8, v));
-        }
-        while (lines.next()) |raw| {
-            const line = std.mem.trim(u8, raw, "\r ");
-            if (line.len == 0) continue;
-            var vals_list: std.ArrayList([]const u8) = .empty;
-            defer {
-                for (vals_list.items) |v| allocator.free(v);
-                vals_list.deinit(allocator);
-            }
-            try splitCsvLineOwned(allocator, line, &vals_list);
-            if (vals_list.items.len != cols) return error.InvalidCsv;
-            for (vals_list.items, 0..) |v, i| try string_cols[i].append(allocator, try allocator.dupe(u8, v));
-        }
-
-        var defs = try allocator.alloc(ColumnDef, cols);
-        defer allocator.free(defs);
-        for (headers_list.items, string_cols, 0..) |header, cells, i| {
-            defs[i] = .{ .name = header, .data = try csv_mod.inferColumn(Column, allocator, cells.items) };
-        }
-        defer {
-            for (defs) |def| freeColumn(allocator, def.data);
-        }
-        return DataFrame.init(allocator, defs);
+        return host_io_mod.readCsv(DataFrame, Column, ColumnDef, allocator, text, has_header);
     }
 
     pub fn writeCsv(self: DataFrame, allocator: std.mem.Allocator) DataError![]u8 {
-        var aw: std.Io.Writer.Allocating = .init(allocator);
-        errdefer aw.deinit();
-        for (self.names, 0..) |name, i| {
-            if (i != 0) try aw.writer.print(",", .{});
-            try aw.writer.print("{s}", .{name});
-        }
-        try aw.writer.print("\n", .{});
-        for (0..self.rows) |r| {
-            for (self.columns, 0..) |col, c| {
-                if (c != 0) try aw.writer.print(",", .{});
-                try printCell(&aw.writer, col, r);
-            }
-            try aw.writer.print("\n", .{});
-        }
-        return aw.toOwnedSlice();
+        return host_io_mod.writeCsv(self, allocator);
     }
 
     pub fn print(self: DataFrame, writer: *std.Io.Writer) std.Io.Writer.Error!void {
-        try writer.print("DataFrame(shape=({}, {}))\n", .{ self.rows, self.columns.len });
-        for (self.names, 0..) |name, i| {
-            if (i != 0) try writer.print("\t", .{});
-            try writer.print("{s}", .{name});
-        }
-        try writer.print("\n", .{});
-        const limit = @min(self.rows, 12);
-        for (0..limit) |r| {
-            for (self.columns, 0..) |col, c| {
-                if (c != 0) try writer.print("\t", .{});
-                try printCell(writer, col, r);
-            }
-            try writer.print("\n", .{});
-        }
-        if (self.rows > limit) try writer.print("...\n", .{});
+        return host_io_mod.print(self, writer);
     }
 };
 
@@ -400,45 +304,9 @@ pub fn deviceDataFrameFromDataFrame(
     frame: DataFrame,
     device_value: array_mod.Device,
 ) (DataError || array_mod.ArrayError)!DeviceDataFrame {
-    if (!device_value.isAvailable()) return error.InvalidDevice;
-    if (frame.columns.len == 0) return DeviceDataFrame.initEmpty(allocator, frame.rows, device_value);
-    var defs = try allocator.alloc(DeviceColumnDef, frame.columns.len);
-    defer allocator.free(defs);
-    var initialized: usize = 0;
-    defer {
-        for (defs[0..initialized]) |*def| def.data.deinit();
-    }
-    for (frame.names, frame.columns, 0..) |name, col, i| {
-        defs[i].name = name;
-        defs[i].data = switch (col) {
-            .f64 => |values| try DeviceColumn.fromSlice(f64, allocator, values, device_value),
-            .i64 => |values| try DeviceColumn.fromSlice(i64, allocator, values, device_value),
-            .bool => |values| try DeviceColumn.fromSlice(bool, allocator, values, device_value),
-            .string => return error.TypeUnsupported,
-        };
-        initialized += 1;
-    }
-    return DeviceDataFrame.init(allocator, defs);
+    return host_device_mod.deviceDataFrameFromDataFrame(DeviceDataFrame, DeviceColumnDef, DeviceColumn, allocator, frame, device_value);
 }
 
 pub fn deviceDataFrameToDataFrame(frame: anytype) (DataError || array_mod.ArrayError)!DataFrame {
-    var defs = try frame.allocator.alloc(ColumnDef, frame.columns.len);
-    defer frame.allocator.free(defs);
-    var initialized: usize = 0;
-    defer {
-        for (defs[0..initialized]) |def| freeColumn(frame.allocator, def.data);
-    }
-
-    for (frame.names, frame.columns, 0..) |name, col, i| {
-        if (col.hasNulls()) return error.TypeUnsupported;
-        defs[i].name = name;
-        defs[i].data = switch (col) {
-            .f64 => |typed| .{ .f64 = try typed.toOwnedSlice(frame.allocator) },
-            .i64 => |typed| .{ .i64 = try typed.toOwnedSlice(frame.allocator) },
-            .bool => |typed| .{ .bool = try typed.toOwnedSlice(frame.allocator) },
-            else => return error.TypeUnsupported,
-        };
-        initialized += 1;
-    }
-    return DataFrame.init(frame.allocator, defs);
+    return host_device_mod.deviceDataFrameToDataFrame(DataFrame, ColumnDef, frame);
 }
