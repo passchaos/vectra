@@ -11,7 +11,7 @@ const lazy_exec_mod = @import("dataframe_lazy_frame_exec.zig");
 const lazy_expr_mod = @import("dataframe_lazy_expr_plan.zig");
 const lazy_group_mod = @import("dataframe_lazy_group_plan.zig");
 const lazy_join_mod = @import("dataframe_lazy_join_plan.zig");
-const lazy_profile_mod = @import("dataframe_lazy_profile_plan.zig");
+const lazy_profile_methods_mod = @import("dataframe_lazy_profile_methods.zig");
 const lazy_sort_mod = @import("dataframe_lazy_sort_plan.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const names_mod = @import("dataframe_names.zig");
@@ -25,24 +25,6 @@ const DeviceScalar = options_mod.DeviceScalar;
 const DeviceSortOptions = options_mod.DeviceSortOptions;
 const DeviceJoinOptions = options_mod.DeviceJoinOptions;
 const DeviceAsofOptions = options_mod.DeviceAsofOptions;
-const DeviceRollingOptions = options_mod.DeviceRollingOptions;
-const DeviceLagOptions = options_mod.DeviceLagOptions;
-const DeviceExpandingOptions = options_mod.DeviceExpandingOptions;
-const DeviceExpandingRankOptions = options_mod.DeviceExpandingRankOptions;
-const DeviceStandardizeOptions = options_mod.DeviceStandardizeOptions;
-const DeviceRobustOptions = options_mod.DeviceRobustOptions;
-const DeviceDrawdownOptions = options_mod.DeviceDrawdownOptions;
-const DeviceExtremaOptions = options_mod.DeviceExtremaOptions;
-const DeviceTrendOptions = options_mod.DeviceTrendOptions;
-const DeviceCrossoverOptions = options_mod.DeviceCrossoverOptions;
-const DeviceBucketOptions = options_mod.DeviceBucketOptions;
-const DeviceEmaOptions = options_mod.DeviceEmaOptions;
-const DeviceLinearFitOptions = options_mod.DeviceLinearFitOptions;
-const DeviceClipOptions = options_mod.DeviceClipOptions;
-const DeviceThresholdOptions = options_mod.DeviceThresholdOptions;
-const DeviceRollingCorrelationOptions = options_mod.DeviceRollingCorrelationOptions;
-const DeviceRollingRankOptions = options_mod.DeviceRollingRankOptions;
-const DeviceRollingRobustOptions = options_mod.DeviceRollingRobustOptions;
 const DeviceLazyGroupByAggregation = lazy_op_mod.DeviceLazyGroupByAggregation;
 const DeviceLazyJoinKind = lazy_op_mod.DeviceLazyJoinKind;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
@@ -295,326 +277,65 @@ pub fn DeviceLazyTypes(
                 return lazy_sort_mod.rankProfileBy(self, name, output_prefix, options_value);
             }
 
-            pub fn rollingProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingMomentProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_moment_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingRangeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_range_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingNormalizeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_normalize_profile", name, output_prefix, options_value);
-            }
-
-            pub fn expandingNormalizeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_normalize_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingQuantileProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_quantile_profile", name, output_prefix, options_value);
-            }
-
-            pub fn expandingQuantileProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_quantile_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingBoolProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_bool_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingDrawdownProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_drawdown_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingRobustProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingRobustOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_robust_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingRankProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingRankOptions) DeviceDataError!void {
-                return lazy_sort_mod.rollingRankProfile(self, name, output_prefix, options_value);
-            }
-
-            pub fn lagProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "lag_profile", name, output_prefix, options_value);
-            }
-
-            pub fn leadProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceLagOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "lead_profile", name, output_prefix, options_value);
-            }
-
-            pub fn clipProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceClipOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "clip_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingClipProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, clip_options: DeviceClipOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputExtraOptions(self, "rolling_clip_profile", name, output_prefix, "clip_options", clip_options, options_value);
-            }
-
-            pub fn expandingClipProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, clip_options: DeviceClipOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputExtraOptions(self, "expanding_clip_profile", name, output_prefix, "clip_options", clip_options, options_value);
-            }
-
-            pub fn thresholdProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceThresholdOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "threshold_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingThresholdProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputThresholdOptions(self, "rolling_threshold_profile", name, output_prefix, threshold, options_value);
-            }
-
-            pub fn expandingThresholdProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputThresholdOptions(self, "expanding_threshold_profile", name, output_prefix, threshold, options_value);
-            }
-
-            pub fn expandingProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_profile", name, output_prefix, options_value);
-            }
-
-            pub fn expandingBoolProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_bool_profile", name, output_prefix, options_value);
-            }
-
-            pub fn expandingRankProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingRankOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_rank_profile", name, output_prefix, options_value);
-            }
-
-            pub fn expandingRobustProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_robust_profile", name, output_prefix, options_value);
-            }
-
-            pub fn expandingMomentProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_moment_profile", name, output_prefix, options_value);
-            }
-
-            pub fn standardizeProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceStandardizeOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "standardize_profile", name, output_prefix, options_value);
-            }
-
-            pub fn robustProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRobustOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "robust_profile", name, output_prefix, options_value);
-            }
-
-            pub fn drawdownProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceDrawdownOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "drawdown_profile", name, output_prefix, options_value);
-            }
-
-            pub fn extremaProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExtremaOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "extrema_profile", name, output_prefix, options_value);
-            }
-
-            pub fn trendProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "trend_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingTrendProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputExtraOptions(self, "rolling_trend_profile", name, output_prefix, "trend_options", trend_options, options_value);
-            }
-
-            pub fn expandingTrendProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, trend_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputExtraOptions(self, "expanding_trend_profile", name, output_prefix, "trend_options", trend_options, options_value);
-            }
-
-            pub fn changePointProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, threshold: f64, options_value: DeviceTrendOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputThresholdOptions(self, "change_point_profile", name, output_prefix, threshold, options_value);
-            }
-
-            pub fn rollingChangePointProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputThresholdExtraOptions(self, "rolling_change_point_profile", name, output_prefix, threshold, "change_options", change_options, options_value);
-            }
-
-            pub fn expandingChangePointProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, threshold: f64, change_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputThresholdExtraOptions(self, "expanding_change_point_profile", name, output_prefix, threshold, "change_options", change_options, options_value);
-            }
-
-            pub fn signProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "sign_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingSignProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputExtraOptions(self, "rolling_sign_profile", name, output_prefix, "sign_options", sign_options, options_value);
-            }
-
-            pub fn expandingSignProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, sign_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputExtraOptions(self, "expanding_sign_profile", name, output_prefix, "sign_options", sign_options, options_value);
-            }
-
-            pub fn crossoverProfile(
-                self: *DeviceLazyFrame,
-                lhs_name: []const u8,
-                rhs_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceCrossoverOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "crossover_profile", "lhs_name", lhs_name, "rhs_name", rhs_name, output_prefix, options_value);
-            }
-
-            pub fn rollingCrossoverProfile(
-                self: *DeviceLazyFrame,
-                lhs_name: []const u8,
-                rhs_name: []const u8,
-                output_prefix: []const u8,
-                cross_options: DeviceCrossoverOptions,
-                options_value: DeviceRollingOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputExtraOptions(self, "rolling_crossover_profile", "lhs_name", lhs_name, "rhs_name", rhs_name, output_prefix, "cross_options", cross_options, options_value);
-            }
-
-            pub fn expandingCrossoverProfile(
-                self: *DeviceLazyFrame,
-                lhs_name: []const u8,
-                rhs_name: []const u8,
-                output_prefix: []const u8,
-                cross_options: DeviceCrossoverOptions,
-                options_value: DeviceExpandingOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputExtraOptions(self, "expanding_crossover_profile", "lhs_name", lhs_name, "rhs_name", rhs_name, output_prefix, "cross_options", cross_options, options_value);
-            }
-
-            pub fn bucketProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceBucketOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "bucket_profile", name, output_prefix, options_value);
-            }
-
-            pub fn emaProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceEmaOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "ema_profile", name, output_prefix, options_value);
-            }
-
-            pub fn linearFitProfile(
-                self: *DeviceLazyFrame,
-                x_name: []const u8,
-                y_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceLinearFitOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "linear_fit_profile", "x_name", x_name, "y_name", y_name, output_prefix, options_value);
-            }
-
-            pub fn errorProfile(
-                self: *DeviceLazyFrame,
-                actual_name: []const u8,
-                predicted_name: []const u8,
-                output_prefix: []const u8,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutput(self, "error_profile", "actual_name", actual_name, "predicted_name", predicted_name, output_prefix);
-            }
-
-            pub fn rollingErrorProfile(
-                self: *DeviceLazyFrame,
-                actual_name: []const u8,
-                predicted_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceRollingOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "rolling_error_profile", "actual_name", actual_name, "predicted_name", predicted_name, output_prefix, options_value);
-            }
-
-            pub fn expandingErrorProfile(
-                self: *DeviceLazyFrame,
-                actual_name: []const u8,
-                predicted_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceExpandingOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "expanding_error_profile", "actual_name", actual_name, "predicted_name", predicted_name, output_prefix, options_value);
-            }
-
-            pub fn classificationProfile(
-                self: *DeviceLazyFrame,
-                actual_name: []const u8,
-                predicted_name: []const u8,
-                output_prefix: []const u8,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutput(self, "classification_profile", "actual_name", actual_name, "predicted_name", predicted_name, output_prefix);
-            }
-
-            pub fn rollingClassificationProfile(
-                self: *DeviceLazyFrame,
-                actual_name: []const u8,
-                predicted_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceRollingOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "rolling_classification_profile", "actual_name", actual_name, "predicted_name", predicted_name, output_prefix, options_value);
-            }
-
-            pub fn expandingClassificationProfile(
-                self: *DeviceLazyFrame,
-                actual_name: []const u8,
-                predicted_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceExpandingOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "expanding_classification_profile", "actual_name", actual_name, "predicted_name", predicted_name, output_prefix, options_value);
-            }
-
-            pub fn boolTransitionProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceTrendOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "bool_transition_profile", name, output_prefix, options_value);
-            }
-
-            pub fn rollingBoolTransitionProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputExtraOptions(self, "rolling_bool_transition_profile", name, output_prefix, "transition_options", transition_options, options_value);
-            }
-
-            pub fn expandingBoolTransitionProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, transition_options: DeviceTrendOptions, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputExtraOptions(self, "expanding_bool_transition_profile", name, output_prefix, "transition_options", transition_options, options_value);
-            }
-
-            pub fn rollingCorrelationProfile(
-                self: *DeviceLazyFrame,
-                x_name: []const u8,
-                y_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceRollingCorrelationOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "rolling_correlation_profile", "x_name", x_name, "y_name", y_name, output_prefix, options_value);
-            }
-
-            pub fn expandingCorrelationProfile(
-                self: *DeviceLazyFrame,
-                x_name: []const u8,
-                y_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceExpandingOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "expanding_correlation_profile", "x_name", x_name, "y_name", y_name, output_prefix, options_value);
-            }
-
-            pub fn expandingLinearFitProfile(
-                self: *DeviceLazyFrame,
-                x_name: []const u8,
-                y_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceExpandingOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "expanding_linear_fit_profile", "x_name", x_name, "y_name", y_name, output_prefix, options_value);
-            }
-
-            pub fn rollingLinearFitProfile(
-                self: *DeviceLazyFrame,
-                x_name: []const u8,
-                y_name: []const u8,
-                output_prefix: []const u8,
-                options_value: DeviceRollingCorrelationOptions,
-            ) DeviceDataError!void {
-                return lazy_profile_mod.appendPairOutputOptions(self, "rolling_linear_fit_profile", "x_name", x_name, "y_name", y_name, output_prefix, options_value);
-            }
-
-            pub fn validityProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutput(self, "validity_profile", name, output_prefix);
-            }
-
-            pub fn rollingValidityProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceRollingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "rolling_validity_profile", name, output_prefix, options_value);
-            }
-
-            pub fn expandingValidityProfile(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceExpandingOptions) DeviceDataError!void {
-                return lazy_profile_mod.appendNameOutputOptions(self, "expanding_validity_profile", name, output_prefix, options_value);
-            }
-
+            pub const rollingProfile = lazy_profile_methods_mod.rollingProfile;
+            pub const rollingMomentProfile = lazy_profile_methods_mod.rollingMomentProfile;
+            pub const rollingRangeProfile = lazy_profile_methods_mod.rollingRangeProfile;
+            pub const rollingNormalizeProfile = lazy_profile_methods_mod.rollingNormalizeProfile;
+            pub const expandingNormalizeProfile = lazy_profile_methods_mod.expandingNormalizeProfile;
+            pub const rollingQuantileProfile = lazy_profile_methods_mod.rollingQuantileProfile;
+            pub const expandingQuantileProfile = lazy_profile_methods_mod.expandingQuantileProfile;
+            pub const rollingBoolProfile = lazy_profile_methods_mod.rollingBoolProfile;
+            pub const rollingDrawdownProfile = lazy_profile_methods_mod.rollingDrawdownProfile;
+            pub const rollingRobustProfile = lazy_profile_methods_mod.rollingRobustProfile;
+            pub const rollingRankProfile = lazy_profile_methods_mod.rollingRankProfile;
+            pub const lagProfile = lazy_profile_methods_mod.lagProfile;
+            pub const leadProfile = lazy_profile_methods_mod.leadProfile;
+            pub const clipProfile = lazy_profile_methods_mod.clipProfile;
+            pub const rollingClipProfile = lazy_profile_methods_mod.rollingClipProfile;
+            pub const expandingClipProfile = lazy_profile_methods_mod.expandingClipProfile;
+            pub const thresholdProfile = lazy_profile_methods_mod.thresholdProfile;
+            pub const rollingThresholdProfile = lazy_profile_methods_mod.rollingThresholdProfile;
+            pub const expandingThresholdProfile = lazy_profile_methods_mod.expandingThresholdProfile;
+            pub const expandingProfile = lazy_profile_methods_mod.expandingProfile;
+            pub const expandingBoolProfile = lazy_profile_methods_mod.expandingBoolProfile;
+            pub const expandingRankProfile = lazy_profile_methods_mod.expandingRankProfile;
+            pub const expandingRobustProfile = lazy_profile_methods_mod.expandingRobustProfile;
+            pub const expandingMomentProfile = lazy_profile_methods_mod.expandingMomentProfile;
+            pub const standardizeProfile = lazy_profile_methods_mod.standardizeProfile;
+            pub const robustProfile = lazy_profile_methods_mod.robustProfile;
+            pub const drawdownProfile = lazy_profile_methods_mod.drawdownProfile;
+            pub const extremaProfile = lazy_profile_methods_mod.extremaProfile;
+            pub const trendProfile = lazy_profile_methods_mod.trendProfile;
+            pub const rollingTrendProfile = lazy_profile_methods_mod.rollingTrendProfile;
+            pub const expandingTrendProfile = lazy_profile_methods_mod.expandingTrendProfile;
+            pub const changePointProfile = lazy_profile_methods_mod.changePointProfile;
+            pub const rollingChangePointProfile = lazy_profile_methods_mod.rollingChangePointProfile;
+            pub const expandingChangePointProfile = lazy_profile_methods_mod.expandingChangePointProfile;
+            pub const signProfile = lazy_profile_methods_mod.signProfile;
+            pub const rollingSignProfile = lazy_profile_methods_mod.rollingSignProfile;
+            pub const expandingSignProfile = lazy_profile_methods_mod.expandingSignProfile;
+            pub const crossoverProfile = lazy_profile_methods_mod.crossoverProfile;
+            pub const rollingCrossoverProfile = lazy_profile_methods_mod.rollingCrossoverProfile;
+            pub const expandingCrossoverProfile = lazy_profile_methods_mod.expandingCrossoverProfile;
+            pub const bucketProfile = lazy_profile_methods_mod.bucketProfile;
+            pub const emaProfile = lazy_profile_methods_mod.emaProfile;
+            pub const linearFitProfile = lazy_profile_methods_mod.linearFitProfile;
+            pub const errorProfile = lazy_profile_methods_mod.errorProfile;
+            pub const rollingErrorProfile = lazy_profile_methods_mod.rollingErrorProfile;
+            pub const expandingErrorProfile = lazy_profile_methods_mod.expandingErrorProfile;
+            pub const classificationProfile = lazy_profile_methods_mod.classificationProfile;
+            pub const rollingClassificationProfile = lazy_profile_methods_mod.rollingClassificationProfile;
+            pub const expandingClassificationProfile = lazy_profile_methods_mod.expandingClassificationProfile;
+            pub const boolTransitionProfile = lazy_profile_methods_mod.boolTransitionProfile;
+            pub const rollingBoolTransitionProfile = lazy_profile_methods_mod.rollingBoolTransitionProfile;
+            pub const expandingBoolTransitionProfile = lazy_profile_methods_mod.expandingBoolTransitionProfile;
+            pub const rollingCorrelationProfile = lazy_profile_methods_mod.rollingCorrelationProfile;
+            pub const expandingCorrelationProfile = lazy_profile_methods_mod.expandingCorrelationProfile;
+            pub const expandingLinearFitProfile = lazy_profile_methods_mod.expandingLinearFitProfile;
+            pub const rollingLinearFitProfile = lazy_profile_methods_mod.rollingLinearFitProfile;
+            pub const validityProfile = lazy_profile_methods_mod.validityProfile;
+            pub const rollingValidityProfile = lazy_profile_methods_mod.rollingValidityProfile;
+            pub const expandingValidityProfile = lazy_profile_methods_mod.expandingValidityProfile;
             pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .head = n });
             }
