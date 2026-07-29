@@ -9,8 +9,7 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const lazy_exec_mod = @import("dataframe_lazy_frame_exec.zig");
 const lazy_expr_mod = @import("dataframe_lazy_expr_plan.zig");
-const lazy_group_mod = @import("dataframe_lazy_group_plan.zig");
-const lazy_join_mod = @import("dataframe_lazy_join_plan.zig");
+const lazy_relation_methods_mod = @import("dataframe_lazy_relation_methods.zig");
 const lazy_profile_methods_mod = @import("dataframe_lazy_profile_methods.zig");
 const lazy_sort_mod = @import("dataframe_lazy_sort_plan.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
@@ -23,10 +22,6 @@ const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
 const DeviceScalar = options_mod.DeviceScalar;
 const DeviceSortOptions = options_mod.DeviceSortOptions;
-const DeviceJoinOptions = options_mod.DeviceJoinOptions;
-const DeviceAsofOptions = options_mod.DeviceAsofOptions;
-const DeviceLazyGroupByAggregation = lazy_op_mod.DeviceLazyGroupByAggregation;
-const DeviceLazyJoinKind = lazy_op_mod.DeviceLazyJoinKind;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const ParquetInteropError = lazy_exec_mod.ParquetInteropError;
 const cloneNameList = names_mod.cloneNameList;
@@ -152,119 +147,31 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnCompareScalar(self, name, input_name, T, scalar, op);
             }
 
-            pub fn groupByCount(self: *DeviceLazyFrame, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
-                return lazy_group_mod.groupByCount(self, key_name, output_name);
-            }
-
-            pub fn groupByValue(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
-                return lazy_group_mod.groupByValue(self, key_name, value_name, output_name, aggregation);
-            }
-
-            pub fn groupBySum(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
-                return self.groupByValue(key_name, value_name, output_name, .sum);
-            }
-
-            pub fn groupByMin(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
-                return self.groupByValue(key_name, value_name, output_name, .min);
-            }
-
-            pub fn groupByMax(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
-                return self.groupByValue(key_name, value_name, output_name, .max);
-            }
-
-            pub fn groupByMean(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
-                return self.groupByValue(key_name, value_name, output_name, .mean);
-            }
-
-            pub fn groupByStats(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                return lazy_group_mod.groupByStats(self, key_name, value_name, output_prefix);
-            }
-
-            pub fn groupByStatsOn(self: *DeviceLazyFrame, key_names: []const []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                return lazy_group_mod.groupByStatsOn(self, key_names, value_name, output_prefix);
-            }
-
-            pub fn groupByProfile(self: *DeviceLazyFrame, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                return lazy_group_mod.groupByProfile(self, key_name, value_name, output_prefix);
-            }
-
-            pub fn groupByProfileOn(self: *DeviceLazyFrame, key_names: []const []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
-                return lazy_group_mod.groupByProfileOn(self, key_names, value_name, output_prefix);
-            }
-
-            pub fn joinOn(
-                self: *DeviceLazyFrame,
-                right: DeviceDataFrame,
-                left_key_names: []const []const u8,
-                right_key_names: []const []const u8,
-                kind: DeviceLazyJoinKind,
-                options_value: DeviceJoinOptions,
-            ) DeviceDataError!void {
-                return lazy_join_mod.joinOn(self, right, left_key_names, right_key_names, kind, options_value);
-            }
-
-            pub fn innerJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8, options_value: DeviceJoinOptions) DeviceDataError!void {
-                return self.joinOn(right, left_key_names, right_key_names, .inner, options_value);
-            }
-
-            pub fn leftJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8, options_value: DeviceJoinOptions) DeviceDataError!void {
-                return self.joinOn(right, left_key_names, right_key_names, .left, options_value);
-            }
-
-            pub fn fullJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8, options_value: DeviceJoinOptions) DeviceDataError!void {
-                return self.joinOn(right, left_key_names, right_key_names, .full, options_value);
-            }
-
-            pub fn semiJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8) DeviceDataError!void {
-                return self.joinOn(right, left_key_names, right_key_names, .semi, .{});
-            }
-
-            pub fn antiJoinOn(self: *DeviceLazyFrame, right: DeviceDataFrame, left_key_names: []const []const u8, right_key_names: []const []const u8) DeviceDataError!void {
-                return self.joinOn(right, left_key_names, right_key_names, .anti, .{});
-            }
-
-            pub fn asofJoin(
-                self: *DeviceLazyFrame,
-                right: DeviceDataFrame,
-                left_key_name: []const u8,
-                right_key_name: []const u8,
-                options_value: DeviceAsofOptions,
-            ) DeviceDataError!void {
-                return lazy_join_mod.asofJoin(self, right, left_key_name, right_key_name, options_value);
-            }
-
-            pub fn concatRows(self: *DeviceLazyFrame, right: DeviceDataFrame) DeviceDataError!void {
-                return lazy_join_mod.concatRows(self, right);
-            }
-
-            pub fn appendRows(self: *DeviceLazyFrame, right: DeviceDataFrame) DeviceDataError!void {
-                return self.concatRows(right);
-            }
-
-            pub fn vstack(self: *DeviceLazyFrame, right: DeviceDataFrame) DeviceDataError!void {
-                return self.concatRows(right);
-            }
-
-            pub fn distinctRows(self: *DeviceLazyFrame) DeviceDataError!void {
-                try self.ops.append(self.allocator, .{ .distinct_rows = {} });
-            }
-
-            pub fn distinctOn(self: *DeviceLazyFrame, key_names: []const []const u8) DeviceDataError!void {
-                return lazy_join_mod.distinctOn(self, key_names);
-            }
-
-            pub fn dropDuplicates(self: *DeviceLazyFrame) DeviceDataError!void {
-                return self.distinctRows();
-            }
-
-            pub fn dropDuplicatesOn(self: *DeviceLazyFrame, key_names: []const []const u8) DeviceDataError!void {
-                return self.distinctOn(key_names);
-            }
-
-            pub fn uniqueRows(self: *DeviceLazyFrame) DeviceDataError!void {
-                return self.distinctRows();
-            }
-
+            pub const groupByCount = lazy_relation_methods_mod.groupByCount;
+            pub const groupByValue = lazy_relation_methods_mod.groupByValue;
+            pub const groupBySum = lazy_relation_methods_mod.groupBySum;
+            pub const groupByMin = lazy_relation_methods_mod.groupByMin;
+            pub const groupByMax = lazy_relation_methods_mod.groupByMax;
+            pub const groupByMean = lazy_relation_methods_mod.groupByMean;
+            pub const groupByStats = lazy_relation_methods_mod.groupByStats;
+            pub const groupByStatsOn = lazy_relation_methods_mod.groupByStatsOn;
+            pub const groupByProfile = lazy_relation_methods_mod.groupByProfile;
+            pub const groupByProfileOn = lazy_relation_methods_mod.groupByProfileOn;
+            pub const joinOn = lazy_relation_methods_mod.joinOn;
+            pub const innerJoinOn = lazy_relation_methods_mod.innerJoinOn;
+            pub const leftJoinOn = lazy_relation_methods_mod.leftJoinOn;
+            pub const fullJoinOn = lazy_relation_methods_mod.fullJoinOn;
+            pub const semiJoinOn = lazy_relation_methods_mod.semiJoinOn;
+            pub const antiJoinOn = lazy_relation_methods_mod.antiJoinOn;
+            pub const asofJoin = lazy_relation_methods_mod.asofJoin;
+            pub const concatRows = lazy_relation_methods_mod.concatRows;
+            pub const appendRows = lazy_relation_methods_mod.appendRows;
+            pub const vstack = lazy_relation_methods_mod.vstack;
+            pub const distinctRows = lazy_relation_methods_mod.distinctRows;
+            pub const distinctOn = lazy_relation_methods_mod.distinctOn;
+            pub const dropDuplicates = lazy_relation_methods_mod.dropDuplicates;
+            pub const dropDuplicatesOn = lazy_relation_methods_mod.dropDuplicatesOn;
+            pub const uniqueRows = lazy_relation_methods_mod.uniqueRows;
             pub fn filterColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
                 return lazy_expr_mod.filterColumnScalar(self, name, T, scalar, op);
             }
