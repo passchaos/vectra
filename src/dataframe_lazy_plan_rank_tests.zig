@@ -707,6 +707,37 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(len_sliced_sales);
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, len_sliced_sales);
 
+    var stride_plan = try DeviceLazyFrame.init(gpa, table);
+    defer stride_plan.deinit();
+    try stride_plan.strideRows(0, 2);
+    try stride_plan.select(&.{ "sales", "units" });
+    const stride_explain = try stride_plan.explain(gpa);
+    defer gpa.free(stride_explain);
+    try std.testing.expect(std.mem.indexOf(u8, stride_explain, "stride_rows(start=0, step=2)") != null);
+    var strided = try stride_plan.collect();
+    defer strided.deinit();
+    try std.testing.expectEqual(@as(usize, 2), strided.height());
+    try std.testing.expectEqual(@as(usize, 2), strided.width());
+    const strided_sales = try (try strided.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(strided_sales);
+    const strided_units = try (try strided.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(strided_units);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, strided_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 3 }, strided_units);
+
+    var empty_stride_plan = try DeviceLazyFrame.init(gpa, table);
+    defer empty_stride_plan.deinit();
+    try empty_stride_plan.strideRows(table.height(), 1);
+    var empty_stride = try empty_stride_plan.collect();
+    defer empty_stride.deinit();
+    try std.testing.expectEqual(@as(usize, 0), empty_stride.height());
+    try std.testing.expectEqual(table.width(), empty_stride.width());
+
+    var invalid_stride_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_stride_plan.deinit();
+    try invalid_stride_plan.strideRows(0, 0);
+    try std.testing.expectError(error.InvalidShape, invalid_stride_plan.collect());
+
     var take_plan = try DeviceLazyFrame.init(gpa, table);
     defer take_plan.deinit();
     try take_plan.take(&.{ 3, 1, 1 });

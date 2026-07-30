@@ -457,6 +457,13 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .take_rows = owned });
             }
 
+            pub fn strideRows(self: *DeviceLazyFrame, start: usize, step: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .stride_rows = .{
+                    .start = start,
+                    .step = step,
+                } });
+            }
+
             pub fn reverseRows(self: *DeviceLazyFrame) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .reverse_rows = {} });
             }

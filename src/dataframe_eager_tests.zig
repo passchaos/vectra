@@ -373,6 +373,25 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const head_units = try head.column("units");
     try std.testing.expectEqual(@as(usize, 1), head_units.nullCount());
 
+    var strided = try table.strideRows(0, 2);
+    defer strided.deinit();
+    try std.testing.expectEqual(@as(usize, 2), strided.height());
+    const strided_sales = try (try strided.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(strided_sales);
+    const strided_units = try (try strided.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(strided_units);
+    const strided_units_validity = try (try strided.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(strided_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, strided_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 3 }, strided_units);
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, strided_units_validity);
+
+    var empty_stride = try table.strideRows(table.height(), 1);
+    defer empty_stride.deinit();
+    try std.testing.expectEqual(@as(usize, 0), empty_stride.height());
+    try std.testing.expectEqual(table.width(), empty_stride.width());
+    try std.testing.expectError(error.InvalidShape, table.strideRows(0, 0));
+
     var filtered = try table.filter(&.{ true, false, true });
     defer filtered.deinit();
     try std.testing.expectEqual(@as(usize, 2), filtered.height());
