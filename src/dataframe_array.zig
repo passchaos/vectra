@@ -542,6 +542,85 @@ pub fn renameColumn(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
 }
 
+pub fn renameColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    old_names: []const []const u8,
+    new_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (old_names.len != new_names.len) return error.LengthMismatch;
+
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    for (input.names, source_names) |name, *slot| slot.* = name;
+
+    for (old_names, new_names) |old_name, new_name| {
+        const rename_index = input.columnIndex(old_name) orelse return error.ColumnNotFound;
+        source_names[rename_index] = new_name;
+    }
+
+    for (source_names, 0..) |name, i| {
+        for (source_names[i + 1 ..]) |candidate| {
+            if (std.mem.eql(u8, name, candidate)) return error.InvalidShape;
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var columns = try input.allocator.alloc(DeviceColumn, input.columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        input.allocator.free(columns);
+    }
+    for (input.columns, columns) |col, *slot| {
+        slot.* = try col.clone();
+        initialized += 1;
+    }
+    return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
+}
+
+pub fn addColumnNamePrefix(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    prefix: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    var initialized: usize = 0;
+    errdefer {
+        for (source_names[0..initialized]) |name| input.allocator.free(name);
+    }
+    for (input.names, source_names) |name, *slot| {
+        slot.* = try std.fmt.allocPrint(input.allocator, "{s}{s}", .{ prefix, name });
+        initialized += 1;
+    }
+    defer {
+        for (source_names) |name| input.allocator.free(name);
+    }
+    return renameColumns(DeviceDataFrame, input, input.names, source_names);
+}
+
+pub fn addColumnNameSuffix(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    suffix: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    var initialized: usize = 0;
+    errdefer {
+        for (source_names[0..initialized]) |name| input.allocator.free(name);
+    }
+    for (input.names, source_names) |name, *slot| {
+        slot.* = try std.fmt.allocPrint(input.allocator, "{s}{s}", .{ name, suffix });
+        initialized += 1;
+    }
+    defer {
+        for (source_names) |name| input.allocator.free(name);
+    }
+    return renameColumns(DeviceDataFrame, input, input.names, source_names);
+}
+
 pub fn moveColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

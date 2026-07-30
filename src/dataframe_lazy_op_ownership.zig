@@ -49,6 +49,18 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .new_name = new_name,
             } };
         },
+        .rename_columns => |rename| blk: {
+            const old_names = try cloneNameList(allocator, rename.old_names);
+            errdefer freeNameList(allocator, old_names);
+            const new_names = try cloneNameList(allocator, rename.new_names);
+            errdefer freeNameList(allocator, new_names);
+            break :blk .{ .rename_columns = .{
+                .old_names = old_names,
+                .new_names = new_names,
+            } };
+        },
+        .add_column_name_prefix => |pattern| .{ .add_column_name_prefix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
+        .add_column_name_suffix => |pattern| .{ .add_column_name_suffix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
         .move_column => |move| blk: {
             const name = try allocator.dupe(u8, move.name);
             break :blk .{ .move_column = .{

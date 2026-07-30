@@ -215,6 +215,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.renameColumn(self, old_name, new_name);
             }
 
+            pub fn renameColumns(self: *DeviceLazyFrame, old_names: []const []const u8, new_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.renameColumns(self, old_names, new_names);
+            }
+
+            pub fn addColumnNamePrefix(self: *DeviceLazyFrame, prefix: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.addColumnNamePrefix(self, prefix);
+            }
+
+            pub fn addColumnNameSuffix(self: *DeviceLazyFrame, suffix: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.addColumnNameSuffix(self, suffix);
+            }
+
             pub fn moveColumn(self: *DeviceLazyFrame, name: []const u8, target_index: usize) DeviceDataError!void {
                 return lazy_expr_mod.moveColumn(self, name, target_index);
             }

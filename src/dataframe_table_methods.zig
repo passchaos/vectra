@@ -251,6 +251,18 @@ pub fn renameColumn(self: anytype, old_name: []const u8, new_name: []const u8) D
     return dataframe_array_mod.renameColumn(FrameType(@TypeOf(self)), frameValue(self), old_name, new_name);
 }
 
+pub fn renameColumns(self: anytype, old_names: []const []const u8, new_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.renameColumns(FrameType(@TypeOf(self)), frameValue(self), old_names, new_names);
+}
+
+pub fn addColumnNamePrefix(self: anytype, prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.addColumnNamePrefix(FrameType(@TypeOf(self)), frameValue(self), prefix);
+}
+
+pub fn addColumnNameSuffix(self: anytype, suffix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.addColumnNameSuffix(FrameType(@TypeOf(self)), frameValue(self), suffix);
+}
+
 pub fn moveColumn(self: anytype, name: []const u8, target_index: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.moveColumn(FrameType(@TypeOf(self)), frameValue(self), name, target_index);
 }

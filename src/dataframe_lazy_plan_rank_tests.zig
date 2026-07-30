@@ -423,6 +423,47 @@ test "device lazy frame renames and drops columns" {
     try invalid_plan.renameColumn("sales", "units");
     try std.testing.expectError(error.InvalidShape, invalid_plan.collect());
 
+    var rename_many_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rename_many_plan.deinit();
+    try rename_many_plan.renameColumns(&.{ "sales", "units" }, &.{ "revenue", "quantity" });
+    const rename_many_explained = try rename_many_plan.explain(gpa);
+    defer gpa.free(rename_many_explained);
+    try std.testing.expect(std.mem.indexOf(u8, rename_many_explained, "rename_columns[sales->revenue,units->quantity]") != null);
+    var renamed_many = try rename_many_plan.collect();
+    defer renamed_many.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), renamed_many.columnIndex("revenue"));
+    try std.testing.expectEqual(@as(?usize, 1), renamed_many.columnIndex("quantity"));
+    try std.testing.expectEqual(@as(?usize, 2), renamed_many.columnIndex("active"));
+
+    var prefix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer prefix_plan.deinit();
+    try prefix_plan.addColumnNamePrefix("src_");
+    const prefix_explained = try prefix_plan.explain(gpa);
+    defer gpa.free(prefix_explained);
+    try std.testing.expect(std.mem.indexOf(u8, prefix_explained, "add_column_name_prefix(src_)") != null);
+    var prefixed = try prefix_plan.collect();
+    defer prefixed.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), prefixed.columnIndex("src_sales"));
+    try std.testing.expectEqual(@as(?usize, 1), prefixed.columnIndex("src_units"));
+    try std.testing.expectEqual(@as(?usize, 2), prefixed.columnIndex("src_active"));
+
+    var suffix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer suffix_plan.deinit();
+    try suffix_plan.addColumnNameSuffix("_raw");
+    const suffix_explained = try suffix_plan.explain(gpa);
+    defer gpa.free(suffix_explained);
+    try std.testing.expect(std.mem.indexOf(u8, suffix_explained, "add_column_name_suffix(_raw)") != null);
+    var suffixed = try suffix_plan.collect();
+    defer suffixed.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), suffixed.columnIndex("sales_raw"));
+    try std.testing.expectEqual(@as(?usize, 1), suffixed.columnIndex("units_raw"));
+    try std.testing.expectEqual(@as(?usize, 2), suffixed.columnIndex("active_raw"));
+
+    var invalid_many_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_many_plan.deinit();
+    try invalid_many_plan.renameColumns(&.{ "sales", "units" }, &.{ "revenue", "revenue" });
+    try std.testing.expectError(error.InvalidShape, invalid_many_plan.collect());
+
     var invalid_index_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_index_plan.deinit();
     try invalid_index_plan.withRowIndex("sales", 0);

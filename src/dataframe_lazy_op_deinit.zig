@@ -29,6 +29,12 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(rename.old_name);
             allocator.free(rename.new_name);
         },
+        .rename_columns => |rename| {
+            freeNameList(allocator, rename.old_names);
+            freeNameList(allocator, rename.new_names);
+        },
+        .add_column_name_prefix => |pattern| allocator.free(pattern.pattern),
+        .add_column_name_suffix => |pattern| allocator.free(pattern.pattern),
         .move_column => |move| allocator.free(move.name),
         .move_column_before => |move| {
             allocator.free(move.name);

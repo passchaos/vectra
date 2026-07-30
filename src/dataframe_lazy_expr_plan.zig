@@ -10,17 +10,22 @@ const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
 const DeviceScalar = options_mod.DeviceScalar;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 
-pub fn select(frame: anytype, names: []const []const u8) DeviceDataError!void {
-    const owned = try frame.allocator.alloc([]const u8, names.len);
-    errdefer frame.allocator.free(owned);
+fn cloneNameList(allocator: std.mem.Allocator, names: []const []const u8) std.mem.Allocator.Error![][]const u8 {
+    const owned = try allocator.alloc([]const u8, names.len);
+    errdefer allocator.free(owned);
     var initialized: usize = 0;
     errdefer {
-        for (owned[0..initialized]) |name| frame.allocator.free(name);
+        for (owned[0..initialized]) |name| allocator.free(name);
     }
     for (names, owned) |name, *slot| {
-        slot.* = try frame.allocator.dupe(u8, name);
+        slot.* = try allocator.dupe(u8, name);
         initialized += 1;
     }
+    return owned;
+}
+
+pub fn select(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
     try frame.ops.append(frame.allocator, .{ .select = owned });
 }
 
@@ -125,6 +130,36 @@ pub fn renameColumn(frame: anytype, old_name: []const u8, new_name: []const u8) 
         .old_name = owned_old,
         .new_name = owned_new,
     } });
+}
+
+pub fn renameColumns(frame: anytype, old_names: []const []const u8, new_names: []const []const u8) DeviceDataError!void {
+    if (old_names.len != new_names.len) return error.LengthMismatch;
+    const owned_old = try cloneNameList(frame.allocator, old_names);
+    errdefer {
+        for (owned_old) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_old);
+    }
+    const owned_new = try cloneNameList(frame.allocator, new_names);
+    errdefer {
+        for (owned_new) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_new);
+    }
+    try frame.ops.append(frame.allocator, .{ .rename_columns = .{
+        .old_names = owned_old,
+        .new_names = owned_new,
+    } });
+}
+
+pub fn addColumnNamePrefix(frame: anytype, prefix: []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.dupe(u8, prefix);
+    errdefer frame.allocator.free(owned);
+    try frame.ops.append(frame.allocator, .{ .add_column_name_prefix = .{ .pattern = owned } });
+}
+
+pub fn addColumnNameSuffix(frame: anytype, suffix: []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.dupe(u8, suffix);
+    errdefer frame.allocator.free(owned);
+    try frame.ops.append(frame.allocator, .{ .add_column_name_suffix = .{ .pattern = owned } });
 }
 
 pub fn moveColumn(frame: anytype, name: []const u8, target_index: usize) DeviceDataError!void {

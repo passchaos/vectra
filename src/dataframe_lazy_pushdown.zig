@@ -70,6 +70,9 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .rename_column,
+            .rename_columns,
+            .add_column_name_prefix,
+            .add_column_name_suffix,
             .move_column,
             .move_column_before,
             .move_column_after,

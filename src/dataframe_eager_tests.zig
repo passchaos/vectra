@@ -303,6 +303,31 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.InvalidShape, table.renameColumn("sales", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.renameColumn("missing", "new_name"));
 
+    var renamed_many = try table.renameColumns(&.{ "sales", "units" }, &.{ "revenue", "quantity" });
+    defer renamed_many.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), renamed_many.columnIndex("revenue"));
+    try std.testing.expectEqual(@as(?usize, 1), renamed_many.columnIndex("quantity"));
+    try std.testing.expectEqual(@as(?usize, 2), renamed_many.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, null), renamed_many.columnIndex("sales"));
+    const quantity_values = try (try renamed_many.column("quantity")).i64.toOwnedSlice(gpa);
+    defer gpa.free(quantity_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3 }, quantity_values);
+
+    var prefixed_names = try table.addColumnNamePrefix("src_");
+    defer prefixed_names.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), prefixed_names.columnIndex("src_sales"));
+    try std.testing.expectEqual(@as(?usize, 1), prefixed_names.columnIndex("src_units"));
+    try std.testing.expectEqual(@as(?usize, 2), prefixed_names.columnIndex("src_active"));
+
+    var suffixed_names = try table.addColumnNameSuffix("_raw");
+    defer suffixed_names.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), suffixed_names.columnIndex("sales_raw"));
+    try std.testing.expectEqual(@as(?usize, 1), suffixed_names.columnIndex("units_raw"));
+    try std.testing.expectEqual(@as(?usize, 2), suffixed_names.columnIndex("active_raw"));
+    try std.testing.expectError(error.LengthMismatch, table.renameColumns(&.{"sales"}, &.{ "revenue", "extra" }));
+    try std.testing.expectError(error.InvalidShape, table.renameColumns(&.{"sales"}, &.{"units"}));
+    try std.testing.expectError(error.ColumnNotFound, table.renameColumns(&.{"missing"}, &.{"new_name"}));
+
     var moved_front = try table.moveColumn("active", 0);
     defer moved_front.deinit();
     try std.testing.expectEqual(@as(?usize, 0), moved_front.columnIndex("active"));

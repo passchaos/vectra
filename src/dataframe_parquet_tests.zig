@@ -315,6 +315,21 @@ test "device lazy frame keeps schema-derived and schema-rewrite ops out of parqu
     const copied_sales = try (try copied.column("sales_copy")).f64.toOwnedSlice(gpa);
     defer gpa.free(copied_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0 }, copied_sales);
+
+    var lazy_rename_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_rename_scan.deinit();
+    try lazy_rename_scan.renameColumns(&.{ "id", "sales" }, &.{ "row_id", "revenue" });
+
+    const rename_explain = try lazy_rename_scan.explain(gpa);
+    defer gpa.free(rename_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rename_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, rename_explain, "rename_columns[id->row_id,sales->revenue]") != null);
+
+    var renamed = try lazy_rename_scan.collect();
+    defer renamed.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), renamed.columnIndex("row_id"));
+    try std.testing.expectEqual(@as(?usize, 1), renamed.columnIndex("revenue"));
+    try std.testing.expectEqual(@as(?usize, 2), renamed.columnIndex("active"));
 }
 
 test "device lazy frame derives row index after parquet projection" {
