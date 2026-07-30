@@ -133,6 +133,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0, 3.0 }, cast_units_values);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, cast_units_validity);
 
+    var filled_units = try table.fillNullColumn("units", i64, 99);
+    defer filled_units.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try filled_units.columnDType("units"));
+    try std.testing.expectEqual(@as(usize, 0), (try filled_units.column("units")).nullCount());
+    const filled_units_values = try (try filled_units.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(filled_units_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 99, 3 }, filled_units_values);
+    try std.testing.expectError(error.TypeUnsupported, table.fillNullColumn("units", f64, 0.0));
+    try std.testing.expectError(error.ColumnNotFound, table.fillNullColumn("missing", i64, 0));
+
     var cast_active = try table.castColumn("active", .i8);
     defer cast_active.deinit();
     try std.testing.expectEqual(DeviceDType.i8, try cast_active.columnDType("active"));

@@ -219,6 +219,19 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.take(row_indices);
         }
 
+        pub fn fillNull(self: Self, value: T) array_mod.ArrayError!Self {
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            if (maybe_validity == null) return self.clone();
+
+            const host_values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(host_values);
+            for (host_values, maybe_validity.?) |*slot, valid| {
+                if (!valid) slot.* = value;
+            }
+            return Self.fromSlice(self.values.allocator, host_values, self.device());
+        }
+
         pub fn binary(self: Self, other: Self, op: DeviceColumnBinaryOp) array_mod.ArrayError!Self {
             if (comptime T == bool) return error.TypeUnsupported;
             try requireCompatibleColumnArrays(T, self.values, other.values);

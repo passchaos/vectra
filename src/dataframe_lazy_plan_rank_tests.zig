@@ -2,7 +2,9 @@ const std = @import("std");
 const vectra = @import("vectra");
 
 const DeviceLazyFrame = vectra.DeviceLazyFrame;
-const lazyCollectTable = @import("dataframe_lazy_test_helpers.zig").lazyCollectTable;
+const helpers = @import("dataframe_lazy_test_helpers.zig");
+const lazyCollectTable = helpers.lazyCollectTable;
+const lazyQualityTable = helpers.lazyQualityTable;
 
 test "device lazy frame collects plan operations" {
     const gpa = std.testing.allocator;
@@ -154,6 +156,31 @@ test "device lazy frame casts columns" {
     defer invalid_plan.deinit();
     try invalid_plan.castColumn("missing", .f64);
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
+test "device lazy frame fills nullable columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyQualityTable(gpa);
+    defer table.deinit();
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.fillNullColumn("quality", f64, -1.0);
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "fill_null_column(quality=scalar:f64)") != null);
+
+    var filled = try plan.collect();
+    defer filled.deinit();
+    try std.testing.expectEqual(@as(usize, 0), (try filled.column("quality")).nullCount());
+    const quality = try (try filled.column("quality")).f64.toOwnedSlice(gpa);
+    defer gpa.free(quality);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, -1.0, 3.0, 4.0 }, quality);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.fillNullColumn("quality", i64, 0);
+    try std.testing.expectError(error.TypeUnsupported, invalid_plan.collect());
 }
 
 test "device lazy frame renames and drops columns" {

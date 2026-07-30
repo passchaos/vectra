@@ -155,6 +155,19 @@ pub fn castColumn(frame: anytype, name: []const u8, dtype_value: array_mod.DType
     } });
 }
 
+pub fn fillNullColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return fillNullColumnWithScalar(frame, name, DeviceScalar.init(T, value));
+}
+
+pub fn fillNullColumnWithScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .fill_null_column = .{
+        .name = owned_name,
+        .scalar = scalar,
+    } });
+}
+
 pub fn withColumnCompare(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

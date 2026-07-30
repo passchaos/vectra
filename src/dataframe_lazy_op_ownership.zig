@@ -82,6 +82,13 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .dtype = cast.dtype,
             } };
         },
+        .fill_null_column => |fill| blk: {
+            const name = try allocator.dupe(u8, fill.name);
+            break :blk .{ .fill_null_column = .{
+                .name = name,
+                .scalar = fill.scalar,
+            } };
+        },
         .with_column_compare => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

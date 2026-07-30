@@ -199,6 +199,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.castColumn(self, name, dtype_value);
             }
 
+            pub fn fillNullColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.fillNullColumn(self, name, T, value);
+            }
+
+            pub fn fillNullColumnWithScalar(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.fillNullColumnWithScalar(self, name, scalar);
+            }
+
             pub fn withColumnCompare(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {
                 return lazy_expr_mod.withColumnCompare(self, name, lhs_name, rhs_name, op);
             }

@@ -47,6 +47,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             },
             .with_column_literal => |expr| try current.withColumnLiteralScalar(expr.name, expr.scalar),
             .cast_column => |cast| try current.castColumn(cast.name, cast.dtype),
+            .fill_null_column => |fill| try current.fillNullColumnWithScalar(fill.name, fill.scalar),
             .with_column_compare => |expr| blk: {
                 var column_value = try current.compareColumns(expr.lhs_name, expr.rhs_name, expr.op);
                 defer column_value.deinit();

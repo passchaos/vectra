@@ -147,6 +147,18 @@ pub fn castColumn(
     return withColumn(DeviceDataFrame, input, name, casted);
 }
 
+pub fn fillNullColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(name);
+    var filled = try source.fillNullWithScalar(scalar);
+    defer filled.deinit();
+    return withColumn(DeviceDataFrame, input, name, filled);
+}
+
 pub fn withColumnLiteral(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

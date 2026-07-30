@@ -186,6 +186,18 @@ pub const DeviceColumn = union(DeviceDType) {
         };
     }
 
+    pub fn fillNull(self: DeviceColumn, comptime T: type, value: T) array_mod.ArrayError!DeviceColumn {
+        const tag = comptime DeviceDType.of(T);
+        if (self.dtype() != tag) return error.TypeUnsupported;
+        return @unionInit(DeviceColumn, @tagName(tag), try @field(self, @tagName(tag)).fillNull(value));
+    }
+
+    pub fn fillNullWithScalar(self: DeviceColumn, scalar: @import("dataframe_options.zig").DeviceScalar) array_mod.ArrayError!DeviceColumn {
+        return switch (scalar) {
+            inline else => |value| self.fillNull(@TypeOf(value), value),
+        };
+    }
+
     pub const argsort = column_sort_mod.argsort;
 
     pub const binary = column_ops_mod.binary;
