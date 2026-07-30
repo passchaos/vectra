@@ -413,6 +413,28 @@ pub fn fillNullColumnWithScalar(frame: anytype, name: []const u8, scalar: Device
     } });
 }
 
+pub fn isNullColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .is_null_column = .{
+        .name = owned_name,
+        .output_name = owned_output,
+    } });
+}
+
+pub fn isValidColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .is_valid_column = .{
+        .name = owned_name,
+        .output_name = owned_output,
+    } });
+}
+
 pub fn withColumnCompare(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

@@ -191,6 +191,47 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expectEqualSlices(f64, &.{ 6.0, 10.0 }, result_sales_x2);
 }
 
+test "device lazy frame pushes null predicate dependencies into parquet scan source" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer id.deinit();
+    var sales = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 2.0, 3.0, 5.0 }, &.{ true, false, true }, .cpu);
+    defer sales.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "sales", .data = sales },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+
+    var lazy_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_scan.deinit();
+    try lazy_scan.isNullColumn("sales", "sales_is_null");
+    try lazy_scan.select(&.{"sales_is_null"});
+
+    const explain = try lazy_scan.explain(gpa);
+    defer gpa.free(explain);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "scan_pushdown: projection=[sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "is_null_column(sales->sales_is_null)") != null);
+
+    var result = try lazy_scan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 1), result.width());
+    try std.testing.expectEqual(@as(?usize, 0), result.columnIndex("sales_is_null"));
+    try std.testing.expectEqual(@as(?usize, null), result.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), result.columnIndex("id"));
+    const is_null = try (try result.column("sales_is_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(is_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, is_null);
+}
+
 test "device lazy frame keeps schema-derived and schema-rewrite ops out of parquet projection pushdown" {
     const gpa = std.testing.allocator;
 

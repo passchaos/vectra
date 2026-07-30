@@ -101,6 +101,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_literal_after => |expr| try writer.print("with_column_literal_after({s}=scalar:{s} after {s})", .{ expr.name, @tagName(expr.scalar), expr.anchor_name }),
         .cast_column => |cast| try writer.print("cast_column({s}->{s})", .{ cast.name, cast.dtype.name() }),
         .fill_null_column => |fill| try writer.print("fill_null_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
+        .is_null_column => |predicate| try writer.print("is_null_column({s}->{s})", .{ predicate.name, predicate.output_name }),
+        .is_valid_column => |predicate| try writer.print("is_valid_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .with_column_compare => |expr| try writer.print("with_column_compare({s}={s} {s} {s})", .{ expr.name, expr.lhs_name, @tagName(expr.op), expr.rhs_name }),
         .with_column_compare_scalar => |expr| try writer.print("with_column_compare_scalar({s}={s} {s} scalar:{s})", .{ expr.name, expr.input_name, @tagName(expr.op), @tagName(expr.scalar) }),
         .group_by_count => |group| try writer.print("group_by_count({s} -> {s})", .{ group.key_name, group.output_name }),

@@ -337,6 +337,36 @@ test "device lazy frame fills nullable columns" {
     try std.testing.expectError(error.TypeUnsupported, invalid_plan.collect());
 }
 
+test "device lazy frame derives null predicate columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyQualityTable(gpa);
+    defer table.deinit();
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.isNullColumn("quality", "quality_is_null");
+    try plan.isValidColumn("quality", "quality_is_valid");
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_null_column(quality->quality_is_null)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_valid_column(quality->quality_is_valid)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 3), result.width());
+    const is_null = try (try result.column("quality_is_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(is_null);
+    const is_valid = try (try result.column("quality_is_valid")).bool.toOwnedSlice(gpa);
+    defer gpa.free(is_valid);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, is_null);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, is_valid);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.isNullColumn("missing", "missing_is_null");
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame drops null rows" {
     const gpa = std.testing.allocator;
     var table = try lazyQualityTable(gpa);

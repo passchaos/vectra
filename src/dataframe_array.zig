@@ -382,6 +382,58 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
+pub fn isNullColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(name);
+    const values = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(values);
+    @memset(values, false);
+
+    switch (source.*) {
+        inline else => |typed| {
+            const maybe_validity = try validityValues(typed, input.allocator);
+            defer if (maybe_validity) |validity| input.allocator.free(validity);
+            if (maybe_validity) |validity| {
+                for (values, validity) |*slot, valid| slot.* = !valid;
+            }
+        },
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSlice(bool, input.allocator, values, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn isValidColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(name);
+    const values = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(values);
+    @memset(values, true);
+
+    switch (source.*) {
+        inline else => |typed| {
+            const maybe_validity = try validityValues(typed, input.allocator);
+            defer if (maybe_validity) |validity| input.allocator.free(validity);
+            if (maybe_validity) |validity| @memcpy(values, validity);
+        },
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSlice(bool, input.allocator, values, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
 fn literalColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

@@ -214,6 +214,26 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .scalar = fill.scalar,
             } };
         },
+        .is_null_column => |predicate| blk: {
+            const name = try allocator.dupe(u8, predicate.name);
+            errdefer allocator.free(name);
+            const output_name = try allocator.dupe(u8, predicate.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .is_null_column = .{
+                .name = name,
+                .output_name = output_name,
+            } };
+        },
+        .is_valid_column => |predicate| blk: {
+            const name = try allocator.dupe(u8, predicate.name);
+            errdefer allocator.free(name);
+            const output_name = try allocator.dupe(u8, predicate.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .is_valid_column = .{
+                .name = name,
+                .output_name = output_name,
+            } };
+        },
         .with_column_compare => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

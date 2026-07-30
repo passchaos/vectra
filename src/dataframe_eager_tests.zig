@@ -252,6 +252,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.TypeUnsupported, table.fillNullColumn("units", f64, 0.0));
     try std.testing.expectError(error.ColumnNotFound, table.fillNullColumn("missing", i64, 0));
 
+    var null_flags = try table.isNullColumn("units", "units_is_null");
+    defer null_flags.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try null_flags.columnDType("units_is_null"));
+    const units_is_null = try (try null_flags.column("units_is_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(units_is_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, units_is_null);
+
+    var valid_flags = try table.isValidColumn("units", "units_is_valid");
+    defer valid_flags.deinit();
+    const units_is_valid = try (try valid_flags.column("units_is_valid")).bool.toOwnedSlice(gpa);
+    defer gpa.free(units_is_valid);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, units_is_valid);
+
+    var nonnull_flags = try table.isNullColumn("sales", "sales_is_null");
+    defer nonnull_flags.deinit();
+    const sales_is_null = try (try nonnull_flags.column("sales_is_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_is_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_is_null);
+    try std.testing.expectError(error.ColumnNotFound, table.isNullColumn("missing", "missing_is_null"));
+
     var dropped_nulls = try table.dropNullsColumn("units");
     defer dropped_nulls.deinit();
     try std.testing.expectEqual(@as(usize, 2), dropped_nulls.height());
