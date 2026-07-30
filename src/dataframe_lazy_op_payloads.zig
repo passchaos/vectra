@@ -57,6 +57,7 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             scalar: DeviceScalar,
         };
         pub const FilterMask = DeviceColumn;
+        pub const FilterColumn = []const u8;
         pub const FilterScalar = struct {
             name: []const u8,
             op: DeviceColumnCompareOp,

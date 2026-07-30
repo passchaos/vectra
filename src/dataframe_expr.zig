@@ -104,3 +104,12 @@ pub fn filterColumnMask(
     }
     return frame.filter(host_values);
 }
+
+pub fn filterColumn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    name: []const u8,
+) DeviceDataError!DeviceDataFrame {
+    const mask = try frame.column(name);
+    return filterColumnMask(DeviceDataFrame, frame, mask.*);
+}

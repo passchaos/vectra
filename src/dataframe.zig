@@ -152,6 +152,7 @@ pub const DeviceDataFrame = struct {
     pub const compareColumnScalar = table_methods_mod.compareColumnScalar;
     pub const compareColumnScalarWithDeviceScalar = table_methods_mod.compareColumnScalarWithDeviceScalar;
     pub const filterColumnMask = table_methods_mod.filterColumnMask;
+    pub const filterColumn = table_methods_mod.filterColumn;
     pub const toArrowSchema = arrow_methods_mod.toArrowSchema;
     pub const toArrowRecordBatch = arrow_methods_mod.toArrowRecordBatch;
     pub const toArrowTable = arrow_methods_mod.toArrowTable;

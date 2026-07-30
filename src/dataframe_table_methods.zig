@@ -74,6 +74,10 @@ pub fn filterColumnMask(self: anytype, mask: @TypeOf(frameValue(self).columns[0]
     return expr_mod.filterColumnMask(FrameType(@TypeOf(self)), frameValue(self), mask);
 }
 
+pub fn filterColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return expr_mod.filterColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn view(self: anytype) DeviceDataError!dataframe_view_mod.DeviceDataFrameView {
     return dataframe_array_mod.view(dataframe_view_mod.DeviceDataFrameView, dataframe_view_mod.DeviceColumnView, frameValue(self));
 }

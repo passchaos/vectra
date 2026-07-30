@@ -28,6 +28,12 @@ pub fn filter(frame: anytype, mask: anytype) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .filter_mask = try mask.clone() });
 }
 
+pub fn filterColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_column = owned_name });
+}
+
 pub fn withColumnBinary(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
@@ -85,8 +91,10 @@ pub fn withColumnCompareScalar(frame: anytype, name: []const u8, input_name: []c
 }
 
 pub fn filterColumnScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
     try frame.ops.append(frame.allocator, .{ .filter_scalar = .{
-        .name = try frame.allocator.dupe(u8, name),
+        .name = owned_name,
         .op = op,
         .scalar = DeviceScalar.init(T, scalar),
     } });

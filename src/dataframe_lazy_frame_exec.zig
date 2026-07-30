@@ -51,6 +51,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 break :blk try current.withColumn(expr.name, column_value);
             },
             .filter_mask => |mask| try current.filterColumnMask(mask),
+            .filter_column => |name| try current.filterColumn(name),
             .filter_scalar => |filter_op| blk: {
                 var mask = try current.compareColumnScalarWithDeviceScalar(filter_op.name, filter_op.scalar, filter_op.op);
                 defer mask.deinit();

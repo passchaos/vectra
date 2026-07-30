@@ -92,7 +92,7 @@ pub fn demo(allocator: std.mem.Allocator) !void {
     defer lazy_df.deinit();
     try lazy_df.withColumnScalar("sales_x2", "sales", f64, 2.0, .mul);
     try lazy_df.withColumnCompareScalar("expensive_x2", "sales_x2", f64, 6.0, .gt);
-    try lazy_df.filterColumnScalar("sales", f64, 2.5, .gt);
+    try lazy_df.filterColumn("expensive_x2");
     try lazy_df.sortBy("sales", .{ .descending = true });
     try lazy_df.select(&.{ "sales", "units", "sales_x2", "expensive_x2" });
     var lazy_result = try lazy_df.collect();
@@ -228,7 +228,7 @@ lazy `rollingQuantileProfile`, lazy `expandingQuantileProfile`,
 lazy `emaProfile`,
 lazy `bucketProfile`,
 lazy `innerJoinOn`/`leftJoinOn`/`fullJoinOn`/`semiJoinOn`/`antiJoinOn` plus ordered `asofJoin`, lazy `concatRows`/`appendRows`/`vstack`, lazy `distinctRows`/`distinctOn`,
-select/scalar-filter/filter-mask/sort/head/tail operations over either an eager
+select/boolean-column-filter/scalar-filter/filter-mask/sort/head/tail operations over either an eager
 dataframe source or a `DeviceParquetScan` source, exposes `explain()`, folds
 adjacent select/head/tail operations, rewrites adjacent sort+head into `topKBy`,
 and pushes conservative Parquet range/projection scan metadata into Boltha before
@@ -236,8 +236,8 @@ materializing source columns. Derived columns reuse Vectra `Array` arithmetic an
 comparison kernels, so they keep the same CPU/CUDA/MPS dispatch seam as eager
 expressions. It executes through `collect()` today, preserving a future Axiom
 lowering boundary for query optimization/fusion.
-Eager column expressions such as `compareColumnScalar`, `addColumns`, and
-`filterColumnMask` reuse Vectra `Array` operations, so supported dtypes route
+Eager column expressions such as `compareColumnScalar`, `addColumns`,
+`filterColumn`, and `filterColumnMask` reuse Vectra `Array` operations, so supported dtypes route
 through the same Axiom CPU/CUDA/MPS dispatch instead of a CUDA-only dataframe
 implementation. Nullable boolean predicate masks now follow query-engine semantics:
 null predicate rows are treated as not selected rather than requiring a prefilled

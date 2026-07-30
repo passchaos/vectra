@@ -45,6 +45,42 @@ test "device lazy frame collects plan operations" {
     try std.testing.expectEqualSlices(bool, &.{ true, false }, result_big_sale);
 }
 
+test "device lazy frame filters by named boolean columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withColumnCompareScalar("big_sale", "sales", f64, 4.0, .gt);
+    try plan.filterColumn("big_sale");
+    try plan.select(&.{ "sales", "big_sale" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "filter_column(big_sale)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 2), result.height());
+    try std.testing.expectEqual(@as(usize, 2), result.width());
+    const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales);
+    const result_big_sale = try (try result.column("big_sale")).bool.toOwnedSlice(gpa);
+    defer gpa.free(result_big_sale);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, result_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, result_big_sale);
+
+    var source_bool_plan = try DeviceLazyFrame.init(gpa, table);
+    defer source_bool_plan.deinit();
+    try source_bool_plan.filterColumn("active");
+    try source_bool_plan.select(&.{ "sales", "active" });
+    var active_result = try source_bool_plan.collect();
+    defer active_result.deinit();
+    const active_sales = try (try active_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, active_sales);
+}
+
 test "device lazy frame collects topk operations" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

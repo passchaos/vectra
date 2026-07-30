@@ -33,6 +33,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(expr.input_name);
         },
         .filter_mask => |*mask| mask.deinit(),
+        .filter_column => |name| allocator.free(name),
         .filter_scalar => |filter_op| allocator.free(filter_op.name),
         .group_by_count => |group| {
             allocator.free(group.key_name);

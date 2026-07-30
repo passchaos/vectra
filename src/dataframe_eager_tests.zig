@@ -205,4 +205,14 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     const nullable_mask_sales = try (try nullable_mask_filtered.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(nullable_mask_sales);
     try std.testing.expectEqualSlices(f64, &.{5.0}, nullable_mask_sales);
+
+    var mask_table = try table.withColumn("units_gt_one", units_mask);
+    defer mask_table.deinit();
+    var named_mask_filtered = try mask_table.filterColumn("units_gt_one");
+    defer named_mask_filtered.deinit();
+    try std.testing.expectEqual(@as(usize, 1), named_mask_filtered.height());
+    const named_mask_sales = try (try named_mask_filtered.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(named_mask_sales);
+    try std.testing.expectEqualSlices(f64, &.{5.0}, named_mask_sales);
+    try std.testing.expectError(error.TypeMismatch, mask_table.filterColumn("sales"));
 }

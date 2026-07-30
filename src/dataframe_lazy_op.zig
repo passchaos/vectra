@@ -26,6 +26,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         with_column_compare: Payloads.WithColumnCompare,
         with_column_compare_scalar: Payloads.WithColumnCompareScalar,
         filter_mask: Payloads.FilterMask,
+        filter_column: Payloads.FilterColumn,
         filter_scalar: Payloads.FilterScalar,
         group_by_count: Payloads.GroupByCount,
         group_by_value: Payloads.GroupByValue,
