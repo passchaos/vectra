@@ -86,6 +86,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(?usize, 0), range_selected.columnIndex("units"));
     try std.testing.expectEqual(@as(?usize, 1), range_selected.columnIndex("active"));
 
+    var first_two = try table.selectFirstColumns(2);
+    defer first_two.deinit();
+    try std.testing.expectEqual(@as(usize, 2), first_two.width());
+    try std.testing.expectEqual(@as(?usize, 0), first_two.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), first_two.columnIndex("units"));
+
+    var last_two = try table.selectLastColumns(2);
+    defer last_two.deinit();
+    try std.testing.expectEqual(@as(usize, 2), last_two.width());
+    try std.testing.expectEqual(@as(?usize, 0), last_two.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), last_two.columnIndex("active"));
+
     var positional_dropped = try table.dropByColumnIndices(&.{1});
     defer positional_dropped.deinit();
     try std.testing.expectEqual(@as(usize, 2), positional_dropped.width());
@@ -96,6 +108,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer range_dropped.deinit();
     try std.testing.expectEqual(@as(usize, 1), range_dropped.width());
     try std.testing.expectEqual(@as(?usize, 0), range_dropped.columnIndex("sales"));
+
+    var drop_first = try table.dropFirstColumns(1);
+    defer drop_first.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_first.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_first.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_first.columnIndex("active"));
+
+    var drop_last = try table.dropLastColumns(1);
+    defer drop_last.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_last.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_last.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_last.columnIndex("units"));
     try std.testing.expectError(error.IndexOutOfBounds, table.selectByColumnIndices(&.{3}));
     try std.testing.expectError(error.IndexOutOfBounds, table.dropByColumnIndices(&.{3}));
 

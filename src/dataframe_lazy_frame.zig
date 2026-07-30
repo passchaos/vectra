@@ -140,6 +140,14 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn selectFirstColumns(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+                return self.selectColumnRange(0, n);
+            }
+
+            pub fn selectLastColumns(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_last_columns = n });
+            }
+
             pub fn dropByColumnIndices(self: *DeviceLazyFrame, indices: []const usize) DeviceDataError!void {
                 const owned = try self.allocator.dupe(usize, indices);
                 errdefer self.allocator.free(owned);
@@ -151,6 +159,14 @@ pub fn DeviceLazyTypes(
                     .start = start,
                     .stop = stop,
                 } });
+            }
+
+            pub fn dropFirstColumns(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+                return self.dropColumnRange(0, n);
+            }
+
+            pub fn dropLastColumns(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_last_columns = n });
             }
 
             pub fn selectByNamePrefix(self: *DeviceLazyFrame, prefix: []const u8) DeviceDataError!void {

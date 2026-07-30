@@ -95,12 +95,30 @@ pub fn selectColumnRange(self: anytype, start: usize, stop: usize) DeviceDataErr
     return dataframe_array_mod.selectColumnRange(FrameType(@TypeOf(self)), frameValue(self), start, stop);
 }
 
+pub fn selectFirstColumns(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return selectColumnRange(self, 0, @min(n, frameValue(self).columns.len));
+}
+
+pub fn selectLastColumns(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const count = @min(n, frameValue(self).columns.len);
+    return selectColumnRange(self, frameValue(self).columns.len - count, frameValue(self).columns.len);
+}
+
 pub fn dropByColumnIndices(self: anytype, indices: []const usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropByColumnIndices(FrameType(@TypeOf(self)), frameValue(self), indices);
 }
 
 pub fn dropColumnRange(self: anytype, start: usize, stop: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropColumnRange(FrameType(@TypeOf(self)), frameValue(self), start, stop);
+}
+
+pub fn dropFirstColumns(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropColumnRange(self, 0, @min(n, frameValue(self).columns.len));
+}
+
+pub fn dropLastColumns(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const count = @min(n, frameValue(self).columns.len);
+    return dropColumnRange(self, frameValue(self).columns.len - count, frameValue(self).columns.len);
 }
 
 pub fn selectByNamePrefix(self: anytype, prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {

@@ -112,6 +112,28 @@ test "device lazy frame selects and drops columns by dtype" {
     try std.testing.expectEqual(@as(?usize, 0), range.columnIndex("units"));
     try std.testing.expectEqual(@as(?usize, 1), range.columnIndex("active"));
 
+    var first_plan = try DeviceLazyFrame.init(gpa, table);
+    defer first_plan.deinit();
+    try first_plan.selectFirstColumns(2);
+    const first_explain = try first_plan.explain(gpa);
+    defer gpa.free(first_explain);
+    try std.testing.expect(std.mem.indexOf(u8, first_explain, "select_column_range(0..2)") != null);
+    var first = try first_plan.collect();
+    defer first.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), first.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), first.columnIndex("units"));
+
+    var last_plan = try DeviceLazyFrame.init(gpa, table);
+    defer last_plan.deinit();
+    try last_plan.selectLastColumns(2);
+    const last_explain = try last_plan.explain(gpa);
+    defer gpa.free(last_explain);
+    try std.testing.expect(std.mem.indexOf(u8, last_explain, "select_last_columns(2)") != null);
+    var last = try last_plan.collect();
+    defer last.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), last.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), last.columnIndex("active"));
+
     var drop_positional_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_positional_plan.deinit();
     try drop_positional_plan.dropByColumnIndices(&.{1});
@@ -134,6 +156,28 @@ test "device lazy frame selects and drops columns by dtype" {
     defer drop_range.deinit();
     try std.testing.expectEqual(@as(usize, 1), drop_range.width());
     try std.testing.expectEqual(@as(?usize, 0), drop_range.columnIndex("sales"));
+
+    var drop_first_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_first_plan.deinit();
+    try drop_first_plan.dropFirstColumns(1);
+    const drop_first_explain = try drop_first_plan.explain(gpa);
+    defer gpa.free(drop_first_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_first_explain, "drop_column_range(0..1)") != null);
+    var drop_first = try drop_first_plan.collect();
+    defer drop_first.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), drop_first.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_first.columnIndex("active"));
+
+    var drop_last_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_last_plan.deinit();
+    try drop_last_plan.dropLastColumns(1);
+    const drop_last_explain = try drop_last_plan.explain(gpa);
+    defer gpa.free(drop_last_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_last_explain, "drop_last_columns(1)") != null);
+    var drop_last = try drop_last_plan.collect();
+    defer drop_last.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), drop_last.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_last.columnIndex("units"));
 
     var invalid_positional_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_positional_plan.deinit();
