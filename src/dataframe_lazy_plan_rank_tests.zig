@@ -125,7 +125,7 @@ test "device lazy frame selects columns by dtype" {
     try std.testing.expectEqual(table.height(), empty.height());
 }
 
-test "device lazy frame selects columns by name pattern" {
+test "device lazy frame selects and drops columns by name pattern" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);
     defer table.deinit();
@@ -186,6 +186,61 @@ test "device lazy frame selects columns by name pattern" {
     defer empty.deinit();
     try std.testing.expectEqual(@as(usize, 0), empty.width());
     try std.testing.expectEqual(table.height(), empty.height());
+
+    var drop_prefix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_prefix_plan.deinit();
+    try drop_prefix_plan.withColumnScalar("sales_x2", "sales", f64, 2.0, .mul);
+    try drop_prefix_plan.dropByNamePrefix("sales");
+
+    const drop_prefix_explain = try drop_prefix_plan.explain(gpa);
+    defer gpa.free(drop_prefix_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_prefix_explain, "drop_name_prefix(sales)") != null);
+
+    var drop_prefixed = try drop_prefix_plan.collect();
+    defer drop_prefixed.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_prefixed.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_prefixed.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_prefixed.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, null), drop_prefixed.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), drop_prefixed.columnIndex("sales_x2"));
+
+    var drop_suffix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_suffix_plan.deinit();
+    try drop_suffix_plan.dropByNameSuffix("s");
+
+    const drop_suffix_explain = try drop_suffix_plan.explain(gpa);
+    defer gpa.free(drop_suffix_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_suffix_explain, "drop_name_suffix(s)") != null);
+
+    var drop_suffixed = try drop_suffix_plan.collect();
+    defer drop_suffixed.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_suffixed.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_suffixed.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, null), drop_suffixed.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), drop_suffixed.columnIndex("units"));
+
+    var drop_contains_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_contains_plan.deinit();
+    try drop_contains_plan.dropByNameContains("ct");
+
+    const drop_contains_explain = try drop_contains_plan.explain(gpa);
+    defer gpa.free(drop_contains_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_contains_explain, "drop_name_contains(ct)") != null);
+
+    var drop_contained = try drop_contains_plan.collect();
+    defer drop_contained.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_contained.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_contained.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_contained.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, null), drop_contained.columnIndex("active"));
+
+    var drop_empty_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_empty_plan.deinit();
+    try drop_empty_plan.dropByNamePrefix("");
+    var drop_empty = try drop_empty_plan.collect();
+    defer drop_empty.deinit();
+    try std.testing.expectEqual(@as(usize, 0), drop_empty.width());
+    try std.testing.expectEqual(table.height(), drop_empty.height());
 }
 
 test "device lazy frame casts columns" {

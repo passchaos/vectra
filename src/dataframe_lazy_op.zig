@@ -21,9 +21,12 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
     return union(enum) {
         const Self = @This();
         select: Payloads.Select,
-        select_name_prefix: Payloads.SelectNamePattern,
-        select_name_suffix: Payloads.SelectNamePattern,
-        select_name_contains: Payloads.SelectNamePattern,
+        select_name_prefix: Payloads.NamePattern,
+        select_name_suffix: Payloads.NamePattern,
+        select_name_contains: Payloads.NamePattern,
+        drop_name_prefix: Payloads.NamePattern,
+        drop_name_suffix: Payloads.NamePattern,
+        drop_name_contains: Payloads.NamePattern,
         select_dtypes: Payloads.SelectDTypes,
         select_dtype_class: Payloads.SelectDTypeClass,
         with_row_index: Payloads.RowIndex,

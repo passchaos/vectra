@@ -139,6 +139,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.selectByNameContains(self, needle);
             }
 
+            pub fn dropByNamePrefix(self: *DeviceLazyFrame, prefix: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropByNamePrefix(self, prefix);
+            }
+
+            pub fn dropByNameSuffix(self: *DeviceLazyFrame, suffix: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropByNameSuffix(self, suffix);
+            }
+
+            pub fn dropByNameContains(self: *DeviceLazyFrame, needle: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropByNameContains(self, needle);
+            }
+
             pub fn selectByDTypes(self: *DeviceLazyFrame, dtypes: []const array_mod.DType) DeviceDataError!void {
                 return lazy_expr_mod.selectByDTypes(self, dtypes);
             }

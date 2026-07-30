@@ -219,7 +219,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 0), filtered_units.nullCount());
 }
 
-test "device dataframe selects columns by name pattern" {
+test "device dataframe selects and drops columns by name pattern" {
     const gpa = std.testing.allocator;
 
     var sales_q1 = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
@@ -271,6 +271,41 @@ test "device dataframe selects columns by name pattern" {
     defer no_matches.deinit();
     try std.testing.expectEqual(@as(usize, 0), no_matches.width());
     try std.testing.expectEqual(table.height(), no_matches.height());
+
+    var drop_prefixed = try table.dropByNamePrefix("sales_");
+    defer drop_prefixed.deinit();
+    try std.testing.expectEqual(@as(usize, 3), drop_prefixed.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_prefixed.columnIndex("cost_q2"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_prefixed.columnIndex("active_flag"));
+    try std.testing.expectEqual(@as(?usize, 2), drop_prefixed.columnIndex("region_code"));
+    try std.testing.expectEqual(@as(?usize, null), drop_prefixed.columnIndex("sales_q1"));
+
+    var drop_suffixed = try table.dropByNameSuffix("_q2");
+    defer drop_suffixed.deinit();
+    try std.testing.expectEqual(@as(usize, 3), drop_suffixed.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_suffixed.columnIndex("sales_q1"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_suffixed.columnIndex("active_flag"));
+    try std.testing.expectEqual(@as(?usize, 2), drop_suffixed.columnIndex("region_code"));
+    try std.testing.expectEqual(@as(?usize, null), drop_suffixed.columnIndex("cost_q2"));
+
+    var drop_contained = try table.dropByNameContains("flag");
+    defer drop_contained.deinit();
+    try std.testing.expectEqual(@as(usize, 4), drop_contained.width());
+    try std.testing.expectEqual(@as(?usize, null), drop_contained.columnIndex("active_flag"));
+    const drop_contained_codes = try (try drop_contained.column("region_code")).i64.toOwnedSlice(gpa);
+    defer gpa.free(drop_contained_codes);
+    try std.testing.expectEqualSlices(i64, &.{ 10, 20, 30 }, drop_contained_codes);
+
+    var drop_no_matches = try table.dropByNameContains("missing");
+    defer drop_no_matches.deinit();
+    try std.testing.expectEqual(table.width(), drop_no_matches.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_no_matches.columnIndex("sales_q1"));
+    try std.testing.expectEqual(@as(?usize, 4), drop_no_matches.columnIndex("region_code"));
+
+    var drop_all = try table.dropByNamePrefix("");
+    defer drop_all.deinit();
+    try std.testing.expectEqual(@as(usize, 0), drop_all.width());
+    try std.testing.expectEqual(table.height(), drop_all.height());
 }
 
 test "device dataframe round-trips legacy dataframe fixed-width columns" {

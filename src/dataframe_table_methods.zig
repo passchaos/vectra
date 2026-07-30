@@ -99,6 +99,18 @@ pub fn selectByNameContains(self: anytype, needle: []const u8) DeviceDataError!F
     return dataframe_array_mod.selectByNameContains(FrameType(@TypeOf(self)), frameValue(self), needle);
 }
 
+pub fn dropByNamePrefix(self: anytype, prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropByNamePrefix(FrameType(@TypeOf(self)), frameValue(self), prefix);
+}
+
+pub fn dropByNameSuffix(self: anytype, suffix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropByNameSuffix(FrameType(@TypeOf(self)), frameValue(self), suffix);
+}
+
+pub fn dropByNameContains(self: anytype, needle: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropByNameContains(FrameType(@TypeOf(self)), frameValue(self), needle);
+}
+
 pub fn selectByDTypes(self: anytype, dtypes: []const array_mod.DType) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectByDTypes(FrameType(@TypeOf(self)), frameValue(self), dtypes);
 }

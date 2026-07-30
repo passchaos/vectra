@@ -191,7 +191,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expectEqualSlices(f64, &.{ 6.0, 10.0 }, result_sales_x2);
 }
 
-test "device lazy frame keeps name-pattern selectors out of parquet projection pushdown" {
+test "device lazy frame keeps name-pattern selectors and drops out of parquet projection pushdown" {
     const gpa = std.testing.allocator;
 
     var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
@@ -230,6 +230,22 @@ test "device lazy frame keeps name-pattern selectors out of parquet projection p
     const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0 }, result_sales);
+
+    var lazy_drop_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_drop_scan.deinit();
+    try lazy_drop_scan.dropByNameSuffix("ive");
+
+    const drop_explain = try lazy_drop_scan.explain(gpa);
+    defer gpa.free(drop_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_explain, "drop_name_suffix(ive)") != null);
+
+    var dropped = try lazy_drop_scan.collect();
+    defer dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 2), dropped.width());
+    try std.testing.expectEqual(@as(?usize, 0), dropped.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 1), dropped.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), dropped.columnIndex("active"));
 }
 
 test "device lazy frame derives row index after parquet projection" {

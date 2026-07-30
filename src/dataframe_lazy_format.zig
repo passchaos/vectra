@@ -34,6 +34,9 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .select_name_prefix => |pattern| try writer.print("select_name_prefix({s})", .{pattern.pattern}),
         .select_name_suffix => |pattern| try writer.print("select_name_suffix({s})", .{pattern.pattern}),
         .select_name_contains => |pattern| try writer.print("select_name_contains({s})", .{pattern.pattern}),
+        .drop_name_prefix => |pattern| try writer.print("drop_name_prefix({s})", .{pattern.pattern}),
+        .drop_name_suffix => |pattern| try writer.print("drop_name_suffix({s})", .{pattern.pattern}),
+        .drop_name_contains => |pattern| try writer.print("drop_name_contains({s})", .{pattern.pattern}),
         .select_dtypes => |dtypes| {
             try writer.print("select_dtypes[", .{});
             for (dtypes, 0..) |dtype, i| {
