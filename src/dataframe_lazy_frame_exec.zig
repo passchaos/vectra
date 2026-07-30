@@ -103,6 +103,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_valid_count => |row_count| try current.withRowValidCount(row_count.names, row_count.output_name),
             .row_nan_count => |row_count| try current.withRowNaNCount(row_count.names, row_count.output_name),
             .row_inf_count => |row_count| try current.withRowInfCount(row_count.names, row_count.output_name),
+            .row_finite_count => |row_count| try current.withRowFiniteCount(row_count.names, row_count.output_name),
+            .row_non_finite_count => |row_count| try current.withRowNonFiniteCount(row_count.names, row_count.output_name),
             .with_column_compare => |expr| blk: {
                 var column_value = try current.compareColumns(expr.lhs_name, expr.rhs_name, expr.op);
                 defer column_value.deinit();

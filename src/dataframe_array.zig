@@ -873,12 +873,23 @@ pub fn withRowValidCount(
     return withRowValidityCount(DeviceDataFrame, input, names, output_name, true);
 }
 
-fn withRowSpecialFloatCount(
+const RowNumericPredicate = enum { nan, inf, finite, non_finite };
+
+fn rowNumericPredicateMatches(comptime T: type, value: T, comptime predicate: RowNumericPredicate) bool {
+    return switch (predicate) {
+        .nan => isNanValue(T, value),
+        .inf => isInfValue(T, value),
+        .finite => isFiniteValue(T, value),
+        .non_finite => !isFiniteValue(T, value),
+    };
+}
+
+fn withRowNumericPredicateCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     names: []const []const u8,
     output_name: []const u8,
-    comptime predicate: SpecialFloatPredicate,
+    comptime predicate: RowNumericPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     const check_names = if (names.len == 0) input.names else names;
     const counts = try input.allocator.alloc(i64, input.rows);
@@ -895,10 +906,7 @@ fn withRowSpecialFloatCount(
                 defer if (maybe_validity) |validity| input.allocator.free(validity);
                 for (counts, host_values, 0..) |*slot, value, row| {
                     const valid = if (maybe_validity) |validity| validity[row] else true;
-                    if (valid and switch (predicate) {
-                        .nan => isNanValue(@TypeOf(value), value),
-                        .inf => isInfValue(@TypeOf(value), value),
-                    }) slot.* += 1;
+                    if (valid and rowNumericPredicateMatches(@TypeOf(value), value, predicate)) slot.* += 1;
                 }
             },
         }
@@ -916,7 +924,7 @@ pub fn withRowNaNCount(
     names: []const []const u8,
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowSpecialFloatCount(DeviceDataFrame, input, names, output_name, .nan);
+    return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .nan);
 }
 
 pub fn withRowInfCount(
@@ -925,7 +933,25 @@ pub fn withRowInfCount(
     names: []const []const u8,
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowSpecialFloatCount(DeviceDataFrame, input, names, output_name, .inf);
+    return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .inf);
+}
+
+pub fn withRowFiniteCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .finite);
+}
+
+pub fn withRowNonFiniteCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .non_finite);
 }
 
 fn literalColumn(

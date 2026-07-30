@@ -796,6 +796,18 @@ test "device dataframe derives NaN and finite predicate columns" {
     const row_inf_count = try (try row_inf_counts.column("row_inf_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_inf_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0 }, row_inf_count);
+
+    var row_finite_counts = try table.withRowFiniteCount(&.{ "metric", "id" }, "row_finite_count");
+    defer row_finite_counts.deinit();
+    const row_finite_count = try (try row_finite_counts.column("row_finite_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_finite_count);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 1 }, row_finite_count);
+
+    var row_non_finite_counts = try table.withRowNonFiniteCount(&.{}, "row_non_finite_count");
+    defer row_non_finite_counts.deinit();
+    const row_non_finite_count = try (try row_non_finite_counts.column("row_non_finite_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_non_finite_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 0 }, row_non_finite_count);
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
 }
 

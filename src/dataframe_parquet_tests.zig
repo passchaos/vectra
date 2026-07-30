@@ -366,6 +366,26 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(row_inf_count_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_inf_count_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_inf_count_explain, "row_inf_count([]->row_inf_count)") != null);
+
+    var row_finite_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_finite_count_scan.deinit();
+    try row_finite_count_scan.withRowFiniteCount(&.{ "sales", "active" }, "row_finite_count");
+    try row_finite_count_scan.select(&.{"row_finite_count"});
+
+    const row_finite_count_explain = try row_finite_count_scan.explain(gpa);
+    defer gpa.free(row_finite_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_finite_count_explain, "scan_pushdown: projection=[sales,active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_finite_count_explain, "row_finite_count([sales,active]->row_finite_count)") != null);
+
+    var row_non_finite_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_non_finite_count_scan.deinit();
+    try row_non_finite_count_scan.withRowNonFiniteCount(&.{}, "row_non_finite_count");
+    try row_non_finite_count_scan.select(&.{"row_non_finite_count"});
+
+    const row_non_finite_count_explain = try row_non_finite_count_scan.explain(gpa);
+    defer gpa.free(row_non_finite_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_non_finite_count_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_non_finite_count_explain, "row_non_finite_count([]->row_non_finite_count)") != null);
 }
 
 test "device lazy frame pushes coalesce dependencies into parquet scan source" {
