@@ -218,6 +218,19 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .scalar = fill.scalar,
             } };
         },
+        .coalesce_columns => |coalesce| blk: {
+            const primary_name = try allocator.dupe(u8, coalesce.primary_name);
+            errdefer allocator.free(primary_name);
+            const fallback_name = try allocator.dupe(u8, coalesce.fallback_name);
+            errdefer allocator.free(fallback_name);
+            const output_name = try allocator.dupe(u8, coalesce.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .coalesce_columns = .{
+                .primary_name = primary_name,
+                .fallback_name = fallback_name,
+                .output_name = output_name,
+            } };
+        },
         .is_null_column => |predicate| blk: {
             const name = try allocator.dupe(u8, predicate.name);
             errdefer allocator.free(name);

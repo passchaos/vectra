@@ -390,6 +390,34 @@ test "device lazy frame fills nullable columns" {
     try std.testing.expectError(error.TypeUnsupported, invalid_plan.collect());
 }
 
+test "device lazy frame coalesces nullable columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyQualityTable(gpa);
+    defer table.deinit();
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withColumnLiteral("fallback_quality", f64, 9.0);
+    try plan.coalesceColumns("quality", "fallback_quality", "quality_coalesced");
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_literal(fallback_quality=scalar:f64)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "coalesce_columns(quality,fallback_quality->quality_coalesced)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 0), (try result.column("quality_coalesced")).nullCount());
+    const values = try (try result.column("quality_coalesced")).f64.toOwnedSlice(gpa);
+    defer gpa.free(values);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 9.0, 3.0, 4.0 }, values);
+
+    var mismatch_plan = try DeviceLazyFrame.init(gpa, table);
+    defer mismatch_plan.deinit();
+    try mismatch_plan.withColumnLiteral("fallback_i64", i64, 9);
+    try mismatch_plan.coalesceColumns("quality", "fallback_i64", "bad");
+    try std.testing.expectError(error.TypeMismatch, mismatch_plan.collect());
+}
+
 test "device lazy frame derives null predicate columns" {
     const gpa = std.testing.allocator;
     var table = try lazyQualityTable(gpa);

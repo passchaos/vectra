@@ -117,6 +117,11 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             name: []const u8,
             scalar: DeviceScalar,
         };
+        pub const CoalesceColumns = struct {
+            primary_name: []const u8,
+            fallback_name: []const u8,
+            output_name: []const u8,
+        };
         pub const NullPredicateColumn = struct {
             name: []const u8,
             output_name: []const u8,

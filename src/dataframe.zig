@@ -236,6 +236,7 @@ pub const DeviceDataFrame = struct {
     pub const castColumn = table_methods_mod.castColumn;
     pub const fillNullColumn = table_methods_mod.fillNullColumn;
     pub const fillNullColumnWithScalar = table_methods_mod.fillNullColumnWithScalar;
+    pub const coalesceColumns = table_methods_mod.coalesceColumns;
     pub const isNullColumn = table_methods_mod.isNullColumn;
     pub const isValidColumn = table_methods_mod.isValidColumn;
     pub const withColumnLiteral = table_methods_mod.withColumnLiteral;

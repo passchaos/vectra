@@ -232,6 +232,44 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expectEqualSlices(bool, &.{ false, true, false }, is_null);
 }
 
+test "device lazy frame pushes coalesce dependencies into parquet scan source" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer id.deinit();
+    var sales = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 2.0, 3.0, 5.0 }, &.{ true, false, true }, .cpu);
+    defer sales.deinit();
+    var fallback = try DeviceColumn.fromSlice(f64, gpa, &.{ 8.0, 9.0, 10.0 }, .cpu);
+    defer fallback.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "sales", .data = sales },
+        .{ .name = "fallback", .data = fallback },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+
+    var lazy_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_scan.deinit();
+    try lazy_scan.coalesceColumns("sales", "fallback", "sales_filled");
+    try lazy_scan.select(&.{"sales_filled"});
+
+    const explain = try lazy_scan.explain(gpa);
+    defer gpa.free(explain);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "scan_pushdown: projection=[sales,fallback]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "coalesce_columns(sales,fallback->sales_filled)") != null);
+
+    var result = try lazy_scan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 1), result.width());
+    const filled = try (try result.column("sales_filled")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filled);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 5.0 }, filled);
+}
+
 test "device lazy frame keeps schema-derived and schema-rewrite ops out of parquet projection pushdown" {
     const gpa = std.testing.allocator;
 

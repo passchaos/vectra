@@ -89,6 +89,11 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         },
         .cast_column => |cast| allocator.free(cast.name),
         .fill_null_column => |fill| allocator.free(fill.name),
+        .coalesce_columns => |coalesce| {
+            allocator.free(coalesce.primary_name);
+            allocator.free(coalesce.fallback_name);
+            allocator.free(coalesce.output_name);
+        },
         .is_null_column => |predicate| {
             allocator.free(predicate.name);
             allocator.free(predicate.output_name);

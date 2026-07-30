@@ -413,6 +413,20 @@ pub fn fillNullColumnWithScalar(frame: anytype, name: []const u8, scalar: Device
     } });
 }
 
+pub fn coalesceColumns(frame: anytype, primary_name: []const u8, fallback_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_primary = try frame.allocator.dupe(u8, primary_name);
+    errdefer frame.allocator.free(owned_primary);
+    const owned_fallback = try frame.allocator.dupe(u8, fallback_name);
+    errdefer frame.allocator.free(owned_fallback);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .coalesce_columns = .{
+        .primary_name = owned_primary,
+        .fallback_name = owned_fallback,
+        .output_name = owned_output,
+    } });
+}
+
 pub fn isNullColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

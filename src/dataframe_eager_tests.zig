@@ -277,6 +277,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.TypeUnsupported, table.fillNullColumn("units", f64, 0.0));
     try std.testing.expectError(error.ColumnNotFound, table.fillNullColumn("missing", i64, 0));
 
+    var fallback_units_col = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30 }, &.{ true, true, false }, .cpu);
+    defer fallback_units_col.deinit();
+    var fallback_table = try table.withColumn("fallback_units", fallback_units_col);
+    defer fallback_table.deinit();
+    var coalesced_units = try fallback_table.coalesceColumns("units", "fallback_units", "units_coalesced");
+    defer coalesced_units.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try coalesced_units.columnDType("units_coalesced"));
+    try std.testing.expectEqual(@as(usize, 0), (try coalesced_units.column("units_coalesced")).nullCount());
+    const coalesced_values = try (try coalesced_units.column("units_coalesced")).i64.toOwnedSlice(gpa);
+    defer gpa.free(coalesced_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 20, 3 }, coalesced_values);
+    try std.testing.expectError(error.TypeMismatch, fallback_table.coalesceColumns("units", "sales", "bad"));
+    try std.testing.expectError(error.ColumnNotFound, fallback_table.coalesceColumns("missing", "fallback_units", "bad"));
+
     var null_flags = try table.isNullColumn("units", "units_is_null");
     defer null_flags.deinit();
     try std.testing.expectEqual(DeviceDType.bool, try null_flags.columnDType("units_is_null"));

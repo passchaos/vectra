@@ -23,6 +23,7 @@ pub const rowIndicesFromMask = array_helpers_mod.rowIndicesFromMask;
 pub const sliceArray1d = array_helpers_mod.sliceArray1d;
 pub const takeArray1d = array_helpers_mod.takeArray1d;
 pub const concatTypedColumns = array_helpers_mod.concatTypedColumns;
+pub const coalesceTypedColumns = array_helpers_mod.coalesceTypedJoinKeys;
 pub const coalesceTypedJoinKeys = array_helpers_mod.coalesceTypedJoinKeys;
 pub const concatDeviceColumns = array_helpers_mod.concatDeviceColumns;
 pub const coalesceJoinKeys = array_helpers_mod.coalesceJoinKeys;
@@ -430,6 +431,40 @@ pub fn fillNullColumn(
     var filled = try source.fillNullWithScalar(scalar);
     defer filled.deinit();
     return withColumn(DeviceDataFrame, input, name, filled);
+}
+
+pub fn coalesceColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    primary_name: []const u8,
+    fallback_name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const primary = try input.column(primary_name);
+    const fallback = try input.column(fallback_name);
+    if (primary.dtype() != fallback.dtype()) return error.TypeMismatch;
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var coalesced: DeviceColumn = switch (primary.*) {
+        .bool => |typed| @unionInit(DeviceColumn, "bool", try coalesceTypedColumns(bool, typed, fallback.bool)),
+        .i8 => |typed| @unionInit(DeviceColumn, "i8", try coalesceTypedColumns(i8, typed, fallback.i8)),
+        .i16 => |typed| @unionInit(DeviceColumn, "i16", try coalesceTypedColumns(i16, typed, fallback.i16)),
+        .i32 => |typed| @unionInit(DeviceColumn, "i32", try coalesceTypedColumns(i32, typed, fallback.i32)),
+        .i64 => |typed| @unionInit(DeviceColumn, "i64", try coalesceTypedColumns(i64, typed, fallback.i64)),
+        .u8 => |typed| @unionInit(DeviceColumn, "u8", try coalesceTypedColumns(u8, typed, fallback.u8)),
+        .u16 => |typed| @unionInit(DeviceColumn, "u16", try coalesceTypedColumns(u16, typed, fallback.u16)),
+        .u32 => |typed| @unionInit(DeviceColumn, "u32", try coalesceTypedColumns(u32, typed, fallback.u32)),
+        .u64 => |typed| @unionInit(DeviceColumn, "u64", try coalesceTypedColumns(u64, typed, fallback.u64)),
+        .usize => |typed| @unionInit(DeviceColumn, "usize", try coalesceTypedColumns(usize, typed, fallback.usize)),
+        .isize => |typed| @unionInit(DeviceColumn, "isize", try coalesceTypedColumns(isize, typed, fallback.isize)),
+        .f16 => |typed| @unionInit(DeviceColumn, "f16", try coalesceTypedColumns(f16, typed, fallback.f16)),
+        .f32 => |typed| @unionInit(DeviceColumn, "f32", try coalesceTypedColumns(f32, typed, fallback.f32)),
+        .f64 => |typed| @unionInit(DeviceColumn, "f64", try coalesceTypedColumns(f64, typed, fallback.f64)),
+        .bf16 => |typed| @unionInit(DeviceColumn, "bf16", try coalesceTypedColumns(array_mod.BFloat16, typed, fallback.bf16)),
+        .c64 => |typed| @unionInit(DeviceColumn, "c64", try coalesceTypedColumns(array_mod.Complex64, typed, fallback.c64)),
+        .c128 => |typed| @unionInit(DeviceColumn, "c128", try coalesceTypedColumns(array_mod.Complex128, typed, fallback.c128)),
+    };
+    defer coalesced.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, coalesced);
 }
 
 pub fn isNullColumn(
