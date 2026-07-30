@@ -347,6 +347,25 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, filter_inf_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, filter_inf_explain, "filter_infs_column(sales)") != null);
 
+    var drop_non_finite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_non_finite_scan.deinit();
+    try drop_non_finite_scan.dropNonFinitesColumn("sales");
+    try drop_non_finite_scan.select(&.{"id"});
+
+    const drop_non_finite_explain = try drop_non_finite_scan.explain(gpa);
+    defer gpa.free(drop_non_finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_non_finite_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_non_finite_explain, "drop_non_finites[sales]") != null);
+
+    var filter_non_finite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_non_finite_scan.deinit();
+    try filter_non_finite_scan.filterNonFinitesColumn("sales");
+
+    const filter_non_finite_explain = try filter_non_finite_scan.explain(gpa);
+    defer gpa.free(filter_non_finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_non_finite_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_non_finite_explain, "filter_non_finites_column(sales)") != null);
+
     var row_nan_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer row_nan_count_scan.deinit();
     try row_nan_count_scan.withRowNaNCount(&.{ "sales", "active" }, "row_nan_count");

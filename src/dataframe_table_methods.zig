@@ -469,6 +469,22 @@ pub fn filterInfsColumn(self: anytype, name: []const u8) DeviceDataError!FrameTy
     return dataframe_array_mod.filterInfsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn dropNonFinites(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropNonFinites(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropNonFinitesOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNonFinites(self, names);
+}
+
+pub fn dropNonFinitesColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNonFinites(self, &.{name});
+}
+
+pub fn filterNonFinitesColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterNonFinitesColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn head(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return sliceRows(self, 0, @min(n, self.rows));
 }

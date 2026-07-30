@@ -834,6 +834,34 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer gpa.free(filtered_inf_metric);
     try std.testing.expect(std.math.isInf(filtered_inf_metric[0]));
 
+    var drop_non_finite_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_non_finite_plan.deinit();
+    try drop_non_finite_plan.dropNonFinitesColumn("metric");
+    const drop_non_finite_explain = try drop_non_finite_plan.explain(gpa);
+    defer gpa.free(drop_non_finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_non_finite_explain, "drop_non_finites[metric]") != null);
+    var dropped_non_finite_rows = try drop_non_finite_plan.collect();
+    defer dropped_non_finite_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 2), dropped_non_finite_rows.height());
+    const dropped_non_finite_metric = try (try dropped_non_finite_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_non_finite_metric);
+    try std.testing.expectEqual(@as(f64, 1.0), dropped_non_finite_metric[0]);
+    try std.testing.expectEqual(@as(f64, 7.0), dropped_non_finite_metric[1]);
+
+    var filter_non_finite_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_non_finite_plan.deinit();
+    try filter_non_finite_plan.filterNonFinitesColumn("metric");
+    const filter_non_finite_explain = try filter_non_finite_plan.explain(gpa);
+    defer gpa.free(filter_non_finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_non_finite_explain, "filter_non_finites_column(metric)") != null);
+    var filtered_non_finite_rows = try filter_non_finite_plan.collect();
+    defer filtered_non_finite_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 2), filtered_non_finite_rows.height());
+    const filtered_non_finite_metric = try (try filtered_non_finite_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_non_finite_metric);
+    try std.testing.expect(std.math.isNan(filtered_non_finite_metric[0]));
+    try std.testing.expect(std.math.isInf(filtered_non_finite_metric[1]));
+
     var row_special_plan = try DeviceLazyFrame.init(gpa, table);
     defer row_special_plan.deinit();
     try row_special_plan.withRowNaNCount(&.{ "metric", "id" }, "row_nan_count");

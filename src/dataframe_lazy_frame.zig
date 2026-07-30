@@ -393,6 +393,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterInfsColumn(self, name);
             }
 
+            pub fn dropNonFinites(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropNonFinites(self, names);
+            }
+
+            pub fn dropNonFinitesOn(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropNonFinites(names);
+            }
+
+            pub fn dropNonFinitesColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropNonFinitesColumn(self, name);
+            }
+
+            pub fn filterNonFinitesColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterNonFinitesColumn(self, name);
+            }
+
             pub fn filter(self: *DeviceLazyFrame, mask: DeviceColumn) DeviceDataError!void {
                 return lazy_expr_mod.filter(self, mask);
             }

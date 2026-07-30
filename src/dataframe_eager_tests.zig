@@ -785,6 +785,23 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expect(std.math.isInf(filtered_inf_metric[0]));
     try std.testing.expectError(error.ColumnNotFound, table.dropInfsColumn("missing"));
 
+    var dropped_non_finite_rows = try table.dropNonFinitesColumn("metric");
+    defer dropped_non_finite_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 2), dropped_non_finite_rows.height());
+    const dropped_non_finite_metric = try (try dropped_non_finite_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_non_finite_metric);
+    try std.testing.expectEqual(@as(f64, 1.0), dropped_non_finite_metric[0]);
+    try std.testing.expectEqual(@as(f64, 7.0), dropped_non_finite_metric[1]);
+
+    var filtered_non_finite_rows = try table.filterNonFinitesColumn("metric");
+    defer filtered_non_finite_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 2), filtered_non_finite_rows.height());
+    const filtered_non_finite_metric = try (try filtered_non_finite_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_non_finite_metric);
+    try std.testing.expect(std.math.isNan(filtered_non_finite_metric[0]));
+    try std.testing.expect(std.math.isInf(filtered_non_finite_metric[1]));
+    try std.testing.expectError(error.ColumnNotFound, table.dropNonFinitesColumn("missing"));
+
     var row_nan_counts = try table.withRowNaNCount(&.{ "metric", "id" }, "row_nan_count");
     defer row_nan_counts.deinit();
     const row_nan_count = try (try row_nan_counts.column("row_nan_count")).i64.toOwnedSlice(gpa);

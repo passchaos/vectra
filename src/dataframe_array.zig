@@ -569,7 +569,7 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
-const SpecialFloatPredicate = enum { nan, inf };
+const SpecialFloatPredicate = enum { nan, inf, non_finite };
 
 fn fillSpecialFloatsTyped(
     comptime T: type,
@@ -589,6 +589,7 @@ fn fillSpecialFloatsTyped(
         if (valid and switch (predicate) {
             .nan => isNanValue(T, slot.*),
             .inf => isInfValue(T, slot.*),
+            .non_finite => !isFiniteValue(T, slot.*),
         }) slot.* = replacement;
     }
 
@@ -1369,6 +1370,7 @@ fn dropSpecialFloats(
                     if (valid and switch (predicate) {
                         .nan => isNanValue(@TypeOf(value), value),
                         .inf => isInfValue(@TypeOf(value), value),
+                        .non_finite => !isFiniteValue(@TypeOf(value), value),
                     }) slot.* = false;
                 }
             },
@@ -1393,6 +1395,14 @@ pub fn dropInfs(
     return dropSpecialFloats(DeviceDataFrame, input, names, .inf);
 }
 
+pub fn dropNonFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropSpecialFloats(DeviceDataFrame, input, names, .non_finite);
+}
+
 fn filterSpecialFloatsColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -1415,6 +1425,7 @@ fn filterSpecialFloatsColumn(
                 slot.* = valid and switch (predicate) {
                     .nan => isNanValue(@TypeOf(value), value),
                     .inf => isInfValue(@TypeOf(value), value),
+                    .non_finite => !isFiniteValue(@TypeOf(value), value),
                 };
             }
         },
@@ -1436,6 +1447,14 @@ pub fn filterInfsColumn(
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .inf);
+}
+
+pub fn filterNonFinitesColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .non_finite);
 }
 
 pub fn view(

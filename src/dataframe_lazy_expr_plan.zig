@@ -324,6 +324,25 @@ pub fn filterInfsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .filter_infs_column = owned_name });
 }
 
+pub fn dropNonFinites(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned) |name| frame.allocator.free(name);
+        frame.allocator.free(owned);
+    }
+    try frame.ops.append(frame.allocator, .{ .drop_non_finites = owned });
+}
+
+pub fn dropNonFinitesColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    return dropNonFinites(frame, &.{name});
+}
+
+pub fn filterNonFinitesColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_non_finites_column = owned_name });
+}
+
 pub fn withRowIndex(frame: anytype, name: []const u8, offset: usize) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
