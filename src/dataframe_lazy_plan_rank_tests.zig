@@ -357,6 +357,34 @@ test "device lazy frame collects row slice operations" {
     try std.testing.expectError(error.IndexOutOfBounds, invalid_take_plan.collect());
 }
 
+test "device lazy frame reverses rows" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var reverse_plan = try DeviceLazyFrame.init(gpa, table);
+    defer reverse_plan.deinit();
+    try reverse_plan.reverseRows();
+    try reverse_plan.select(&.{ "sales", "units", "active" });
+
+    const reverse_explain = try reverse_plan.explain(gpa);
+    defer gpa.free(reverse_explain);
+    try std.testing.expect(std.mem.indexOf(u8, reverse_explain, "reverse_rows") != null);
+
+    var reversed = try reverse_plan.collect();
+    defer reversed.deinit();
+    try std.testing.expectEqual(@as(usize, 4), reversed.height());
+    try std.testing.expectEqual(@as(usize, 3), reversed.width());
+    const sales = try (try reversed.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales);
+    const units = try (try reversed.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units);
+    const active = try (try reversed.column("active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active);
+    try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0, 3.0, 2.0 }, sales);
+    try std.testing.expectEqualSlices(i64, &.{ 4, 3, 2, 1 }, units);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, active);
+}
+
 test "device lazy frame collects rank operations" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

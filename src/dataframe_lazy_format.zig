@@ -183,6 +183,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("])", .{});
         },
+        .reverse_rows => try writer.print("reverse_rows", .{}),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }

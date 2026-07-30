@@ -368,6 +368,18 @@ pub fn takeRows(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, row_indices.len, input.device);
 }
 
+pub fn reverseRows(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const row_indices = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(row_indices);
+    for (row_indices, 0..) |*slot, i| {
+        slot.* = input.rows - 1 - i;
+    }
+    return takeRows(DeviceDataFrame, input, row_indices);
+}
+
 pub fn filterRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

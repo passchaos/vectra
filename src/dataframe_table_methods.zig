@@ -184,6 +184,14 @@ pub fn take(self: anytype, row_indices: []const usize) DeviceDataError!FrameType
     return dataframe_array_mod.takeRows(FrameType(@TypeOf(self)), frameValue(self), row_indices);
 }
 
+pub fn reverseRows(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.reverseRows(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn reverse(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return reverseRows(self);
+}
+
 pub fn concatRows(self: anytype, other: FrameType(@TypeOf(self))) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.concatDeviceDataFramesRows(FrameType(@TypeOf(self)), frameValue(self), other);
 }

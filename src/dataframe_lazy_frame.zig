@@ -341,6 +341,14 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .take_rows = owned });
             }
 
+            pub fn reverseRows(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .reverse_rows = {} });
+            }
+
+            pub fn reverse(self: *DeviceLazyFrame) DeviceDataError!void {
+                return self.reverseRows();
+            }
+
             pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .head = n });
             }
