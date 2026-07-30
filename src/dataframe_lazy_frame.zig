@@ -485,6 +485,13 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn sampleRowsWithReplacement(self: *DeviceLazyFrame, count: usize, seed: u64) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .sample_rows_with_replacement = .{
+                    .count = count,
+                    .seed = seed,
+                } });
+            }
+
             pub fn strideRows(self: *DeviceLazyFrame, start: usize, step: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .stride_rows = .{
                     .start = start,

@@ -820,6 +820,30 @@ test "device lazy frame collects row slice operations" {
     try invalid_sample_plan.sampleRows(table.height() + 1, 1234);
     try std.testing.expectError(error.InvalidShape, invalid_sample_plan.collect());
 
+    var replacement_plan = try DeviceLazyFrame.init(gpa, table);
+    defer replacement_plan.deinit();
+    try replacement_plan.sampleRowsWithReplacement(table.height() + 2, 4321);
+    try replacement_plan.select(&.{ "sales", "units" });
+    const replacement_explain = try replacement_plan.explain(gpa);
+    defer gpa.free(replacement_explain);
+    try std.testing.expect(std.mem.indexOf(u8, replacement_explain, "sample_rows_with_replacement(count=6, seed=4321)") != null);
+    var sampled_replacement = try replacement_plan.collect();
+    defer sampled_replacement.deinit();
+    try std.testing.expectEqual(@as(usize, 6), sampled_replacement.height());
+    try std.testing.expectEqual(@as(usize, 2), sampled_replacement.width());
+
+    var replacement_again_plan = try DeviceLazyFrame.init(gpa, table);
+    defer replacement_again_plan.deinit();
+    try replacement_again_plan.sampleRowsWithReplacement(table.height() + 2, 4321);
+    try replacement_again_plan.select(&.{ "sales", "units" });
+    var sampled_replacement_again = try replacement_again_plan.collect();
+    defer sampled_replacement_again.deinit();
+    const replacement_sales = try (try sampled_replacement.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(replacement_sales);
+    const replacement_again_sales = try (try sampled_replacement_again.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(replacement_again_sales);
+    try std.testing.expectEqualSlices(f64, replacement_sales, replacement_again_sales);
+
     var take_plan = try DeviceLazyFrame.init(gpa, table);
     defer take_plan.deinit();
     try take_plan.take(&.{ 3, 1, 1 });

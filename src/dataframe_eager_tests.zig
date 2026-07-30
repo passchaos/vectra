@@ -428,6 +428,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, sampled_sales, sampled_again_sales);
     try std.testing.expectError(error.InvalidShape, table.sampleRows(table.height() + 1, 1234));
 
+    var sampled_replacement = try table.sampleRowsWithReplacement(table.height() + 2, 4321);
+    defer sampled_replacement.deinit();
+    try std.testing.expectEqual(table.height() + 2, sampled_replacement.height());
+    try std.testing.expectEqual(table.width(), sampled_replacement.width());
+    const sampled_replacement_sales = try (try sampled_replacement.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sampled_replacement_sales);
+    var sampled_replacement_again = try table.sampleRowsWithReplacement(table.height() + 2, 4321);
+    defer sampled_replacement_again.deinit();
+    const sampled_replacement_again_sales = try (try sampled_replacement_again.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sampled_replacement_again_sales);
+    try std.testing.expectEqualSlices(f64, sampled_replacement_sales, sampled_replacement_again_sales);
+
     var strided = try table.strideRows(0, 2);
     defer strided.deinit();
     try std.testing.expectEqual(@as(usize, 2), strided.height());

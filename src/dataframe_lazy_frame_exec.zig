@@ -178,6 +178,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .stride_rows => |stride| try current.strideRows(stride.start, stride.step),
             .take_rows => |row_indices| try current.take(row_indices),
             .sample_rows => |sample| try current.sampleRows(sample.count, sample.seed),
+            .sample_rows_with_replacement => |sample| try current.sampleRowsWithReplacement(sample.count, sample.seed),
             .reverse_rows => try current.reverseRows(),
             .head => |n| try current.head(n),
             .tail => |n| try current.tail(n),

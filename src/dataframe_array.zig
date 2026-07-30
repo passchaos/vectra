@@ -878,6 +878,25 @@ pub fn sampleRows(
     return takeRows(DeviceDataFrame, input, row_indices[0..count]);
 }
 
+pub fn sampleRowsWithReplacement(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    count: usize,
+    seed: u64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (count == 0) return takeRows(DeviceDataFrame, input, &.{});
+    if (input.rows == 0) return error.EmptyDataFrame;
+
+    const row_indices = try input.allocator.alloc(usize, count);
+    defer input.allocator.free(row_indices);
+    var engine = alea.ScalarPrng.init(seed);
+    const rng = alea.Rng.init(&engine);
+    for (row_indices) |*slot| {
+        slot.* = rng.intRangeLessThan(usize, 0, input.rows);
+    }
+    return takeRows(DeviceDataFrame, input, row_indices);
+}
+
 pub fn strideRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
