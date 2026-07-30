@@ -707,6 +707,29 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(len_sliced_sales);
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, len_sliced_sales);
 
+    var step_plan = try DeviceLazyFrame.init(gpa, table);
+    defer step_plan.deinit();
+    try step_plan.sliceRowsStep(0, table.height(), 2);
+    try step_plan.select(&.{ "sales", "units" });
+    const step_explain = try step_plan.explain(gpa);
+    defer gpa.free(step_explain);
+    try std.testing.expect(std.mem.indexOf(u8, step_explain, "slice_rows_step(0..4, step=2)") != null);
+    var stepped = try step_plan.collect();
+    defer stepped.deinit();
+    try std.testing.expectEqual(@as(usize, 2), stepped.height());
+    try std.testing.expectEqual(@as(usize, 2), stepped.width());
+    const stepped_sales = try (try stepped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(stepped_sales);
+    const stepped_units = try (try stepped.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(stepped_units);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, stepped_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 3 }, stepped_units);
+
+    var invalid_step_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_step_plan.deinit();
+    try invalid_step_plan.sliceRowsStep(0, table.height(), 0);
+    try std.testing.expectError(error.InvalidShape, invalid_step_plan.collect());
+
     var stride_plan = try DeviceLazyFrame.init(gpa, table);
     defer stride_plan.deinit();
     try stride_plan.strideRows(0, 2);

@@ -828,6 +828,29 @@ pub fn strideRows(
     return takeRows(DeviceDataFrame, input, row_indices);
 }
 
+pub fn sliceRowsStep(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    start: usize,
+    stop: usize,
+    step: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (step == 0) return error.InvalidShape;
+    const end = @min(stop, input.rows);
+    const begin = @min(start, end);
+    if (begin >= end) return takeRows(DeviceDataFrame, input, &.{});
+
+    const count = 1 + (end - 1 - begin) / step;
+    const row_indices = try input.allocator.alloc(usize, count);
+    defer input.allocator.free(row_indices);
+    var row = begin;
+    for (row_indices) |*slot| {
+        slot.* = row;
+        row += step;
+    }
+    return takeRows(DeviceDataFrame, input, row_indices);
+}
+
 pub fn reverseRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

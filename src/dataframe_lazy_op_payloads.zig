@@ -183,6 +183,11 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             start: usize,
             step: usize,
         };
+        pub const RowSliceStep = struct {
+            start: usize,
+            stop: usize,
+            step: usize,
+        };
         pub const RowTake = []usize;
         pub const RankProfileBy = profile_payloads.RankProfileBy;
         pub const RollingProfile = profile_payloads.RollingProfile;

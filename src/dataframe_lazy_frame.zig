@@ -451,6 +451,19 @@ pub fn DeviceLazyTypes(
                 return self.sliceRows(start, stop);
             }
 
+            pub fn sliceRowsStep(self: *DeviceLazyFrame, start: usize, stop: usize, step: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .slice_rows_step = .{
+                    .start = start,
+                    .stop = stop,
+                    .step = step,
+                } });
+            }
+
+            pub fn sliceStep(self: *DeviceLazyFrame, start: usize, len: usize, step: usize) DeviceDataError!void {
+                const stop = std.math.add(usize, start, len) catch return error.InvalidShape;
+                return self.sliceRowsStep(start, stop, step);
+            }
+
             pub fn take(self: *DeviceLazyFrame, row_indices: []const usize) DeviceDataError!void {
                 const owned = try self.allocator.dupe(usize, row_indices);
                 errdefer self.allocator.free(owned);

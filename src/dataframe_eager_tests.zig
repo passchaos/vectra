@@ -373,6 +373,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const head_units = try head.column("units");
     try std.testing.expectEqual(@as(usize, 1), head_units.nullCount());
 
+    var stepped_slice = try table.sliceRowsStep(0, table.height(), 2);
+    defer stepped_slice.deinit();
+    try std.testing.expectEqual(@as(usize, 2), stepped_slice.height());
+    const stepped_slice_sales = try (try stepped_slice.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(stepped_slice_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, stepped_slice_sales);
+
+    var stepped_inner = try table.sliceRowsStep(1, table.height(), 2);
+    defer stepped_inner.deinit();
+    try std.testing.expectEqual(@as(usize, 1), stepped_inner.height());
+    const stepped_inner_units = try (try stepped_inner.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(stepped_inner_units);
+    const stepped_inner_validity = try (try stepped_inner.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(stepped_inner_validity);
+    try std.testing.expectEqualSlices(i64, &.{2}, stepped_inner_units);
+    try std.testing.expectEqualSlices(bool, &.{false}, stepped_inner_validity);
+
+    var stepped_len = try table.sliceStep(0, table.height(), 2);
+    defer stepped_len.deinit();
+    try std.testing.expectEqual(@as(usize, 2), stepped_len.height());
+    try std.testing.expectError(error.InvalidShape, table.sliceRowsStep(0, table.height(), 0));
+
     var strided = try table.strideRows(0, 2);
     defer strided.deinit();
     try std.testing.expectEqual(@as(usize, 2), strided.height());

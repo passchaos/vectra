@@ -308,6 +308,15 @@ pub fn sliceRows(self: anytype, start: usize, stop: usize) DeviceDataError!Frame
     return dataframe_array_mod.sliceRows(FrameType(@TypeOf(self)), frameValue(self), start, stop);
 }
 
+pub fn sliceRowsStep(self: anytype, start: usize, stop: usize, step: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.sliceRowsStep(FrameType(@TypeOf(self)), frameValue(self), start, stop, step);
+}
+
+pub fn sliceStep(self: anytype, start: usize, len: usize, step: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const stop = std.math.add(usize, start, len) catch return error.InvalidShape;
+    return sliceRowsStep(self, start, stop, step);
+}
+
 pub fn take(self: anytype, row_indices: []const usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.takeRows(FrameType(@TypeOf(self)), frameValue(self), row_indices);
 }
