@@ -99,6 +99,37 @@ test "device lazy frame collects topk operations" {
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, topk_sales);
 }
 
+test "device lazy frame collects row slice operations" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var slice_plan = try DeviceLazyFrame.init(gpa, table);
+    defer slice_plan.deinit();
+    try slice_plan.sliceRows(1, 3);
+    try slice_plan.select(&.{"sales"});
+
+    const slice_explain = try slice_plan.explain(gpa);
+    defer gpa.free(slice_explain);
+    try std.testing.expect(std.mem.indexOf(u8, slice_explain, "slice_rows(1..3)") != null);
+
+    var sliced = try slice_plan.collect();
+    defer sliced.deinit();
+    try std.testing.expectEqual(@as(usize, 2), sliced.height());
+    try std.testing.expectEqual(@as(usize, 1), sliced.width());
+    const sliced_sales = try (try sliced.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sliced_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, sliced_sales);
+
+    var len_plan = try DeviceLazyFrame.init(gpa, table);
+    defer len_plan.deinit();
+    try len_plan.slice(2, 8);
+    var len_sliced = try len_plan.collect();
+    defer len_sliced.deinit();
+    const len_sliced_sales = try (try len_sliced.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(len_sliced_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, len_sliced_sales);
+}
+
 test "device lazy frame collects rank operations" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

@@ -247,6 +247,18 @@ pub fn DeviceLazyTypes(
             pub const validityProfile = lazy_profile_methods_mod.validityProfile;
             pub const rollingValidityProfile = lazy_profile_methods_mod.rollingValidityProfile;
             pub const expandingValidityProfile = lazy_profile_methods_mod.expandingValidityProfile;
+            pub fn sliceRows(self: *DeviceLazyFrame, start: usize, stop: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .slice_rows = .{
+                    .start = start,
+                    .stop = stop,
+                } });
+            }
+
+            pub fn slice(self: *DeviceLazyFrame, start: usize, len: usize) DeviceDataError!void {
+                const stop = std.math.add(usize, start, len) catch return error.InvalidShape;
+                return self.sliceRows(start, stop);
+            }
+
             pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .head = n });
             }
