@@ -83,7 +83,7 @@ test "device lazy frame filters by named boolean columns" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, active_sales);
 }
 
-test "device lazy frame selects columns by dtype" {
+test "device lazy frame selects and drops columns by dtype" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);
     defer table.deinit();
@@ -123,6 +123,42 @@ test "device lazy frame selects columns by dtype" {
     defer empty.deinit();
     try std.testing.expectEqual(@as(usize, 0), empty.width());
     try std.testing.expectEqual(table.height(), empty.height());
+
+    var drop_numeric_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_numeric_plan.deinit();
+    try drop_numeric_plan.dropNumeric();
+    const drop_numeric_explain = try drop_numeric_plan.explain(gpa);
+    defer gpa.free(drop_numeric_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_numeric_explain, "drop_dtype_class(numeric)") != null);
+
+    var non_numeric = try drop_numeric_plan.collect();
+    defer non_numeric.deinit();
+    try std.testing.expectEqual(@as(usize, 1), non_numeric.width());
+    try std.testing.expectEqual(@as(?usize, 0), non_numeric.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, null), non_numeric.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), non_numeric.columnIndex("units"));
+
+    var drop_exact_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_exact_plan.deinit();
+    try drop_exact_plan.dropByDTypes(&.{ .bool, .f64 });
+    const drop_exact_explain = try drop_exact_plan.explain(gpa);
+    defer gpa.free(drop_exact_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_exact_explain, "drop_dtypes[bool,f64]") != null);
+
+    var drop_exact = try drop_exact_plan.collect();
+    defer drop_exact.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_exact.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_exact.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, null), drop_exact.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), drop_exact.columnIndex("active"));
+
+    var drop_all_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_all_plan.deinit();
+    try drop_all_plan.dropByDTypes(&.{ .f64, .i64, .bool });
+    var drop_all = try drop_all_plan.collect();
+    defer drop_all.deinit();
+    try std.testing.expectEqual(@as(usize, 0), drop_all.width());
+    try std.testing.expectEqual(table.height(), drop_all.height());
 }
 
 test "device lazy frame selects and drops columns by name pattern" {

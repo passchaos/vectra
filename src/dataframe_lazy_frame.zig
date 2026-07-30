@@ -159,6 +159,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.selectByDTypeClass(self, class);
             }
 
+            pub fn dropByDTypes(self: *DeviceLazyFrame, dtypes: []const array_mod.DType) DeviceDataError!void {
+                return lazy_expr_mod.dropByDTypes(self, dtypes);
+            }
+
+            pub fn dropByDTypeClass(self: *DeviceLazyFrame, class: options_mod.DeviceDTypeClass) DeviceDataError!void {
+                return lazy_expr_mod.dropByDTypeClass(self, class);
+            }
+
             pub fn selectNumeric(self: *DeviceLazyFrame) DeviceDataError!void {
                 return lazy_expr_mod.selectNumeric(self);
             }
@@ -177,6 +185,26 @@ pub fn DeviceLazyTypes(
 
             pub fn selectBool(self: *DeviceLazyFrame) DeviceDataError!void {
                 return lazy_expr_mod.selectBool(self);
+            }
+
+            pub fn dropNumeric(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.dropNumeric(self);
+            }
+
+            pub fn dropReal(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.dropReal(self);
+            }
+
+            pub fn dropFloat(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.dropFloat(self);
+            }
+
+            pub fn dropInteger(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.dropInteger(self);
+            }
+
+            pub fn dropBool(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.dropBool(self);
             }
 
             pub fn withRowIndex(self: *DeviceLazyFrame, name: []const u8, offset: usize) DeviceDataError!void {

@@ -166,22 +166,36 @@ fn selectByDTypePredicate(
     return select(DeviceDataFrame, input, selected_names.items);
 }
 
+fn dropByDTypePredicate(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    predicate: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var kept_names: std.ArrayList([]const u8) = .empty;
+    defer kept_names.deinit(input.allocator);
+    for (input.names, input.columns) |name, column| {
+        if (!predicate.matches(column.dtype())) try kept_names.append(input.allocator, name);
+    }
+    return select(DeviceDataFrame, input, kept_names.items);
+}
+
+const DTypeListPredicate = struct {
+    wanted: []const array_mod.DType,
+
+    fn matches(self: @This(), dtype: array_mod.DType) bool {
+        for (self.wanted) |candidate| {
+            if (candidate == dtype) return true;
+        }
+        return false;
+    }
+};
+
 pub fn selectByDTypes(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     dtypes: []const array_mod.DType,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    const Predicate = struct {
-        wanted: []const array_mod.DType,
-
-        fn matches(self: @This(), dtype: array_mod.DType) bool {
-            for (self.wanted) |candidate| {
-                if (candidate == dtype) return true;
-            }
-            return false;
-        }
-    };
-    return selectByDTypePredicate(DeviceDataFrame, input, Predicate{ .wanted = dtypes });
+    return selectByDTypePredicate(DeviceDataFrame, input, DTypeListPredicate{ .wanted = dtypes });
 }
 
 pub fn selectByDTypeClass(
@@ -190,6 +204,22 @@ pub fn selectByDTypeClass(
     class: anytype,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return selectByDTypePredicate(DeviceDataFrame, input, class);
+}
+
+pub fn dropByDTypes(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    dtypes: []const array_mod.DType,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropByDTypePredicate(DeviceDataFrame, input, DTypeListPredicate{ .wanted = dtypes });
+}
+
+pub fn dropByDTypeClass(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    class: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropByDTypePredicate(DeviceDataFrame, input, class);
 }
 
 pub fn withColumn(

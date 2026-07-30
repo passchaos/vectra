@@ -37,8 +37,8 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
         pub const NamePattern = struct {
             pattern: []const u8,
         };
-        pub const SelectDTypes = []array_mod.DType;
-        pub const SelectDTypeClass = DeviceDTypeClass;
+        pub const DTypes = []array_mod.DType;
+        pub const DTypeClass = DeviceDTypeClass;
         pub const RowIndex = struct {
             name: []const u8,
             offset: usize,

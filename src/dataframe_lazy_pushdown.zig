@@ -58,6 +58,8 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .drop_name_contains,
             .select_dtypes,
             .select_dtype_class,
+            .drop_dtypes,
+            .drop_dtype_class,
             => {
                 // Schema-derived selectors require the full source schema
                 // before they can be expanded into exact column names.  This

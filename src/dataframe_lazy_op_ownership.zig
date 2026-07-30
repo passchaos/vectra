@@ -30,6 +30,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .drop_name_contains => |pattern| .{ .drop_name_contains = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
         .select_dtypes => |dtypes| .{ .select_dtypes = try allocator.dupe(array_mod.DType, dtypes) },
         .select_dtype_class => |class| .{ .select_dtype_class = class },
+        .drop_dtypes => |dtypes| .{ .drop_dtypes = try allocator.dupe(array_mod.DType, dtypes) },
+        .drop_dtype_class => |class| .{ .drop_dtype_class = class },
         .with_row_index => |row_index| blk: {
             const name = try allocator.dupe(u8, row_index.name);
             break :blk .{ .with_row_index = .{

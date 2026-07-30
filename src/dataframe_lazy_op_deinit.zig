@@ -22,6 +22,8 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .drop_name_contains => |pattern| allocator.free(pattern.pattern),
         .select_dtypes => |dtypes| allocator.free(dtypes),
         .select_dtype_class => {},
+        .drop_dtypes => |dtypes| allocator.free(dtypes),
+        .drop_dtype_class => {},
         .with_row_index => |row_index| allocator.free(row_index.name),
         .rename_column => |rename| {
             allocator.free(rename.old_name);

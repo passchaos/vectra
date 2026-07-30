@@ -68,6 +68,14 @@ pub fn selectByDTypeClass(frame: anytype, class: options_mod.DeviceDTypeClass) D
     try frame.ops.append(frame.allocator, .{ .select_dtype_class = class });
 }
 
+pub fn dropByDTypes(frame: anytype, dtypes: []const array_mod.DType) DeviceDataError!void {
+    try frame.ops.append(frame.allocator, .{ .drop_dtypes = try frame.allocator.dupe(array_mod.DType, dtypes) });
+}
+
+pub fn dropByDTypeClass(frame: anytype, class: options_mod.DeviceDTypeClass) DeviceDataError!void {
+    try frame.ops.append(frame.allocator, .{ .drop_dtype_class = class });
+}
+
 pub fn selectNumeric(frame: anytype) DeviceDataError!void {
     return selectByDTypeClass(frame, .numeric);
 }
@@ -86,6 +94,26 @@ pub fn selectInteger(frame: anytype) DeviceDataError!void {
 
 pub fn selectBool(frame: anytype) DeviceDataError!void {
     return selectByDTypeClass(frame, .bool);
+}
+
+pub fn dropNumeric(frame: anytype) DeviceDataError!void {
+    return dropByDTypeClass(frame, .numeric);
+}
+
+pub fn dropReal(frame: anytype) DeviceDataError!void {
+    return dropByDTypeClass(frame, .real);
+}
+
+pub fn dropFloat(frame: anytype) DeviceDataError!void {
+    return dropByDTypeClass(frame, .float);
+}
+
+pub fn dropInteger(frame: anytype) DeviceDataError!void {
+    return dropByDTypeClass(frame, .integer);
+}
+
+pub fn dropBool(frame: anytype) DeviceDataError!void {
+    return dropByDTypeClass(frame, .bool);
 }
 
 pub fn renameColumn(frame: anytype, old_name: []const u8, new_name: []const u8) DeviceDataError!void {

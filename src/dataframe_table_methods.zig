@@ -119,6 +119,14 @@ pub fn selectByDTypeClass(self: anytype, class: DeviceDTypeClass) DeviceDataErro
     return dataframe_array_mod.selectByDTypeClass(FrameType(@TypeOf(self)), frameValue(self), class);
 }
 
+pub fn dropByDTypes(self: anytype, dtypes: []const array_mod.DType) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropByDTypes(FrameType(@TypeOf(self)), frameValue(self), dtypes);
+}
+
+pub fn dropByDTypeClass(self: anytype, class: DeviceDTypeClass) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropByDTypeClass(FrameType(@TypeOf(self)), frameValue(self), class);
+}
+
 pub fn selectNumeric(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return selectByDTypeClass(self, .numeric);
 }
@@ -137,6 +145,26 @@ pub fn selectInteger(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
 
 pub fn selectBool(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return selectByDTypeClass(self, .bool);
+}
+
+pub fn dropNumeric(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropByDTypeClass(self, .numeric);
+}
+
+pub fn dropReal(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropByDTypeClass(self, .real);
+}
+
+pub fn dropFloat(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropByDTypeClass(self, .float);
+}
+
+pub fn dropInteger(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropByDTypeClass(self, .integer);
+}
+
+pub fn dropBool(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropByDTypeClass(self, .bool);
 }
 
 pub fn withColumn(self: anytype, name: []const u8, data: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {

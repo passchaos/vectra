@@ -102,6 +102,36 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 0), empty_dtype_selected.width());
     try std.testing.expectEqual(table.height(), empty_dtype_selected.height());
 
+    var numeric_dropped = try table.dropNumeric();
+    defer numeric_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 1), numeric_dropped.width());
+    try std.testing.expectEqual(@as(?usize, 0), numeric_dropped.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, null), numeric_dropped.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), numeric_dropped.columnIndex("units"));
+
+    var float_dropped = try table.dropFloat();
+    defer float_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 2), float_dropped.width());
+    try std.testing.expectEqual(@as(?usize, 0), float_dropped.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), float_dropped.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, null), float_dropped.columnIndex("sales"));
+
+    var exact_dropped = try table.dropByDTypes(&.{ .i64, .bool });
+    defer exact_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 1), exact_dropped.width());
+    try std.testing.expectEqual(DeviceDType.f64, try exact_dropped.columnDType("sales"));
+
+    var no_dtype_dropped = try table.dropByDTypes(&.{.c64});
+    defer no_dtype_dropped.deinit();
+    try std.testing.expectEqual(table.width(), no_dtype_dropped.width());
+    try std.testing.expectEqual(@as(?usize, 0), no_dtype_dropped.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), no_dtype_dropped.columnIndex("active"));
+
+    var all_dropped = try table.dropByDTypes(&.{ .f64, .i64, .bool });
+    defer all_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 0), all_dropped.width());
+    try std.testing.expectEqual(table.height(), all_dropped.height());
+
     var literalized = try table.withColumnLiteral("region_id", i32, 7);
     defer literalized.deinit();
     try std.testing.expectEqual(@as(usize, 4), literalized.width());
