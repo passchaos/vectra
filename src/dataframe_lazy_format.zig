@@ -145,6 +145,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .rolling_validity_profile => |validity| try writer.print("rolling_validity_profile({s}, prefix={s}, window={d})", .{ validity.name, validity.output_prefix, validity.options.window }),
         .expanding_validity_profile => |validity| try writer.print("expanding_validity_profile({s}, prefix={s}, min_periods={d})", .{ validity.name, validity.output_prefix, validity.options.min_periods }),
         .slice_rows => |slice| try writer.print("slice_rows({d}..{d})", .{ slice.start, slice.stop }),
+        .take_rows => |row_indices| {
+            try writer.print("take_rows([", .{});
+            for (row_indices, 0..) |row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{row_index});
+            }
+            try writer.print("])", .{});
+        },
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
     }

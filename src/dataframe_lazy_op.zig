@@ -102,6 +102,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         rolling_validity_profile: Payloads.RollingValidityProfile,
         expanding_validity_profile: Payloads.ExpandingValidityProfile,
         slice_rows: Payloads.RowSlice,
+        take_rows: Payloads.RowTake,
         head: Payloads.HeadTail,
         tail: Payloads.HeadTail,
 

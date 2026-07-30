@@ -259,6 +259,12 @@ pub fn DeviceLazyTypes(
                 return self.sliceRows(start, stop);
             }
 
+            pub fn take(self: *DeviceLazyFrame, row_indices: []const usize) DeviceDataError!void {
+                const owned = try self.allocator.dupe(usize, row_indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .take_rows = owned });
+            }
+
             pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .head = n });
             }

@@ -275,6 +275,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .rolling_validity_profile => |profile| try clone_profile_mod.cloneNameOutputOptions(Self, allocator, "rolling_validity_profile", profile),
         .expanding_validity_profile => |profile| try clone_profile_mod.cloneNameOutputOptions(Self, allocator, "expanding_validity_profile", profile),
         .slice_rows => |slice| .{ .slice_rows = slice },
+        .take_rows => |row_indices| .{ .take_rows = try allocator.dupe(usize, row_indices) },
         .head => |n| .{ .head = n },
         .tail => |n| .{ .tail = n },
     };

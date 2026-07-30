@@ -142,6 +142,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .rolling_validity_profile => |validity| try current.rollingValidityProfile(validity.name, validity.output_prefix, validity.options),
             .expanding_validity_profile => |validity| try current.expandingValidityProfile(validity.name, validity.output_prefix, validity.options),
             .slice_rows => |slice| try current.sliceRows(slice.start, slice.stop),
+            .take_rows => |row_indices| try current.take(row_indices),
             .head => |n| try current.head(n),
             .tail => |n| try current.tail(n),
         };

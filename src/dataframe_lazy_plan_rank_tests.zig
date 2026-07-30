@@ -128,6 +128,29 @@ test "device lazy frame collects row slice operations" {
     const len_sliced_sales = try (try len_sliced.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(len_sliced_sales);
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, len_sliced_sales);
+
+    var take_plan = try DeviceLazyFrame.init(gpa, table);
+    defer take_plan.deinit();
+    try take_plan.take(&.{ 3, 1, 1 });
+    try take_plan.select(&.{ "sales", "units" });
+    const take_explain = try take_plan.explain(gpa);
+    defer gpa.free(take_explain);
+    try std.testing.expect(std.mem.indexOf(u8, take_explain, "take_rows([3,1,1])") != null);
+    var taken = try take_plan.collect();
+    defer taken.deinit();
+    try std.testing.expectEqual(@as(usize, 3), taken.height());
+    try std.testing.expectEqual(@as(usize, 2), taken.width());
+    const taken_sales = try (try taken.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_sales);
+    const taken_units = try (try taken.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(taken_units);
+    try std.testing.expectEqualSlices(f64, &.{ 7.0, 3.0, 3.0 }, taken_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 4, 2, 2 }, taken_units);
+
+    var invalid_take_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_take_plan.deinit();
+    try invalid_take_plan.take(&.{4});
+    try std.testing.expectError(error.IndexOutOfBounds, invalid_take_plan.collect());
 }
 
 test "device lazy frame collects rank operations" {
