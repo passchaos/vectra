@@ -834,6 +834,29 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer gpa.free(filtered_inf_metric);
     try std.testing.expect(std.math.isInf(filtered_inf_metric[0]));
 
+    var row_special_plan = try DeviceLazyFrame.init(gpa, table);
+    defer row_special_plan.deinit();
+    try row_special_plan.withRowNaNCount(&.{ "metric", "id" }, "row_nan_count");
+    try row_special_plan.withRowInfCount(&.{}, "row_inf_count");
+    try row_special_plan.select(&.{ "row_nan_count", "row_inf_count" });
+    const row_special_explain = try row_special_plan.explain(gpa);
+    defer gpa.free(row_special_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_nan_count([metric,id]->row_nan_count)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_inf_count([]->row_inf_count)") != null);
+    var row_special = try row_special_plan.collect();
+    defer row_special.deinit();
+    const row_nan_count = try (try row_special.column("row_nan_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_nan_count);
+    const row_inf_count = try (try row_special.column("row_inf_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_inf_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, row_nan_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0 }, row_inf_count);
+
+    var invalid_row_count_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_row_count_plan.deinit();
+    try invalid_row_count_plan.withRowInfCount(&.{"missing"}, "bad_count");
+    try std.testing.expectError(error.ColumnNotFound, invalid_row_count_plan.collect());
+
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
     try invalid_plan.isFiniteColumn("missing", "missing_is_finite");

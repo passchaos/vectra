@@ -873,6 +873,61 @@ pub fn withRowValidCount(
     return withRowValidityCount(DeviceDataFrame, input, names, output_name, true);
 }
 
+fn withRowSpecialFloatCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime predicate: SpecialFloatPredicate,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const counts = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                for (counts, host_values, 0..) |*slot, value, row| {
+                    const valid = if (maybe_validity) |validity| validity[row] else true;
+                    if (valid and switch (predicate) {
+                        .nan => isNanValue(@TypeOf(value), value),
+                        .inf => isInfValue(@TypeOf(value), value),
+                    }) slot.* += 1;
+                }
+            },
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSlice(i64, input.allocator, counts, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowNaNCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSpecialFloatCount(DeviceDataFrame, input, names, output_name, .nan);
+}
+
+pub fn withRowInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSpecialFloatCount(DeviceDataFrame, input, names, output_name, .inf);
+}
+
 fn literalColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

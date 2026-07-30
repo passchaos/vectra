@@ -784,6 +784,19 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(filtered_inf_metric);
     try std.testing.expect(std.math.isInf(filtered_inf_metric[0]));
     try std.testing.expectError(error.ColumnNotFound, table.dropInfsColumn("missing"));
+
+    var row_nan_counts = try table.withRowNaNCount(&.{ "metric", "id" }, "row_nan_count");
+    defer row_nan_counts.deinit();
+    const row_nan_count = try (try row_nan_counts.column("row_nan_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_nan_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, row_nan_count);
+
+    var row_inf_counts = try table.withRowInfCount(&.{}, "row_inf_count");
+    defer row_inf_counts.deinit();
+    const row_inf_count = try (try row_inf_counts.column("row_inf_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_inf_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0 }, row_inf_count);
+    try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
 }
 
 test "device dataframe selects and drops columns by name pattern" {

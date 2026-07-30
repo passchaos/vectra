@@ -333,6 +333,14 @@ pub fn withRowValidCount(self: anytype, names: []const []const u8, output_name: 
     return dataframe_array_mod.withRowValidCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowNaNCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowNaNCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowInfCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowInfCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withColumnLiteral(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumnLiteral(FrameType(@TypeOf(self)), frameValue(self), name, T, value);
 }

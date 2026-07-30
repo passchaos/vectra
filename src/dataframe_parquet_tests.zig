@@ -346,6 +346,26 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(filter_inf_explain);
     try std.testing.expect(std.mem.indexOf(u8, filter_inf_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, filter_inf_explain, "filter_infs_column(sales)") != null);
+
+    var row_nan_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_nan_count_scan.deinit();
+    try row_nan_count_scan.withRowNaNCount(&.{ "sales", "active" }, "row_nan_count");
+    try row_nan_count_scan.select(&.{"row_nan_count"});
+
+    const row_nan_count_explain = try row_nan_count_scan.explain(gpa);
+    defer gpa.free(row_nan_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_nan_count_explain, "scan_pushdown: projection=[sales,active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_nan_count_explain, "row_nan_count([sales,active]->row_nan_count)") != null);
+
+    var row_inf_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_inf_count_scan.deinit();
+    try row_inf_count_scan.withRowInfCount(&.{}, "row_inf_count");
+    try row_inf_count_scan.select(&.{"row_inf_count"});
+
+    const row_inf_count_explain = try row_inf_count_scan.explain(gpa);
+    defer gpa.free(row_inf_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_inf_count_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_inf_count_explain, "row_inf_count([]->row_inf_count)") != null);
 }
 
 test "device lazy frame pushes coalesce dependencies into parquet scan source" {

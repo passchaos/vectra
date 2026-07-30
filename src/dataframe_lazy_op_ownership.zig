@@ -312,7 +312,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
-        .row_null_count, .row_valid_count => |row_count, tag| blk: {
+        .row_null_count, .row_valid_count, .row_nan_count, .row_inf_count => |row_count, tag| blk: {
             const names = try cloneNameList(allocator, row_count.names);
             errdefer freeNameList(allocator, names);
             const output_name = try allocator.dupe(u8, row_count.output_name);
@@ -323,6 +323,14 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                     .output_name = output_name,
                 } },
                 .row_valid_count => .{ .row_valid_count = .{
+                    .names = names,
+                    .output_name = output_name,
+                } },
+                .row_nan_count => .{ .row_nan_count = .{
+                    .names = names,
+                    .output_name = output_name,
+                } },
+                .row_inf_count => .{ .row_inf_count = .{
                     .names = names,
                     .output_name = output_name,
                 } },

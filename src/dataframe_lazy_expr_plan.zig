@@ -581,6 +581,35 @@ pub fn withRowValidCount(frame: anytype, names: []const []const u8, output_name:
     return withRowValidityCount(frame, names, output_name, true);
 }
 
+fn withRowSpecialFloatCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime count_inf: bool) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    if (count_inf) {
+        try frame.ops.append(frame.allocator, .{ .row_inf_count = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_nan_count = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } });
+    }
+}
+
+pub fn withRowNaNCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowSpecialFloatCount(frame, names, output_name, false);
+}
+
+pub fn withRowInfCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowSpecialFloatCount(frame, names, output_name, true);
+}
+
 pub fn withColumnCompare(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
