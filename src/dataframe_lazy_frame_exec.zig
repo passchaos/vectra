@@ -36,6 +36,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .drop_column_indices => |indices| try current.dropByColumnIndices(indices),
             .drop_column_range => |range| try current.dropColumnRange(range.start, range.stop),
             .drop_last_columns => |n| try current.dropLastColumns(n),
+            .reverse_columns => try current.reverseColumns(),
+            .sort_columns_by_name => |sort| try current.sortColumnsByName(sort.descending),
             .select_name_prefix => |pattern| try current.selectByNamePrefix(pattern.pattern),
             .select_name_suffix => |pattern| try current.selectByNameSuffix(pattern.pattern),
             .select_name_contains => |pattern| try current.selectByNameContains(pattern.pattern),

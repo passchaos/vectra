@@ -51,6 +51,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         },
         .drop_column_range => |range| try writer.print("drop_column_range({d}..{d})", .{ range.start, range.stop }),
         .drop_last_columns => |n| try writer.print("drop_last_columns({d})", .{n}),
+        .reverse_columns => try writer.print("reverse_columns", .{}),
+        .sort_columns_by_name => |sort| try writer.print("sort_columns_by_name(desc={})", .{sort.descending}),
         .select_name_prefix => |pattern| try writer.print("select_name_prefix({s})", .{pattern.pattern}),
         .select_name_suffix => |pattern| try writer.print("select_name_suffix({s})", .{pattern.pattern}),
         .select_name_contains => |pattern| try writer.print("select_name_contains({s})", .{pattern.pattern}),

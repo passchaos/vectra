@@ -383,6 +383,24 @@ test "device lazy frame keeps schema-derived and schema-rewrite ops out of parqu
     try std.testing.expect(std.mem.indexOf(u8, nullability_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, nullability_explain, "select_columns_with_nulls") != null);
 
+    var lazy_reverse_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_reverse_scan.deinit();
+    try lazy_reverse_scan.reverseColumns();
+
+    const reverse_explain = try lazy_reverse_scan.explain(gpa);
+    defer gpa.free(reverse_explain);
+    try std.testing.expect(std.mem.indexOf(u8, reverse_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, reverse_explain, "reverse_columns") != null);
+
+    var lazy_sort_columns_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_sort_columns_scan.deinit();
+    try lazy_sort_columns_scan.sortColumnsByName(false);
+
+    const sort_columns_explain = try lazy_sort_columns_scan.explain(gpa);
+    defer gpa.free(sort_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, sort_columns_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, sort_columns_explain, "sort_columns_by_name(desc=false)") != null);
+
     var lazy_move_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer lazy_move_scan.deinit();
     try lazy_move_scan.moveColumn("active", 0);

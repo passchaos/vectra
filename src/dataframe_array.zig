@@ -274,6 +274,44 @@ pub fn dropByDTypeClass(
     return dropByDTypePredicate(DeviceDataFrame, input, class);
 }
 
+pub fn reverseColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    for (source_names, 0..) |*slot, i| {
+        slot.* = input.names[input.names.len - 1 - i];
+    }
+    return select(DeviceDataFrame, input, source_names);
+}
+
+pub fn sortColumnsByName(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    descending: bool,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const order = try input.allocator.alloc(usize, input.names.len);
+    defer input.allocator.free(order);
+    for (order, 0..) |*slot, i| slot.* = i;
+
+    const Ctx = struct {
+        names: []const []const u8,
+        descending: bool,
+
+        fn lessThan(ctx: @This(), a: usize, b: usize) bool {
+            if (ctx.descending) return std.mem.lessThan(u8, ctx.names[b], ctx.names[a]);
+            return std.mem.lessThan(u8, ctx.names[a], ctx.names[b]);
+        }
+    };
+    std.sort.insertion(usize, order, Ctx{ .names = input.names, .descending = descending }, Ctx.lessThan);
+
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    for (order, source_names) |index, *slot| slot.* = input.names[index];
+    return select(DeviceDataFrame, input, source_names);
+}
+
 fn selectByColumnPredicate(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

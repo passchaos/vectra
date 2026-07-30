@@ -27,6 +27,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         drop_column_indices: Payloads.ColumnIndices,
         drop_column_range: Payloads.ColumnRange,
         drop_last_columns: Payloads.HeadTail,
+        reverse_columns,
+        sort_columns_by_name: Payloads.SortColumnsByName,
         select_name_prefix: Payloads.NamePattern,
         select_name_suffix: Payloads.NamePattern,
         select_name_contains: Payloads.NamePattern,

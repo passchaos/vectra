@@ -39,6 +39,9 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             start: usize,
             stop: usize,
         };
+        pub const SortColumnsByName = struct {
+            descending: bool,
+        };
         pub const NamePattern = struct {
             pattern: []const u8,
         };

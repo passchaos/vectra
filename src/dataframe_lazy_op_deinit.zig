@@ -20,6 +20,8 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .drop_column_indices => |indices| allocator.free(indices),
         .drop_column_range => {},
         .drop_last_columns => {},
+        .reverse_columns => {},
+        .sort_columns_by_name => {},
         .select_name_prefix => |pattern| allocator.free(pattern.pattern),
         .select_name_suffix => |pattern| allocator.free(pattern.pattern),
         .select_name_contains => |pattern| allocator.free(pattern.pattern),

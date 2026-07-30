@@ -121,6 +121,14 @@ pub fn dropLastColumns(self: anytype, n: usize) DeviceDataError!FrameType(@TypeO
     return dropColumnRange(self, frameValue(self).columns.len - count, frameValue(self).columns.len);
 }
 
+pub fn reverseColumns(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.reverseColumns(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn sortColumnsByName(self: anytype, descending: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.sortColumnsByName(FrameType(@TypeOf(self)), frameValue(self), descending);
+}
+
 pub fn selectByNamePrefix(self: anytype, prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectByNamePrefix(FrameType(@TypeOf(self)), frameValue(self), prefix);
 }

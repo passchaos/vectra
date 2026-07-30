@@ -120,6 +120,27 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 2), drop_last.width());
     try std.testing.expectEqual(@as(?usize, 0), drop_last.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, 1), drop_last.columnIndex("units"));
+
+    var reversed_columns = try table.reverseColumns();
+    defer reversed_columns.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), reversed_columns.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 1), reversed_columns.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 2), reversed_columns.columnIndex("sales"));
+    const reversed_columns_units_validity = try (try reversed_columns.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(reversed_columns_units_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, reversed_columns_units_validity);
+
+    var columns_sorted = try table.sortColumnsByName(false);
+    defer columns_sorted.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), columns_sorted.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 1), columns_sorted.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), columns_sorted.columnIndex("units"));
+
+    var columns_sorted_desc = try table.sortColumnsByName(true);
+    defer columns_sorted_desc.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), columns_sorted_desc.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), columns_sorted_desc.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), columns_sorted_desc.columnIndex("active"));
     try std.testing.expectError(error.IndexOutOfBounds, table.selectByColumnIndices(&.{3}));
     try std.testing.expectError(error.IndexOutOfBounds, table.dropByColumnIndices(&.{3}));
 

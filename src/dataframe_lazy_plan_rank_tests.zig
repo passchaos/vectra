@@ -180,6 +180,39 @@ test "device lazy frame selects and drops columns by dtype" {
     try std.testing.expectEqual(@as(?usize, 0), drop_last.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, 1), drop_last.columnIndex("units"));
 
+    var reverse_columns_plan = try DeviceLazyFrame.init(gpa, table);
+    defer reverse_columns_plan.deinit();
+    try reverse_columns_plan.reverseColumns();
+    const reverse_columns_explain = try reverse_columns_plan.explain(gpa);
+    defer gpa.free(reverse_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, reverse_columns_explain, "reverse_columns") != null);
+    var reversed_columns = try reverse_columns_plan.collect();
+    defer reversed_columns.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), reversed_columns.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 1), reversed_columns.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 2), reversed_columns.columnIndex("sales"));
+
+    var sort_columns_plan = try DeviceLazyFrame.init(gpa, table);
+    defer sort_columns_plan.deinit();
+    try sort_columns_plan.sortColumnsByName(false);
+    const sort_columns_explain = try sort_columns_plan.explain(gpa);
+    defer gpa.free(sort_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, sort_columns_explain, "sort_columns_by_name(desc=false)") != null);
+    var sorted_columns = try sort_columns_plan.collect();
+    defer sorted_columns.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), sorted_columns.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 1), sorted_columns.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), sorted_columns.columnIndex("units"));
+
+    var sort_columns_desc_plan = try DeviceLazyFrame.init(gpa, table);
+    defer sort_columns_desc_plan.deinit();
+    try sort_columns_desc_plan.sortColumnsByName(true);
+    var sorted_columns_desc = try sort_columns_desc_plan.collect();
+    defer sorted_columns_desc.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), sorted_columns_desc.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), sorted_columns_desc.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), sorted_columns_desc.columnIndex("active"));
+
     var invalid_positional_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_positional_plan.deinit();
     try invalid_positional_plan.selectByColumnIndices(&.{3});

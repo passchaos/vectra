@@ -169,6 +169,14 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_last_columns = n });
             }
 
+            pub fn reverseColumns(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .reverse_columns = {} });
+            }
+
+            pub fn sortColumnsByName(self: *DeviceLazyFrame, descending: bool) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .sort_columns_by_name = .{ .descending = descending } });
+            }
+
             pub fn selectByNamePrefix(self: *DeviceLazyFrame, prefix: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.selectByNamePrefix(self, prefix);
             }

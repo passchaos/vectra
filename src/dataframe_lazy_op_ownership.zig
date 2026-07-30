@@ -28,6 +28,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .drop_column_indices => |indices| .{ .drop_column_indices = try allocator.dupe(usize, indices) },
         .drop_column_range => |range| .{ .drop_column_range = range },
         .drop_last_columns => |n| .{ .drop_last_columns = n },
+        .reverse_columns => .{ .reverse_columns = {} },
+        .sort_columns_by_name => |sort| .{ .sort_columns_by_name = sort },
         .select_name_prefix => |pattern| .{ .select_name_prefix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
         .select_name_suffix => |pattern| .{ .select_name_suffix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
         .select_name_contains => |pattern| .{ .select_name_contains = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
