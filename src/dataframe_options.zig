@@ -21,6 +21,30 @@ pub const DeviceColumnCompareOp = enum {
     le,
 };
 
+pub const DeviceDTypeClass = enum {
+    numeric,
+    real,
+    float,
+    integer,
+    signed_integer,
+    unsigned_integer,
+    complex,
+    bool,
+
+    pub fn matches(self: DeviceDTypeClass, dtype: array_mod.DType) bool {
+        return switch (self) {
+            .numeric => dtype.isNumeric(),
+            .real => dtype.isReal(),
+            .float => dtype.isFloat(),
+            .integer => dtype.isInteger(),
+            .signed_integer => dtype.isSigned(),
+            .unsigned_integer => dtype.isUnsigned(),
+            .complex => dtype.isComplex(),
+            .bool => dtype.isBool(),
+        };
+    }
+};
+
 pub const DeviceScalar = union(array_mod.DType) {
     f32: f32,
     f64: f64,

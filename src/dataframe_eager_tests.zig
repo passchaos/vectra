@@ -74,6 +74,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 1), selected.width());
     try std.testing.expectEqual(DeviceDType.f64, try selected.columnDType("sales"));
 
+    var numeric_selected = try table.selectNumeric();
+    defer numeric_selected.deinit();
+    try std.testing.expectEqual(@as(usize, 2), numeric_selected.width());
+    try std.testing.expectEqual(@as(?usize, 0), numeric_selected.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), numeric_selected.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, null), numeric_selected.columnIndex("active"));
+
+    var float_selected = try table.selectFloat();
+    defer float_selected.deinit();
+    try std.testing.expectEqual(@as(usize, 1), float_selected.width());
+    try std.testing.expectEqual(DeviceDType.f64, try float_selected.columnDType("sales"));
+
+    var bool_selected = try table.selectBool();
+    defer bool_selected.deinit();
+    try std.testing.expectEqual(@as(usize, 1), bool_selected.width());
+    try std.testing.expectEqual(DeviceDType.bool, try bool_selected.columnDType("active"));
+
+    var exact_selected = try table.selectByDTypes(&.{ .i64, .bool });
+    defer exact_selected.deinit();
+    try std.testing.expectEqual(@as(usize, 2), exact_selected.width());
+    try std.testing.expectEqual(@as(?usize, 0), exact_selected.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), exact_selected.columnIndex("active"));
+
+    var empty_dtype_selected = try table.selectByDTypes(&.{.c64});
+    defer empty_dtype_selected.deinit();
+    try std.testing.expectEqual(@as(usize, 0), empty_dtype_selected.width());
+    try std.testing.expectEqual(table.height(), empty_dtype_selected.height());
+
     var indexed = try table.withRowIndex("row_nr", 10);
     defer indexed.deinit();
     try std.testing.expectEqual(@as(usize, 4), indexed.width());

@@ -24,6 +24,34 @@ pub fn select(frame: anytype, names: []const []const u8) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .select = owned });
 }
 
+pub fn selectByDTypes(frame: anytype, dtypes: []const array_mod.DType) DeviceDataError!void {
+    try frame.ops.append(frame.allocator, .{ .select_dtypes = try frame.allocator.dupe(array_mod.DType, dtypes) });
+}
+
+pub fn selectByDTypeClass(frame: anytype, class: options_mod.DeviceDTypeClass) DeviceDataError!void {
+    try frame.ops.append(frame.allocator, .{ .select_dtype_class = class });
+}
+
+pub fn selectNumeric(frame: anytype) DeviceDataError!void {
+    return selectByDTypeClass(frame, .numeric);
+}
+
+pub fn selectReal(frame: anytype) DeviceDataError!void {
+    return selectByDTypeClass(frame, .real);
+}
+
+pub fn selectFloat(frame: anytype) DeviceDataError!void {
+    return selectByDTypeClass(frame, .float);
+}
+
+pub fn selectInteger(frame: anytype) DeviceDataError!void {
+    return selectByDTypeClass(frame, .integer);
+}
+
+pub fn selectBool(frame: anytype) DeviceDataError!void {
+    return selectByDTypeClass(frame, .bool);
+}
+
 pub fn renameColumn(frame: anytype, old_name: []const u8, new_name: []const u8) DeviceDataError!void {
     const owned_old = try frame.allocator.dupe(u8, old_name);
     errdefer frame.allocator.free(owned_old);

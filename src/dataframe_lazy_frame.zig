@@ -127,6 +127,34 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.select(self, names);
             }
 
+            pub fn selectByDTypes(self: *DeviceLazyFrame, dtypes: []const array_mod.DType) DeviceDataError!void {
+                return lazy_expr_mod.selectByDTypes(self, dtypes);
+            }
+
+            pub fn selectByDTypeClass(self: *DeviceLazyFrame, class: options_mod.DeviceDTypeClass) DeviceDataError!void {
+                return lazy_expr_mod.selectByDTypeClass(self, class);
+            }
+
+            pub fn selectNumeric(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.selectNumeric(self);
+            }
+
+            pub fn selectReal(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.selectReal(self);
+            }
+
+            pub fn selectFloat(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.selectFloat(self);
+            }
+
+            pub fn selectInteger(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.selectInteger(self);
+            }
+
+            pub fn selectBool(self: *DeviceLazyFrame) DeviceDataError!void {
+                return lazy_expr_mod.selectBool(self);
+            }
+
             pub fn withRowIndex(self: *DeviceLazyFrame, name: []const u8, offset: usize) DeviceDataError!void {
                 return lazy_expr_mod.withRowIndex(self, name, offset);
             }

@@ -13,6 +13,7 @@ const series_mod = @import("series.zig");
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+const DeviceDTypeClass = options_mod.DeviceDTypeClass;
 const DeviceScalar = options_mod.DeviceScalar;
 const DeviceSortOptions = options_mod.DeviceSortOptions;
 
@@ -84,6 +85,34 @@ pub fn view(self: anytype) DeviceDataError!dataframe_view_mod.DeviceDataFrameVie
 
 pub fn select(self: anytype, wanted_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.select(FrameType(@TypeOf(self)), frameValue(self), wanted_names);
+}
+
+pub fn selectByDTypes(self: anytype, dtypes: []const array_mod.DType) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectByDTypes(FrameType(@TypeOf(self)), frameValue(self), dtypes);
+}
+
+pub fn selectByDTypeClass(self: anytype, class: DeviceDTypeClass) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectByDTypeClass(FrameType(@TypeOf(self)), frameValue(self), class);
+}
+
+pub fn selectNumeric(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return selectByDTypeClass(self, .numeric);
+}
+
+pub fn selectReal(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return selectByDTypeClass(self, .real);
+}
+
+pub fn selectFloat(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return selectByDTypeClass(self, .float);
+}
+
+pub fn selectInteger(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return selectByDTypeClass(self, .integer);
+}
+
+pub fn selectBool(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return selectByDTypeClass(self, .bool);
 }
 
 pub fn withColumn(self: anytype, name: []const u8, data: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {

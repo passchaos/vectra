@@ -86,6 +86,7 @@ pub const DeviceDataError = dataframe_mod.DeviceDataError;
 pub const ArrowInteropError = dataframe_mod.ArrowInteropError;
 pub const ParquetInteropError = dataframe_mod.ParquetInteropError;
 pub const DeviceDType = dataframe_mod.DeviceDType;
+pub const DeviceDTypeClass = dataframe_mod.DeviceDTypeClass;
 pub const DeviceScalar = dataframe_mod.DeviceScalar;
 pub const Range = dataframe_mod.Range;
 pub const DeviceColumnBinaryOp = dataframe_mod.DeviceColumnBinaryOp;

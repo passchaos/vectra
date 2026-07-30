@@ -14,6 +14,8 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             for (names) |name| allocator.free(name);
             allocator.free(names);
         },
+        .select_dtypes => |dtypes| allocator.free(dtypes),
+        .select_dtype_class => {},
         .with_row_index => |row_index| allocator.free(row_index.name),
         .rename_column => |rename| {
             allocator.free(rename.old_name);

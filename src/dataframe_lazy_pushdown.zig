@@ -50,6 +50,14 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
+            .select_dtypes, .select_dtype_class => {
+                // Dtype selectors require source schema knowledge that the
+                // lightweight pushdown planner does not currently receive.
+                // Keep them as collect-time operations instead of guessing a
+                // Parquet projection from incomplete information.
+                projection_blocked = true;
+                break :op_loop;
+            },
             .rename_column, .drop_columns => {
                 // Schema rewrites change the names visible to all following
                 // operations.  Without a full alias map in this conservative

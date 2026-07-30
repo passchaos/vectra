@@ -6,9 +6,11 @@
 
 const options_mod = @import("dataframe_options.zig");
 const profile_payloads = @import("dataframe_lazy_op_profile_payloads.zig");
+const array_mod = @import("array.zig");
 
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+const DeviceDTypeClass = options_mod.DeviceDTypeClass;
 const DeviceScalar = options_mod.DeviceScalar;
 const DeviceSortOptions = options_mod.DeviceSortOptions;
 const DeviceJoinOptions = options_mod.DeviceJoinOptions;
@@ -32,6 +34,8 @@ pub const DeviceLazyJoinKind = enum {
 pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn: type) type {
     return struct {
         pub const Select = [][]const u8;
+        pub const SelectDTypes = []array_mod.DType;
+        pub const SelectDTypeClass = DeviceDTypeClass;
         pub const RowIndex = struct {
             name: []const u8,
             offset: usize,

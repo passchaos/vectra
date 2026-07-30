@@ -81,6 +81,48 @@ test "device lazy frame filters by named boolean columns" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, active_sales);
 }
 
+test "device lazy frame selects columns by dtype" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var numeric_plan = try DeviceLazyFrame.init(gpa, table);
+    defer numeric_plan.deinit();
+    try numeric_plan.selectNumeric();
+
+    const numeric_explain = try numeric_plan.explain(gpa);
+    defer gpa.free(numeric_explain);
+    try std.testing.expect(std.mem.indexOf(u8, numeric_explain, "select_dtype_class(numeric)") != null);
+
+    var numeric = try numeric_plan.collect();
+    defer numeric.deinit();
+    try std.testing.expectEqual(@as(usize, 2), numeric.width());
+    try std.testing.expectEqual(@as(?usize, 0), numeric.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), numeric.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, null), numeric.columnIndex("active"));
+
+    var exact_plan = try DeviceLazyFrame.init(gpa, table);
+    defer exact_plan.deinit();
+    try exact_plan.selectByDTypes(&.{ .bool, .f64 });
+    const exact_explain = try exact_plan.explain(gpa);
+    defer gpa.free(exact_explain);
+    try std.testing.expect(std.mem.indexOf(u8, exact_explain, "select_dtypes[bool,f64]") != null);
+
+    var exact = try exact_plan.collect();
+    defer exact.deinit();
+    try std.testing.expectEqual(@as(usize, 2), exact.width());
+    try std.testing.expectEqual(@as(?usize, 0), exact.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), exact.columnIndex("active"));
+
+    var empty_plan = try DeviceLazyFrame.init(gpa, table);
+    defer empty_plan.deinit();
+    try empty_plan.selectFloat();
+    try empty_plan.selectInteger();
+    var empty = try empty_plan.collect();
+    defer empty.deinit();
+    try std.testing.expectEqual(@as(usize, 0), empty.width());
+    try std.testing.expectEqual(table.height(), empty.height());
+}
+
 test "device lazy frame renames and drops columns" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

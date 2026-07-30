@@ -51,6 +51,45 @@ pub fn select(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, wanted_names, columns, input.rows, input.device);
 }
 
+fn selectByDTypePredicate(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    predicate: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var selected_names: std.ArrayList([]const u8) = .empty;
+    defer selected_names.deinit(input.allocator);
+    for (input.names, input.columns) |name, column| {
+        if (predicate.matches(column.dtype())) try selected_names.append(input.allocator, name);
+    }
+    return select(DeviceDataFrame, input, selected_names.items);
+}
+
+pub fn selectByDTypes(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    dtypes: []const array_mod.DType,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const Predicate = struct {
+        wanted: []const array_mod.DType,
+
+        fn matches(self: @This(), dtype: array_mod.DType) bool {
+            for (self.wanted) |candidate| {
+                if (candidate == dtype) return true;
+            }
+            return false;
+        }
+    };
+    return selectByDTypePredicate(DeviceDataFrame, input, Predicate{ .wanted = dtypes });
+}
+
+pub fn selectByDTypeClass(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    class: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectByDTypePredicate(DeviceDataFrame, input, class);
+}
+
 pub fn withColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
