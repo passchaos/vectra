@@ -201,6 +201,7 @@ pub const DeviceDataFrame = struct {
     pub const view = table_methods_mod.view;
     pub const select = table_methods_mod.select;
     pub const withColumn = table_methods_mod.withColumn;
+    pub const withRowIndex = table_methods_mod.withRowIndex;
     pub const renameColumn = table_methods_mod.renameColumn;
     pub const dropColumns = table_methods_mod.dropColumns;
     pub const dropColumn = table_methods_mod.dropColumn;

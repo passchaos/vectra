@@ -31,6 +31,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]", .{});
         },
+        .with_row_index => |row_index| try writer.print("with_row_index({s}, offset={d})", .{ row_index.name, row_index.offset }),
         .rename_column => |rename| try writer.print("rename_column({s}->{s})", .{ rename.old_name, rename.new_name }),
         .drop_columns => |names| {
             try writer.print("drop_columns[", .{});

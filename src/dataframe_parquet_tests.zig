@@ -190,3 +190,47 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     defer gpa.free(result_sales_x2);
     try std.testing.expectEqualSlices(f64, &.{ 6.0, 10.0 }, result_sales_x2);
 }
+
+test "device lazy frame derives row index after parquet projection" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer id.deinit();
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "sales", .data = sales },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+
+    var lazy_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_scan.deinit();
+    try lazy_scan.withRowIndex("row_nr", 5);
+    try lazy_scan.select(&.{ "row_nr", "id" });
+
+    const explain = try lazy_scan.explain(gpa);
+    defer gpa.free(explain);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "with_row_index(row_nr, offset=5)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "scan_pushdown: projection=[id]") != null);
+
+    var result = try lazy_scan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 3), result.height());
+    try std.testing.expectEqual(@as(usize, 2), result.width());
+    try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, null), result.columnIndex("sales"));
+    const row_nr = try (try result.column("row_nr")).usize.toOwnedSlice(gpa);
+    defer gpa.free(row_nr);
+    const ids = try (try result.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(ids);
+    try std.testing.expectEqualSlices(usize, &.{ 5, 6, 7 }, row_nr);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3 }, ids);
+}

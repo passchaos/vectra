@@ -53,6 +53,15 @@ pub fn dropColumn(frame: anytype, name: []const u8) DeviceDataError!void {
     return dropColumns(frame, &.{name});
 }
 
+pub fn withRowIndex(frame: anytype, name: []const u8, offset: usize) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .with_row_index = .{
+        .name = owned_name,
+        .offset = offset,
+    } });
+}
+
 pub fn filter(frame: anytype, mask: anytype) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .filter_mask = try mask.clone() });
 }

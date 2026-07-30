@@ -87,26 +87,32 @@ test "device lazy frame renames and drops columns" {
     defer table.deinit();
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
+    try plan.withRowIndex("row_nr", 100);
     try plan.renameColumn("sales", "revenue");
     try plan.dropColumn("active");
-    try plan.select(&.{ "revenue", "units" });
+    try plan.select(&.{ "row_nr", "revenue", "units" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_row_index(row_nr, offset=100)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "rename_column(sales->revenue)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "drop_columns[active]") != null);
 
     var result = try plan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 4), result.height());
-    try std.testing.expectEqual(@as(usize, 2), result.width());
-    try std.testing.expectEqual(@as(?usize, 0), result.columnIndex("revenue"));
+    try std.testing.expectEqual(@as(usize, 3), result.width());
+    try std.testing.expectEqual(@as(?usize, 0), result.columnIndex("row_nr"));
+    try std.testing.expectEqual(@as(?usize, 1), result.columnIndex("revenue"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
+    const row_nr = try (try result.column("row_nr")).usize.toOwnedSlice(gpa);
+    defer gpa.free(row_nr);
     const revenue = try (try result.column("revenue")).f64.toOwnedSlice(gpa);
     defer gpa.free(revenue);
     const units = try (try result.column("units")).i64.toOwnedSlice(gpa);
     defer gpa.free(units);
+    try std.testing.expectEqualSlices(usize, &.{ 100, 101, 102, 103 }, row_nr);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, 7.0 }, revenue);
     try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4 }, units);
 
@@ -122,6 +128,11 @@ test "device lazy frame renames and drops columns" {
     defer invalid_plan.deinit();
     try invalid_plan.renameColumn("sales", "units");
     try std.testing.expectError(error.InvalidShape, invalid_plan.collect());
+
+    var invalid_index_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_index_plan.deinit();
+    try invalid_index_plan.withRowIndex("sales", 0);
+    try std.testing.expectError(error.InvalidShape, invalid_index_plan.collect());
 }
 
 test "device lazy frame collects topk operations" {

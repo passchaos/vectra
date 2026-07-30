@@ -80,6 +80,25 @@ pub fn withColumn(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
 }
 
+pub fn withRowIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    offset: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (input.columnIndex(name) != null) return error.InvalidShape;
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    const values = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(values);
+    for (values, 0..) |*slot, row| {
+        slot.* = std.math.add(usize, offset, row) catch return error.InvalidShape;
+    }
+
+    var index_column = try DeviceColumn.fromSlice(usize, input.allocator, values, input.device);
+    defer index_column.deinit();
+    return withColumn(DeviceDataFrame, input, name, index_column);
+}
+
 pub fn renameColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
