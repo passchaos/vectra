@@ -377,6 +377,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterNaNsColumn(self, name);
             }
 
+            pub fn dropInfs(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropInfs(self, names);
+            }
+
+            pub fn dropInfsOn(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropInfs(names);
+            }
+
+            pub fn dropInfsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropInfsColumn(self, name);
+            }
+
+            pub fn filterInfsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterInfsColumn(self, name);
+            }
+
             pub fn filter(self: *DeviceLazyFrame, mask: DeviceColumn) DeviceDataError!void {
                 return lazy_expr_mod.filter(self, mask);
             }

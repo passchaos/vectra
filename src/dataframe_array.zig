@@ -1264,10 +1264,11 @@ pub fn filterNullsColumn(
     return filterRows(DeviceDataFrame, input, keep);
 }
 
-pub fn dropNaNs(
+fn dropSpecialFloats(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     names: []const []const u8,
+    comptime predicate: SpecialFloatPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     const check_names = if (names.len == 0) input.names else names;
     const keep = try input.allocator.alloc(bool, input.rows);
@@ -1284,7 +1285,10 @@ pub fn dropNaNs(
                 defer if (maybe_validity) |validity| input.allocator.free(validity);
                 for (keep, host_values, 0..) |*slot, value, row| {
                     const valid = if (maybe_validity) |validity| validity[row] else true;
-                    if (valid and isNanValue(@TypeOf(value), value)) slot.* = false;
+                    if (valid and switch (predicate) {
+                        .nan => isNanValue(@TypeOf(value), value),
+                        .inf => isInfValue(@TypeOf(value), value),
+                    }) slot.* = false;
                 }
             },
         }
@@ -1292,10 +1296,27 @@ pub fn dropNaNs(
     return filterRows(DeviceDataFrame, input, keep);
 }
 
-pub fn filterNaNsColumn(
+pub fn dropNaNs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropSpecialFloats(DeviceDataFrame, input, names, .nan);
+}
+
+pub fn dropInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropSpecialFloats(DeviceDataFrame, input, names, .inf);
+}
+
+fn filterSpecialFloatsColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     name: []const u8,
+    comptime predicate: SpecialFloatPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     const keep = try input.allocator.alloc(bool, input.rows);
@@ -1310,11 +1331,30 @@ pub fn filterNaNsColumn(
             defer if (maybe_validity) |validity| input.allocator.free(validity);
             for (keep, host_values, 0..) |*slot, value, row| {
                 const valid = if (maybe_validity) |validity| validity[row] else true;
-                slot.* = valid and isNanValue(@TypeOf(value), value);
+                slot.* = valid and switch (predicate) {
+                    .nan => isNanValue(@TypeOf(value), value),
+                    .inf => isInfValue(@TypeOf(value), value),
+                };
             }
         },
     }
     return filterRows(DeviceDataFrame, input, keep);
+}
+
+pub fn filterNaNsColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .nan);
+}
+
+pub fn filterInfsColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .inf);
 }
 
 pub fn view(

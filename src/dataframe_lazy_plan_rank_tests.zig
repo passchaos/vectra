@@ -806,6 +806,34 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer gpa.free(filtered_nan_metric);
     try std.testing.expect(std.math.isNan(filtered_nan_metric[0]));
 
+    var drop_inf_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_inf_plan.deinit();
+    try drop_inf_plan.dropInfsColumn("metric");
+    const drop_inf_explain = try drop_inf_plan.explain(gpa);
+    defer gpa.free(drop_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_inf_explain, "drop_infs[metric]") != null);
+    var dropped_inf_rows = try drop_inf_plan.collect();
+    defer dropped_inf_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), dropped_inf_rows.height());
+    const dropped_inf_metric = try (try dropped_inf_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_inf_metric);
+    try std.testing.expectEqual(@as(f64, 1.0), dropped_inf_metric[0]);
+    try std.testing.expect(std.math.isNan(dropped_inf_metric[1]));
+    try std.testing.expectEqual(@as(f64, 7.0), dropped_inf_metric[2]);
+
+    var filter_inf_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_inf_plan.deinit();
+    try filter_inf_plan.filterInfsColumn("metric");
+    const filter_inf_explain = try filter_inf_plan.explain(gpa);
+    defer gpa.free(filter_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_inf_explain, "filter_infs_column(metric)") != null);
+    var filtered_inf_rows = try filter_inf_plan.collect();
+    defer filtered_inf_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_inf_rows.height());
+    const filtered_inf_metric = try (try filtered_inf_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_inf_metric);
+    try std.testing.expect(std.math.isInf(filtered_inf_metric[0]));
+
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
     try invalid_plan.isFiniteColumn("missing", "missing_is_finite");

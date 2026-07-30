@@ -437,6 +437,22 @@ pub fn filterNaNsColumn(self: anytype, name: []const u8) DeviceDataError!FrameTy
     return dataframe_array_mod.filterNaNsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn dropInfs(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropInfs(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropInfsOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropInfs(self, names);
+}
+
+pub fn dropInfsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropInfs(self, &.{name});
+}
+
+pub fn filterInfsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterInfsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn head(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return sliceRows(self, 0, @min(n, self.rows));
 }

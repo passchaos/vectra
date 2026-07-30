@@ -64,6 +64,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         filter_nulls_column: Payloads.FilterColumn,
         drop_nans: Payloads.DropNulls,
         filter_nans_column: Payloads.FilterColumn,
+        drop_infs: Payloads.DropNulls,
+        filter_infs_column: Payloads.FilterColumn,
         with_column_binary: Payloads.WithColumnBinary,
         with_column_scalar: Payloads.WithColumnScalar,
         with_column_literal: Payloads.WithColumnLiteral,

@@ -327,6 +327,25 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(filter_nan_explain);
     try std.testing.expect(std.mem.indexOf(u8, filter_nan_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, filter_nan_explain, "filter_nans_column(sales)") != null);
+
+    var drop_inf_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_inf_scan.deinit();
+    try drop_inf_scan.dropInfsColumn("sales");
+    try drop_inf_scan.select(&.{"id"});
+
+    const drop_inf_explain = try drop_inf_scan.explain(gpa);
+    defer gpa.free(drop_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_inf_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_inf_explain, "drop_infs[sales]") != null);
+
+    var filter_inf_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_inf_scan.deinit();
+    try filter_inf_scan.filterInfsColumn("sales");
+
+    const filter_inf_explain = try filter_inf_scan.explain(gpa);
+    defer gpa.free(filter_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_inf_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_inf_explain, "filter_infs_column(sales)") != null);
 }
 
 test "device lazy frame pushes coalesce dependencies into parquet scan source" {
