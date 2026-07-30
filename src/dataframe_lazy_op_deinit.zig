@@ -50,6 +50,15 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(expr.input_name);
         },
         .with_column_literal => |expr| allocator.free(expr.name),
+        .with_column_literal_at => |expr| allocator.free(expr.name),
+        .with_column_literal_before => |expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.anchor_name);
+        },
+        .with_column_literal_after => |expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.anchor_name);
+        },
         .cast_column => |cast| allocator.free(cast.name),
         .fill_null_column => |fill| allocator.free(fill.name),
         .with_column_compare => |expr| {

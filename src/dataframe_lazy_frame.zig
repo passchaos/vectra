@@ -271,6 +271,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnLiteralScalar(self, name, scalar);
             }
 
+            pub fn withColumnLiteralAt(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T, target_index: usize) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLiteralAt(self, name, T, value, target_index);
+            }
+
+            pub fn withColumnLiteralBefore(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T, before_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLiteralBefore(self, name, T, value, before_name);
+            }
+
+            pub fn withColumnLiteralAfter(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T, after_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLiteralAfter(self, name, T, value, after_name);
+            }
+
+            pub fn withColumnLiteralScalarAt(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar, target_index: usize) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLiteralScalarAt(self, name, scalar, target_index);
+            }
+
+            pub fn withColumnLiteralScalarBefore(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar, before_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLiteralScalarBefore(self, name, scalar, before_name);
+            }
+
+            pub fn withColumnLiteralScalarAfter(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar, after_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLiteralScalarAfter(self, name, scalar, after_name);
+            }
+
             pub fn castColumn(self: *DeviceLazyFrame, name: []const u8, dtype_value: array_mod.DType) DeviceDataError!void {
                 return lazy_expr_mod.castColumn(self, name, dtype_value);
             }

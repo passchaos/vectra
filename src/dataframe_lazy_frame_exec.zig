@@ -58,6 +58,9 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 break :blk try current.withColumn(expr.name, column_value);
             },
             .with_column_literal => |expr| try current.withColumnLiteralScalar(expr.name, expr.scalar),
+            .with_column_literal_at => |expr| try current.withColumnLiteralScalarAt(expr.name, expr.scalar, expr.target_index),
+            .with_column_literal_before => |expr| try current.withColumnLiteralScalarBefore(expr.name, expr.scalar, expr.anchor_name),
+            .with_column_literal_after => |expr| try current.withColumnLiteralScalarAfter(expr.name, expr.scalar, expr.anchor_name),
             .cast_column => |cast| try current.castColumn(cast.name, cast.dtype),
             .fill_null_column => |fill| try current.fillNullColumnWithScalar(fill.name, fill.scalar),
             .with_column_compare => |expr| blk: {

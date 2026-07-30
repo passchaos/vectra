@@ -278,6 +278,23 @@ test "device lazy frame keeps schema-derived and schema-rewrite ops out of parqu
     try std.testing.expectEqual(@as(?usize, 0), moved.columnIndex("active"));
     try std.testing.expectEqual(@as(?usize, 1), moved.columnIndex("id"));
     try std.testing.expectEqual(@as(?usize, 2), moved.columnIndex("sales"));
+
+    var lazy_placed_literal_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_placed_literal_scan.deinit();
+    try lazy_placed_literal_scan.withColumnLiteralAt("segment", i32, 7, 0);
+
+    const placed_literal_explain = try lazy_placed_literal_scan.explain(gpa);
+    defer gpa.free(placed_literal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, placed_literal_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, placed_literal_explain, "with_column_literal_at(segment=scalar:i32, index=0)") != null);
+
+    var placed_literal = try lazy_placed_literal_scan.collect();
+    defer placed_literal.deinit();
+    try std.testing.expectEqual(@as(usize, 4), placed_literal.width());
+    try std.testing.expectEqual(@as(?usize, 0), placed_literal.columnIndex("segment"));
+    try std.testing.expectEqual(@as(?usize, 1), placed_literal.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 2), placed_literal.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 3), placed_literal.columnIndex("active"));
 }
 
 test "device lazy frame derives row index after parquet projection" {

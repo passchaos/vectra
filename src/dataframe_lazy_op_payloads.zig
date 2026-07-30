@@ -73,6 +73,16 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             name: []const u8,
             scalar: DeviceScalar,
         };
+        pub const WithColumnLiteralAt = struct {
+            name: []const u8,
+            scalar: DeviceScalar,
+            target_index: usize,
+        };
+        pub const WithColumnLiteralRelative = struct {
+            name: []const u8,
+            scalar: DeviceScalar,
+            anchor_name: []const u8,
+        };
         pub const CastColumn = struct {
             name: []const u8,
             dtype: array_mod.DType,

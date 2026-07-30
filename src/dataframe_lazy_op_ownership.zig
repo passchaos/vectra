@@ -111,6 +111,36 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .scalar = expr.scalar,
             } };
         },
+        .with_column_literal_at => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            break :blk .{ .with_column_literal_at = .{
+                .name = name,
+                .scalar = expr.scalar,
+                .target_index = expr.target_index,
+            } };
+        },
+        .with_column_literal_before => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const anchor_name = try allocator.dupe(u8, expr.anchor_name);
+            errdefer allocator.free(anchor_name);
+            break :blk .{ .with_column_literal_before = .{
+                .name = name,
+                .scalar = expr.scalar,
+                .anchor_name = anchor_name,
+            } };
+        },
+        .with_column_literal_after => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const anchor_name = try allocator.dupe(u8, expr.anchor_name);
+            errdefer allocator.free(anchor_name);
+            break :blk .{ .with_column_literal_after = .{
+                .name = name,
+                .scalar = expr.scalar,
+                .anchor_name = anchor_name,
+            } };
+        },
         .cast_column => |cast| blk: {
             const name = try allocator.dupe(u8, cast.name);
             break :blk .{ .cast_column = .{

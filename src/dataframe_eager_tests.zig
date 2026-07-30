@@ -153,6 +153,50 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(replaced_sales_values);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 1.0 }, replaced_sales_values);
 
+    var discount_col = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.1, 0.2, 0.3 }, .cpu);
+    defer discount_col.deinit();
+    var inserted_discount = try table.withColumnAt("discount", discount_col, 1);
+    defer inserted_discount.deinit();
+    try std.testing.expectEqual(@as(usize, 4), inserted_discount.width());
+    try std.testing.expectEqual(@as(?usize, 0), inserted_discount.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), inserted_discount.columnIndex("discount"));
+    try std.testing.expectEqual(@as(?usize, 2), inserted_discount.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 3), inserted_discount.columnIndex("active"));
+
+    var segment_first = try table.withColumnLiteralAt("segment", i32, 42, 0);
+    defer segment_first.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), segment_first.columnIndex("segment"));
+    try std.testing.expectEqual(@as(?usize, 1), segment_first.columnIndex("sales"));
+    const segment_values = try (try segment_first.column("segment")).i32.toOwnedSlice(gpa);
+    defer gpa.free(segment_values);
+    try std.testing.expectEqualSlices(i32, &.{ 42, 42, 42 }, segment_values);
+
+    var rank_before_units = try table.withColumnLiteralBefore("rank", i16, 5, "units");
+    defer rank_before_units.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), rank_before_units.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), rank_before_units.columnIndex("rank"));
+    try std.testing.expectEqual(@as(?usize, 2), rank_before_units.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 3), rank_before_units.columnIndex("active"));
+
+    var score_after_units = try table.withColumnLiteralAfter("score", f32, 1.5, "units");
+    defer score_after_units.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), score_after_units.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), score_after_units.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 2), score_after_units.columnIndex("score"));
+    try std.testing.expectEqual(@as(?usize, 3), score_after_units.columnIndex("active"));
+
+    var repositioned_sales = try table.withColumnLiteralAt("sales", f64, 9.0, 2);
+    defer repositioned_sales.deinit();
+    try std.testing.expectEqual(@as(usize, 3), repositioned_sales.width());
+    try std.testing.expectEqual(@as(?usize, 0), repositioned_sales.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), repositioned_sales.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 2), repositioned_sales.columnIndex("sales"));
+    const repositioned_sales_values = try (try repositioned_sales.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(repositioned_sales_values);
+    try std.testing.expectEqualSlices(f64, &.{ 9.0, 9.0, 9.0 }, repositioned_sales_values);
+    try std.testing.expectError(error.IndexOutOfBounds, table.withColumnLiteralAt("bad", i8, 1, table.width() + 1));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnLiteralBefore("bad", i8, 1, "missing"));
+
     var cast_units = try table.castColumn("units", .f64);
     defer cast_units.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try cast_units.columnDType("units"));

@@ -228,41 +228,90 @@ pub fn withColumn(
     name: []const u8,
     data: anytype,
 ) DeviceFrameArrayError!DeviceDataFrame {
+    const target_index = input.columnIndex(name) orelse input.columns.len;
+    return withColumnAt(DeviceDataFrame, input, name, data, target_index);
+}
+
+pub fn withColumnAt(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    data: anytype,
+    target_index: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
     if (data.len() != input.rows) return error.LengthMismatch;
     if (!data.device().sameDevice(input.device)) return error.InvalidDevice;
-    if (input.columnIndex(name)) |replace_index| {
-        const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
-        var columns = try input.allocator.alloc(DeviceColumn, input.columns.len);
-        var initialized: usize = 0;
-        errdefer {
-            for (columns[0..initialized]) |*col| col.deinit();
-            input.allocator.free(columns);
-        }
-        for (input.columns, 0..) |col, i| {
-            columns[i] = if (i == replace_index) try data.clone() else try col.clone();
-            initialized += 1;
-        }
-        return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, input.rows, input.device);
-    }
-    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
-    var source_names = try input.allocator.alloc([]const u8, input.columns.len + 1);
-    defer input.allocator.free(source_names);
-    for (input.names, 0..) |existing, i| source_names[i] = existing;
-    source_names[input.columns.len] = name;
+    const maybe_replace_index = input.columnIndex(name);
+    const output_len = input.columns.len + @as(usize, if (maybe_replace_index == null) 1 else 0);
+    if (target_index >= output_len) return error.IndexOutOfBounds;
 
-    var columns = try input.allocator.alloc(DeviceColumn, input.columns.len + 1);
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var source_names = try input.allocator.alloc([]const u8, output_len);
+    defer input.allocator.free(source_names);
+
+    var columns = try input.allocator.alloc(DeviceColumn, output_len);
     var initialized: usize = 0;
     errdefer {
         for (columns[0..initialized]) |*col| col.deinit();
         input.allocator.free(columns);
     }
-    for (input.columns, 0..) |col, i| {
-        columns[i] = try col.clone();
+
+    // The target index is expressed in the final output schema.  For
+    // replacements, stream all source columns except the replaced one and inject
+    // the new column at the requested final position; for insertions, stream all
+    // existing columns around the insertion point.
+    var source_scan: usize = 0;
+    for (0..output_len) |output_index| {
+        if (output_index == target_index) {
+            source_names[output_index] = name;
+            columns[output_index] = try data.clone();
+            initialized += 1;
+            continue;
+        }
+
+        if (maybe_replace_index) |replace_index| {
+            while (source_scan == replace_index) source_scan += 1;
+        }
+        source_names[output_index] = input.names[source_scan];
+        columns[output_index] = try input.columns[source_scan].clone();
         initialized += 1;
+        source_scan += 1;
     }
-    columns[input.columns.len] = try data.clone();
-    initialized += 1;
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
+}
+
+pub fn withColumnBefore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    data: anytype,
+    before_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const maybe_replace_index = input.columnIndex(name);
+    const anchor_index = input.columnIndex(before_name) orelse return error.ColumnNotFound;
+    if (maybe_replace_index) |replace_index| {
+        if (replace_index == anchor_index) return withColumnAt(DeviceDataFrame, input, name, data, replace_index);
+    }
+
+    const target_index = if (maybe_replace_index != null and maybe_replace_index.? < anchor_index) anchor_index - 1 else anchor_index;
+    return withColumnAt(DeviceDataFrame, input, name, data, target_index);
+}
+
+pub fn withColumnAfter(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    data: anytype,
+    after_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const maybe_replace_index = input.columnIndex(name);
+    const anchor_index = input.columnIndex(after_name) orelse return error.ColumnNotFound;
+    if (maybe_replace_index) |replace_index| {
+        if (replace_index == anchor_index) return withColumnAt(DeviceDataFrame, input, name, data, replace_index);
+    }
+
+    const target_index = if (maybe_replace_index != null and maybe_replace_index.? < anchor_index) anchor_index else anchor_index + 1;
+    return withColumnAt(DeviceDataFrame, input, name, data, target_index);
 }
 
 pub fn castColumn(
@@ -289,6 +338,19 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
+fn literalColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    comptime T: type,
+    value: T,
+) DeviceFrameArrayError!std.meta.Elem(@TypeOf(input.columns)) {
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    const values = try input.allocator.alloc(T, input.rows);
+    defer input.allocator.free(values);
+    @memset(values, value);
+    return DeviceColumn.fromSlice(T, input.allocator, values, input.device);
+}
+
 pub fn withColumnLiteral(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -296,14 +358,48 @@ pub fn withColumnLiteral(
     comptime T: type,
     value: T,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
-    const values = try input.allocator.alloc(T, input.rows);
-    defer input.allocator.free(values);
-    @memset(values, value);
-
-    var literal_column = try DeviceColumn.fromSlice(T, input.allocator, values, input.device);
+    var literal_column = try literalColumn(DeviceDataFrame, input, T, value);
     defer literal_column.deinit();
     return withColumn(DeviceDataFrame, input, name, literal_column);
+}
+
+pub fn withColumnLiteralAt(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    comptime T: type,
+    value: T,
+    target_index: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var literal_column = try literalColumn(DeviceDataFrame, input, T, value);
+    defer literal_column.deinit();
+    return withColumnAt(DeviceDataFrame, input, name, literal_column, target_index);
+}
+
+pub fn withColumnLiteralBefore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    comptime T: type,
+    value: T,
+    before_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var literal_column = try literalColumn(DeviceDataFrame, input, T, value);
+    defer literal_column.deinit();
+    return withColumnBefore(DeviceDataFrame, input, name, literal_column, before_name);
+}
+
+pub fn withColumnLiteralAfter(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    comptime T: type,
+    value: T,
+    after_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var literal_column = try literalColumn(DeviceDataFrame, input, T, value);
+    defer literal_column.deinit();
+    return withColumnAfter(DeviceDataFrame, input, name, literal_column, after_name);
 }
 
 pub fn withColumnLiteralScalar(
@@ -314,6 +410,42 @@ pub fn withColumnLiteralScalar(
 ) DeviceFrameArrayError!DeviceDataFrame {
     return switch (scalar) {
         inline else => |value| withColumnLiteral(DeviceDataFrame, input, name, @TypeOf(value), value),
+    };
+}
+
+pub fn withColumnLiteralScalarAt(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+    target_index: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return switch (scalar) {
+        inline else => |value| withColumnLiteralAt(DeviceDataFrame, input, name, @TypeOf(value), value, target_index),
+    };
+}
+
+pub fn withColumnLiteralScalarBefore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+    before_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return switch (scalar) {
+        inline else => |value| withColumnLiteralBefore(DeviceDataFrame, input, name, @TypeOf(value), value, before_name),
+    };
+}
+
+pub fn withColumnLiteralScalarAfter(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+    after_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return switch (scalar) {
+        inline else => |value| withColumnLiteralAfter(DeviceDataFrame, input, name, @TypeOf(value), value, after_name),
     };
 }
 

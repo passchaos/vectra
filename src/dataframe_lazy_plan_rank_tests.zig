@@ -439,6 +439,63 @@ test "device lazy frame renames and drops columns" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 1.0, 1.0 }, replaced_sales);
 }
 
+test "device lazy frame places literal columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withColumnLiteralAt("segment", i32, 42, 0);
+    try plan.withColumnLiteralBefore("rank", i16, 5, "units");
+    try plan.withColumnLiteralAfter("score", f32, 1.5, "active");
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_literal_at(segment=scalar:i32, index=0)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_literal_before(rank=scalar:i16 before units)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_literal_after(score=scalar:f32 after active)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 6), result.width());
+    try std.testing.expectEqual(@as(?usize, 0), result.columnIndex("segment"));
+    try std.testing.expectEqual(@as(?usize, 1), result.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), result.columnIndex("rank"));
+    try std.testing.expectEqual(@as(?usize, 3), result.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 4), result.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 5), result.columnIndex("score"));
+    const segment = try (try result.column("segment")).i32.toOwnedSlice(gpa);
+    defer gpa.free(segment);
+    const score = try (try result.column("score")).f32.toOwnedSlice(gpa);
+    defer gpa.free(score);
+    try std.testing.expectEqualSlices(i32, &.{ 42, 42, 42, 42 }, segment);
+    try std.testing.expectEqualSlices(f32, &.{ 1.5, 1.5, 1.5, 1.5 }, score);
+
+    var replace_plan = try DeviceLazyFrame.init(gpa, table);
+    defer replace_plan.deinit();
+    try replace_plan.withColumnLiteralAt("sales", f64, 9.0, 2);
+    var replaced = try replace_plan.collect();
+    defer replaced.deinit();
+    try std.testing.expectEqual(@as(usize, 3), replaced.width());
+    try std.testing.expectEqual(@as(?usize, 0), replaced.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), replaced.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 2), replaced.columnIndex("sales"));
+    const replaced_sales = try (try replaced.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(replaced_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 9.0, 9.0, 9.0, 9.0 }, replaced_sales);
+
+    var missing_anchor_plan = try DeviceLazyFrame.init(gpa, table);
+    defer missing_anchor_plan.deinit();
+    try missing_anchor_plan.withColumnLiteralBefore("bad", i8, 1, "missing");
+    try std.testing.expectError(error.ColumnNotFound, missing_anchor_plan.collect());
+
+    var bounds_plan = try DeviceLazyFrame.init(gpa, table);
+    defer bounds_plan.deinit();
+    try bounds_plan.withColumnLiteralAt("bad", i8, 1, table.width() + 1);
+    try std.testing.expectError(error.IndexOutOfBounds, bounds_plan.collect());
+}
+
 test "device lazy frame moves columns" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

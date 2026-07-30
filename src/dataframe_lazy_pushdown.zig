@@ -101,6 +101,14 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .with_column_literal => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
             },
+            inline .with_column_literal_at, .with_column_literal_before, .with_column_literal_after => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                // Positioned insertion/replacement is a schema rewrite.  Keep
+                // execution order intact rather than inferring projection
+                // through the changed column order.
+                projection_blocked = true;
+                break :op_loop;
+            },
             .cast_column => |cast| {
                 if (!nameInBorrowedList(cast.name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, cast.name);

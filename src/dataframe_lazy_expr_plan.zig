@@ -259,6 +259,52 @@ pub fn withColumnLiteralScalar(frame: anytype, name: []const u8, scalar: DeviceS
     } });
 }
 
+pub fn withColumnLiteralAt(frame: anytype, name: []const u8, comptime T: type, value: T, target_index: usize) DeviceDataError!void {
+    return withColumnLiteralScalarAt(frame, name, DeviceScalar.init(T, value), target_index);
+}
+
+pub fn withColumnLiteralScalarAt(frame: anytype, name: []const u8, scalar: DeviceScalar, target_index: usize) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .with_column_literal_at = .{
+        .name = owned_name,
+        .scalar = scalar,
+        .target_index = target_index,
+    } });
+}
+
+pub fn withColumnLiteralBefore(frame: anytype, name: []const u8, comptime T: type, value: T, before_name: []const u8) DeviceDataError!void {
+    return withColumnLiteralScalarBefore(frame, name, DeviceScalar.init(T, value), before_name);
+}
+
+pub fn withColumnLiteralScalarBefore(frame: anytype, name: []const u8, scalar: DeviceScalar, before_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_anchor = try frame.allocator.dupe(u8, before_name);
+    errdefer frame.allocator.free(owned_anchor);
+    try frame.ops.append(frame.allocator, .{ .with_column_literal_before = .{
+        .name = owned_name,
+        .scalar = scalar,
+        .anchor_name = owned_anchor,
+    } });
+}
+
+pub fn withColumnLiteralAfter(frame: anytype, name: []const u8, comptime T: type, value: T, after_name: []const u8) DeviceDataError!void {
+    return withColumnLiteralScalarAfter(frame, name, DeviceScalar.init(T, value), after_name);
+}
+
+pub fn withColumnLiteralScalarAfter(frame: anytype, name: []const u8, scalar: DeviceScalar, after_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_anchor = try frame.allocator.dupe(u8, after_name);
+    errdefer frame.allocator.free(owned_anchor);
+    try frame.ops.append(frame.allocator, .{ .with_column_literal_after = .{
+        .name = owned_name,
+        .scalar = scalar,
+        .anchor_name = owned_anchor,
+    } });
+}
+
 pub fn castColumn(frame: anytype, name: []const u8, dtype_value: array_mod.DType) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

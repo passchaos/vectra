@@ -171,6 +171,18 @@ pub fn withColumn(self: anytype, name: []const u8, data: @TypeOf(frameValue(self
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), name, data);
 }
 
+pub fn withColumnAt(self: anytype, name: []const u8, data: @TypeOf(frameValue(self).columns[0]), target_index: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnAt(FrameType(@TypeOf(self)), frameValue(self), name, data, target_index);
+}
+
+pub fn withColumnBefore(self: anytype, name: []const u8, data: @TypeOf(frameValue(self).columns[0]), before_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnBefore(FrameType(@TypeOf(self)), frameValue(self), name, data, before_name);
+}
+
+pub fn withColumnAfter(self: anytype, name: []const u8, data: @TypeOf(frameValue(self).columns[0]), after_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnAfter(FrameType(@TypeOf(self)), frameValue(self), name, data, after_name);
+}
+
 pub fn castColumn(self: anytype, name: []const u8, dtype_value: array_mod.DType) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.castColumn(FrameType(@TypeOf(self)), frameValue(self), name, dtype_value);
 }
@@ -189,6 +201,30 @@ pub fn withColumnLiteral(self: anytype, name: []const u8, comptime T: type, valu
 
 pub fn withColumnLiteralScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumnLiteralScalar(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
+}
+
+pub fn withColumnLiteralAt(self: anytype, name: []const u8, comptime T: type, value: T, target_index: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnLiteralAt(FrameType(@TypeOf(self)), frameValue(self), name, T, value, target_index);
+}
+
+pub fn withColumnLiteralBefore(self: anytype, name: []const u8, comptime T: type, value: T, before_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnLiteralBefore(FrameType(@TypeOf(self)), frameValue(self), name, T, value, before_name);
+}
+
+pub fn withColumnLiteralAfter(self: anytype, name: []const u8, comptime T: type, value: T, after_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnLiteralAfter(FrameType(@TypeOf(self)), frameValue(self), name, T, value, after_name);
+}
+
+pub fn withColumnLiteralScalarAt(self: anytype, name: []const u8, scalar: DeviceScalar, target_index: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnLiteralScalarAt(FrameType(@TypeOf(self)), frameValue(self), name, scalar, target_index);
+}
+
+pub fn withColumnLiteralScalarBefore(self: anytype, name: []const u8, scalar: DeviceScalar, before_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnLiteralScalarBefore(FrameType(@TypeOf(self)), frameValue(self), name, scalar, before_name);
+}
+
+pub fn withColumnLiteralScalarAfter(self: anytype, name: []const u8, scalar: DeviceScalar, after_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnLiteralScalarAfter(FrameType(@TypeOf(self)), frameValue(self), name, scalar, after_name);
 }
 
 pub fn withRowIndex(self: anytype, name: []const u8, offset: usize) DeviceDataError!FrameType(@TypeOf(self)) {
