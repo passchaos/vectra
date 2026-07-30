@@ -2,6 +2,7 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const array_helpers_mod = @import("dataframe_array_helpers.zig");
 const names_mod = @import("dataframe_names.zig");
+const options_mod = @import("dataframe_options.zig");
 
 const DeviceFrameArrayError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
     LengthMismatch,
@@ -29,6 +30,7 @@ pub const takeOptionalRows = array_helpers_mod.takeOptionalRows;
 pub const columnsRowsEqual = array_helpers_mod.columnsRowsEqual;
 pub const columnsRowsEqualTyped = array_helpers_mod.columnsRowsEqualTyped;
 const nameInBorrowedList = names_mod.nameInBorrowedList;
+const DeviceScalar = options_mod.DeviceScalar;
 
 pub fn select(
     comptime DeviceDataFrame: type,
@@ -117,6 +119,35 @@ pub fn withColumn(
     columns[input.columns.len] = try data.clone();
     initialized += 1;
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
+}
+
+pub fn withColumnLiteral(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    comptime T: type,
+    value: T,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (input.columnIndex(name) != null) return error.InvalidShape;
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    const values = try input.allocator.alloc(T, input.rows);
+    defer input.allocator.free(values);
+    @memset(values, value);
+
+    var literal_column = try DeviceColumn.fromSlice(T, input.allocator, values, input.device);
+    defer literal_column.deinit();
+    return withColumn(DeviceDataFrame, input, name, literal_column);
+}
+
+pub fn withColumnLiteralScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return switch (scalar) {
+        inline else => |value| withColumnLiteral(DeviceDataFrame, input, name, @TypeOf(value), value),
+    };
 }
 
 pub fn withRowIndex(

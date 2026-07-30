@@ -128,6 +128,24 @@ pub fn withColumnScalar(frame: anytype, name: []const u8, input_name: []const u8
     } });
 }
 
+pub fn withColumnLiteral(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .with_column_literal = .{
+        .name = owned_name,
+        .scalar = DeviceScalar.init(T, value),
+    } });
+}
+
+pub fn withColumnLiteralScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .with_column_literal = .{
+        .name = owned_name,
+        .scalar = scalar,
+    } });
+}
+
 pub fn withColumnCompare(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

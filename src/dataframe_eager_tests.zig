@@ -102,6 +102,21 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 0), empty_dtype_selected.width());
     try std.testing.expectEqual(table.height(), empty_dtype_selected.height());
 
+    var literalized = try table.withColumnLiteral("region_id", i32, 7);
+    defer literalized.deinit();
+    try std.testing.expectEqual(@as(usize, 4), literalized.width());
+    try std.testing.expectEqual(DeviceDType.i32, try literalized.columnDType("region_id"));
+    const region_id = try (try literalized.column("region_id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(region_id);
+    try std.testing.expectEqualSlices(i32, &.{ 7, 7, 7 }, region_id);
+
+    var literal_bool = try table.withColumnLiteral("literal_active", bool, true);
+    defer literal_bool.deinit();
+    const literal_active = try (try literal_bool.column("literal_active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(literal_active);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true }, literal_active);
+    try std.testing.expectError(error.InvalidShape, table.withColumnLiteral("sales", f64, 1.0));
+
     var indexed = try table.withRowIndex("row_nr", 10);
     defer indexed.deinit();
     try std.testing.expectEqual(@as(usize, 4), indexed.width());

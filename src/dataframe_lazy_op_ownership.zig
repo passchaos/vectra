@@ -68,6 +68,13 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .scalar = expr.scalar,
             } };
         },
+        .with_column_literal => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            break :blk .{ .with_column_literal = .{
+                .name = name,
+                .scalar = expr.scalar,
+            } };
+        },
         .with_column_compare => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);
