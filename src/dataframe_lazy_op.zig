@@ -26,6 +26,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         with_row_index: Payloads.RowIndex,
         rename_column: Payloads.RenameColumn,
         drop_columns: Payloads.DropColumns,
+        drop_nulls: Payloads.DropNulls,
         with_column_binary: Payloads.WithColumnBinary,
         with_column_scalar: Payloads.WithColumnScalar,
         with_column_literal: Payloads.WithColumnLiteral,

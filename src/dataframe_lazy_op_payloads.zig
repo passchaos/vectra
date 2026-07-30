@@ -45,6 +45,7 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             new_name: []const u8,
         };
         pub const DropColumns = [][]const u8;
+        pub const DropNulls = [][]const u8;
         pub const WithColumnBinary = struct {
             name: []const u8,
             lhs_name: []const u8,

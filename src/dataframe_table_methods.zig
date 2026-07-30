@@ -155,6 +155,18 @@ pub fn dropColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@Ty
     return dataframe_array_mod.dropColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn dropNulls(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropNulls(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropNullsOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNulls(self, names);
+}
+
+pub fn dropNullsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNulls(self, &.{name});
+}
+
 pub fn head(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return sliceRows(self, 0, @min(n, self.rows));
 }

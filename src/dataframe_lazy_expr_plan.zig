@@ -81,6 +81,24 @@ pub fn dropColumn(frame: anytype, name: []const u8) DeviceDataError!void {
     return dropColumns(frame, &.{name});
 }
 
+pub fn dropNulls(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.alloc([]const u8, names.len);
+    errdefer frame.allocator.free(owned);
+    var initialized: usize = 0;
+    errdefer {
+        for (owned[0..initialized]) |name| frame.allocator.free(name);
+    }
+    for (names, owned) |name, *slot| {
+        slot.* = try frame.allocator.dupe(u8, name);
+        initialized += 1;
+    }
+    try frame.ops.append(frame.allocator, .{ .drop_nulls = owned });
+}
+
+pub fn dropNullsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    return dropNulls(frame, &.{name});
+}
+
 pub fn withRowIndex(frame: anytype, name: []const u8, offset: usize) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

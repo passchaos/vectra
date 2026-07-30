@@ -3,6 +3,7 @@ const array_mod = @import("array.zig");
 const array_helpers_mod = @import("dataframe_array_helpers.zig");
 const names_mod = @import("dataframe_names.zig");
 const options_mod = @import("dataframe_options.zig");
+const validity_core_mod = @import("dataframe_validity_core.zig");
 
 const DeviceFrameArrayError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
     LengthMismatch,
@@ -31,6 +32,7 @@ pub const columnsRowsEqual = array_helpers_mod.columnsRowsEqual;
 pub const columnsRowsEqualTyped = array_helpers_mod.columnsRowsEqualTyped;
 const nameInBorrowedList = names_mod.nameInBorrowedList;
 const DeviceScalar = options_mod.DeviceScalar;
+const validityValues = validity_core_mod.validityValues;
 
 pub fn select(
     comptime DeviceDataFrame: type,
@@ -278,6 +280,34 @@ pub fn dropColumn(
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return dropColumns(DeviceDataFrame, input, &.{name});
+}
+
+pub fn dropNulls(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    for (check_names) |name| {
+        _ = try input.column(name);
+    }
+
+    const keep = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(keep);
+    @memset(keep, true);
+    for (check_names) |name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                if (maybe_validity) |validity| {
+                    for (keep, validity) |*slot, valid| slot.* = slot.* and valid;
+                }
+            },
+        }
+    }
+    return filterRows(DeviceDataFrame, input, keep);
 }
 
 pub fn view(

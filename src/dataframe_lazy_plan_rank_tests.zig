@@ -183,6 +183,32 @@ test "device lazy frame fills nullable columns" {
     try std.testing.expectError(error.TypeUnsupported, invalid_plan.collect());
 }
 
+test "device lazy frame drops null rows" {
+    const gpa = std.testing.allocator;
+    var table = try lazyQualityTable(gpa);
+    defer table.deinit();
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.dropNullsColumn("quality");
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "drop_nulls[quality]") != null);
+
+    var dropped = try plan.collect();
+    defer dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 3), dropped.height());
+    const quality = try (try dropped.column("quality")).f64.toOwnedSlice(gpa);
+    defer gpa.free(quality);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 3.0, 4.0 }, quality);
+    try std.testing.expectEqual(@as(usize, 0), (try dropped.column("quality")).nullCount());
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.dropNullsColumn("missing");
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame renames and drops columns" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

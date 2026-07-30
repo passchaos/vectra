@@ -171,6 +171,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.dropColumn(self, name);
             }
 
+            pub fn dropNulls(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropNulls(self, names);
+            }
+
+            pub fn dropNullsOn(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropNulls(names);
+            }
+
+            pub fn dropNullsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropNullsColumn(self, name);
+            }
+
             pub fn filter(self: *DeviceLazyFrame, mask: DeviceColumn) DeviceDataError!void {
                 return lazy_expr_mod.filter(self, mask);
             }

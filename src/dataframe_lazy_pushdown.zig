@@ -68,6 +68,13 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 projection_blocked = true;
                 break :op_loop;
             },
+            .drop_nulls => |names| {
+                for (names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
             .with_row_index => |row_index| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_index.name);
             },
