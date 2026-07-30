@@ -125,6 +125,69 @@ test "device lazy frame selects columns by dtype" {
     try std.testing.expectEqual(table.height(), empty.height());
 }
 
+test "device lazy frame selects columns by name pattern" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+
+    var prefix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer prefix_plan.deinit();
+    try prefix_plan.withColumnScalar("sales_x2", "sales", f64, 2.0, .mul);
+    try prefix_plan.selectByNamePrefix("sales");
+
+    const prefix_explain = try prefix_plan.explain(gpa);
+    defer gpa.free(prefix_explain);
+    try std.testing.expect(std.mem.indexOf(u8, prefix_explain, "select_name_prefix(sales)") != null);
+
+    var prefixed = try prefix_plan.collect();
+    defer prefixed.deinit();
+    try std.testing.expectEqual(@as(usize, 2), prefixed.width());
+    try std.testing.expectEqual(@as(?usize, 0), prefixed.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), prefixed.columnIndex("sales_x2"));
+    const sales_x2 = try (try prefixed.column("sales_x2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_x2);
+    try std.testing.expectEqualSlices(f64, &.{ 4.0, 6.0, 10.0, 14.0 }, sales_x2);
+
+    var suffix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer suffix_plan.deinit();
+    try suffix_plan.selectByNameSuffix("s");
+
+    const suffix_explain = try suffix_plan.explain(gpa);
+    defer gpa.free(suffix_explain);
+    try std.testing.expect(std.mem.indexOf(u8, suffix_explain, "select_name_suffix(s)") != null);
+
+    var suffixed = try suffix_plan.collect();
+    defer suffixed.deinit();
+    try std.testing.expectEqual(@as(usize, 2), suffixed.width());
+    try std.testing.expectEqual(@as(?usize, 0), suffixed.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), suffixed.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, null), suffixed.columnIndex("active"));
+
+    var contains_plan = try DeviceLazyFrame.init(gpa, table);
+    defer contains_plan.deinit();
+    try contains_plan.selectByNameContains("ct");
+
+    const contains_explain = try contains_plan.explain(gpa);
+    defer gpa.free(contains_explain);
+    try std.testing.expect(std.mem.indexOf(u8, contains_explain, "select_name_contains(ct)") != null);
+
+    var contained = try contains_plan.collect();
+    defer contained.deinit();
+    try std.testing.expectEqual(@as(usize, 1), contained.width());
+    try std.testing.expectEqual(@as(?usize, 0), contained.columnIndex("active"));
+    const active = try (try contained.column("active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, active);
+
+    var empty_plan = try DeviceLazyFrame.init(gpa, table);
+    defer empty_plan.deinit();
+    try empty_plan.selectByNameContains("missing");
+    var empty = try empty_plan.collect();
+    defer empty.deinit();
+    try std.testing.expectEqual(@as(usize, 0), empty.width());
+    try std.testing.expectEqual(table.height(), empty.height());
+}
+
 test "device lazy frame casts columns" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

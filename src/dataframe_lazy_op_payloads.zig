@@ -34,6 +34,9 @@ pub const DeviceLazyJoinKind = enum {
 pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn: type) type {
     return struct {
         pub const Select = [][]const u8;
+        pub const SelectNamePattern = struct {
+            pattern: []const u8,
+        };
         pub const SelectDTypes = []array_mod.DType;
         pub const SelectDTypeClass = DeviceDTypeClass;
         pub const RowIndex = struct {

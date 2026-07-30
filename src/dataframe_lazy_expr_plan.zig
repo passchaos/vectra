@@ -24,6 +24,24 @@ pub fn select(frame: anytype, names: []const []const u8) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .select = owned });
 }
 
+pub fn selectByNamePrefix(frame: anytype, prefix: []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.dupe(u8, prefix);
+    errdefer frame.allocator.free(owned);
+    try frame.ops.append(frame.allocator, .{ .select_name_prefix = .{ .pattern = owned } });
+}
+
+pub fn selectByNameSuffix(frame: anytype, suffix: []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.dupe(u8, suffix);
+    errdefer frame.allocator.free(owned);
+    try frame.ops.append(frame.allocator, .{ .select_name_suffix = .{ .pattern = owned } });
+}
+
+pub fn selectByNameContains(frame: anytype, needle: []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.dupe(u8, needle);
+    errdefer frame.allocator.free(owned);
+    try frame.ops.append(frame.allocator, .{ .select_name_contains = .{ .pattern = owned } });
+}
+
 pub fn selectByDTypes(frame: anytype, dtypes: []const array_mod.DType) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .select_dtypes = try frame.allocator.dupe(array_mod.DType, dtypes) });
 }

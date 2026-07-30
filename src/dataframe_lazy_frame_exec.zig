@@ -30,6 +30,9 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
     for (optimized.items) |op| {
         const next = switch (op) {
             .select => |names| try current.select(names),
+            .select_name_prefix => |pattern| try current.selectByNamePrefix(pattern.pattern),
+            .select_name_suffix => |pattern| try current.selectByNameSuffix(pattern.pattern),
+            .select_name_contains => |pattern| try current.selectByNameContains(pattern.pattern),
             .select_dtypes => |dtypes| try current.selectByDTypes(dtypes),
             .select_dtype_class => |class| try current.selectByDTypeClass(class),
             .with_row_index => |row_index| try current.withRowIndex(row_index.name, row_index.offset),

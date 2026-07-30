@@ -87,6 +87,18 @@ pub fn select(self: anytype, wanted_names: []const []const u8) DeviceDataError!F
     return dataframe_array_mod.select(FrameType(@TypeOf(self)), frameValue(self), wanted_names);
 }
 
+pub fn selectByNamePrefix(self: anytype, prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectByNamePrefix(FrameType(@TypeOf(self)), frameValue(self), prefix);
+}
+
+pub fn selectByNameSuffix(self: anytype, suffix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectByNameSuffix(FrameType(@TypeOf(self)), frameValue(self), suffix);
+}
+
+pub fn selectByNameContains(self: anytype, needle: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectByNameContains(FrameType(@TypeOf(self)), frameValue(self), needle);
+}
+
 pub fn selectByDTypes(self: anytype, dtypes: []const array_mod.DType) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectByDTypes(FrameType(@TypeOf(self)), frameValue(self), dtypes);
 }

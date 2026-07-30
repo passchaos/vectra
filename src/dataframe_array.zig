@@ -55,6 +55,64 @@ pub fn select(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, wanted_names, columns, input.rows, input.device);
 }
 
+fn selectByNamePredicate(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    predicate: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var selected_names: std.ArrayList([]const u8) = .empty;
+    defer selected_names.deinit(input.allocator);
+    for (input.names) |name| {
+        if (predicate.matches(name)) try selected_names.append(input.allocator, name);
+    }
+    return select(DeviceDataFrame, input, selected_names.items);
+}
+
+pub fn selectByNamePrefix(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    prefix: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const Predicate = struct {
+        prefix: []const u8,
+
+        fn matches(self: @This(), name: []const u8) bool {
+            return std.mem.startsWith(u8, name, self.prefix);
+        }
+    };
+    return selectByNamePredicate(DeviceDataFrame, input, Predicate{ .prefix = prefix });
+}
+
+pub fn selectByNameSuffix(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    suffix: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const Predicate = struct {
+        suffix: []const u8,
+
+        fn matches(self: @This(), name: []const u8) bool {
+            return std.mem.endsWith(u8, name, self.suffix);
+        }
+    };
+    return selectByNamePredicate(DeviceDataFrame, input, Predicate{ .suffix = suffix });
+}
+
+pub fn selectByNameContains(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    needle: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const Predicate = struct {
+        needle: []const u8,
+
+        fn matches(self: @This(), name: []const u8) bool {
+            return std.mem.indexOf(u8, name, self.needle) != null;
+        }
+    };
+    return selectByNamePredicate(DeviceDataFrame, input, Predicate{ .needle = needle });
+}
+
 fn selectByDTypePredicate(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

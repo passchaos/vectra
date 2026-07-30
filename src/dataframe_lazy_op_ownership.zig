@@ -22,6 +22,9 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             const owned = try cloneNameList(allocator, names);
             break :blk .{ .select = owned };
         },
+        .select_name_prefix => |pattern| .{ .select_name_prefix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
+        .select_name_suffix => |pattern| .{ .select_name_suffix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
+        .select_name_contains => |pattern| .{ .select_name_contains = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
         .select_dtypes => |dtypes| .{ .select_dtypes = try allocator.dupe(array_mod.DType, dtypes) },
         .select_dtype_class => |class| .{ .select_dtype_class = class },
         .with_row_index => |row_index| blk: {

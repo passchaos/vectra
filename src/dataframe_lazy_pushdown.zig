@@ -50,10 +50,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
-            .select_dtypes, .select_dtype_class => {
-                // Dtype selectors require source schema knowledge that the
-                // lightweight pushdown planner does not currently receive.
-                // Keep them as collect-time operations instead of guessing a
+            .select_name_prefix, .select_name_suffix, .select_name_contains, .select_dtypes, .select_dtype_class => {
+                // Schema-derived selectors require the full source schema
+                // before they can be expanded into exact column names.  This
+                // lightweight scan planner only sees pending operations, so
+                // keep them as collect-time operations instead of guessing a
                 // Parquet projection from incomplete information.
                 projection_blocked = true;
                 break :op_loop;
