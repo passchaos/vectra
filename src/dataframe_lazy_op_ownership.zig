@@ -38,6 +38,14 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .select_dtype_class => |class| .{ .select_dtype_class = class },
         .drop_dtypes => |dtypes| .{ .drop_dtypes = try allocator.dupe(array_mod.DType, dtypes) },
         .drop_dtype_class => |class| .{ .drop_dtype_class = class },
+        .select_nullable_columns => .{ .select_nullable_columns = {} },
+        .select_non_nullable_columns => .{ .select_non_nullable_columns = {} },
+        .select_columns_with_nulls => .{ .select_columns_with_nulls = {} },
+        .select_columns_without_nulls => .{ .select_columns_without_nulls = {} },
+        .drop_nullable_columns => .{ .drop_nullable_columns = {} },
+        .drop_non_nullable_columns => .{ .drop_non_nullable_columns = {} },
+        .drop_columns_with_nulls => .{ .drop_columns_with_nulls = {} },
+        .drop_columns_without_nulls => .{ .drop_columns_without_nulls = {} },
         .with_row_index => |row_index| blk: {
             const name = try allocator.dupe(u8, row_index.name);
             break :blk .{ .with_row_index = .{

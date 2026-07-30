@@ -342,6 +342,15 @@ test "device lazy frame keeps schema-derived and schema-rewrite ops out of parqu
     try std.testing.expectEqual(@as(?usize, 1), dtype_dropped.columnIndex("active"));
     try std.testing.expectEqual(@as(?usize, null), dtype_dropped.columnIndex("sales"));
 
+    var lazy_nullability_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_nullability_scan.deinit();
+    try lazy_nullability_scan.selectColumnsWithNulls();
+
+    const nullability_explain = try lazy_nullability_scan.explain(gpa);
+    defer gpa.free(nullability_explain);
+    try std.testing.expect(std.mem.indexOf(u8, nullability_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, nullability_explain, "select_columns_with_nulls") != null);
+
     var lazy_move_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer lazy_move_scan.deinit();
     try lazy_move_scan.moveColumn("active", 0);

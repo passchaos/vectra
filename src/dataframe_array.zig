@@ -274,6 +274,104 @@ pub fn dropByDTypeClass(
     return dropByDTypePredicate(DeviceDataFrame, input, class);
 }
 
+fn selectByColumnPredicate(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    predicate: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var selected_names: std.ArrayList([]const u8) = .empty;
+    defer selected_names.deinit(input.allocator);
+    for (input.names, input.columns) |name, column| {
+        if (predicate.matches(column)) try selected_names.append(input.allocator, name);
+    }
+    return select(DeviceDataFrame, input, selected_names.items);
+}
+
+fn dropByColumnPredicate(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    predicate: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var kept_names: std.ArrayList([]const u8) = .empty;
+    defer kept_names.deinit(input.allocator);
+    for (input.names, input.columns) |name, column| {
+        if (!predicate.matches(column)) try kept_names.append(input.allocator, name);
+    }
+    return select(DeviceDataFrame, input, kept_names.items);
+}
+
+const NullableColumnPredicate = struct {
+    wanted: bool,
+
+    fn matches(self: @This(), column: anytype) bool {
+        return column.nullable() == self.wanted;
+    }
+};
+
+const HasNullsColumnPredicate = struct {
+    wanted: bool,
+
+    fn matches(self: @This(), column: anytype) bool {
+        return column.hasNulls() == self.wanted;
+    }
+};
+
+pub fn selectNullableColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectByColumnPredicate(DeviceDataFrame, input, NullableColumnPredicate{ .wanted = true });
+}
+
+pub fn selectNonNullableColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectByColumnPredicate(DeviceDataFrame, input, NullableColumnPredicate{ .wanted = false });
+}
+
+pub fn selectColumnsWithNulls(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectByColumnPredicate(DeviceDataFrame, input, HasNullsColumnPredicate{ .wanted = true });
+}
+
+pub fn selectColumnsWithoutNulls(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectByColumnPredicate(DeviceDataFrame, input, HasNullsColumnPredicate{ .wanted = false });
+}
+
+pub fn dropNullableColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropByColumnPredicate(DeviceDataFrame, input, NullableColumnPredicate{ .wanted = true });
+}
+
+pub fn dropNonNullableColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropByColumnPredicate(DeviceDataFrame, input, NullableColumnPredicate{ .wanted = false });
+}
+
+pub fn dropColumnsWithNulls(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropByColumnPredicate(DeviceDataFrame, input, HasNullsColumnPredicate{ .wanted = true });
+}
+
+pub fn dropColumnsWithoutNulls(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropByColumnPredicate(DeviceDataFrame, input, HasNullsColumnPredicate{ .wanted = false });
+}
+
 pub fn withColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

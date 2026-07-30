@@ -1,6 +1,7 @@
 const std = @import("std");
 const vectra = @import("vectra");
 
+const DeviceColumn = vectra.DeviceColumn;
 const DeviceLazyFrame = vectra.DeviceLazyFrame;
 const helpers = @import("dataframe_lazy_test_helpers.zig");
 const lazyCollectTable = helpers.lazyCollectTable;
@@ -256,6 +257,124 @@ test "device lazy frame selects and drops columns by dtype" {
     defer drop_all.deinit();
     try std.testing.expectEqual(@as(usize, 0), drop_all.width());
     try std.testing.expectEqual(table.height(), drop_all.height());
+}
+
+test "device lazy frame selects and drops columns by nullability" {
+    const gpa = std.testing.allocator;
+
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+    var audited_units = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 1, 2, 3 }, &.{ true, true, true }, .cpu);
+    defer audited_units.deinit();
+    var quality = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 0.8, 0.0, 0.9 }, &.{ true, false, true }, .cpu);
+    defer quality.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer active.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = sales },
+        .{ .name = "audited_units", .data = audited_units },
+        .{ .name = "quality", .data = quality },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    var nullable_plan = try DeviceLazyFrame.init(gpa, table);
+    defer nullable_plan.deinit();
+    try nullable_plan.selectNullableColumns();
+    const nullable_explain = try nullable_plan.explain(gpa);
+    defer gpa.free(nullable_explain);
+    try std.testing.expect(std.mem.indexOf(u8, nullable_explain, "select_nullable_columns") != null);
+    var nullable = try nullable_plan.collect();
+    defer nullable.deinit();
+    try std.testing.expectEqual(@as(usize, 2), nullable.width());
+    try std.testing.expectEqual(@as(?usize, 0), nullable.columnIndex("audited_units"));
+    try std.testing.expectEqual(@as(?usize, 1), nullable.columnIndex("quality"));
+
+    var non_nullable_plan = try DeviceLazyFrame.init(gpa, table);
+    defer non_nullable_plan.deinit();
+    try non_nullable_plan.selectNonNullableColumns();
+    const non_nullable_explain = try non_nullable_plan.explain(gpa);
+    defer gpa.free(non_nullable_explain);
+    try std.testing.expect(std.mem.indexOf(u8, non_nullable_explain, "select_non_nullable_columns") != null);
+    var non_nullable = try non_nullable_plan.collect();
+    defer non_nullable.deinit();
+    try std.testing.expectEqual(@as(usize, 2), non_nullable.width());
+    try std.testing.expectEqual(@as(?usize, 0), non_nullable.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), non_nullable.columnIndex("active"));
+
+    var with_nulls_plan = try DeviceLazyFrame.init(gpa, table);
+    defer with_nulls_plan.deinit();
+    try with_nulls_plan.selectColumnsWithNulls();
+    const with_nulls_explain = try with_nulls_plan.explain(gpa);
+    defer gpa.free(with_nulls_explain);
+    try std.testing.expect(std.mem.indexOf(u8, with_nulls_explain, "select_columns_with_nulls") != null);
+    var with_nulls = try with_nulls_plan.collect();
+    defer with_nulls.deinit();
+    try std.testing.expectEqual(@as(usize, 1), with_nulls.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_nulls.columnIndex("quality"));
+    const quality_values = try (try with_nulls.column("quality")).f64.toOwnedSlice(gpa);
+    defer gpa.free(quality_values);
+    try std.testing.expectEqualSlices(f64, &.{ 0.8, 0.0, 0.9 }, quality_values);
+
+    var without_nulls_plan = try DeviceLazyFrame.init(gpa, table);
+    defer without_nulls_plan.deinit();
+    try without_nulls_plan.selectColumnsWithoutNulls();
+    const without_nulls_explain = try without_nulls_plan.explain(gpa);
+    defer gpa.free(without_nulls_explain);
+    try std.testing.expect(std.mem.indexOf(u8, without_nulls_explain, "select_columns_without_nulls") != null);
+    var without_nulls = try without_nulls_plan.collect();
+    defer without_nulls.deinit();
+    try std.testing.expectEqual(@as(usize, 3), without_nulls.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_nulls.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), without_nulls.columnIndex("audited_units"));
+    try std.testing.expectEqual(@as(?usize, 2), without_nulls.columnIndex("active"));
+
+    var drop_nullable_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_nullable_plan.deinit();
+    try drop_nullable_plan.dropNullableColumns();
+    const drop_nullable_explain = try drop_nullable_plan.explain(gpa);
+    defer gpa.free(drop_nullable_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_nullable_explain, "drop_nullable_columns") != null);
+    var drop_nullable = try drop_nullable_plan.collect();
+    defer drop_nullable.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_nullable.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_nullable.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_nullable.columnIndex("active"));
+
+    var drop_non_nullable_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_non_nullable_plan.deinit();
+    try drop_non_nullable_plan.dropNonNullableColumns();
+    const drop_non_nullable_explain = try drop_non_nullable_plan.explain(gpa);
+    defer gpa.free(drop_non_nullable_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_non_nullable_explain, "drop_non_nullable_columns") != null);
+    var drop_non_nullable = try drop_non_nullable_plan.collect();
+    defer drop_non_nullable.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_non_nullable.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_non_nullable.columnIndex("audited_units"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_non_nullable.columnIndex("quality"));
+
+    var drop_with_nulls_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_with_nulls_plan.deinit();
+    try drop_with_nulls_plan.dropColumnsWithNulls();
+    const drop_with_nulls_explain = try drop_with_nulls_plan.explain(gpa);
+    defer gpa.free(drop_with_nulls_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_with_nulls_explain, "drop_columns_with_nulls") != null);
+    var drop_with_nulls = try drop_with_nulls_plan.collect();
+    defer drop_with_nulls.deinit();
+    try std.testing.expectEqual(@as(usize, 3), drop_with_nulls.width());
+    try std.testing.expectEqual(@as(?usize, null), drop_with_nulls.columnIndex("quality"));
+
+    var drop_without_nulls_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_without_nulls_plan.deinit();
+    try drop_without_nulls_plan.dropColumnsWithoutNulls();
+    const drop_without_nulls_explain = try drop_without_nulls_plan.explain(gpa);
+    defer gpa.free(drop_without_nulls_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_without_nulls_explain, "drop_columns_without_nulls") != null);
+    var drop_without_nulls = try drop_without_nulls_plan.collect();
+    defer drop_without_nulls.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_without_nulls.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_nulls.columnIndex("quality"));
 }
 
 test "device lazy frame selects and drops columns by name pattern" {

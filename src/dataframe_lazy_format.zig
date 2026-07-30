@@ -75,6 +75,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             try writer.print("]", .{});
         },
         .drop_dtype_class => |class| try writer.print("drop_dtype_class({s})", .{@tagName(class)}),
+        .select_nullable_columns => try writer.print("select_nullable_columns", .{}),
+        .select_non_nullable_columns => try writer.print("select_non_nullable_columns", .{}),
+        .select_columns_with_nulls => try writer.print("select_columns_with_nulls", .{}),
+        .select_columns_without_nulls => try writer.print("select_columns_without_nulls", .{}),
+        .drop_nullable_columns => try writer.print("drop_nullable_columns", .{}),
+        .drop_non_nullable_columns => try writer.print("drop_non_nullable_columns", .{}),
+        .drop_columns_with_nulls => try writer.print("drop_columns_with_nulls", .{}),
+        .drop_columns_without_nulls => try writer.print("drop_columns_without_nulls", .{}),
         .with_row_index => |row_index| try writer.print("with_row_index({s}, offset={d})", .{ row_index.name, row_index.offset }),
         .rename_column => |rename| try writer.print("rename_column({s}->{s})", .{ rename.old_name, rename.new_name }),
         .rename_columns => |rename| {

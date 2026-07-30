@@ -249,6 +249,38 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.dropBool(self);
             }
 
+            pub fn selectNullableColumns(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_nullable_columns = {} });
+            }
+
+            pub fn selectNonNullableColumns(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_non_nullable_columns = {} });
+            }
+
+            pub fn selectColumnsWithNulls(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_nulls = {} });
+            }
+
+            pub fn selectColumnsWithoutNulls(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_nulls = {} });
+            }
+
+            pub fn dropNullableColumns(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_nullable_columns = {} });
+            }
+
+            pub fn dropNonNullableColumns(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_non_nullable_columns = {} });
+            }
+
+            pub fn dropColumnsWithNulls(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_nulls = {} });
+            }
+
+            pub fn dropColumnsWithoutNulls(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_nulls = {} });
+            }
+
             pub fn withRowIndex(self: *DeviceLazyFrame, name: []const u8, offset: usize) DeviceDataError!void {
                 return lazy_expr_mod.withRowIndex(self, name, offset);
             }

@@ -576,6 +576,78 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 0), filtered_units.nullCount());
 }
 
+test "device dataframe selects and drops columns by nullability" {
+    const gpa = std.testing.allocator;
+
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+    var audited_units = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 1, 2, 3 }, &.{ true, true, true }, .cpu);
+    defer audited_units.deinit();
+    var quality = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 0.8, 0.0, 0.9 }, &.{ true, false, true }, .cpu);
+    defer quality.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = sales },
+        .{ .name = "audited_units", .data = audited_units },
+        .{ .name = "quality", .data = quality },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    var nullable = try table.selectNullableColumns();
+    defer nullable.deinit();
+    try std.testing.expectEqual(@as(usize, 2), nullable.width());
+    try std.testing.expectEqual(@as(?usize, 0), nullable.columnIndex("audited_units"));
+    try std.testing.expectEqual(@as(?usize, 1), nullable.columnIndex("quality"));
+    try std.testing.expect((try nullable.column("audited_units")).nullable());
+    try std.testing.expectEqual(@as(usize, 0), (try nullable.column("audited_units")).nullCount());
+
+    var non_nullable = try table.selectNonNullableColumns();
+    defer non_nullable.deinit();
+    try std.testing.expectEqual(@as(usize, 2), non_nullable.width());
+    try std.testing.expectEqual(@as(?usize, 0), non_nullable.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), non_nullable.columnIndex("active"));
+
+    var with_nulls = try table.selectColumnsWithNulls();
+    defer with_nulls.deinit();
+    try std.testing.expectEqual(@as(usize, 1), with_nulls.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_nulls.columnIndex("quality"));
+    const quality_values = try (try with_nulls.column("quality")).f64.toOwnedSlice(gpa);
+    defer gpa.free(quality_values);
+    try std.testing.expectEqualSlices(f64, &.{ 0.8, 0.0, 0.9 }, quality_values);
+
+    var without_nulls = try table.selectColumnsWithoutNulls();
+    defer without_nulls.deinit();
+    try std.testing.expectEqual(@as(usize, 3), without_nulls.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_nulls.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), without_nulls.columnIndex("audited_units"));
+    try std.testing.expectEqual(@as(?usize, 2), without_nulls.columnIndex("active"));
+
+    var drop_nullable = try table.dropNullableColumns();
+    defer drop_nullable.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_nullable.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_nullable.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_nullable.columnIndex("active"));
+
+    var drop_non_nullable = try table.dropNonNullableColumns();
+    defer drop_non_nullable.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_non_nullable.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_non_nullable.columnIndex("audited_units"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_non_nullable.columnIndex("quality"));
+
+    var drop_with_nulls = try table.dropColumnsWithNulls();
+    defer drop_with_nulls.deinit();
+    try std.testing.expectEqual(@as(usize, 3), drop_with_nulls.width());
+    try std.testing.expectEqual(@as(?usize, null), drop_with_nulls.columnIndex("quality"));
+
+    var drop_without_nulls = try table.dropColumnsWithoutNulls();
+    defer drop_without_nulls.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_without_nulls.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_nulls.columnIndex("quality"));
+}
+
 test "device dataframe selects and drops columns by name pattern" {
     const gpa = std.testing.allocator;
 

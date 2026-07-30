@@ -201,6 +201,38 @@ pub fn dropBool(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return dropByDTypeClass(self, .bool);
 }
 
+pub fn selectNullableColumns(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectNullableColumns(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectNonNullableColumns(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectNonNullableColumns(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithNulls(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithNulls(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutNulls(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutNulls(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropNullableColumns(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropNullableColumns(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropNonNullableColumns(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropNonNullableColumns(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithNulls(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithNulls(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutNulls(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutNulls(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn withColumn(self: anytype, name: []const u8, data: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), name, data);
 }
