@@ -445,6 +445,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.fillNaNColumnWithScalar(self, name, scalar);
             }
 
+            pub fn fillInfColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.fillInfColumn(self, name, T, value);
+            }
+
+            pub fn fillInfColumnWithScalar(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.fillInfColumnWithScalar(self, name, scalar);
+            }
+
             pub fn coalesceColumns(self: *DeviceLazyFrame, primary_name: []const u8, fallback_name: []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.coalesceColumns(self, primary_name, fallback_name, output_name);
             }

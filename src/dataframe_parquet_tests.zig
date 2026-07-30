@@ -299,6 +299,16 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, fill_nan_explain, "scan_pushdown: projection=[sales]") != null);
     try std.testing.expect(std.mem.indexOf(u8, fill_nan_explain, "fill_nan_column(sales=scalar:f64)") != null);
 
+    var fill_inf_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer fill_inf_scan.deinit();
+    try fill_inf_scan.fillInfColumn("sales", f64, -9.0);
+    try fill_inf_scan.select(&.{"sales"});
+
+    const fill_inf_explain = try fill_inf_scan.explain(gpa);
+    defer gpa.free(fill_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, fill_inf_explain, "scan_pushdown: projection=[sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, fill_inf_explain, "fill_inf_column(sales=scalar:f64)") != null);
+
     var drop_nan_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer drop_nan_scan.deinit();
     try drop_nan_scan.dropNaNsColumn("sales");

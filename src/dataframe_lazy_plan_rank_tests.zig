@@ -755,6 +755,29 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try fill_nan_mismatch_plan.fillNaNColumn("metric", i64, 0);
     try std.testing.expectError(error.TypeUnsupported, fill_nan_mismatch_plan.collect());
 
+    var fill_inf_plan = try DeviceLazyFrame.init(gpa, table);
+    defer fill_inf_plan.deinit();
+    try fill_inf_plan.fillInfColumn("metric", f64, -9.0);
+    const fill_inf_explain = try fill_inf_plan.explain(gpa);
+    defer gpa.free(fill_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, fill_inf_explain, "fill_inf_column(metric=scalar:f64)") != null);
+    var filled_inf = try fill_inf_plan.collect();
+    defer filled_inf.deinit();
+    const filled_inf_metric = try (try filled_inf.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filled_inf_metric);
+    const filled_inf_validity = try (try filled_inf.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(filled_inf_validity);
+    try std.testing.expectEqual(@as(f64, 1.0), filled_inf_metric[0]);
+    try std.testing.expect(std.math.isNan(filled_inf_metric[1]));
+    try std.testing.expectEqual(@as(f64, -9.0), filled_inf_metric[2]);
+    try std.testing.expectEqual(@as(f64, 7.0), filled_inf_metric[3]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, filled_inf_validity);
+
+    var fill_inf_mismatch_plan = try DeviceLazyFrame.init(gpa, table);
+    defer fill_inf_mismatch_plan.deinit();
+    try fill_inf_mismatch_plan.fillInfColumn("metric", i64, 0);
+    try std.testing.expectError(error.TypeUnsupported, fill_inf_mismatch_plan.collect());
+
     var drop_nan_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_nan_plan.deinit();
     try drop_nan_plan.dropNaNsColumn("metric");

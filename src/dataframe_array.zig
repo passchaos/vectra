@@ -569,11 +569,14 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
-fn fillNaNsTyped(
+const SpecialFloatPredicate = enum { nan, inf };
+
+fn fillSpecialFloatsTyped(
     comptime T: type,
     allocator: std.mem.Allocator,
     column: anytype,
     replacement: T,
+    comptime predicate: SpecialFloatPredicate,
 ) array_mod.ArrayError!@TypeOf(column) {
     const ColumnType = @TypeOf(column);
     const values = try column.toOwnedSlice(allocator);
@@ -583,7 +586,10 @@ fn fillNaNsTyped(
 
     for (values, 0..) |*slot, row| {
         const valid = if (maybe_validity) |validity| validity[row] else true;
-        if (valid and isNanValue(T, slot.*)) slot.* = replacement;
+        if (valid and switch (predicate) {
+            .nan => isNanValue(T, slot.*),
+            .inf => isInfValue(T, slot.*),
+        }) slot.* = replacement;
     }
 
     if (maybe_validity) |validity| {
@@ -592,11 +598,12 @@ fn fillNaNsTyped(
     return ColumnType.fromSlice(allocator, values, column.device());
 }
 
-pub fn fillNaNColumn(
+fn fillSpecialFloatColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     name: []const u8,
     scalar: DeviceScalar,
+    comptime predicate: SpecialFloatPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     return switch (scalar) {
@@ -607,12 +614,30 @@ pub fn fillNaNColumn(
             var filled: DeviceColumn = @unionInit(
                 DeviceColumn,
                 @tagName(tag),
-                try fillNaNsTyped(T, input.allocator, @field(source.*, @tagName(tag)), replacement),
+                try fillSpecialFloatsTyped(T, input.allocator, @field(source.*, @tagName(tag)), replacement, predicate),
             );
             defer filled.deinit();
             break :blk try withColumn(DeviceDataFrame, input, name, filled);
         },
     };
+}
+
+pub fn fillNaNColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .nan);
+}
+
+pub fn fillInfColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .inf);
 }
 
 pub fn coalesceColumns(
