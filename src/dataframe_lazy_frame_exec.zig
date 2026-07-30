@@ -95,6 +95,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .is_valid_column => |predicate| try current.isValidColumn(predicate.name, predicate.output_name),
             .is_nan_column => |predicate| try current.isNanColumn(predicate.name, predicate.output_name),
             .is_finite_column => |predicate| try current.isFiniteColumn(predicate.name, predicate.output_name),
+            .is_inf_column => |predicate| try current.isInfColumn(predicate.name, predicate.output_name),
             .row_null_count => |row_count| try current.withRowNullCount(row_count.names, row_count.output_name),
             .row_valid_count => |row_count| try current.withRowValidCount(row_count.names, row_count.output_name),
             .with_column_compare => |expr| blk: {

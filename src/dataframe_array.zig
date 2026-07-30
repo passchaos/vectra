@@ -710,6 +710,15 @@ fn isNanValue(comptime T: type, value: T) bool {
     };
 }
 
+fn isInfValue(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) return std.math.isInf(value.toF32());
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isInf(value.re) or std.math.isInf(value.im);
+    return switch (@typeInfo(T)) {
+        .float => std.math.isInf(value),
+        else => false,
+    };
+}
+
 fn isFiniteValue(comptime T: type, value: T) bool {
     if (comptime T == array_mod.BFloat16) return std.math.isFinite(value.toF32());
     if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isFinite(value.re) and std.math.isFinite(value.im);
@@ -725,7 +734,7 @@ fn withNumericPredicateColumn(
     input: DeviceDataFrame,
     name: []const u8,
     output_name: []const u8,
-    comptime predicate: enum { nan, finite },
+    comptime predicate: enum { nan, inf, finite },
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     const values = try input.allocator.alloc(bool, input.rows);
@@ -746,6 +755,7 @@ fn withNumericPredicateColumn(
                 }
                 slot.* = switch (predicate) {
                     .nan => isNanValue(@TypeOf(value), value),
+                    .inf => isInfValue(@TypeOf(value), value),
                     .finite => isFiniteValue(@TypeOf(value), value),
                 };
             }
@@ -774,6 +784,15 @@ pub fn isFiniteColumn(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .finite);
+}
+
+pub fn isInfColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .inf);
 }
 
 fn withRowValidityCount(

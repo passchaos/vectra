@@ -487,30 +487,37 @@ pub fn isValidColumn(frame: anytype, name: []const u8, output_name: []const u8) 
     } });
 }
 
-fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime count_nan: bool) DeviceDataError!void {
+fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime predicate: enum { nan, finite, inf }) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
     const owned_output = try frame.allocator.dupe(u8, output_name);
     errdefer frame.allocator.free(owned_output);
-    if (count_nan) {
-        try frame.ops.append(frame.allocator, .{ .is_nan_column = .{
+    switch (predicate) {
+        .nan => try frame.ops.append(frame.allocator, .{ .is_nan_column = .{
             .name = owned_name,
             .output_name = owned_output,
-        } });
-    } else {
-        try frame.ops.append(frame.allocator, .{ .is_finite_column = .{
+        } }),
+        .finite => try frame.ops.append(frame.allocator, .{ .is_finite_column = .{
             .name = owned_name,
             .output_name = owned_output,
-        } });
+        } }),
+        .inf => try frame.ops.append(frame.allocator, .{ .is_inf_column = .{
+            .name = owned_name,
+            .output_name = owned_output,
+        } }),
     }
 }
 
 pub fn isNanColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
-    return numericPredicateColumn(frame, name, output_name, true);
+    return numericPredicateColumn(frame, name, output_name, .nan);
 }
 
 pub fn isFiniteColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
-    return numericPredicateColumn(frame, name, output_name, false);
+    return numericPredicateColumn(frame, name, output_name, .finite);
+}
+
+pub fn isInfColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return numericPredicateColumn(frame, name, output_name, .inf);
 }
 
 fn withRowValidityCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime count_valid: bool) DeviceDataError!void {

@@ -710,6 +710,12 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(metric_is_finite);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, metric_is_finite);
 
+    var inf_flags = try table.isInfColumn("metric", "metric_is_inf");
+    defer inf_flags.deinit();
+    const metric_is_inf = try (try inf_flags.column("metric_is_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, metric_is_inf);
+
     var filled_nan = try table.fillNaNColumn("metric", f64, -1.0);
     defer filled_nan.deinit();
     const filled_metric = try (try filled_nan.column("metric")).f64.toOwnedSlice(gpa);

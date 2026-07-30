@@ -257,6 +257,7 @@ pub const DeviceDataFrame = struct {
     pub const isValidColumn = table_methods_mod.isValidColumn;
     pub const isNanColumn = table_methods_mod.isNanColumn;
     pub const isFiniteColumn = table_methods_mod.isFiniteColumn;
+    pub const isInfColumn = table_methods_mod.isInfColumn;
     pub const withRowNullCount = table_methods_mod.withRowNullCount;
     pub const withRowValidCount = table_methods_mod.withRowValidCount;
     pub const withColumnLiteral = table_methods_mod.withColumnLiteral;
