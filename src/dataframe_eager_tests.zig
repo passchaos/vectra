@@ -74,6 +74,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 1), selected.width());
     try std.testing.expectEqual(DeviceDType.f64, try selected.columnDType("sales"));
 
+    var renamed = try table.renameColumn("sales", "revenue");
+    defer renamed.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), renamed.columnIndex("revenue"));
+    try std.testing.expectEqual(@as(?usize, null), renamed.columnIndex("sales"));
+    const revenue_values = try (try renamed.column("revenue")).f64.toOwnedSlice(gpa);
+    defer gpa.free(revenue_values);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0 }, revenue_values);
+    try std.testing.expectError(error.InvalidShape, table.renameColumn("sales", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.renameColumn("missing", "new_name"));
+
+    var dropped = try table.dropColumn("active");
+    defer dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 2), dropped.width());
+    try std.testing.expectEqual(@as(?usize, null), dropped.columnIndex("active"));
+    try std.testing.expectEqual(DeviceDType.f64, try dropped.columnDType("sales"));
+
+    var dropped_many = try table.dropColumns(&.{ "units", "active" });
+    defer dropped_many.deinit();
+    try std.testing.expectEqual(@as(usize, 1), dropped_many.width());
+    try std.testing.expectEqual(DeviceDType.f64, try dropped_many.columnDType("sales"));
+    try std.testing.expectError(error.ColumnNotFound, table.dropColumn("missing"));
+
     var head = try table.head(2);
     defer head.deinit();
     try std.testing.expectEqual(@as(usize, 2), head.height());

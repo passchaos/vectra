@@ -50,6 +50,16 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
+            .rename_column, .drop_columns => {
+                // Schema rewrites change the names visible to all following
+                // operations.  Without a full alias map in this conservative
+                // scan planner, stop projection/range inference here rather
+                // than pushing a post-rename/drop column name into the source
+                // scan.  The eager collect path still applies the operation in
+                // order after materializing the scan.
+                projection_blocked = true;
+                break :op_loop;
+            },
             .with_column_binary => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
                 try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);

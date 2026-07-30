@@ -21,6 +21,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
     return union(enum) {
         const Self = @This();
         select: Payloads.Select,
+        rename_column: Payloads.RenameColumn,
+        drop_columns: Payloads.DropColumns,
         with_column_binary: Payloads.WithColumnBinary,
         with_column_scalar: Payloads.WithColumnScalar,
         with_column_compare: Payloads.WithColumnCompare,

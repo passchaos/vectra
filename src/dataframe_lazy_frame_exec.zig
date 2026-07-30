@@ -30,6 +30,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
     for (optimized.items) |op| {
         const next = switch (op) {
             .select => |names| try current.select(names),
+            .rename_column => |rename| try current.renameColumn(rename.old_name, rename.new_name),
+            .drop_columns => |names| try current.dropColumns(names),
             .with_column_binary => |expr| blk: {
                 var column_value = try current.binaryColumns(expr.lhs_name, expr.rhs_name, expr.op);
                 defer column_value.deinit();

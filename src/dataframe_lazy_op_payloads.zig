@@ -32,6 +32,11 @@ pub const DeviceLazyJoinKind = enum {
 pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn: type) type {
     return struct {
         pub const Select = [][]const u8;
+        pub const RenameColumn = struct {
+            old_name: []const u8,
+            new_name: []const u8,
+        };
+        pub const DropColumns = [][]const u8;
         pub const WithColumnBinary = struct {
             name: []const u8,
             lhs_name: []const u8,

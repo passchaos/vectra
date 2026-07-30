@@ -19,18 +19,20 @@ pub const deinit = deinit_mod.deinit;
 pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) DeviceDataError!Self {
     return switch (self) {
         .select => |names| blk: {
-            const owned = try allocator.alloc([]const u8, names.len);
-            errdefer allocator.free(owned);
-            var initialized: usize = 0;
-            errdefer {
-                for (owned[0..initialized]) |name| allocator.free(name);
-            }
-            for (names, owned) |name, *slot| {
-                slot.* = try allocator.dupe(u8, name);
-                initialized += 1;
-            }
+            const owned = try cloneNameList(allocator, names);
             break :blk .{ .select = owned };
         },
+        .rename_column => |rename| blk: {
+            const old_name = try allocator.dupe(u8, rename.old_name);
+            errdefer allocator.free(old_name);
+            const new_name = try allocator.dupe(u8, rename.new_name);
+            errdefer allocator.free(new_name);
+            break :blk .{ .rename_column = .{
+                .old_name = old_name,
+                .new_name = new_name,
+            } };
+        },
+        .drop_columns => |names| .{ .drop_columns = try cloneNameList(allocator, names) },
         .with_column_binary => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

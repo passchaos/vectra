@@ -24,6 +24,35 @@ pub fn select(frame: anytype, names: []const []const u8) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .select = owned });
 }
 
+pub fn renameColumn(frame: anytype, old_name: []const u8, new_name: []const u8) DeviceDataError!void {
+    const owned_old = try frame.allocator.dupe(u8, old_name);
+    errdefer frame.allocator.free(owned_old);
+    const owned_new = try frame.allocator.dupe(u8, new_name);
+    errdefer frame.allocator.free(owned_new);
+    try frame.ops.append(frame.allocator, .{ .rename_column = .{
+        .old_name = owned_old,
+        .new_name = owned_new,
+    } });
+}
+
+pub fn dropColumns(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.alloc([]const u8, names.len);
+    errdefer frame.allocator.free(owned);
+    var initialized: usize = 0;
+    errdefer {
+        for (owned[0..initialized]) |name| frame.allocator.free(name);
+    }
+    for (names, owned) |name, *slot| {
+        slot.* = try frame.allocator.dupe(u8, name);
+        initialized += 1;
+    }
+    try frame.ops.append(frame.allocator, .{ .drop_columns = owned });
+}
+
+pub fn dropColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    return dropColumns(frame, &.{name});
+}
+
 pub fn filter(frame: anytype, mask: anytype) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .filter_mask = try mask.clone() });
 }

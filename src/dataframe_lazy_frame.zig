@@ -127,6 +127,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.select(self, names);
             }
 
+            pub fn renameColumn(self: *DeviceLazyFrame, old_name: []const u8, new_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.renameColumn(self, old_name, new_name);
+            }
+
+            pub fn dropColumns(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropColumns(self, names);
+            }
+
+            pub fn dropColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropColumn(self, name);
+            }
+
             pub fn filter(self: *DeviceLazyFrame, mask: DeviceColumn) DeviceDataError!void {
                 return lazy_expr_mod.filter(self, mask);
             }

@@ -90,6 +90,18 @@ pub fn withColumn(self: anytype, name: []const u8, data: @TypeOf(frameValue(self
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), name, data);
 }
 
+pub fn renameColumn(self: anytype, old_name: []const u8, new_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.renameColumn(FrameType(@TypeOf(self)), frameValue(self), old_name, new_name);
+}
+
+pub fn dropColumns(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumns(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn head(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return sliceRows(self, 0, @min(n, self.rows));
 }

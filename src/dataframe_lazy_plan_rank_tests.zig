@@ -81,6 +81,49 @@ test "device lazy frame filters by named boolean columns" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, active_sales);
 }
 
+test "device lazy frame renames and drops columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.renameColumn("sales", "revenue");
+    try plan.dropColumn("active");
+    try plan.select(&.{ "revenue", "units" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "rename_column(sales->revenue)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "drop_columns[active]") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 4), result.height());
+    try std.testing.expectEqual(@as(usize, 2), result.width());
+    try std.testing.expectEqual(@as(?usize, 0), result.columnIndex("revenue"));
+    try std.testing.expectEqual(@as(?usize, null), result.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
+    const revenue = try (try result.column("revenue")).f64.toOwnedSlice(gpa);
+    defer gpa.free(revenue);
+    const units = try (try result.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, 7.0 }, revenue);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 4 }, units);
+
+    var drop_many_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_many_plan.deinit();
+    try drop_many_plan.dropColumns(&.{ "units", "active" });
+    var drop_many = try drop_many_plan.collect();
+    defer drop_many.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_many.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_many.columnIndex("sales"));
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.renameColumn("sales", "units");
+    try std.testing.expectError(error.InvalidShape, invalid_plan.collect());
+}
+
 test "device lazy frame collects topk operations" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

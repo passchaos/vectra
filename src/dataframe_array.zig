@@ -1,6 +1,7 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
 const array_helpers_mod = @import("dataframe_array_helpers.zig");
+const names_mod = @import("dataframe_names.zig");
 
 const DeviceFrameArrayError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
     LengthMismatch,
@@ -27,6 +28,7 @@ pub const concatDeviceDataFramesRows = array_helpers_mod.concatDeviceDataFramesR
 pub const takeOptionalRows = array_helpers_mod.takeOptionalRows;
 pub const columnsRowsEqual = array_helpers_mod.columnsRowsEqual;
 pub const columnsRowsEqualTyped = array_helpers_mod.columnsRowsEqualTyped;
+const nameInBorrowedList = names_mod.nameInBorrowedList;
 
 pub fn select(
     comptime DeviceDataFrame: type,
@@ -76,6 +78,80 @@ pub fn withColumn(
     columns[input.columns.len] = try data.clone();
     initialized += 1;
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
+}
+
+pub fn renameColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    old_name: []const u8,
+    new_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const rename_index = input.columnIndex(old_name) orelse return error.ColumnNotFound;
+    if (input.columnIndex(new_name)) |existing_index| {
+        if (existing_index != rename_index) return error.InvalidShape;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    for (input.names, source_names, 0..) |name, *slot, i| {
+        slot.* = if (i == rename_index) new_name else name;
+    }
+
+    var columns = try input.allocator.alloc(DeviceColumn, input.columns.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        input.allocator.free(columns);
+    }
+    for (input.columns, columns) |col, *slot| {
+        slot.* = try col.clone();
+        initialized += 1;
+    }
+    return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
+}
+
+pub fn dropColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    drop_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    for (drop_names) |name| {
+        if (input.columnIndex(name) == null) return error.ColumnNotFound;
+    }
+    if (drop_names.len == 0) return select(DeviceDataFrame, input, input.names);
+
+    var keep_count: usize = 0;
+    for (input.names) |name| {
+        if (!nameInBorrowedList(name, drop_names)) keep_count += 1;
+    }
+    if (keep_count == 0) return DeviceDataFrame.initEmpty(input.allocator, input.rows, input.device);
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    const source_names = try input.allocator.alloc([]const u8, keep_count);
+    defer input.allocator.free(source_names);
+    var columns = try input.allocator.alloc(DeviceColumn, keep_count);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        input.allocator.free(columns);
+    }
+
+    for (input.names, input.columns) |name, col| {
+        if (nameInBorrowedList(name, drop_names)) continue;
+        source_names[initialized] = name;
+        columns[initialized] = try col.clone();
+        initialized += 1;
+    }
+    return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
+}
+
+pub fn dropColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumns(DeviceDataFrame, input, &.{name});
 }
 
 pub fn view(
