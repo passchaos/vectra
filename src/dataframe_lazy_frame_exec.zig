@@ -89,6 +89,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .with_column_literal_after => |expr| try current.withColumnLiteralScalarAfter(expr.name, expr.scalar, expr.anchor_name),
             .cast_column => |cast| try current.castColumn(cast.name, cast.dtype),
             .fill_null_column => |fill| try current.fillNullColumnWithScalar(fill.name, fill.scalar),
+            .fill_nan_column => |fill| try current.fillNaNColumnWithScalar(fill.name, fill.scalar),
             .coalesce_columns => |coalesce| try current.coalesceColumns(coalesce.primary_name, coalesce.fallback_name, coalesce.output_name),
             .is_null_column => |predicate| try current.isNullColumn(predicate.name, predicate.output_name),
             .is_valid_column => |predicate| try current.isValidColumn(predicate.name, predicate.output_name),

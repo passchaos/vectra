@@ -285,6 +285,14 @@ pub fn fillNullColumnWithScalar(self: anytype, name: []const u8, scalar: DeviceS
     return dataframe_array_mod.fillNullColumn(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
 }
 
+pub fn fillNaNColumn(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillNaNColumn(FrameType(@TypeOf(self)), frameValue(self), name, DeviceScalar.init(T, value));
+}
+
+pub fn fillNaNColumnWithScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillNaNColumn(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
+}
+
 pub fn coalesceColumns(self: anytype, primary_name: []const u8, fallback_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.coalesceColumns(FrameType(@TypeOf(self)), frameValue(self), primary_name, fallback_name, output_name);
 }

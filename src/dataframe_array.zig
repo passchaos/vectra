@@ -569,6 +569,52 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
+fn fillNaNsTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: anytype,
+    replacement: T,
+) array_mod.ArrayError!@TypeOf(column) {
+    const ColumnType = @TypeOf(column);
+    const values = try column.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    for (values, 0..) |*slot, row| {
+        const valid = if (maybe_validity) |validity| validity[row] else true;
+        if (valid and isNanValue(T, slot.*)) slot.* = replacement;
+    }
+
+    if (maybe_validity) |validity| {
+        return ColumnType.fromSliceWithValidity(allocator, values, validity, column.device());
+    }
+    return ColumnType.fromSlice(allocator, values, column.device());
+}
+
+pub fn fillNaNColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(name);
+    return switch (scalar) {
+        inline else => |replacement, tag| blk: {
+            if (source.dtype() != tag) return error.TypeUnsupported;
+            const T = @TypeOf(replacement);
+            const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+            var filled: DeviceColumn = @unionInit(
+                DeviceColumn,
+                @tagName(tag),
+                try fillNaNsTyped(T, input.allocator, @field(source.*, @tagName(tag)), replacement),
+            );
+            defer filled.deinit();
+            break :blk try withColumn(DeviceDataFrame, input, name, filled);
+        },
+    };
+}
+
 pub fn coalesceColumns(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
