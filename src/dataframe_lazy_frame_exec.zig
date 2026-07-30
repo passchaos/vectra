@@ -45,6 +45,10 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .move_column => |move| try current.moveColumn(move.name, move.target_index),
             .move_column_before => |move| try current.moveColumnBefore(move.name, move.anchor_name),
             .move_column_after => |move| try current.moveColumnAfter(move.name, move.anchor_name),
+            .copy_column => |copy| try current.copyColumn(copy.source_name, copy.new_name),
+            .copy_column_at => |copy| try current.copyColumnAt(copy.source_name, copy.new_name, copy.target_index),
+            .copy_column_before => |copy| try current.copyColumnBefore(copy.source_name, copy.new_name, copy.anchor_name),
+            .copy_column_after => |copy| try current.copyColumnAfter(copy.source_name, copy.new_name, copy.anchor_name),
             .drop_columns => |names| try current.dropColumns(names),
             .drop_nulls => |names| try current.dropNulls(names),
             .with_column_binary => |expr| blk: {

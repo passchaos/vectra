@@ -158,6 +158,57 @@ pub fn moveColumnAfter(frame: anytype, name: []const u8, after_name: []const u8)
     } });
 }
 
+pub fn copyColumn(frame: anytype, source_name: []const u8, new_name: []const u8) DeviceDataError!void {
+    const owned_source = try frame.allocator.dupe(u8, source_name);
+    errdefer frame.allocator.free(owned_source);
+    const owned_new = try frame.allocator.dupe(u8, new_name);
+    errdefer frame.allocator.free(owned_new);
+    try frame.ops.append(frame.allocator, .{ .copy_column = .{
+        .source_name = owned_source,
+        .new_name = owned_new,
+    } });
+}
+
+pub fn copyColumnAt(frame: anytype, source_name: []const u8, new_name: []const u8, target_index: usize) DeviceDataError!void {
+    const owned_source = try frame.allocator.dupe(u8, source_name);
+    errdefer frame.allocator.free(owned_source);
+    const owned_new = try frame.allocator.dupe(u8, new_name);
+    errdefer frame.allocator.free(owned_new);
+    try frame.ops.append(frame.allocator, .{ .copy_column_at = .{
+        .source_name = owned_source,
+        .new_name = owned_new,
+        .target_index = target_index,
+    } });
+}
+
+pub fn copyColumnBefore(frame: anytype, source_name: []const u8, new_name: []const u8, before_name: []const u8) DeviceDataError!void {
+    const owned_source = try frame.allocator.dupe(u8, source_name);
+    errdefer frame.allocator.free(owned_source);
+    const owned_new = try frame.allocator.dupe(u8, new_name);
+    errdefer frame.allocator.free(owned_new);
+    const owned_anchor = try frame.allocator.dupe(u8, before_name);
+    errdefer frame.allocator.free(owned_anchor);
+    try frame.ops.append(frame.allocator, .{ .copy_column_before = .{
+        .source_name = owned_source,
+        .new_name = owned_new,
+        .anchor_name = owned_anchor,
+    } });
+}
+
+pub fn copyColumnAfter(frame: anytype, source_name: []const u8, new_name: []const u8, after_name: []const u8) DeviceDataError!void {
+    const owned_source = try frame.allocator.dupe(u8, source_name);
+    errdefer frame.allocator.free(owned_source);
+    const owned_new = try frame.allocator.dupe(u8, new_name);
+    errdefer frame.allocator.free(owned_new);
+    const owned_anchor = try frame.allocator.dupe(u8, after_name);
+    errdefer frame.allocator.free(owned_anchor);
+    try frame.ops.append(frame.allocator, .{ .copy_column_after = .{
+        .source_name = owned_source,
+        .new_name = owned_new,
+        .anchor_name = owned_anchor,
+    } });
+}
+
 pub fn dropColumns(frame: anytype, names: []const []const u8) DeviceDataError!void {
     const owned = try frame.allocator.alloc([]const u8, names.len);
     errdefer frame.allocator.free(owned);

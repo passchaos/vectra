@@ -227,6 +227,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.moveColumnAfter(self, name, after_name);
             }
 
+            pub fn copyColumn(self: *DeviceLazyFrame, source_name: []const u8, new_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.copyColumn(self, source_name, new_name);
+            }
+
+            pub fn copyColumnAt(self: *DeviceLazyFrame, source_name: []const u8, new_name: []const u8, target_index: usize) DeviceDataError!void {
+                return lazy_expr_mod.copyColumnAt(self, source_name, new_name, target_index);
+            }
+
+            pub fn copyColumnBefore(self: *DeviceLazyFrame, source_name: []const u8, new_name: []const u8, before_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.copyColumnBefore(self, source_name, new_name, before_name);
+            }
+
+            pub fn copyColumnAfter(self: *DeviceLazyFrame, source_name: []const u8, new_name: []const u8, after_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.copyColumnAfter(self, source_name, new_name, after_name);
+            }
+
             pub fn dropColumns(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.dropColumns(self, names);
             }

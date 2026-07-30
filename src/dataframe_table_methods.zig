@@ -183,6 +183,22 @@ pub fn withColumnAfter(self: anytype, name: []const u8, data: @TypeOf(frameValue
     return dataframe_array_mod.withColumnAfter(FrameType(@TypeOf(self)), frameValue(self), name, data, after_name);
 }
 
+pub fn copyColumn(self: anytype, source_name: []const u8, new_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.copyColumn(FrameType(@TypeOf(self)), frameValue(self), source_name, new_name);
+}
+
+pub fn copyColumnAt(self: anytype, source_name: []const u8, new_name: []const u8, target_index: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.copyColumnAt(FrameType(@TypeOf(self)), frameValue(self), source_name, new_name, target_index);
+}
+
+pub fn copyColumnBefore(self: anytype, source_name: []const u8, new_name: []const u8, before_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.copyColumnBefore(FrameType(@TypeOf(self)), frameValue(self), source_name, new_name, before_name);
+}
+
+pub fn copyColumnAfter(self: anytype, source_name: []const u8, new_name: []const u8, after_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.copyColumnAfter(FrameType(@TypeOf(self)), frameValue(self), source_name, new_name, after_name);
+}
+
 pub fn castColumn(self: anytype, name: []const u8, dtype_value: array_mod.DType) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.castColumn(FrameType(@TypeOf(self)), frameValue(self), name, dtype_value);
 }

@@ -76,6 +76,53 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .anchor_name = anchor_name,
             } };
         },
+        .copy_column => |copy| blk: {
+            const source_name = try allocator.dupe(u8, copy.source_name);
+            errdefer allocator.free(source_name);
+            const new_name = try allocator.dupe(u8, copy.new_name);
+            errdefer allocator.free(new_name);
+            break :blk .{ .copy_column = .{
+                .source_name = source_name,
+                .new_name = new_name,
+            } };
+        },
+        .copy_column_at => |copy| blk: {
+            const source_name = try allocator.dupe(u8, copy.source_name);
+            errdefer allocator.free(source_name);
+            const new_name = try allocator.dupe(u8, copy.new_name);
+            errdefer allocator.free(new_name);
+            break :blk .{ .copy_column_at = .{
+                .source_name = source_name,
+                .new_name = new_name,
+                .target_index = copy.target_index,
+            } };
+        },
+        .copy_column_before => |copy| blk: {
+            const source_name = try allocator.dupe(u8, copy.source_name);
+            errdefer allocator.free(source_name);
+            const new_name = try allocator.dupe(u8, copy.new_name);
+            errdefer allocator.free(new_name);
+            const anchor_name = try allocator.dupe(u8, copy.anchor_name);
+            errdefer allocator.free(anchor_name);
+            break :blk .{ .copy_column_before = .{
+                .source_name = source_name,
+                .new_name = new_name,
+                .anchor_name = anchor_name,
+            } };
+        },
+        .copy_column_after => |copy| blk: {
+            const source_name = try allocator.dupe(u8, copy.source_name);
+            errdefer allocator.free(source_name);
+            const new_name = try allocator.dupe(u8, copy.new_name);
+            errdefer allocator.free(new_name);
+            const anchor_name = try allocator.dupe(u8, copy.anchor_name);
+            errdefer allocator.free(anchor_name);
+            break :blk .{ .copy_column_after = .{
+                .source_name = source_name,
+                .new_name = new_name,
+                .anchor_name = anchor_name,
+            } };
+        },
         .drop_columns => |names| .{ .drop_columns = try cloneNameList(allocator, names) },
         .drop_nulls => |names| .{ .drop_nulls = try cloneNameList(allocator, names) },
         .with_column_binary => |expr| blk: {

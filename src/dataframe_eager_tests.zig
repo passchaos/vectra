@@ -197,6 +197,41 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.IndexOutOfBounds, table.withColumnLiteralAt("bad", i8, 1, table.width() + 1));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnLiteralBefore("bad", i8, 1, "missing"));
 
+    var copied_sales = try table.copyColumn("sales", "sales_copy");
+    defer copied_sales.deinit();
+    try std.testing.expectEqual(@as(usize, 4), copied_sales.width());
+    try std.testing.expectEqual(@as(?usize, 3), copied_sales.columnIndex("sales_copy"));
+    const copied_sales_values = try (try copied_sales.column("sales_copy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(copied_sales_values);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0 }, copied_sales_values);
+
+    var copied_units_first = try table.copyColumnAt("units", "units_copy", 0);
+    defer copied_units_first.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), copied_units_first.columnIndex("units_copy"));
+    try std.testing.expectEqual(@as(?usize, 1), copied_units_first.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), copied_units_first.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 3), copied_units_first.columnIndex("active"));
+    const copied_units = try (try copied_units_first.column("units_copy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(copied_units);
+    const copied_units_validity = try (try copied_units_first.column("units_copy")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(copied_units_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3 }, copied_units);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, copied_units_validity);
+
+    var copied_active_before_units = try table.copyColumnBefore("active", "active_copy", "units");
+    defer copied_active_before_units.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), copied_active_before_units.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), copied_active_before_units.columnIndex("active_copy"));
+    try std.testing.expectEqual(@as(?usize, 2), copied_active_before_units.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 3), copied_active_before_units.columnIndex("active"));
+
+    var copied_sales_after_active = try table.copyColumnAfter("sales", "sales_after", "active");
+    defer copied_sales_after_active.deinit();
+    try std.testing.expectEqual(@as(?usize, 3), copied_sales_after_active.columnIndex("sales_after"));
+    try std.testing.expectError(error.ColumnNotFound, table.copyColumn("missing", "copy"));
+    try std.testing.expectError(error.ColumnNotFound, table.copyColumnBefore("sales", "copy", "missing"));
+    try std.testing.expectError(error.IndexOutOfBounds, table.copyColumnAt("sales", "copy", table.width() + 1));
+
     var cast_units = try table.castColumn("units", .f64);
     defer cast_units.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try cast_units.columnDType("units"));

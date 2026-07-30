@@ -38,6 +38,24 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(move.name);
             allocator.free(move.anchor_name);
         },
+        .copy_column => |copy| {
+            allocator.free(copy.source_name);
+            allocator.free(copy.new_name);
+        },
+        .copy_column_at => |copy| {
+            allocator.free(copy.source_name);
+            allocator.free(copy.new_name);
+        },
+        .copy_column_before => |copy| {
+            allocator.free(copy.source_name);
+            allocator.free(copy.new_name);
+            allocator.free(copy.anchor_name);
+        },
+        .copy_column_after => |copy| {
+            allocator.free(copy.source_name);
+            allocator.free(copy.new_name);
+            allocator.free(copy.anchor_name);
+        },
         .drop_columns => |names| freeNameList(allocator, names),
         .drop_nulls => |names| freeNameList(allocator, names),
         .with_column_binary => |expr| {

@@ -60,6 +60,10 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .move_column => |move| try writer.print("move_column({s} -> index={d})", .{ move.name, move.target_index }),
         .move_column_before => |move| try writer.print("move_column_before({s} before {s})", .{ move.name, move.anchor_name }),
         .move_column_after => |move| try writer.print("move_column_after({s} after {s})", .{ move.name, move.anchor_name }),
+        .copy_column => |copy| try writer.print("copy_column({s}->{s})", .{ copy.source_name, copy.new_name }),
+        .copy_column_at => |copy| try writer.print("copy_column_at({s}->{s}, index={d})", .{ copy.source_name, copy.new_name, copy.target_index }),
+        .copy_column_before => |copy| try writer.print("copy_column_before({s}->{s} before {s})", .{ copy.source_name, copy.new_name, copy.anchor_name }),
+        .copy_column_after => |copy| try writer.print("copy_column_after({s}->{s} after {s})", .{ copy.source_name, copy.new_name, copy.anchor_name }),
         .drop_columns => |names| {
             try writer.print("drop_columns[", .{});
             for (names, 0..) |name, i| {

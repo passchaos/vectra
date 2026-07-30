@@ -314,6 +314,49 @@ pub fn withColumnAfter(
     return withColumnAt(DeviceDataFrame, input, name, data, target_index);
 }
 
+pub fn copyColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    source_name: []const u8,
+    new_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(source_name);
+    return withColumn(DeviceDataFrame, input, new_name, source.*);
+}
+
+pub fn copyColumnAt(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    source_name: []const u8,
+    new_name: []const u8,
+    target_index: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(source_name);
+    return withColumnAt(DeviceDataFrame, input, new_name, source.*, target_index);
+}
+
+pub fn copyColumnBefore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    source_name: []const u8,
+    new_name: []const u8,
+    before_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(source_name);
+    return withColumnBefore(DeviceDataFrame, input, new_name, source.*, before_name);
+}
+
+pub fn copyColumnAfter(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    source_name: []const u8,
+    new_name: []const u8,
+    after_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(source_name);
+    return withColumnAfter(DeviceDataFrame, input, new_name, source.*, after_name);
+}
+
 pub fn castColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
