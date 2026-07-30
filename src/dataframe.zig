@@ -260,6 +260,7 @@ pub const DeviceDataFrame = struct {
     pub const dropNulls = table_methods_mod.dropNulls;
     pub const dropNullsOn = table_methods_mod.dropNullsOn;
     pub const dropNullsColumn = table_methods_mod.dropNullsColumn;
+    pub const filterNullsColumn = table_methods_mod.filterNullsColumn;
     pub const head = table_methods_mod.head;
     pub const tail = table_methods_mod.tail;
     pub const sliceRows = table_methods_mod.sliceRows;

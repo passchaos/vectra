@@ -323,6 +323,10 @@ pub fn dropNullsColumn(self: anytype, name: []const u8) DeviceDataError!FrameTyp
     return dropNulls(self, &.{name});
 }
 
+pub fn filterNullsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterNullsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn head(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return sliceRows(self, 0, @min(n, self.rows));
 }

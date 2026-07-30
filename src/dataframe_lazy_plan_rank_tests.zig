@@ -474,6 +474,34 @@ test "device lazy frame drops null rows" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame filters null rows" {
+    const gpa = std.testing.allocator;
+    var table = try lazyQualityTable(gpa);
+    defer table.deinit();
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.filterNullsColumn("quality");
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "filter_nulls_column(quality)") != null);
+
+    var filtered = try plan.collect();
+    defer filtered.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered.height());
+    const quality = try (try filtered.column("quality")).f64.toOwnedSlice(gpa);
+    defer gpa.free(quality);
+    const validity = try (try filtered.column("quality")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(validity);
+    try std.testing.expectEqualSlices(f64, &.{2.0}, quality);
+    try std.testing.expectEqualSlices(bool, &.{false}, validity);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.filterNullsColumn("missing");
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame renames and drops columns" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

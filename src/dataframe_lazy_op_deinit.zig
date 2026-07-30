@@ -68,6 +68,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         },
         .drop_columns => |names| freeNameList(allocator, names),
         .drop_nulls => |names| freeNameList(allocator, names),
+        .filter_nulls_column => |name| allocator.free(name),
         .with_column_binary => |expr| {
             allocator.free(expr.name);
             allocator.free(expr.lhs_name);

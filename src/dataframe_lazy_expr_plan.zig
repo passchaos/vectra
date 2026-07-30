@@ -280,6 +280,12 @@ pub fn dropNullsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
     return dropNulls(frame, &.{name});
 }
 
+pub fn filterNullsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_nulls_column = owned_name });
+}
+
 pub fn withRowIndex(frame: anytype, name: []const u8, offset: usize) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

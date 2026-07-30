@@ -301,6 +301,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.dropNullsColumn(self, name);
             }
 
+            pub fn filterNullsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterNullsColumn(self, name);
+            }
+
             pub fn filter(self: *DeviceLazyFrame, mask: DeviceColumn) DeviceDataError!void {
                 return lazy_expr_mod.filter(self, mask);
             }

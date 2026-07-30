@@ -141,6 +141,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         },
         .drop_columns => |names| .{ .drop_columns = try cloneNameList(allocator, names) },
         .drop_nulls => |names| .{ .drop_nulls = try cloneNameList(allocator, names) },
+        .filter_nulls_column => |name| .{ .filter_nulls_column = try allocator.dupe(u8, name) },
         .with_column_binary => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

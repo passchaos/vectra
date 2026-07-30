@@ -888,6 +888,28 @@ pub fn dropNulls(
     return filterRows(DeviceDataFrame, input, keep);
 }
 
+pub fn filterNullsColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(name);
+    const keep = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(keep);
+    @memset(keep, false);
+
+    switch (source.*) {
+        inline else => |typed| {
+            const maybe_validity = try validityValues(typed, input.allocator);
+            defer if (maybe_validity) |validity| input.allocator.free(validity);
+            if (maybe_validity) |validity| {
+                for (keep, validity) |*slot, valid| slot.* = !valid;
+            }
+        },
+    }
+    return filterRows(DeviceDataFrame, input, keep);
+}
+
 pub fn view(
     comptime DeviceDataFrameView: type,
     comptime DeviceColumnView: type,
