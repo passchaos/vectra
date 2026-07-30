@@ -100,6 +100,20 @@ pub fn withColumn(
 ) DeviceFrameArrayError!DeviceDataFrame {
     if (data.len() != input.rows) return error.LengthMismatch;
     if (!data.device().sameDevice(input.device)) return error.InvalidDevice;
+    if (input.columnIndex(name)) |replace_index| {
+        const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+        var columns = try input.allocator.alloc(DeviceColumn, input.columns.len);
+        var initialized: usize = 0;
+        errdefer {
+            for (columns[0..initialized]) |*col| col.deinit();
+            input.allocator.free(columns);
+        }
+        for (input.columns, 0..) |col, i| {
+            columns[i] = if (i == replace_index) try data.clone() else try col.clone();
+            initialized += 1;
+        }
+        return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, input.rows, input.device);
+    }
     const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
     var source_names = try input.allocator.alloc([]const u8, input.columns.len + 1);
     defer input.allocator.free(source_names);
@@ -121,6 +135,18 @@ pub fn withColumn(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
 }
 
+pub fn castColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    dtype_value: array_mod.DType,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(name);
+    var casted = try source.castToDType(dtype_value);
+    defer casted.deinit();
+    return withColumn(DeviceDataFrame, input, name, casted);
+}
+
 pub fn withColumnLiteral(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -128,7 +154,6 @@ pub fn withColumnLiteral(
     comptime T: type,
     value: T,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    if (input.columnIndex(name) != null) return error.InvalidShape;
     const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
     const values = try input.allocator.alloc(T, input.rows);
     defer input.allocator.free(values);

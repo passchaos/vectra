@@ -590,6 +590,7 @@ fn castValue(comptime T: type, value: anytype) T {
             .bool => value,
             .int, .comptime_int => value != 0,
             .float, .comptime_float => value != 0,
+            .@"struct" => if (comptime V == BFloat16) value.toF32() != 0 else @compileError("cannot cast " ++ @typeName(V) ++ " to bool"),
             else => @compileError("cannot cast " ++ @typeName(V) ++ " to bool"),
         },
         else => @compileError("unsupported array scalar type: " ++ @typeName(T)),

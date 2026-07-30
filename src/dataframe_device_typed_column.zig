@@ -132,6 +132,15 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn cast(self: Self, comptime U: type) array_mod.ArrayError!DeviceTypedColumn(U) {
+            var values = try self.values.astype(U);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn to(self: Self, device_value: array_mod.Device) array_mod.ArrayError!Self {
             var values = try self.values.to(device_value);
             errdefer values.deinit();

@@ -115,7 +115,31 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const literal_active = try (try literal_bool.column("literal_active")).bool.toOwnedSlice(gpa);
     defer gpa.free(literal_active);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true }, literal_active);
-    try std.testing.expectError(error.InvalidShape, table.withColumnLiteral("sales", f64, 1.0));
+
+    var replaced_sales = try table.withColumnLiteral("sales", f64, 1.0);
+    defer replaced_sales.deinit();
+    try std.testing.expectEqual(@as(usize, 3), replaced_sales.width());
+    const replaced_sales_values = try (try replaced_sales.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(replaced_sales_values);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 1.0 }, replaced_sales_values);
+
+    var cast_units = try table.castColumn("units", .f64);
+    defer cast_units.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try cast_units.columnDType("units"));
+    const cast_units_values = try (try cast_units.column("units")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cast_units_values);
+    const cast_units_validity = try (try cast_units.column("units")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(cast_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0, 3.0 }, cast_units_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, cast_units_validity);
+
+    var cast_active = try table.castColumn("active", .i8);
+    defer cast_active.deinit();
+    try std.testing.expectEqual(DeviceDType.i8, try cast_active.columnDType("active"));
+    const cast_active_values = try (try cast_active.column("active")).i8.toOwnedSlice(gpa);
+    defer gpa.free(cast_active_values);
+    try std.testing.expectEqualSlices(i8, &.{ 1, 0, 1 }, cast_active_values);
+    try std.testing.expectError(error.ColumnNotFound, table.castColumn("missing", .f64));
 
     var indexed = try table.withRowIndex("row_nr", 10);
     defer indexed.deinit();

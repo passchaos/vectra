@@ -119,6 +119,10 @@ pub fn withColumn(self: anytype, name: []const u8, data: @TypeOf(frameValue(self
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), name, data);
 }
 
+pub fn castColumn(self: anytype, name: []const u8, dtype_value: array_mod.DType) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.castColumn(FrameType(@TypeOf(self)), frameValue(self), name, dtype_value);
+}
+
 pub fn withColumnLiteral(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumnLiteral(FrameType(@TypeOf(self)), frameValue(self), name, T, value);
 }

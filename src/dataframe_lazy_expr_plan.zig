@@ -146,6 +146,15 @@ pub fn withColumnLiteralScalar(frame: anytype, name: []const u8, scalar: DeviceS
     } });
 }
 
+pub fn castColumn(frame: anytype, name: []const u8, dtype_value: array_mod.DType) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .cast_column = .{
+        .name = owned_name,
+        .dtype = dtype_value,
+    } });
+}
+
 pub fn withColumnCompare(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

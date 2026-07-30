@@ -209,6 +209,7 @@ pub const DeviceDataFrame = struct {
     pub const selectInteger = table_methods_mod.selectInteger;
     pub const selectBool = table_methods_mod.selectBool;
     pub const withColumn = table_methods_mod.withColumn;
+    pub const castColumn = table_methods_mod.castColumn;
     pub const withColumnLiteral = table_methods_mod.withColumnLiteral;
     pub const withColumnLiteralScalar = table_methods_mod.withColumnLiteralScalar;
     pub const withRowIndex = table_methods_mod.withRowIndex;

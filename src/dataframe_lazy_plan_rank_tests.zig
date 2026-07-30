@@ -123,6 +123,39 @@ test "device lazy frame selects columns by dtype" {
     try std.testing.expectEqual(table.height(), empty.height());
 }
 
+test "device lazy frame casts columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.castColumn("units", .f64);
+    try plan.castColumn("active", .i8);
+    try plan.select(&.{ "units", "active" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "cast_column(units->f64)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "cast_column(active->i8)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 2), result.width());
+    try std.testing.expectEqual(vectra.DeviceDType.f64, try result.columnDType("units"));
+    try std.testing.expectEqual(vectra.DeviceDType.i8, try result.columnDType("active"));
+    const units = try (try result.column("units")).f64.toOwnedSlice(gpa);
+    defer gpa.free(units);
+    const active = try (try result.column("active")).i8.toOwnedSlice(gpa);
+    defer gpa.free(active);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0, 3.0, 4.0 }, units);
+    try std.testing.expectEqualSlices(i8, &.{ 1, 0, 1, 1 }, active);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.castColumn("missing", .f64);
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame renames and drops columns" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);
@@ -188,10 +221,15 @@ test "device lazy frame renames and drops columns" {
     try invalid_index_plan.withRowIndex("sales", 0);
     try std.testing.expectError(error.InvalidShape, invalid_index_plan.collect());
 
-    var invalid_literal_plan = try DeviceLazyFrame.init(gpa, table);
-    defer invalid_literal_plan.deinit();
-    try invalid_literal_plan.withColumnLiteral("sales", f64, 1.0);
-    try std.testing.expectError(error.InvalidShape, invalid_literal_plan.collect());
+    var replace_literal_plan = try DeviceLazyFrame.init(gpa, table);
+    defer replace_literal_plan.deinit();
+    try replace_literal_plan.withColumnLiteral("sales", f64, 1.0);
+    try replace_literal_plan.select(&.{"sales"});
+    var replaced_literal = try replace_literal_plan.collect();
+    defer replaced_literal.deinit();
+    const replaced_sales = try (try replaced_literal.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(replaced_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 1.0, 1.0 }, replaced_sales);
 }
 
 test "device lazy frame collects topk operations" {

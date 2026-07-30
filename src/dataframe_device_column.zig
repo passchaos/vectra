@@ -106,6 +106,44 @@ pub const DeviceColumn = union(DeviceDType) {
         };
     }
 
+    pub fn cast(self: DeviceColumn, comptime T: type) array_mod.ArrayError!DeviceColumn {
+        const tag = comptime DeviceDType.of(T);
+        const target_is_complex = comptime tag.isComplex();
+        return @unionInit(DeviceColumn, @tagName(tag), switch (self) {
+            inline else => |typed, source_tag| blk: {
+                // Array.astype intentionally rejects complex-to-real casts at
+                // compile time because silently discarding the imaginary part is
+                // often a data-quality bug. Keep dataframe dynamic dtype casts
+                // on the same policy, but return a runtime error before
+                // instantiating the unsupported typed cast branch.
+                if (comptime source_tag.isComplex() and !target_is_complex) return error.TypeUnsupported;
+                break :blk try typed.cast(T);
+            },
+        });
+    }
+
+    pub fn castToDType(self: DeviceColumn, dtype_value: DeviceDType) array_mod.ArrayError!DeviceColumn {
+        return switch (dtype_value) {
+            .i8 => self.cast(i8),
+            .i16 => self.cast(i16),
+            .i32 => self.cast(i32),
+            .i64 => self.cast(i64),
+            .u8 => self.cast(u8),
+            .u16 => self.cast(u16),
+            .u32 => self.cast(u32),
+            .u64 => self.cast(u64),
+            .usize => self.cast(usize),
+            .isize => self.cast(isize),
+            .f16 => self.cast(f16),
+            .f32 => self.cast(f32),
+            .f64 => self.cast(f64),
+            .bool => self.cast(bool),
+            .bf16 => self.cast(array_mod.BFloat16),
+            .c64 => self.cast(array_mod.Complex64),
+            .c128 => self.cast(array_mod.Complex128),
+        };
+    }
+
     pub fn to(self: DeviceColumn, device_value: array_mod.Device) array_mod.ArrayError!DeviceColumn {
         return switch (self) {
             inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.to(device_value)),
