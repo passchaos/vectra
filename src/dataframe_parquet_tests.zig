@@ -230,6 +230,38 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     const is_null = try (try result.column("sales_is_null")).bool.toOwnedSlice(gpa);
     defer gpa.free(is_null);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false }, is_null);
+
+    var row_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_count_scan.deinit();
+    try row_count_scan.withRowNullCount(&.{ "sales", "active" }, "row_nulls");
+    try row_count_scan.select(&.{"row_nulls"});
+
+    const row_count_explain = try row_count_scan.explain(gpa);
+    defer gpa.free(row_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_count_explain, "scan_pushdown: projection=[sales,active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_count_explain, "row_null_count([sales,active]->row_nulls)") != null);
+
+    var row_count_result = try row_count_scan.collect();
+    defer row_count_result.deinit();
+    const row_nulls = try (try row_count_result.column("row_nulls")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_nulls);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, row_nulls);
+
+    var all_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer all_count_scan.deinit();
+    try all_count_scan.withRowValidCount(&.{}, "row_valids_all");
+    try all_count_scan.select(&.{"row_valids_all"});
+
+    const all_count_explain = try all_count_scan.explain(gpa);
+    defer gpa.free(all_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, all_count_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, all_count_explain, "row_valid_count([]->row_valids_all)") != null);
+
+    var all_count_result = try all_count_scan.collect();
+    defer all_count_result.deinit();
+    const row_valids_all = try (try all_count_result.column("row_valids_all")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_valids_all);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2, 3 }, row_valids_all);
 }
 
 test "device lazy frame pushes coalesce dependencies into parquet scan source" {

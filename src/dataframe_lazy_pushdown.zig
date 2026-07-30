@@ -165,6 +165,22 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, predicate.name);
                 }
             },
+            .row_null_count, .row_valid_count => |row_count| {
+                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
+                if (row_count.names.len == 0) {
+                    // Empty row-count input means "all columns visible at this
+                    // point".  The lightweight pushdown planner has no complete
+                    // source schema or alias map, so it must materialize the
+                    // scan rather than project an empty dependency set.
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (row_count.names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
             .with_column_compare => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
                 try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);

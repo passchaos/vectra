@@ -262,6 +262,23 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
+        .row_null_count, .row_valid_count => |row_count, tag| blk: {
+            const names = try cloneNameList(allocator, row_count.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_count.output_name);
+            errdefer allocator.free(output_name);
+            break :blk switch (tag) {
+                .row_null_count => .{ .row_null_count = .{
+                    .names = names,
+                    .output_name = output_name,
+                } },
+                .row_valid_count => .{ .row_valid_count = .{
+                    .names = names,
+                    .output_name = output_name,
+                } },
+                else => unreachable,
+            };
+        },
         .with_column_compare => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

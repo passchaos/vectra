@@ -611,6 +611,50 @@ test "device lazy frame derives null predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame derives row null and valid count columns" {
+    const gpa = std.testing.allocator;
+
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0, 7.0 }, .cpu);
+    defer sales.deinit();
+    var quality = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 0.8, 0.0, 0.9, 1.0 }, &.{ true, false, true, true }, .cpu);
+    defer quality.deinit();
+    var flag = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ true, false, true, false }, &.{ true, true, false, false }, .cpu);
+    defer flag.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = sales },
+        .{ .name = "quality", .data = quality },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withRowValidCount(&.{}, "row_valids_all");
+    try plan.withRowNullCount(&.{ "quality", "flag" }, "row_nulls");
+    try plan.select(&.{ "row_nulls", "row_valids_all" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_null_count([quality,flag]->row_nulls)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_valid_count([]->row_valids_all)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 2), result.width());
+    const row_nulls = try (try result.column("row_nulls")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_nulls);
+    const row_valids_all = try (try result.column("row_valids_all")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_valids_all);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, row_nulls);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2, 2, 2 }, row_valids_all);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withRowNullCount(&.{ "quality", "missing" }, "bad_count");
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame drops null rows" {
     const gpa = std.testing.allocator;
     var table = try lazyQualityTable(gpa);

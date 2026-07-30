@@ -425,6 +425,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.isValidColumn(self, name, output_name);
             }
 
+            pub fn withRowNullCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowNullCount(self, names, output_name);
+            }
+
+            pub fn withRowValidCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowValidCount(self, names, output_name);
+            }
+
             pub fn withColumnCompare(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {
                 return lazy_expr_mod.withColumnCompare(self, name, lhs_name, rhs_name, op);
             }

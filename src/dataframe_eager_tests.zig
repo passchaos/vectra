@@ -335,6 +335,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_is_null);
     try std.testing.expectError(error.ColumnNotFound, table.isNullColumn("missing", "missing_is_null"));
 
+    var row_null_counts = try table.withRowNullCount(&.{}, "row_null_count");
+    defer row_null_counts.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try row_null_counts.columnDType("row_null_count"));
+    const row_null_count = try (try row_null_counts.column("row_null_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_null_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, row_null_count);
+
+    var row_valid_counts = try table.withRowValidCount(&.{ "sales", "units", "active" }, "row_valid_count");
+    defer row_valid_counts.deinit();
+    const row_valid_count = try (try row_valid_counts.column("row_valid_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_valid_count);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2, 3 }, row_valid_count);
+    try std.testing.expectError(error.ColumnNotFound, table.withRowNullCount(&.{"missing"}, "bad_count"));
+
     var dropped_nulls = try table.dropNullsColumn("units");
     defer dropped_nulls.deinit();
     try std.testing.expectEqual(@as(usize, 2), dropped_nulls.height());
