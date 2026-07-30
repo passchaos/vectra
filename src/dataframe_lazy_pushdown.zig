@@ -351,7 +351,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 try profile_pushdown_mod.addDependencies(allocator, &required_names, derived_names.items, op);
                 break :op_loop;
             },
-            .filter_mask, .slice_rows, .slice_rows_step, .stride_rows, .take_rows, .sample_rows, .sample_rows_with_replacement, .reverse_rows, .head, .tail => {},
+            .filter_mask, .slice_rows, .drop_rows, .drop_row_range, .drop_last_rows, .slice_rows_step, .stride_rows, .take_rows, .sample_rows, .sample_rows_with_replacement, .reverse_rows, .head, .tail => {},
         }
     }
 

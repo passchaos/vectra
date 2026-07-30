@@ -222,8 +222,8 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .validity_profile => |payload| freeNameOutput(allocator, payload),
         .rolling_validity_profile => |payload| freeNameOutput(allocator, payload),
         .expanding_validity_profile => |payload| freeNameOutput(allocator, payload),
-        .take_rows => |row_indices| allocator.free(row_indices),
-        .distinct_rows, .slice_rows, .slice_rows_step, .stride_rows, .sample_rows, .sample_rows_with_replacement, .reverse_rows, .head, .tail => {},
+        .drop_rows, .take_rows => |row_indices| allocator.free(row_indices),
+        .distinct_rows, .slice_rows, .drop_row_range, .drop_last_rows, .slice_rows_step, .stride_rows, .sample_rows, .sample_rows_with_replacement, .reverse_rows, .head, .tail => {},
     }
     self.* = undefined;
 }

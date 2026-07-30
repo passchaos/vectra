@@ -504,6 +504,27 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn dropRows(self: *DeviceLazyFrame, row_indices: []const usize) DeviceDataError!void {
+                const owned = try self.allocator.dupe(usize, row_indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .drop_rows = owned });
+            }
+
+            pub fn dropRowRange(self: *DeviceLazyFrame, start: usize, stop: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_row_range = .{
+                    .start = start,
+                    .stop = stop,
+                } });
+            }
+
+            pub fn dropFirstRows(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+                return self.dropRowRange(0, n);
+            }
+
+            pub fn dropLastRows(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_last_rows = n });
+            }
+
             pub fn slice(self: *DeviceLazyFrame, start: usize, len: usize) DeviceDataError!void {
                 const stop = std.math.add(usize, start, len) catch return error.InvalidShape;
                 return self.sliceRows(start, stop);

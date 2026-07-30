@@ -358,6 +358,23 @@ pub fn sliceRows(self: anytype, start: usize, stop: usize) DeviceDataError!Frame
     return dataframe_array_mod.sliceRows(FrameType(@TypeOf(self)), frameValue(self), start, stop);
 }
 
+pub fn dropRows(self: anytype, row_indices: []const usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropRows(FrameType(@TypeOf(self)), frameValue(self), row_indices);
+}
+
+pub fn dropRowRange(self: anytype, start: usize, stop: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropRowRange(FrameType(@TypeOf(self)), frameValue(self), start, stop);
+}
+
+pub fn dropFirstRows(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropRowRange(self, 0, @min(n, frameValue(self).rows));
+}
+
+pub fn dropLastRows(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const count = @min(n, frameValue(self).rows);
+    return dropRowRange(self, frameValue(self).rows - count, frameValue(self).rows);
+}
+
 pub fn sliceRowsStep(self: anytype, start: usize, stop: usize, step: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.sliceRowsStep(FrameType(@TypeOf(self)), frameValue(self), start, stop, step);
 }

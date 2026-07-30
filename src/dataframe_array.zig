@@ -968,6 +968,41 @@ pub fn takeRows(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, row_indices.len, input.device);
 }
 
+pub fn dropRows(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    row_indices: []const usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const keep = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(keep);
+    @memset(keep, true);
+
+    // Row drops are position-set based rather than sequential deletions:
+    // duplicate indices should not shift later positions or remove additional
+    // rows.  Validate every requested position before reusing the shared
+    // boolean-mask compaction path.
+    for (row_indices) |row_index| {
+        if (row_index >= input.rows) return error.IndexOutOfBounds;
+        keep[row_index] = false;
+    }
+    return filterRows(DeviceDataFrame, input, keep);
+}
+
+pub fn dropRowRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    start: usize,
+    stop: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const end = @min(stop, input.rows);
+    const begin = @min(start, end);
+    const keep = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(keep);
+    @memset(keep, true);
+    for (keep[begin..end]) |*slot| slot.* = false;
+    return filterRows(DeviceDataFrame, input, keep);
+}
+
 pub fn sampleRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

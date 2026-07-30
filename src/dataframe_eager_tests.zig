@@ -470,6 +470,39 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const head_units = try head.column("units");
     try std.testing.expectEqual(@as(usize, 1), head_units.nullCount());
 
+    var rows_dropped = try table.dropRows(&.{ 1, 1 });
+    defer rows_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 2), rows_dropped.height());
+    try std.testing.expectEqual(table.width(), rows_dropped.width());
+    const rows_dropped_sales = try (try rows_dropped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rows_dropped_sales);
+    const rows_dropped_units_validity = try (try rows_dropped.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rows_dropped_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, rows_dropped_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, rows_dropped_units_validity);
+
+    var row_range_dropped = try table.dropRowRange(0, 2);
+    defer row_range_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 1), row_range_dropped.height());
+    const row_range_dropped_sales = try (try row_range_dropped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_range_dropped_sales);
+    try std.testing.expectEqualSlices(f64, &.{5.0}, row_range_dropped_sales);
+
+    var first_row_dropped = try table.dropFirstRows(1);
+    defer first_row_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 2), first_row_dropped.height());
+    const first_row_dropped_units_validity = try (try first_row_dropped.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(first_row_dropped_units_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true }, first_row_dropped_units_validity);
+
+    var last_row_dropped = try table.dropLastRows(1);
+    defer last_row_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 2), last_row_dropped.height());
+    const last_row_dropped_sales = try (try last_row_dropped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(last_row_dropped_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, last_row_dropped_sales);
+    try std.testing.expectError(error.IndexOutOfBounds, table.dropRows(&.{table.height()}));
+
     var stepped_slice = try table.sliceRowsStep(0, table.height(), 2);
     defer stepped_slice.deinit();
     try std.testing.expectEqual(@as(usize, 2), stepped_slice.height());

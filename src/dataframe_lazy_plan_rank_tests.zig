@@ -890,6 +890,68 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(len_sliced_sales);
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, len_sliced_sales);
 
+    var drop_rows_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_rows_plan.deinit();
+    try drop_rows_plan.dropRows(&.{ 1, 1 });
+    try drop_rows_plan.select(&.{ "sales", "units" });
+    const drop_rows_explain = try drop_rows_plan.explain(gpa);
+    defer gpa.free(drop_rows_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_rows_explain, "drop_rows([1,1])") != null);
+    var rows_dropped = try drop_rows_plan.collect();
+    defer rows_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 3), rows_dropped.height());
+    try std.testing.expectEqual(@as(usize, 2), rows_dropped.width());
+    const rows_dropped_sales = try (try rows_dropped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rows_dropped_sales);
+    const rows_dropped_units = try (try rows_dropped.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rows_dropped_units);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, rows_dropped_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 3, 4 }, rows_dropped_units);
+
+    var invalid_drop_rows_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_drop_rows_plan.deinit();
+    try invalid_drop_rows_plan.dropRows(&.{table.height()});
+    try std.testing.expectError(error.IndexOutOfBounds, invalid_drop_rows_plan.collect());
+
+    var drop_range_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_range_plan.deinit();
+    try drop_range_plan.dropRowRange(1, 3);
+    try drop_range_plan.select(&.{ "sales", "units" });
+    const drop_range_explain = try drop_range_plan.explain(gpa);
+    defer gpa.free(drop_range_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_range_explain, "drop_row_range(1..3)") != null);
+    var range_dropped = try drop_range_plan.collect();
+    defer range_dropped.deinit();
+    const range_dropped_sales = try (try range_dropped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(range_dropped_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 7.0 }, range_dropped_sales);
+
+    var drop_first_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_first_plan.deinit();
+    try drop_first_plan.dropFirstRows(2);
+    try drop_first_plan.select(&.{"sales"});
+    const drop_first_explain = try drop_first_plan.explain(gpa);
+    defer gpa.free(drop_first_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_first_explain, "drop_row_range(0..2)") != null);
+    var first_dropped = try drop_first_plan.collect();
+    defer first_dropped.deinit();
+    const first_dropped_sales = try (try first_dropped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(first_dropped_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, first_dropped_sales);
+
+    var drop_last_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_last_plan.deinit();
+    try drop_last_plan.dropLastRows(1);
+    try drop_last_plan.select(&.{"sales"});
+    const drop_last_explain = try drop_last_plan.explain(gpa);
+    defer gpa.free(drop_last_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_last_explain, "drop_last_rows(1)") != null);
+    var last_dropped = try drop_last_plan.collect();
+    defer last_dropped.deinit();
+    const last_dropped_sales = try (try last_dropped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(last_dropped_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0 }, last_dropped_sales);
+
     var step_plan = try DeviceLazyFrame.init(gpa, table);
     defer step_plan.deinit();
     try step_plan.sliceRowsStep(0, table.height(), 2);
