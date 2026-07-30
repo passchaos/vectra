@@ -199,6 +199,18 @@ pub fn renameColumn(self: anytype, old_name: []const u8, new_name: []const u8) D
     return dataframe_array_mod.renameColumn(FrameType(@TypeOf(self)), frameValue(self), old_name, new_name);
 }
 
+pub fn moveColumn(self: anytype, name: []const u8, target_index: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.moveColumn(FrameType(@TypeOf(self)), frameValue(self), name, target_index);
+}
+
+pub fn moveColumnBefore(self: anytype, name: []const u8, before_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.moveColumnBefore(FrameType(@TypeOf(self)), frameValue(self), name, before_name);
+}
+
+pub fn moveColumnAfter(self: anytype, name: []const u8, after_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.moveColumnAfter(FrameType(@TypeOf(self)), frameValue(self), name, after_name);
+}
+
 pub fn dropColumns(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropColumns(FrameType(@TypeOf(self)), frameValue(self), names);
 }

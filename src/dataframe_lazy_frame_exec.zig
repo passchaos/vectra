@@ -42,6 +42,9 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .drop_dtype_class => |class| try current.dropByDTypeClass(class),
             .with_row_index => |row_index| try current.withRowIndex(row_index.name, row_index.offset),
             .rename_column => |rename| try current.renameColumn(rename.old_name, rename.new_name),
+            .move_column => |move| try current.moveColumn(move.name, move.target_index),
+            .move_column_before => |move| try current.moveColumnBefore(move.name, move.anchor_name),
+            .move_column_after => |move| try current.moveColumnAfter(move.name, move.anchor_name),
             .drop_columns => |names| try current.dropColumns(names),
             .drop_nulls => |names| try current.dropNulls(names),
             .with_column_binary => |expr| blk: {

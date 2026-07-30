@@ -224,6 +224,33 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.InvalidShape, table.renameColumn("sales", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.renameColumn("missing", "new_name"));
 
+    var moved_front = try table.moveColumn("active", 0);
+    defer moved_front.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), moved_front.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 1), moved_front.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), moved_front.columnIndex("units"));
+    const moved_front_active = try (try moved_front.column("active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(moved_front_active);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, moved_front_active);
+
+    var moved_before = try table.moveColumnBefore("units", "sales");
+    defer moved_before.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), moved_before.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), moved_before.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), moved_before.columnIndex("active"));
+
+    var moved_after = try table.moveColumnAfter("sales", "active");
+    defer moved_after.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), moved_after.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), moved_after.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 2), moved_after.columnIndex("sales"));
+    const moved_after_sales = try (try moved_after.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(moved_after_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0 }, moved_after_sales);
+    try std.testing.expectError(error.ColumnNotFound, table.moveColumn("missing", 0));
+    try std.testing.expectError(error.ColumnNotFound, table.moveColumnBefore("sales", "missing"));
+    try std.testing.expectError(error.IndexOutOfBounds, table.moveColumn("sales", table.width()));
+
     var dropped = try table.dropColumn("active");
     defer dropped.deinit();
     try std.testing.expectEqual(@as(usize, 2), dropped.width());

@@ -69,7 +69,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 projection_blocked = true;
                 break :op_loop;
             },
-            .rename_column, .drop_columns => {
+            .rename_column, .move_column, .move_column_before, .move_column_after, .drop_columns => {
                 // Schema rewrites change the names visible to all following
                 // operations.  Without a full alias map in this conservative
                 // scan planner, stop projection/range inference here rather

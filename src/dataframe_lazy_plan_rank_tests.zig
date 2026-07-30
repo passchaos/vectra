@@ -439,6 +439,69 @@ test "device lazy frame renames and drops columns" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 1.0, 1.0 }, replaced_sales);
 }
 
+test "device lazy frame moves columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+
+    var move_plan = try DeviceLazyFrame.init(gpa, table);
+    defer move_plan.deinit();
+    try move_plan.moveColumn("active", 0);
+
+    const move_explain = try move_plan.explain(gpa);
+    defer gpa.free(move_explain);
+    try std.testing.expect(std.mem.indexOf(u8, move_explain, "move_column(active -> index=0)") != null);
+
+    var moved = try move_plan.collect();
+    defer moved.deinit();
+    try std.testing.expectEqual(@as(usize, 3), moved.width());
+    try std.testing.expectEqual(@as(?usize, 0), moved.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 1), moved.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), moved.columnIndex("units"));
+    const moved_active = try (try moved.column("active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(moved_active);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, moved_active);
+
+    var before_plan = try DeviceLazyFrame.init(gpa, table);
+    defer before_plan.deinit();
+    try before_plan.moveColumnBefore("units", "sales");
+    const before_explain = try before_plan.explain(gpa);
+    defer gpa.free(before_explain);
+    try std.testing.expect(std.mem.indexOf(u8, before_explain, "move_column_before(units before sales)") != null);
+
+    var before = try before_plan.collect();
+    defer before.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), before.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), before.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), before.columnIndex("active"));
+
+    var after_plan = try DeviceLazyFrame.init(gpa, table);
+    defer after_plan.deinit();
+    try after_plan.moveColumnAfter("sales", "active");
+    const after_explain = try after_plan.explain(gpa);
+    defer gpa.free(after_explain);
+    try std.testing.expect(std.mem.indexOf(u8, after_explain, "move_column_after(sales after active)") != null);
+
+    var after = try after_plan.collect();
+    defer after.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), after.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), after.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 2), after.columnIndex("sales"));
+    const after_sales = try (try after.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(after_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, 7.0 }, after_sales);
+
+    var missing_plan = try DeviceLazyFrame.init(gpa, table);
+    defer missing_plan.deinit();
+    try missing_plan.moveColumn("missing", 0);
+    try std.testing.expectError(error.ColumnNotFound, missing_plan.collect());
+
+    var bounds_plan = try DeviceLazyFrame.init(gpa, table);
+    defer bounds_plan.deinit();
+    try bounds_plan.moveColumn("sales", table.width());
+    try std.testing.expectError(error.IndexOutOfBounds, bounds_plan.collect());
+}
+
 test "device lazy frame collects topk operations" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

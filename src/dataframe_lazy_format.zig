@@ -57,6 +57,9 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .drop_dtype_class => |class| try writer.print("drop_dtype_class({s})", .{@tagName(class)}),
         .with_row_index => |row_index| try writer.print("with_row_index({s}, offset={d})", .{ row_index.name, row_index.offset }),
         .rename_column => |rename| try writer.print("rename_column({s}->{s})", .{ rename.old_name, rename.new_name }),
+        .move_column => |move| try writer.print("move_column({s} -> index={d})", .{ move.name, move.target_index }),
+        .move_column_before => |move| try writer.print("move_column_before({s} before {s})", .{ move.name, move.anchor_name }),
+        .move_column_after => |move| try writer.print("move_column_after({s} after {s})", .{ move.name, move.anchor_name }),
         .drop_columns => |names| {
             try writer.print("drop_columns[", .{});
             for (names, 0..) |name, i| {

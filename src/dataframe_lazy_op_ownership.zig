@@ -49,6 +49,33 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .new_name = new_name,
             } };
         },
+        .move_column => |move| blk: {
+            const name = try allocator.dupe(u8, move.name);
+            break :blk .{ .move_column = .{
+                .name = name,
+                .target_index = move.target_index,
+            } };
+        },
+        .move_column_before => |move| blk: {
+            const name = try allocator.dupe(u8, move.name);
+            errdefer allocator.free(name);
+            const anchor_name = try allocator.dupe(u8, move.anchor_name);
+            errdefer allocator.free(anchor_name);
+            break :blk .{ .move_column_before = .{
+                .name = name,
+                .anchor_name = anchor_name,
+            } };
+        },
+        .move_column_after => |move| blk: {
+            const name = try allocator.dupe(u8, move.name);
+            errdefer allocator.free(name);
+            const anchor_name = try allocator.dupe(u8, move.anchor_name);
+            errdefer allocator.free(anchor_name);
+            break :blk .{ .move_column_after = .{
+                .name = name,
+                .anchor_name = anchor_name,
+            } };
+        },
         .drop_columns => |names| .{ .drop_columns = try cloneNameList(allocator, names) },
         .drop_nulls => |names| .{ .drop_nulls = try cloneNameList(allocator, names) },
         .with_column_binary => |expr| blk: {

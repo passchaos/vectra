@@ -367,6 +367,64 @@ pub fn renameColumn(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, source_names, columns, input.rows, input.device);
 }
 
+pub fn moveColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    target_index: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_index = input.columnIndex(name) orelse return error.ColumnNotFound;
+    if (target_index >= input.names.len) return error.IndexOutOfBounds;
+
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+
+    // `target_index` is the column's final output position.  Build the desired
+    // name order by injecting the moved name at that position and streaming the
+    // remaining names around the source slot; `select` then performs the actual
+    // column cloning so ownership stays centralized.
+    var source_scan: usize = 0;
+    for (source_names, 0..) |*slot, output_index| {
+        if (output_index == target_index) {
+            slot.* = input.names[source_index];
+            continue;
+        }
+
+        while (source_scan == source_index) source_scan += 1;
+        slot.* = input.names[source_scan];
+        source_scan += 1;
+    }
+    return select(DeviceDataFrame, input, source_names);
+}
+
+pub fn moveColumnBefore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    before_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_index = input.columnIndex(name) orelse return error.ColumnNotFound;
+    const anchor_index = input.columnIndex(before_name) orelse return error.ColumnNotFound;
+    if (source_index == anchor_index) return moveColumn(DeviceDataFrame, input, name, source_index);
+
+    const target_index = if (source_index < anchor_index) anchor_index - 1 else anchor_index;
+    return moveColumn(DeviceDataFrame, input, name, target_index);
+}
+
+pub fn moveColumnAfter(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    after_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_index = input.columnIndex(name) orelse return error.ColumnNotFound;
+    const anchor_index = input.columnIndex(after_name) orelse return error.ColumnNotFound;
+    if (source_index == anchor_index) return moveColumn(DeviceDataFrame, input, name, source_index);
+
+    const target_index = if (source_index < anchor_index) anchor_index else anchor_index + 1;
+    return moveColumn(DeviceDataFrame, input, name, target_index);
+}
+
 pub fn dropColumns(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

@@ -127,6 +127,37 @@ pub fn renameColumn(frame: anytype, old_name: []const u8, new_name: []const u8) 
     } });
 }
 
+pub fn moveColumn(frame: anytype, name: []const u8, target_index: usize) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .move_column = .{
+        .name = owned_name,
+        .target_index = target_index,
+    } });
+}
+
+pub fn moveColumnBefore(frame: anytype, name: []const u8, before_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_anchor = try frame.allocator.dupe(u8, before_name);
+    errdefer frame.allocator.free(owned_anchor);
+    try frame.ops.append(frame.allocator, .{ .move_column_before = .{
+        .name = owned_name,
+        .anchor_name = owned_anchor,
+    } });
+}
+
+pub fn moveColumnAfter(frame: anytype, name: []const u8, after_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_anchor = try frame.allocator.dupe(u8, after_name);
+    errdefer frame.allocator.free(owned_anchor);
+    try frame.ops.append(frame.allocator, .{ .move_column_after = .{
+        .name = owned_name,
+        .anchor_name = owned_anchor,
+    } });
+}
+
 pub fn dropColumns(frame: anytype, names: []const []const u8) DeviceDataError!void {
     const owned = try frame.allocator.alloc([]const u8, names.len);
     errdefer frame.allocator.free(owned);

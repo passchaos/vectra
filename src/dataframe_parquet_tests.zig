@@ -191,7 +191,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expectEqualSlices(f64, &.{ 6.0, 10.0 }, result_sales_x2);
 }
 
-test "device lazy frame keeps schema-derived selectors and drops out of parquet projection pushdown" {
+test "device lazy frame keeps schema-derived and schema-rewrite ops out of parquet projection pushdown" {
     const gpa = std.testing.allocator;
 
     var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
@@ -262,6 +262,22 @@ test "device lazy frame keeps schema-derived selectors and drops out of parquet 
     try std.testing.expectEqual(@as(?usize, 0), dtype_dropped.columnIndex("id"));
     try std.testing.expectEqual(@as(?usize, 1), dtype_dropped.columnIndex("active"));
     try std.testing.expectEqual(@as(?usize, null), dtype_dropped.columnIndex("sales"));
+
+    var lazy_move_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_move_scan.deinit();
+    try lazy_move_scan.moveColumn("active", 0);
+
+    const move_explain = try lazy_move_scan.explain(gpa);
+    defer gpa.free(move_explain);
+    try std.testing.expect(std.mem.indexOf(u8, move_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, move_explain, "move_column(active -> index=0)") != null);
+
+    var moved = try lazy_move_scan.collect();
+    defer moved.deinit();
+    try std.testing.expectEqual(@as(usize, 3), moved.width());
+    try std.testing.expectEqual(@as(?usize, 0), moved.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 1), moved.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 2), moved.columnIndex("sales"));
 }
 
 test "device lazy frame derives row index after parquet projection" {
