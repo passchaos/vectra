@@ -135,6 +135,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         slice_rows_step: Payloads.RowSliceStep,
         stride_rows: Payloads.RowStride,
         take_rows: Payloads.RowTake,
+        sample_rows: Payloads.RowSample,
         reverse_rows,
         head: Payloads.HeadTail,
         tail: Payloads.HeadTail,

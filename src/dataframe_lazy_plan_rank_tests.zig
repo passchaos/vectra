@@ -761,6 +761,35 @@ test "device lazy frame collects row slice operations" {
     try invalid_stride_plan.strideRows(0, 0);
     try std.testing.expectError(error.InvalidShape, invalid_stride_plan.collect());
 
+    var sample_plan = try DeviceLazyFrame.init(gpa, table);
+    defer sample_plan.deinit();
+    try sample_plan.sampleRows(2, 1234);
+    try sample_plan.select(&.{ "sales", "units" });
+    const sample_explain = try sample_plan.explain(gpa);
+    defer gpa.free(sample_explain);
+    try std.testing.expect(std.mem.indexOf(u8, sample_explain, "sample_rows(count=2, seed=1234)") != null);
+    var sampled = try sample_plan.collect();
+    defer sampled.deinit();
+    try std.testing.expectEqual(@as(usize, 2), sampled.height());
+    try std.testing.expectEqual(@as(usize, 2), sampled.width());
+
+    var sample_again_plan = try DeviceLazyFrame.init(gpa, table);
+    defer sample_again_plan.deinit();
+    try sample_again_plan.sampleRows(2, 1234);
+    try sample_again_plan.select(&.{ "sales", "units" });
+    var sampled_again = try sample_again_plan.collect();
+    defer sampled_again.deinit();
+    const sampled_sales = try (try sampled.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sampled_sales);
+    const sampled_again_sales = try (try sampled_again.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sampled_again_sales);
+    try std.testing.expectEqualSlices(f64, sampled_sales, sampled_again_sales);
+
+    var invalid_sample_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_sample_plan.deinit();
+    try invalid_sample_plan.sampleRows(table.height() + 1, 1234);
+    try std.testing.expectError(error.InvalidShape, invalid_sample_plan.collect());
+
     var take_plan = try DeviceLazyFrame.init(gpa, table);
     defer take_plan.deinit();
     try take_plan.take(&.{ 3, 1, 1 });

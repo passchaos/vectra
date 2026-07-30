@@ -1,4 +1,5 @@
 const std = @import("std");
+const alea = @import("alea");
 const array_mod = @import("array.zig");
 const array_helpers_mod = @import("dataframe_array_helpers.zig");
 const names_mod = @import("dataframe_names.zig");
@@ -806,6 +807,23 @@ pub fn takeRows(
         initialized += 1;
     }
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, row_indices.len, input.device);
+}
+
+pub fn sampleRows(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    count: usize,
+    seed: u64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (count > input.rows) return error.InvalidShape;
+    const row_indices = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(row_indices);
+    for (row_indices, 0..) |*slot, i| slot.* = i;
+
+    var engine = alea.ScalarPrng.init(seed);
+    const rng = alea.Rng.init(&engine);
+    rng.shuffle(usize, row_indices);
+    return takeRows(DeviceDataFrame, input, row_indices[0..count]);
 }
 
 pub fn strideRows(

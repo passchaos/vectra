@@ -435,6 +435,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .slice_rows_step => |slice| .{ .slice_rows_step = slice },
         .stride_rows => |stride| .{ .stride_rows = stride },
         .take_rows => |row_indices| .{ .take_rows = try allocator.dupe(usize, row_indices) },
+        .sample_rows => |sample| .{ .sample_rows = sample },
         .reverse_rows => .{ .reverse_rows = {} },
         .head => |n| .{ .head = n },
         .tail => |n| .{ .tail = n },

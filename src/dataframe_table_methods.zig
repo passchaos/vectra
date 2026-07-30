@@ -321,6 +321,10 @@ pub fn take(self: anytype, row_indices: []const usize) DeviceDataError!FrameType
     return dataframe_array_mod.takeRows(FrameType(@TypeOf(self)), frameValue(self), row_indices);
 }
 
+pub fn sampleRows(self: anytype, count: usize, seed: u64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.sampleRows(FrameType(@TypeOf(self)), frameValue(self), count, seed);
+}
+
 pub fn strideRows(self: anytype, start: usize, step: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.strideRows(FrameType(@TypeOf(self)), frameValue(self), start, step);
 }

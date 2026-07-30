@@ -203,7 +203,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .rolling_validity_profile => |payload| freeNameOutput(allocator, payload),
         .expanding_validity_profile => |payload| freeNameOutput(allocator, payload),
         .take_rows => |row_indices| allocator.free(row_indices),
-        .distinct_rows, .slice_rows, .slice_rows_step, .stride_rows, .reverse_rows, .head, .tail => {},
+        .distinct_rows, .slice_rows, .slice_rows_step, .stride_rows, .sample_rows, .reverse_rows, .head, .tail => {},
     }
     self.* = undefined;
 }
