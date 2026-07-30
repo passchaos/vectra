@@ -103,7 +103,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(expr.anchor_name);
         },
         .cast_column => |cast| allocator.free(cast.name),
-        .fill_null_column, .fill_nan_column, .fill_inf_column => |fill| allocator.free(fill.name),
+        .fill_null_column, .fill_nan_column, .fill_inf_column, .fill_non_finite_column => |fill| allocator.free(fill.name),
         .coalesce_columns => |coalesce| {
             allocator.free(coalesce.primary_name);
             allocator.free(coalesce.fallback_name);

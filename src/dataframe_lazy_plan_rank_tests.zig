@@ -778,6 +778,26 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try fill_inf_mismatch_plan.fillInfColumn("metric", i64, 0);
     try std.testing.expectError(error.TypeUnsupported, fill_inf_mismatch_plan.collect());
 
+    var fill_non_finite_plan = try DeviceLazyFrame.init(gpa, table);
+    defer fill_non_finite_plan.deinit();
+    try fill_non_finite_plan.fillNonFiniteColumn("metric", f64, -5.0);
+    const fill_non_finite_explain = try fill_non_finite_plan.explain(gpa);
+    defer gpa.free(fill_non_finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, fill_non_finite_explain, "fill_non_finite_column(metric=scalar:f64)") != null);
+    var filled_non_finite = try fill_non_finite_plan.collect();
+    defer filled_non_finite.deinit();
+    const filled_non_finite_metric = try (try filled_non_finite.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filled_non_finite_metric);
+    const filled_non_finite_validity = try (try filled_non_finite.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(filled_non_finite_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, -5.0, -5.0, 7.0 }, filled_non_finite_metric);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, filled_non_finite_validity);
+
+    var fill_non_finite_mismatch_plan = try DeviceLazyFrame.init(gpa, table);
+    defer fill_non_finite_mismatch_plan.deinit();
+    try fill_non_finite_mismatch_plan.fillNonFiniteColumn("metric", i64, 0);
+    try std.testing.expectError(error.TypeUnsupported, fill_non_finite_mismatch_plan.collect());
+
     var drop_nan_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_nan_plan.deinit();
     try drop_nan_plan.dropNaNsColumn("metric");

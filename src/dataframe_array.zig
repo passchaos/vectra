@@ -641,6 +641,15 @@ pub fn fillInfColumn(
     return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .inf);
 }
 
+pub fn fillNonFiniteColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .non_finite);
+}
+
 pub fn coalesceColumns(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

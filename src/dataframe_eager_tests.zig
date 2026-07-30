@@ -744,6 +744,17 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectError(error.TypeUnsupported, table.fillInfColumn("metric", i64, 0));
     try std.testing.expectError(error.ColumnNotFound, table.fillInfColumn("missing", f64, 0.0));
 
+    var filled_non_finite = try table.fillNonFiniteColumn("metric", f64, -5.0);
+    defer filled_non_finite.deinit();
+    const filled_non_finite_metric = try (try filled_non_finite.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filled_non_finite_metric);
+    const filled_non_finite_validity = try (try filled_non_finite.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(filled_non_finite_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, -5.0, -5.0, 7.0 }, filled_non_finite_metric);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, filled_non_finite_validity);
+    try std.testing.expectError(error.TypeUnsupported, table.fillNonFiniteColumn("metric", i64, 0));
+    try std.testing.expectError(error.ColumnNotFound, table.fillNonFiniteColumn("missing", f64, 0.0));
+
     var integer_finite_flags = try table.isFiniteColumn("id", "id_is_finite");
     defer integer_finite_flags.deinit();
     const id_is_finite = try (try integer_finite_flags.column("id_is_finite")).bool.toOwnedSlice(gpa);

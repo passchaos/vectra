@@ -502,6 +502,19 @@ pub fn fillInfColumnWithScalar(frame: anytype, name: []const u8, scalar: DeviceS
     } });
 }
 
+pub fn fillNonFiniteColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return fillNonFiniteColumnWithScalar(frame, name, DeviceScalar.init(T, value));
+}
+
+pub fn fillNonFiniteColumnWithScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .fill_non_finite_column = .{
+        .name = owned_name,
+        .scalar = scalar,
+    } });
+}
+
 pub fn coalesceColumns(frame: anytype, primary_name: []const u8, fallback_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_primary = try frame.allocator.dupe(u8, primary_name);
     errdefer frame.allocator.free(owned_primary);
