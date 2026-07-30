@@ -201,6 +201,10 @@ pub const DeviceDataFrame = struct {
 
     pub const view = table_methods_mod.view;
     pub const select = table_methods_mod.select;
+    pub const selectByColumnIndices = table_methods_mod.selectByColumnIndices;
+    pub const selectColumnRange = table_methods_mod.selectColumnRange;
+    pub const dropByColumnIndices = table_methods_mod.dropByColumnIndices;
+    pub const dropColumnRange = table_methods_mod.dropColumnRange;
     pub const selectByNamePrefix = table_methods_mod.selectByNamePrefix;
     pub const selectByNameSuffix = table_methods_mod.selectByNameSuffix;
     pub const selectByNameContains = table_methods_mod.selectByNameContains;

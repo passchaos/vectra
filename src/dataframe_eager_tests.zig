@@ -74,6 +74,31 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 1), selected.width());
     try std.testing.expectEqual(DeviceDType.f64, try selected.columnDType("sales"));
 
+    var positional_selected = try table.selectByColumnIndices(&.{ 2, 0 });
+    defer positional_selected.deinit();
+    try std.testing.expectEqual(@as(usize, 2), positional_selected.width());
+    try std.testing.expectEqual(@as(?usize, 0), positional_selected.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 1), positional_selected.columnIndex("sales"));
+
+    var range_selected = try table.selectColumnRange(1, 3);
+    defer range_selected.deinit();
+    try std.testing.expectEqual(@as(usize, 2), range_selected.width());
+    try std.testing.expectEqual(@as(?usize, 0), range_selected.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), range_selected.columnIndex("active"));
+
+    var positional_dropped = try table.dropByColumnIndices(&.{1});
+    defer positional_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 2), positional_dropped.width());
+    try std.testing.expectEqual(@as(?usize, 0), positional_dropped.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), positional_dropped.columnIndex("active"));
+
+    var range_dropped = try table.dropColumnRange(1, 3);
+    defer range_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 1), range_dropped.width());
+    try std.testing.expectEqual(@as(?usize, 0), range_dropped.columnIndex("sales"));
+    try std.testing.expectError(error.IndexOutOfBounds, table.selectByColumnIndices(&.{3}));
+    try std.testing.expectError(error.IndexOutOfBounds, table.dropByColumnIndices(&.{3}));
+
     var numeric_selected = try table.selectNumeric();
     defer numeric_selected.deinit();
     try std.testing.expectEqual(@as(usize, 2), numeric_selected.width());

@@ -14,6 +14,10 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             for (names) |name| allocator.free(name);
             allocator.free(names);
         },
+        .select_column_indices => |indices| allocator.free(indices),
+        .select_column_range => {},
+        .drop_column_indices => |indices| allocator.free(indices),
+        .drop_column_range => {},
         .select_name_prefix => |pattern| allocator.free(pattern.pattern),
         .select_name_suffix => |pattern| allocator.free(pattern.pattern),
         .select_name_contains => |pattern| allocator.free(pattern.pattern),

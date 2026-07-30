@@ -87,6 +87,59 @@ test "device lazy frame selects and drops columns by dtype" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);
     defer table.deinit();
+
+    var positional_plan = try DeviceLazyFrame.init(gpa, table);
+    defer positional_plan.deinit();
+    try positional_plan.selectByColumnIndices(&.{ 2, 0 });
+    const positional_explain = try positional_plan.explain(gpa);
+    defer gpa.free(positional_explain);
+    try std.testing.expect(std.mem.indexOf(u8, positional_explain, "select_column_indices([2,0])") != null);
+    var positional = try positional_plan.collect();
+    defer positional.deinit();
+    try std.testing.expectEqual(@as(usize, 2), positional.width());
+    try std.testing.expectEqual(@as(?usize, 0), positional.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, 1), positional.columnIndex("sales"));
+
+    var range_plan = try DeviceLazyFrame.init(gpa, table);
+    defer range_plan.deinit();
+    try range_plan.selectColumnRange(1, 3);
+    const range_explain = try range_plan.explain(gpa);
+    defer gpa.free(range_explain);
+    try std.testing.expect(std.mem.indexOf(u8, range_explain, "select_column_range(1..3)") != null);
+    var range = try range_plan.collect();
+    defer range.deinit();
+    try std.testing.expectEqual(@as(usize, 2), range.width());
+    try std.testing.expectEqual(@as(?usize, 0), range.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), range.columnIndex("active"));
+
+    var drop_positional_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_positional_plan.deinit();
+    try drop_positional_plan.dropByColumnIndices(&.{1});
+    const drop_positional_explain = try drop_positional_plan.explain(gpa);
+    defer gpa.free(drop_positional_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_positional_explain, "drop_column_indices([1])") != null);
+    var drop_positional = try drop_positional_plan.collect();
+    defer drop_positional.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_positional.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_positional.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_positional.columnIndex("active"));
+
+    var drop_range_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_range_plan.deinit();
+    try drop_range_plan.dropColumnRange(1, 3);
+    const drop_range_explain = try drop_range_plan.explain(gpa);
+    defer gpa.free(drop_range_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_range_explain, "drop_column_range(1..3)") != null);
+    var drop_range = try drop_range_plan.collect();
+    defer drop_range.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_range.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_range.columnIndex("sales"));
+
+    var invalid_positional_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_positional_plan.deinit();
+    try invalid_positional_plan.selectByColumnIndices(&.{3});
+    try std.testing.expectError(error.IndexOutOfBounds, invalid_positional_plan.collect());
+
     var numeric_plan = try DeviceLazyFrame.init(gpa, table);
     defer numeric_plan.deinit();
     try numeric_plan.selectNumeric();

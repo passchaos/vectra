@@ -87,6 +87,22 @@ pub fn select(self: anytype, wanted_names: []const []const u8) DeviceDataError!F
     return dataframe_array_mod.select(FrameType(@TypeOf(self)), frameValue(self), wanted_names);
 }
 
+pub fn selectByColumnIndices(self: anytype, indices: []const usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectByColumnIndices(FrameType(@TypeOf(self)), frameValue(self), indices);
+}
+
+pub fn selectColumnRange(self: anytype, start: usize, stop: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnRange(FrameType(@TypeOf(self)), frameValue(self), start, stop);
+}
+
+pub fn dropByColumnIndices(self: anytype, indices: []const usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropByColumnIndices(FrameType(@TypeOf(self)), frameValue(self), indices);
+}
+
+pub fn dropColumnRange(self: anytype, start: usize, stop: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnRange(FrameType(@TypeOf(self)), frameValue(self), start, stop);
+}
+
 pub fn selectByNamePrefix(self: anytype, prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectByNamePrefix(FrameType(@TypeOf(self)), frameValue(self), prefix);
 }

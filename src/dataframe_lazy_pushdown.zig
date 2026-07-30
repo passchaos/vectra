@@ -50,6 +50,10 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
+            .select_column_indices,
+            .select_column_range,
+            .drop_column_indices,
+            .drop_column_range,
             .select_name_prefix,
             .select_name_suffix,
             .select_name_contains,

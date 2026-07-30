@@ -30,6 +30,10 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
     for (optimized.items) |op| {
         const next = switch (op) {
             .select => |names| try current.select(names),
+            .select_column_indices => |indices| try current.selectByColumnIndices(indices),
+            .select_column_range => |range| try current.selectColumnRange(range.start, range.stop),
+            .drop_column_indices => |indices| try current.dropByColumnIndices(indices),
+            .drop_column_range => |range| try current.dropColumnRange(range.start, range.stop),
             .select_name_prefix => |pattern| try current.selectByNamePrefix(pattern.pattern),
             .select_name_suffix => |pattern| try current.selectByNameSuffix(pattern.pattern),
             .select_name_contains => |pattern| try current.selectByNameContains(pattern.pattern),

@@ -56,6 +56,56 @@ pub fn select(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, wanted_names, columns, input.rows, input.device);
 }
 
+pub fn selectByColumnIndices(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    indices: []const usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const names = try input.allocator.alloc([]const u8, indices.len);
+    defer input.allocator.free(names);
+    for (indices, names) |index, *slot| {
+        if (index >= input.names.len) return error.IndexOutOfBounds;
+        slot.* = input.names[index];
+    }
+    return select(DeviceDataFrame, input, names);
+}
+
+pub fn selectColumnRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    start: usize,
+    stop: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const end = @min(stop, input.names.len);
+    const begin = @min(start, end);
+    return select(DeviceDataFrame, input, input.names[begin..end]);
+}
+
+pub fn dropByColumnIndices(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    indices: []const usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const drop_names = try input.allocator.alloc([]const u8, indices.len);
+    defer input.allocator.free(drop_names);
+    for (indices, drop_names) |index, *slot| {
+        if (index >= input.names.len) return error.IndexOutOfBounds;
+        slot.* = input.names[index];
+    }
+    return dropColumns(DeviceDataFrame, input, drop_names);
+}
+
+pub fn dropColumnRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    start: usize,
+    stop: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const end = @min(stop, input.names.len);
+    const begin = @min(start, end);
+    return dropColumns(DeviceDataFrame, input, input.names[begin..end]);
+}
+
 fn selectByNamePredicate(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

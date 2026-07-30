@@ -31,6 +31,24 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]", .{});
         },
+        .select_column_indices => |indices| {
+            try writer.print("select_column_indices([", .{});
+            for (indices, 0..) |index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{index});
+            }
+            try writer.print("])", .{});
+        },
+        .select_column_range => |range| try writer.print("select_column_range({d}..{d})", .{ range.start, range.stop }),
+        .drop_column_indices => |indices| {
+            try writer.print("drop_column_indices([", .{});
+            for (indices, 0..) |index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{index});
+            }
+            try writer.print("])", .{});
+        },
+        .drop_column_range => |range| try writer.print("drop_column_range({d}..{d})", .{ range.start, range.stop }),
         .select_name_prefix => |pattern| try writer.print("select_name_prefix({s})", .{pattern.pattern}),
         .select_name_suffix => |pattern| try writer.print("select_name_suffix({s})", .{pattern.pattern}),
         .select_name_contains => |pattern| try writer.print("select_name_contains({s})", .{pattern.pattern}),

@@ -127,6 +127,32 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.select(self, names);
             }
 
+            pub fn selectByColumnIndices(self: *DeviceLazyFrame, indices: []const usize) DeviceDataError!void {
+                const owned = try self.allocator.dupe(usize, indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .select_column_indices = owned });
+            }
+
+            pub fn selectColumnRange(self: *DeviceLazyFrame, start: usize, stop: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_column_range = .{
+                    .start = start,
+                    .stop = stop,
+                } });
+            }
+
+            pub fn dropByColumnIndices(self: *DeviceLazyFrame, indices: []const usize) DeviceDataError!void {
+                const owned = try self.allocator.dupe(usize, indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .drop_column_indices = owned });
+            }
+
+            pub fn dropColumnRange(self: *DeviceLazyFrame, start: usize, stop: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_column_range = .{
+                    .start = start,
+                    .stop = stop,
+                } });
+            }
+
             pub fn selectByNamePrefix(self: *DeviceLazyFrame, prefix: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.selectByNamePrefix(self, prefix);
             }
