@@ -683,6 +683,41 @@ test "device dataframe selects and drops columns by nullability" {
     try std.testing.expectEqual(@as(?usize, 0), drop_without_nulls.columnIndex("quality"));
 }
 
+test "device dataframe derives NaN and finite predicate columns" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, std.math.nan(f64), std.math.inf(f64), 7.0 }, &.{ true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40 }, .cpu);
+    defer id.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var nan_flags = try table.isNanColumn("metric", "metric_is_nan");
+    defer nan_flags.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try nan_flags.columnDType("metric_is_nan"));
+    const metric_is_nan = try (try nan_flags.column("metric_is_nan")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_nan);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, metric_is_nan);
+
+    var finite_flags = try table.isFiniteColumn("metric", "metric_is_finite");
+    defer finite_flags.deinit();
+    const metric_is_finite = try (try finite_flags.column("metric_is_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_finite);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, metric_is_finite);
+
+    var integer_finite_flags = try table.isFiniteColumn("id", "id_is_finite");
+    defer integer_finite_flags.deinit();
+    const id_is_finite = try (try integer_finite_flags.column("id_is_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_finite);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_is_finite);
+    try std.testing.expectError(error.ColumnNotFound, table.isNanColumn("missing", "missing_is_nan"));
+}
+
 test "device dataframe selects and drops columns by name pattern" {
     const gpa = std.testing.allocator;
 

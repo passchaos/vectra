@@ -262,6 +262,22 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     const row_valids_all = try (try all_count_result.column("row_valids_all")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_valids_all);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 3 }, row_valids_all);
+
+    var finite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer finite_scan.deinit();
+    try finite_scan.isFiniteColumn("sales", "sales_is_finite");
+    try finite_scan.select(&.{"sales_is_finite"});
+
+    const finite_explain = try finite_scan.explain(gpa);
+    defer gpa.free(finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, finite_explain, "scan_pushdown: projection=[sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, finite_explain, "is_finite_column(sales->sales_is_finite)") != null);
+
+    var finite_result = try finite_scan.collect();
+    defer finite_result.deinit();
+    const sales_is_finite = try (try finite_result.column("sales_is_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_is_finite);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, sales_is_finite);
 }
 
 test "device lazy frame pushes coalesce dependencies into parquet scan source" {

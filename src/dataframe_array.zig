@@ -655,6 +655,81 @@ pub fn isValidColumn(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+fn isNanValue(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) return std.math.isNan(value.toF32());
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isNan(value.re) or std.math.isNan(value.im);
+    return switch (@typeInfo(T)) {
+        .float => std.math.isNan(value),
+        else => false,
+    };
+}
+
+fn isFiniteValue(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) return std.math.isFinite(value.toF32());
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isFinite(value.re) and std.math.isFinite(value.im);
+    return switch (@typeInfo(T)) {
+        .float => std.math.isFinite(value),
+        .int, .comptime_int, .bool => true,
+        else => true,
+    };
+}
+
+fn withNumericPredicateColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+    comptime predicate: enum { nan, finite },
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(name);
+    const values = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(values);
+
+    switch (source.*) {
+        inline else => |typed| {
+            const host_values = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(host_values);
+            const maybe_validity = try validityValues(typed, input.allocator);
+            defer if (maybe_validity) |validity| input.allocator.free(validity);
+            for (values, host_values, 0..) |*slot, value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) {
+                        slot.* = false;
+                        continue;
+                    }
+                }
+                slot.* = switch (predicate) {
+                    .nan => isNanValue(@TypeOf(value), value),
+                    .finite => isFiniteValue(@TypeOf(value), value),
+                };
+            }
+        },
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSlice(bool, input.allocator, values, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn isNanColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .nan);
+}
+
+pub fn isFiniteColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .finite);
+}
+
 fn withRowValidityCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

@@ -297,6 +297,14 @@ pub fn isValidColumn(self: anytype, name: []const u8, output_name: []const u8) D
     return dataframe_array_mod.isValidColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }
 
+pub fn isNanColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isNanColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
+pub fn isFiniteColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isFiniteColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
 pub fn withRowNullCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowNullCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

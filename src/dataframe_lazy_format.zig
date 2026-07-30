@@ -135,6 +135,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .coalesce_columns => |coalesce| try writer.print("coalesce_columns({s},{s}->{s})", .{ coalesce.primary_name, coalesce.fallback_name, coalesce.output_name }),
         .is_null_column => |predicate| try writer.print("is_null_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_valid_column => |predicate| try writer.print("is_valid_column({s}->{s})", .{ predicate.name, predicate.output_name }),
+        .is_nan_column => |predicate| try writer.print("is_nan_column({s}->{s})", .{ predicate.name, predicate.output_name }),
+        .is_finite_column => |predicate| try writer.print("is_finite_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .row_null_count => |row_count| {
             try writer.print("row_null_count([", .{});
             for (row_count.names, 0..) |name, i| {

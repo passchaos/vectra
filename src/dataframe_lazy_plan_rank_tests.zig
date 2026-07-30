@@ -688,6 +688,51 @@ test "device lazy frame derives row null and valid count columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame derives NaN and finite predicate columns" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, std.math.nan(f64), std.math.inf(f64), 7.0 }, &.{ true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40 }, .cpu);
+    defer id.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.isNanColumn("metric", "metric_is_nan");
+    try plan.isFiniteColumn("metric", "metric_is_finite");
+    try plan.isFiniteColumn("id", "id_is_finite");
+    try plan.select(&.{ "metric_is_nan", "metric_is_finite", "id_is_finite" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_nan_column(metric->metric_is_nan)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_finite_column(metric->metric_is_finite)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 3), result.width());
+    const metric_is_nan = try (try result.column("metric_is_nan")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_nan);
+    const metric_is_finite = try (try result.column("metric_is_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_finite);
+    const id_is_finite = try (try result.column("id_is_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_finite);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, metric_is_nan);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, metric_is_finite);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_is_finite);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.isFiniteColumn("missing", "missing_is_finite");
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame drops null rows" {
     const gpa = std.testing.allocator;
     var table = try lazyQualityTable(gpa);
