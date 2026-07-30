@@ -286,6 +286,25 @@ pub fn filterNullsColumn(frame: anytype, name: []const u8) DeviceDataError!void 
     try frame.ops.append(frame.allocator, .{ .filter_nulls_column = owned_name });
 }
 
+pub fn dropNaNs(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned) |name| frame.allocator.free(name);
+        frame.allocator.free(owned);
+    }
+    try frame.ops.append(frame.allocator, .{ .drop_nans = owned });
+}
+
+pub fn dropNaNsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    return dropNaNs(frame, &.{name});
+}
+
+pub fn filterNaNsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_nans_column = owned_name });
+}
+
 pub fn withRowIndex(frame: anytype, name: []const u8, offset: usize) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

@@ -716,6 +716,23 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(id_is_finite);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_is_finite);
     try std.testing.expectError(error.ColumnNotFound, table.isNanColumn("missing", "missing_is_nan"));
+
+    var dropped_nan_rows = try table.dropNaNsColumn("metric");
+    defer dropped_nan_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), dropped_nan_rows.height());
+    const dropped_nan_metric = try (try dropped_nan_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_nan_metric);
+    try std.testing.expect(!std.math.isNan(dropped_nan_metric[0]));
+    try std.testing.expect(std.math.isInf(dropped_nan_metric[1]));
+    try std.testing.expectEqual(@as(f64, 7.0), dropped_nan_metric[2]);
+
+    var filtered_nan_rows = try table.filterNaNsColumn("metric");
+    defer filtered_nan_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_nan_rows.height());
+    const filtered_nan_metric = try (try filtered_nan_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_nan_metric);
+    try std.testing.expect(std.math.isNan(filtered_nan_metric[0]));
+    try std.testing.expectError(error.ColumnNotFound, table.dropNaNsColumn("missing"));
 }
 
 test "device dataframe selects and drops columns by name pattern" {

@@ -1174,6 +1174,59 @@ pub fn filterNullsColumn(
     return filterRows(DeviceDataFrame, input, keep);
 }
 
+pub fn dropNaNs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const keep = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(keep);
+    @memset(keep, true);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                for (keep, host_values, 0..) |*slot, value, row| {
+                    const valid = if (maybe_validity) |validity| validity[row] else true;
+                    if (valid and isNanValue(@TypeOf(value), value)) slot.* = false;
+                }
+            },
+        }
+    }
+    return filterRows(DeviceDataFrame, input, keep);
+}
+
+pub fn filterNaNsColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(name);
+    const keep = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(keep);
+    @memset(keep, false);
+
+    switch (source.*) {
+        inline else => |typed| {
+            const host_values = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(host_values);
+            const maybe_validity = try validityValues(typed, input.allocator);
+            defer if (maybe_validity) |validity| input.allocator.free(validity);
+            for (keep, host_values, 0..) |*slot, value, row| {
+                const valid = if (maybe_validity) |validity| validity[row] else true;
+                slot.* = valid and isNanValue(@TypeOf(value), value);
+            }
+        },
+    }
+    return filterRows(DeviceDataFrame, input, keep);
+}
+
 pub fn view(
     comptime DeviceDataFrameView: type,
     comptime DeviceColumnView: type,

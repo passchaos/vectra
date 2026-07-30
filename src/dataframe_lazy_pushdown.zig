@@ -119,6 +119,26 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, name);
                 }
             },
+            .drop_nans => |names| {
+                if (names.len == 0) {
+                    // Empty dropNaNs input means "consider every visible
+                    // column".  This planner does not carry a full scan schema,
+                    // so materialize the source rather than incorrectly
+                    // treating the filter as dependency-free.
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
+            .filter_nans_column => |name| {
+                if (!nameInBorrowedList(name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, name);
+                }
+            },
             .with_row_index => |row_index| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_index.name);
             },

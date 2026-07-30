@@ -278,6 +278,25 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     const sales_is_finite = try (try finite_result.column("sales_is_finite")).bool.toOwnedSlice(gpa);
     defer gpa.free(sales_is_finite);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, sales_is_finite);
+
+    var drop_nan_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_nan_scan.deinit();
+    try drop_nan_scan.dropNaNsColumn("sales");
+    try drop_nan_scan.select(&.{"id"});
+
+    const drop_nan_explain = try drop_nan_scan.explain(gpa);
+    defer gpa.free(drop_nan_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_nan_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_nan_explain, "drop_nans[sales]") != null);
+
+    var filter_nan_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_nan_scan.deinit();
+    try filter_nan_scan.filterNaNsColumn("sales");
+
+    const filter_nan_explain = try filter_nan_scan.explain(gpa);
+    defer gpa.free(filter_nan_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_nan_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_nan_explain, "filter_nans_column(sales)") != null);
 }
 
 test "device lazy frame pushes coalesce dependencies into parquet scan source" {

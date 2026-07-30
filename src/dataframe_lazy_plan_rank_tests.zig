@@ -727,6 +727,34 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, metric_is_finite);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_is_finite);
 
+    var drop_nan_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_nan_plan.deinit();
+    try drop_nan_plan.dropNaNsColumn("metric");
+    const drop_nan_explain = try drop_nan_plan.explain(gpa);
+    defer gpa.free(drop_nan_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_nan_explain, "drop_nans[metric]") != null);
+    var dropped_nan_rows = try drop_nan_plan.collect();
+    defer dropped_nan_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), dropped_nan_rows.height());
+    const dropped_nan_metric = try (try dropped_nan_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_nan_metric);
+    try std.testing.expect(!std.math.isNan(dropped_nan_metric[0]));
+    try std.testing.expect(std.math.isInf(dropped_nan_metric[1]));
+    try std.testing.expectEqual(@as(f64, 7.0), dropped_nan_metric[2]);
+
+    var filter_nan_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_nan_plan.deinit();
+    try filter_nan_plan.filterNaNsColumn("metric");
+    const filter_nan_explain = try filter_nan_plan.explain(gpa);
+    defer gpa.free(filter_nan_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_nan_explain, "filter_nans_column(metric)") != null);
+    var filtered_nan_rows = try filter_nan_plan.collect();
+    defer filtered_nan_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_nan_rows.height());
+    const filtered_nan_metric = try (try filtered_nan_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_nan_metric);
+    try std.testing.expect(std.math.isNan(filtered_nan_metric[0]));
+
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
     try invalid_plan.isFiniteColumn("missing", "missing_is_finite");

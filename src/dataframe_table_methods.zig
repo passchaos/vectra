@@ -401,6 +401,22 @@ pub fn filterNullsColumn(self: anytype, name: []const u8) DeviceDataError!FrameT
     return dataframe_array_mod.filterNullsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn dropNaNs(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropNaNs(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropNaNsOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNaNs(self, names);
+}
+
+pub fn dropNaNsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNaNs(self, &.{name});
+}
+
+pub fn filterNaNsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterNaNsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn head(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return sliceRows(self, 0, @min(n, self.rows));
 }

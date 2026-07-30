@@ -71,6 +71,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .drop_columns => |names| try current.dropColumns(names),
             .drop_nulls => |names| try current.dropNulls(names),
             .filter_nulls_column => |name| try current.filterNullsColumn(name),
+            .drop_nans => |names| try current.dropNaNs(names),
+            .filter_nans_column => |name| try current.filterNaNsColumn(name),
             .with_column_binary => |expr| blk: {
                 var column_value = try current.binaryColumns(expr.lhs_name, expr.rhs_name, expr.op);
                 defer column_value.deinit();
