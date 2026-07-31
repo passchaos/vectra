@@ -356,6 +356,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_trunc => |expr| try writer.print("with_column_trunc({s}=trunc({s}))", .{ expr.name, expr.input_name }),
         .with_column_deg2rad => |expr| try writer.print("with_column_deg2rad({s}=deg2rad({s}))", .{ expr.name, expr.input_name }),
         .with_column_rad2deg => |expr| try writer.print("with_column_rad2deg({s}=rad2deg({s}))", .{ expr.name, expr.input_name }),
+        .with_column_expit => |expr| try writer.print("with_column_expit({s}=expit({s}))", .{ expr.name, expr.input_name }),
+        .with_column_logit => |expr| try writer.print("with_column_logit({s}=logit({s}))", .{ expr.name, expr.input_name }),
         .with_column_exp => |expr| try writer.print("with_column_exp({s}=exp({s}))", .{ expr.name, expr.input_name }),
         .with_column_exp2 => |expr| try writer.print("with_column_exp2({s}=exp2({s}))", .{ expr.name, expr.input_name }),
         .with_column_expm1 => |expr| try writer.print("with_column_expm1({s}=expm1({s}))", .{ expr.name, expr.input_name }),

@@ -2348,6 +2348,16 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
     defer rounding_type_table.deinit();
 
+    var ratio = try DeviceColumn.fromSlice(f64, gpa, &.{ -0.5, 0.0, 0.5 }, .cpu);
+    defer ratio.deinit();
+    var inverse_units = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer inverse_units.deinit();
+    var inverse_trig_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "ratio", .data = ratio },
+        .{ .name = "units", .data = inverse_units },
+    });
+    defer inverse_trig_table.deinit();
+
     var floor_cost_table = try table.withColumnFloor("cost_floor", "cost");
     defer floor_cost_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try floor_cost_table.columnDType("cost_floor"));
@@ -2412,6 +2422,28 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(@as(f64, 2.0), cost_deg[2], 1e-12);
     try std.testing.expectError(error.TypeUnsupported, table.withColumnRad2deg("bad_rad2deg", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnRad2deg("missing_rad2deg", "missing"));
+
+    var expit_ratio_table = try inverse_trig_table.withColumnExpit("ratio_expit", "ratio");
+    defer expit_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try expit_ratio_table.columnDType("ratio_expit"));
+    const ratio_expit = try (try expit_ratio_table.column("ratio_expit")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_expit);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / (@as(f64, 1.0) + std.math.exp(@as(f64, 0.5))), ratio_expit[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ratio_expit[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / (@as(f64, 1.0) + std.math.exp(@as(f64, -0.5))), ratio_expit[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnExpit("bad_expit", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnExpit("missing_expit", "missing"));
+
+    var logit_ratio_table = try inverse_trig_table.withColumnLogit("ratio_logit", "ratio");
+    defer logit_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try logit_ratio_table.columnDType("ratio_logit"));
+    const ratio_logit = try (try logit_ratio_table.column("ratio_logit")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_logit);
+    try std.testing.expect(std.math.isNan(ratio_logit[0]));
+    try std.testing.expect(std.math.isNegativeInf(ratio_logit[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_logit[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnLogit("bad_logit", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnLogit("missing_logit", "missing"));
 
     var exp_cost_table = try table.withColumnExp("cost_exp", "cost");
     defer exp_cost_table.deinit();
@@ -2478,16 +2510,6 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(std.math.tan(@as(f64, 2.0)), cost_tan[2], 1e-12);
     try std.testing.expectError(error.TypeUnsupported, table.withColumnTan("bad_tan", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnTan("missing_tan", "missing"));
-
-    var ratio = try DeviceColumn.fromSlice(f64, gpa, &.{ -0.5, 0.0, 0.5 }, .cpu);
-    defer ratio.deinit();
-    var inverse_units = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3 }, .cpu);
-    defer inverse_units.deinit();
-    var inverse_trig_table = try DeviceDataFrame.init(gpa, &.{
-        .{ .name = "ratio", .data = ratio },
-        .{ .name = "units", .data = inverse_units },
-    });
-    defer inverse_trig_table.deinit();
 
     var asin_ratio_table = try inverse_trig_table.withColumnAsin("ratio_asin", "ratio");
     defer asin_ratio_table.deinit();

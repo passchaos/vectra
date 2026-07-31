@@ -165,6 +165,26 @@ pub fn withColumnRad2deg(self: anytype, output_name: []const u8, input_name: []c
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnExpit(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnExpit(frameValue(self), name);
+}
+
+pub fn withColumnExpit(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnExpit(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnLogit(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnLogit(frameValue(self), name);
+}
+
+pub fn withColumnLogit(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnLogit(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnExp(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.unaryColumnExp(frameValue(self), name);
 }
