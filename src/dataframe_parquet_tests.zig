@@ -172,28 +172,33 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     defer lazy_scan.deinit();
     try lazy_scan.withColumnScalar("sales_x2", "sales", f64, 2.0, .mul);
     try lazy_scan.withColumnAbs("sales_abs", "sales");
+    try lazy_scan.withColumnNeg("sales_neg", "sales");
     try lazy_scan.filterColumnScalar("sales", f64, 2.5, .gt);
-    try lazy_scan.select(&.{ "sales_x2", "sales_abs", "id" });
+    try lazy_scan.select(&.{ "sales_x2", "sales_abs", "sales_neg", "id" });
 
     const explain = try lazy_scan.explain(gpa);
     defer gpa.free(explain);
     try std.testing.expect(std.mem.indexOf(u8, explain, "source=parquet_scan") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_scalar(sales_x2") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_abs(sales_abs=abs(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_neg(sales_neg=neg(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "scan_pushdown: range=sales, projection=[sales,id]") != null);
 
     var result = try lazy_scan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 3), result.width());
+    try std.testing.expectEqual(@as(usize, 4), result.width());
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("sales"));
     const result_sales_x2 = try (try result.column("sales_x2")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_x2);
     const result_sales_abs = try (try result.column("sales_abs")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_abs);
+    const result_sales_neg = try (try result.column("sales_neg")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_neg);
     try std.testing.expectEqualSlices(f64, &.{ 6.0, 10.0 }, result_sales_x2);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, result_sales_abs);
+    try std.testing.expectEqualSlices(f64, &.{ -3.0, -5.0 }, result_sales_neg);
 }
 
 test "device lazy frame pushes null predicate dependencies into parquet scan source" {

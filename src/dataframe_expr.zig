@@ -19,6 +19,11 @@ pub fn unaryColumnAbs(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(
     return col.abs();
 }
 
+pub fn unaryColumnNeg(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.neg();
+}
+
 pub fn binaryColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const lhs = try frame.column(lhs_name);
     const rhs = try frame.column(rhs_name);
